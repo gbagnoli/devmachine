@@ -1,0 +1,12 @@
+name 'ubik'
+maintainer 'Giacomo Bagnoli'
+maintainer_email 'gbagnoli@gmail.com'
+license 'mit'
+description 'Installs/Configures ubik'
+long_description 'Installs/Configures ubik'
+version '0.1.0'
+
+depends 'pyenv'
+depends 'rbenv'
+depends 'java'
+depends 'git'
