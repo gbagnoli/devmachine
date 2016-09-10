@@ -7,6 +7,6 @@ long_description 'Installs/Configures ubik'
 version '0.1.0'
 
 depends 'pyenv'
-depends 'rbenv'
+depends 'ruby_rbenv'
 depends 'java'
 depends 'git'

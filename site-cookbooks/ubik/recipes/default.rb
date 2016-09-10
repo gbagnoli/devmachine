@@ -25,4 +25,5 @@
 # THE SOFTWARE.
 
 include_recipe 'ubik::packages'
+include_recipe 'ubik::golang'
 include_recipe 'ubik::giacomo'

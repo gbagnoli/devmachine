@@ -19,9 +19,11 @@ end
  "#{home}/.local/src",
  "#{home}/.config",
  "#{home}/.config/nvim",
- "#{home}/.config/nvim/bundle"].each do |d|
+ "#{home}/.config/nvim/bundle",
+ "#{home}/workspace",
+ "#{home}/workspace/go"].each do |d|
   directory d do
-    mode "0750"
+    mode '0750'
     owner user
     group user
   end
@@ -29,7 +31,7 @@ end
 
 dotfiles = "#{home}/.local/src/dotfiles"
 git dotfiles do
-  repository "https://github.com/gbagnoli/dotfiles.git"
+  repository 'https://github.com/gbagnoli/dotfiles.git'
   revision 'master'
   action :sync
   user user
@@ -83,11 +85,56 @@ git "#{home}/.config/nvim/bundle/Vundle.vim" do
   user user
 end
 
-bash "install vundle" do
+bash 'install vundle' do
   action :nothing
   user user
   cwd home
   code <<-EOH
     nvim +PluginInstall +qall!
   EOH
+end
+
+git "#{home}/.local/src/vpnutils" do
+  repository "git@bitbucket.org:gbagnoli/vpnutils.git"
+  action :sync
+  revision 'development'
+  user user
+end
+
+git "#{home}/.local/src/autoenv" do
+  repository 'git://github.com/kennethreitz/autoenv.git'
+  action :sync
+  user user
+end
+
+package 'liquidprompt'
+package 'autossh'
+package 'mosh'
+package 'fasd'
+
+cookbook_file "#{home}/.config/liquid.theme" do
+  source 'liquid.theme'
+  mode '0640'
+  owner user
+  group group
+end
+
+template "#{home}/.config/liquidpromptrc" do
+  owner user
+  group group
+  mode '0640'
+  source 'liquidpromptrc.erb'
+end
+
+template "#{home}/.bashrc" do
+  owner user
+  group group
+  mode '0640'
+  source 'bashrc.erb'
+end
+
+# Install the sycthing service for this user
+service 'syncthing@giacomo' do
+  action [:enable, :start]
+  provider Chef::Provider::Service::Systemd
 end

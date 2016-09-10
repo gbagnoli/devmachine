@@ -44,3 +44,7 @@ apt_repository 'weechat' do
   keyserver 'pool.sks-keyservers.net'
   key '11E9DE8848F2B65222AA75B8D1820DB22A11534E'
 end
+
+apt_repository 'fasd' do
+  uri 'ppa:aacebedo/fasd'
+end
