@@ -143,3 +143,7 @@ if File.directory? "#{home}/Sync/Private/weechat"
     to "#{home}/Sync/Private/weechat"
   end
 end
+
+file "#{home}/.bashrc.local" do
+  action :create_if_missing
+end
