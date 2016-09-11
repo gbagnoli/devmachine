@@ -26,4 +26,4 @@
 
 include_recipe 'ubik::packages'
 include_recipe 'ubik::golang'
-include_recipe 'ubik::giacomo'
+include_recipe 'ubik::users'
