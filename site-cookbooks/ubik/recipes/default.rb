@@ -25,5 +25,7 @@
 # THE SOFTWARE.
 
 include_recipe 'ubik::packages'
+include_recipe 'ubik::langs'
+include_recipe 'ubik::latex'
 include_recipe 'ubik::golang'
 include_recipe 'ubik::users'

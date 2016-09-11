@@ -12,7 +12,8 @@ default_attributes(
   'ubik' => {
     'golang' => {
       'version' => '1.7.1'
-    }
+    },
+    'languages' => ['en', 'it']
   },
   'pyenv' => {
     'git_ref' => 'v1.0.1',
