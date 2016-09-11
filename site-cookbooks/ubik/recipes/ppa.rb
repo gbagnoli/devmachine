@@ -56,3 +56,7 @@ apt_repository 'dropbox' do
   keyserver 'pgp.mit.edu'
   key '5044912E'
 end
+
+apt_repository 'telegram' do
+  uri 'ppa:atareao/telegram'
+end

@@ -44,6 +44,10 @@ link "#{home}/.gitconfig" do
   to "#{dotfiles}/gitconfig"
 end
 
+link "#{home}/.gitignore_global" do
+  to "#{dotfiles}/gitignore"
+end
+
 link "#{home}/.tmux.conf" do
   to "#{dotfiles}/tmux.conf"
 end
