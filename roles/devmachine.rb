@@ -13,7 +13,8 @@ default_attributes(
     'golang' => {
       'version' => '1.7.1'
     },
-    'languages' => ['en', 'it']
+    'languages' => ['en', 'it'],
+    'enable_mtrack' => true
   },
   'pyenv' => {
     'git_ref' => 'v1.0.1',
