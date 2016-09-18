@@ -136,12 +136,6 @@ template "#{home}/.bashrc" do
   source 'bashrc.erb'
 end
 
-# Install the sycthing service for this user
-service 'syncthing@giacomo' do
-  action [:enable, :start]
-  provider Chef::Provider::Service::Systemd
-end
-
 if File.directory? "#{home}/Sync/Private/weechat"
   link "#{home}/.weechat" do
     to "#{home}/Sync/Private/weechat"

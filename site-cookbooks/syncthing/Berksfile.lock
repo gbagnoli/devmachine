@@ -1,0 +1,7 @@
+DEPENDENCIES
+  syncthing
+    path: .
+    metadata: true
+
+GRAPH
+  syncthing (0.1.0)

@@ -1,4 +1,4 @@
-name 'devmachine'
+name 'ubik'
 description 'A role to configure a development workstation'
 run_list [
   'recipe[ubik::ppa]',
@@ -6,15 +6,25 @@ run_list [
   'recipe[ruby_build]',
   'recipe[ruby_rbenv::user]',
   'recipe[java]',
-  'recipe[ubik]'
+  'recipe[ubik]',
+  'recipe[syncthing]'
 ]
 default_attributes(
   'ubik' => {
     'golang' => {
       'version' => '1.7.1'
     },
-    'languages' => ['en', 'it'],
+    'languages' => %w(en it),
     'enable_mtrack' => true
+  },
+  'syncthing' => {
+    'users' => {
+      'giacomo' => nil,
+      'irene' => {
+        'hostname' => 'ubik-irene',
+        'port' => 8385
+      }
+    }
   },
   'pyenv' => {
     'git_ref' => 'v1.0.1',

@@ -1,0 +1,7 @@
+name 'syncthing'
+maintainer 'Giacomo Bagnoli'
+maintainer_email 'gbagnoli@gmail.com'
+license 'mit'
+description 'Installs and configure syncthing'
+long_description 'Installs and configure syncthing'
+version '0.1.0'

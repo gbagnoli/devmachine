@@ -30,13 +30,6 @@ apt_repository 'ubuntu-partner' do
   arch 'i386'
 end
 
-apt_repository 'syncthing' do
-  uri 'http://apt.syncthing.net/'
-  distribution 'syncthing'
-  components ['release']
-  key 'https://syncthing.net/release-key.txt'
-end
-
 apt_repository 'weechat' do
   uri 'https://weechat.org/ubuntu'
   distribution node['lsb']['codename']
