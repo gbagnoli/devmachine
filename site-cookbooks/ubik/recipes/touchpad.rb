@@ -38,7 +38,7 @@ Section "InputClass"
         Option "TapButton1" "1"
         Option "TapButton2" "3"
         Option "TapButton3" "2"
-        Option "TapButton4" "2"
+        Option "TapButton4" "0"
         Option "ThumbSize" "35"
 EndSection
   EOH
