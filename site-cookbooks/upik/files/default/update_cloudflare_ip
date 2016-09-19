@@ -1,0 +1,64 @@
+#!/bin/bash
+set -u
+set -e
+CLOUDFLARE_API_TKN="${CLOUDFLARE_API_TKN:-400b25d95e09b238857e77d6ff7ac42d066da}"
+CLOUDFLARE_EMAIL="${CLOUDFLARE_EMAIL:-gbagnoli@gmail.com}"
+ZONE="${ZONE:-tigc.eu}"
+ENTRY="${ENTRY:-ftwo}"
+
+JQ_SELECT_ENTRY=".response.recs.objs[] | select(.name == \"${ENTRY}.${ZONE}\")"
+
+echo -n "Getting zone data from cloudflare"
+record_data="$(curl -s https://www.cloudflare.com/api_json.html \
+               -d 'a=rec_load_all' \
+               -d "tkn=$CLOUDFLARE_API_TKN" \
+               -d "email=$CLOUDFLARE_EMAIL" \
+               -d "z=$ZONE" | jq -r "$JQ_SELECT_ENTRY")"
+record_id="$(echo "$record_data" | jq -r .rec_id)"
+zone_ip="$(echo "$record_data" | jq -r .content)"
+echo " .. record_id: $record_id | ip: $zone_ip"
+
+echo "Getting current ip"
+echo -n "* trying ifconfig.co"
+set +e
+current_ip="$(curl -s https://ifconfig.co)"
+if [ $? -ne 0 ]; then
+  echo " .. FAIL"
+  echo -n "* Trying ident.me"
+  current_ip="$(curl -s http://ident.me)"
+  if [ $? -ne 0 ]; then
+    echo " .. FAIL"
+    echo -n "* Trying ifconfig.me"
+    current_ip="$(curl -s http://ifconfig.me/ip)"
+    if [ $? -ne 0]; then
+      echo " .. FAIL"
+      echo >&2 "None of the providers to get the current ip worked. Exiting"
+      exit 1
+    fi
+  fi
+fi
+echo " .. OK - $current_ip"
+
+if [[ "$current_ip" == "$zone_ip" ]]; then
+  echo "Current ip equal zone ip, exiting -- $current_ip == $zone_ip"
+  exit 0
+fi
+
+echo "Updating ${ENTRY}.${ZONE} to resolve to $current_ip"
+curl -s https://www.cloudflare.com/api_json.html \
+	     -d 'a=rec_edit' \
+	     -d "tkn=$CLOUDFLARE_API_TKN" \
+             -d "email=$CLOUDFLARE_EMAIL" \
+	     -d "z=$ZONE" \
+	     -d "id=$record_id" \
+	     -d 'type=A' \
+	     -d "name=${ENTRY}.${ZONE}" \
+	     -d 'ttl=300' \
+	     -d "content=$current_ip" | jq .
+res=$?
+if [ $res -ne 0 ]; then
+  echo "FAIL"
+  exit $res
+fi
+echo "OK"
+exit 0

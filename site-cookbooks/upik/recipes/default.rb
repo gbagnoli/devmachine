@@ -1,8 +1,10 @@
 package 'btrfs-progs'
+package 'curl'
 package 'dstat'
 package 'exfat-fuse'
 package 'exfat-utils'
 package 'htop'
+package 'jq'
 package 'openvpn'
 package 'shellcheck'
 package 'tmux'
@@ -55,4 +57,15 @@ file '/etc/cron.hourly/btrbk' do
 exec /usr/sbin/btrbk -q run
   EOH
   mode '0755'
+end
+
+cookbook_file '/usr/bin/update_cloudflare_ip' do
+  source 'update_cloudflare_ip'
+  mode '0750'
+end
+
+cron 'update cloudflare ip' do
+  command '/usr/bin/update_cloudflare_ip &> /var/log/update_cloudflare_ip.log'
+  minute '*/15'
+  user 'root'
 end
