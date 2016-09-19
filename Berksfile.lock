@@ -1,4 +1,6 @@
 DEPENDENCIES
+  btrbk
+    path: site-cookbooks/btrbk
   pyenv
     git: https://github.com/sds/chef-pyenv.git
     revision: 026a540412e5591b24a88d80454a883b7e4a843a
@@ -12,6 +14,7 @@ DEPENDENCIES
 GRAPH
   apt (4.0.2)
     compat_resource (>= 12.10)
+  btrbk (0.1.0)
   build-essential (6.0.5)
     compat_resource (>= 12.14)
     mingw (>= 1.1)
@@ -47,6 +50,7 @@ GRAPH
     pyenv (>= 0.0.0)
     ruby_rbenv (>= 0.0.0)
   upik (0.1.0)
+    btrbk (>= 0.0.0)
     omnibus_updater (~> 2.0.0)
   windows (2.0.2)
   yum (4.0.0)

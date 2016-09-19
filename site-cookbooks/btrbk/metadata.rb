@@ -1,0 +1,7 @@
+name 'btrbk'
+maintainer 'Giacomo Bagnoli'
+maintainer_email 'gbagnoli@gmail.com'
+license 'mit'
+description 'Installs btrbk'
+long_description 'Installs btrbk'
+version '0.1.0'
