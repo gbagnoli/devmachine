@@ -5,8 +5,10 @@ import sys
 from fabric.api import (
     cd,
     env,
+    hide,
     local,
     task,
+    settings,
     sudo
 )
 from fabric.contrib.project import rsync_project
@@ -14,7 +16,8 @@ env.use_ssh_config = True
 
 
 def vendor():
-    local("berks vendor")
+    with settings(hide('stdout')):
+        local("berks vendor")
 
 
 def chef(host, remote):
@@ -32,7 +35,8 @@ def rsync(remote):
     sudo("chown {} {}".format(env.user, remote))
     rsync_project(local_dir="./",
                   remote_dir=remote,
-                  exclude=("data", "boostrap", "local-mode-cache", ".git"))
+                  exclude=("data", "boostrap", "local-mode-cache", ".git"),
+                  extra_opts="-q")
 
 @task
 def run(remote="/usr/local/src/chefrepo/"):
