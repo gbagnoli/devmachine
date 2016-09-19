@@ -10,7 +10,3 @@ end
 cbs.each do |cb|
   cookbook File.basename(cb), path: File.join('site-cookbooks', cb)
 end
-
-# cookbook 'ubik', path: 'site-cookbooks/ubik'
-# cookbook 'upik', path: 'site-cookbooks/upik'
-# cookbook 'syncthing', path: 'site-cookbooks/upik'
