@@ -8,3 +8,4 @@ version '0.1.0'
 
 depends 'omnibus_updater', '~> 2.0.0'
 depends 'btrbk'
+depends 'dnscrypt_proxy'

@@ -6,6 +6,7 @@ run_list [
   'recipe[upik::mounts]',
   'recipe[upik::default]',
   'recipe[syncthing]',
+  'recipe[dnscrypt_proxy]'
 ]
 
 default_attributes(
