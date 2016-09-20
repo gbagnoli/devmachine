@@ -55,5 +55,13 @@ default_attributes(
         ]
       }
     }]
+  },
+  'user' => {
+    'login' => 'giacomo',
+    'group' => 'giacomo',
+    'uid' => 1000,
+    'gid' => 1000,
+    'realname' => 'Giacomo Bagnoli',
+    'install_vpnutils' => true
   }
 )

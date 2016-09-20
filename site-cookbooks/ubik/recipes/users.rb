@@ -1,7 +1,7 @@
-include_recipe 'ubik::giacomo'
+include_recipe 'user'
 include_recipe 'ubik::irene'
 
-users = %w(giacomo irene)
+users = [node['user']['login'], 'irene']
 
 %w(adm sudo cdrom dip plugdev lpadmin sambashare users lp).each do |grp|
   group grp do

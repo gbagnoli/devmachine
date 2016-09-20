@@ -1,9 +1,9 @@
-user = 'giacomo'
-group = 'giacomo'
+user = node['user']['login']
+group = node['user']['group']
 home = "/home/#{user}"
-uid = 1000
-gid = 1000
-realname = 'Giacomo Bagnoli'
+uid = node['user']['uid']
+gid = node['user']['gid']
+realname = node['user']['realname']
 
 user user do
   group group
@@ -97,11 +97,13 @@ bash 'install vundle' do
   EOH
 end
 
-git "#{home}/.local/src/vpnutils" do
-  repository "git@bitbucket.org:gbagnoli/vpnutils.git"
-  action :sync
-  revision 'development'
-  user user
+if node['user']['install_vpnutils']
+  git "#{home}/.local/src/vpnutils" do
+    repository "git@bitbucket.org:gbagnoli/vpnutils.git"
+    action :sync
+    revision 'development'
+    user user
+  end
 end
 
 git "#{home}/.local/src/autoenv" do
@@ -113,7 +115,14 @@ end
 package 'liquidprompt'
 package 'autossh'
 package 'mosh'
-package 'fasd'
+if node['platform'] == 'debian'
+  remote_file '/usr/bin/fasd' do
+    source 'https://raw.githubusercontent.com/clvv/fasd/master/fasd'
+    mode '0755'
+  end
+else
+  package 'fasd'
+end
 
 cookbook_file "#{home}/.config/liquid.theme" do
   source 'liquid.theme'

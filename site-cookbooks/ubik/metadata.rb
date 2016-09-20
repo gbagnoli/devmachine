@@ -6,6 +6,7 @@ description 'Installs/Configures ubik'
 long_description 'Installs/Configures ubik'
 version '0.1.0'
 
+depends 'user'
 depends 'pyenv'
 depends 'ruby_rbenv'
 depends 'java'

@@ -5,6 +5,7 @@ run_list [
   'recipe[btrbk]',
   'recipe[upik::mounts]',
   'recipe[upik::default]',
+  'recipe[user]',
   'recipe[syncthing]',
   'recipe[dnscrypt_proxy]'
 ]
@@ -14,5 +15,12 @@ default_attributes(
     'users' => {
       'up' => nil
     }
+  },
+  'user' => {
+    'login' => 'up',
+    'group' => 'up',
+    'uid' => 1000,
+    'gid' => 1000,
+    'realname' => 'ubik'
   }
 )

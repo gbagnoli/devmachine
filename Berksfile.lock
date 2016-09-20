@@ -12,6 +12,8 @@ DEPENDENCIES
     path: site-cookbooks/ubik
   upik
     path: site-cookbooks/upik
+  user
+    path: site-cookbooks/user
 
 GRAPH
   apt (4.0.2)
@@ -52,10 +54,14 @@ GRAPH
     java (>= 0.0.0)
     pyenv (>= 0.0.0)
     ruby_rbenv (>= 0.0.0)
+    user (>= 0.0.0)
   upik (0.1.0)
+    apt (>= 0.0.0)
     btrbk (>= 0.0.0)
     dnscrypt_proxy (>= 0.0.0)
     omnibus_updater (~> 2.0.0)
+  user (0.1.0)
+    git (>= 0.0.0)
   windows (2.0.2)
   yum (4.0.0)
   yum-epel (1.0.1)
