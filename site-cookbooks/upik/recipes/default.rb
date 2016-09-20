@@ -1,3 +1,5 @@
+include_recipe 'upik::apt'
+
 package 'btrfs-progs'
 package 'curl'
 package 'dstat'
@@ -12,6 +14,17 @@ package 'vim.nox'
 package 'zfs-dkms'
 package 'zfsutils-linux'
 package 'zfs-initramfs'
+
+# neovim pinning
+apt_preference 'libmsgpackc2' do
+  pin 'release n=unstable'
+  pin_priority '900'
+end
+
+execute 'install libmsgpackc2' do
+  command 'apt-get install libmsgpackc2/unstable'
+  not_if 'dpkg -l libmsgpackc2 | grep "^ii" -q'
+end
 
 file '/etc/iptables.rules' do
   content <<-EOH

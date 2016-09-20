@@ -6,6 +6,7 @@ description 'Installs/Configures ubik'
 long_description 'Installs/Configures ubik'
 version '0.1.0'
 
+depends 'apt'
 depends 'omnibus_updater', '~> 2.0.0'
 depends 'btrbk'
 depends 'dnscrypt_proxy'
