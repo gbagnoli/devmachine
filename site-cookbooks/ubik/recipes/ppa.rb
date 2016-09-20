@@ -53,7 +53,3 @@ end
 apt_repository 'telegram' do
   uri 'ppa:atareao/telegram'
 end
-
-apt_repository 'dnscrypt' do
-  uri 'ppa:anton+/dnscrypt'
-end

@@ -1,5 +1,4 @@
 package 'btrfs-tools'
-package 'dnscrypt-proxy'
 package 'dropbox'
 package 'dstat'
 package 'exfat-fuse'

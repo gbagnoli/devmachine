@@ -7,7 +7,8 @@ run_list [
   'recipe[ruby_rbenv::user]',
   'recipe[java]',
   'recipe[ubik]',
-  'recipe[syncthing]'
+  'recipe[syncthing]',
+  'recipe[dnscrypt_proxy]'
 ]
 default_attributes(
   'ubik' => {
