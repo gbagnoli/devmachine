@@ -1,6 +1,7 @@
 name 'upik'
 description 'Configure upik'
 run_list [
+  'recipe[apt::unattended-upgrades]',
   'recipe[omnibus_updater]',
   'recipe[btrbk]',
   'recipe[upik::mounts]',
@@ -22,5 +23,11 @@ default_attributes(
     'uid' => 1000,
     'gid' => 1000,
     'realname' => 'ubik'
+  },
+  'apt' => {
+    'unattended_upgrades' => {
+      'enable' => true,
+      'mail' => 'gbagnoli@gmail.com',
+    }
   }
 )
