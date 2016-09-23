@@ -8,7 +8,8 @@ run_list [
   'recipe[java]',
   'recipe[ubik]',
   'recipe[syncthing]',
-  'recipe[dnscrypt_proxy]'
+  'recipe[dnscrypt_proxy]',
+  'recipe[profile_sync_daemon]'
 ]
 default_attributes(
   'ubik' => {
@@ -64,5 +65,8 @@ default_attributes(
     'gid' => 1000,
     'realname' => 'Giacomo Bagnoli',
     'install_vpnutils' => true
+  },
+  'profile_sync_daemon' => {
+    'users' => %w(giacomo irene)
   }
 )

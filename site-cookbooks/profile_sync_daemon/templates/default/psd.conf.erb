@@ -1,0 +1,8 @@
+<% if @overlayfs -%>
+USE_OVERLAYFS="yes"
+<% end -%>
+BROWSERS="<%= @browsers.join(' ') %>"
+<% if @backups -%>
+USE_BACKUPS="yes"
+<% end -%>
+

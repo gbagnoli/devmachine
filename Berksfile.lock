@@ -3,6 +3,8 @@ DEPENDENCIES
     path: site-cookbooks/btrbk
   dnscrypt_proxy
     path: site-cookbooks/dnscrypt_proxy
+  profile_sync_daemon
+    path: site-cookbooks/profile_sync_daemon
   pyenv
     git: https://github.com/sds/chef-pyenv.git
     revision: 026a540412e5591b24a88d80454a883b7e4a843a
@@ -40,6 +42,8 @@ GRAPH
     compat_resource (>= 0.0.0)
     seven_zip (>= 0.0.0)
   omnibus_updater (2.0.0)
+  profile_sync_daemon (0.1.0)
+    apt (>= 0.0.0)
   pyenv (0.1.1)
   ruby_build (1.0.0)
     yum-epel (>= 0.0.0)
