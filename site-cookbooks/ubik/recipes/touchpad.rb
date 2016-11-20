@@ -1,5 +1,22 @@
+version = "0.4.1"
+package_name = "xserver-xorg-input-mtrack"
+deb = "#{package_name}_#{version}_amd64.deb"
+repo = "https://github.com/p2rkw/xf86-input-mtrack/"
 
-package 'xserver-xorg-input-mtrack'
+# install the "old" version
+package package_name
+
+remote_file "#{Chef::Config[:file_cache_path]}/#{deb}" do
+  source "#{repo}/releases/download/v#{version}/#{deb}"
+  action :create
+  checksum '0c7ba857b55002bc02ee27e6854c09844d05a084b4cfac78b0d7ff120a9f6494'
+  notifies :run, 'execute[install_mtrack_deb]', :immediately
+end
+
+execute 'install_mtrack_deb' do
+  action :nothing
+  command "dpkg -i #{Chef::Config[:file_cache_path]}/#{deb}"
+end
 
 file '/usr/share/X11/xorg.conf.d/51-mtrack.conf' do
   content <<-EOH

@@ -1,5 +1,6 @@
 apt_repository 'dnscrypt' do
   uri 'ppa:anton+/dnscrypt'
+  distribution 'xenial'
 end
 
 package 'dnscrypt-proxy'

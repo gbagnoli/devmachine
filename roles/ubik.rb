@@ -8,7 +8,6 @@ run_list [
   'recipe[java]',
   'recipe[ubik]',
   'recipe[syncthing]',
-  'recipe[dnscrypt_proxy]',
   'recipe[profile_sync_daemon]'
 ]
 default_attributes(
