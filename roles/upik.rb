@@ -23,11 +23,22 @@ default_attributes(
     'uid' => 1000,
     'gid' => 1000,
     'realname' => 'ubik'
-  },
+  }
+)
+
+override_attributes(
   'apt' => {
     'unattended_upgrades' => {
       'enable' => true,
       'mail' => 'gbagnoli@gmail.com',
+      'allowed_origins' => [
+        'Debian:stable',
+        'Debian:stable-updates',
+        'Syncthing:syncthing',
+        'ubilinux:ubilinux3-upboard',
+        '. wheezy:wheezy'
+      ],
+      'remove_unused_dependencies' => true
     }
   }
 )
