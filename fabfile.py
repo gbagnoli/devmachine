@@ -57,28 +57,27 @@ def local_chef():
     localhost = 'ubik'
     wrapper = '/usr/local/bin/run-chef-{}'.format(env.user)
     cmd = chef_command.format(localhost)
-    try:
-        if not os.path.exists(script):
-            tmp = os.path.join('/tmp', os.path.basename(script))
-            with open(tmp, 'w') as f:
-                f.write(chef_script.format(remote=os.getcwd(), host=localhost))
-            local('sudo install -T -m 755 {} {}'.format(
-                tmp, script))
-            os.unlink(tmp)
-        if not os.path.exists(sudoers):
-            tmp = os.path.join('/tmp', os.path.basename(sudoers))
-            with open(tmp, 'w') as f:
-                f.write(sudoers_script.format(user=env.user, script=script))
-            local('sudo install -T -m 440 {} {}'.format(
-                tmp, sudoers))
-            os.unlink(tmp)
-        if not os.path.exists(wrapper):
-            tmp = os.path.join('/tmp', os.path.basename(wrapper))
-            with open(tmp, 'w') as f:
-                f.write(wrapper_script)
-            local('sudo install -T -m 755 -o {} {} {}'.format(env.user, tmp,
-                wrapper))
-            os.unlink(tmp)
+    if not os.path.exists(script):
+        tmp = os.path.join('/tmp', os.path.basename(script))
+        with open(tmp, 'w') as f:
+            f.write(chef_script.format(remote=os.getcwd(), host=localhost))
+        local('sudo install -T -m 755 {} {}'.format(
+            tmp, script))
+        os.unlink(tmp)
+    if not os.path.exists(sudoers):
+        tmp = os.path.join('/tmp', os.path.basename(sudoers))
+        with open(tmp, 'w') as f:
+            f.write(sudoers_script.format(user=env.user, script=script))
+        local('sudo install -T -m 440 {} {}'.format(
+            tmp, sudoers))
+        os.unlink(tmp)
+    if not os.path.exists(wrapper):
+        tmp = os.path.join('/tmp', os.path.basename(wrapper))
+        with open(tmp, 'w') as f:
+            f.write(wrapper_script)
+        local('sudo install -T -m 755 -o {} {} {}'.format(env.user, tmp,
+            wrapper))
+        os.unlink(tmp)
     local(wrapper)
 
 
