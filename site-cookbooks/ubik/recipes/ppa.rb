@@ -38,6 +38,7 @@ apt_repository 'weechat' do
   key '11E9DE8848F2B65222AA75B8D1820DB22A11534E'
 end
 
+fdistro = node['lsb']['codename'] == 'zesty' ? 'yakkety' : node['lsb']['codename']
 apt_repository 'fasd' do
   uri 'ppa:aacebedo/fasd'
 end
