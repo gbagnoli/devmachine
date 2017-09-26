@@ -28,3 +28,13 @@ execute 'install_viber' do
   action :nothing
   command 'dpkg -i /usr/src/viber.deb'
 end
+
+remote_file '/usr/src/skype.deb' do
+  source 'https://repo.skype.com/latest/skypeforlinux-64.deb'
+  notifies :run, 'execute[install_skype]', :immediately
+end
+
+execute 'install_skype' do
+  action :nothing
+  command 'dpkg -i /usr/src/skype.deb'
+end
