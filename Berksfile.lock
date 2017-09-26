@@ -52,7 +52,7 @@ GRAPH
     git (>= 0.0.0)
     java (>= 0.0.0)
     pyenv (>= 0.0.0)
-    ruby_rbenv (>= 0.0.0)
+    ruby_rbenv (< 2.0.0)
     user (>= 0.0.0)
   upik (0.1.0)
     apt (>= 0.0.0)

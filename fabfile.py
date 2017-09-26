@@ -53,8 +53,7 @@ def chef(host, remote):
 
     run_as_user(wrapper)
 
-def local_chef():
-    localhost = 'ubik'
+def local_chef(localhost):
     wrapper = '/usr/local/bin/run-chef-{}'.format(env.user)
     cmd = chef_command.format(localhost)
     if not os.path.exists(script):
@@ -94,9 +93,9 @@ def rsync(remote):
 @task
 def run(remote="/usr/local/src/chefrepo/"):
     here = os.path.dirname(os.path.abspath(__file__))
-    if env.host_string == "localhost":
+    if env.host_string.startswith("localhost_"):
         vendor()
-        local_chef()
+        local_chef(env.host_string.replace('localhost_', ''))
     else:
         host = env.host_string
         os.chdir(here)
