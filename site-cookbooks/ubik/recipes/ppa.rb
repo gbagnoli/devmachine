@@ -8,7 +8,15 @@ apt_repository 'neovim' do
   uri 'ppa:neovim-ppa/unstable'
 end
 
-apt_repository 'chrome' do
+file '/etc/apt/sources.list.d/chrome.list' do
+  action :delete
+end
+
+file '/etc/apt/sources.list.d/hangout.list' do
+  action :delete
+end
+
+apt_repository 'google-chrome' do
   uri 'http://dl.google.com/linux/chrome/deb/'
   distribution 'stable'
   components ['main']
@@ -16,7 +24,7 @@ apt_repository 'chrome' do
   arch 'amd64'
 end
 
-apt_repository 'hangout' do
+apt_repository 'google-talkplugin' do
   uri 'http://dl.google.com/linux/talkplugin/deb/'
   distribution 'stable'
   components ['main']

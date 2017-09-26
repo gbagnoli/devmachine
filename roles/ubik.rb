@@ -11,5 +11,11 @@ default_attributes(
   },
   'ubik' => {
     'enable_mtrack' => true
+  },
+  'users' => {
+    'irene' => {
+      'uid' => 1001,
+      'group' => 1001
+    }
   }
 )

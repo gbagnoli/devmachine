@@ -1,8 +1,8 @@
 user = 'irene'
 group = 'irene'
 home = "/home/#{user}"
-uid = 1001
-gid = 1001
+uid = node['users']['irene']['uid']
+gid = node['users']['irene']['group']
 realname = 'Irene Bagni'
 
 group group do
