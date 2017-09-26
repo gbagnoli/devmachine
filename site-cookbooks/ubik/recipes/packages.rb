@@ -15,3 +15,16 @@ package 'tmux'
 package 'ttf-mscorefonts-installer'
 package 'ufraw'
 package 'unity-tweak-tool'
+
+package 'gstreamer1.0-plugins-ugly'
+package 'gstreamer1.0-libav'
+
+remote_file '/usr/src/viber.deb' do
+  source 'http://download.cdn.viber.com/cdn/desktop/Linux/viber.deb'
+  notifies :run, 'execute[install_viber]', :immediately
+end
+
+execute 'install_viber' do
+  action :nothing
+  command 'dpkg -i /usr/src/viber.deb'
+end
