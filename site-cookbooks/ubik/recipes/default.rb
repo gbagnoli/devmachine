@@ -31,3 +31,4 @@ include_recipe 'ubik::golang'
 include_recipe 'ubik::touchpad' if node['ubik']['enable_mtrack']
 include_recipe 'ubik::printer'
 include_recipe 'ubik::users'
+include_recipe 'ubik::fonts'
