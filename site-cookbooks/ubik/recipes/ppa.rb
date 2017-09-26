@@ -30,25 +30,8 @@ apt_repository 'ubuntu-partner' do
   arch 'i386'
 end
 
-apt_repository 'weechat' do
-  uri 'https://weechat.org/ubuntu'
-  distribution node['lsb']['codename']
-  components ['main']
-  keyserver 'pool.sks-keyservers.net'
-  key '11E9DE8848F2B65222AA75B8D1820DB22A11534E'
-end
-
-fdistro = node['lsb']['codename'] == 'zesty' ? 'yakkety' : node['lsb']['codename']
 apt_repository 'fasd' do
   uri 'ppa:aacebedo/fasd'
-end
-
-apt_repository 'dropbox' do
-  uri 'http://linux.dropbox.com/ubuntu/'
-  distribution 'xenial' # node['lsb']['codename']
-  components ['main']
-  keyserver 'pgp.mit.edu'
-  key '5044912E'
 end
 
 apt_repository 'telegram' do

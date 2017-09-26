@@ -8,6 +8,6 @@ version '0.1.0'
 
 depends 'user'
 depends 'pyenv'
-depends 'ruby_rbenv'
+depends 'ruby_rbenv', '< 2.0'
 depends 'java'
 depends 'git'
