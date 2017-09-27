@@ -45,3 +45,7 @@ end
 apt_repository 'telegram' do
   uri 'ppa:atareao/telegram'
 end
+
+apt_repository 'firefox-nightly' do
+  uri 'ppa:ubuntu-mozilla-daily/ppa'
+end
