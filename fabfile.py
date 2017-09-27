@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import os
+import socket
 import sys
 from StringIO import StringIO
 from fabric.api import (
@@ -93,7 +94,10 @@ def rsync(remote):
 @task
 def run(remote="/usr/local/src/chefrepo/"):
     here = os.path.dirname(os.path.abspath(__file__))
-    if env.host_string.startswith("localhost_"):
+    if env.host_string == None:
+        vendor()
+        local_chef(socket.gethostname())
+    elif env.host_string.startswith("localhost_"):
         vendor()
         local_chef(env.host_string.replace('localhost_', ''))
     else:
