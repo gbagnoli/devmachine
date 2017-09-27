@@ -30,7 +30,7 @@ default_attributes(
     'git_ref' => 'v1.1.4',
     'user_installs' => [{
       'user' => 'giacomo',
-      'pythons' => ['3.6.2'],
+      'pythons' => ['2.7.14', '3.6.2'],
       'global' => 'system'
     }]
   },
