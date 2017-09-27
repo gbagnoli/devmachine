@@ -15,6 +15,7 @@ user user do
 end
 
 ["#{home}/.local",
+ "#{home}/.local/bin",
  "#{home}/.local/src",
  "#{home}/.config",
  "#{home}/.config/nvim",
@@ -154,3 +155,5 @@ end
 file "#{home}/.bashrc.local" do
   action :create_if_missing
 end
+
+include_recipe 'user::photos'
