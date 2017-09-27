@@ -62,4 +62,7 @@ EOC
   mode 0750
 end
 
-
+git "#{home}/workspace/photo_process" do
+  repository 'https://gist.github.com/28565417cfb732cbd2df784819a7fcb0.git'
+  action :sync
+end
