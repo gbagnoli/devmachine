@@ -1,7 +1,8 @@
 name 'ubikxps'
 description 'ubik xps laptop'
 run_list [
-  'role[devlaptop]'
+  'role[devlaptop]',
+  'recipe[user::ubikxps]'
 ]
 
 default_attributes(

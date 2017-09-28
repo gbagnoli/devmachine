@@ -1,0 +1,7 @@
+name 'gnome'
+maintainer 'Giacomo Bagnoli'
+maintainer_email 'gbagnoli@gmail.com'
+license 'mit'
+description 'GNOME helpers and utils'
+long_description 'GNOME helpers and utils'
+version '0.1.0'
