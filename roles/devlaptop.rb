@@ -33,7 +33,8 @@ default_attributes(
     'user_installs' => [{
       'user' => 'giacomo',
       'pythons' => ['2.7.14', '3.6.2'],
-      'global' => 'system'
+      'global' => 'system',
+      'upgrade' => 'sync'
     }]
   },
   'java' => {
@@ -43,10 +44,13 @@ default_attributes(
       'accept_oracle_download_terms' => true
     }
   },
+  'ruby_build' => {
+    'upgrade' => 'sync'
+  },
   'rbenv' => {
     'git_ref' => 'v1.1.1',
-    'update' => true,
     'user_installs' => [{
+      'upgrade' => 'sync',
       'user' => 'giacomo',
       'rubies' => ['2.4.2'],
       'global' => '2.4.2',
