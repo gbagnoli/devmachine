@@ -123,7 +123,7 @@ end
 
 if node['user']['install_vpnutils']
   git "#{home}/.local/src/vpnutils" do
-    repository 'https://gbagnoli@bitbucket.org/gbagnoli/vpnutils.git'
+    repository 'git@bitbucket.org:gbagnoli/vpnutils.git'
     action :sync
     revision 'development'
     user user
