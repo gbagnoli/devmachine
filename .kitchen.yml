@@ -1,0 +1,46 @@
+---
+driver:
+  name: docker
+  binary: /usr/local/bin/docker
+  use_sudo: false
+
+provisioner:
+  name: chef_zero
+  product_name: chef
+  product_version: 12.21.14
+
+verifier:
+  name: inspec
+
+platforms:
+  - name: ubuntu-16.04
+  - name: ubuntu-17.04
+  - name: debian-8.9
+
+suites:
+  - name: default
+    run_list:
+      - role[ubiktest]
+    verifier:
+      inspec_tests:
+        -
+    excludes:
+      - debian-8.9
+
+# disabled as ubilinux repos 
+# confuses apt
+#  - name: upboard
+#    run_list:
+#      - role[upik]
+#    verifier:
+#      inspec_tests:
+#        -
+#    attributes:
+#      upik:
+#        skip_mounts: true
+#      user:
+#        gid: 1002
+#        uid: 1002
+#    excludes:
+#      - ubuntu-16.04
+#      - ubuntu-17.04

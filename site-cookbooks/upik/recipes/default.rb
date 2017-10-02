@@ -1,6 +1,5 @@
 include_recipe 'upik::apt'
 
-package 'btrfs-progs'
 package 'curl'
 package 'dstat'
 package 'exfat-fuse'
@@ -11,9 +10,6 @@ package 'openvpn'
 package 'shellcheck'
 package 'tmux'
 package 'vim.nox'
-package 'zfs-dkms'
-package 'zfsutils-linux'
-package 'zfs-initramfs'
 
 # neovim pinning
 apt_preference 'libmsgpackc2' do
@@ -51,6 +47,10 @@ end
 
 directory '/srv/snapshots/sync' do
   recursive true
+end
+
+directory '/etc/btrbk' do
+  mode '0755'
 end
 
 file '/etc/btrbk/btrbk.conf' do

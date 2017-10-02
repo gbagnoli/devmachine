@@ -26,9 +26,8 @@
 
 include_recipe 'ubik::packages'
 include_recipe 'ubik::langs'
-include_recipe 'ubik::latex'
+include_recipe 'ubik::latex' if node['ubik']['install_latex']
 include_recipe 'ubik::golang'
 include_recipe 'ubik::touchpad' if node['ubik']['enable_mtrack']
 include_recipe 'ubik::printer'
-include_recipe 'ubik::users'
 include_recipe 'ubik::fonts'

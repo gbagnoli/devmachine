@@ -2,6 +2,7 @@ name 'devlaptop'
 description 'A role to configure a development workstation'
 run_list [
   'recipe[ubik::ppa]',
+  'recipe[ubik::users]',
   'recipe[pyenv::user]',
   'recipe[ruby_build]',
   'recipe[ruby_rbenv::user]',
@@ -15,7 +16,8 @@ default_attributes(
       'version' => '1.9'
     },
     'languages' => %w(en it),
-    'enable_mtrack' => false
+    'enable_mtrack' => false,
+    'install_latex' => true
   },
   'syncthing' => {
     'users' => {

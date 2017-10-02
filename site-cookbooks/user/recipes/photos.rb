@@ -2,7 +2,8 @@
    libfreeimage3 libfontconfig1:i386 libxt6:i386 libxrender1:i386
    libxext6:i386 libgl1-mesa-glx:i386 libgl1-mesa-dri:i386 libcurl3:i386
    libgssapi-krb5-2:i386 librtmp1:i386 libsm6:i386 libice6:i386
-   libuuid1:i386 gpsbabel gpsbabel-gui].each do |pkg|
+   libuuid1:i386 fonts-liberation lsb-core libglu1-mesa
+   gpsbabel gpsbabel-gui].each do |pkg|
      package pkg
    end
 

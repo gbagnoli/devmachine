@@ -40,5 +40,8 @@ override_attributes(
       ],
       'remove_unused_dependencies' => true
     }
+  },
+  'omnibus_updater' => {
+    'version' => '12.21.14'
   }
 )

@@ -1,5 +1,12 @@
+package 'git'
 package 'perl'
-package 'btrfs-progs'
+package 'make'
+
+if platform?('debian') && node['platform_version'].to_i < 9
+  package 'btrfs-tools'
+else
+  package 'btrfs-progs'
+end
 
 git node['btrbk']['src_dir'] do
   repository node['btrbk']['repository']

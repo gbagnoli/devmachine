@@ -20,6 +20,8 @@ package 'unity-tweak-tool'
 
 package 'gstreamer1.0-plugins-ugly'
 package 'gstreamer1.0-libav'
+package 'gstreamer1.0-pulseaudio'
+package 'libcurl3'
 
 remote_file '/usr/src/viber.deb' do
   source 'http://download.cdn.viber.com/cdn/desktop/Linux/viber.deb'

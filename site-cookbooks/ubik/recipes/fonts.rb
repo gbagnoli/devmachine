@@ -3,6 +3,7 @@ nerdfonts_repo = 'https://github.com/ryanoasis/nerd-fonts.git'
 
 git nerdfonts do
   repository nerdfonts_repo
+  depth 1
   revision 'master'
   action :sync
   user 'root'
@@ -14,4 +15,5 @@ execute 'install_nerdfonts' do
   command './install.sh -l -S -A'
   cwd nerdfonts
   user 'root'
+  ignore_failure true
 end

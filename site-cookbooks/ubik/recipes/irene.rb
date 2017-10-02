@@ -2,7 +2,7 @@ user = 'irene'
 group = 'irene'
 home = "/home/#{user}"
 uid = node['users']['irene']['uid']
-gid = node['users']['irene']['group']
+gid = node['users']['irene']['gid']
 realname = 'Irene Bagni'
 
 group group do

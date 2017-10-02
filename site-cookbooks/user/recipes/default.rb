@@ -5,13 +5,27 @@ uid = node['user']['uid']
 gid = node['user']['gid']
 realname = node['user']['realname']
 
+group user do
+  gid gid
+end
+
 user user do
   group group
   shell '/bin/bash'
+  manage_home true
   uid uid
   gid gid
   home home
   comment realname
+end
+
+[home, "#{home}/.ssh"].each do |d|
+  directory d do
+    action :create
+    owner user
+    group group
+    mode '0700'
+  end
 end
 
 ["#{home}/.local",
@@ -25,10 +39,11 @@ end
   directory d do
     mode '0750'
     owner user
-    group user
+    group group
   end
 end
 
+package 'git'
 dotfiles = "#{home}/.local/src/dotfiles"
 git dotfiles do
   repository 'https://github.com/gbagnoli/dotfiles.git'
@@ -61,7 +76,12 @@ link "#{home}/.config/nvim/init.vim" do
   to "#{dotfiles}/vim/vimrc"
 end
 
-%w(vim-nox python-dev python-pip python3-dev python3-pip).each do |pkg|
+if node.platform?('debian')
+  package 'libc6-dev'
+  package 'libexpat1-dev'
+  package 'libpython2.7-dev'
+end
+%w(vim-nox libpython-dev python-dev python-pip python3-dev python3-pip).each do |pkg|
   package pkg
 end
 
@@ -91,16 +111,19 @@ end
 
 bash 'install vundle' do
   action :nothing
-  user user
   cwd home
   code <<-EOH
-    nvim +PluginInstall +qall!
+    sudo -l nvim +PluginInstall +qall!
   EOH
+end
+
+%w[bitbucket.org github.com].each do |site|
+  ssh_known_hosts_entry site
 end
 
 if node['user']['install_vpnutils']
   git "#{home}/.local/src/vpnutils" do
-    repository "git@bitbucket.org:gbagnoli/vpnutils.git"
+    repository 'https://gbagnoli@bitbucket.org/gbagnoli/vpnutils.git'
     action :sync
     revision 'development'
     user user
@@ -155,5 +178,3 @@ end
 file "#{home}/.bashrc.local" do
   action :create_if_missing
 end
-
-include_recipe 'user::photos'

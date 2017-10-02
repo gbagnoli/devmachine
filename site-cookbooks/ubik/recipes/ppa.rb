@@ -1,4 +1,15 @@
+package 'dirmngr'
 package 'apt-transport-https'
+
+execute 'enable 32 bit arch' do
+  command 'dpkg --add-architecture i386'
+  not_if 'dpkg --print-foreign-architectures | grep -q i386'
+  notifies :update, 'apt_update[after-arch-add]', :immediately
+end
+
+apt_update 'after-arch-add' do
+  action :nothing
+end
 
 apt_repository 'git' do
   uri 'ppa:git-core/ppa'
