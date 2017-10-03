@@ -51,6 +51,7 @@ end
 
 apt_repository 'fasd' do
   uri 'ppa:aacebedo/fasd'
+  distribution node['lsb']['codename'] == 'zesty' ? 'yakkety' : node['lsb']['codename']
 end
 
 apt_repository 'telegram' do
