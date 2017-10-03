@@ -4,7 +4,7 @@ property :name, String, name_property: true
 property :script_content, String, required: true
 property :user, String, required: true
 property :group, String, default: 'users'
-property :comment, String, default: nil
+property :comment, String, default: ''
 property :shell, String, default:'/bin/bash'
 
 action :install do
