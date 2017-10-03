@@ -22,9 +22,9 @@ set -u
 echo "up" | sudo -S ls &>/dev/null
 sudo apt update
 sudo apt full-upgrade -y
-sudo apt install gnupg wget -y
+sudo apt install wget -y
 
-wget 'https://packages.chef.io/stable/debian/8/chef_12.14.60-1_amd64.deb' -O chef.deb
+wget 'https://packages.chef.io/files/stable/chefdk/1.6.1/debian/8/chefdk_1.6.1-1_amd64.deb' -O chef.deb
 sudo dpkg -i chef.deb
 rm chef.deb
 EOM
