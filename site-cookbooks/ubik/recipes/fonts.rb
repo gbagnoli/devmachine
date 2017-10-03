@@ -12,7 +12,7 @@ end
 
 execute 'install_nerdfonts' do
   action :nothing
-  command './install.sh -l -S -A'
+  command './install.sh -l -S -A || exit 0'
   cwd nerdfonts
   user 'root'
   ignore_failure true
