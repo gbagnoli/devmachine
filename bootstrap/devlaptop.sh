@@ -15,5 +15,6 @@ rm -rf chefdk.deb
 
 pip install --user pipenv
 
-# omit host, as it will be autodetected by the fabfile.
-"$(python -m site --user-base)"/bin/pipenv run -- fab run
+pipenv="$(python -m site --user-base)"/bin/pipenv
+"$pipenv" install
+"$pipenv" run -- fab run
