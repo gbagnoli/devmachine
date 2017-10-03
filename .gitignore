@@ -3,4 +3,5 @@ berks-cookbooks
 local-mode-cache
 fabfile.pyc
 .env
-.kitchen
+.kitchen/
+.kitchen.local.yml
