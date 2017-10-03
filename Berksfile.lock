@@ -1,6 +1,9 @@
 DEPENDENCIES
   btrbk
     path: site-cookbooks/btrbk
+  debconf
+    git: https://github.com/ophymx/debconf.git
+    revision: eab415649ba9a5ab9ab348ae098bf6bbf04cfdff
   dnscrypt_proxy
     path: site-cookbooks/dnscrypt_proxy
   gnome
@@ -26,6 +29,7 @@ GRAPH
     mingw (>= 1.1)
     seven_zip (>= 0.0.0)
   compat_resource (12.19.0)
+  debconf (0.0.1)
   dnscrypt_proxy (0.1.0)
   git (8.0.0)
     build-essential (>= 0.0.0)
@@ -53,6 +57,7 @@ GRAPH
   ssh_known_hosts (5.2.1)
   syncthing (0.1.0)
   ubik (0.1.0)
+    debconf (>= 0.0.0)
     git (>= 0.0.0)
     java (>= 0.0.0)
     pyenv (>= 0.0.0)

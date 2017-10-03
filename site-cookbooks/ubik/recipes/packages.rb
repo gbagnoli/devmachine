@@ -16,8 +16,22 @@ end
 packages = {
   'viber' => 'http://download.cdn.viber.com/cdn/desktop/Linux/viber.deb',
   'skype' => 'https://repo.skype.com/latest/skypeforlinux-64.deb',
-  'keybase' => 'https://prerelease.keybase.io/keybase_amd64.deb'
+  'keybase' => 'https://prerelease.keybase.io/keybase_amd64.deb',
+  'steam' => 'https://steamcdn-a.akamaihd.net/client/installer/steam.deb'
 }
+
+# accept steam license
+debconf_selection 'steam/question' do
+  value 'I AGREE'
+  package 'steam'
+  type 'select'
+end
+
+debconf_selection 'steam/license' do
+  value ''
+  type 'note'
+  package 'steam'
+end
 
 packages.each do |name, url|
   debfile = "/usr/src/#{name}.deb"
