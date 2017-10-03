@@ -23,22 +23,23 @@ package 'gstreamer1.0-libav'
 package 'gstreamer1.0-pulseaudio'
 package 'libcurl3'
 
-remote_file '/usr/src/viber.deb' do
-  source 'http://download.cdn.viber.com/cdn/desktop/Linux/viber.deb'
-  notifies :run, 'execute[install_viber]', :immediately
-end
+package 'libappindicator1'
 
-execute 'install_viber' do
-  action :nothing
-  command 'dpkg -i /usr/src/viber.deb'
-end
+packages = {
+  'viber' => 'http://download.cdn.viber.com/cdn/desktop/Linux/viber.deb',
+  'skype' => 'https://repo.skype.com/latest/skypeforlinux-64.deb',
+  'keybase' => 'https://prerelease.keybase.io/keybase_amd64.deb'
+}
 
-remote_file '/usr/src/skype.deb' do
-  source 'https://repo.skype.com/latest/skypeforlinux-64.deb'
-  notifies :run, 'execute[install_skype]', :immediately
-end
+packages.each do |name, url|
+  debfile = "/usr/src/#{name}.deb"
+  remote_file debfile do
+    source url
+    notifies :run, "execute[install_#{name}]", :immediately
+  end
 
-execute 'install_skype' do
-  action :nothing
-  command 'dpkg -i /usr/src/skype.deb'
+  execute "install_#{name}" do
+    action :nothing
+    command "dpkg -i #{debfile}"
+  end
 end
