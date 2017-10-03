@@ -1,29 +1,17 @@
-package 'btrfs-tools'
-package 'compizconfig-settings-manager'
-package 'dstat'
-package 'exfat-fuse'
-package 'exfat-utils'
-package 'firefox-trunk'
-package 'google-chrome-stable'
-package 'google-talkplugin'
-package 'htop'
-package 'keepassx'
-package 'network-manager-openvpn-gnome'
-package 'openvpn'
-package 'powertop'
-package 'shellcheck'
-package 'telegram'
-package 'tmux'
-package 'ttf-mscorefonts-installer'
-package 'ufraw'
-package 'unity-tweak-tool'
+packages = %w[
+  btrfs-tools compizconfig-settings-manager dstat exfat-fuse
+  exfat-utils firefox-trunk google-chrome-stable
+  google-talkplugin htop keepassx network-manager-openvpn-gnome
+  openvpn powertop shellcheck telegram tmux
+  ttf-mscorefonts-installer ufraw unity-tweak-tool
+  gstreamer1.0-plugins-ugly gstreamer1.0-libav
+  gstreamer1.0-pulseaudio libcurl3 libappindicator1
+]
 
-package 'gstreamer1.0-plugins-ugly'
-package 'gstreamer1.0-libav'
-package 'gstreamer1.0-pulseaudio'
-package 'libcurl3'
-
-package 'libappindicator1'
+package 'base install' do
+  package_name packages
+  action :install
+end
 
 packages = {
   'viber' => 'http://download.cdn.viber.com/cdn/desktop/Linux/viber.deb',
