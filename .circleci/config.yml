@@ -3,6 +3,10 @@ jobs:
   build:
     machine: true
     steps:
+
+  test_1604:
+    machine: true
+    steps:
       - checkout
 
       - restore_cache:
@@ -15,24 +19,28 @@ jobs:
           paths:
             - vendor/bundle
 
-  test_1604:
-    machine: true
-    steps:
       - run: bundle exec kitchen test default-ubuntu-1604
 
   test_1704:
     machine: true
     steps:
+      - checkout
+
+      - restore_cache:
+          key: v1-bundle-{{ checksum "Gemfile.lock" }}
+
+      - run: bundle install --path vendor/bundle
+
+      - save_cache:
+          key: v1-bundle-{{ checksum "Gemfile.lock" }}
+          paths:
+            - vendor/bundle
+
       - run: bundle exec kitchen test default-ubuntu-1704
 
 workflows:
   version: 2
   converge:
     jobs:
-      - build
       - test_1604:
-          requires:
-            - build
       - test_1704:
-          requires:
-            - build
