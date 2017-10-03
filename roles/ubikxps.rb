@@ -5,15 +5,15 @@ run_list [
   'recipe[user::ubikxps]'
 ]
 
-default_attributes(
+override_attributes(
   'user' => {
     'uid' => 1001,
-    'group' => 1001
+    'gid' => 1001
   },
   'users' => {
     'irene' => {
       'uid' => 1000,
-      'group' => 1000
+      'gid' => 1000
     }
   }
 )
