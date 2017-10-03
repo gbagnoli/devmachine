@@ -6,6 +6,7 @@ packages = %w[
   ttf-mscorefonts-installer ufraw unity-tweak-tool
   gstreamer1.0-plugins-ugly gstreamer1.0-libav
   gstreamer1.0-pulseaudio libcurl3 libappindicator1
+  docker-ce python-apt gnome-terminal
 ]
 
 package 'base install' do

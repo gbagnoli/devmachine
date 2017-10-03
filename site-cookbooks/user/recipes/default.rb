@@ -178,3 +178,11 @@ end
 file "#{home}/.bashrc.local" do
   action :create_if_missing
 end
+
+# docker with no pass
+
+sudo "#{node['user']['login']}_docker" do
+  nopasswd true
+  commands ['/usr/bin/docker']
+  user node['user']['login']
+end

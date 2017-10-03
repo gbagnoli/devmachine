@@ -9,11 +9,10 @@ HEREDOC
   action :install
 end
 
-file '/etc/sudoers.d/giacomo_syncthing' do
-  mode '0440'
-  content <<-HEREDOC
-#{node['user']['login']} ALL=NOPASSWD: /bin/systemctl restart syncthing@giacomo
-HEREDOC
+sudo "#{node['user']['login']}_syncthing" do
+  commands ["/bin/systemctl restart syncthing@#{node['user']['login']}"]
+  nopasswd true
+  user node['user']['login']
 end
 
 gnome_autostart 'Restart syncthing' do
