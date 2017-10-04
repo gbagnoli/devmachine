@@ -7,6 +7,7 @@ packages = %w[
   gstreamer1.0-plugins-ugly gstreamer1.0-libav
   gstreamer1.0-pulseaudio libcurl3 libappindicator1
   docker-ce python-apt gnome-terminal
+  qemu-kvm libvirt-dev libxslt1-dev libxml2-dev
 ]
 
 package 'base install' do
@@ -18,7 +19,8 @@ packages = {
   'viber' => 'http://download.cdn.viber.com/cdn/desktop/Linux/viber.deb',
   'skype' => 'https://repo.skype.com/latest/skypeforlinux-64.deb',
   'keybase' => 'https://prerelease.keybase.io/keybase_amd64.deb',
-  'steam' => 'https://steamcdn-a.akamaihd.net/client/installer/steam.deb'
+  'steam' => 'https://steamcdn-a.akamaihd.net/client/installer/steam.deb',
+  'vagrant' => 'https://releases.hashicorp.com/vagrant/2.0.0/vagrant_2.0.0_x86_64.deb'
 }
 
 # accept steam license
@@ -44,5 +46,17 @@ packages.each do |name, url|
   execute "install_#{name}" do
     action :nothing
     command "dpkg -i #{debfile}"
+  end
+end
+
+vagrant_plugins = %w[
+  vagrant-libvirt
+  vagrant-kvm
+]
+
+vagrant_plugins.each do |plg|
+  execute "vagrant_install_#{plg}" do
+    command "vagrant plugin install #{plg}"
+    not_if "vagrant plugin list | grep -q '^#{plg} '"
   end
 end
