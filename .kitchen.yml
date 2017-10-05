@@ -1,20 +1,29 @@
 ---
 driver:
-  name: docker
-  use_sudo: false
+  name: dokken
+  chef_version: 12.21.14
+
+transport:
+  name: dokken
 
 provisioner:
-  name: chef_zero
-  product_name: chef
-  product_version: 12.21.14
+  name: dokken
 
 verifier:
   name: inspec
 
 platforms:
   - name: ubuntu-16.04
+    driver:
+      image: dokken/ubuntu-16.04
+      pid_one_command: /bin/systemd
   - name: ubuntu-17.04
+    driver:
+      image: dokken/ubuntu-17.04
+      pid_one_command: /bin/systemd
   - name: debian-8.9
+    driver:
+      image: dokken/debian-8
 
 suites:
   - name: default
