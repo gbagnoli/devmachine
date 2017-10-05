@@ -2,6 +2,7 @@ name 'devlaptop'
 description 'A role to configure a development workstation'
 run_list [
   'recipe[ubik::ppa]',
+  'recipe[os-hardening]',
   'recipe[ssh-hardening::server]',
   'recipe[ssh-hardening::client]',
   'recipe[ubik::users]',
@@ -26,6 +27,23 @@ default_attributes(
     'enable_mtrack' => false,
     'install_latex' => true,
     'install_fonts' => true
+  },
+  'os-hardening' => {
+    'desktop' => {
+      'enable' => true
+    },
+    'network' => {
+      'ipv6' => {
+        'enable' => true
+      }
+    },
+    'security' => {
+      'kernel' => {
+        'enable_module_loading' => true,
+        'disable_filesystems' => %w[cramfs freevxfs jffs2 hfs
+                                    hfsplus squashfs udf]
+      }
+    }
   },
   'syncthing' => {
     'users' => {
