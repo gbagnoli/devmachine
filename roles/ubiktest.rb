@@ -12,7 +12,8 @@ default_attributes(
   },
   'ubik' => {
     'enable_mtrack' => true,
-    'install_latex' => false
+    'install_latex' => false,
+    'install_fonts' => false
   },
   'syncthing' => {
     'skip_service' => true

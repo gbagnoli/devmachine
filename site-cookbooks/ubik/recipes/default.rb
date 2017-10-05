@@ -30,4 +30,4 @@ include_recipe 'ubik::latex' if node['ubik']['install_latex']
 include_recipe 'ubik::golang'
 include_recipe 'ubik::touchpad' if node['ubik']['enable_mtrack']
 include_recipe 'ubik::printer'
-include_recipe 'ubik::fonts'
+include_recipe 'ubik::fonts' if node['ubik']['install_fonts']

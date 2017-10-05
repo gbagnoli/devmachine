@@ -22,7 +22,8 @@ default_attributes(
     },
     'languages' => %w(en it),
     'enable_mtrack' => false,
-    'install_latex' => true
+    'install_latex' => true,
+    'install_fonts' => true
   },
   'syncthing' => {
     'users' => {
