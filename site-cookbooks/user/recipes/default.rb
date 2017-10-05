@@ -102,6 +102,8 @@ bash 'set nvim alternatives' do
   action :nothing
 end
 
+package 'sudo'
+
 git "#{home}/.config/nvim/bundle/Vundle.vim" do
   repository 'https://github.com/VundleVim/Vundle.vim.git'
   action :sync
