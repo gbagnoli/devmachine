@@ -13,6 +13,7 @@ DEPENDENCIES
   pyenv
     git: https://github.com/sds/chef-pyenv.git
     revision: 90fdb7b57047c625d84e800cf4992fec18a36587
+  ssh-hardening
   syncthing
     path: site-cookbooks/syncthing
   ubik
@@ -54,6 +55,7 @@ GRAPH
     ruby_build (>= 1.1.0)
   seven_zip (2.0.2)
     windows (>= 1.2.2)
+  ssh-hardening (2.2.1)
   ssh_known_hosts (5.2.1)
   sudo (3.5.3)
   syncthing (0.1.0)

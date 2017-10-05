@@ -2,6 +2,8 @@ name 'devlaptop'
 description 'A role to configure a development workstation'
 run_list [
   'recipe[ubik::ppa]',
+  'recipe[ssh-hardening::server]',
+  'recipe[ssh-hardening::client]',
   'recipe[ubik::users]',
   'recipe[pyenv::user]',
   'recipe[ruby_build]',

@@ -2,6 +2,9 @@
 driver:
   name: dokken
   chef_version: 12.21.14
+  privileged: true # because Docker and SystemD/Upstart
+  volumes:
+    - /sys/fs/cgroup:/sys/fs/cgroup
 
 transport:
   name: dokken

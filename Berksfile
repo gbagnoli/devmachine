@@ -2,6 +2,7 @@ source "https://supermarket.getchef.com"
 
 cookbook 'pyenv', git: 'https://github.com/sds/chef-pyenv.git'
 cookbook 'debconf', git: 'https://github.com/ophymx/debconf.git'
+cookbook 'ssh-hardening'
 
 cbs = Dir.entries('site-cookbooks').select do |e|
   dir = File.join('site-cookbooks', e)
