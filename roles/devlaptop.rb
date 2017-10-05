@@ -11,6 +11,11 @@ run_list [
   'recipe[syncthing]'
 ]
 default_attributes(
+  'authorization' => {
+    'sudo' => {
+      'include_sudoers_d' => true
+    }
+  },
   'ubik' => {
     'golang' => {
       'version' => '1.9'
