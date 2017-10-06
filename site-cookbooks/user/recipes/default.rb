@@ -181,10 +181,14 @@ file "#{home}/.bashrc.local" do
   action :create_if_missing
 end
 
-# docker with no pass
-
 sudo "#{node['user']['login']}_docker" do
   nopasswd true
   commands ['/usr/bin/docker']
   user node['user']['login']
+  action :remove
+end
+
+group 'docker' do
+  action :manage
+  members node['user']['login']
 end
