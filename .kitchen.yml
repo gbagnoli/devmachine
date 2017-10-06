@@ -34,7 +34,10 @@ suites:
       - role[ubiktest]
     verifier:
       inspec_tests:
-        -
+        - name: linux-baseline
+          url: https://github.com/dev-sec/linux-baseline
+          path: /opt/verifier
+          sudo: false
     excludes:
       - debian-8.9
 
