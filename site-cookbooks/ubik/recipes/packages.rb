@@ -8,6 +8,7 @@ packages = %w[
   gstreamer1.0-pulseaudio libcurl3 libappindicator1
   docker-ce python-apt gnome-terminal
   qemu-kvm libvirt-dev libxslt1-dev libxml2-dev
+  rsyslog
 ]
 
 package 'base install' do
