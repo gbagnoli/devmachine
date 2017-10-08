@@ -10,3 +10,6 @@ depends:
   - name: linux-baseline
     git: https://github.com/dev-sec/linux-baseline.git
     branch: master
+  - name: ssh-baseline
+    git: https://github.com/dev-sec/ssh-baseline.git
+    branch: master

@@ -6,3 +6,8 @@ depends:
     git: https://github.com/dev-sec/linux-baseline.git
     ref: c72d8adad05828cb8a62b2285eb4daeed633115f
   version_constraints: ">= 0"
+- name: ssh-baseline
+  resolved_source:
+    git: https://github.com/dev-sec/ssh-baseline.git
+    ref: 9cc90271f793a0eaadcd074b197bf451bd0b4446
+  version_constraints: ">= 0"
