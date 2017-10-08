@@ -6,3 +6,4 @@ fabfile.pyc
 .python-version
 .kitchen/
 .kitchen.local.yml
+tests/**/vendor

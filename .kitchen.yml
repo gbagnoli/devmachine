@@ -14,6 +14,8 @@ provisioner:
 
 verifier:
   name: inspec
+#  format: junit
+#  output: tests/results/%{suite}_%{platform}_inspec.xml
 
 platforms:
   - name: ubuntu-16.04
@@ -34,8 +36,7 @@ suites:
       - role[ubiktest]
     verifier:
       inspec_tests:
-        - supermarket://dev-sec/linux-baseline
-        - supermarket://dev-sec/ssh-baseline
+        - path: tests/integration/ubik/
     excludes:
       - debian-8.9
 

@@ -7,14 +7,13 @@ jobs:
 
       - restore_cache:
           key: v1-bundle-{{ checksum "Gemfile.lock" }}
-
       - run: bundle install --path vendor/bundle
-
       - save_cache:
           key: v1-bundle-{{ checksum "Gemfile.lock" }}
           paths:
             - vendor/bundle
 
+      - run: bundle exec inspec vendor tests/integration/ubik
       - run: bundle exec kitchen test default-ubuntu-1604
 
   test_1704:
@@ -24,14 +23,13 @@ jobs:
 
       - restore_cache:
           key: v1-bundle-{{ checksum "Gemfile.lock" }}
-
       - run: bundle install --path vendor/bundle
-
       - save_cache:
           key: v1-bundle-{{ checksum "Gemfile.lock" }}
           paths:
             - vendor/bundle
 
+      - run: bundle exec inspec vendor tests/integration/ubik
       - run: bundle exec kitchen test default-ubuntu-1704
 
 workflows:

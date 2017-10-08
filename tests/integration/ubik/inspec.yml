@@ -1,0 +1,12 @@
+name: ubik
+title: Ubik laptop inspec profile
+maintainer: Giacomo Bagnoli
+copyright: Giacomo Bagnoli
+copyright_email: gbagnoli@gmail.com
+license: Apache-2.0
+summary: Main entry point for the inspec profiles
+version: 0.1.0
+depends:
+  - name: linux-baseline
+    git: https://github.com/dev-sec/linux-baseline.git
+    branch: master
