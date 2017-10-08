@@ -21,7 +21,8 @@ packages = {
   'skype' => 'https://repo.skype.com/latest/skypeforlinux-64.deb',
   'keybase' => 'https://prerelease.keybase.io/keybase_amd64.deb',
   'steam' => 'https://steamcdn-a.akamaihd.net/client/installer/steam.deb',
-  'vagrant' => 'https://releases.hashicorp.com/vagrant/2.0.0/vagrant_2.0.0_x86_64.deb'
+  'vagrant' => 'https://releases.hashicorp.com/vagrant/2.0.0/vagrant_2.0.0_x86_64.deb',
+  'dropbox' => 'https://linux.dropbox.com/packages/ubuntu/dropbox_2015.10.28_amd64.deb'
 }
 
 # accept steam license
@@ -48,6 +49,17 @@ packages.each do |name, url|
     action :nothing
     command "dpkg -i #{debfile}"
   end
+end
+
+# dropbox daemon
+remote_file '/usr/src/dropbox-daemon.tar.gz' do
+  source 'https://www.dropbox.com/download?plat=lnx.x86_64'
+end
+
+# dropbox control daemon from cli
+remote_file '/usr/local/bin/dropbox.py' do
+  source 'https://www.dropbox.com/download?dl=packages/dropbox.py'
+  mode '0755'
 end
 
 vagrant_plugins = %w[

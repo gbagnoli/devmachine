@@ -31,3 +31,11 @@ end
 file "#{home}/examples.desktop" do
   action :delete
 end
+
+execute 'irene_unpack_dropbox_daemon' do
+  command 'tar xzf /usr/src/dropbox-daemon.tar.gz'
+  cwd '/home/irene'
+  user 'irene'
+  subscribes :run, 'remote_file[/usr/src/dropbox-daemon.tar.gz]', :immediately
+  action :nothing
+end
