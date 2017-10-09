@@ -1,18 +1,14 @@
 packages = %w[
-  btrfs-tools compizconfig-settings-manager dstat exfat-fuse
-  exfat-utils firefox-trunk google-chrome-stable
-  google-talkplugin htop keepassx network-manager-openvpn-gnome
-  openvpn powertop shellcheck telegram tmux
-  ttf-mscorefonts-installer ufraw unity-tweak-tool
-  gstreamer1.0-plugins-ugly gstreamer1.0-libav
-  gstreamer1.0-pulseaudio libcurl3 libappindicator1
-  docker-ce python-apt gnome-terminal
-  qemu-kvm libvirt-dev libxslt1-dev libxml2-dev
-  rsyslog
-  gconf2 gconf-service libgtk2.0-0 libudev1 libgcrypt20 libnotify4
-  libxtst6 libnss3 python gvfs-bin xdg-utils apt-transport-https
-  libxss1 libgnome-keyring0 gir1.2-gnomekeyring-1.0
-  libappindicator1 libcurl3 libsecret-1-0
+  apt-transport-https btrfs-tools compizconfig-settings-manager docker-ce dstat
+  exfat-fuse exfat-utils firefox-trunk gconf-service gconf2
+  gir1.2-gnomekeyring-1.0 gnome-terminal google-chrome-stable google-talkplugin
+  gstreamer1.0-libav gstreamer1.0-plugins-ugly gstreamer1.0-pulseaudio gvfs-bin
+  htop keepassx libappindicator1 libappindicator1 libcurl3 libcurl3 libgcrypt20
+  libgnome-keyring0 libgtk2.0-0 libnotify4 libnss3 libsecret-1-0 libudev1
+  libvirt-dev libxml2-dev libxslt1-dev libxss1 libxtst6
+  network-manager-openvpn-gnome openvpn powertop python python-apt qemu-kvm
+  rsyslog shellcheck telegram tmux ttf-mscorefonts-installer ufraw
+  unity-tweak-tool xdg-utils
 ]
 
 package 'base install' do
