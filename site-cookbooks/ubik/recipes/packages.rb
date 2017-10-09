@@ -9,6 +9,10 @@ packages = %w[
   docker-ce python-apt gnome-terminal
   qemu-kvm libvirt-dev libxslt1-dev libxml2-dev
   rsyslog
+  gconf2 gconf-service libgtk2.0-0 libudev1 libgcrypt20 libnotify4
+  libxtst6 libnss3 python gvfs-bin xdg-utils apt-transport-https
+  libxss1 libgnome-keyring0 gir1.2-gnomekeyring-1.0
+  libappindicator1 libcurl3 libsecret-1-0
 ]
 
 package 'base install' do
