@@ -22,7 +22,8 @@ packages = {
   'keybase' => 'https://prerelease.keybase.io/keybase_amd64.deb',
   'steam' => 'https://steamcdn-a.akamaihd.net/client/installer/steam.deb',
   'vagrant' => 'https://releases.hashicorp.com/vagrant/2.0.0/vagrant_2.0.0_x86_64.deb',
-  'dropbox' => 'https://linux.dropbox.com/packages/ubuntu/dropbox_2015.10.28_amd64.deb'
+  'dropbox' => 'https://linux.dropbox.com/packages/ubuntu/dropbox_2015.10.28_amd64.deb',
+  'slack' => 'https://downloads.slack-edge.com/linux_releases/slack-desktop-2.8.1-amd64.deb'
 }
 
 # accept steam license
@@ -41,6 +42,7 @@ end
 packages.each do |name, url|
   debfile = "/usr/src/#{name}.deb"
   remote_file debfile do
+    action :create_if_missing
     source url
     notifies :run, "execute[install_#{name}]", :immediately
   end
