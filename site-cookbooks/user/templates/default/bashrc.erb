@@ -123,6 +123,9 @@ fi
 
 export CLICOLOR=1
 export PATH="$PATH:$HOME/.rbenv/bin:$HOME/.local/bin"
+if [ -d /opt/android/platform-tools/ ]; then
+  export PATH="$PATH:/opt/android/platform-tools"
+fi
 
 # python
 if which pyenv > /dev/null; then
@@ -200,7 +203,7 @@ rtmux() {
 }
 
 # shellcheck disable=SC2039
-if which rbenv &>/dev/null; then 
+if which rbenv &>/dev/null; then
   eval "$(rbenv init -)"
 fi
 

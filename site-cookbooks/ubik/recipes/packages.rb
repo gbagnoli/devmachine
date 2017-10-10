@@ -75,3 +75,18 @@ vagrant_plugins.each do |plg|
     not_if "vagrant plugin list | grep -q '^#{plg} '"
   end
 end
+
+directory '/opt/android' do
+  recursive true
+end
+
+# android platform tools
+remote_file '/usr/src/android_platform_tools.zip' do
+  source 'https://dl.google.com/android/repository/platform-tools-latest-linux.zip'
+  notifies :run, 'execute[unzip_android_platform_tools]', :immediately
+end
+
+execute 'unzip_android_platform_tools' do
+  action :nothing
+  command 'unzip /usr/src/android_platform_tools.zip -d /opt/android/'
+end
