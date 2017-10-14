@@ -6,7 +6,7 @@ run_list [
   'recipe[ssh-hardening::server]',
   'recipe[ssh-hardening::client]',
   'recipe[ubik::users]',
-  'recipe[pyenv::user]',
+  'recipe[ubik::python]',
   'recipe[ruby_build]',
   'recipe[ruby_rbenv::user]',
   'recipe[java]',
