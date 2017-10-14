@@ -15,8 +15,10 @@ apt_repository 'git' do
   uri 'ppa:git-core/ppa'
 end
 
-apt_repository 'neovim' do
-  uri 'ppa:neovim-ppa/unstable'
+unless node['lsb']['release'][0..1].to_i >= 17
+  apt_repository 'neovim' do
+    uri 'ppa:neovim-ppa/unstable'
+  end
 end
 
 file '/etc/apt/sources.list.d/chrome.list' do
