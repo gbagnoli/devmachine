@@ -1,6 +1,6 @@
 packages = %w[
   apt-transport-https btrfs-tools compizconfig-settings-manager docker-ce dstat
-  exfat-fuse exfat-utils firefox-trunk gconf-service gconf2
+  exfat-fuse exfat-utils firefox gconf-service gconf2
   gir1.2-gnomekeyring-1.0 gnome-terminal google-chrome-stable google-talkplugin
   gstreamer1.0-libav gstreamer1.0-plugins-ugly gstreamer1.0-pulseaudio gvfs-bin
   htop keepassx libappindicator1 libappindicator1 libcurl3 libcurl3 libgcrypt20

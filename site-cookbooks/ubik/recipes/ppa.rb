@@ -60,8 +60,16 @@ apt_repository 'telegram' do
   uri 'ppa:atareao/telegram'
 end
 
-apt_repository 'firefox-nightly' do
-  uri 'ppa:ubuntu-mozilla-daily/ppa'
+apt_package 'firefox-trunk' do
+  action :purge
+end
+
+file '/etc/apt/sources.list.d/firefox-nightly.list' do
+  action :delete
+end
+
+apt_repository 'firefox-beta' do
+  uri 'ppa:mozillateam/firefox-next'
 end
 
 apt_repository 'docker' do
