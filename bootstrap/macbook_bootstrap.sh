@@ -18,6 +18,15 @@ APPS=(
   htop
   syncthing
   gpsbabel
+  bash-completions
+  brew-cask-completion
+  gem-completion
+  fabric-completion
+  kitchen-completion
+  launchctl-completion
+  pip-completion
+  rake-completion
+  ruby-completion
 )
 
 CASKS=(
