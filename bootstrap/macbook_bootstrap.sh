@@ -27,6 +27,8 @@ APPS=(
   pip-completion
   rake-completion
   ruby-completion
+  coreutils
+  gnu-sed
 )
 
 CASKS=(
