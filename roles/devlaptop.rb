@@ -78,6 +78,10 @@ default_attributes(
     'user_installs' => [{
       'upgrade' => 'sync',
       'user' => 'giacomo',
+      'plugins' => [{
+        'name' => 'chefdk',
+        'git_url' => 'https://github.com/docwhat/rbenv-chefdk.git',
+      }],
       'rubies' => ['2.4.2'],
       'global' => '2.4.2',
       'gems' => {
