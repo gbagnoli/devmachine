@@ -88,5 +88,5 @@ end
 
 execute 'unzip_android_platform_tools' do
   action :nothing
-  command 'unzip /usr/src/android_platform_tools.zip -d /opt/android/'
+  command 'unzip -o /usr/src/android_platform_tools.zip -d /opt/android/'
 end
