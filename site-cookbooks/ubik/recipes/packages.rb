@@ -21,7 +21,7 @@ packages = {
   'skype' => 'https://repo.skype.com/latest/skypeforlinux-64.deb',
   'keybase' => 'https://prerelease.keybase.io/keybase_amd64.deb',
   'steam' => 'https://steamcdn-a.akamaihd.net/client/installer/steam.deb',
-  'vagrant' => 'https://releases.hashicorp.com/vagrant/2.0.0/vagrant_2.0.0_x86_64.deb',
+  'vagrant' => 'https://releases.hashicorp.com/vagrant/2.0.1/vagrant_2.0.1_x86_64.deb',
   'dropbox' => 'https://linux.dropbox.com/packages/ubuntu/dropbox_2015.10.28_amd64.deb',
   'slack' => 'https://downloads.slack-edge.com/linux_releases/slack-desktop-2.8.1-amd64.deb'
 }
