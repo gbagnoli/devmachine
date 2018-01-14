@@ -8,13 +8,13 @@ DEPENDENCIES
     path: site-cookbooks/dnscrypt_proxy
   gnome
     path: site-cookbooks/gnome
-  os-hardening
+  hardening
+    path: site-cookbooks/hardening
   profile_sync_daemon
     path: site-cookbooks/profile_sync_daemon
   pyenv
     git: https://github.com/sds/chef-pyenv.git
     revision: 89600c35ea1b5f3de3c9330a80dc62d4021cfd17
-  ssh-hardening
   syncthing
     path: site-cookbooks/syncthing
   ubik
@@ -37,6 +37,9 @@ GRAPH
     build-essential (>= 0.0.0)
     homebrew (>= 0.0.0)
   gnome (0.1.0)
+  hardening (0.1.0)
+    os-hardening (>= 0.0.0)
+    ssh-hardening (>= 0.0.0)
   homebrew (4.3.0)
   java (1.50.0)
     apt (>= 0.0.0)
