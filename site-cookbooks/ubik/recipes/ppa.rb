@@ -79,3 +79,13 @@ apt_repository 'docker' do
   components ['stable']
   key 'https://download.docker.com/linux/ubuntu/gpg'
 end
+
+if node['lsb']['codename'] == 'xenial'
+  apt_repository 'gnome3-staging' do
+    uri 'ppa:gnome3-team/gnome3-staging'
+  end
+
+  apt_repository 'gnome3' do
+    uri 'ppa:gnome3-team/gnome3'
+  end
+end
