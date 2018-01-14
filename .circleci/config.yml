@@ -14,7 +14,9 @@ jobs:
             - vendor/bundle
 
       - run: bundle exec inspec vendor tests/integration/ubik
-      - run: bundle exec kitchen test default-ubuntu-1604
+      - run: 
+          command: bundle exec kitchen test default-ubuntu-1604
+          no_output_timeout: 1200
 
   test_1704:
     machine: true
@@ -30,7 +32,9 @@ jobs:
             - vendor/bundle
 
       - run: bundle exec inspec vendor tests/integration/ubik
-      - run: bundle exec kitchen test default-ubuntu-1704
+      - run:
+          command: bundle exec kitchen test default-ubuntu-1704
+          no_output_timeout: 1200
 
 workflows:
   version: 2
