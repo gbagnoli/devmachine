@@ -1,6 +1,6 @@
 packages = %w[
   apt-transport-https btrfs-tools compizconfig-settings-manager docker-ce dstat
-  exfat-fuse exfat-utils firefox gconf-service gconf2 gdm
+  exfat-fuse exfat-utils firefox gconf-service gconf2
   gir1.2-gnomekeyring-1.0 gnome gnome-shell gnome-terminal google-chrome-stable
   google-talkplugin gstreamer1.0-libav gstreamer1.0-plugins-ugly
   gstreamer1.0-pulseaudio gvfs-bin htop keepassx libappindicator1
@@ -11,6 +11,10 @@ packages = %w[
   ttf-mscorefonts-installer ubuntu-gnome-desktop ufraw unity-tweak-tool
   xdg-utils
 ]
+
+if node['platform'] == 'ubuntu' and node['lsb']['codename'] != 'xenial'
+  packages << 'gdm'
+end
 
 package 'base install' do
   package_name packages
