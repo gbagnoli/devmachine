@@ -7,7 +7,13 @@ package 'language-selector-common'
                "language-pack-gnome-#{lang}",
                "language-pack-#{lang}-base",
                "language-pack-gnome-#{lang}-base"]
-  packages += `$(which check-language-support) && check-language-support -l #{lang}`.split(' ')
+  begin
+    clsupport = Mixlib::ShellOut.new("check-language-support -l #{lang}")
+    clsupport.run_command
+    clsupport.error!
+    packages += clsupport.stdout.split(' ')
+  rescue
+  end
 end
 
 packages.each do |pkg|

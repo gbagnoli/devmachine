@@ -76,7 +76,7 @@ link "#{home}/.config/nvim/init.vim" do
   to "#{dotfiles}/vim/vimrc"
 end
 
-if node.platform?('debian')
+if platform?('debian')
   package 'libc6-dev'
   package 'libexpat1-dev'
   package 'libpython2.7-dev'

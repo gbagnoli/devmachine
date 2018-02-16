@@ -1,6 +1,5 @@
 resource_name :gnome_autostart
 
-property :name, String, name_property: true
 property :script_content, String, required: true
 property :user, String, required: true
 property :group, String, default: 'users'

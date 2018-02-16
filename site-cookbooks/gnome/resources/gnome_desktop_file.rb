@@ -1,6 +1,5 @@
 resource_name :gnome_desktop_file
 
-property :name, String, name_property: true
 property :user, String, required: true
 property :group, [String, NilClass], default: nil
 property :exec, String, required: true
