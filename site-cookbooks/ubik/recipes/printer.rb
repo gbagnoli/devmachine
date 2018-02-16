@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 directory '/var/chef/cache' do
   action :create
   recursive true

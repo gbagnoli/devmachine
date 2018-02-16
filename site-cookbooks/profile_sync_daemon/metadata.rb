@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 name 'profile_sync_daemon'
 maintainer 'Giacomo Bagnoli'
 maintainer_email 'gbagnoli@gmail.com'

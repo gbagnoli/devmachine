@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 resource_name :gnome_desktop_file
 
 property :user, String, required: true
@@ -24,9 +26,9 @@ action :create do
     owner user
     group groupname
     mode '0644'
-    content <<-HEREDOC
-[Desktop Entry]
-#{options_string}
+    content <<~HEREDOC
+      [Desktop Entry]
+      #{options_string}
 HEREDOC
   end
 end
@@ -59,8 +61,8 @@ action_class do
   end
 
   def options_string
-    str = ""
-    new_resource.options.each do |k,v|
+    str = ''
+    new_resource.options.each do |k, v|
       str = "#{str}\n#{k.upcase}=#{v}"
     end
     str

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 include_recipe 'pyenv::user'
 
 node['pyenv']['user_installs'].each do |desc|

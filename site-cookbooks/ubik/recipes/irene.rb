@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 user = 'irene'
 group = 'irene'
 home = "/home/#{user}"
@@ -19,8 +21,8 @@ user user do
   comment realname
 end
 
-[ "#{home}/Sync",
-  "#{home}/Sync/Private"].each do |d|
+["#{home}/Sync",
+ "#{home}/Sync/Private"].each do |d|
   directory d do
     mode '0750'
     owner user

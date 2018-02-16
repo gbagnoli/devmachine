@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 nerdfonts = '/usr/src/nerdfonts'
 nerdfonts_repo = 'https://github.com/ryanoasis/nerd-fonts.git'
 

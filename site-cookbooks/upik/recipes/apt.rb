@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 package 'apt-transport-https'
 
 releases = {
@@ -10,7 +12,7 @@ releases = {
 }
 
 mirror = 'http://debian.heanet.ie/debian/'
-def_components = %w(main contrib non-free)
+def_components = %w[main contrib non-free]
 
 releases.each do |name, conf|
   apt_preference name do
@@ -20,14 +22,14 @@ releases.each do |name, conf|
   end
 end
 
-%w(ubilinux-archive-jessie-ubilinux.gpg ubiworx-archive-ubiworx.gpg).each do |f|
+%w[ubilinux-archive-jessie-ubilinux.gpg ubiworx-archive-ubiworx.gpg].each do |f|
   cookbook_file "/etc/apt/trusted.gpg.d/#{f}" do
     source f
     mode '0644'
   end
 end
 
-%w(jessie jessie-security jessie-updates sources).each do |repo|
+%w[jessie jessie-security jessie-updates sources].each do |repo|
   apt_repository repo do
     action :remove
   end
@@ -57,7 +59,7 @@ apt_repository 'testing-security' do
   components def_components
 end
 
-%w(stable testing unstable experimental).each do |distribution|
+%w[stable testing unstable experimental].each do |distribution|
   apt_repository distribution do
     uri mirror
     distribution distribution
@@ -65,7 +67,7 @@ end
   end
 end
 
-%w(stable testing).each do |distribution|
+%w[stable testing].each do |distribution|
   apt_repository "#{distribution}-updates" do
     uri mirror
     distribution "#{distribution}-updates"

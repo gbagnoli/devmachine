@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 default['user']['login'] = 'giacomo'
 default['user']['group'] = 'giacomo'
 default['user']['uid'] = 1000

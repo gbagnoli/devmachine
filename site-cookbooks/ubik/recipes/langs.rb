@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 packages = []
 
 package 'language-selector-common'
@@ -12,11 +14,12 @@ package 'language-selector-common'
     clsupport.run_command
     clsupport.error!
     packages += clsupport.stdout.split(' ')
-  rescue
+  # rubocop:disable Lint/HandleExceptions
+  rescue StandardError
   end
+  # rubocop:enable Lint/HandleExceptions
 end
 
 packages.each do |pkg|
   package pkg
 end
-

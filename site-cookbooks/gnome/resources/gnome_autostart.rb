@@ -1,10 +1,12 @@
+# frozen_string_literal: true
+
 resource_name :gnome_autostart
 
 property :script_content, String, required: true
 property :user, String, required: true
 property :group, String, default: 'users'
 property :comment, String, default: ''
-property :shell, String, default:'/bin/bash'
+property :shell, String, default: '/bin/bash'
 
 action :install do
   %w[.local .local/bin .local/logs .config .config/autostart].each do |dir|
@@ -16,14 +18,14 @@ action :install do
   end
 
   file scriptname do
-    content <<-HEREDOC
-#!#{new_resource.shell}
-exec >> #{logname}
-exec 2>&1
-echo "[$(date)] Running '#{name}'"
-#{new_resource.script_content}
-echo "[$(date)] -- END"
-echo
+    content <<~HEREDOC
+      #!#{new_resource.shell}
+      exec >> #{logname}
+      exec 2>&1
+      echo "[$(date)] Running '#{name}'"
+      #{new_resource.script_content}
+      echo "[$(date)] -- END"
+      echo
 HEREDOC
     mode '0775'
     owner user
@@ -31,15 +33,15 @@ HEREDOC
   end
 
   file desktopfile do
-    content <<HEREDOC
-[Desktop Entry]
-Type=Application
-Exec=#{scriptname}
-Hidden=False
-NoDisplay=False
-X-GNOME-Autostart-enabled=true
-Name=#{new_resource.name}
-Comment=#{new_resource.comment}
+    content <<~HEREDOC
+      [Desktop Entry]
+      Type=Application
+      Exec=#{scriptname}
+      Hidden=False
+      NoDisplay=False
+      X-GNOME-Autostart-enabled=true
+      Name=#{new_resource.name}
+      Comment=#{new_resource.comment}
 HEREDOC
     owner user
     group group

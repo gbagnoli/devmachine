@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 packages = %w[
   apt-transport-https btrfs-tools compizconfig-settings-manager docker-ce dstat
   exfat-fuse exfat-utils firefox gconf-service gconf2 gdm3

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 name 'gnome'
 maintainer 'Giacomo Bagnoli'
 maintainer_email 'gbagnoli@gmail.com'

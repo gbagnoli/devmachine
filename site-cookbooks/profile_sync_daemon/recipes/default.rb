@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 apt_repository 'profile_sync_daemon' do
   uri 'ppa:graysky/utils'
 end
@@ -8,8 +10,8 @@ package 'profile-sync-daemon'
 node['profile_sync_daemon']['users'].each do |user|
   if node['profile_sync_daemon']['overlayfs']
     file "/etc/sudoers.d/psd-#{user}" do
-      content <<-EOH
-#{user} ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper
+      content <<~EOH
+        #{user} ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper
       EOH
     end
   end
@@ -45,7 +47,7 @@ node['profile_sync_daemon']['users'].each do |user|
   end
 
   link "/home/#{user}/.config/systemd/user/default.target.wants/psd.service" do
-    to "/usr/lib/systemd/user/psd.service"
+    to '/usr/lib/systemd/user/psd.service'
     owner user
     group user
   end

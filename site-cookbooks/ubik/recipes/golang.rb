@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 directory '/var/cache/chef' do
   recursive true
 end
@@ -19,6 +21,3 @@ execute 'install golang' do
   cwd '/var/cache/chef'
   not_if "go version 2>/dev/null | grep -q go#{version}"
 end
-
-
-

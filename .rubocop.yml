@@ -1,0 +1,9 @@
+Metrics/LineLength:
+  Max: 110
+
+Metrics/BlockLength:
+  Max: 80
+
+Naming/HeredocDelimiterNaming:
+  Blacklist:
+    - END

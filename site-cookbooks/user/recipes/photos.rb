@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 %w[exiftool python-wxgtk3.0 python-imaging python-unidecode
    libfreeimage3 libfontconfig1:i386 libxt6:i386 libxrender1:i386
    libxext6:i386 libgl1-mesa-glx:i386 libgl1-mesa-dri:i386 libcurl3:i386
@@ -42,25 +44,25 @@ git "#{home}/.local/src/gpicsync" do
 end
 
 file "#{home}/.local/bin/gpicsync" do
-  content <<EOC
-#!/bin/bash
-cd #{home}/.local/src/gpicsync/src/
-/usr/bin/python2.7 gpicsync.py "$@"
+  content <<~EOC
+    #!/bin/bash
+    cd #{home}/.local/src/gpicsync/src/
+    /usr/bin/python2.7 gpicsync.py "$@"
 EOC
   owner user
   group node['user']['group']
-  mode 0750
+  mode 0o750
 end
 
 file "#{home}/.local/bin/gpicsync-GUI" do
-  content <<EOC
-#!/bin/bash
-cd #{home}/.local/src/gpicsync/src/
-/usr/bin/python2.7 gpicsync-GUI.py "$@"
+  content <<~EOC
+    #!/bin/bash
+    cd #{home}/.local/src/gpicsync/src/
+    /usr/bin/python2.7 gpicsync-GUI.py "$@"
 EOC
   owner user
   group node['user']['group']
-  mode 0750
+  mode 0o750
 end
 
 git "#{home}/workspace/photo_process" do

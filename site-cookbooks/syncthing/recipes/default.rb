@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 apt_repository 'syncthing' do
   uri 'http://apt.syncthing.net/'
   distribution 'syncthing'
@@ -8,16 +10,13 @@ end
 package 'syncthing'
 
 node['syncthing']['users'].each do |user, conf|
-  home="/home/#{user}"
+  home = "/home/#{user}"
   syncthing_conf_d = "#{home}/.config/syncthing"
   syncthing_conf = "#{syncthing_conf_d}/config.xml"
   unless conf.nil?
     host = conf['hostname']
     port = conf['port']
-    if port.nil? || host.nil?
-      raise Exception.new(
-        "Missing port or hostname for user #{user} (conf: #{conf}")
-    end
+    raise Exception, "Missing port or hostname for user #{user} (conf: #{conf}" if port.nil? || host.nil?
 
     # configure syncthing
     execute 'create syncthing config' do
@@ -36,10 +35,9 @@ node['syncthing']['users'].each do |user, conf|
     end
   end
 
-  unless node['syncthing']['skip_service']
-    service "syncthing@#{user}" do
-      action [:enable, :start]
-      provider Chef::Provider::Service::Systemd
-    end
+  next if node['syncthing']['skip_service']
+  service "syncthing@#{user}" do
+    action %i[enable start]
+    provider Chef::Provider::Service::Systemd
   end
 end
