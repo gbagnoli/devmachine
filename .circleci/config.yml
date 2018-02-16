@@ -1,5 +1,21 @@
 version: 2
 jobs:
+  style:
+    machine: true
+    steps:
+      - checkout
+
+      - restore_cache:
+          key: v1-bundle-{{ checksum "Gemfile.lock" }}
+      - run: bundle install --path vendor/bundle
+      - save_cache:
+          key: v1-bundle-{{ checksum "Gemfile.lock" }}
+          paths:
+            - vendor/bundle
+
+      - run: bundle exec rubocop site-cookbooks
+      - run: bundle exec foodcritic site-cookbooks
+
   test_1604:
     machine: true
     steps:
@@ -40,5 +56,6 @@ workflows:
   version: 2
   converge:
     jobs:
+      - style
       - test_1604
       - test_1710
