@@ -12,7 +12,7 @@ action :install do
     directory "#{home}/#{dir}" do
       owner user
       group group
-      mode '0770'
+      mode '0750'
     end
   end
 
