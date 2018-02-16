@@ -3,7 +3,7 @@
 set -eu
 set -o pipefail
 
-CHEFDK='https://packages.chef.io/files/stable/chefdk/1.6.11/ubuntu/16.04/chefdk_1.6.11-1_amd64.deb'
+CHEFDK='https://packages.chef.io/files/stable/chefdk/2.4.17/ubuntu/16.04/chefdk_2.4.17-1_amd64.deb'
 
 sudo apt update
 sudo apt full-upgrade -y

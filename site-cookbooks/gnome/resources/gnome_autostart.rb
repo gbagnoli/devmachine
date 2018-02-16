@@ -18,11 +18,11 @@ action :install do
 
   file scriptname do
     content <<-HEREDOC
-#!#{shell}
+#!#{new_resource.shell}
 exec >> #{logname}
 exec 2>&1
 echo "[$(date)] Running '#{name}'"
-#{script_content}
+#{new_resource.script_content}
 echo "[$(date)] -- END"
 echo
 HEREDOC
@@ -40,7 +40,7 @@ Hidden=False
 NoDisplay=False
 X-GNOME-Autostart-enabled=true
 Name=#{new_resource.name}
-Comment=#{comment}
+Comment=#{new_resource.comment}
 HEREDOC
     owner user
     group group
