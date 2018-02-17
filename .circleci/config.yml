@@ -57,5 +57,9 @@ workflows:
   converge:
     jobs:
       - style
-      - test_1604
-      - test_1710
+      - test_1604:
+        requires:
+          - style
+      - test_1710:
+        requires:
+          - style
