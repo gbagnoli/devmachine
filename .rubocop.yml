@@ -7,3 +7,6 @@ Metrics/BlockLength:
 Naming/HeredocDelimiterNaming:
   Blacklist:
     - END
+
+AllCops:
+  TargetRubyVersion: 2.4.2
