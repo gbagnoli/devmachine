@@ -91,9 +91,29 @@ def rsync(remote):
                   exclude=("data", "boostrap", "local-mode-cache", ".git"),
                   extra_opts="-q")
 
+def install_git_hooks(here):
+    print("Installing git hooks")
+    pre_commit_src = os.path.join(here, 'hooks', 'pre-commit.sh')
+    pre_commit = os.path.join(here, '.git', 'hooks', 'pre-commit')
+    pre_push = os.path.join(here, '.git', 'hooks', 'pre-push')
+    hooks = {
+        pre_commit: pre_commit_src,
+        pre_push: pre_commit_src,
+    }
+    for dest, src in hooks.items():
+        try:
+            os.symlink(src, dest)
+            print(" - {} -> {}".format(dest, src))
+        except OSError as e:
+            if e.errno == 17:
+                continue
+            raise e
+
+
 @task
 def run(remote="/usr/local/src/chefrepo/"):
     here = os.path.dirname(os.path.abspath(__file__))
+    install_git_hooks(here)
     if env.host_string == None:
         vendor()
         local_chef(socket.gethostname())
