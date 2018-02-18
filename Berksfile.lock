@@ -10,6 +10,10 @@ DEPENDENCIES
     path: site-cookbooks/gnome
   hardening
     path: site-cookbooks/hardening
+  marvin
+    path: site-cookbooks/marvin
+  openvpn
+    path: site-cookbooks/openvpn
   profile_sync_daemon
     path: site-cookbooks/profile_sync_daemon
   pyenv
@@ -46,9 +50,11 @@ GRAPH
     apt (>= 0.0.0)
     homebrew (>= 0.0.0)
     windows (>= 0.0.0)
+  marvin (0.1.0)
   mingw (2.0.2)
     seven_zip (>= 0.0.0)
   ohai (5.2.2)
+  openvpn (0.1.0)
   os-hardening (3.0.0)
     compat_resource (>= 12.16.3)
     sysctl (<= 0.9.0)
