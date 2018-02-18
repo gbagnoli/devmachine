@@ -8,6 +8,7 @@ run_list [
   'recipe[ruby_build]',
   'recipe[ruby_rbenv::user]',
   'recipe[java]',
+  'recipe[openvpn]',
   'recipe[ubik]',
   'recipe[syncthing]'
 ]

@@ -12,6 +12,9 @@ default_attributes(
   'ubik' => {
     'enable_mtrack' => true
   },
+  'openvpn' => {
+    'override_distribution' => 'xenial'
+  },
   'users' => {
     'irene' => {
       'uid' => 1001,
