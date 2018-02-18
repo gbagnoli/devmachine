@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+return if platform?('ubuntu') && node['lsb']['codename'] == 'xenial'
+
 version = '0.4.1'
 package_name = 'xserver-xorg-input-mtrack'
 deb = "#{package_name}_#{version}_amd64.deb"
