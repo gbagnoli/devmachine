@@ -2,7 +2,7 @@ name 'upik'
 description 'Configure upik'
 run_list [
   'recipe[apt::unattended-upgrades]',
-  'recipe[omnibus_updater]',
+  'recipe[chef_client_updater]',
   'recipe[btrbk]',
   'recipe[upik::mounts]',
   'recipe[upik::default]',
@@ -41,7 +41,11 @@ override_attributes(
       'remove_unused_dependencies' => true
     }
   },
-  'omnibus_updater' => {
-    'version' => '12.21.14'
+  'chef_client_updater' => {
+    'version' => '13',
+    'upgrade_delay' => 0,
+  },
+  'upik' => {
+    'skip_mounts' => false
   }
 )
