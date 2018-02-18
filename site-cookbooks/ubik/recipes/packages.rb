@@ -17,6 +17,7 @@ packages = %w[
 package 'base install' do
   package_name packages
   action :install
+  timeout 1800
 end
 
 packages = {
