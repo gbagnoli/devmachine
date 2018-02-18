@@ -5,8 +5,6 @@ run_list [
   'recipe[btrbk]',
   'recipe[upik::mounts]',
   'recipe[upik::default]',
-  'recipe[user]',
-  'recipe[syncthing]',
   'recipe[dnscrypt_proxy]'
 ]
 

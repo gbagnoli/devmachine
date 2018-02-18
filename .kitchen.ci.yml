@@ -1,20 +1,29 @@
 ---
 driver:
-  name: vagrant
-  provider: libvirt
-  cachier: true
+  name: dokken
+  chef_version: 13.7.16
+  privileged: true # because Docker and SystemD/Upstart
+  volumes:
+    - /sys/fs/cgroup:/sys/fs/cgroup
+
+transport:
+  name: dokken
+
+provisioner:
+  name: dokken
 
 verifier:
   name: inspec
 
-provisioner:
-  name: chef_zero
-
 platforms:
   - name: ubuntu-16.04
     driver:
-      box: elastic/ubuntu-16.04-x86_64
+      image: dokken/ubuntu-16.04
+      pid_one_command: /bin/systemd
   - name: ubuntu-17.10
+    driver:
+      image: dokken/ubuntu-17.10
+      pid_one_command: /bin/systemd
 
 suites:
   - name: ubik

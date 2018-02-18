@@ -87,6 +87,12 @@ end
   package pkg
 end
 
+unless node['lsb']['release'][0..1].to_i >= 17
+  apt_repository 'neovim' do
+    uri 'ppa:neovim-ppa/unstable'
+  end
+end
+
 package 'neovim' do
   action :install
   notifies :run, 'bash[set nvim alternatives]', :immediately
@@ -149,6 +155,11 @@ if node['platform'] == 'debian'
     mode '0755'
   end
 else
+  apt_repository 'fasd' do
+    uri 'ppa:aacebedo/fasd'
+    distribution node['lsb']['codename'] == 'zesty' ? 'yakkety' : node['lsb']['codename']
+  end
+
   package 'fasd'
 end
 

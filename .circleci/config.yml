@@ -16,7 +16,7 @@ jobs:
       - run: bundle exec rubocop site-cookbooks roles
       - run: bundle exec foodcritic -B site-cookbooks -R roles
 
-  test_1604:
+  ubik_1604:
     machine: true
     steps:
       - checkout
@@ -31,10 +31,10 @@ jobs:
 
       - run: bundle exec inspec vendor tests/integration/ubik
       - run: 
-          command: bundle exec kitchen test default-ubuntu-1604
+          command: KITCHEN_YAML=.kitchen.ci.yml bundle exec kitchen test ubik-ubuntu-1604
           no_output_timeout: 1200
 
-  test_1710:
+  ubik_1710:
     machine: true
     steps:
       - checkout
@@ -49,7 +49,25 @@ jobs:
 
       - run: bundle exec inspec vendor tests/integration/ubik
       - run:
-          command: bundle exec kitchen test default-ubuntu-1710
+          command: KITCHEN_YAML=.kitchen.ci.yml bundle exec kitchen test ubik-ubuntu-1710
+          no_output_timeout: 1200
+
+  marvin_1604:
+    machine: true
+    steps:
+      - checkout
+
+      - restore_cache:
+          key: v1-bundle-{{ checksum "Gemfile.lock" }}
+      - run: bundle install --path vendor/bundle
+      - save_cache:
+          key: v1-bundle-{{ checksum "Gemfile.lock" }}
+          paths:
+            - vendor/bundle
+
+      - run: bundle exec inspec vendor tests/integration/ubik
+      - run:
+          command: KITCHEN_YAML=.kitchen.ci.yml bundle exec kitchen test marvin-ubuntu-1604
           no_output_timeout: 1200
 
 workflows:
@@ -57,9 +75,12 @@ workflows:
   converge:
     jobs:
       - style
-      - test_1604:
+      - ubik_1604:
           requires:
             - style
-      - test_1710:
+      - marvin_1604:
+          requires:
+            - style
+      - ubik_1710:
           requires:
             - style
