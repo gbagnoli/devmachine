@@ -10,6 +10,7 @@ apt_package 'xserver-xorg-input-mtrack' do
 end
 
 file "#{x11_conf_d}/50-xps-touchpad.conf" do
+  mode '0644'
   content <<~EOH
     # Disable generic Synaptics device, as we're using
     # "DLL0704:01 06CB:76AE Touchpad"
@@ -22,7 +23,8 @@ file "#{x11_conf_d}/50-xps-touchpad.conf" do
       MatchDevicePath "/dev/input/event*"
       Option "Ignore" "on"
     EndSection
-     Section "InputClass"
+
+    Section "InputClass"
       Identifier "touchpad catchall"
       Driver "synaptics"
       MatchIsTouchpad "on"
