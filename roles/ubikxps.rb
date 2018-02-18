@@ -2,7 +2,8 @@ name 'ubikxps'
 description 'ubik xps laptop'
 run_list [
   'role[devlaptop]',
-  'recipe[user::ubikxps]'
+  'recipe[user::ubikxps]',
+  'recipe[ubik::xps_trackpad]'
 ]
 
 override_attributes(
