@@ -3,7 +3,7 @@ from __future__ import print_function
 import os
 import socket
 import sys
-from StringIO import StringIO
+from io import StringIO
 from fabric.api import (
     cd,
     env,
@@ -89,7 +89,8 @@ def rsync(remote):
     rsync_project(local_dir="./",
                   remote_dir=remote,
                   exclude=("data", "boostrap", "local-mode-cache", ".git"),
-                  extra_opts="-q")
+                  extra_opts="-q",
+                  delete=True)
 
 def install_git_hooks(here):
     print("Installing git hooks")

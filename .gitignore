@@ -7,3 +7,4 @@ fabfile.pyc
 .kitchen/
 .kitchen.local.yml
 tests/**/vendor
+__pycache__
