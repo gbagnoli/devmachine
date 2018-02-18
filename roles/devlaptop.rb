@@ -21,7 +21,7 @@ default_attributes(
     'golang' => {
       'version' => '1.10'
     },
-    'languages' => %w(en it),
+    'languages' => %w[en it],
     'enable_mtrack' => false,
     'install_latex' => true,
     'install_fonts' => true
@@ -78,7 +78,7 @@ default_attributes(
       'user' => 'giacomo',
       'plugins' => [{
         'name' => 'chefdk',
-        'git_url' => 'https://github.com/docwhat/rbenv-chefdk.git',
+        'git_url' => 'https://github.com/docwhat/rbenv-chefdk.git'
       }],
       'rubies' => ['2.4.3', '2.5.0'],
       'global' => '2.4.3',

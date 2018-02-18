@@ -13,8 +13,8 @@ jobs:
           paths:
             - vendor/bundle
 
-      - run: bundle exec rubocop site-cookbooks
-      - run: bundle exec foodcritic site-cookbooks
+      - run: bundle exec rubocop site-cookbooks roles
+      - run: bundle exec foodcritic -B site-cookbooks -R roles
 
   test_1604:
     machine: true

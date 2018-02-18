@@ -43,7 +43,7 @@ override_attributes(
   },
   'chef_client_updater' => {
     'version' => '13',
-    'upgrade_delay' => 0,
+    'upgrade_delay' => 0
   },
   'upik' => {
     'skip_mounts' => false
