@@ -205,3 +205,11 @@ group 'docker' do
   action :manage
   members node['user']['login']
 end
+
+node['user']['ssh_authorized_keys'].each do |desc|
+  ssh_authorize_key desc[:name] do
+    key desc[:pubkey]
+    user node['user']['login']
+    keytype desc[:keytype]
+  end
+end
