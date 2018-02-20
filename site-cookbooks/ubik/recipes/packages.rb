@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 packages = %w[
-  apt-transport-https btrfs-tools compizconfig-settings-manager docker-ce dstat
-  exfat-fuse exfat-utils firefox gconf-service gconf2 gdm3
+  apt-transport-https btrfs-tools compizconfig-settings-manager dkms docker-ce
+  dstat exfat-fuse exfat-utils firefox gconf-service gconf2 gdm3
   gir1.2-gnomekeyring-1.0 gnome gnome-shell gnome-terminal google-chrome-stable
   google-talkplugin gstreamer1.0-libav gstreamer1.0-plugins-ugly
   gstreamer1.0-pulseaudio gvfs-bin htop keepassx libappindicator1
@@ -11,7 +11,7 @@ packages = %w[
   libxslt1-dev libxss1 libxtst6 network-manager-openvpn-gnome openvpn powertop
   python python-apt qemu-kvm rsyslog shellcheck telegram tmux
   ttf-mscorefonts-installer ubuntu-gnome-desktop ufraw unity-tweak-tool
-  virtualbox virtualbox-dmks xdg-utils
+  virtualbox-5.2 xdg-utils
 ]
 
 package 'base install' do
@@ -25,7 +25,7 @@ packages = {
   'skype' => 'https://repo.skype.com/latest/skypeforlinux-64.deb',
   'keybase' => 'https://prerelease.keybase.io/keybase_amd64.deb',
   'steam' => 'https://steamcdn-a.akamaihd.net/client/installer/steam.deb',
-  'vagrant' => 'https://releases.hashicorp.com/vagrant/2.0.1/vagrant_2.0.1_x86_64.deb',
+  'vagrant' => 'https://releases.hashicorp.com/vagrant/2.0.2/vagrant_2.0.2_x86_64.deb',
   'dropbox' => 'https://linux.dropbox.com/packages/ubuntu/dropbox_2015.10.28_amd64.deb',
   'slack' => 'https://downloads.slack-edge.com/linux_releases/slack-desktop-2.8.1-amd64.deb'
 }
@@ -46,7 +46,7 @@ end
 packages.each do |name, url|
   debfile = "/usr/src/#{name}.deb"
   remote_file debfile do
-    action :create_if_missing
+    action :create
     source url
     notifies :run, "execute[install_#{name}]", :immediately
   end

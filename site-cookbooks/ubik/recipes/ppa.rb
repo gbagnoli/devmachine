@@ -80,3 +80,10 @@ if node['lsb']['codename'] == 'xenial'
     uri 'ppa:gnome3-team/gnome3'
   end
 end
+
+apt_repository 'virtualbox' do
+  uri 'https://download.virtualbox.org/virtualbox/debian'
+  components ['contrib']
+  distribution node['lsb']['codename']
+  key 'https://www.virtualbox.org/download/oracle_vbox_2016.asc'
+end
