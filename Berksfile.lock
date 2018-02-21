@@ -14,6 +14,9 @@ DEPENDENCIES
     path: site-cookbooks/marvin
   openvpn
     path: site-cookbooks/openvpn
+  pleaserun
+    git: https://github.com/mjuarez/chef-pleaserun.git
+    revision: e104c998f064879afaab4ba89b779434de38c83c
   profile_sync_daemon
     path: site-cookbooks/profile_sync_daemon
   pyenv
@@ -30,6 +33,10 @@ DEPENDENCIES
 
 GRAPH
   apt (6.1.4)
+  ark (3.1.0)
+    build-essential (>= 0.0.0)
+    seven_zip (>= 0.0.0)
+    windows (>= 0.0.0)
   btrbk (0.1.0)
   build-essential (8.0.4)
     mingw (>= 1.1)
@@ -51,13 +58,18 @@ GRAPH
     homebrew (>= 0.0.0)
     windows (>= 0.0.0)
   marvin (0.1.0)
+    oauth2_proxy (>= 0.0.0)
   mingw (2.0.2)
     seven_zip (>= 0.0.0)
+  oauth2_proxy (0.0.8)
+    ark (>= 0.0.0)
+    pleaserun (>= 0.0.0)
   ohai (5.2.2)
   openvpn (0.1.0)
   os-hardening (3.0.0)
     compat_resource (>= 12.16.3)
     sysctl (<= 0.9.0)
+  pleaserun (0.1.1)
   profile_sync_daemon (0.1.0)
     apt (>= 0.0.0)
   pyenv (0.2.0)

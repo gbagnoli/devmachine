@@ -83,7 +83,7 @@ if platform?('debian')
   package 'libexpat1-dev'
   package 'libpython2.7-dev'
 end
-%w[vim-nox libpython-dev python-dev python-pip python3-dev python3-pip].each do |pkg|
+%w[vim libpython-dev python-dev python-pip python3-dev python3-pip].each do |pkg|
   package pkg
 end
 

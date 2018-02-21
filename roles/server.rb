@@ -1,6 +1,7 @@
 name 'server'
 description 'base config for server'
 run_list [
+  'recipe[apt]',
   'recipe[hardening]',
   'recipe[chef_client_updater]',
   'recipe[user]',

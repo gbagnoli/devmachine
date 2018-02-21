@@ -13,3 +13,5 @@ source_url 'https://github.com/gbagnoli/devmachine'
 chef_version '>=12'
 supports 'ubuntu', '>= 16.04'
 supports 'debian', '>= 8.9'
+
+depends 'oauth2_proxy'
