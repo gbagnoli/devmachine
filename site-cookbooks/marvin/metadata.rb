@@ -15,3 +15,5 @@ supports 'ubuntu', '>= 16.04'
 supports 'debian', '>= 8.9'
 
 depends 'oauth2_proxy'
+depends 'nginx'
+depends 'nodejs'
