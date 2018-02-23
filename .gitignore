@@ -8,3 +8,4 @@ fabfile.pyc
 .kitchen.local.yml
 tests/**/vendor
 __pycache__
+.mypy_cache

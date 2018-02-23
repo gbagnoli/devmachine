@@ -5,3 +5,5 @@ name = "pypi"
 
 [packages]
 Fabric3 = "*"
+flake8 = "*"
+mypy = "*"
