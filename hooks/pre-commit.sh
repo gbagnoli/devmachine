@@ -40,7 +40,7 @@ if [ "${#ruby[@]}" -gt 0 ]; then
 fi
 if [ "${#chef[@]}" -gt 0 ]; then
   echo "Running foodcritic"
-  bundle exec foodcritic "${chef[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  bundle exec foodcritic -B "$tmpdir/site-cookbooks" -R "$tmpdir/roles"; e=$?; [ $e -ne 0 ] && ec=$e
 fi
 if [ "${#python[@]}" -gt 0 ]; then
   echo "Running flake8, mypy"
