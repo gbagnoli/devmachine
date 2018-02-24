@@ -28,7 +28,12 @@ end
 execute 'install-dnscrypt-proxy' do
   action :nothing
   cwd "#{tmpdir}/#{arch.sub('_', '-')}"
-  command 'cp dnscrypt-proxy /usr/bin/ && setcap "cap_net_bind_service=+ep" /usr/bin/dnscrypt-proxy'
+  command 'cp dnscrypt-proxy /usr/bin/'
+end
+
+execute 'remove_capabilities' do
+  command 'setcap -r /usr/bin/dnscrypt-proxy'
+  only_if 'getcap /usr/bin/dnscrypt-proxy | grep -q /usr/bin/dnscrypt-proxy'
 end
 
 directory tmpdir do
