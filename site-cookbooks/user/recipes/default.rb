@@ -87,9 +87,11 @@ end
   package pkg
 end
 
-unless node['lsb']['release'][0..1].to_i >= 17
-  apt_repository 'neovim' do
-    uri 'ppa:neovim-ppa/unstable'
+if platform? == 'ubuntu'
+  unless node['lsb']['release'][0..1].to_i >= 17
+    apt_repository 'neovim' do
+      uri 'ppa:neovim-ppa/unstable'
+    end
   end
 end
 
