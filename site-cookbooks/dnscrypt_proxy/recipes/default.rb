@@ -28,7 +28,7 @@ end
 execute 'install-dnscrypt-proxy' do
   action :nothing
   cwd "#{tmpdir}/#{arch.sub('_', '-')}"
-  command 'cp dnscrypt-proxy /usr/bin/'
+  command 'install -m 755 dnscrypt-proxy /usr/bin/'
 end
 
 execute 'remove_capabilities' do
