@@ -96,11 +96,12 @@ def rsync(remote: str) -> None:
 def install_git_hooks(here: str) -> None:
     print("Installing git hooks")
     pre_commit_src = os.path.join(here, 'hooks', 'pre-commit.sh')
+    pre_push_src = os.path.join(here, 'hooks', 'pre-push.sh')
     pre_commit = os.path.join(here, '.git', 'hooks', 'pre-commit')
     pre_push = os.path.join(here, '.git', 'hooks', 'pre-push')
     hooks = {
         pre_commit: pre_commit_src,
-        pre_push: pre_commit_src,
+        pre_push: pre_push_src,
     }
     for dest, src in hooks.items():
         try:
@@ -116,6 +117,7 @@ def install_git_hooks(here: str) -> None:
 def run(remote: str="/usr/local/src/chefrepo/") -> None:
     here = os.path.dirname(os.path.abspath(__file__))
     install_git_hooks(here)
+    sys.exit(0)
     if env.host_string is None:
         vendor()
         local_chef(socket.gethostname())
