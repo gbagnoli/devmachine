@@ -42,7 +42,8 @@ def chef(host: str, remote: str) -> None:
     if not remote_exists(script) or not remote_contains(script, cmd):
         put(StringIO(chef_script.format(remote=remote, host=host)),
             script, use_sudo=True, mode='0750')
-    sudo("rm -f {}".format(sudoers))
+    if remote_exists(sudoers):
+        sudo("rm -f {}".format(sudoers))
     if not remote_exists(wrapper):
         put(StringIO(wrapper_script), wrapper, mode='0750', use_sudo=True)
 
