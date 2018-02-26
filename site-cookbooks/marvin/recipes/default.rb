@@ -1,4 +1,4 @@
-include_recipe 'openvpn'
+include_recipe 'marvin::openvpn'
 
 node.override['dnscrypt_proxy']['bind_address'] = '0.0.0.0'
 include_recipe 'dnscrypt_proxy'
