@@ -86,3 +86,5 @@ cron 'update cloudflare ip' do
   minute '*/15'
   user 'root'
 end
+
+include_recipe 'upik::unifi'
