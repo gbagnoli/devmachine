@@ -9,4 +9,4 @@ include_recipe 'nginx::default'
 include_recipe 'marvin::oauth2_proxy'
 include_recipe 'marvin::thelounge'
 
-include_recipe 'marvin::media:'
+include_recipe 'marvin::media'

@@ -1,9 +1,5 @@
 Chef::Recipe.send(:include, Marvin::RandomPassword)
 
-virtualenv_path = '/var/lib/virtualenvs/2.7'
-sickrage_venv = "#{virtualenv_path}/sickrage"
-sickrage_datadir = '/var/lib/sickrage'
-
 package 'git'
 
 group 'media' do
@@ -12,87 +8,97 @@ group 'media' do
   append true
 end
 
-user 'sickrage' do
-  uid node['marvin']['media']['sickrage']['uid']
-  gid 'media'
-  system true
-  shell '/bin/false'
-  home sickrage_datadir
-end
-
 python_runtime '2.7'
 
+virtualenv_path = '/var/lib/virtualenvs/2.7'
 directory virtualenv_path do
   recursive true
   group 'media'
   mode '0775'
 end
 
-python_virtualenv sickrage_venv do
-  group 'media'
-  user 'sickrage'
-  python '2.7'
-end
+{
+  'sickrage' => {
+    repo: 'https://github.com/SickRage/SickRage.git'
+  }
+}.each do |app, config|
+  venv = "#{virtualenv_path}/#{app}"
+  datadir = "/var/lib/#{app}"
 
-directory "#{sickrage_venv}/src" do
-  group 'media'
-  owner 'sickrage'
-  mode '0750'
-end
+  user app do
+    uid node['marvin']['media'][app]['uid']
+    gid 'media'
+    system true
+    shell '/bin/false'
+    home datadir
+  end
 
-git "#{sickrage_venv}/src/sickrage" do
-  repository 'https://github.com/SickRage/SickRage.git'
-  action :sync
-  user 'sickrage'
-  notifies :run, 'bash[install sickrage]', :immediately
-  notifies :restart, 'systemd_unit[sickrage.service]', :delayed
-end
+  python_virtualenv venv do
+    group 'media'
+    user app
+    python '2.7'
+  end
 
-bash 'install sickrage' do
-  action :run
-  cwd sickrage_venv
-  code <<-EOH
-    usermod -s /bin/bash sickrage
-    sudo -i -u sickrage #{sickrage_venv}/bin/pip install -e #{sickrage_venv}/src/sickrage
-    usermod -s /bin/false sickrage
-  EOH
-end
+  directory "#{venv}/src" do
+    group 'media'
+    owner app
+    mode '0750'
+  end
 
-directory sickrage_datadir do
-  owner 'sickrage'
-  group 'media'
-  mode '0750'
-  recursive true
-end
+  git "#{venv}/src/#{app}" do
+    repository config[:repo]
+    action :sync
+    user app
+    notifies :run, "bash[install #{app}]", :immediately
+    notifies :restart, "systemd_unit[#{app}.service]", :delayed
+  end
 
-cookie_secret = random_password
-encryption_secret = random_password
+  bash "install #{app}" do
+    action :run
+    cwd venv
+    code <<-EOH
+      usermod -s /bin/bash #{app}
+      sudo -i -u #{app} #{venv}/bin/pip install -e #{venv}/src/#{app}
+      usermod -s /bin/false #{app}
+    EOH
+  end
 
-template "#{sickrage_datadir}/config.ini" do
-  owner 'sickrage'
-  group 'media'
-  mode '0640'
-  source 'sickrage-config.ini.erb'
-  action :create_if_missing
-  variables(
-    cookie_secret: cookie_secret,
-    encryption_secret: encryption_secret
-  )
-end
+  directory datadir do
+    owner app
+    group 'media'
+    mode '0750'
+    recursive true
+  end
 
-systemd_unit 'sickrage.service' do
-  content <<~EOU
-    [Unit]
-    Description=Sickrage
+  cookie_secret = random_password
+  encryption_secret = random_password
 
-    [Service]
-    User=sickrage
-    Group=media
-    ExecStart=#{sickrage_venv}/bin/python #{sickrage_venv}/src/sickrage/SickBeard.py --nolaunch -q --datadir=#{sickrage_datadir} -p #{node['marvin']['media']['sickrage']['port']}
-    After=network-online.target
+  template "#{datadir}/config.ini" do
+    owner app
+    group 'media'
+    mode '0640'
+    source "#{app}-config.ini.erb"
+    action :create_if_missing
+    variables(
+      cookie_secret: cookie_secret,
+      encryption_secret: encryption_secret
+    )
+  end
 
-    [Install]
-    WantedBy=multi-user.target
-  EOU
-  action %i[create enable start]
+  systemd_unit "#{app}.service" do
+    content <<~EOU
+      [Unit]
+      Description=#{app}
+
+      [Service]
+      User=#{app}
+      Group=media
+      ExecStart=#{venv}/bin/python #{venv}/src/#{app}/SickBeard.py --nolaunch -q --datadir=#{datadir} -p #{node['marvin']['media'][app]['port']}
+      After=network-online.target
+
+      [Install]
+      WantedBy=multi-user.target
+    EOU
+    action %i[create enable start]
+  end
 end
