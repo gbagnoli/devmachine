@@ -13,6 +13,38 @@ package 'shellcheck'
 package 'tmux'
 package 'vim.nox'
 
+file '/etc/network/interfaces' do
+  content <<~EOC
+    # Managed by Chef
+    source /etc/network/interfaces.d/*
+
+    # The loopback network interface
+    auto lo
+    iface lo inet loopback
+
+    allow-hotplug eth0
+EOC
+  mode '0644'
+end
+
+directory '/etc/network/interfaces.d'
+
+file '/etc/network/interfaces.d/eth0' do
+  content <<~EOC
+    # Managed by Chef
+    iface eth0 inet static
+            address #{node['upik']['address']}
+            netmask #{node['upik']['netmask']}
+            gateway #{node['upik']['gateway']}
+            dns-nameservers #{node['upik']['dns-namservers']}
+EOC
+  mode '0644'
+end
+
+service 'wicd' do
+  action %i[stop disable]
+end
+
 # neovim pinning
 apt_preference 'libmsgpackc2' do
   pin 'release n=unstable'

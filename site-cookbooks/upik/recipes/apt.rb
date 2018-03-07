@@ -8,7 +8,7 @@ releases = {
   testing: { prio: 750, pin: 'release a=testing' },
   unstable: { prio: 50, pin: 'release a=unstable' },
   experimental: { prio: 1, pin: 'release a=experimental' },
-  'ubilinux-upboard' => { prio: 1001, pin: 'release a=ubilinux3-upboard' }
+  #  'ubilinux-upboard' => { prio: 1001, pin: 'release a=ubilinux3-upboard' }
 }
 
 mirror = 'http://debian.heanet.ie/debian/'
