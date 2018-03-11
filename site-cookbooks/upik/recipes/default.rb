@@ -29,15 +29,15 @@ end
 
 directory '/etc/network/interfaces.d'
 
-file '/etc/network/interfaces.d/eth0' do
-  content <<~EOC
-    # Managed by Chef
-    iface eth0 inet static
-            address #{node['upik']['address']}
-            netmask #{node['upik']['netmask']}
-            gateway #{node['upik']['gateway']}
-            dns-nameservers #{node['upik']['dns-namservers']}
-EOC
+template '/etc/network/interfaces.d/eth0' do
+  source 'iface.erb'
+  variables(
+    iface: 'eth0',
+    address: node['upik']['address'],
+    netmask: node['upik']['netmask'],
+    gateway: node['upik']['gateway'],
+    dns_nameservers: node['upik']['dns-nameservers']
+  )
   mode '0644'
 end
 
@@ -56,6 +56,7 @@ execute 'install libmsgpackc2' do
   not_if 'dpkg -l libmsgpackc2 | grep "^ii" -q'
 end
 
+lnet = node['upik']['local_network']
 file '/etc/iptables.rules' do
   content <<~EOH
     *nat
@@ -63,8 +64,8 @@ file '/etc/iptables.rules' do
     :INPUT ACCEPT [0:0]
     :OUTPUT ACCEPT [0:0]
     :POSTROUTING ACCEPT [0:0]
-    -A POSTROUTING -s 192.168.1.0/24 -d 172.31.90.0/24 -j MASQUERADE
-    -A POSTROUTING -s 192.168.1.0/24 -d 10.0.3.0/24 -j MASQUERADE
+    -A POSTROUTING -s #{lnet} -d 172.31.90.0/24 -j MASQUERADE
+    -A POSTROUTING -s #{lnet} -d 10.0.3.0/24 -j MASQUERADE
     COMMIT
   EOH
 end

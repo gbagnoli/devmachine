@@ -1,4 +1,5 @@
-default['upik']['address'] = '192.168.1.253'
-default['upik']['netmask'] = '255.255.255.0'
-default['upik']['gateway'] = '192.168.1.1'
-default['upik']['dns-nameservers'] = '127.0.0.1'
+default['upik']['local_network'] = '172.25.2.0/24'
+default['upik']['address'] = 'dhcp'
+default['upik']['netmask'] = nil
+default['upik']['gateway'] = nil
+default['upik']['dns-nameservers'] = nil

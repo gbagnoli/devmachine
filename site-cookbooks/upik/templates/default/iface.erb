@@ -1,0 +1,9 @@
+# Managed by chef
+<% if @address == 'auto' -%>
+iface <%= @iface %> inet dhcp
+<% else -%>
+address <%= @address -%>
+netmask <%= @netmask -%>
+gateway <%= @gateway -%>
+dns-nameservers <%= @dns_nameservers -%>
+<% end -%>
