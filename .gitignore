@@ -9,3 +9,5 @@ fabfile.pyc
 tests/**/vendor
 __pycache__
 .mypy_cache
+.bundle
+vendor/
