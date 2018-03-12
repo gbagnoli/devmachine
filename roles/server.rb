@@ -45,6 +45,7 @@ default_attributes(
   'ssh-hardening': {
     'ssh': {
       'server': {
+        'allow_tcp_forwarding': 'yes',
         'sftp': {
           'enable': true
         }
