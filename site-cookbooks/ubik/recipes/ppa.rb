@@ -87,3 +87,7 @@ apt_repository 'virtualbox' do
   distribution node['lsb']['codename']
   key 'https://www.virtualbox.org/download/oracle_vbox_2016.asc'
 end
+
+apt_repository 'wireguard' do
+  uri 'ppa:wireguard/wireguard'
+end
