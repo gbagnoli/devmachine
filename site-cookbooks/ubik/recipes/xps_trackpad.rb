@@ -1,3 +1,8 @@
+if node['lsb']['codename'] == 'xenial'
+  package 'xserver-xorg-input-libinput-hwe-16.04'
+else
+  package 'xserver-xorg-input-libinput'
+end
 
 x11_conf_d = '/usr/share/X11/xorg.conf.d/'
 
@@ -25,16 +30,22 @@ file "#{x11_conf_d}/50-xps-touchpad.conf" do
     EndSection
 
     Section "InputClass"
-      Identifier "touchpad catchall"
-      Driver "synaptics"
-      MatchIsTouchpad "on"
-      Option "PalmDetect" "1"
-      Option "PalmMinWidth" "5"
-      Option "PalmMinZ" "5"
-      # This option is recommend on all Linux systems using evdev, but cannot be
-      # enabled by default. See the following link for details:
-      # http://who-t.blogspot.com/2010/11/how-to-ignore-configuration-errors.html
-      MatchDevicePath "/dev/input/event*"
+      Identifier "XPS touchpad"
+      Driver "libinput"
+      MatchIsTouchpad "true"
+      Option "Tapping" "True"
+      Option "TappingDragLock" "True"
+      Option "PalmDetection" "True"
+      Option "ButtonMapping" "1 3 2"
+      Option "DisableWhileTyping" "True"
+      Option "NaturalScrolling" "True"
+      Option "ScrollMethod" "twofinger"
+      Option "HorizontalScrolling" "True"
+      # Option "AccelProfile" "adaptive"
+      # Option "AccelSpeed" "0.1"
+      # Option "ClickMethod" "clickfinger"
+      # Option "MiddleEmulation" "True"
+      Option "SendEventsMode" "disabled-on-external-mouse"
     EndSection
 EOH
 end
