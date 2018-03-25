@@ -87,7 +87,7 @@ end
   package pkg
 end
 
-if platform? == 'ubuntu'
+if platform? 'ubuntu'
   unless node['lsb']['release'][0..1].to_i >= 17
     apt_repository 'neovim' do
       uri 'ppa:neovim-ppa/unstable'
@@ -157,9 +157,15 @@ if node['platform'] == 'debian'
     mode '0755'
   end
 else
+  distribution = case node['lsb']['codename']
+                 when 'bionic'
+                   'artful'
+                 else
+                   node['lsb']['codename']
+                 end
   apt_repository 'fasd' do
     uri 'ppa:aacebedo/fasd'
-    distribution node['lsb']['codename'] == 'zesty' ? 'yakkety' : node['lsb']['codename']
+    distribution distribution
   end
 
   package 'fasd'

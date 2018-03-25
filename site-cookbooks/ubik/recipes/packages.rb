@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+return if node['ubik']['skip_packages']
+
 packages = %w[
   apt-transport-https btrfs-tools compizconfig-settings-manager dkms docker-ce
   dstat exfat-fuse exfat-utils firefox gconf-service gconf2 gdm3

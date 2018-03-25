@@ -2,11 +2,11 @@ name 'server'
 description 'base config for server'
 run_list [
   'recipe[apt]',
-  'recipe[hardening]',
+  'recipe[apt::unattended-upgrades]',
   'recipe[chef_client_updater]',
+  'recipe[hardening]',
   'recipe[user]',
-  'recipe[syncthing]',
-  'recipe[apt::unattended-upgrades]'
+  'recipe[syncthing]'
 ]
 
 default_attributes(

@@ -157,6 +157,8 @@ GEM
     iso8601 (0.9.1)
     jmespath (1.3.1)
     json (2.1.0)
+    kitchen-docker (2.6.0)
+      test-kitchen (>= 1.0.0)
     kitchen-dokken (2.6.7)
       docker-api (~> 1.33)
       lockfile (~> 2.1)
@@ -376,6 +378,7 @@ DEPENDENCIES
   berkshelf
   chef (~> 13)
   foodcritic
+  kitchen-docker
   kitchen-dokken
   kitchen-inspec
   kitchen-vagrant

@@ -6,12 +6,13 @@ run_list [
 
 default_attributes(
   'user' => {
-    'uid' => 1001,
-    'gid' => 1001,
+    'uid' => 2000,
+    'gid' => 2000,
     'install_vpnutils' => false
   },
   'ubik' => {
-    'enable_mtrack' => true,
+    'enable_mtrack' => false,
+    'skip_packages' => true,
     'install_latex' => false,
     'install_fonts' => false
   },
@@ -20,8 +21,8 @@ default_attributes(
   },
   'users' => {
     'irene' => {
-      'uid' => 1002,
-      'gid' => 1002
+      'uid' => 2001,
+      'gid' => 2001
     }
   }
 )

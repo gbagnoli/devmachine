@@ -3,6 +3,10 @@ include_recipe 'marvin::openvpn'
 node.override['dnscrypt_proxy']['bind_address'] = '0.0.0.0'
 include_recipe 'dnscrypt_proxy'
 
+if node['lsb']['codename'] == 'bionic'
+  # bionic still doesn't have packages in the PPA
+  node.override['nginx']['repo_source'] = 'distro'
+end
 node.override['nginx']['default_site_enabled'] = false
 include_recipe 'nginx::default'
 
