@@ -19,14 +19,31 @@ end
 
 {
   'sickrage' => {
-    repo: 'https://github.com/SickRage/SickRage.git'
+    repo: 'https://github.com/SickRage/SickRage.git',
+    command: '%<venv>s/bin/python %<venv>s/src/%<app>s/SickBeard.py --nolaunch '\
+             '-q --datadir=%<datadir>s -p %<port>s',
+    config_fname: 'config.ini'
+  },
+  'couchpotato' => {
+    command: '%<venv>s/bin/python %<venv>s/src/%<app>s/CouchPotato.py'\
+             ' --quiet --data_dir=%<datadir>s',
+    repo: 'https://github.com/CouchPotato/CouchPotatoServer.git',
+    config_fname: 'settings.conf'
   }
+
 }.each do |app, config|
   venv = "#{virtualenv_path}/#{app}"
   datadir = "/var/lib/#{app}"
+  attrs = node['marvin']['media'][app]
+  command = config[:command] % { # rubocop: disable Style/FormatString
+    venv: venv,
+    app: app,
+    datadir: datadir,
+    port: attrs['port']
+  }
 
   user app do
-    uid node['marvin']['media'][app]['uid']
+    uid attrs['uid']
     gid 'media'
     system true
     shell '/bin/false'
@@ -72,8 +89,9 @@ end
 
   cookie_secret = random_password
   encryption_secret = random_password
+  api_key = random_password
 
-  template "#{datadir}/config.ini" do
+  template "#{datadir}/#{config[:config_fname]}" do
     owner app
     group 'media'
     mode '0640'
@@ -81,7 +99,8 @@ end
     action :create_if_missing
     variables(
       cookie_secret: cookie_secret,
-      encryption_secret: encryption_secret
+      encryption_secret: encryption_secret,
+      api_key: api_key
     )
   end
 
@@ -93,7 +112,7 @@ end
       [Service]
       User=#{app}
       Group=media
-      ExecStart=#{venv}/bin/python #{venv}/src/#{app}/SickBeard.py --nolaunch -q --datadir=#{datadir} -p #{node['marvin']['media'][app]['port']}
+      ExecStart=#{command}
       After=network-online.target
 
       [Install]
