@@ -1,13 +1,15 @@
 # frozen_string_literal: true
 
-%w[exiftool python-wxgtk3.0 python-imaging python-unidecode
+%w[exiftool python-wxgtk3.0 python-pil python-unidecode
    libfreeimage3 libfontconfig1:i386 libxt6:i386 libxrender1:i386
    libxext6:i386 libgl1-mesa-glx:i386 libgl1-mesa-dri:i386 libcurl3:i386
    libgssapi-krb5-2:i386 librtmp1:i386 libsm6:i386 libice6:i386
    libuuid1:i386 fonts-liberation lsb-core libglu1-mesa
-   gpsbabel gpsbabel-gui].each do |pkg|
+   gpsbabel gpsbabel-gui libqtcore4].each do |pkg|
      package pkg
    end
+
+package 'python-imaging' if node['lsb']['codename'] == 'xenial'
 
 package 'googleearth-package' do
   notifies :run, 'execute[make-googleearth-package]', :immediately

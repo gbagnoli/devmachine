@@ -66,7 +66,7 @@ end
 apt_repository 'docker' do
   uri 'https://download.docker.com/linux/ubuntu'
   arch 'amd64'
-  distribution node['lsb']['codename']
+  distribution 'xenial' # node['lsb']['codename']
   components ['stable']
   key 'https://download.docker.com/linux/ubuntu/gpg'
 end

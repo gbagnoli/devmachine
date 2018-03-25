@@ -1,5 +1,13 @@
 # frozen_string_literal: true
 
+if node['lsb']['codename'] == 'bionic'
+  # git-core is a virt pkg in bionic
+  pkgs = node['pyenv']['install_pkgs']\
+         .map(&:dup).reject { |x| x == 'git-core' }
+  pkgs << 'git'
+  node.override['pyenv']['install_pkgs'] = pkgs
+end
+
 include_recipe 'pyenv::user'
 
 node['pyenv']['user_installs'].each do |desc|

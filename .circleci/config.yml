@@ -75,12 +75,12 @@ workflows:
   converge:
     jobs:
       - style
-        #      - ubik_1604:
-        #          requires:
-        #            - style
-        #      - ubik_1804:
-        #          requires:
-        #            - style
+      - ubik_1604:
+          requires:
+            - style
+      - ubik_1804:
+          requires:
+            - style
       - marvin_1804:
           requires:
             - style
