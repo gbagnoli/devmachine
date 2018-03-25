@@ -28,6 +28,11 @@ default_attributes(
     'install_fonts' => true
   },
   'os-hardening' => {
+    'auth' => {
+      'retries' => 15,
+      'lockout_retries' => 300,
+      'timeout' => 120
+    },
     'desktop' => {
       'enable' => true
     },
