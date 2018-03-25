@@ -34,7 +34,7 @@ jobs:
           command: KITCHEN_YAML=.kitchen.ci.yml bundle exec kitchen test ubik-ubuntu-1604
           no_output_timeout: 1200
 
-  ubik_1710:
+  ubik_1804:
     machine: true
     steps:
       - checkout
@@ -48,11 +48,11 @@ jobs:
             - vendor/bundle
 
       - run: bundle exec inspec vendor tests/integration/ubik
-      - run:
-          command: KITCHEN_YAML=.kitchen.ci.yml bundle exec kitchen test ubik-ubuntu-1710
+      - run: 
+          command: KITCHEN_YAML=.kitchen.ci.yml bundle exec kitchen test ubik-ubuntu-1804
           no_output_timeout: 1200
 
-  marvin_1604:
+  marvin_1804:
     machine: true
     steps:
       - checkout
@@ -67,7 +67,7 @@ jobs:
 
       - run: bundle exec inspec vendor tests/integration/ubik
       - run:
-          command: KITCHEN_YAML=.kitchen.ci.yml bundle exec kitchen test marvin-ubuntu-1604
+          command: KITCHEN_YAML=.kitchen.ci.yml bundle exec kitchen test marvin-ubuntu-1804
           no_output_timeout: 1200
 
 workflows:
@@ -75,12 +75,12 @@ workflows:
   converge:
     jobs:
       - style
-      - ubik_1604:
-          requires:
-            - style
-      - marvin_1604:
-          requires:
-            - style
-      - ubik_1710:
+        #      - ubik_1604:
+        #          requires:
+        #            - style
+        #      - ubik_1804:
+        #          requires:
+        #            - style
+      - marvin_1804:
           requires:
             - style
