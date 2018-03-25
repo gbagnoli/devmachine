@@ -14,3 +14,6 @@ include_recipe 'marvin::oauth2_proxy'
 include_recipe 'marvin::thelounge'
 
 include_recipe 'marvin::media'
+
+node.override['plex']['channel'] = 'plexpass' unless node['plex']['token'].nil?
+include_recipe 'plex::default'
