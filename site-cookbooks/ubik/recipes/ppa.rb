@@ -71,6 +71,14 @@ apt_repository 'docker' do
   key 'https://download.docker.com/linux/ubuntu/gpg'
 end
 
+apt_repository 'signal' do
+  uri 'https://updates.signal.org/desktop/apt'
+  arch 'amd64'
+  distribution 'xenial'
+  components ['main']
+  key 'https://updates.signal.org/desktop/apt/keys.asc'
+end
+
 if node['lsb']['codename'] == 'xenial'
   apt_repository 'gnome3-staging' do
     uri 'ppa:gnome3-team/gnome3-staging'
