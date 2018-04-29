@@ -16,7 +16,6 @@ depends 'git'
 depends 'debconf'
 depends 'sudo'
 depends 'dnscrypt_proxy'
-depends 'rbenv'
 depends 'ruby_build'
 
 issues_url 'https://github.com/gbagnoli/devmachine/issues'
