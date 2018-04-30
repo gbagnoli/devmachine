@@ -1,3 +1,4 @@
+node.override['nodejs']['repo'] = 'https://deb.nodesource.com/node_8.x'
 include_recipe 'nodejs::nodejs_from_package'
 include_recipe 'nodejs::npm'
 
