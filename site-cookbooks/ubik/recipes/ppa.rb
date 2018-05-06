@@ -31,6 +31,7 @@ apt_repository 'google-chrome' do
   components ['main']
   key 'https://dl-ssl.google.com/linux/linux_signing_key.pub'
   arch 'amd64'
+  not_if { File.file?('/etc/apt/sources.list.d/google-chrome.list') }
 end
 
 apt_repository 'google-talkplugin' do
@@ -38,6 +39,7 @@ apt_repository 'google-talkplugin' do
   distribution 'stable'
   components ['main']
   key 'https://dl-ssl.google.com/linux/linux_signing_key.pub'
+  not_if { File.file?('/etc/apt/sources.list.d/google-talkplugin.list') }
 end
 
 apt_repository 'ubuntu-partner' do

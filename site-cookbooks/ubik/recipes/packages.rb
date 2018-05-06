@@ -22,8 +22,6 @@ packages << if node['lsb']['codename'] == 'bionic'
               'libcurl3'
             end
 
-packages << curl
-
 package 'base install' do
   package_name packages
   action :install
@@ -31,12 +29,23 @@ package 'base install' do
 end
 
 packages = {
-  'dropbox' => 'https://linux.dropbox.com/packages/ubuntu/dropbox_2015.10.28_amd64.deb',
-  'keybase' => 'https://prerelease.keybase.io/keybase_amd64.deb',
-  'skype' => 'https://repo.skype.com/latest/skypeforlinux-64.deb',
-  'slack' => 'https://downloads.slack-edge.com/linux_releases/slack-desktop-3.0.5-amd64.deb',
-  'steam' => 'https://steamcdn-a.akamaihd.net/client/installer/steam.deb',
-  'vagrant' => 'https://releases.hashicorp.com/vagrant/2.0.2/vagrant_2.0.2_x86_64.deb',
+  'dropbox' => {
+    deb: 'https://linux.dropbox.com/packages/ubuntu/dropbox_2015.10.28_amd64.deb',
+    only_if_not_installed: true
+  }, 'keybase' => {
+    deb: 'https://prerelease.keybase.io/keybase_amd64.deb',
+    only_if_not_installed: true
+  }, 'skypeforlinux' => {
+    deb: 'https://repo.skype.com/latest/skypeforlinux-64.deb',
+    only_if_not_installed: true
+  }, 'slack-desktop' => {
+    deb: 'https://downloads.slack-edge.com/linux_releases/slack-desktop-3.0.5-amd64.deb',
+    only_if_not_installed: true
+  },
+  'steam-launcher' => {
+    deb: 'https://steamcdn-a.akamaihd.net/client/installer/steam.deb',
+    only_if_not_installed: true
+  }, 'vagrant' => 'https://releases.hashicorp.com/vagrant/2.0.2/vagrant_2.0.2_x86_64.deb',
   'viber' => 'http://download.cdn.viber.com/cdn/desktop/Linux/viber.deb'
 }
 
@@ -45,20 +54,33 @@ debconf_selection 'steam/question' do
   value 'I AGREE'
   package 'steam'
   type 'select'
+  not_if "dpkg -l | grep -E '^ii\s+steam-launcher'"
 end
 
 debconf_selection 'steam/license' do
   value ''
   type 'note'
   package 'steam'
+  not_if "dpkg -l | grep -E '^ii\s+steam-launcher'"
 end
 
-packages.each do |name, url|
+packages.each do |name, desc|
+  if desc.is_a? String
+    url = desc
+    not_if = false
+  else
+    url = desc[:deb]
+    not_if = desc[:only_if_not_installed]
+  end
+
+  not_if = "dpkg -l | grep -E '^ii\s+#{name}'" if not_if
+
   debfile = "/usr/src/#{name}.deb"
   remote_file debfile do
     action :create
     source url
     notifies :run, "execute[install_#{name}]", :immediately
+    not_if not_if
   end
 
   execute "install_#{name}" do
