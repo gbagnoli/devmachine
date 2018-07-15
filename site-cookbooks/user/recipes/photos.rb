@@ -39,6 +39,8 @@ end
 user = node['user']['login']
 home = "/home/#{user}"
 
+package 'python-tz'
+
 git "#{home}/.local/src/gpicsync" do
   repository 'https://github.com/metadirective/GPicSync.git'
   action :sync
@@ -70,4 +72,31 @@ end
 git "#{home}/workspace/photo_process" do
   repository 'https://gist.github.com/28565417cfb732cbd2df784819a7fcb0.git'
   action :sync
+end
+
+version = node['lsb']['release']
+
+apt_repository 'gpxsee' do
+  uri "http://download.opensuse.org/repositories/home:/tumic:/GPXSee/xUbuntu_#{version}/"
+  distribution '/'
+  components ['']
+  key "https://download.opensuse.org/repositories/home:tumic:GPXSee/xUbuntu_#{version}/Release.key"
+end
+
+%w[libudev-dev libusb-1.0-0-dev gpxsee].each do |pkg|
+  package pkg
+end
+
+git "#{home}/.local/src/gps_track_pod" do
+  repository 'https://github.com/iwanders/gps_track_pod.git'
+  action :sync
+  user user
+end
+
+file '/etc/udev/rules.d/49-gpspod.rules' do
+  owner 'root'
+  group 'root'
+  mode 0o644
+  content(lazy { ::File.open("#{home}/.local/src/gps_track_pod/49-gpspod.rules").read })
+  action :create
 end
