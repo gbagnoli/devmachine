@@ -58,10 +58,10 @@ default_attributes(
     }
   },
   'pyenv' => {
-    'git_ref' => 'v1.2.1',
+    'git_ref' => 'v1.2.5',
     'user_installs' => [{
       'user' => 'giacomo',
-      'pythons' => ['2.7.14', '3.6.4'],
+      'pythons' => ['2.7.14', '3.7.0'],
       'global' => 'system',
       'upgrade' => 'sync'
     }]
@@ -85,14 +85,14 @@ default_attributes(
         'name' => 'chefdk',
         'git_url' => 'https://github.com/docwhat/rbenv-chefdk.git'
       }],
-      'rubies' => ['2.4.3', '2.5.0'],
-      'global' => '2.4.3',
+      'rubies' => ['2.4.4', '2.5.1'],
+      'global' => '2.4.4',
       'gems' => {
-        '2.4.3' => [
+        '2.4.4' => [
           { 'name' => 'bundler' },
           { 'name' => 'rubocop' }
         ],
-        '2.5.0' => [
+        '2.5.1' => [
           { 'name' => 'bundler' },
           { 'name' => 'rubocop' }
         ]
