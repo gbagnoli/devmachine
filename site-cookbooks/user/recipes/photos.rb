@@ -93,6 +93,12 @@ git "#{home}/.local/src/gps_track_pod" do
   user user
 end
 
+directory '/etc/udev/rules.d' do
+  action :create
+  recursive true
+  mode 0o755
+end
+
 file '/etc/udev/rules.d/49-gpspod.rules' do
   owner 'root'
   group 'root'
