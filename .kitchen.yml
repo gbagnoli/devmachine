@@ -11,10 +11,6 @@ provisioner:
   name: chef_zero
 
 platforms:
-  - name: ubuntu-16.04
-    driver:
-      box: ubuntu/xenial64
-
   - name: ubuntu-18.04
     driver:
       box: ubuntu/bionic64
@@ -30,6 +26,13 @@ suites:
   - name: marvin
     run_list:
       - role[marvintest]
+    verifier:
+      inspec_tests:
+        - path: tests/integration/ubik/
+
+  - name: bender
+    run_list:
+      - role[bendertest]
     verifier:
       inspec_tests:
         - path: tests/integration/ubik/

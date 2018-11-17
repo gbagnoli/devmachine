@@ -25,7 +25,7 @@ default_attributes(
     }
   },
   'chef_client_updater': {
-    'version': '13',
+    'version': '14',
     'upgrade_delay': 0
   },
   'os-hardening': {

@@ -33,7 +33,7 @@ sudoers = '/etc/sudoers.d/chef'
 
 def vendor() -> None:
     with settings(hide('stdout')):
-        local("berks vendor")
+        local("bundle exec berks vendor")
 
 
 def chef(host: str, remote: str) -> None:
