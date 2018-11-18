@@ -12,6 +12,8 @@ DEPENDENCIES
     path: site-cookbooks/gnome
   hardening
     path: site-cookbooks/hardening
+  lxd
+    path: site-cookbooks/lxd
   marvin
     path: site-cookbooks/marvin
   openvpn
@@ -56,6 +58,7 @@ GRAPH
   java (3.1.1)
     homebrew (>= 0.0.0)
     windows (>= 0.0.0)
+  lxd (0.1.0)
   marvin (0.1.0)
     dnscrypt_proxy (>= 0.0.0)
     git (>= 0.0.0)
