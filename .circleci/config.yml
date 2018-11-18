@@ -4,6 +4,9 @@ jobs:
     machine: true
     steps:
       - checkout
+      - run:
+        name: Set Ruby Version
+        command: echo "ruby-2.4.4" > ~/.ruby-version
 
       - restore_cache:
           key: v1-bundle-{{ checksum "Gemfile.lock" }}
@@ -16,28 +19,14 @@ jobs:
       - run: bundle exec rubocop site-cookbooks roles
       - run: bundle exec foodcritic -B site-cookbooks -R roles
 
-  ubik_1604:
-    machine: true
-    steps:
-      - checkout
-
-      - restore_cache:
-          key: v1-bundle-{{ checksum "Gemfile.lock" }}
-      - run: bundle install --path vendor/bundle
-      - save_cache:
-          key: v1-bundle-{{ checksum "Gemfile.lock" }}
-          paths:
-            - vendor/bundle
-
-      - run: bundle exec inspec vendor tests/integration/ubik
-      - run: 
-          command: KITCHEN_YAML=.kitchen.ci.yml bundle exec kitchen test ubik-ubuntu-1604
-          no_output_timeout: 1200
-
   ubik_1804:
     machine: true
     steps:
       - checkout
+
+      - run:
+        name: Set Ruby Version
+        command: echo "ruby-2.4.4" > ~/.ruby-version
 
       - restore_cache:
           key: v1-bundle-{{ checksum "Gemfile.lock" }}
@@ -57,6 +46,10 @@ jobs:
     steps:
       - checkout
 
+      - run:
+        name: Set Ruby Version
+        command: echo "ruby-2.4.4" > ~/.ruby-version
+
       - restore_cache:
           key: v1-bundle-{{ checksum "Gemfile.lock" }}
       - run: bundle install --path vendor/bundle
@@ -70,17 +63,39 @@ jobs:
           command: KITCHEN_YAML=.kitchen.ci.yml bundle exec kitchen test marvin-ubuntu-1804
           no_output_timeout: 1200
 
+  bender_1804:
+    machine: true
+    steps:
+      - checkout
+
+      - run:
+        name: Set Ruby Version
+        command: echo "ruby-2.4.4" > ~/.ruby-version
+
+      - restore_cache:
+          key: v1-bundle-{{ checksum "Gemfile.lock" }}
+      - run: bundle install --path vendor/bundle
+      - save_cache:
+          key: v1-bundle-{{ checksum "Gemfile.lock" }}
+          paths:
+            - vendor/bundle
+
+      - run: bundle exec inspec vendor tests/integration/ubik
+      - run:
+          command: KITCHEN_YAML=.kitchen.ci.yml bundle exec kitchen test bender-ubuntu-1804
+          no_output_timeout: 1200
+
 workflows:
   version: 2
   converge:
     jobs:
       - style
-      - ubik_1604:
-          requires:
-            - style
       - ubik_1804:
           requires:
             - style
       - marvin_1804:
+          requires:
+            - style
+      - bender_1804:
           requires:
             - style
