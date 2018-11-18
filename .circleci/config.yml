@@ -4,9 +4,6 @@ jobs:
     machine: true
     steps:
       - checkout
-      - run:
-          name: Set Ruby Version
-          command: echo "ruby-2.4.4" > ~/.ruby-version
 
       - restore_cache:
           key: v1-bundle-{{ checksum "Gemfile.lock" }}
@@ -23,10 +20,6 @@ jobs:
     machine: true
     steps:
       - checkout
-
-      - run:
-          name: Set Ruby Version
-          command: echo "ruby-2.4.4" > ~/.ruby-version
 
       - restore_cache:
           key: v1-bundle-{{ checksum "Gemfile.lock" }}
@@ -46,10 +39,6 @@ jobs:
     steps:
       - checkout
 
-      - run:
-          name: Set Ruby Version
-          command: echo "ruby-2.4.4" > ~/.ruby-version
-
       - restore_cache:
           key: v1-bundle-{{ checksum "Gemfile.lock" }}
       - run: bundle install --path vendor/bundle
@@ -67,10 +56,6 @@ jobs:
     machine: true
     steps:
       - checkout
-
-      - run:
-          name: Set Ruby Version
-          command: echo "ruby-2.4.4" > ~/.ruby-version
 
       - restore_cache:
           key: v1-bundle-{{ checksum "Gemfile.lock" }}
