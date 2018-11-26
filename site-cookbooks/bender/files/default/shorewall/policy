@@ -1,0 +1,7 @@
+$FW   net   ACCEPT
+$FW   loc   ACCEPT
+loc   $FW   ACCEPT
+loc   net   ACCEPT
+net   all   DROP
+all   all   REJECT
+

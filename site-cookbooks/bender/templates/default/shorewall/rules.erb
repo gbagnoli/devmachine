@@ -1,0 +1,23 @@
+# Only apply to new connections
+SECTION NEW
+# Let the box ping internet
+ACCEPT  $FW   net   icmp
+# Accept pings from internet
+Ping(ACCEPT)  net   $FW
+
+# Rules
+<% # Open all ports from the attrs, forcing ssh into the array -%>
+<% ( @firewall["open_ports"] + [ 22 ] ).sort.uniq.each do |port| -%>
+<% [ 'tcp', 'udp' ].each do |proto| -%>
+ACCEPT  net   $FW   <%= proto %> <%= port %>
+<% end -%>
+<% end -%>
+
+# DNAT
+<% @firewall["dnat_rules"].each do |rule| -%>
+<% ip = rule['local_ip'] -%>
+<% port = rule['local_port'] -%>
+<% proto = rule['proto'] || 'tcp' -%>
+<% port_e = rule['external_port'] || rule['local_port'] -%>
+DNAT net loc:<%= ip %>:<%= port %> <%= proto %> <%= port_e %>
+<% end -%>
