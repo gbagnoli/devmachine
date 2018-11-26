@@ -14,5 +14,3 @@ end
 package 'base' do
   package_name %w[curl htop iotop iperf]
 end
-
-include_recipe 'sudo'

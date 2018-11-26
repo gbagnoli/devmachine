@@ -1,5 +1,11 @@
+include_recipe 'sudo'
+
 group 'sysadmin' do
   gid 4000
+end
+
+sudo 'sysadmin' do
+  group 'sysadmin'
 end
 
 node['users'].each do |username, user_details|
