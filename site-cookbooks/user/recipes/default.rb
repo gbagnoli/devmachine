@@ -192,6 +192,13 @@ template "#{home}/.bashrc" do
   source 'bashrc.erb'
 end
 
+cookbook_file "#{home}/.profile" do
+  source 'profile'
+  mode '0640'
+  owner user
+  group group
+end
+
 if File.directory? "#{home}/Sync/Private/weechat"
   link "#{home}/.weechat" do
     to "#{home}/Sync/Private/weechat"

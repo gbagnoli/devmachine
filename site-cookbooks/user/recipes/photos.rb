@@ -52,7 +52,7 @@ file "#{home}/.local/bin/gpicsync" do
     #!/bin/bash
     cd #{home}/.local/src/gpicsync/src/
     /usr/bin/python2.7 gpicsync.py "$@"
-EOC
+  EOC
   owner user
   group node['user']['group']
   mode 0o750
@@ -63,7 +63,7 @@ file "#{home}/.local/bin/gpicsync-GUI" do
     #!/bin/bash
     cd #{home}/.local/src/gpicsync/src/
     /usr/bin/python2.7 gpicsync-GUI.py "$@"
-EOC
+  EOC
   owner user
   group node['user']['group']
   mode 0o750

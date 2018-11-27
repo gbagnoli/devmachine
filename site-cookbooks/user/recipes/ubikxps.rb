@@ -5,7 +5,7 @@ gnome_autostart 'Fix Touchpad' do
     echo 'sleeping 10 seconds'
     sleep 10s
     synclient TapButton3=2
-HEREDOC
+  HEREDOC
   comment 'Fix touchpad config'
   user node['user']['login']
   action :install
@@ -23,7 +23,7 @@ gnome_autostart 'Restart syncthing' do
     sleep 10
     echo 'Restarting syncthing'
     sudo /bin/systemctl restart syncthing@giacomo
-HEREDOC
+  HEREDOC
   user node['user']['login']
   comment 'Restart syncthing to account for ecryptfs'
   action :install
