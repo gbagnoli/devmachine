@@ -13,6 +13,7 @@ property :options, Hash, default: {}
 action :create do
   app_dir.split('/').each do |dir|
     next if dir == home
+
     directory "#{home}/#{dir}" do
       owner user
       group groupname
@@ -29,7 +30,7 @@ action :create do
     content <<~HEREDOC
       [Desktop Entry]
       #{options_string}
-HEREDOC
+    HEREDOC
   end
 end
 

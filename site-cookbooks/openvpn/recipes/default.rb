@@ -2,6 +2,7 @@ versions = node['openvpn']['known_versions']
 version = node['openvpn']['version']
 
 raise "Unkown version #{version}" unless versions.include?(version)
+
 distro = node['lsb']['codename']
 distro = node['openvpn']['override_distribution'] if node['openvpn']['override_distribution']
 

@@ -26,7 +26,7 @@ action :install do
       #{new_resource.script_content}
       echo "[$(date)] -- END"
       echo
-HEREDOC
+    HEREDOC
     mode '0775'
     owner user
     group group
@@ -42,7 +42,7 @@ HEREDOC
       X-GNOME-Autostart-enabled=true
       Name=#{new_resource.name}
       Comment=#{new_resource.comment}
-HEREDOC
+    HEREDOC
     owner user
     group group
     mode '0644'

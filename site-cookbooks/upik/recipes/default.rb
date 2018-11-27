@@ -23,7 +23,7 @@ file '/etc/network/interfaces' do
     iface lo inet loopback
 
     allow-hotplug eth0
-EOC
+  EOC
   mode '0644'
 end
 

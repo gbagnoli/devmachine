@@ -43,7 +43,7 @@ systemd_unit 'thelounge.service' do
 
     [Install]
     WantedBy = multi-user.target
-EOU
+  EOU
   action %i[create enable start]
 end
 

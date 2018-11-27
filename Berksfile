@@ -1,4 +1,4 @@
-source "https://supermarket.getchef.com"
+source 'https://supermarket.getchef.com'
 
 cookbook 'pyenv', git: 'https://github.com/sds/chef-pyenv.git', revision: '89600c35ea1b5f3de3c9330a80dc62d4021cfd17'
 cookbook 'debconf', git: 'https://github.com/ophymx/debconf.git'

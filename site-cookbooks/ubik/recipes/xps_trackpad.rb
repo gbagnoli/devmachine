@@ -47,5 +47,5 @@ file "#{x11_conf_d}/50-xps-touchpad.conf" do
       # Option "MiddleEmulation" "True"
       Option "SendEventsMode" "disabled-on-external-mouse"
     EndSection
-EOH
+  EOH
 end
