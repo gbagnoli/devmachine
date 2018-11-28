@@ -1,5 +1,5 @@
-default['firewall']['open_ports'] = [22]
-default['firewall']['dnat_rules'] = [
+default['bender']['firewall']['open_ports'] = [22]
+default['bender']['firewall']['dnat_rules'] = [
   # example
   # {
   #   'local_ip': '172.24.24.1',

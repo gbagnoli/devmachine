@@ -8,7 +8,7 @@ sudo 'sysadmin' do
   group 'sysadmin'
 end
 
-node['users'].each do |username, user_details|
+node['bender']['users'].each do |username, user_details|
   user username do
     manage_home true
     uid user_details['uid']

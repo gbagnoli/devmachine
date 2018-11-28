@@ -1,3 +1,3 @@
-default['users']['giacomo']['id'] = 4000
-default['users']['giacomo']['shell'] = '/bin/bash'
-default['users']['giacomo']['ssh_keys'] = []
+default['bender']['users']['giacomo']['id'] = 4000
+default['bender']['users']['giacomo']['shell'] = '/bin/bash'
+default['bender']['users']['giacomo']['ssh_keys'] = []

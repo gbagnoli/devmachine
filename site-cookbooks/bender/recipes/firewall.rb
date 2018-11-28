@@ -35,9 +35,9 @@ end
     source    "shorewall/#{shore_template}.erb"
     notifies  :restart, 'service[shorewall]'
     variables(
-      firewall: node['firewall'],
-      default_interface: node['network']['default_interface'],
-      lxc_interface: node['network']['lxc_interface']
+      firewall: node['bender']['firewall'],
+      default_interface: node['bender']['network']['host']['interface'],
+      lxc_interface: node['bender']['network']['containers']['interface']
     )
   end
 end
