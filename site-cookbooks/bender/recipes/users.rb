@@ -1,18 +1,16 @@
 include_recipe 'sudo'
 
-group 'sysadmin' do
-  gid 4000
-end
-
-sudo 'sysadmin' do
-  group 'sysadmin'
-end
-
 node['bender']['users'].each do |username, user_details|
+  next unless user_details['manage']
+
+  group username do
+    gid user_details['uid']
+  end
+
   user username do
     manage_home true
     uid user_details['uid']
-    gid 'sysadmin'
+    gid username
     home "/home/#{username}"
     shell user_details['shell']
   end
@@ -26,4 +24,13 @@ node['bender']['users'].each do |username, user_details|
     group user_details['uid']
     action :create
   end
+end
+
+group 'sysadmins' do
+  gid 3000
+  members node['bender']['users'].keys
+end
+
+sudo 'sysadmin' do
+  group 'sysadmin'
 end

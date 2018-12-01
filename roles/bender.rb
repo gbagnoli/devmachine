@@ -7,6 +7,14 @@ default_attributes(
         'allow_root_with_key' => true
       }
     }
+  },
+  'os-hardening' => {
+    'network' => {
+      'forwarding' => true,
+      'ipv6' => {
+        'enable' => true
+      }
+    }
   }
 )
 run_list [
