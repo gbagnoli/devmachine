@@ -1,41 +1,50 @@
-package 'shorewall'
+{
+  'shorewall' => 'ipv4',
+  'shorewall6' => 'ipv6'
+}.each do |pkg, protocol|
+  package pkg
 
-%w[policy zones].each do |shore_file|
-  cookbook_file "/etc/shorewall/#{shore_file}" do
+  %w[policy].each do |shore_file|
+    cookbook_file "/etc/#{pkg}/#{shore_file}" do
+      action  :create
+      owner   'root'
+      group   'root'
+      mode    '0644'
+      source  "shorewall/#{shore_file}"
+      notifies  :restart, "service[#{pkg}]"
+    end
+  end
+
+  cookbook_file "/etc/default/#{pkg}" do
     action  :create
     owner   'root'
     group   'root'
     mode    '0644'
-    source  "shorewall/#{shore_file}"
-    notifies  :restart, 'service[shorewall]'
+    source  'shorewall/default'
+    notifies :restart, "service[#{pkg}]"
   end
-end
 
-cookbook_file '/etc/default/shorewall' do
-  action  :create
-  owner   'root'
-  group   'root'
-  mode    '0644'
-  source  'shorewall/default'
-  notifies :restart, 'service[shorewall]'
-end
+  %w[zones rules interfaces masq nat].each do |shore_template|
+    next if shore_template == 'nat' && protocol != 'ipv6'
 
-%w[rules interfaces masq].each do |shore_template|
-  template "/etc/shorewall/#{shore_template}" do
-    action    :create
-    owner     'root'
-    group     'root'
-    mode      '0644'
-    source    "shorewall/#{shore_template}.erb"
-    notifies  :restart, 'service[shorewall]'
-    variables(
-      firewall: node['bender']['firewall'],
-      default_interface: node['bender']['network']['host']['interface'],
-      lxc_interface: node['bender']['network']['containers']['interface']
-    )
+    template "/etc/#{pkg}/#{shore_template}" do
+      action    :create
+      owner     'root'
+      group     'root'
+      mode      '0644'
+      source    "shorewall/#{shore_template}.erb"
+      notifies  :restart, "service[#{pkg}]"
+      variables(
+        protocol: protocol,
+        firewall: lazy { node['bender']['firewall'][protocol] },
+        default_interface: node['bender']['network']['host']['interface'],
+        lxc_interface: node['bender']['network']['containers']['interface'],
+        network: node['bender']['network']['containers'][protocol]['network']
+      )
+    end
   end
-end
 
-service 'shorewall' do
-  action 'start'
+  service pkg do
+    action 'start'
+  end
 end

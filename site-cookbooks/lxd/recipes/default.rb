@@ -1,6 +1,10 @@
 package 'lxd'
 package 'lxd-client'
 
+directory node['lxd']['config_dir'] do
+  recursive true
+end
+
 node.override['os-hardening']['network']['forwarding'] = true
 node.override['os-hardening']['network']['ipv6']['enable'] = true
 node.override['sysctl']['params']['net']['ipv4']['ip_forward'] = 1
