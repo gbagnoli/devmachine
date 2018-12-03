@@ -94,19 +94,23 @@ action :create do
   node.override['bender']['firewall']['ipv4']['open_ports'][ssh_port] = %w[tcp]
   node.override['bender']['firewall']['ipv6']['dnat_rules']["#{new_resource.container_name}_v6_ssh"] = ssh_rule_v6
   node.override['bender']['firewall']['ipv6']['open_ports'][ssh_port] = %w[tcp]
+  node.override['bender']['containers']['marvin']['ipv4_address'] = get_ipv4_address(new_resource.container_name)
+  node.override['bender']['containers']['marvin']['ipv6_address'] = get_ipv6_address(new_resource.container_name)
   # rubocop:enable LineLength
 
   unless new_resource.external_ipv6.nil?
-    node.override['bender']['firewall']['ipv6']['nat'][external_ipv6] = real_ipv6_addr
+    # rubocop:disable LineLength
+    node.override['bender']['firewall']['ipv6']['nat'][external_ipv6] = get_ipv6_address(new_resource.container_name)
     # ifconfig external_ipv6 do
     #   device node['bender']['network']['host']['interface']
     # end
+    # rubocop:enable LineLength
   end
 end
 
 action_class do
   require 'ipaddr'
-  include Chef::Mixin::ShellOut
+  include LXD::Container
 
   def profile_path
     "#{node['lxd']['config_dir']}/profile_#{new_resource.container_name}.yaml"
@@ -147,7 +151,7 @@ action_class do
 
   def ssh_rule_v4
     {
-      'local_ip': ipv4_addr,
+      'local_ip': get_ipv4_address(new_resource.container_name),
       'local_port': '22',
       'external_port': ssh_port,
       'proto': 'tcp'
@@ -156,19 +160,10 @@ action_class do
 
   def ssh_rule_v6
     {
-      'local_ip': real_ipv6_addr,
+      'local_ip': get_ipv6_address(new_resource.container_name),
       'local_port': '22',
       'external_port': ssh_port,
       'proto': 'tcp'
     }
-  end
-
-  def real_ipv6_addr
-    # lxd ignores me and set whatever the fuck it decides to set as ipv6 address :(
-    # rubocop:disable LineLength
-    command = %[lxc ls --format json | jq -r '.[] | select(.name == "#{new_resource.container_name}") | .state.network.eth0.addresses[] | select(.family == "inet6") | select(.address | startswith("fd05")) | .address' ]
-    # rubocop:enable LineLength
-
-    shell_out(command).stdout.strip
   end
 end

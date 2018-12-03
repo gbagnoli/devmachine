@@ -1,5 +1,6 @@
 package 'lxd'
 package 'lxd-client'
+package 'jq'
 
 directory node['lxd']['config_dir'] do
   recursive true
