@@ -24,7 +24,7 @@ Dependencies:
 ```bash
 # install the git commit hook that will run all needed linters
 ln -s hooks/pre-commit.sh .git/hooks/pre-commit
-ln -s hooks/pre-commit.sh .git/hooks/pre-push
+ln -s hooks/pre-push.sh .git/hooks/pre-push
 pipenv install
 pipenv shell
 bundle install
