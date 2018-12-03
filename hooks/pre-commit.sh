@@ -60,10 +60,13 @@ if [ "${#chef[@]}" -gt 0 ]; then
   bundle exec foodcritic -B "$tmpdir/site-cookbooks" -R "$tmpdir/roles"; e=$?; [ $e -ne 0 ] && ec=$e
 fi
 if [ "${#python[@]}" -gt 0 ]; then
-  echo "Running black, isort, flake8, mypy"
-  pipenv run black 
-  pipenv run isort
-  pipenv run flake8 "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  echo "Running black "
+  pipenv run black "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  echo "Running isort "
+  pipenv run isort -y "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  echo "Running flake8 "
+  pipenv run flake8 --ignore=E501 "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  echo "Running mypy "
   pipenv run mypy --ignore-missing-imports "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
 fi
 
