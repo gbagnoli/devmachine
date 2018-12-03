@@ -61,7 +61,7 @@ default_attributes(
     'git_ref' => 'v1.2.5',
     'user_installs' => [{
       'user' => 'giacomo',
-      'pythons' => ['2.7.14', '3.7.0'],
+      'pythons' => ['2.7.14', '3.6.7', '3.7.0'],
       'global' => 'system',
       'upgrade' => 'sync'
     }]
