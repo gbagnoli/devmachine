@@ -101,10 +101,15 @@ action :create do
   unless new_resource.external_ipv6.nil?
     # rubocop:disable LineLength
     node.override['bender']['firewall']['ipv6']['nat'][external_ipv6] = get_ipv6_address(new_resource.container_name)
-    # ifconfig external_ipv6 do
-    #   device node['bender']['network']['host']['interface']
-    # end
     # rubocop:enable LineLength
+  end
+
+  hostsfile_entry get_ipv4_address(new_resource.container_name) do
+    hostname "#{new_resource.container_name}.lxd"
+  end
+
+  hostsfile_entry get_ipv6_address(new_resource.container_name) do
+    hostname "#{new_resource.container_name}.lxd"
   end
 end
 
