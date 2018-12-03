@@ -11,7 +11,11 @@ file '/etc/apt/apt.conf.d/local' do
   action :create
 end
 
-# TODO: ADD PROPOSED!
+cookbook_file '/etc/apt/sources.list' do
+  source 'apt.sources.list'
+  mode '0644'
+  notifies :run, 'execute[apt-get update]', :immediately
+end
 
 package 'base' do
   package_name %w[curl htop iotop iperf]
@@ -24,6 +28,10 @@ addresses = [
   node['bender']['network']['host']['ipv4']['addr'],
   node['bender']['network']['host']['ipv6']['addr']
 ]
+
+package 'netplan.io' do
+  action :upgrade
+end
 
 execute 'netplan-apply' do
   action :nothing

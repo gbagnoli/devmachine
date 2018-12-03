@@ -1,0 +1,15 @@
+deb http://mirror.hetzner.de/ubuntu/packages bionic main multiverse restricted universe
+deb http://mirror.hetzner.de/ubuntu/packages bionic-backports main restricted universe multiverse
+deb http://mirror.hetzner.de/ubuntu/packages bionic-security main restricted universe multiverse
+deb http://mirror.hetzner.de/ubuntu/packages bionic-updates main multiverse restricted universe
+deb http://mirror.hetzner.de/ubuntu/packages bionic-proposed main multiverse restricted universe
+deb http://de.archive.ubuntu.com/ubuntu/ bionic main restricted
+deb http://de.archive.ubuntu.com/ubuntu/ bionic-updates main restricted
+deb http://de.archive.ubuntu.com/ubuntu/ bionic universe
+deb http://de.archive.ubuntu.com/ubuntu/ bionic-updates universe
+deb http://de.archive.ubuntu.com/ubuntu/ bionic multiverse
+deb http://de.archive.ubuntu.com/ubuntu/ bionic-updates multiverse
+deb http://de.archive.ubuntu.com/ubuntu/ bionic-backports main restricted universe multiverse
+deb http://security.ubuntu.com/ubuntu bionic-security main restricted
+deb http://security.ubuntu.com/ubuntu bionic-security universe
+deb http://security.ubuntu.com/ubuntu bionic-security multiverse
