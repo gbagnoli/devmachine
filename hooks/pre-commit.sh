@@ -14,6 +14,7 @@ trap cleanup EXIT
 ruby=()
 python=()
 chef=()
+shell=()
 circleci=false
 total=0
 while read -r fname; do
@@ -27,9 +28,11 @@ while read -r fname; do
   if [[ "$fname" == site-cookbooks/* ]] || [[ "$fname" == roles/* ]]; then
     chef+=("$fullpath")
   fi
-
   if [[ "$fname" == ".circleci/config.yml" ]]; then
     circleci=true
+  fi
+  if [[ "$fname" == *.sh ]]; then
+    shell+=("$fullpath")
   fi
 done < <(git diff --cached --name-only --diff-filter=ACM)
 
@@ -62,6 +65,15 @@ if [ "${#python[@]}" -gt 0 ]; then
   pipenv run isort
   pipenv run flake8 "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
   pipenv run mypy --ignore-missing-imports "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+fi
+
+if [ "${#shell[@]}" -gt 0 ]; then
+  if [ -x "$(which shellcheck)" ]; then
+    echo "running shellcheck"
+    shellcheck "${shell[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  else
+    echo >&2 "Please install shellcheck for your platform"; ec=1
+  fi
 fi
 
 exit $ec
