@@ -50,16 +50,18 @@ if $circleci; then
 fi
 if [ "${#ruby[@]}" -gt 0 ]; then
   echo "Running rubocop"
-  bundle exec rubocop "${ruby[@]}"; ec=$?
+  bundle exec rubocop -a "${ruby[@]}"; ec=$?
 fi
 if [ "${#chef[@]}" -gt 0 ]; then
   echo "Running foodcritic"
   bundle exec foodcritic -B "$tmpdir/site-cookbooks" -R "$tmpdir/roles"; e=$?; [ $e -ne 0 ] && ec=$e
 fi
 if [ "${#python[@]}" -gt 0 ]; then
-  echo "Running flake8, mypy"
-  bundle exec flake8 "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
-  bundle exec mypy --ignore-missing-imports "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  echo "Running black, isort, flake8, mypy"
+  pipenv run black 
+  pipenv run isort
+  pipenv run flake8 "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  pipenv run mypy --ignore-missing-imports "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
 fi
 
 exit $ec
