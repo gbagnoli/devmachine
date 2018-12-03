@@ -29,8 +29,6 @@ node.override['sysctl']['params']['net']['ipv6']['conf']['all']['disable_ipv6'] 
   end
 end
 
-include_recipe 'sysctl'
-
 [
   { key: 'fs.inotify.max_queued_events', value: '1048576' },
   { key: 'fs.inotify.max_user_instances', value: '1048576' },

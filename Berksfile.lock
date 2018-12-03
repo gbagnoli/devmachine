@@ -42,6 +42,7 @@ GRAPH
     seven_zip (>= 0.0.0)
   bender (0.1.0)
     apt (>= 0.0.0)
+    dnscrypt_proxy (>= 0.0.0)
     lxd (>= 0.0.0)
     sudo (>= 0.0.0)
     sysctl (>= 0.0.0)
