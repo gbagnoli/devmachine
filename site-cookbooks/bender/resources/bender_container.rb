@@ -38,6 +38,8 @@ property :image, String, required: true
 property :description, [String, NilClass], default: ''
 property :forwarded_ports, [Array, NilClass], callbacks: ports_callbacks, default: []
 property :external_ipv6, [String, NilClass], default: nil, callbacks: ipv6_callbacks
+# snapshots scheduling support is merged but not released yet as of 3/12/18
+property :snapshots, [TrueClass, FalseClass], default: false
 default_action :create
 
 action :create do
@@ -54,20 +56,18 @@ action :create do
     action :nothing
   end
 
-  file profile_path do
-    content <<~HEREDOC
-      name: #{new_resource.container_name}
-      config: {}
-      description: "#{new_resource.description}"
-      devices:
-        eth0:
-          ipv4.address: #{ipv4_addr}
-          ipv6.address: #{ipv6_addr}
-          name: eth0
-          nictype: bridged
-          parent: #{node['bender']['network']['containers']['interface']}
-          type: nic
-    HEREDOC
+  template profile_path do
+    source 'container_profile.erb'
+    variables(
+      name: new_resource.container_name,
+      description: new_resource.description,
+      autostart: true,
+      autostart_delay: 10,
+      snapshots_schedule: new_resource.snapshots ? "10 #{new_resource.id % 24} * * *" : nil,
+      ipv4_addr: ipv4_addr,
+      ipv6_addr: ipv6_addr,
+      bridge_interface: node['bender']['network']['containers']['interface']
+    )
     notifies :run, "execute[create_profile_#{new_resource.container_name}]", :immediately
     notifies :run, "execute[update_profile_#{new_resource.container_name}]", :immediately
   end
