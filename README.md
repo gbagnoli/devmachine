@@ -22,13 +22,15 @@ Dependencies:
 * [rbenv-chefdk](https://github.com/docwhat/rbenv-chefdk)
 
 ```bash
+# this should be automatic if pyenv is installed correctly
+# as per .python-version file
+# pyenv shell 3.6.7
 # install the git commit hook that will run all needed linters
 ln -s hooks/pre-commit.sh .git/hooks/pre-commit
 ln -s hooks/pre-push.sh .git/hooks/pre-push
-pipenv install
 pipenv shell
+pipenv install
 bundle install
-bundle exec berks install
 ```
 
 In case you use [autoenv](https://github.com/kennethreitz/autoenv) you can add this to the `.env` file
