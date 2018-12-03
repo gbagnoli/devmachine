@@ -5,18 +5,21 @@ import os
 import socket
 import sys
 from io import StringIO
+from typing import Optional
 
-from fabric.api import env, hide, local, put, settings, sudo, task
+import yaml
+from fabric.api import env, hide, local, put
+from fabric.api import settings, sudo, task
 from fabric.contrib.files import contains as remote_contains
 from fabric.contrib.files import exists as remote_exists
 from fabric.contrib.project import rsync_project
 
 env.use_ssh_config = True
-chef_command = "chef-client -N {0} -z -c chef-client.rb -o 'role[{0}]"
+chef_command = "chef-client -N {host} -z -c chef-client.rb -o 'role[{host}]'{secrets}"
 chef_script = """
 #!/bin/bash
 cd {remote}
-chef-client -N {host} -z -c chef-client.rb -o 'role[{host}]' "$@"
+{chef_command} "$@"
 """
 script = "/usr/local/bin/run-chef"
 wrapper_script = """#!/bin/bash
@@ -32,12 +35,17 @@ def vendor() -> None:
         local("bundle exec berks vendor")
 
 
-def chef(host: str, remote: str) -> None:
-    cmd = chef_command.format(host)
+def chef(host: str, remote: str, secrets: Optional[str] = None) -> None:
+    secrets_opts = ""
+    if secrets:
+        secrets_opts = f" -j {secrets}"
+
+    cmd = chef_command.format(host=host, secrets=secrets_opts)
+
     wrapper = "/usr/local/bin/run-chef-{}".format(env.user)
     if not remote_exists(script) or not remote_contains(script, cmd):
         put(
-            StringIO(chef_script.format(remote=remote, host=host)),
+            StringIO(chef_script.format(remote=remote, chef_command=cmd)),
             script,
             use_sudo=True,
             mode="0750",
@@ -50,12 +58,17 @@ def chef(host: str, remote: str) -> None:
     sudo(script)
 
 
-def local_chef(localhost: str) -> None:
+def local_chef(localhost: str, secrets: Optional[str] = None) -> None:
+    secrets_opts = ""
+    if secrets:
+        secrets_opts = f" -j {secrets}"
+
     wrapper = "/usr/local/bin/run-chef-{}".format(env.user)
+    cmd = chef_command.format(host=localhost, secrets=secrets_opts)
     if not os.path.exists(script):
         tmp = os.path.join("/tmp", os.path.basename(script))
         with open(tmp, "w") as f:
-            f.write(chef_script.format(remote=os.getcwd(), host=localhost))
+            f.write(chef_script.format(remote=os.getcwd(), chef_command=cmd))
         local("sudo install -T -m 755 {} {}".format(tmp, script))
         os.unlink(tmp)
     local("sudo rm -f {}".format(sudoers))
@@ -68,7 +81,7 @@ def local_chef(localhost: str) -> None:
     local(wrapper)
 
 
-def rsync(remote: str) -> None:
+def rsync(remote: str, secrets: Optional[str] = None) -> None:
     if not remote_exists(remote):
         sudo("mkdir -p {}".format(remote))
         sudo("chown {} {}".format(env.user, remote))
@@ -76,10 +89,14 @@ def rsync(remote: str) -> None:
     rsync_project(
         local_dir="./",
         remote_dir=remote,
-        exclude=("data", "boostrap", "local-mode-cache", ".git", "nodes"),
+        exclude=("data", "boostrap", "local-mode-cache", ".git", "nodes", "secrets"),
         extra_opts="-q",
         delete=True,
     )
+
+    if secrets:
+        sudo(f"mkdir -p {remote}/secrets")
+        put(secrets, os.path.join(remote, secrets), mode="0640", use_sudo=True)
 
 
 def install_git_hooks(here: str) -> None:
@@ -99,23 +116,56 @@ def install_git_hooks(here: str) -> None:
             raise e
 
 
+def check_node(host: str) -> Optional[str]:
+    here = os.path.dirname(os.path.abspath(__file__))
+    try:
+        with open(os.path.join(here, "nodes.yaml")) as f:
+            conf = yaml.load(f)
+    except Exception as e:
+        print(f"Cannot parse nodes.yaml: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if host not in conf["nodes"]:
+        print(f"Cannot find host '{host}' in nodes.yaml", file=sys.stderr)
+        sys.exit(1)
+
+    if host in conf["require_secrets"]:
+        secrets_file = os.path.join("secrets", f"{host}.json")
+        secrets = os.path.join(here, secrets_file)
+        if not os.path.isfile(secrets):
+            print(f"Cannot find secrets file {secrets}, aborting", file=sys.stderr)
+            sys.exit(1)
+
+        return secrets_file
+
+    rolefile = os.path.join(here, "roles", "{}.rb".format(host))
+    if not os.path.isfile(rolefile):
+        print("Cannot find file {rolefile}, aborting", file=sys.stderr)
+        sys.exit(1)
+
+    return None
+
+
 @task
 def run(remote: str = "/usr/local/src/chefrepo/") -> None:
     here = os.path.dirname(os.path.abspath(__file__))
     install_git_hooks(here)
+
     if env.host_string is None:
-        vendor()
-        local_chef(socket.gethostname())
+        host = socket.gethostname()
+        local = True
     elif env.host_string.startswith("localhost_"):
-        vendor()
-        local_chef(env.host_string.replace("localhost_", ""))
+        host = env.host_string.replace("localhost_", "")
+        local = True
     else:
         host = env.host_string
-        os.chdir(here)
-        rolefile = os.path.join(here, "roles", "{}.rb".format(host))
-        if not os.path.isfile(rolefile):
-            print("Cannot find file {}, aborting".format(rolefile), file=sys.stderr)
-            sys.exit(1)
-        vendor()
-        rsync(remote=remote)
-        chef(env.host_string, remote)
+        local = False
+
+    secrets = check_node(host)
+    os.chdir(here)
+    vendor()
+    if local:
+        local_chef(host, secrets)
+    else:
+        rsync(remote, secrets)
+        chef(host, remote, secrets)

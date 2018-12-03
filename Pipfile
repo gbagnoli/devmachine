@@ -9,6 +9,7 @@ flake8 = "*"
 mypy = "*"
 black = "*"
 isort = "*"
+pyyaml = "*"
 
 [pipenv]
 allow_prereleases = true

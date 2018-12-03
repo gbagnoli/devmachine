@@ -1,0 +1,12 @@
+# Available nodes
+# this is consumed by the fabfile
+
+nodes:
+  - bender
+  - marvin
+  - ubik
+  - ubikxps
+  - upik
+
+require_secrets:
+  - marvin
