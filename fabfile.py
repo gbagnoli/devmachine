@@ -8,8 +8,7 @@ from io import StringIO
 from typing import Optional
 
 import yaml
-from fabric.api import env, hide, local, put
-from fabric.api import settings, sudo, task
+from fabric.api import env, hide, local, put, settings, sudo, task
 from fabric.contrib.files import contains as remote_contains
 from fabric.contrib.files import exists as remote_exists
 from fabric.contrib.project import rsync_project
