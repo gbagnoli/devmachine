@@ -1,7 +1,7 @@
 include_recipe 'sudo'
 
 node['bender']['users'].each do |username, user_details|
-  next unless user_details['manage']
+  next if user_details['unmanaged']
 
   group username do
     gid user_details['uid']
@@ -17,12 +17,15 @@ node['bender']['users'].each do |username, user_details|
 
   next if user_details['ssh_keys'].empty?
 
-  directory "/home/#{username}/.ssh"
+  directory "/home/#{username}/.ssh" do
+    owner user_details['uid']
+    group user_details['uid']
+  end
+
   file "/home/#{username}/.ssh/authorized_keys" do
     content user_details['ssh_keys'].join("\n")
     owner user_details['uid']
     group user_details['uid']
-    action :create
   end
 end
 
