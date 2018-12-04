@@ -1,4 +1,4 @@
-# devmachine
+ # devmachine
 
 [![CircleCI](https://circleci.com/gh/gbagnoli/devmachine.svg?style=svg)](https://circleci.com/gh/gbagnoli/devmachine)
 
@@ -16,10 +16,13 @@ There are several scripts in the [boostrap](./boostrap) folder.
 
 Dependencies:
 * [ChefDK](https://downloads.chef.io/chefdk)
-* [rbenv](https://github.com/rbenv/rbenv)
+* [rbenv](https://github.com/rbenv/rbenv) 
+- apt install rbenv or https://en.opensuse.org/User:Tsu2/Install_Ruby 
 * [pyenv](https://github.com/pyenv/pyenv)
 * python3.6 (`pyenv install 3.6.7`)
 * [rbenv-chefdk](https://github.com/docwhat/rbenv-chefdk)
+- mkdir mkdir -r ~/.rbenv/plugins/
+- git clone https://github.com/docwhat/rbenv-chefdk.git
 
 ```bash
 # this should be automatic if pyenv is installed correctly
