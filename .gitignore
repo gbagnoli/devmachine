@@ -11,3 +11,5 @@ __pycache__
 .mypy_cache
 .bundle
 vendor/
+nodes/*.json
+secrets/*.json
