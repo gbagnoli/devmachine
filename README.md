@@ -18,13 +18,13 @@ Dependencies:
 * [ChefDK](https://downloads.chef.io/chefdk)
 * [rbenv](https://github.com/rbenv/rbenv)
 * [pyenv](https://github.com/pyenv/pyenv)
-* python3.6 (`pyenv install 3.6.7`)
+* python3.6 (`pyenv install 3.7.1`)
 * [rbenv-chefdk](https://github.com/docwhat/rbenv-chefdk)
 
 ```bash
 # this should be automatic if pyenv is installed correctly
 # as per .python-version file
-pyenv shell 3.6.7
+pyenv shell 3.7.1
 # also, make sure pip and pipenv are installed
 pip install -U pip pipenv
 # install the git commit hook that will run all needed linters

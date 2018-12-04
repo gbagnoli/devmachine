@@ -61,7 +61,7 @@ default_attributes(
     'git_ref' => 'v1.2.5',
     'user_installs' => [{
       'user' => 'giacomo',
-      'pythons' => ['2.7.14', '3.6.7', '3.7.0'],
+      'pythons' => ['2.7.15', '3.6.7', '3.7.1'],
       'global' => 'system',
       'upgrade' => 'sync'
     }]
@@ -85,7 +85,7 @@ default_attributes(
         'name' => 'chefdk',
         'git_url' => 'https://github.com/docwhat/rbenv-chefdk.git'
       }],
-      'rubies' => ['2.4.4', '2.5.1'],
+      'rubies' => ['2.4.5', '2.5.3'],
       'global' => '2.4.4',
       'gems' => {
         '2.4.4' => [
