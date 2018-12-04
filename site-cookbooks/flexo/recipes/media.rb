@@ -1,9 +1,9 @@
-Chef::Recipe.send(:include, Marvin::RandomPassword)
+Chef::Recipe.send(:include, Flexo::RandomPassword)
 
 package 'git'
 
 group 'media' do
-  gid node['marvin']['media']['gid']
+  gid node['flexo']['media']['gid']
   members node['user']['login']
   append true
 end
@@ -18,8 +18,8 @@ directory virtualenv_path do
 end
 
 {
-  'sickrage' => {
-    repo: 'https://github.com/SickRage/SickRage.git',
+  'sickchill' => {
+    repo: 'https://github.com/SickChill/SickChill.git',
     command: '%<venv>s/bin/python %<venv>s/src/%<app>s/SickBeard.py --nolaunch '\
              '-q --datadir=%<datadir>s -p %<port>s',
     config_fname: 'config.ini'
@@ -34,7 +34,7 @@ end
 }.each do |app, config|
   venv = "#{virtualenv_path}/#{app}"
   datadir = "/var/lib/#{app}"
-  attrs = node['marvin']['media'][app]
+  attrs = node['flexo']['media'][app]
   command = config[:command] % { # rubocop: disable Style/FormatString
     venv: venv,
     app: app,

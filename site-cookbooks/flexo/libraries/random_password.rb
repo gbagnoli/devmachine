@@ -1,7 +1,7 @@
 # shamelessly stolen from openssl cookbook
 #
 
-module Marvin
+module Flexo
   # random password generator
   module RandomPassword
     def self.included(_base)

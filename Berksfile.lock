@@ -8,6 +8,8 @@ DEPENDENCIES
     revision: eab415649ba9a5ab9ab348ae098bf6bbf04cfdff
   dnscrypt_proxy
     path: site-cookbooks/dnscrypt_proxy
+  flexo
+    path: site-cookbooks/flexo
   gnome
     path: site-cookbooks/gnome
   hardening
@@ -56,6 +58,14 @@ GRAPH
   chef_client_updater (3.5.0)
   debconf (0.0.1)
   dnscrypt_proxy (0.1.0)
+  flexo (0.1.0)
+    git (>= 0.0.0)
+    marvin (>= 0.0.0)
+    nginx (>= 0.0.0)
+    nginx-hardening (>= 0.0.0)
+    oauth2_proxy (>= 0.0.0)
+    plex (>= 0.0.0)
+    poise-python (>= 0.0.0)
   git (9.0.1)
     build-essential (>= 5.0.0)
   gnome (0.1.0)
@@ -73,13 +83,11 @@ GRAPH
     sysctl (>= 0.0.0)
   marvin (0.1.0)
     dnscrypt_proxy (>= 0.0.0)
-    git (>= 0.0.0)
     nginx (>= 0.0.0)
+    nginx-hardening (>= 0.0.0)
     nodejs (>= 0.0.0)
     oauth2_proxy (>= 0.0.0)
     openvpn (>= 0.0.0)
-    plex (>= 0.0.0)
-    poise-python (>= 0.0.0)
   mingw (2.1.0)
     seven_zip (>= 0.0.0)
   nginx (9.0.0)
@@ -89,9 +97,6 @@ GRAPH
   nginx-hardening (3.0.0)
     nginx (>= 7.0)
     openssl (>= 0.0.0)
-  nodejs (6.0.0)
-    ark (>= 2.0.2)
-    build-essential (>= 5.0)
   oauth2_proxy (1.0.0)
     ark (>= 0.0.0)
   ohai (5.2.5)

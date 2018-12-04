@@ -7,14 +7,15 @@ id_callbacks = {
 }
 
 ports_callbacks = {
-  'should be an array of two integers' => lambda { |ports|
+  'should be an array of two integers and a symbol' => lambda { |ports|
     ports.to_a.map do |pair|
-      pair.length == 2 && pair.map { |p| p.is_a?(Integer) }.all?
+      pair.length == 3 && pair[0..1].map { |p| p.is_a?(Integer) }.all? \
+        && %i[tcp udp].include?(pair[2])
     end.all?
   },
-  'should be between 1 and 65536' => lambda { |ports|
+  'ports should be between 1 and 65536' => lambda { |ports|
     ports.to_a.map do |pair|
-      pair.map { |p| p >= 1 && p <= 65_536 }.all?
+      pair[0..1].map { |p| p >= 1 && p <= 65_536 }.all?
     end.all?
   }
 }

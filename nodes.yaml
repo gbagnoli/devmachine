@@ -4,9 +4,11 @@
 nodes:
   - bender
   - marvin
+  - flexo
   - ubik
   - ubikxps
   - upik
 
 require_secrets:
   - marvin
+  - flexo
