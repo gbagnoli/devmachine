@@ -14,8 +14,8 @@ default_attributes(
     }
   },
   'os-hardening' => {
-    'components' =>   {
-      'auditd' => false,
+    'components' => {
+      'auditd' => false
     }
   },
   'user' => {
