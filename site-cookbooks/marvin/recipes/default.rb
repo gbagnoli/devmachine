@@ -1,7 +1,7 @@
 include_recipe 'marvin::openvpn'
 
-node.override['dnscrypt_proxy']['bind_address'] = '0.0.0.0'
-include_recipe 'dnscrypt_proxy'
+#node.override['dnscrypt_proxy']['bind_address'] = '127.0.2.1'
+#include_recipe 'dnscrypt_proxy'
 
 # bionic still doesn't have packages in the PPA
 node.override['nginx']['repo_source'] = 'distro'

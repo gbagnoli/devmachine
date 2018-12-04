@@ -3,10 +3,13 @@
 set -eu
 set -o pipefail
 
-ssh -oBatchMode=yes root@bender ls &>/dev/null
+host="bender"
+[ $# -eq 1 ] && host="$1"
+
+ssh -oBatchMode=yes root@"$host" ls &>/dev/null
 
 if [ $? -ne 0 ] ; then
-  echo >&2 "cannot connect via ssh to bender as user 'root': is openssh up and pub key setup?"
+  echo >&2 "cannot connect via ssh to $host as user 'root': is openssh up and pub key setup?"
   exit 1
 fi
 
@@ -16,17 +19,17 @@ if ! [ -f "run" ]; then
 fi
 
 cleanup() {
-  rm -rf /tmp/bootstrap_bender.sh
+  rm -rf /tmp/bootstrap_"$host".sh
 }
 
 trap cleanup EXIT
 
-cat > /tmp/boostrap_bender.sh <<EOM
+cat > /tmp/boostrap_"$host".sh <<EOM
 set -e
 set -u
 
 cleanup() {
-  rm -rf ~/chef.deb ~/boostrap_bender.sh
+  rm -rf ~/chef.deb ~/boostrap_$host.sh
 }
 
 trap cleanup EXIT
@@ -46,6 +49,6 @@ dpkg -l chef &>/dev/null || (
 )
 EOM
 
-scp /tmp/boostrap_bender.sh root@bender:
-ssh root@bender bash boostrap_bender.sh
-./run -H bender
+scp /tmp/boostrap_"$host".sh root@"$host":
+ssh root@"$host" bash boostrap_"$host".sh
+./run -H "$host"

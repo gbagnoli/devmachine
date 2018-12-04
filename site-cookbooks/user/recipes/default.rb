@@ -16,7 +16,7 @@ user user do
   shell '/bin/bash'
   manage_home true
   uid uid
-  gid gid
+  gid user
   home home
   comment realname
 end
