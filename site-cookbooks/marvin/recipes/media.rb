@@ -50,7 +50,10 @@ end
     home datadir
   end
 
+  # once poise-python 1.7.1 is release we can use
+  # pip versions >= 18.1
   python_virtualenv venv do
+    pip_version '18.0'
     group 'media'
     user app
     python '2.7'
