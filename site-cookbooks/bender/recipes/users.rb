@@ -34,6 +34,6 @@ group 'sysadmins' do
   members node['bender']['users'].keys
 end
 
-sudo 'sysadmin' do
-  group 'sysadmin'
+sudo 'sysadmins' do
+  group 'sysadmins'
 end
