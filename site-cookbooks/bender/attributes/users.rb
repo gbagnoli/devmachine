@@ -22,7 +22,7 @@ default['bender']['users']['fnigi']['ssh_keys'] = [
 default['bender']['users']['dario']['id'] = 2002
 default['bender']['users']['dario']['shell'] = '/bin/bash'
 default['bender']['users']['dario']['ssh_keys'] = [
-  'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCuY8Aa+fb54bZWXwvlZFbY8Iv0jUIMxfOP905QFb7+BSxnfrQGTL1oEMNGD1U0p1aRCQPTg+MqeKKMMDt5RqOhs9JNiZC4nfwY65BFIay7jpu1URmAYL1Um3wE6+WTxhJymIfA5nU5vZByQM1Q4uSjtXYRGkKjG3o6Ei8j/H73TDMd+gkOLcSu58s+VBz2CxvUw9Bf9ZvJ0Q38aywv9oPVVAbUp+VLuQxV7BjfUDLDhPducQkwTh0TfL2K4/cLCXZmrzWmU0gx5bSwfYDicutXiKxh+1jAgUibzkLEJy9UIoz1rJqsQjrmdUPKryffO6BxnXMMUtw3vJ/vl4NEZdtj'
+  'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDKWR1plRpIJRL7KoITtE6a+xdRM6Aiq8OWX+rin7XUzoDPygA9zsajwpS7dn6iY1rRkbtdLPiakViHLnpTIwwVLYgUJseWe5MwGHfiDxTs6kr2tK/MMhvue+aBDeclUC1Le/xBlSHjY7+nyScZJrzDVv/EVE3Q4BS879tWSY6QMKHgp+d6ARHP5E4x4J9kaiD+rEBJOweFG6+FuyS2GAj/fmWbolrb+n72EgbDl9txqCRHlQMMKOCsEHj6kztb+tSZlcMOLmUixYMw9Ye1PJ0c7Rt5W6f5QgoDQLgurIiJ7V7ld17TNSzn1ifdsZnEydZaFq91yoHxCs4X+0o0hpxOr2MpSqgd8KQHNm+fLhM8z+lw0lgYS9tOlS3bFskIAOzLxXlSWZa2jFIM26G9R5/mibKBMOcUiogRSI/F8h7DRLACR4IFK0uiRzQdVHfpQ9NBJ0/ZoVXfGx6Paz8p9PkfVP1xoiKb3vgt9CADCAIBwekHdVDYCXzsedUWDkUhtpHzIY8krq8w4x4pbg8EojA9PfgustDVzo5KuDZqLPXL8qYD1IKoPLPsTFIdYbO7UVfCANdx+2AgmP9RrJUz+kBdkXzDqtESmA1IPd66TJwKjzwSRv0MLyjl1KacbpKrQDI7kg3GVSE3KzrrhCy+APcXgjUXpnH6UvyLOX66QomrVQ=='
 ]
 
 # sonne
