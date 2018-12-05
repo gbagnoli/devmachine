@@ -38,11 +38,14 @@ DEPENDENCIES
     path: site-cookbooks/user
 
 GRAPH
+  acme (4.0.0)
+    compat_resource (>= 12.19)
   apt (7.1.1)
   ark (4.0.0)
     build-essential (>= 0.0.0)
     seven_zip (>= 0.0.0)
   bender (0.1.0)
+    acme (>= 0.0.0)
     apt (>= 0.0.0)
     dnscrypt_proxy (>= 0.0.0)
     hostsfile (>= 0.0.0)
@@ -56,6 +59,7 @@ GRAPH
     mingw (>= 1.1)
     seven_zip (>= 0.0.0)
   chef_client_updater (3.5.0)
+  compat_resource (12.19.1)
   debconf (0.0.1)
   dnscrypt_proxy (0.1.0)
   flexo (0.1.0)
@@ -98,6 +102,9 @@ GRAPH
   nginx-hardening (3.0.0)
     nginx (>= 7.0)
     openssl (>= 0.0.0)
+  nodejs (6.0.0)
+    ark (>= 2.0.2)
+    build-essential (>= 5.0)
   oauth2_proxy (1.0.0)
     ark (>= 0.0.0)
   ohai (5.2.5)
