@@ -18,10 +18,10 @@ default['bender']['users']['fnigi']['ssh_keys'] = [
   'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCx5Ue76VVttCI1KBLLmnpAaKdrbe/1N7rf2KOjhB+mKIp3DD0CdSgpTXDTEitz9PZCKhE1RCWXpzWFXW+IxtmKcEKvBWMWnTFphe8lMDpH8gIgMjeVHzxmz3JD4gae8QQWh6pzIxOtVakGAPHAWXClo4S7JE5QmPVjcUjMUBfWDii+Tu815sZxxXhfznnea4QbDRlCPJ/HQsnYtcLWPuVc0OnVEWMdSY4m+rgZbyr37QKsaTyfTdvwQikUaAG75ZhE9n42aRmPrAvh4cjEjT7+lbxk/QTjDItyNV8ZNUtExaiLRAZVQKAQrRx5Hx0CCkTtRHMN09QJ4rsCRuD9gLXb'
 ]
 
-# raistlin
-default['bender']['users']['raistlin']['id'] = 2002
-default['bender']['users']['raistlin']['shell'] = '/bin/bash'
-default['bender']['users']['raistlin']['ssh_keys'] = [
+# dario
+default['bender']['users']['dario']['id'] = 2002
+default['bender']['users']['dario']['shell'] = '/bin/bash'
+default['bender']['users']['dario']['ssh_keys'] = [
   'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCuY8Aa+fb54bZWXwvlZFbY8Iv0jUIMxfOP905QFb7+BSxnfrQGTL1oEMNGD1U0p1aRCQPTg+MqeKKMMDt5RqOhs9JNiZC4nfwY65BFIay7jpu1URmAYL1Um3wE6+WTxhJymIfA5nU5vZByQM1Q4uSjtXYRGkKjG3o6Ei8j/H73TDMd+gkOLcSu58s+VBz2CxvUw9Bf9ZvJ0Q38aywv9oPVVAbUp+VLuQxV7BjfUDLDhPducQkwTh0TfL2K4/cLCXZmrzWmU0gx5bSwfYDicutXiKxh+1jAgUibzkLEJy9UIoz1rJqsQjrmdUPKryffO6BxnXMMUtw3vJ/vl4NEZdtj'
 ]
 
