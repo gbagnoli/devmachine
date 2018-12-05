@@ -75,6 +75,9 @@ systemd_unit 'dnscrypt-proxy.service' do
   action %i[create]
 end
 
+port = node['dnscrypt_proxy']['listen_port']
+listen_address = node['dnscrypt_proxy']['listen_address']
+
 systemd_unit 'dnscrypt-proxy.socket' do
   verify false
   content <<~EOU
@@ -82,8 +85,8 @@ systemd_unit 'dnscrypt-proxy.socket' do
     Description=dnscrypt-proxy listening socket
 
     [Socket]
-    ListenStream=#{node['dnscrypt_proxy']['listen_address']}:53
-    ListenDatagram=#{node['dnscrypt_proxy']['listen_address']}:53
+    ListenStream=#{listen_address}:#{port}
+    ListenDatagram=#{listen_address}:#{port}
     NoDelay=true
     DeferAcceptSec=1
 

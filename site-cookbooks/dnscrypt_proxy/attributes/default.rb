@@ -8,3 +8,4 @@ default['dnscrypt_proxy']['repository_url'] = 'https://github.com/jedisct1/dnscr
 default['dnscrypt_proxy']['arch'] = 'linux_x86_64'
 
 default['dnscrypt_proxy']['listen_address'] = '0.0.0.0'
+default['dnscrypt_proxy']['listen_port'] = 53

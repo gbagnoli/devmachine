@@ -5,8 +5,8 @@ file '/usr/local/bin/openvpn-setup-iptables' do
   content <<~EOC
     #!/bin/bash
     iptables -t nat -A POSTROUTING -s 172.31.0.0/16 -o eth0 -j MASQUERADE
-    iptables -t nat -A PREROUTING -s 172.31.0.0/16 -p udp --dport 53 -j DNAT --to 172.31.90.1:53
-    iptables -t nat -A PREROUTING -s 172.31.0.0/16 -p tcp --dport 53 -j DNAT --to 172.31.90.1:53
+    iptables -t nat -A PREROUTING -s 172.31.0.0/16 -p udp --dport 53 -j DNAT --to 172.31.90.1:54
+    iptables -t nat -A PREROUTING -s 172.31.0.0/16 -p tcp --dport 53 -j DNAT --to 172.31.90.1:54
     iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
   EOC
   mode '0750'

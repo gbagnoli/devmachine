@@ -1,6 +1,6 @@
 include_recipe 'marvin::openvpn'
 
-node.override['dnscrypt_proxy']['listen_address'] = '127.0.2.1'
+node.override['dnscrypt_proxy']['listen_port'] = '54'
 include_recipe 'dnscrypt_proxy'
 
 include_recipe 'nginx-hardening::upgrades'
