@@ -1,11 +1,19 @@
 Chef::Recipe.send(:include, Flexo::RandomPassword)
 
 package 'git'
+package 'unrar'
 
 group 'media' do
   gid node['flexo']['media']['gid']
-  members node['user']['login']
+  members node['bender']['users'].keys.sort
   append true
+end
+
+user node['flexo']['media']['username'] do
+  uid node['flexo']['media']['uid']
+  gid node['flexo']['media']['gid']
+  system true
+  shell '/bin/false'
 end
 
 python_runtime '2.7'
@@ -34,7 +42,7 @@ end
 }.each do |app, config|
   venv = "#{virtualenv_path}/#{app}"
   datadir = "/var/lib/#{app}"
-  attrs = node['flexo']['media'][app]
+  attrs = node['flexo']['media'][app] || {}
   command = config[:command] % { # rubocop: disable Style/FormatString
     venv: venv,
     app: app,
@@ -42,33 +50,25 @@ end
     port: attrs['port']
   }
 
-  user app do
-    uid attrs['uid']
-    gid 'media'
-    system true
-    shell '/bin/false'
-    home datadir
-  end
-
   # once poise-python 1.7.1 is release we can use
   # pip versions >= 18.1
   python_virtualenv venv do
     pip_version '18.0'
     group 'media'
-    user app
+    user node['flexo']['media']['username']
     python '2.7'
   end
 
   directory "#{venv}/src" do
     group 'media'
-    owner app
+    owner node['flexo']['media']['username']
     mode '0750'
   end
 
   git "#{venv}/src/#{app}" do
     repository config[:repo]
     action :sync
-    user app
+    user node['flexo']['media']['username']
     notifies :run, "bash[install #{app}]", :immediately
     notifies :restart, "systemd_unit[#{app}.service]", :delayed
   end
@@ -77,14 +77,14 @@ end
     action :run
     cwd venv
     code <<-EOH
-      usermod -s /bin/bash #{app}
-      sudo -i -u #{app} #{venv}/bin/pip install -e #{venv}/src/#{app}
-      usermod -s /bin/false #{app}
+      usermod -s /bin/bash #{node['flexo']['media']['username']}
+      sudo -i -u #{node['flexo']['media']['username']} #{venv}/bin/pip install -e #{venv}/src/#{app}
+      usermod -s /bin/false #{node['flexo']['media']['username']}
     EOH
   end
 
   directory datadir do
-    owner app
+    owner node['flexo']['media']['username']
     group 'media'
     mode '0750'
     recursive true
@@ -95,7 +95,7 @@ end
   api_key = random_password
 
   template "#{datadir}/#{config[:config_fname]}" do
-    owner app
+    owner node['flexo']['media']['username']
     group 'media'
     mode '0640'
     source "#{app}-config.ini.erb"
@@ -111,12 +111,13 @@ end
     content <<~EOU
       [Unit]
       Description=#{app}
+      Wants=network-online.target
+      After=network-online.target
 
       [Service]
-      User=#{app}
+      User=#{node['flexo']['media']['username']}
       Group=media
       ExecStart=#{command}
-      After=network-online.target
 
       [Install]
       WantedBy=multi-user.target

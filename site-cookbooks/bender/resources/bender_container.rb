@@ -105,12 +105,16 @@ action :create do
     # rubocop:enable LineLength
   end
 
-  hostsfile_entry get_ipv4_address(new_resource.container_name) do
-    hostname "#{new_resource.container_name}.lxd"
+  unless get_ipv4_address(new_resource.container_name).empty?
+    hostsfile_entry get_ipv4_address(new_resource.container_name) do
+      hostname "#{new_resource.container_name}.lxd"
+    end
   end
 
-  hostsfile_entry get_ipv6_address(new_resource.container_name) do
-    hostname "#{new_resource.container_name}.lxd"
+  unless get_ipv6_address(new_resource.container_name).empty?
+    hostsfile_entry get_ipv6_address(new_resource.container_name) do
+      hostname "#{new_resource.container_name}.lxd"
+    end
   end
 end
 

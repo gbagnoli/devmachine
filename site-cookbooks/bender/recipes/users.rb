@@ -31,7 +31,7 @@ end
 
 group 'sysadmins' do
   gid 3000
-  members node['bender']['users'].keys
+  members node['bender']['users'].keys.sort
 end
 
 sudo 'sysadmins' do
