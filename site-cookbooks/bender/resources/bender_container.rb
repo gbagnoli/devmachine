@@ -7,15 +7,29 @@ id_callbacks = {
 }
 
 ports_callbacks = {
-  'should be an array of two integers and a symbol' => lambda { |ports|
+  'should be an hash with external_port, internal_port, protocol, ip_version' => lambda { |ports|
     ports.to_a.map do |pair|
-      pair.length == 3 && pair[0..1].map { |p| p.is_a?(Integer) }.all? \
-        && %i[tcp udp].include?(pair[2])
+      pair.key?('external_port') && \
+        pair.key?('internal_port') && \
+        pair.key?('protocol') && \
+        pair.key?('ip_version')
     end.all?
   },
   'ports should be between 1 and 65536' => lambda { |ports|
     ports.to_a.map do |pair|
-      pair[0..1].map { |p| p >= 1 && p <= 65_536 }.all?
+      [pair['external_port'], pair['internal_port']].each do |p|
+        p.is_a?(Integer) && p >= 1 && p <= 65_536
+      end.all?
+    end.all?
+  },
+  'ip_version should be either "ipv4", "ipv6" or "all"' => lambda { |ports|
+    ports.to_a.map do |pair|
+      %w[ipv4 ipv6 all].include?(pair['ip_version'].to_s)
+    end.all?
+  },
+  'protocol should be either "tcp", "udp" or "all"' => lambda { |ports|
+    ports.to_a.map do |pair|
+      %w[tcp udp all].include?(pair['protocol'].to_s)
     end.all?
   }
 }
@@ -97,6 +111,22 @@ action :create do
   node.override['bender']['firewall']['ipv6']['open_ports'][ssh_port] = %w[tcp]
   node.override['bender']['containers']['marvin']['ipv4_address'] = get_ipv4_address(new_resource.container_name)
   node.override['bender']['containers']['marvin']['ipv6_address'] = get_ipv6_address(new_resource.container_name)
+
+  new_resource.forwarded_ports.each do |portdesc|
+    protocols = portdesc['protocol'].to_s == 'all' ? %i[tcp udp] : [portdesc['protocol'].to_sym]
+    versions = portdesc['ip_version'].to_s == 'all' ? %i[ipv4 ipv6] : [portdesc['ip_version'].to_sym]
+    external = portdesc['external_port']
+    internal = portdesc['internal_port']
+
+    protocols.each do |proto|
+      versions.each do |ipv|
+        rulename = "#{new_resource.container_name}_#{proto}_#{external}_#{internal}"
+        node.override['bender']['firewall'][ipv]['dnat_rules'][rulename] = create_rule(
+          ipv, external, internal, proto
+        )
+      end
+    end
+  end
   # rubocop:enable LineLength
 
   unless new_resource.external_ipv6.nil?
@@ -159,21 +189,31 @@ action_class do
     IPAddr.new(new_resource.external_ipv6).to_s
   end
 
-  def ssh_rule_v4
+  def get_ip(ip_version)
+    if ip_version.to_s == 'ipv4'
+      get_ipv4_address(new_resource.container_name)
+    elsif ip_version.to_s == 'ipv6'
+      get_ipv6_address(new_resource.container_name)
+    else
+      raise ArgumentError, "#{ip_version} not recognized"
+    end
+  end
+
+  def create_rule(ip_version, external_port, internal_port, protocol)
+    ip = get_ip(ip_version)
     {
-      'local_ip': get_ipv4_address(new_resource.container_name),
-      'local_port': '22',
-      'external_port': ssh_port,
-      'proto': 'tcp'
+      'local_ip': ip,
+      'local_port': internal_port,
+      'external_port': external_port,
+      'proto': protocol.to_s
     }
   end
 
+  def ssh_rule_v4
+    create_rule(:ipv4, ssh_port, 22, :tcp)
+  end
+
   def ssh_rule_v6
-    {
-      'local_ip': get_ipv6_address(new_resource.container_name),
-      'local_port': '22',
-      'external_port': ssh_port,
-      'proto': 'tcp'
-    }
+    create_rule(:ipv6, ssh_port, 22, :tcp)
   end
 end
