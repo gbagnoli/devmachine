@@ -5,7 +5,7 @@ import os
 import socket
 import sys
 from io import StringIO
-from typing import Optional
+from typing import Optional, Tuple
 
 import json
 import yaml
@@ -35,14 +35,25 @@ def vendor() -> None:
         local("bundle exec berks vendor")
 
 
-def validate_secrets(secrets):
+def validate_secrets(
+    secrets_local: str, secrets: str, remote: str, local: bool
+) -> bool:
+    remote_path = os.path.join(remote, secrets)
     try:
-        with open(secrets) as f:
+        with open(secrets_local) as f:
             json.load(f)
+
+        return False
+
     except Exception as e:
-        print(f"Invalid secrets file at {secrets}, aborting.", file=sys.stderr)
-        print(f"{e}", file=sys.stderr)
-        sys.exit(1)
+        print(f"Invalid secrets file at {secrets_local}: {e}.", file=sys.stderr)
+        if not local and remote_exists(remote_path):
+            print("File is not valid locally, but exists remotely.", file=sys.stderr)
+            print("Using remote version.", file=sys.stderr)
+            return True
+        else:
+            print("aborting", file=sys.stderr)
+            sys.exit(1)
 
 
 def chef(host: str, remote: str, secrets: Optional[str] = None) -> None:
@@ -91,7 +102,9 @@ def local_chef(localhost: str, secrets: Optional[str] = None) -> None:
     local(wrapper)
 
 
-def rsync(remote: str, secrets: Optional[str] = None) -> None:
+def rsync(
+    remote: str, secrets: Optional[str] = None, skip_secrets_upload: bool = False
+) -> None:
     if not remote_exists(remote):
         sudo("mkdir -p {}".format(remote))
         sudo("chown {} {}".format(env.user, remote))
@@ -104,7 +117,7 @@ def rsync(remote: str, secrets: Optional[str] = None) -> None:
         delete=True,
     )
 
-    if secrets:
+    if secrets and not skip_secrets_upload:
         sudo(f"mkdir -p {remote}/secrets")
         put(secrets, os.path.join(remote, secrets), mode="0640", use_sudo=True)
 
@@ -126,7 +139,7 @@ def install_git_hooks(here: str) -> None:
             raise e
 
 
-def check_node(host: str) -> Optional[str]:
+def check_node(host: str, remote: str, local: bool) -> Tuple[Optional[str], bool]:
     here = os.path.dirname(os.path.abspath(__file__))
     try:
         with open(os.path.join(here, "nodes.yaml")) as f:
@@ -142,16 +155,16 @@ def check_node(host: str) -> Optional[str]:
     if host in conf["require_secrets"]:
         secrets_file = os.path.join("secrets", f"{host}.json")
         secrets = os.path.join(here, secrets_file)
-        validate_secrets(secrets)
+        skip_upload = validate_secrets(secrets, secrets_file, remote, local)
 
-        return secrets_file
+        return secrets_file, skip_upload
 
     rolefile = os.path.join(here, "roles", "{}.rb".format(host))
     if not os.path.isfile(rolefile):
         print("Cannot find file {rolefile}, aborting", file=sys.stderr)
         sys.exit(1)
 
-    return None
+    return None, False
 
 
 @task
@@ -169,11 +182,11 @@ def run(remote: str = "/usr/local/src/chefrepo/") -> None:
         host = env.host_string
         local = False
 
-    secrets = check_node(host)
+    secrets, skip_secrets_upload = check_node(host, remote, local)
     os.chdir(here)
     vendor()
     if local:
         local_chef(host, secrets)
     else:
-        rsync(remote, secrets)
+        rsync(remote, secrets, skip_secrets_upload)
         chef(host, remote, secrets)
