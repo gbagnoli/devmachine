@@ -7,6 +7,7 @@ import sys
 from io import StringIO
 from typing import Optional
 
+import json
 import yaml
 from fabric.api import env, hide, local, put, settings, sudo, task
 from fabric.contrib.files import contains as remote_contains
@@ -32,6 +33,16 @@ sudoers = "/etc/sudoers.d/chef"
 def vendor() -> None:
     with settings(hide("stdout")):
         local("bundle exec berks vendor")
+
+
+def validate_secrets(secrets):
+    try:
+        with open(secrets) as f:
+            json.load(f)
+    except Exception as e:
+        print(f"Invalid secrets file at {secrets}, aborting.", file=sys.stderr)
+        print(f"{e}", file=sys.stderr)
+        sys.exit(1)
 
 
 def chef(host: str, remote: str, secrets: Optional[str] = None) -> None:
@@ -131,9 +142,7 @@ def check_node(host: str) -> Optional[str]:
     if host in conf["require_secrets"]:
         secrets_file = os.path.join("secrets", f"{host}.json")
         secrets = os.path.join(here, secrets_file)
-        if not os.path.isfile(secrets):
-            print(f"Cannot find secrets file {secrets}, aborting", file=sys.stderr)
-            sys.exit(1)
+        validate_secrets(secrets)
 
         return secrets_file
 

@@ -12,3 +12,4 @@ nodes:
 require_secrets:
   - marvin
   - flexo
+  - bender
