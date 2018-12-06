@@ -11,7 +11,7 @@ end
 
 user node['flexo']['media']['username'] do
   uid node['flexo']['media']['uid']
-  gid node['flexo']['media']['gid']
+  gid 'media'
   system true
   shell '/bin/false'
 end
