@@ -28,6 +28,8 @@ DEPENDENCIES
   pyenv
     git: https://github.com/sds/chef-pyenv.git
     revision: 89600c35ea1b5f3de3c9330a80dc62d4021cfd17
+  server
+    path: site-cookbooks/server
   syncthing
     path: site-cookbooks/syncthing
   ubik
@@ -131,6 +133,12 @@ GRAPH
     yum-epel (>= 0.0.0)
   ruby_rbenv (1.2.1)
     ruby_build (>= 1.1.0)
+  server (0.1.0)
+    apt (>= 0.0.0)
+    chef_client_updater (>= 0.0.0)
+    hardening (>= 0.0.0)
+    syncthing (>= 0.0.0)
+    user (>= 0.0.0)
   seven_zip (3.1.0)
     windows (>= 0.0.0)
   ssh-hardening (2.7.0)

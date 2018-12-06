@@ -1,3 +1,6 @@
+# shorewall is setting this to 1 on all interfaces, and this to 0
+node.override['sysctl']['params']['net']['ipv4']['conf']['all']['log_martians'] = 0
+node.override['sysctl']['params']['net']['ipv4']['conf']['default']['log_martians'] = 0
 {
   'shorewall' => 'ipv4',
   'shorewall6' => 'ipv6'

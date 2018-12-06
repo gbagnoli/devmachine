@@ -1,12 +1,7 @@
 name 'server'
 description 'base config for server'
 run_list [
-  'recipe[apt]',
-  'recipe[apt::unattended-upgrades]',
-  'recipe[chef_client_updater]',
-  'recipe[hardening]',
-  'recipe[user]',
-  'recipe[syncthing]'
+  'recipe[server::default]'
 ]
 
 default_attributes(
