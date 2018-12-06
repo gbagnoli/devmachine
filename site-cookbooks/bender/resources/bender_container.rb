@@ -47,6 +47,34 @@ ipv6_callbacks = {
   }
 }
 
+allowed_volume_keys = %w[
+  limits.read limits.write limits.max
+  path source optional readonly recursive pool propagation
+].sort
+
+volumes_callbacks = {
+  'it must be an hash with "source" required attribute' => lambda { |volumes|
+    volumes.each do |volume|
+      volume.is_a?(Hash) && volume.key?('source')
+    end.all?
+  },
+  'source directory must be a directory' => lambda { |volumes|
+    volumes.each do |volume|
+      ::File.realpath.directory? volume['source']
+      node['bender']['storage'].key?(volume['pool']) unless volume['pool'].nil?
+    end.all?
+  },
+  'all volumes must have a unique name' => lambda { |volumes|
+    names = volumes.map { |v| v['name'] }
+    names.all? && names.uniq.length == names.length
+  },
+  'volumes should have only keys from configuration' => lambda { |volumes|
+    volumes.each do |vol|
+      (vol.keys - allowed_volume_keys).empty?
+    end.all?
+  }
+}
+
 property :container_name, String, name_property: true
 property :id, Integer, required: true, callbacks: id_callbacks
 property :image, String, required: true
@@ -55,6 +83,7 @@ property :forwarded_ports, [Array, NilClass], callbacks: ports_callbacks, defaul
 property :external_ipv6, [String, NilClass], default: nil, callbacks: ipv6_callbacks
 # snapshots scheduling support is merged but not released yet as of 3/12/18
 property :snapshots, [TrueClass, FalseClass], default: false
+property :volumes, Array, default: [], callbacks: volumes_callbacks
 default_action :create
 
 action :create do
@@ -71,6 +100,11 @@ action :create do
     action :nothing
   end
 
+  directory "#{new_resource.container_name}_cert_vol_path" do
+    path ssl_cert_directory
+    mode '0700'
+  end
+
   template profile_path do
     source 'container_profile.erb'
     variables(
@@ -81,7 +115,8 @@ action :create do
       snapshots_schedule: new_resource.snapshots ? "10 #{new_resource.id % 24} * * *" : nil,
       ipv4_addr: ipv4_addr,
       ipv6_addr: ipv6_addr,
-      bridge_interface: node['bender']['network']['containers']['interface']
+      bridge_interface: node['bender']['network']['containers']['interface'],
+      volumes: volumes
     )
     notifies :run, "execute[create_profile_#{new_resource.container_name}]", :immediately
     notifies :run, "execute[update_profile_#{new_resource.container_name}]", :immediately
@@ -215,5 +250,33 @@ action_class do
 
   def ssh_rule_v6
     create_rule(:ipv6, ssh_port, 22, :tcp)
+  end
+
+  def ssl_cert_directory
+    "#{node['bender']['certificates']['directory']}/#{new_resource.container_name}"
+  end
+
+  def ssl_cert_volume
+    {
+      'name' => "#{new_resource.container_name}_certificates",
+      'source' => ssl_cert_directory,
+      'path' => ssl_cert_directory,
+      'readonly' => true,
+      'type' => 'disk'
+    }
+  end
+
+  def volumes
+    # make sure source and type are set. source is set to path if
+    # it's not set explicitely.
+    volumes = new_resource.volumes.map do |volume|
+      volume['path'] = volume['source'] if volume['path'].nil?
+      volume['type'] = disk
+      volume
+    end
+    # append the certificate directory, read only
+    volumes << ssl_cert_volume
+    # sort them by name to keep profile generation stable
+    volumes.sort_by { |v| v['name'] }
   end
 end

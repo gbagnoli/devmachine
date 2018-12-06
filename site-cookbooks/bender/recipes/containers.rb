@@ -17,6 +17,11 @@ config = <<~HEREDOC
     config:
       source: #{node['bender']['storage']['containers']['source']}
 
+  - name: #{node['bender']['storage']['data']['name']}
+    driver: #{node['bender']['storage']['data']['driver']}
+    config:
+      source: #{node['bender']['storage']['data']['source']}
+
   profiles:
   - name: default
     devices:
@@ -28,6 +33,13 @@ HEREDOC
 
 lxd_config 'bender' do
   content config
+end
+
+# used to export generated certs to container
+directory 'cert_volumes_root' do
+  path node['bender']['certificates']['directory']
+  mode '0700'
+  recursive true
 end
 
 node['bender']['containers'].each do |name, conf|

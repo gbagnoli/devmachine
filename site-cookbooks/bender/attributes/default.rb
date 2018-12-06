@@ -10,6 +10,11 @@ default['bender']['network']['containers']['ipv4']['network'] = '172.24.24.0/24'
 default['bender']['network']['containers']['ipv6']['addr'] = 'fd05:f439:6192:1b03::1'
 default['bender']['network']['containers']['ipv6']['addr_cidr'] = 'fd05:f439:6192:1b03::1/64'
 default['bender']['network']['containers']['ipv6']['network'] = 'fd05:f439:6192:1b03::0/64'
-default['bender']['storage']['containers']['name'] = 'data'
+
+default['bender']['storage']['containers']['name'] = 'containers'
 default['bender']['storage']['containers']['source'] = '/data/containers'
 default['bender']['storage']['containers']['driver'] = 'btrfs'
+
+default['bender']['storage']['data']['name'] = 'data'
+default['bender']['storage']['data']['source'] = '/data/data'
+default['bender']['storage']['data']['driver'] = 'btrfs'

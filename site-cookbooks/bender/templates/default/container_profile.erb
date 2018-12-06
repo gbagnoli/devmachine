@@ -16,4 +16,10 @@ devices:
     nictype: bridged
     parent: <%= @bridge_interface %>
     type: nic
-
+<% @volumes.each do |volume| -%>
+  <%= volume['name'] %>:
+<% volume.each do |key, value| -%>
+<% next if key == 'name' -%>
+    <%= key %>: <%= value %>
+<% end -%>
+<% end -%>

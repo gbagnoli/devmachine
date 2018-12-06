@@ -8,7 +8,7 @@ file_check = {
 
 container_check = {
   'container should exists' => lambda { |name|
-    name.nil? || node['bender']['containers'].keys?(name)
+    name.nil? || node['bender']['containers'].key?(name)
   }
 }
 
