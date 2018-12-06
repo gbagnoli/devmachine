@@ -1,3 +1,4 @@
+node.override['server']['chef']['cron']['minute'] = '45'
 include_recipe 'bender::users'
 include_recipe 'nginx-hardening::upgrades'
 include_recipe 'nginx'
