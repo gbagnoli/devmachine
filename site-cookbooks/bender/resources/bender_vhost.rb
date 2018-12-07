@@ -16,7 +16,7 @@ property :vhost_name, String, name_property: true
 property :server_name, [Array, String], required: true
 property :port, [Integer, NilClass], default: nil
 property :upstream_url, [String, NilClass], default: nil
-property :upstream_protocol, String, default: 'http'
+property :upstream_protocol, String, default: 'http', equal_to: %w[http https]
 property :container, [String, NilClass], default: nil, callbacks: container_check
 property :ssl, [TrueClass, FalseClass], default: false
 property :letsencrypt, [TrueClass, FalseClass], default: false

@@ -5,6 +5,8 @@ default['bender']['vhosts']['bender.tigc.eu'] = {
   server_name: 'bender.tigc.eu',
   # either you set the container, or set upstream_url
   container: 'marvin',
+  # either http or https
+  upstream_protocol: 'https',
   # for letsencrypt you also need ssl: true
   ssl: true,
   letsencrypt: true,
