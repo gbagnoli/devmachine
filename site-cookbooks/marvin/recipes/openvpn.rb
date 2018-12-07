@@ -1,14 +1,8 @@
 include_recipe 'openvpn'
 
-file '/usr/local/bin/openvpn-setup-iptables' do
+cookbook_file '/usr/local/bin/openvpn-setup-iptables' do
+  source 'openvpn-setup-iptables'
   action :create
-  content <<~EOC
-    #!/bin/bash
-    iptables -t nat -A POSTROUTING -s 172.31.0.0/16 -o eth0 -j MASQUERADE
-    iptables -t nat -A PREROUTING -s 172.31.0.0/16 -p udp --dport 53 -j DNAT --to 172.31.90.1:54
-    iptables -t nat -A PREROUTING -s 172.31.0.0/16 -p tcp --dport 53 -j DNAT --to 172.31.90.1:54
-    iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-  EOC
   mode '0750'
 end
 
@@ -26,4 +20,15 @@ systemd_unit 'openvpn-setup-iptables.service' do
     WantedBy=multi-user.target
   EOU
   action %i[create enable start]
+end
+
+execute 'remove nproclimit from openvpn unit' do
+  command 'sed /^LimitNPROC.*$/d /lib/systemd/system/openvpn@.service > /etc/systemd/system/openvpn@.service'
+  not_if { ::File.exist?('/etc/systemd/system/openvpn@.service') }
+  notifies :run, 'execute[reload-systemd-openvpn]', :immediately
+end
+
+execute 'reload-systemd-openvpn' do
+  action :nothing
+  command 'systemctl daemon-reload'
 end
