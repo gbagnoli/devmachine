@@ -145,8 +145,9 @@ export PATH=$PATH:$GOPATH/bin
 vpnutils_setup_ubik() {
     echo "Setting up vpnutils for ubik"
     export VPN_UTILS_FILE="$HOME/Sync/Private/vpn/ubik.asc"
-    # shellcheck disable=SC2139
-    alias vpnutils="$HOME/.local/src/vpnutils/vpnutils"
+    VUPATH="$HOME/.local/src/vpnutils/"
+    PYV="$(cat "$VUPATH/.python-version")"
+    alias vpnutils="PIPENV_PIPFILE=$VUPATH/Pipfile PYENV_VERSION=$PYV pyenv exec pipenv run $VUPATH/vpnutils"
 }
 
 vpnutils_unconfigure() {
