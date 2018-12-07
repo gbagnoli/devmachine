@@ -105,6 +105,7 @@ GRAPH
     nodejs (>= 0.0.0)
     oauth2_proxy (>= 0.0.0)
     openvpn (>= 0.0.0)
+    server (>= 0.0.0)
   mingw (2.1.0)
     seven_zip (>= 0.0.0)
   nginx (9.0.0)
