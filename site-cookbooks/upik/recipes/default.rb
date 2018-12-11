@@ -33,6 +33,7 @@ template '/etc/network/interfaces.d/eth0' do
   source 'iface.erb'
   variables(
     iface: 'eth0',
+    ipv6: node['upik']['ipv6'],
     address: node['upik']['address'],
     netmask: node['upik']['netmask'],
     gateway: node['upik']['gateway'],

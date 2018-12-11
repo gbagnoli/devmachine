@@ -1,6 +1,9 @@
 # Managed by chef
 <% if @address == 'dhcp' -%>
 iface <%= @iface %> inet dhcp
+<% if @ipv6 -%>
+iface <%= @iface %> inet6 dhcp
+<% end -%>
 <% else -%>
 address <%= @address %>
 netmask <%= @netmask %>
