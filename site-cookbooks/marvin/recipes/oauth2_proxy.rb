@@ -18,7 +18,7 @@ file '/etc/oauth2_proxy/tigc.emails.txt' do
   mode 0o400
   owner 'oauth2proxy'
   group 'nogroup'
-  notifies :restart, 'service[oauth2_proxy-tigc]', :immediately
+  notifies :restart, 'service[oauth2_proxy-tigc]'
 end
 
 oauth2_proxy_site 'tigc' do
