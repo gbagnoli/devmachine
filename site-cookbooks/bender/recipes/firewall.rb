@@ -48,6 +48,6 @@ node.override['sysctl']['params']['net']['ipv4']['conf']['default']['log_martian
   end
 
   service pkg do
-    action 'start'
+    action %w[enable start]
   end
 end
