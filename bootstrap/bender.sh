@@ -6,6 +6,9 @@ set -o pipefail
 host="bender"
 [ $# -eq 1 ] && host="$1"
 
+if [[ "$host" == "bender" ]]; then
+  ssh-keygen -f "$HOME/.ssh/known_hosts" -R "bender.tigc.eu" &>/dev/null || true
+fi
 ssh -oBatchMode=yes root@"$host" ls &>/dev/null
 
 if [ $? -ne 0 ] ; then

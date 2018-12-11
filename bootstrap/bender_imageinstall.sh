@@ -2,6 +2,7 @@
 set -eu
 set -o pipefail
 
+ssh-keygen -f "$HOME/.ssh/known_hosts" -R "bender.tigc.eu" &>/dev/null || true
 ssh -oBatchMode=yes root@bender ls &>/dev/null
 
 if [ $? -ne 0 ] ; then
@@ -15,7 +16,7 @@ cleanup() {
 
 trap cleanup EXIT
 
-cat > /tmp/installimage_bender <<EOM
+cat > /tmp/autosetup_bender <<EOM
 DRIVE1 /dev/sda
 DRIVE2 /dev/sdb
 SWRAID 1
@@ -28,6 +29,11 @@ PART /data btrfs all
 IMAGE /root/.oldroot/nfs/install/../images/Ubuntu-1804-bionic-64-minimal.tar.gz
 EOM
 
-ssh-keygen -f "~/.ssh/known_hosts" -R "bender.tigc.eu"
 scp /tmp/autosetup_bender root@bender:/autosetup
-ssh root@bender installimage
+hostname="$(ssh -oBatchMode=yes root@bender hostname)"
+if [[ "$hostname" != "rescue" ]]; then
+  echo >&2 "please activate hetzner rescue system"
+  exit 1
+fi
+ssh -oBatchMode=yes root@bender /root/.oldroot/nfs/install/installimage -a -c /autosetup
+ssh -oBatchMode=yes root@bender reboot
