@@ -17,11 +17,6 @@ config = <<~HEREDOC
     config:
       source: #{node['bender']['storage']['containers']['source']}
 
-  - name: #{node['bender']['storage']['data']['name']}
-    driver: #{node['bender']['storage']['data']['driver']}
-    config:
-      source: #{node['bender']['storage']['data']['source']}
-
   profiles:
   - name: default
     devices:
@@ -49,5 +44,6 @@ node['bender']['containers'].each do |name, conf|
     description conf['description']
     forwarded_ports conf['forwarded_ports']
     external_ipv6 conf['external_ipv6']
+    volumes conf['volumes'] || []
   end
 end

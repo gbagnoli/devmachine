@@ -14,7 +14,3 @@ default['bender']['network']['containers']['ipv6']['network'] = 'fd05:f439:6192:
 default['bender']['storage']['containers']['name'] = 'containers'
 default['bender']['storage']['containers']['source'] = '/data/containers'
 default['bender']['storage']['containers']['driver'] = 'btrfs'
-
-default['bender']['storage']['data']['name'] = 'data'
-default['bender']['storage']['data']['source'] = '/data/data'
-default['bender']['storage']['data']['driver'] = 'btrfs'

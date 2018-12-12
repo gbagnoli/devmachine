@@ -53,15 +53,20 @@ allowed_volume_keys = %w[
 ].sort
 
 volumes_callbacks = {
-  'it must be an hash with "source" required attribute' => lambda { |volumes|
+  'it must be an hash with "source" and "path" required attribute' => lambda { |volumes|
     volumes.each do |volume|
-      volume.is_a?(Hash) && volume.key?('source')
+      volume.is_a?(Hash) && volume.key?('source') && volume.key?('path')
+    end.all?
+  },
+  'it must have type set to "disk"' => lambda { |volumes|
+    volumes.each do |volume|
+      volume.is_a?(Hash) && volume['type'] == 'disk'
     end.all?
   },
   'source directory must be a directory' => lambda { |volumes|
     volumes.each do |volume|
-      ::File.realpath.directory? volume['source']
-      node['bender']['storage'].key?(volume['pool']) unless volume['pool'].nil?
+      ::File.directory?(::File.realpath(volume['source'])) && \
+        (volume['pool'].nil? || node['bender']['storage'].key?(volume['pool']))
     end.all?
   },
   'all volumes must have a unique name' => lambda { |volumes|
@@ -267,16 +272,10 @@ action_class do
   end
 
   def volumes
-    # make sure source and type are set. source is set to path if
-    # it's not set explicitely.
-    volumes = new_resource.volumes.map do |volume|
-      volume['path'] = volume['source'] if volume['path'].nil?
-      volume['type'] = disk
-      volume
-    end
     # append the certificate directory, read only
-    volumes << ssl_cert_volume
+    vol = [ssl_cert_volume]
+    new_resource.volumes.each { |v| vol << v }
     # sort them by name to keep profile generation stable
-    volumes.sort_by { |v| v['name'] }
+    vol.sort_by { |v| v['name'] }
   end
 end

@@ -17,3 +17,12 @@ default['bender']['containers']['flexo']['forwarded_ports'] = [
   { protocol: 'tcp', internal_port: 32_400, external_port: 32_400, ip_version: 'all' }
 ]
 default['bender']['containers']['flexo']['external_ipv6'] = nil
+default['bender']['containers']['flexo']['volumes'] = [
+  {
+    'name' => 'media',
+    'pool' => node['bender']['storage']['containers']['name'],
+    'source' => 'media', # volume name in pool
+    'path' => '/media',
+    'type' => 'disk'
+  }
+]
