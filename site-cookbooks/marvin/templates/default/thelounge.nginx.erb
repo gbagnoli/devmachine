@@ -4,7 +4,7 @@ upstream thelounge {
 
 server {
    listen 80;
-   server_name thelounge.tigc.eu shout.tigc.eu;
+   server_name chat.tigc.eu;
    location / {
      access_log /var/log/nginx/shout.log;
      proxy_set_header X-Real-IP $remote_addr;
