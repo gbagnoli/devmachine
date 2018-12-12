@@ -5,3 +5,14 @@ run_list [
   'role[container]',
   'recipe[marvin::default]'
 ]
+
+default_attributes(
+  'syncthing' => {
+    'users' => {
+      'giacomo' => {
+        'hostname' => 'syncthing.tigc.eu',
+        'port' => 8384
+      }
+    }
+  }
+)

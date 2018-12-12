@@ -6,7 +6,8 @@ default['bender']['containers']['marvin']['image'] = 'ubuntu:18.04'
 # format:
 # [{internal_port: x, external_port: y, ip_version: <ipv4|ipv6|all>, protocol: <tcp|udp|all>}, {}]
 default['bender']['containers']['marvin']['forwarded_ports'] = [
-  { protocol: 'udp', external_port: 1195, internal_port: 1194, ip_version: 'all' }
+  { protocol: 'udp', external_port: 1195, internal_port: 1194, ip_version: 'all' },
+  { protocol: 'tcp', external_port: 22_000, internal_port: 22_000, ip_version: 'all' }
 ]
 # if set, this will nat 1:1 the ipv6 address to the container
 default['bender']['containers']['marvin']['external_ipv6'] = nil
