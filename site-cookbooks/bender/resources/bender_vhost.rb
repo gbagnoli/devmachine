@@ -35,7 +35,7 @@ action :create do
     variables(
       vhost: new_resource.vhost_name,
       port: port,
-      server_name: server_name.join(' '),
+      server_name: server_names,
       upstream_url: upstream_url,
       certificate_key: certificate_key,
       certificate_file: certificate_file,
@@ -98,5 +98,9 @@ action_class do
 
     up = new_resource.upstream_url || "#{new_resource.container}.lxd"
     "#{new_resource.upstream_protocol}://#{up}"
+  end
+
+  def server_names
+    (server_name + (new_resource.letsencrypt_alt_names || [])).join(' ')
   end
 end
