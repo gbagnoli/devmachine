@@ -112,7 +112,15 @@ def rsync(
     rsync_project(
         local_dir="./",
         remote_dir=remote,
-        exclude=("data", "boostrap", "local-mode-cache", ".git", "nodes", "secrets"),
+        exclude=(
+            "data",
+            "boostrap",
+            "local-mode-cache",
+            ".git",
+            "nodes",
+            "secrets",
+            "ohai",
+        ),
         extra_opts="-q",
         delete=True,
     )

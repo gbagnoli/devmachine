@@ -1,3 +1,4 @@
+# rubocop:disable Naming/FileName
 root = File.dirname(__FILE__)
 chef_repo_path root
 chef_zero_enabled true
@@ -7,3 +8,5 @@ environment 'default'
 environment_path "#{root}/environments"
 node_path "#{root}/nodes"
 role_path "#{root}/roles"
+ohai.plugin_path << "#{root}/ohai/plugins"
+# rubocop:enable Naming/FileName
