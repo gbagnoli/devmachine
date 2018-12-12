@@ -19,7 +19,7 @@ systemd_unit 'openvpn-setup-iptables.service' do
     [Install]
     WantedBy=multi-user.target
   EOU
-  action %i[create enable start]
+  action %i[create enable]
 end
 
 execute 'remove nproclimit from openvpn unit' do
