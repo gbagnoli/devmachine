@@ -1,3 +1,4 @@
+include_recipe 'marvin::znc'
 node.override['nodejs']['repo'] = 'https://deb.nodesource.com/node_8.x'
 include_recipe 'nodejs::nodejs_from_package'
 include_recipe 'nodejs::npm'
@@ -40,6 +41,7 @@ systemd_unit 'thelounge.service' do
     [Service]
     Environment = 'THELOUNGE_HOME=#{node['marvin']['thelounge']['home']}'
     ExecStart = /usr/bin/thelounge start
+    User=thelounge
 
     [Install]
     WantedBy = multi-user.target
