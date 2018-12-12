@@ -9,11 +9,33 @@ group 'media' do
   append true
 end
 
+package 'acl'
+
+media_d = node['flexo']['media']['path']
+
 user node['flexo']['media']['username'] do
   uid node['flexo']['media']['uid']
   gid 'media'
   system true
   shell '/bin/false'
+end
+
+directory media_d do
+  group 'media'
+  owner node['flexo']['media']['username']
+  mode '2775'
+end
+
+directory "#{media_d}/downloads" do
+  group 'media'
+  owner node['flexo']['media']['username']
+  mode '2775'
+end
+
+execute "setfacl_#{media_d}" do
+  command "setfacl -R -d -m g::rwx -m o::rx #{media_d}"
+  user 'root'
+  not_if "getfacl #{media_d} 2>/dev/null | grep 'default:' -q"
 end
 
 python_runtime '2.7'
@@ -25,23 +47,36 @@ directory virtualenv_path do
   mode '0775'
 end
 
+# rubocop:disable Metrics/BlockLength
 {
   'sickchill' => {
     repo: 'https://github.com/SickChill/SickChill.git',
     command: '%<venv>s/bin/python %<venv>s/src/%<app>s/SickBeard.py --nolaunch '\
              '-q --datadir=%<datadir>s -p %<port>s',
-    config_fname: 'config.ini'
+    config_fname: 'config.ini',
+    dir: 'series'
   },
   'couchpotato' => {
     command: '%<venv>s/bin/python %<venv>s/src/%<app>s/CouchPotato.py'\
              ' --quiet --data_dir=%<datadir>s',
     repo: 'https://github.com/CouchPotato/CouchPotatoServer.git',
-    config_fname: 'settings.conf'
+    config_fname: 'settings.conf',
+    dir: 'movies'
   }
-
 }.each do |app, config|
   venv = "#{virtualenv_path}/#{app}"
   datadir = "/var/lib/#{app}"
+  root_d = "#{media_d}/#{config[:dir]}"
+  download_d = "#{media_d}/downloads/#{config[:dir]}"
+
+  [root_d, download_d].each do |d|
+    directory d do
+      group 'media'
+      owner node['flexo']['media']['username']
+      mode '2775'
+    end
+  end
+
   attrs = node['flexo']['media'][app] || {}
   command = config[:command] % { # rubocop: disable Style/FormatString
     venv: venv,
@@ -103,7 +138,9 @@ end
     variables(
       cookie_secret: cookie_secret,
       encryption_secret: encryption_secret,
-      api_key: api_key
+      api_key: api_key,
+      download_dir: download_d,
+      root_dir: root_d
     )
   end
 
@@ -125,3 +162,4 @@ end
     action %i[create enable start]
   end
 end
+# rubocop:enable Metrics/BlockLength

@@ -705,9 +705,9 @@ use_plex_server = 0
 [TORRENT]
 torrent_verify_cert = 0
 torrent_paused = 0
-torrent_host = http://10.0.3.3:50505/
+torrent_host = "http://localhost:9090"
 torrent_label_anime = ""
-torrent_path = /srv/downloads/series
+torrent_path = <%= @download_dir %>
 torrent_auth_type = ""
 torrent_rpcurl = transmission
 torrent_username = torrent
@@ -799,7 +799,7 @@ log_size = 1.0
 git_remote = origin
 use_icacls = 1
 season_folders_default = 1
-web_ipv6 = 0
+web_ipv6 = 1
 anime_default = 0
 metadata_wdtv = 0|0|0|0|0|0|0|0|0|0
 default_page = home
@@ -821,9 +821,9 @@ dailysearch_frequency = 10
 download_url = ""
 naming_custom_anime = 0
 ignore_words = "german,french,core2hd,dutch,swedish,480p"
-root_dirs = 0|/srv/giacomo/series/
+root_dirs = 0|<%= @root_dir %>
 delete_non_associated_files = 1
-api_key = 16480c193242f7944c56766b22619985
+api_key = <%= @api_key %>
 randomize_providers = 0
 web_host = 0.0.0.0
 config_version = 8
@@ -833,7 +833,7 @@ process_automatically = 1
 calendar_unprotected = 0
 sync_files = "!sync,lftp-pget-status,part,bts"
 git_path = ""
-web_cookie_secret = <%= @secret %>
+web_cookie_secret = <%= @cookie_secret %>
 news_last_read = 2017-08-05
 ssl_verify = 0
 handle_reverse_proxy = 1
@@ -880,7 +880,7 @@ require_words = ""
 git_username = ""
 auto_update = 0
 git_remote_url = https://github.com/SickChill/SickChill.git
-tv_download_dir = /srv/downloads/series
+tv_download_dir = <%= @root_dir %>
 trackers_list = "udp://coppersurfer.tk:6969/announce,udp://open.demonii.com:1337,udp://exodus.desync.com:6969,udp://9.rarbg.me:2710/announce,udp://glotorrents.pw:6969/announce,udp://tracker.openbittorrent.com:80/announce,udp://9.rarbg.to:2710/announce"
 git_auth_type = 0
 extra_scripts = ""

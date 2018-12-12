@@ -42,15 +42,15 @@ ignored_genres =
 startup_scan = True
 cleanup = True
 enabled = 1
-library = /srv/giacomo/movies
+library = <%= @root_dir %>
 library_refresh_interval = 0
 
 [renamer]
 nfo_name = <filename>.orig.<ext>
-from = /srv/downloads/movies
+from = <%= @download_dir %>
 force_every = 2
 move_leftover = False
-to = /srv/giacomo/movies
+to = <%= @root_dir %>
 file_name = <thename><cd>.<ext>
 enabled = 1
 next_on_failed = 0
@@ -176,9 +176,9 @@ rpc_url = transmission
 manual = 0
 enabled = 1
 paused = False
-host = http://10.0.3.3:50505/
+host = http://localhost:9090
 delete_files = True
-directory = /srv/downloads/movies
+directory = <%= @download_dir %>
 remove_complete = True
 password = 
 
