@@ -39,12 +39,14 @@ end
 # we need to restart shorewall in case this is the first run and we need to
 # open the ports, or acme validation will fail.
 # this sucks.
-%w[shorewall shorewall6].each do |fw|
-  service "restart_#{fw}" do
-    service_name fw
-    action :restart
-  end
-end
+# FIXME: commented this out as restart is disruptive for connections in container
+# need to trigger this when installing nginx, or simply let first run fail
+# %w[shorewall shorewall6].each do |fw|
+#   service "restart_#{fw}" do
+#     service_name fw
+#     action :restart
+#   end
+# end
 
 node['bender']['vhosts'].each do |vhost, conf|
   bender_vhost vhost do
