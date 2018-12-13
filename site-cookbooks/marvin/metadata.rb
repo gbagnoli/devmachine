@@ -14,7 +14,6 @@ chef_version '>=14'
 supports 'ubuntu', '>= 18.04'
 
 depends 'dnscrypt_proxy'
-depends 'oauth2_proxy'
 depends 'openvpn'
 depends 'nginx'
 depends 'nodejs'

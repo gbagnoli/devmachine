@@ -8,8 +8,8 @@ nginx_site 'sync.tigc.eu' do
     port: node['syncthing']['users']['giacomo']['port'],
     upstream: 'syncthing',
     server_name: 'sync.tigc.eu',
-    oauth2_proxy_port: node['marvin']['oauth2_proxy']['http_port'],
-    oauth2_proxy_upstream_port: node['marvin']['oauth2_proxy']['upstream_port']
+    oauth2_proxy_port: node['server']['oauth2_proxy']['http_port'],
+    oauth2_proxy_upstream_port: node['server']['oauth2_proxy']['upstream_port']
   )
   action :enable
 end

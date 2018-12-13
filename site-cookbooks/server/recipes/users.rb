@@ -30,9 +30,7 @@ node['server']['users'].each do |username, user_details|
 end
 
 sysadmins = node['server']['users'].reject { |_, v| v['unmanaged'] }.keys.dup
-if node['server']['components']['user']['enabled']
-  sysadmins << node['user']['login']
-end
+sysadmins << node['user']['login'] if node['server']['components']['user']['enabled']
 
 group 'sysadmins' do
   gid 3000
