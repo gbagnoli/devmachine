@@ -16,6 +16,7 @@ node['syncthing']['users'].each do |user, conf|
   unless conf.nil?
     host = conf['hostname']
     port = conf['port']
+    bind_address = conf['bind_address'] || '127.0.0.1'
     raise Exception, "Missing port or hostname for user #{user} (conf: #{conf}" if port.nil? || host.nil?
 
     # configure syncthing
@@ -30,7 +31,7 @@ node['syncthing']['users'].each do |user, conf|
       action :nothing
       code <<-EOH
       sed -i -e 's/name="#{node['hostname']}"/name="#{host}"/' #{syncthing_conf}
-      sed -i -e 's/<address>127.0.0.1:[0-9]*/<address>127.0.0.1:#{port}/' #{syncthing_conf}
+      sed -i -e 's/<address>127.0.0.1:[0-9]*/<address>#{bind_address}:#{port}/' #{syncthing_conf}
       EOH
     end
   end

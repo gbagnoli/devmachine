@@ -30,6 +30,14 @@ default['bender']['vhosts']['sync.tigc.eu'] = {
   upstream_protocol: 'http',
   ssl: true,
   letsencrypt: true,
-  letsencrypt_alt_names: ['chat.tigc.eu'],
+  cloudflare: true
+}
+
+default['bender']['vhosts']['chat.tigc.eu'] = {
+  server_name: 'chat.tigc.eu',
+  container: 'marvin',
+  upstream_protocol: 'http',
+  ssl: true,
+  letsencrypt: true,
   cloudflare: true
 }

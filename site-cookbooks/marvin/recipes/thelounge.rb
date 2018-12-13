@@ -50,10 +50,14 @@ systemd_unit 'thelounge.service' do
 end
 
 nginx_site 'thelounge.tigc.eu' do
-  template 'thelounge.nginx.erb'
+  template 'nginx.erb'
   variables(
-    home: node['marvin']['thelounge']['home'],
-    port: node['marvin']['thelounge']['port']
+    host: '127.0.0.1',
+    port: node['marvin']['thelounge']['port'],
+    upstream: 'thelounge',
+    server_name: node['marvin']['thelounge']['server_name'],
+    location: '/',
+    upgrade: true
   )
   action :enable
 end
