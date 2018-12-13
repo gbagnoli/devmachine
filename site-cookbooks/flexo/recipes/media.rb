@@ -3,9 +3,12 @@ Chef::Recipe.send(:include, Flexo::RandomPassword)
 package 'git'
 package 'unrar'
 
+users = node['server']['users'].keys.dup
+users << 'plex'
+
 group 'media' do
   gid node['flexo']['media']['gid']
-  members node['server']['users'].keys.sort
+  members users
   append true
 end
 
