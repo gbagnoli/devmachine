@@ -179,12 +179,17 @@ action :create do
     hostsfile_entry get_ipv4_address(new_resource.container_name) do
       hostname "#{new_resource.container_name}.lxd"
     end
+
+    check = ssh_check('ipv4')
+    node.override['bender']['tcp_checks'][check[:name]] = check
   end
 
   unless get_ipv6_address(new_resource.container_name).empty?
     hostsfile_entry get_ipv6_address(new_resource.container_name) do
       hostname "#{new_resource.container_name}.lxd"
     end
+    check = ssh_check('ipv6')
+    node.override['bender']['tcp_checks'][check[:name]] = check
   end
 end
 
@@ -246,6 +251,14 @@ action_class do
       'local_port': internal_port,
       'external_port': external_port,
       'proto': protocol.to_s
+    }
+  end
+
+  def ssh_check(ip_version)
+    {
+      name: "#{new_resource.container_name}_ssh_#{ip_version}",
+      host: get_ip(ip_version),
+      port: 22
     }
   end
 
