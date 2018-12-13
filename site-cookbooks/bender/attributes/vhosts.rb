@@ -41,3 +41,12 @@ default['bender']['vhosts']['chat.tigc.eu'] = {
   letsencrypt: true,
   cloudflare: true
 }
+
+default['bender']['vhosts']['media.tigc.eu'] = {
+  server_name: 'media.tigc.eu',
+  container: 'flexo',
+  upstream_protocol: 'http',
+  ssl: true,
+  letsencrypt: true,
+  cloudflare: true
+}
