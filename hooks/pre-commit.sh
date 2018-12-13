@@ -53,7 +53,7 @@ if $circleci; then
 fi
 if [ "${#ruby[@]}" -gt 0 ]; then
   echo "Running rubocop"
-  bundle exec rubocop -a "${ruby[@]}"; ec=$?
+  bundle exec rubocop "${ruby[@]}"; ec=$?
 fi
 if [ "${#chef[@]}" -gt 0 ]; then
   echo "Running foodcritic"
@@ -61,9 +61,9 @@ if [ "${#chef[@]}" -gt 0 ]; then
 fi
 if [ "${#python[@]}" -gt 0 ]; then
   echo "Running black "
-  pipenv run black "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  pipenv run black --check --diff "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
   echo "Running isort "
-  pipenv run isort -y "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  pipenv run isort "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
   echo "Running flake8 "
   pipenv run flake8 --ignore=E501 "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
   echo "Running mypy "
