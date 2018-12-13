@@ -119,7 +119,7 @@ def rsync(
             ".git",
             "nodes",
             "secrets",
-            "ohai",
+            "./ohai",
         ),
         extra_opts="-q",
         delete=True,

@@ -1,6 +1,6 @@
 include_recipe 'sudo'
 
-node['bender']['users'].each do |username, user_details|
+node['server']['users'].each do |username, user_details|
   next if user_details['unmanaged']
 
   group username do
@@ -29,9 +29,14 @@ node['bender']['users'].each do |username, user_details|
   end
 end
 
+sysadmins = node['server']['users'].reject { |_, v| v['unmanaged'] }.keys.dup
+if node['server']['components']['user']['enabled']
+  sysadmins << node['user']['login']
+end
+
 group 'sysadmins' do
   gid 3000
-  members node['bender']['users'].keys.sort
+  members sysadmins.sort
 end
 
 sudo 'sysadmins' do

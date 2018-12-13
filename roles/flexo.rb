@@ -5,3 +5,19 @@ run_list [
   'role[container]',
   'recipe[flexo::default]'
 ]
+
+default_attributes(
+  'server' => {
+    'users' => {
+      'fnigi' => {
+        'unmanaged' => false
+      },
+      'dario' => {
+        'unmanaged' => false
+      },
+      'sonne' => {
+        'unmanaged' => false
+      }
+    }
+  }
+)

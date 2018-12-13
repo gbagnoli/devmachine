@@ -11,7 +11,9 @@ default['bender']['containers']['marvin']['forwarded_ports'] = [
 ]
 # if set, this will nat 1:1 the ipv6 address to the container
 default['bender']['containers']['marvin']['external_ipv6'] = nil
+default['bender']['containers']['marvin']['volumes'] = nil
 
+# FLEXO
 default['bender']['containers']['flexo']['id'] = 3
 default['bender']['containers']['flexo']['image'] = 'ubuntu:18.04'
 default['bender']['containers']['flexo']['forwarded_ports'] = [
@@ -27,3 +29,17 @@ default['bender']['containers']['flexo']['volumes'] = [
     'type' => 'disk'
   }
 ]
+
+# PENTOLINO
+default['bender']['containers']['pentolino']['id'] = 4
+default['bender']['containers']['pentolino']['image'] = 'ubuntu:18.04'
+default['bender']['containers']['pentolino']['forwarded_ports'] = []
+default['bender']['containers']['pentolino']['external_ipv6'] = nil
+default['bender']['containers']['pentolino']['volumes'] = nil
+
+# BLOODSEA
+default['bender']['containers']['bloodsea']['id'] = 5
+default['bender']['containers']['bloodsea']['image'] = 'ubuntu:18.04'
+default['bender']['containers']['bloodsea']['forwarded_ports'] = []
+default['bender']['containers']['bloodsea']['external_ipv6'] = nil
+default['bender']['containers']['bloodsea']['volumes'] = nil

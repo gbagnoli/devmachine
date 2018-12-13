@@ -5,7 +5,7 @@ package 'unrar'
 
 group 'media' do
   gid node['flexo']['media']['gid']
-  members node['bender']['users'].keys.sort
+  members node['server']['users'].keys.sort
   append true
 end
 
