@@ -110,6 +110,8 @@ end
   git "#{venv}/src/#{app}" do
     repository config[:repo]
     action :sync
+    revision 'master'
+    checkout_branch 'master'
     user node['flexo']['media']['username']
     notifies :run, "bash[install #{app}]", :immediately
     notifies :restart, "systemd_unit[#{app}.service]", :delayed
