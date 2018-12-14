@@ -5,3 +5,4 @@ default['flexo']['media']['uid'] = '2001'
 default['flexo']['media']['username'] = 'plex'
 default['flexo']['media']['path'] = '/media'
 default['flexo']['media']['sickchill']['port'] = 3344
+default['flexo']['media']['couchpotato']['port'] = 5050

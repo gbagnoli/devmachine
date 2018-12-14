@@ -166,3 +166,27 @@ end
   end
 end
 # rubocop:enable Metrics/BlockLength
+
+directory '/var/www/' do
+  owner 'www-data'
+  group 'www-data'
+end
+
+cookbook_file '/var/www/index.html' do
+  source 'index.html'
+  owner 'www-data'
+  group 'www-data'
+end
+
+nginx_site 'media.tigc.eu' do
+  template 'media.nginx.erb'
+  variables(
+    host: '127.0.0.1',
+    sickchill_port: node['flexo']['media']['sickchill']['port'],
+    couchpotato_port: node['flexo']['media']['couchpotato']['port'],
+    server_name: 'media.tigc.eu',
+    oauth2_proxy_port: lazy { node['server']['oauth2_proxy']['http_port'] },
+    oauth2_proxy_upstream_port: lazy { node['server']['oauth2_proxy']['upstream_port'] }
+  )
+  action :enable
+end
