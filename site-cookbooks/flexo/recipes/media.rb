@@ -3,6 +3,10 @@ Chef::Recipe.send(:include, Flexo::RandomPassword)
 package 'git'
 package 'unrar'
 
+node.override['nodejs']['repo'] = 'https://deb.nodesource.com/node_8.x'
+include_recipe 'nodejs::nodejs_from_package'
+include_recipe 'nodejs::npm'
+
 users = node['server']['users'].keys.dup
 users << 'plex'
 
