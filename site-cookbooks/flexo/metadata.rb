@@ -15,6 +15,7 @@ supports 'ubuntu', '>= 18.04'
 
 depends 'datadog'
 depends 'git'
+depends 'logrotate'
 depends 'nginx'
 depends 'nodejs'
 depends 'plex'

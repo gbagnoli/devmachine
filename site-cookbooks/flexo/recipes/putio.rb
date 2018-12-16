@@ -120,3 +120,23 @@ template '/usr/local/bin/putio_groom_swipe' do
     user: media_user
   )
 end
+
+directory '/var/log/putio' do
+  owner media_user
+  group 'media'
+  mode '0755'
+end
+
+cron_d 'putio-sync' do
+  minute '*/5'
+  user media_user
+  home venv
+  command '/usr/local/bin/putio_groom_swipe >> /var/log/putio/sync.log'
+end
+
+logrotate_app 'putio-sync' do
+  path      '/var/log/putio/sync.log'
+  frequency 'daily'
+  rotate    30
+  create    "644 #{media_user} media"
+end
