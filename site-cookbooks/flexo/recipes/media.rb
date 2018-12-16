@@ -76,12 +76,10 @@ end
   root_d = "#{media_d}/#{config[:dir]}"
   download_d = "#{media_d}/downloads/#{config[:dir]}"
 
-  [root_d, download_d].each do |d|
-    directory d do
-      group 'media'
-      owner node['flexo']['media']['username']
-      mode '2775'
-    end
+  directory root_d do
+    group 'media'
+    owner node['flexo']['media']['username']
+    mode '2775'
   end
 
   attrs = node['flexo']['media'][app] || {}
@@ -118,7 +116,7 @@ end
   end
 
   bash "install #{app}" do
-    action :run
+    action :nothing
     cwd venv
     code <<-EOH
       usermod -s /bin/bash #{node['flexo']['media']['username']}

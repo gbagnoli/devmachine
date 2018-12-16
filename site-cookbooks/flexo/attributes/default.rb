@@ -6,3 +6,6 @@ default['flexo']['media']['username'] = 'plex'
 default['flexo']['media']['path'] = '/media'
 default['flexo']['media']['sickchill']['port'] = 3344
 default['flexo']['media']['couchpotato']['port'] = 5050
+
+# make sure it ends with a forward slash
+default['flexo']['rclone']['local_directory'] = "#{node['flexo']['media']['path']}/downloads/"

@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+
+export LOG_DIR=<%= @venv %>
+export XDG_DATA_HOME=<%= @venv %>
+cd <%= @venv %>
+./bin/putio "$@"
+exit $?

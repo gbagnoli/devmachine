@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -eu
+
+if [[ "$USER" != "<%= @user %>" ]]; then
+  echo >&2 "Please run this script as user <%= @user %>"
+  exit 1
+fi
+
+(
+  flock -n 9 || exit 1
+  rclone --config <%= @config %> copy putio: <%= @destination %> --verbose
+  exit $?
+) 9>/run/lock/rclone_putio

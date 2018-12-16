@@ -1,0 +1,12 @@
+import logging
+import os
+
+LOG_LEVEL = 'WARNING'
+MAIL_TO = ''
+PUTIO_TOKEN = '<%= @token %>'
+
+DOWNLOADS = '<%= @destination %>'
+INCOMPLETE = '<%= @incomplete %>'
+TORRENTS = '<%= @torrents %>'
+
+PUTIO_ROOT = os.getenv('PUTIO_ROOT', 0)
