@@ -69,11 +69,10 @@ end
 end
 
 git "#{venv}/src/putio_automator" do
-  repository 'https://github.com/datashaman/putio-automator.git'
+  repository 'https://github.com/gbagnoli/putio-automator.git'
   action :sync
-  revision 'master'
-  enable_checkout false
-  checkout_branch 'master'
+  revision 'develop'
+  checkout_branch 'develop'
   user media_user
   notifies :run, 'bash[install_putio_automator]', :immediately
 end
@@ -107,5 +106,17 @@ template '/usr/local/bin/putio' do
   mode '0740'
   variables(
     venv: venv
+  )
+end
+
+template '/usr/local/bin/putio_groom_swipe' do
+  source 'putio_groom_swipe.erb'
+  user media_user
+  group 'media'
+  mode '0740'
+  variables(
+    putio: '/usr/local/bin/putio',
+    rclone: '/usr/local/bin/rclone_putio',
+    user: media_user
   )
 end
