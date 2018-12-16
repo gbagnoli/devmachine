@@ -131,7 +131,10 @@ cron_d 'putio-sync' do
   minute '*/5'
   user media_user
   home venv
-  command '/usr/local/bin/putio_groom_swipe >> /var/log/putio/sync.log'
+  environment(
+    'USER' => media_user
+  )
+  command '/usr/local/bin/putio_groom_swipe 2>&1 >> /var/log/putio/sync.log'
 end
 
 logrotate_app 'putio-sync' do
