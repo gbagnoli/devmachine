@@ -18,7 +18,7 @@ directory '/etc/rclone' do
   mode '0550'
 end
 
-if node['putio'].nil? || [node['putio']['password'], node['putio']['username']].map(&:nil?).any?
+if node['putio'].nil? || [node['putio']['password_encrypted'], node['putio']['username']].map(&:nil?).any?
   Chef::Log.error('Skipping rclone config as no username or password has been provided')
   return
 end
@@ -32,7 +32,7 @@ template config do
   mode '0440'
   variables(
     user: node['putio']['username'],
-    password: node['putio']['password']
+    password: node['putio']['password_encrypted']
   )
 end
 
