@@ -1,22 +1,5 @@
-deb = "#{Chef::Config[:file_cache_path]}/rclone.deb"
-
-remote_file deb do
-  source 'https://downloads.rclone.org/rclone-current-linux-amd64.deb'
-  notifies :run, 'execute[install rclone]', :immediately
-end
-
-execute 'install rclone' do
-  command "dpkg -i #{deb}"
-  action :nothing
-end
-
 media_user = node['flexo']['media']['username']
-
-directory '/etc/rclone' do
-  owner media_user
-  group 'media'
-  mode '0550'
-end
+include_recipe 'rclone'
 
 if node['putio'].nil? || [node['putio']['password_encrypted'], node['putio']['username']].map(&:nil?).any?
   Chef::Log.error('Skipping rclone config as no username or password has been provided')
@@ -24,6 +7,12 @@ if node['putio'].nil? || [node['putio']['password_encrypted'], node['putio']['us
 end
 
 config = '/etc/rclone/putio.conf'
+
+directory '/etc/rclone' do
+  owner media_user
+  group 'media'
+  mode '0550'
+end
 
 template config do
   source 'rclone.erb'

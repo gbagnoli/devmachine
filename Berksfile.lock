@@ -28,6 +28,8 @@ DEPENDENCIES
   pyenv
     git: https://github.com/sds/chef-pyenv.git
     revision: 89600c35ea1b5f3de3c9330a80dc62d4021cfd17
+  rclone
+    path: site-cookbooks/rclone
   server
     path: site-cookbooks/server
   syncthing
@@ -77,6 +79,7 @@ GRAPH
     nodejs (>= 0.0.0)
     plex (>= 0.0.0)
     poise-python (>= 0.0.0)
+    rclone (>= 0.0.0)
     server (>= 0.0.0)
   git (9.0.1)
     build-essential (>= 5.0.0)
@@ -97,9 +100,11 @@ GRAPH
   marvin (0.1.0)
     datadog (>= 0.0.0)
     dnscrypt_proxy (>= 0.0.0)
+    logrotate (>= 0.0.0)
     nginx (>= 0.0.0)
     nodejs (>= 0.0.0)
     openvpn (>= 0.0.0)
+    rclone (>= 0.0.0)
     server (>= 0.0.0)
   mingw (2.1.0)
     seven_zip (>= 0.0.0)
@@ -130,6 +135,7 @@ GRAPH
   profile_sync_daemon (0.1.0)
     apt (>= 0.0.0)
   pyenv (0.2.0)
+  rclone (0.1.0)
   ruby_build (1.1.0)
     git (>= 0.0.0)
     yum-epel (>= 0.0.0)

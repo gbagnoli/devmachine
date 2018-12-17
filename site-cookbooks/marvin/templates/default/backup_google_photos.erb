@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -e
+set -u
+if [[ "$USER" != "<%= @user %>" ]]; then
+  echo >&2 "Please run this script as user <%= @user %>"
+  exit 1
+fi
+(
+  flock -n 9 || exit 1
+  pushd "<%= @destination %>" &>/dev/null
+  rclone sync --log-file "<%= @log %>" ubik:"Google Photos" .
+  touch .stfolder
+) 9>/run/lock/rclone_google_photos_backup
