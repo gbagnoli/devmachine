@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
+import json
 import os
 import socket
 import sys
 from io import StringIO
 from typing import Optional, Tuple
 
-import json
 import yaml
 from fabric.api import env, hide, local, put, settings, sudo, task
 from fabric.contrib.files import contains as remote_contains
