@@ -61,6 +61,7 @@ end
     command: '%<venv>s/bin/python %<venv>s/src/%<app>s/SickBeard.py --nolaunch '\
              '-q --datadir=%<datadir>s -p %<port>s',
     config_fname: 'config.ini',
+    py_packages: [],
     dir: 'series'
   },
   'couchpotato' => {
@@ -68,6 +69,7 @@ end
              ' --quiet --data_dir=%<datadir>s',
     repo: 'https://github.com/CouchPotato/CouchPotatoServer.git',
     config_fname: 'settings.conf',
+    py_packages: %w[lxml pyopenssl],
     dir: 'movies'
   }
 }.each do |app, config|
@@ -97,6 +99,12 @@ end
     group 'media'
     user node['flexo']['media']['username']
     python '2.7'
+  end
+
+  config[:py_packages].each do |pkg|
+    python_package pkg do
+      virtualenv venv
+    end
   end
 
   directory "#{venv}/src" do
