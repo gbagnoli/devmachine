@@ -126,6 +126,19 @@ cron_d 'putio-sync' do
   command '/usr/local/bin/putio_groom_swipe 2>&1 >> /var/log/putio/sync.log'
 end
 
+# daily, we run a sync so we clear up all renamed files
+cron_d 'putio-sync-daily' do
+  minute '17'
+  hour '4'
+  user media_user
+  home venv
+  environment(
+    'WAIT' => '21600',
+    'USER' => media_user
+  )
+  command '/usr/local/bin/rclone_putio sync 2>&1 >> /var/log/putio/sync.log'
+end
+
 logrotate_app 'putio-sync' do
   path      '/var/log/putio/sync.log'
   frequency 'daily'

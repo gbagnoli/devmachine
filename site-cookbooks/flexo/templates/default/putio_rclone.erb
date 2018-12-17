@@ -2,15 +2,18 @@
 
 set -eu
 
+COMMAND="${1:-copy}"
+WAIT="${WAIT:-0}"
+
 if [[ "$USER" != "<%= @user %>" ]]; then
   echo >&2 "Please run this script as user <%= @user %>"
   exit 1
 fi
 
 (
-  flock -n 9 || exit 1
-  rclone --config <%= @config %> copy putio:series <%= @destination %>/series --verbose
-  rclone --config <%= @config %> copy putio:movies <%= @destination %>/movies --verbose
-  rclone --config <%= @config %> copy putio:downloads <%= @destination %> --verbose
+  flock -w "$WAIT" 9 || exit 1
+  rclone --config <%= @config %> "$COMMAND" putio:series <%= @destination %>/series --verbose
+  rclone --config <%= @config %> "$COMMAND" putio:movies <%= @destination %>/movies --verbose
+  rclone --config <%= @config %> "$COMMAND" putio:downloads <%= @destination %> --verbose
   exit $?
 ) 9>/run/lock/rclone_putio
