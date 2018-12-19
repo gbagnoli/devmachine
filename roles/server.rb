@@ -26,7 +26,7 @@ default_attributes(
   'os-hardening' => {
     'auth' => {
       'pw_max_age' => 730,
-      'pw_min_age' => 0,
+      'pw_min_age' => -1,
       'pw_warn_age' => '30'
     },
     'network' => {
