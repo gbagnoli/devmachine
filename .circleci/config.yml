@@ -6,7 +6,7 @@ jobs:
       - checkout
 
       - restore_cache:
-          key: v1-bundle-{{ checksum ".cicleci/Gemfile.lock" }}
+          key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
       - run: bundle install --path vendor/bundle --gemfile .circleci/Gemfile 
       - save_cache:
           key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
