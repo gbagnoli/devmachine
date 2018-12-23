@@ -86,3 +86,18 @@ Host nodename
 Hostname nodename.fully.qualified.com
 username joe
 ```
+
+## kitchen tests with vagrant
+
+Install [vagrant](https://www.vagrantup.com/downloads.html) using the deb from
+the site and virtualbox (`sudo apt install virtualbox`) then:
+
+```bash
+bundle exec kitchen test ubik-ubuntu-1804
+```
+
+You can list the available tests with
+
+```bash
+bundle exec kitchen list
+```
