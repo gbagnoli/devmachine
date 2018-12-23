@@ -10,6 +10,7 @@ nodes:
   - ubik
   - ubikxps
   - upik
+  - oldpc
 
 require_secrets:
   - marvin
