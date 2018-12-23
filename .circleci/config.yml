@@ -7,7 +7,7 @@ jobs:
 
       - restore_cache:
           key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
-      - run: bundle install --path vendor/bundle --gemfile .circleci/Gemfile 
+      - run: bundle install --path vendor/bundle --gemfile .circleci/Gemfile
       - save_cache:
           key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
           paths:
@@ -19,7 +19,7 @@ jobs:
             BUNDLE_GEMFILE: .circleci/Gemfile
       - run:
           command: bundle exec foodcritic -B site-cookbooks -R roles
-          environment: 
+          environment:
             BUNDLE_GEMFILE: .circleci/Gemfile
 
   ubik_1804:
@@ -35,16 +35,16 @@ jobs:
           paths:
             - vendor/bundle
 
-      - run: 
+      - run:
           command: bundle exec inspec vendor tests/integration/ubik
-          environment: 
+          environment:
             BUNDLE_GEMFILE: .circleci/Gemfile
 
-      - run: 
+      - run:
           command: bundle exec kitchen test ubik-ubuntu-1804
           no_output_timeout: 1200
           environment:
-            KITCHEN_YAML: .kitchen.ci.yml 
+            KITCHEN_YAML: .kitchen.ci.yml
             BUNDLE_GEMFILE: .circleci/Gemfile
 
   marvin_1804:
@@ -60,10 +60,17 @@ jobs:
           paths:
             - vendor/bundle
 
-      - run: bundle exec inspec vendor tests/integration/ubik
       - run:
-          command: KITCHEN_YAML=.kitchen.ci.yml bundle exec kitchen test marvin-ubuntu-1804
+          command: bundle exec inspec vendor tests/integration/ubik
+          environment:
+            BUNDLE_GEMFILE: .circleci/Gemfile
+
+      - run:
+          command: bundle exec kitchen test marvin-ubuntu-1804
           no_output_timeout: 1200
+          environment:
+            KITCHEN_YAML: .kitchen.ci.yml
+            BUNDLE_GEMFILE: .circleci/Gemfile
 
   bender_1804:
     machine: true
@@ -78,10 +85,17 @@ jobs:
           paths:
             - vendor/bundle
 
-      - run: bundle exec inspec vendor tests/integration/ubik
       - run:
-          command: KITCHEN_YAML=.kitchen.ci.yml bundle exec kitchen test bender-ubuntu-1804
+          command: bundle exec inspec vendor tests/integration/ubik
+          environment:
+            BUNDLE_GEMFILE: .circleci/Gemfile
+
+      - run:
+          command: bundle exec kitchen test bender-ubuntu-1804
           no_output_timeout: 1200
+          environment:
+            KITCHEN_YAML: .kitchen.ci.yml
+            BUNDLE_GEMFILE: .circleci/Gemfile
 
 workflows:
   version: 2
@@ -91,9 +105,9 @@ workflows:
       - ubik_1804:
           requires:
             - style
-      # - marvin_1804:
-      #     requires:
-      #       - style
+      - marvin_1804:
+          requires:
+            - style
       # - bender_1804:
       #     requires:
       #       - style
