@@ -1,10 +1,6 @@
 source 'https://rubygems.org'
 
-gem 'berkshelf'
-gem 'chef', '~>13'
 gem 'foodcritic'
-gem 'kitchen-docker'
-gem 'kitchen-dokken'
 gem 'kitchen-inspec'
 gem 'kitchen-vagrant'
 gem 'rubocop'

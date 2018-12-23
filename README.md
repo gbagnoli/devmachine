@@ -17,13 +17,35 @@ There are several scripts in the [boostrap](./boostrap) folder.
 Dependencies:
 * [ChefDK](https://downloads.chef.io/chefdk)
 * [rbenv](https://github.com/rbenv/rbenv)
-* [pyenv](https://github.com/pyenv/pyenv)
-* python3.6 (`pyenv install 3.7.1`)
 * [rbenv-chefdk](https://github.com/docwhat/rbenv-chefdk)
+* [pyenv](https://github.com/pyenv/pyenv)
+* python3.7 (`pyenv install 3.7.1`)
+
+Once installed chefdk from deb:
 
 ```bash
+sudo apt install rbenv git
+rbenv init
+# you can add the init eval to the ~/.bashrc or ~/.bash_profile
+# now, install ruby-build
+mkdir -p "$(rbenv root)"/plugins
+git clone https://github.com/rbenv/ruby-build.git "$(rbenv root)"/plugins/ruby-build
+# install rbenv-chefdk
+git clone https://github.com/docwhat/rbenv-chefdk.git  "$(rbenv root)"/plugins/rbenv-chefdk
+mkdir "$(rbenv root)/versions/chefdk"
+rbenv shell chefdk
+rbenv rehash
+# install pyenv
+git clone https://github.com/pyenv/pyenv.git ~/.pyenv
+echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
+echo 'export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
+echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bashrc
+exec "$SHELL"  # reload the settings
+# install needed tools to build python
+apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev
+pyenv install 3.7.1
 # this should be automatic if pyenv is installed correctly
-# as per .python-version file
+# as per .python-version file when you cd into this directory
 pyenv shell 3.7.1
 # also, make sure pip and pipenv are installed
 pip install -U pip pipenv
