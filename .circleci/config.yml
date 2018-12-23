@@ -6,15 +6,21 @@ jobs:
       - checkout
 
       - restore_cache:
-          key: v1-bundle-{{ checksum "Gemfile.lock" }}
-      - run: bundle install --path vendor/bundle
+          key: v1-bundle-{{ checksum ".cicleci/Gemfile.lock" }}
+      - run: bundle install --path vendor/bundle --gemfile .circleci/Gemfile 
       - save_cache:
-          key: v1-bundle-{{ checksum "Gemfile.lock" }}
+          key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
           paths:
             - vendor/bundle
 
-      - run: bundle exec rubocop site-cookbooks roles
-      - run: bundle exec foodcritic -B site-cookbooks -R roles
+      - run:
+          command: bundle exec rubocop site-cookbooks roles
+          env:
+            BUNDLE_GEMFILE: .circleci/Gemfile
+      - run:
+          command: bundle exec foodcritic -B site-cookbooks -R roles
+          env: 
+            BUNDLE_GEMFILE: .circleci/Gemfile
 
   ubik_1804:
     machine: true
@@ -22,17 +28,24 @@ jobs:
       - checkout
 
       - restore_cache:
-          key: v1-bundle-{{ checksum "Gemfile.lock" }}
-      - run: bundle install --path vendor/bundle
+          key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
+      - run: bundle install --path vendor/bundle --gemfile .circleci/Gemfile
       - save_cache:
-          key: v1-bundle-{{ checksum "Gemfile.lock" }}
+          key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
           paths:
             - vendor/bundle
 
-      - run: bundle exec inspec vendor tests/integration/ubik
       - run: 
-          command: KITCHEN_YAML=.kitchen.ci.yml bundle exec kitchen test ubik-ubuntu-1804
+          command: bundle exec inspec vendor tests/integration/ubik
+          env: 
+            BUNDLE_GEMFILE: .circleci/Gemfile
+
+      - run: 
+          command: bundle exec kitchen test ubik-ubuntu-1804
           no_output_timeout: 1200
+          env:
+            KITCHEN_YAML: .kitchen.ci.yml 
+            BUNDLE_GEMFILE: .circleci/Gemfile
 
   marvin_1804:
     machine: true
@@ -40,10 +53,10 @@ jobs:
       - checkout
 
       - restore_cache:
-          key: v1-bundle-{{ checksum "Gemfile.lock" }}
-      - run: bundle install --path vendor/bundle
+          key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
+      - run: bundle install --path vendor/bundle --gemfile .circleci/Gemfile
       - save_cache:
-          key: v1-bundle-{{ checksum "Gemfile.lock" }}
+          key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
           paths:
             - vendor/bundle
 
@@ -58,10 +71,10 @@ jobs:
       - checkout
 
       - restore_cache:
-          key: v1-bundle-{{ checksum "Gemfile.lock" }}
-      - run: bundle install --path vendor/bundle
+          key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
+      - run: bundle install --path vendor/bundle --gemfile .circleci/Gemfile
       - save_cache:
-          key: v1-bundle-{{ checksum "Gemfile.lock" }}
+          key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
           paths:
             - vendor/bundle
 
@@ -78,9 +91,9 @@ workflows:
       - ubik_1804:
           requires:
             - style
-      - marvin_1804:
-          requires:
-            - style
-      - bender_1804:
-          requires:
-            - style
+      # - marvin_1804:
+      #     requires:
+      #       - style
+      # - bender_1804:
+      #     requires:
+      #       - style
