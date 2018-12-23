@@ -11,31 +11,6 @@
 
 package 'python-imaging' if node['lsb']['codename'] == 'xenial'
 
-package 'googleearth-package' do
-  notifies :run, 'execute[make-googleearth-package]', :immediately
-end
-
-execute 'make-googleearth-package' do
-  action :nothing
-  cwd '/tmp'
-  command 'make-googleearth-package'
-  user node['user']['login']
-  notifies :run, 'execute[install_googleearth]', :immediately
-end
-
-execute 'install_googleearth' do
-  action :nothing
-  command 'sudo dpkg -i googleearth_*.deb'
-  cwd '/tmp'
-  notifies :run, 'execute[delete_googleearth_deb]', :immediately
-end
-
-execute 'delete_googleearth_deb' do
-  action :nothing
-  command 'rm -f googleearth_*.deb GoogleEarthLinux.bin'
-  cwd '/tmp'
-end
-
 user = node['user']['login']
 home = "/home/#{user}"
 
@@ -83,26 +58,13 @@ apt_repository 'gpxsee' do
   key "https://download.opensuse.org/repositories/home:tumic:GPXSee/xUbuntu_#{version}/Release.key"
 end
 
-%w[libudev-dev libusb-1.0-0-dev gpxsee].each do |pkg|
-  package pkg
-end
+package 'gpxsee'
 
-git "#{home}/.local/src/gps_track_pod" do
-  repository 'https://github.com/iwanders/gps_track_pod.git'
-  action :sync
-  user user
-end
-
-directory '/etc/udev/rules.d' do
-  action :create
+directory "#{home}/.local/src/gps_track_pod" do
+  action :delete
   recursive true
-  mode 0o755
 end
 
 file '/etc/udev/rules.d/49-gpspod.rules' do
-  owner 'root'
-  group 'root'
-  mode 0o644
-  content(lazy { ::File.open("#{home}/.local/src/gps_track_pod/49-gpspod.rules").read })
-  action :create
+  action :delete
 end
