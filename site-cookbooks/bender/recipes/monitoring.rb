@@ -1,3 +1,9 @@
+if node['datadog']['api_key'].nil? || \
+   node['datadog']['application_key'].nil?
+  Chef::Log.error('skipping monitoring config as no datadog api key or application key are set')
+  return
+end
+
 include_recipe 'datadog::dd-agent'
 include_recipe 'datadog::dd-handler'
 

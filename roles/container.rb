@@ -2,7 +2,7 @@ name 'container'
 description 'common configurations for containers'
 
 run_list [
-  'recipe[datadog::dd-handler]'
+  'server::container'
 ]
 
 override_attributes(

@@ -13,7 +13,6 @@ source_url 'https://github.com/gbagnoli/devmachine'
 chef_version '>=14'
 supports 'ubuntu', '>= 18.04'
 
-depends 'datadog'
 depends 'git'
 depends 'logrotate'
 depends 'nginx'
