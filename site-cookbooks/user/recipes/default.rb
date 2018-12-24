@@ -207,6 +207,13 @@ file "#{home}/.bashrc.local" do
   action :create_if_missing
 end
 
+cookbok_file "#{home}/.config/flake8" do
+  source 'flake8'
+  mode '0644'
+  owner user
+  group group
+end
+
 sudo "#{node['user']['login']}_docker" do
   nopasswd true
   commands ['/usr/bin/docker']
