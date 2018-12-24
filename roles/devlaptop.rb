@@ -58,7 +58,7 @@ default_attributes(
     }
   },
   'pyenv' => {
-    'git_ref' => 'v1.2.5',
+    'git_ref' => 'v1.2.8',
     'user_installs' => [{
       'user' => 'giacomo',
       'pythons' => ['2.7.15', '3.6.7', '3.7.1'],
