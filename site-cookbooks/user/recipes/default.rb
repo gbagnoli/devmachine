@@ -207,7 +207,7 @@ file "#{home}/.bashrc.local" do
   action :create_if_missing
 end
 
-cookbok_file "#{home}/.config/flake8" do
+cookbook_file "#{home}/.config/flake8" do
   source 'flake8'
   mode '0644'
   owner user
