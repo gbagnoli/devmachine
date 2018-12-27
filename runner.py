@@ -47,7 +47,7 @@ def validate_secrets(ctx: click.Context, secrets_file: str) -> bool:
             ctx.obj["connection"], remote_path
         ):
             click.echo(
-                "Secrets file is not valid locally, but exists remotely. Using remote version",
+                "Secrets file is not valid locally, but exists remotely. Using remote",
                 err=True,
             )
             return True
