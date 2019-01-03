@@ -9,10 +9,12 @@
 # giacomo is handled by cookook 'user'
 default['server']['users']['giacomo']['unmanaged'] = true
 default['server']['users']['giacomo']['sysadmins'] = true
+default['server']['users']['giacomo']['delete'] = false
 
 # rubocop:disable LineLength
 # fnigi
 default['server']['users']['fnigi']['unmanaged'] = true
+default['server']['users']['fnigi']['delete'] = false
 default['server']['users']['fnigi']['id'] = 2001
 default['server']['users']['fnigi']['shell'] = '/bin/bash'
 default['server']['users']['fnigi']['ssh_keys'] = [
@@ -22,6 +24,7 @@ default['server']['users']['fnigi']['ssh_keys'] = [
 
 # dario
 default['server']['users']['dario']['unmanaged'] = true
+default['server']['users']['dario']['delete'] = false
 default['server']['users']['dario']['id'] = 2002
 default['server']['users']['dario']['shell'] = '/bin/bash'
 default['server']['users']['dario']['ssh_keys'] = [
@@ -30,9 +33,5 @@ default['server']['users']['dario']['ssh_keys'] = [
 
 # sonne
 default['server']['users']['sonne']['unmanaged'] = true
-default['server']['users']['sonne']['id'] = 2003
-default['server']['users']['sonne']['shell'] = '/bin/bash'
-default['server']['users']['sonne']['ssh_keys'] = [
-  'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDKIoSFOFogiASt6IUBirk210BhZScRljRvGfmHDjeTon9/uh2ENL2zPfbxoE6ws4nlqOBL1DDNZ4pWHF5FmY6Hzi5E+z8a1pS5Jhwt7vXJwSCuy8EnD0i608bwzcSpskbgI/rHeuftB9vhUCQYZ1SzeTJYTdjyweyHhP99aWRse24u12upQn6uSGuH1LnCbijiKvqFR9KsJw3vg9pDGtdvH7EPdGvJeTYwlmhZt9O4K75NRzy09iCJDZpayz+hIVm0V7T/n4HMGyzno6FBTYJCc1DZn/qVQglFQ5KdERPFWKqjW8e9j1CQjcxQyRJtS447Wjy8Lp1yxEar5NdSw58XieQGRQQMSGR9oDlwt5OPjglQU3CqVV7Rxryh+iSuMcL6NphGlXtzzyQWUpRCWSgicPK58mRrVJ2CeKWw2VvHJn6UdtTtZI10ZwFYzgKZlNYtmqvZROFRf0net9ImfaaUehDCf/Gg3bq515j1yoiUTl7PYjQUX6ty9s6nhWL2Z6jog3daU3wv9IJcp6+y+G67kqVfJ9Et+ltq2DLPPY1ppFhvzqjJcsrnRq0Ib5134C0qKI9S3mJoN3sFRgfB2jgFzx6B6soc5LqcLzdOnvy3EhZNRjfDIky5yLnQIyiyE8LbUMOcQWAnszSn2XGbb9h/JLXotP703aLwLAh2eTzSFw=='
-]
+default['server']['users']['sonne']['delete'] = true
 # rubocop:enable LineLength
