@@ -1,14 +1,28 @@
 #!/usr/bin/env python3
 
+import getpass
 import json
 import os
 import socket
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import click
 import fabric
 import patchwork.files
 import yaml
+
+
+def connect(ctx: click.Context) -> fabric.Connection:
+    if not ctx.obj['connection']:
+        sudo_pass = getpass.getpass("Please enter remote sudo pass: ")
+        config = fabric.Config(overrides={'sudo': {'password': sudo_pass}})
+        ctx.obj["connection"] = fabric.Connection(ctx.obj['host'], config=config)
+
+    return ctx.obj['connection']
+
+
+def local(ctx: click.Context, *args, **kwargs) -> Any:
+    return connect(ctx).local(*args, **kwargs)
 
 
 def install_git_hooks(ctx: click.Context) -> None:
@@ -94,7 +108,7 @@ def cli(ctx: click.Context, host: str, remote_dir: str) -> None:
         ctx.obj["local"] = True
 
     ctx.obj["host"] = host
-    ctx.obj["connection"] = fabric.Connection(host)
+    ctx.obj["connection"] = None
     ctx.obj["role_f"] = os.path.join(here, "roles", "{}.rb".format(host))
     secrets_file, skip_secrets_upload = check_node(ctx)
     ctx.obj["secrets_file"] = secrets_file
@@ -102,17 +116,23 @@ def cli(ctx: click.Context, host: str, remote_dir: str) -> None:
     install_git_hooks(ctx)
 
 
-# @cli.command()
-# @click.pass_context
-# def vendor(ctx: click.Context) -> None:
-#     conn: fabric.Connection = ctx.obj['connection']
-#     conn.local("bundle exec berks vendor", hide="stdout")
+@cli.command()
+@click.pass_context
+def vendor(ctx: click.Context) -> None:
+    local(ctx, "bundle exec berks vendor", hide="stdout")
 
 
 @cli.command()
 @click.pass_context
-def run(ctx: click.Context) -> None:
-    pass
+def upload(ctx: click.Context) -> None:
+    local(ctx, "bundle exec berks vendor", hide="stdout")
+    if ctx.obj['local']:
+        click.echo("Skipping upload as connection is local")
+        return
+
+    with connect(ctx) as c:
+        patchwork.files.directory(c, ctx.obj['remote_dir'])
+        # patchwork.files.append(c, '/etc/sudoers.d/rsync', sudoers, sudo=True)
 
 
 if __name__ == "__main__":
