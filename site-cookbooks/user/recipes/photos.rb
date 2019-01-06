@@ -45,7 +45,11 @@ file "#{home}/.local/bin/gpicsync-GUI" do
 end
 
 git "#{home}/workspace/photo_process" do
-  repository 'https://gist.github.com/28565417cfb732cbd2df784819a7fcb0.git'
+  repository 'git@github.com:gbagnoli/photo_process.git'
+  revision 'master'
+  checkout_branch 'master'
+  user user
+  group node['user']['group']
   action :sync
 end
 
