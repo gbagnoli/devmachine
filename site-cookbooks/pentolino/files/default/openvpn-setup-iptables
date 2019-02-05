@@ -1,0 +1,23 @@
+#!/bin/bash
+
+add_nat() {
+  iptables -t nat -C "$@" &>/dev/null || iptables -t nat -A "$@"
+}
+
+add_rule() {
+  local version="$1"; shift
+  local table="$1"; shift
+  local cmd="iptables"
+  [ "$version" -eq 6 ] && cmd="ip6tables"
+  $cmd $table -C "$@" &> /dev/null || $cmd $table -A "$@"
+}
+
+add_rule 4 "-t nat" POSTROUTING -s 172.31.0.0/16 -o eth0 -j MASQUERADE
+add_rule 4 "-t nat" PREROUTING -s 172.31.0.0/16 -p udp --dport 53 -j DNAT --to 172.31.90.1:54
+add_rule 4 "-t nat" PREROUTING -s 172.31.0.0/16 -p tcp --dport 53 -j DNAT --to 172.31.90.1:54
+add_rule 4 "" FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+add_rule 6 "-t nat" POSTROUTING -s fd54:ede3:5ce1:f93b::/64 -o eth0 -j MASQUERADE
+add_rule 6 "-t nat" PREROUTING -s fd54:ede3:5ce1:f93b::/64 -p udp --dport 53 -j DNAT --to "[fd54:ede3:5ce1:f93b::1]:54"
+add_rule 6 "-t nat" PREROUTING -s fd54:ede3:5ce1:f93b::/64 -p tcp --dport 53 -j DNAT --to "[fd54:ede3:5ce1:f93b::1]:54"
+add_rule 6 "" FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
