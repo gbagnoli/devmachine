@@ -20,6 +20,8 @@ DEPENDENCIES
     path: site-cookbooks/marvin
   openvpn
     path: site-cookbooks/openvpn
+  pentolino
+    path: site-cookbooks/pentolino
   pleaserun
     git: https://github.com/mjuarez/chef-pleaserun.git
     revision: e104c998f064879afaab4ba89b779434de38c83c
@@ -119,6 +121,11 @@ GRAPH
   openvpn (0.1.0)
   os-hardening (3.1.0)
     sysctl (~> 1.0)
+  pentolino (0.1.0)
+    dnscrypt_proxy (>= 0.0.0)
+    logrotate (>= 0.0.0)
+    nginx (>= 0.0.0)
+    openvpn (>= 0.0.0)
   pleaserun (0.1.1)
   plex (0.2.3)
   poise (2.8.2)
@@ -166,7 +173,7 @@ GRAPH
     java (>= 0.0.0)
     pyenv (>= 0.0.0)
     ruby_build (>= 0.0.0)
-    ruby_rbenv (< 2.0)
+    ruby_rbenv (< 2.0.0)
     sudo (>= 0.0.0)
     user (>= 0.0.0)
   upik (0.1.0)

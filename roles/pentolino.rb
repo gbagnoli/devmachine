@@ -2,7 +2,8 @@ name 'pentolino'
 description 'configure pentolino'
 run_list [
   'role[server]',
-  'role[container]'
+  'role[container]',
+  'recipe[pentolino::default]'
 ]
 
 default_attributes(
