@@ -1,5 +1,5 @@
 include_recipe 'openvpn'
-
+include_recipe 'openvpn::openvpn-setup-iptables'
 cookbook_file '/usr/local/bin/openvpn-setup-iptables' do
   source 'openvpn-setup-iptables'
   action :create
