@@ -59,4 +59,3 @@ default['bender']['vhosts']['nigis.eu'] = {
   letsencrypt: true,
   cloudflare: true
 }
-
