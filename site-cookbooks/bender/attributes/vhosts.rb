@@ -50,3 +50,13 @@ default['bender']['vhosts']['media.tigc.eu'] = {
   letsencrypt: true,
   cloudflare: true
 }
+
+default['bender']['vhosts']['nigis.eu'] = {
+  server_name: 'nigis.eu',
+  container: 'pentolino',
+  upstream_protocol: 'http',
+  ssl: true,
+  letsencrypt: true,
+  cloudflare: true
+}
+
