@@ -15,7 +15,7 @@ default['bender']['vhosts']['bender.tigc.eu'] = {
   letsencrypt: true,
   # if empty it will use the first server_name
   #  letsencrypt_common_name: 'bender.tigc.eu',
-  letsencrypt_alt_names: ['bender.test.tigc.eu'],
+  letsencrypt_alt_names: [],
   # restricts real-ip headers from cloudflare ips
   cloudflare: true
 
