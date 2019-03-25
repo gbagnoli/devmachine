@@ -25,6 +25,10 @@ DEPENDENCIES
   pleaserun
     git: https://github.com/mjuarez/chef-pleaserun.git
     revision: e104c998f064879afaab4ba89b779434de38c83c
+  plex
+    git: https://github.com/gbagnoli/plex
+    revision: 1ac249372af997a9d99e038f7138a158ab10782b
+    branch: new_release_url
   profile_sync_daemon
     path: site-cookbooks/profile_sync_daemon
   pyenv
@@ -63,12 +67,12 @@ GRAPH
   build-essential (8.2.1)
     mingw (>= 1.1)
     seven_zip (>= 0.0.0)
-  chef_client_updater (3.5.0)
+  chef_client_updater (3.5.2)
   chef_handler (3.0.3)
   compat_resource (12.19.1)
-  datadog (2.16.1)
+  datadog (2.18.0)
     apt (>= 0.0.0)
-    chef_handler (>= 1.1)
+    chef_handler (>= 1.2)
     windows (>= 0.0.0)
     yum (>= 3.0)
   debconf (0.0.1)
@@ -90,7 +94,7 @@ GRAPH
     ssh-hardening (>= 0.0.0)
   homebrew (5.0.8)
   hostsfile (3.0.1)
-  java (3.1.2)
+  java (3.2.1)
     homebrew (>= 0.0.0)
     windows (>= 0.0.0)
   limits (1.0.0)
@@ -119,7 +123,7 @@ GRAPH
     ark (>= 0.0.0)
   ohai (5.2.5)
   openvpn (0.1.0)
-  os-hardening (3.1.0)
+  os-hardening (3.2.1)
     sysctl (~> 1.0)
   pentolino (0.1.0)
     dnscrypt_proxy (>= 0.0.0)
@@ -127,7 +131,7 @@ GRAPH
     nginx (>= 0.0.0)
     openvpn (>= 0.0.0)
   pleaserun (0.1.1)
-  plex (0.2.3)
+  plex (0.2.4)
   poise (2.8.2)
   poise-archive (1.5.0)
     poise (~> 2.6)
@@ -141,7 +145,7 @@ GRAPH
     apt (>= 0.0.0)
   pyenv (0.2.0)
   rclone (0.1.0)
-  ruby_build (1.1.0)
+  ruby_build (1.2.0)
     git (>= 0.0.0)
     yum-epel (>= 0.0.0)
   ruby_rbenv (1.2.1)
@@ -187,6 +191,6 @@ GRAPH
     ssh_authorized_keys (>= 0.0.0)
     ssh_known_hosts (>= 0.0.0)
     sudo (>= 0.0.0)
-  windows (5.2.2)
+  windows (5.3.0)
   yum (5.1.0)
   yum-epel (3.3.0)
