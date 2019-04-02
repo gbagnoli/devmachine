@@ -1,5 +1,5 @@
 def_ipv4 = node['bender']['network']['host']['ipv4']['addrs'][0]
-def_ipv6 = node['bender']['network']['host']['ipv6']['addrs'][1]
+def_ipv6 = node['bender']['network']['host']['ipv6']['addrs'][0]
 bs_ipv4 = node['bender']['network']['host']['ipv4']['addrs'][1]
 bs_ipv6 = node['bender']['network']['host']['ipv6']['addrs'][1]
 
