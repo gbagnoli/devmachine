@@ -52,6 +52,11 @@ default_attributes(
           'enable' => true
         }
       }
+    },
+    'network' => {
+      'ipv6' => {
+        'enable' => true
+      }
     }
   },
   'user' => {
