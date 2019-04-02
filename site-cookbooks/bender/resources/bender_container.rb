@@ -146,9 +146,7 @@ action :create do
 
   # rubocop:disable LineLength
   node.override['bender']['firewall']['ipv4']['dnat_rules']["#{new_resource.container_name}_ssh"] = ssh_rule_v4
-  node.override['bender']['firewall']['ipv4']['open_ports'][ssh_port] = %w[tcp]
   node.override['bender']['firewall']['ipv6']['dnat_rules']["#{new_resource.container_name}_v6_ssh"] = ssh_rule_v6
-  node.override['bender']['firewall']['ipv6']['open_ports'][ssh_port] = %w[tcp]
   node.override['bender']['containers']['marvin']['ipv4_address'] = get_ipv4_address(new_resource.container_name)
   node.override['bender']['containers']['marvin']['ipv6_address'] = get_ipv6_address(new_resource.container_name)
 
