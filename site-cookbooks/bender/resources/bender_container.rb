@@ -31,6 +31,22 @@ ports_callbacks = {
     ports.to_a.map do |pair|
       %w[tcp udp all].include?(pair['protocol'].to_s)
     end.all?
+  },
+  'if there is an external_ip, it must be defined for both protocols' => lambda { |ports|
+    require 'ipaddr'
+    ports.to_a.map do |pair|
+      if pair.key?('external_ipv4') || pair.key?('external_ipv6')
+        begin
+          IPAddr.new(pair['external_ipv4'].to_s).ipv4?
+          IPAddr.new(pair['external_ipv6'].to_s).ipv6?
+          true
+        rescue IPAddr::InvalidAddressError
+          false
+        end
+      else
+        true
+      end
+    end.all?
   }
 }
 
@@ -159,8 +175,10 @@ action :create do
     protocols.each do |proto|
       versions.each do |ipv|
         rulename = "#{new_resource.container_name}_#{proto}_#{external}_#{internal}"
+        external_ip = ipv == :ipv4 ? portdesc['external_ipv4'] : portdesc['external_ipv6']
         node.override['bender']['firewall'][ipv]['dnat_rules'][rulename] = create_rule(
-          ipv, external, internal, proto
+          ip_version: ipv, external_port: external, internal_port: internal,
+          proto: proto, external_ip: external_ip
         )
       end
     end
@@ -191,7 +209,7 @@ action :create do
   end
 end
 
-action_class do
+action_class do # rubocop:disable Metrics/BlockLength
   require 'ipaddr'
   include LXD::Container
 
@@ -242,13 +260,19 @@ action_class do
     end
   end
 
-  def create_rule(ip_version, external_port, internal_port, protocol)
-    ip = get_ip(ip_version)
+  def split_ip(ip)
+    return nil if ip.nil?
+
+    ip.split('/')[0]
+  end
+
+  def create_rule(opts)
     {
-      'local_ip': ip,
-      'local_port': internal_port,
-      'external_port': external_port,
-      'proto': protocol.to_s
+      'local_ip': get_ip(opts[:ip_version]),
+      'local_port': opts[:internal_port],
+      'external_port': opts[:external_port],
+      'proto': opts[:proto].to_s,
+      'external_ip': split_ip(opts[:external_ip])
     }
   end
 
@@ -261,11 +285,11 @@ action_class do
   end
 
   def ssh_rule_v4
-    create_rule(:ipv4, ssh_port, 22, :tcp)
+    create_rule(ip_version: :ipv4, internal_port: 22, external_port: ssh_port, proto: :tcp)
   end
 
   def ssh_rule_v6
-    create_rule(:ipv6, ssh_port, 22, :tcp)
+    create_rule(ip_version: :ipv6, internal_port: 22, external_port: ssh_port, proto: :tcp)
   end
 
   def ssl_cert_directory

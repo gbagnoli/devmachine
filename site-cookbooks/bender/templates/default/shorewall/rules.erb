@@ -14,12 +14,13 @@ ACCEPT  net   $FW   <%= proto %> <%= port %>
 <% end -%>
 
 # DNAT
+# ACTION SOURCE DEST PROTO DPORT SPORT ORIGDEST
 <% @firewall["dnat_rules"].each do |rulename, rule| -%>
-<% ip = rule['local_ip'] -%>
+<% local_ip = rule['local_ip'] -%>
+<% local_ip="[#{local_ip}]" if @protocol == "ipv6" -%>
 <% port = rule['local_port'] -%>
 <% proto = rule['proto'] || 'tcp' -%>
 <% port_e = rule['external_port'] || rule['local_port'] -%>
-<% ip="[#{ip}]" if @protocol == "ipv6"
 # <%= rulename %>
-DNAT net loc:<%= ip %>:<%= port %> <%= proto %> <%= port_e %>
+DNAT net loc:<%= local_ip %>:<%= port %> <%= proto %> <%= port_e %> - <%= rule['external_ip'] %>
 <% end -%>

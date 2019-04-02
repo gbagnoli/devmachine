@@ -8,6 +8,7 @@ default['bender']['firewall']['ipv4']['dnat_rules'] = {
   #   'local_port': '22',
   #   'external_port' '2222',  # optional, defaults to local_port
   #   'proto': 'tcp',  # optional, defaults to 'tcp'
+  #   'external_ip': <public_ip> or nil
   # },
 }
 
