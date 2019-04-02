@@ -24,10 +24,8 @@ end
 node.override['dnscrypt_proxy']['listen_address'] = '127.0.2.1'
 include_recipe 'dnscrypt_proxy'
 
-addresses = [
-  node['bender']['network']['host']['ipv4']['addr'],
-  node['bender']['network']['host']['ipv6']['addr']
-]
+addresses = node['bender']['network']['host']['ipv4']['addrs'] + \
+            node['bender']['network']['host']['ipv6']['addrs']
 
 package 'netplan.io' do
   action :upgrade

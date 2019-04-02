@@ -1,6 +1,6 @@
 default['bender']['network']['host']['interface'] = 'enp4s0'
-default['bender']['network']['host']['ipv4']['addr'] = '144.76.31.236/32'
-default['bender']['network']['host']['ipv6']['addr'] = '2a01:4f8:191:22eb::2/64'
+default['bender']['network']['host']['ipv4']['addrs'] = ['144.76.31.236/32', '144.76.31.184/32']
+default['bender']['network']['host']['ipv6']['addrs'] = ['2a01:4f8:191:22eb::2/64', '2a01:4f8:191:22eb::3/64']
 default['bender']['network']['containers']['interface'] = 'lxdbr0'
 
 default['bender']['network']['containers']['base_ssh'] = 3000
