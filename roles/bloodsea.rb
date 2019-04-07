@@ -9,7 +9,7 @@ default_attributes(
   'server' => {
     'components' => {
       'syncthing' => {
-        'enabled' => false
+        'enabled' => true
       },
       'user' => {
         'enabled' => false
@@ -18,6 +18,14 @@ default_attributes(
     'users' => {
       'dario' => {
         'unmanaged' => false
+      }
+    }
+  },
+  'syncthing' => {
+    'users' => {
+      'dario' => {
+        'hostname' => 'syncthing.bloodsea.tigc.eu',
+        'port' => 8384
       }
     }
   }

@@ -177,7 +177,7 @@ GRAPH
     java (>= 0.0.0)
     pyenv (>= 0.0.0)
     ruby_build (>= 0.0.0)
-    ruby_rbenv (< 2.0.0)
+    ruby_rbenv (< 2.0)
     sudo (>= 0.0.0)
     user (>= 0.0.0)
   upik (0.1.0)
