@@ -126,3 +126,5 @@ execute 'unzip_android_platform_tools' do
   action :nothing
   command 'unzip -o /usr/src/android_platform_tools.zip -d /opt/android/'
 end
+
+include_recipe 'yubico::personalization'
