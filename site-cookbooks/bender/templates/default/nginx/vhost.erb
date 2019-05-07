@@ -1,6 +1,11 @@
 server {
+  <% if @ssl -%>
+  listen <%= @port %> ssl;
+  listen [::]:<%= @port %> ssl;
+  <% else -%>
   listen <%= @port %>;
   listen [::]:<%= @port %>;
+  <% end -%>
   server_name  <%= @server_name %>;
   location / {
     proxy_pass <%= @upstream_url %>;
@@ -17,11 +22,9 @@ server {
 
   <% if @ssl -%>
   <% if ::File.exists?(@certificate_file) -%>
-  ssl on;
   ssl_certificate     <%= @certificate_file %>;
   ssl_certificate_key <%= @certificate_key %>;
   <% else -%>
-  ssl on;
   ssl_certificate     /etc/ssl/certs/ssl-cert-snakeoil.pem;
   ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
   <% end -%>
