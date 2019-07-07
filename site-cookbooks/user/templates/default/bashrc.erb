@@ -243,6 +243,11 @@ bets() {
   fi
 }
 
+if [ -d "$HOME/.cargo/bin" ]; then
+  export PATH="$PATH:$HOME/.cargo/bin"
+  source "$HOME/.cargo/env"
+fi
+
 alias pbcopy='xsel --clipboard --input'
 alias pbpaste='xsel --clipboard --output'
 
