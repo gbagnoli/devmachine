@@ -15,13 +15,13 @@ There are several scripts in the [boostrap](./boostrap) folder.
 ## development
 
 Dependencies:
-* [ChefDK](https://downloads.chef.io/chefdk)
+* [Chef-Workstation](https://downloads.chef.io/chef-workstation/)
 * [rbenv](https://github.com/rbenv/rbenv)
-* [rbenv-chefdk](https://github.com/docwhat/rbenv-chefdk)
+* [rbenv-chef-workstation](https://github.com/docwhat/rbenv-chef-workstation)
 * [pyenv](https://github.com/pyenv/pyenv)
-* python3.7 (`pyenv install 3.7.1`)
+* python3.7 (`pyenv install 3.7.4`)
 
-Once installed chefdk from deb:
+Once installed chef-workstation from deb:
 
 ```bash
 sudo apt install rbenv git
@@ -31,9 +31,9 @@ rbenv init
 mkdir -p "$(rbenv root)"/plugins
 git clone https://github.com/rbenv/ruby-build.git "$(rbenv root)"/plugins/ruby-build
 # install rbenv-chefdk
-git clone https://github.com/docwhat/rbenv-chefdk.git  "$(rbenv root)"/plugins/rbenv-chefdk
-mkdir "$(rbenv root)/versions/chefdk"
-rbenv shell chefdk
+git clone https://github.com/docwhat/rbenv-chef-workstation.git  "$(rbenv root)"/plugins/rbenv-chef-workstation
+mkdir "$(rbenv root)/versions/chef-workstation"
+rbenv shell chef-workstation
 rbenv rehash
 # install pyenv
 git clone https://github.com/pyenv/pyenv.git ~/.pyenv
@@ -43,10 +43,10 @@ echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nf
 exec "$SHELL"  # reload the settings
 # install needed tools to build python
 apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev
-pyenv install 3.7.1
+pyenv install 3.7.4
 # this should be automatic if pyenv is installed correctly
 # as per .python-version file when you cd into this directory
-pyenv shell 3.7.1
+pyenv shell 3.7.4
 # also, make sure pip and pipenv are installed
 pip install -U pip pipenv
 # install the git commit hook that will run all needed linters
