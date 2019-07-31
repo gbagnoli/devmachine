@@ -18,7 +18,7 @@ APPS=(
   htop
   syncthing
   gpsbabel
-  bash-completions
+  bash-completion
   brew-cask-completion
   gem-completion
   fabric-completion
@@ -38,9 +38,20 @@ CASKS=(
   caskroom/fonts/font-ubuntumono-nerd-font-mono
   caskroom/fonts/font-codenewroman-nerd-font
   caskroom/fonts/font-codenewroman-nerd-font-mono
-  karabiner-elements
   spectacle
   keepassx
+  firefox
+  iterm2
+  whatsapp
+  geotag
+  gpg-suite
+  gpxsee
+  signal
+  skype
+  slack
+  steam
+  tunnelblick
+  vagrant
 )
 
 TAPS=(
@@ -112,7 +123,7 @@ fi
 
 cat  > "$HOME/.local/bin/gpicsync" << 'EOF'
 #!/bin/bash
-exec python "$HOME/.local/src/GPicSync/src/gpicsync.py" "$@"
+exec python2 "$HOME/.local/src/GPicSync/src/gpicsync.py" "$@"
 EOF
 
 chmod +x "$HOME/.local/bin/gpicsync"
@@ -125,6 +136,4 @@ fi
 wget -nc -O "$HOME"/.config/liquid.theme 'https://github.com/gbagnoli/devmachine/raw/master/site-cookbooks/user/files/default/liquid.theme'
 wget -nc -O "$HOME"/.config/liquidpromptrc 'https://github.com/gbagnoli/devmachine/raw/master/site-cookbooks/user/templates/default/liquidpromptrc.erb'
 wget -nc -O "$HOME"/.bashrc https://github.com/gbagnoli/devmachine/raw/master/site-cookbooks/user/templates/default/bashrc.erb
-
-wget -nc -O "$HOME/.local/bin/photo_process.sh" https://gist.githubusercontent.com/gbagnoli/28565417cfb732cbd2df784819a7fcb0/raw/2e8967cba2d9eb19f9b0fd554b0a91eece075858/photo_process.sh
 chmod +x "$HOME/.local/bin/photo_process.sh"
