@@ -56,6 +56,7 @@ CASKS=(
 
 TAPS=(
   caskroom/fonts
+  buo/cask-upgrade
 )
 
 SERVICES=(
