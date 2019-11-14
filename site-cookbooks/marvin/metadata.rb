@@ -15,7 +15,7 @@ supports 'ubuntu', '>= 18.04'
 
 depends 'dnscrypt_proxy'
 depends 'logrotate'
-depends 'nginx'
+depends 'nginx', '<10'
 depends 'nodejs'
 depends 'openvpn'
 depends 'rclone'
