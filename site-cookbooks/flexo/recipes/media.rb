@@ -1,4 +1,4 @@
-Chef::Recipe.send(:include, Flexo::RandomPassword)
+Chef::Recipe.include Flexo::RandomPassword
 
 package 'git'
 package 'unrar'

@@ -11,7 +11,7 @@ default['server']['users']['giacomo']['unmanaged'] = true
 default['server']['users']['giacomo']['sysadmins'] = true
 default['server']['users']['giacomo']['delete'] = false
 
-# rubocop:disable LineLength
+# rubocop:disable Metrics/LineLength
 # fnigi
 default['server']['users']['fnigi']['unmanaged'] = true
 default['server']['users']['fnigi']['delete'] = false
@@ -35,4 +35,4 @@ default['server']['users']['dario']['ssh_keys'] = [
 # sonne
 default['server']['users']['sonne']['unmanaged'] = true
 default['server']['users']['sonne']['delete'] = true
-# rubocop:enable LineLength
+# rubocop:enable Metrics/LineLength

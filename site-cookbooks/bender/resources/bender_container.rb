@@ -109,9 +109,9 @@ default_action :create
 
 action :create do
   execute "create_profile_#{new_resource.container_name}" do
-    # rubocop:disable LineLength
+    # rubocop:disable Metrics/LineLength
     command "(lxc profile list | grep -q ' #{new_resource.container_name} ') || lxc profile create #{new_resource.container_name}"
-    # rubocop:enable LineLength
+    # rubocop:enable Metrics/LineLength
 
     action :nothing
   end
@@ -144,23 +144,23 @@ action :create do
   end
 
   execute "lxd_lauch_container_#{new_resource.container_name}" do
-    # rubocop:disable LineLength
+    # rubocop:disable Metrics/LineLength
     command "lxc launch -p default -p #{new_resource.container_name} #{new_resource.image} #{new_resource.container_name}"
     not_if { ::File.exist?("/var/lib/lxd/containers/#{new_resource.container_name}/metadata.yaml") }
     notifies :run, "execute[copy_ssh_config_for_root_#{new_resource.container_name}]", :immediately
-    # rubocop:enable LineLength
+    # rubocop:enable Metrics/LineLength
   end
 
   execute "copy_ssh_config_for_root_#{new_resource.container_name}" do
     # we need to sleep as we need to wait for the container to boot. This sucks, but it's enough for now
 
-    # rubocop:disable LineLength
+    # rubocop:disable Metrics/LineLength
     command "sleep 30s && lxc file push /root/.ssh/authorized_keys #{new_resource.container_name}/root/.ssh/authorized_keys --mode 0400"
-    # rubocop:enable LineLength
+    # rubocop:enable Metrics/LineLength
     action :nothing
   end
 
-  # rubocop:disable LineLength
+  # rubocop:disable Metrics/LineLength
   node.override['bender']['firewall']['ipv4']['dnat_rules']["#{new_resource.container_name}_ssh"] = ssh_rule_v4
   node.override['bender']['firewall']['ipv6']['dnat_rules']["#{new_resource.container_name}_v6_ssh"] = ssh_rule_v6
   node.override['bender']['containers']['marvin']['ipv4_address'] = get_ipv4_address(new_resource.container_name)
@@ -183,12 +183,12 @@ action :create do
       end
     end
   end
-  # rubocop:enable LineLength
+  # rubocop:enable Metrics/LineLength
 
   unless new_resource.external_ipv6.nil?
-    # rubocop:disable LineLength
+    # rubocop:disable Metrics/LineLength
     node.override['bender']['firewall']['ipv6']['nat'][external_ipv6] = get_ipv6_address(new_resource.container_name)
-    # rubocop:enable LineLength
+    # rubocop:enable Metrics/LineLength
   end
 
   unless get_ipv4_address(new_resource.container_name).empty?
@@ -211,15 +211,15 @@ end
 
 action :delete do
   script "lxd_stop_delete_#{new_resource.container_name}" do
-    interpreter "bash"
+    interpreter 'bash'
     code "lxc stop -f #{new_resource.container_name} || : && lxc delete -f #{new_resource.container_name}"
     only_if { ::File.exist?("/var/lib/lxd/containers/#{new_resource.container_name}/metadata.yaml") }
   end
 
   execute "delete_profile_#{new_resource.container_name}" do
-    # rubocop:disable LineLength
+    # rubocop:disable Metrics/LineLength
     command "(lxc profile list | grep -q ' #{new_resource.container_name} ') || lxc profile delete #{new_resource.container_name}"
-    # rubocop:enable LineLength
+    # rubocop:enable Metrics/LineLength
   end
 
   file profile_path do

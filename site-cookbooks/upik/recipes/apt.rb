@@ -7,7 +7,7 @@ releases = {
   stable: { prio: 900, pin: 'release a=stable' },
   testing: { prio: 750, pin: 'release a=testing' },
   unstable: { prio: 50, pin: 'release a=unstable' },
-  experimental: { prio: 1, pin: 'release a=experimental' },
+  experimental: { prio: 1, pin: 'release a=experimental' }
   #  'ubilinux-upboard' => { prio: 1001, pin: 'release a=ubilinux3-upboard' }
 }
 
