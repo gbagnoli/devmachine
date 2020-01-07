@@ -9,7 +9,7 @@ from io import StringIO
 from typing import Optional, Tuple
 
 import yaml
-from fabric.api import env, hide, local, put, settings, sudo, task
+from fabric.api import env, get, hide, local, put, settings, sudo, task
 from fabric.contrib.files import contains as remote_contains
 from fabric.contrib.files import exists as remote_exists
 from fabric.contrib.project import rsync_project
@@ -131,6 +131,9 @@ def rsync(
     if secrets and not skip_secrets_upload:
         sudo(f"mkdir -p {remote}/secrets")
         put(secrets, os.path.join(remote, secrets), mode="0640", use_sudo=True)
+    elif secrets:  # secrets exists remotely but not here
+        print("Copying secrets file from remote host")
+        get(os.path.join(remote, secrets), secrets, use_sudo=True)
 
 
 def install_git_hooks(here: str) -> None:
