@@ -15,7 +15,7 @@ supports 'ubuntu', '>= 18.04'
 
 depends 'apt'
 depends 'chef_client_updater'
-depends 'datadog'
+depends 'datadog', '<4.0.0'
 depends 'hardening'
 depends 'logrotate'
 depends 'oauth2_proxy'

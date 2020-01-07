@@ -13,5 +13,5 @@ source_url 'https://github.com/gbagnoli/devmachine'
 chef_version '>=14'
 supports 'ubuntu', '>= 18.04'
 
-depends 'limits'
+depends 'limits', '<2.0.0'
 depends 'sysctl'
