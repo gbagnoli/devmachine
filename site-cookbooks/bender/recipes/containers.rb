@@ -45,5 +45,6 @@ node['bender']['containers'].each do |name, conf|
     forwarded_ports conf['forwarded_ports']
     external_ipv6 conf['external_ipv6']
     volumes conf['volumes'] || []
+    action conf['action'] || :create
   end
 end

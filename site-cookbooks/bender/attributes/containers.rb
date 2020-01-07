@@ -42,6 +42,7 @@ default['bender']['containers']['pentolino']['image'] = 'ubuntu:18.04'
 default['bender']['containers']['pentolino']['forwarded_ports'] = []
 default['bender']['containers']['pentolino']['external_ipv6'] = nil
 default['bender']['containers']['pentolino']['volumes'] = nil
+default['bender']['containers']['pentolino']['action'] = :delete
 
 # BLOODSEA
 default['bender']['containers']['bloodsea']['id'] = 5

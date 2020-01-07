@@ -209,6 +209,24 @@ action :create do
   end
 end
 
+action :delete do
+  script "lxd_stop_delete_#{new_resource.container_name}" do
+    interpreter "bash"
+    code "lxc stop -f #{new_resource.container_name} || : && lxc delete -f #{new_resource.container_name}"
+    only_if { ::File.exist?("/var/lib/lxd/containers/#{new_resource.container_name}/metadata.yaml") }
+  end
+
+  execute "delete_profile_#{new_resource.container_name}" do
+    # rubocop:disable LineLength
+    command "(lxc profile list | grep -q ' #{new_resource.container_name} ') || lxc profile delete #{new_resource.container_name}"
+    # rubocop:enable LineLength
+  end
+
+  file profile_path do
+    action :delete
+  end
+end
+
 action_class do # rubocop:disable Metrics/BlockLength
   require 'ipaddr'
   include LXD::Container
