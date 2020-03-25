@@ -1,4 +1,6 @@
 DEPENDENCIES
+  beelzebot
+    path: site-cookbooks/beelzebot
   bender
     path: site-cookbooks/bender
   btrbk
@@ -54,6 +56,9 @@ GRAPH
   apt (7.2.0)
   ark (5.0.0)
     seven_zip (>= 0.0.0)
+  beelzebot (0.1.0)
+    logrotate (>= 0.0.0)
+    server (>= 0.0.0)
   bender (0.1.0)
     acme (>= 0.0.0)
     apt (>= 0.0.0)

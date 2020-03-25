@@ -11,6 +11,7 @@ nodes:
   - ubikxps
   - upik
   - oldpc
+  - beelzebot
 
 require_secrets:
   - marvin
@@ -18,3 +19,4 @@ require_secrets:
   - bender
   - pentolino
   - bloodsea
+  - beelzebot

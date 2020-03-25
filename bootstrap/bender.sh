@@ -47,7 +47,7 @@ grep -q "giacomo" /etc/passwd || (
 )
 
 dpkg -l chef &>/dev/null || (
-  curl -L https://packages.chef.io/files/stable/chef/14.7.17/ubuntu/18.04/chef_14.7.17-1_amd64.deb -o chef.deb
+  curl -L https://packages.chef.io/files/stable/chef/14.14.29/ubuntu/18.04/chef_14.14.29-1_amd64.deb -o chef.deb
   sudo dpkg -i chef.deb
 )
 EOM
