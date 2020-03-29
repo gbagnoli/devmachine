@@ -13,39 +13,3 @@ nginx_site 'sync.tigc.eu' do
   )
   action :enable
 end
-
-config = "/home/#{node['user']['login']}/.rclone.conf"
-file config do
-  action :delete
-end
-
-
-directory '/var/log/backup_google_photos' do
-  action :delete
-  recursive true
-end
-
-file '/usr/local/bin/backup_google_photos' do
-  action :delete
-end
-
-sync_d = "/home/#{node['user']['login']}/#{node['marvin']['google_photos_backup']['directory']}"
-cron_d 'google_photos_backup' do
-  minute '0'
-  hour '0'
-  user node['user']['login']
-  home sync_d
-  environment(
-    'USER' => node['user']['login']
-  )
-  command '/usr/local/bin/backup_google_photos 2>&1 > /dev/null'
-  action :delete
-end
-
-logrotate_app 'google_photos_backup' do
-  path '/var/log/backup_google_photos/sync.log'
-  frequency 'daily'
-  rotate 30
-  create "644 #{node['user']['login']} #{node['user']['group']}"
-  action :disable
-end
