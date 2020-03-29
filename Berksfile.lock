@@ -110,7 +110,6 @@ GRAPH
     nginx (< 10)
     nodejs (>= 0.0.0)
     openvpn (>= 0.0.0)
-    rclone (>= 0.0.0)
     server (>= 0.0.0)
   mingw (2.1.0)
     seven_zip (>= 0.0.0)
