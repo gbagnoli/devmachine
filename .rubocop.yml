@@ -23,9 +23,6 @@ Style/HashTransformKeys:
 Style/HashTransformValues:
   Enabled: true
 
-Layout/HeredocIndentation:
-  Enabled: false
-
 Lint/RaiseException:
   Enabled: false
 

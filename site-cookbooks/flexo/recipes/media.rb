@@ -161,19 +161,19 @@ end
 
   systemd_unit "#{app}.service" do
     content <<~EOU
-              [Unit]
-              Description=#{app}
-              Wants=network-online.target
-              After=network-online.target
+      [Unit]
+      Description=#{app}
+      Wants=network-online.target
+      After=network-online.target
 
-              [Service]
-              User=#{node["flexo"]["media"]["username"]}
-              Group=media
-              ExecStart=#{command}
+      [Service]
+      User=#{node["flexo"]["media"]["username"]}
+      Group=media
+      ExecStart=#{command}
 
-              [Install]
-              WantedBy=multi-user.target
-            EOU
+      [Install]
+      WantedBy=multi-user.target
+    EOU
     action %i[create enable start]
   end
 end

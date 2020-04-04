@@ -24,8 +24,8 @@ end
 
 file "#{home}/.local/bin/gpicsync" do
   content <<~EOC
-                            #!/bin/bash
-                            cd #{home}/.local/src/gpicsync/src/
+    #!/bin/bash
+    cd #{home}/.local/src/gpicsync/src/
     /usr/bin/python2.7 gpicsync.py "$@"
           EOC
   owner user
@@ -35,8 +35,8 @@ end
 
 file "#{home}/.local/bin/gpicsync-GUI" do
   content <<~EOC
-                            #!/bin/bash
-                            cd #{home}/.local/src/gpicsync/src/
+    #!/bin/bash
+    cd #{home}/.local/src/gpicsync/src/
     /usr/bin/python2.7 gpicsync-GUI.py "$@"
           EOC
   owner user

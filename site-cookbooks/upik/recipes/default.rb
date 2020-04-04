@@ -15,15 +15,15 @@ package "vim.nox"
 
 file "/etc/network/interfaces" do
   content <<~EOC
-            # Managed by Chef
-            source /etc/network/interfaces.d/*
+    # Managed by Chef
+    source /etc/network/interfaces.d/*
 
-            # The loopback network interface
-            auto lo
-            iface lo inet loopback
+    # The loopback network interface
+    auto lo
+    iface lo inet loopback
 
-            allow-hotplug eth0
-          EOC
+    allow-hotplug eth0
+  EOC
   mode "0644"
 end
 
@@ -60,25 +60,25 @@ end
 lnet = node["upik"]["local_network"]
 file "/etc/iptables.rules" do
   content <<~EOH
-                            *nat
-                            :PREROUTING ACCEPT [0:0]
-                            :INPUT ACCEPT [0:0]
-                            :OUTPUT ACCEPT [0:0]
-                            :POSTROUTING ACCEPT [0:0]
-                            -A POSTROUTING -s #{lnet} -d 172.31.90.0/24 -j MASQUERADE
+    *nat
+    :PREROUTING ACCEPT [0:0]
+    :INPUT ACCEPT [0:0]
+    :OUTPUT ACCEPT [0:0]
+    :POSTROUTING ACCEPT [0:0]
+    -A POSTROUTING -s #{lnet} -d 172.31.90.0/24 -j MASQUERADE
     -A POSTROUTING -s #{lnet} -d 10.0.3.0/24 -j MASQUERADE
     COMMIT
-          EOH
+  EOH
 end
 
 file "/usr/local/bin/reload_iptables_rules" do
   mode "0755"
   content <<~EOH
-            #!/bin/bash
-            /bin/echo 1 > /proc/sys/net/ipv4/ip_forward
-            /sbin/iptables-restore < /etc/iptables.rules
-            /sbin/iptables -t nat -Z
-          EOH
+    #!/bin/bash
+    /bin/echo 1 > /proc/sys/net/ipv4/ip_forward
+    /sbin/iptables-restore < /etc/iptables.rules
+    /sbin/iptables -t nat -Z
+  EOH
 end
 
 directory "/srv/snapshots/sync" do
@@ -92,21 +92,21 @@ end
 file "/etc/btrbk/btrbk.conf" do
   mode "0644"
   content <<~EOH
-            timestamp_format        long
-            snapshot_preserve_min   6h
-            snapshot_preserve       24h 31d 6m
+    timestamp_format        long
+    snapshot_preserve_min   6h
+    snapshot_preserve       24h 31d 6m
 
-            volume /srv
-              snapshot_dir snapshots/sync
-              subvolume sync
-          EOH
+    volume /srv
+      snapshot_dir snapshots/sync
+      subvolume sync
+  EOH
 end
 
 file "/etc/cron.hourly/btrbk" do
   content <<~EOH
-            #!/bin/sh
-            exec /usr/sbin/btrbk -q run
-          EOH
+    #!/bin/sh
+    exec /usr/sbin/btrbk -q run
+  EOH
   mode "0755"
 end
 

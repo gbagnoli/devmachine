@@ -28,9 +28,9 @@ action :create do
     group groupname
     mode "0644"
     content <<~HEREDOC
-              [Desktop Entry]
-              #{options_string}
-            HEREDOC
+      [Desktop Entry]
+      #{options_string}
+    HEREDOC
   end
 end
 

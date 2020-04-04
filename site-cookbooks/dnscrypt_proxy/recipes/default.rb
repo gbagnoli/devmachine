@@ -53,25 +53,25 @@ end
 systemd_unit "dnscrypt-proxy.service" do
   verify false
   content <<~EOU
-            [Unit]
-            Description=DNSCrypt client proxy
-            Documentation=man:dnscrypt-proxy(8)
-            Requires=dnscrypt-proxy.socket
-            After=network.target
-            Before=nss-lookup.target
-            Wants=nss-lookup.target
+    [Unit]
+    Description=DNSCrypt client proxy
+    Documentation=man:dnscrypt-proxy(8)
+    Requires=dnscrypt-proxy.socket
+    After=network.target
+    Before=nss-lookup.target
+    Wants=nss-lookup.target
 
-            [Install]
-            Also=dnscrypt-proxy.socket
-            WantedBy=multi-user.target
+    [Install]
+    Also=dnscrypt-proxy.socket
+    WantedBy=multi-user.target
 
-            [Service]
-            Type=simple
-            NonBlocking=true
-            User=dnscrypt
-            Group=nogroup
-            ExecStart=/usr/bin/dnscrypt-proxy -config #{config}
-          EOU
+    [Service]
+    Type=simple
+    NonBlocking=true
+    User=dnscrypt
+    Group=nogroup
+    ExecStart=/usr/bin/dnscrypt-proxy -config #{config}
+  EOU
   action %i[create]
 end
 
@@ -81,18 +81,18 @@ listen_address = node["dnscrypt_proxy"]["listen_address"]
 systemd_unit "dnscrypt-proxy.socket" do
   verify false
   content <<~EOU
-            [Unit]
-            Description=dnscrypt-proxy listening socket
+    [Unit]
+    Description=dnscrypt-proxy listening socket
 
-            [Socket]
-            ListenStream=#{listen_address}:#{port}
-            ListenDatagram=#{listen_address}:#{port}
-            NoDelay=true
-            DeferAcceptSec=1
+    [Socket]
+    ListenStream=#{listen_address}:#{port}
+    ListenDatagram=#{listen_address}:#{port}
+    NoDelay=true
+    DeferAcceptSec=1
 
-            [Install]
-            WantedBy=sockets.target
-          EOU
+    [Install]
+    WantedBy=sockets.target
+  EOU
   action %i[create enable]
   notifies :start, "systemd_unit[dnscrypt-proxy.service]", :immediately
   notifies :enable, "systemd_unit[dnscrypt-proxy.service]", :immediately

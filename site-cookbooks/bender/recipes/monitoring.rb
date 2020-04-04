@@ -24,12 +24,12 @@ end
 
 file "/etc/dd-agent/conf.d/btrfs.yaml" do
   content <<~CONTENT
-            init_config:
-            # Not required for this check
+    init_config:
+    # Not required for this check
 
-            instances:
-              - excluded_devices: []
-          CONTENT
+    instances:
+      - excluded_devices: []
+  CONTENT
   notifies :restart, "service[datadog-agent]"
   owner "dd-agent"
   group "dd-agent"

@@ -11,8 +11,8 @@ node["profile_sync_daemon"]["users"].each do |user|
   if node["profile_sync_daemon"]["overlayfs"]
     file "/etc/sudoers.d/psd-#{user}" do
       content <<~EOH
-                #{user} ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper
-              EOH
+        #{user} ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper
+      EOH
     end
   end
 

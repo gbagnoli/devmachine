@@ -37,17 +37,17 @@ end
 
 systemd_unit "thelounge.service" do
   content <<~EOU
-                            [Unit]
-                            Description=Run thelounge irc client
+    [Unit]
+    Description=Run thelounge irc client
 
-                            [Service]
-                            Environment = 'THELOUNGE_HOME=#{node["marvin"]["thelounge"]["home"]}'
+    [Service]
+    Environment = 'THELOUNGE_HOME=#{node["marvin"]["thelounge"]["home"]}'
     ExecStart = /usr/bin/thelounge start
     User=thelounge
 
     [Install]
     WantedBy = multi-user.target
-          EOU
+  EOU
   action %i[create enable start]
 end
 

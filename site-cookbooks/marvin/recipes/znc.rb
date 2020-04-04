@@ -25,16 +25,16 @@ end
 
 systemd_unit "znc.service" do
   content <<~EOU
-            [Unit]
-            Description=ZNC, an advanced IRC bouncer
-            After=network-online.target
+    [Unit]
+    Description=ZNC, an advanced IRC bouncer
+    After=network-online.target
 
-            [Service]
-            ExecStart=/usr/bin/znc -f --datadir=#{zncd}
-            User=znc
+    [Service]
+    ExecStart=/usr/bin/znc -f --datadir=#{zncd}
+    User=znc
 
-            [Install]
-            WantedBy=multi-user.target
-          EOU
+    [Install]
+    WantedBy=multi-user.target
+  EOU
   action %i[create enable]
 end

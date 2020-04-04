@@ -41,10 +41,10 @@ directory "/etc/systemd/system/oauth2_proxy-#{instance}.service.d"
 
 file "/etc/systemd/system/oauth2_proxy-#{instance}.service.d/override.conf" do
   content <<~HEREDOC
-            [Service]
-            User=oauth2proxy
-            Group=nogroup
-          HEREDOC
+    [Service]
+    User=oauth2proxy
+    Group=nogroup
+  HEREDOC
   notifies :run, "execute[oauth2proxy-reload-#{instance}]", :immediately
 end
 

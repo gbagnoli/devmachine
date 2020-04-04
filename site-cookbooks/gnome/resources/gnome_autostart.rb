@@ -19,14 +19,14 @@ action :install do
 
   file scriptname do
     content <<~HEREDOC
-                              #!#{new_resource.shell}
-                              exec >> #{logname}
-                              exec 2>&1
-                              echo "[$(date)] Running '#{name}'"
+      #!#{new_resource.shell}
+      exec >> #{logname}
+      exec 2>&1
+      echo "[$(date)] Running '#{name}'"
       #{new_resource.script_content}
-                              echo "[$(date)] -- END"
-                              echo
-            HEREDOC
+      echo "[$(date)] -- END"
+      echo
+    HEREDOC
     mode "0775"
     owner user
     group group
@@ -34,15 +34,15 @@ action :install do
 
   file desktopfile do
     content <<~HEREDOC
-              [Desktop Entry]
-              Type=Application
-              Exec=#{scriptname}
-              Hidden=False
-              NoDisplay=False
-              X-GNOME-Autostart-enabled=true
-              Name=#{new_resource.name}
-              Comment=#{new_resource.comment}
-            HEREDOC
+      [Desktop Entry]
+      Type=Application
+      Exec=#{scriptname}
+      Hidden=False
+      NoDisplay=False
+      X-GNOME-Autostart-enabled=true
+      Name=#{new_resource.name}
+      Comment=#{new_resource.comment}
+    HEREDOC
     owner user
     group group
     mode "0644"
