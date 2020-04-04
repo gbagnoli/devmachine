@@ -53,7 +53,7 @@ if $circleci; then
 fi
 if [ "${#ruby[@]}" -gt 0 ]; then
   echo "Running rubocop"
-  bundle exec rubocop "${ruby[@]}"; ec=$?
+  bundle exec rubocop --config "$tmpdir/.rubocop.yml" "${ruby[@]}"; ec=$?
 fi
 if [ "${#chef[@]}" -gt 0 ]; then
   echo "Running foodcritic"
