@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-name 'btrbk'
-maintainer 'Giacomo Bagnoli'
-maintainer_email 'gbagnoli@gmail.com'
-license 'MIT'
-description 'Installs btrbk'
-long_description 'Installs btrbk'
-version '0.1.0'
-issues_url 'https://github.com/gbagnoli/devmachine/issues'
-source_url 'https://github.com/gbagnoli/devmachine'
-chef_version '>=14'
-supports 'ubuntu', '>= 16.04'
-supports 'debian', '>= 8.9'
+name "btrbk"
+maintainer "Giacomo Bagnoli"
+maintainer_email "gbagnoli@gmail.com"
+license "MIT"
+description "Installs btrbk"
+long_description "Installs btrbk"
+version "0.1.0"
+issues_url "https://github.com/gbagnoli/devmachine/issues"
+source_url "https://github.com/gbagnoli/devmachine"
+chef_version ">=14"
+supports "ubuntu", ">= 16.04"
+supports "debian", ">= 8.9"

@@ -1,12 +1,12 @@
-name 'bendertest'
-description 'test bender'
+name "bendertest"
+description "test bender"
 run_list [
-  'role[bender]'
+  "role[bender]",
 ]
 
 override_attributes(
-  'user' => {
-    'uid' => 1500,
-    'gid' => 1500
-  }
+  "user" => {
+    "uid" => 1500,
+    "gid" => 1500,
+  },
 )

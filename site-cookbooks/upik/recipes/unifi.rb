@@ -1,13 +1,13 @@
-package 'mongodb-server'
-package 'openjdk-8-jre-headless'
-package 'jsvc'
-package 'binutils'
-package 'coreutils'
-package 'adduser'
-package 'libcap2'
+package "mongodb-server"
+package "openjdk-8-jre-headless"
+package "jsvc"
+package "binutils"
+package "coreutils"
+package "adduser"
+package "libcap2"
 
 packages = {
-  'unifi' => 'http://dl.ubnt.com/unifi/5.6.30/unifi_sysvinit_all.deb'
+  "unifi" => "http://dl.ubnt.com/unifi/5.6.30/unifi_sysvinit_all.deb",
 }
 
 packages.each do |name, url|
@@ -24,10 +24,10 @@ packages.each do |name, url|
   end
 end
 
-service 'mongodb' do
+service "mongodb" do
   action %i[stop disable]
 end
 
-service 'unifi' do
+service "unifi" do
   action %i[start enable]
 end

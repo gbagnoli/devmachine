@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-source 'https://supermarket.chef.io'
+source "https://supermarket.chef.io"
 
 metadata
 
-cookbook 'pyenv', git: 'https://github.com/sds/chef-pyenv.git'
-cookbook 'debconf', git: 'https://github.com/ophymx/debconf.git'
+cookbook "pyenv", git: "https://github.com/sds/chef-pyenv.git"
+cookbook "debconf", git: "https://github.com/ophymx/debconf.git"

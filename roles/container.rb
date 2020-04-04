@@ -1,14 +1,14 @@
-name 'container'
-description 'common configurations for containers'
+name "container"
+description "common configurations for containers"
 
 run_list [
-  'server::container'
+  "server::container",
 ]
 
 override_attributes(
-  'os-hardening' => {
-    'components' => {
-      'auditd' => false
-    }
-  }
+  "os-hardening" => {
+    "components" => {
+      "auditd" => false,
+    },
+  },
 )

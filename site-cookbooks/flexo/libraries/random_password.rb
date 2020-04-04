@@ -5,7 +5,7 @@ module Flexo
   # random password generator
   module RandomPassword
     def self.included(_base)
-      require 'securerandom' unless defined?(SecureRandom)
+      require "securerandom" unless defined?(SecureRandom)
     end
 
     def random_password(options = {})

@@ -6,11 +6,11 @@ property :content, String, required: true
 default_action :create
 
 action :create do
-  include_recipe 'lxd::default'
+  include_recipe "lxd::default"
   directory ::File.dirname(config_path) do
-    owner 'root'
-    group 'root'
-    mode '0755'
+    owner "root"
+    group "root"
+    mode "0755"
     recursive true
   end
 
@@ -27,6 +27,6 @@ end
 
 action_class do
   def config_path
-    "#{node['lxd']['config_dir']}/#{new_resource.hostname}.yaml"
+    "#{node["lxd"]["config_dir"]}/#{new_resource.hostname}.yaml"
   end
 end

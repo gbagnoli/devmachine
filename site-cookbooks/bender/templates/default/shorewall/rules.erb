@@ -7,8 +7,8 @@ Ping(ACCEPT)  net   $FW
 
 # Rules
 <% # Open all ports from the attrs, forcing ssh into the array -%>
-<% ( @firewall["open_ports"].keys + [ 22 ] ).sort.uniq.each do |port| -%>
-<%  @firewall["open_ports"][port].sort.each do |proto| -%>
+<% (@firewall["open_ports"].keys + [22]).sort.uniq.each do |port| -%>
+<% @firewall["open_ports"][port].sort.each do |proto| -%>
 ACCEPT  net   $FW   <%= proto %> <%= port %>
 <% end -%>
 <% end -%>
@@ -16,11 +16,11 @@ ACCEPT  net   $FW   <%= proto %> <%= port %>
 # DNAT
 # ACTION SOURCE DEST PROTO DPORT SPORT ORIGDEST
 <% @firewall["dnat_rules"].each do |rulename, rule| -%>
-<% local_ip = rule['local_ip'] -%>
-<% local_ip="[#{local_ip}]" if @protocol == "ipv6" -%>
-<% port = rule['local_port'] -%>
-<% proto = rule['proto'] || 'tcp' -%>
-<% port_e = rule['external_port'] || rule['local_port'] -%>
+<% local_ip = rule["local_ip"] -%>
+<% local_ip = "[#{local_ip}]" if @protocol == "ipv6" -%>
+<% port = rule["local_port"] -%>
+<% proto = rule["proto"] || "tcp" -%>
+<% port_e = rule["external_port"] || rule["local_port"] -%>
 # <%= rulename %>
-DNAT net loc:<%= local_ip %>:<%= port %> <%= proto %> <%= port_e %> - <%= rule['external_ip'] %>
+DNAT net loc:<%= local_ip %>:<%= port %> <%= proto %> <%= port_e %> - <%= rule["external_ip"] %>
 <% end -%>

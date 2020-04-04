@@ -2,9 +2,9 @@
 
 packages = []
 
-package 'language-selector-common'
+package "language-selector-common"
 
-[*node['ubik']['languages']].each do |lang|
+[*node["ubik"]["languages"]].each do |lang|
   packages += ["language-pack-#{lang}",
                "language-pack-gnome-#{lang}",
                "language-pack-#{lang}-base",
@@ -13,11 +13,9 @@ package 'language-selector-common'
     clsupport = Mixlib::ShellOut.new("check-language-support -l #{lang}")
     clsupport.run_command
     clsupport.error!
-    packages += clsupport.stdout.split(' ')
-  # rubocop:disable Lint/HandleExceptions
+    packages += clsupport.stdout.split(" ")
   rescue StandardError
   end
-  # rubocop:enable Lint/HandleExceptions
 end
 
 packages.each do |pkg|

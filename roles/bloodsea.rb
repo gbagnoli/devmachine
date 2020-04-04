@@ -1,32 +1,32 @@
-name 'bloodsea'
-description 'configure bloodsea'
+name "bloodsea"
+description "configure bloodsea"
 run_list [
-  'role[server]',
-  'role[container]'
+  "role[server]",
+  "role[container]",
 ]
 
 default_attributes(
-  'server' => {
-    'components' => {
-      'syncthing' => {
-        'enabled' => true
+  "server" => {
+    "components" => {
+      "syncthing" => {
+        "enabled" => true,
       },
-      'user' => {
-        'enabled' => false
-      }
+      "user" => {
+        "enabled" => false,
+      },
     },
-    'users' => {
-      'dario' => {
-        'unmanaged' => false
-      }
-    }
+    "users" => {
+      "dario" => {
+        "unmanaged" => false,
+      },
+    },
   },
-  'syncthing' => {
-    'users' => {
-      'dario' => {
-        'hostname' => 'syncthing.bloodsea.tigc.eu',
-        'port' => 8384
-      }
-    }
-  }
+  "syncthing" => {
+    "users" => {
+      "dario" => {
+        "hostname" => "syncthing.bloodsea.tigc.eu",
+        "port" => 8384,
+      },
+    },
+  },
 )

@@ -1,8 +1,8 @@
-include_recipe 'apt'
+include_recipe "apt"
 
-file '/etc/apt/apt.conf.d/local' do
-  owner 'root'
-  group 'root'
+file "/etc/apt/apt.conf.d/local" do
+  owner "root"
+  group "root"
   mode 0o0644
   content 'Dpkg::Options {
    "--force-confdef";
@@ -11,40 +11,40 @@ file '/etc/apt/apt.conf.d/local' do
   action :create
 end
 
-cookbook_file '/etc/apt/sources.list' do
-  source 'apt.sources.list'
-  mode '0644'
-  notifies :run, 'execute[apt-get update]', :immediately
+cookbook_file "/etc/apt/sources.list" do
+  source "apt.sources.list"
+  mode "0644"
+  notifies :run, "execute[apt-get update]", :immediately
 end
 
-package 'base' do
+package "base" do
   package_name %w[curl htop iotop iperf]
 end
 
-node.override['dnscrypt_proxy']['listen_address'] = '127.0.2.1'
-include_recipe 'dnscrypt_proxy'
+node.override["dnscrypt_proxy"]["listen_address"] = "127.0.2.1"
+include_recipe "dnscrypt_proxy"
 
-addresses = node['bender']['network']['host']['ipv4']['addrs'] + \
-            node['bender']['network']['host']['ipv6']['addrs']
+nethost = node["bender"]["network"]["host"]
+addresses = nethost["ipv4"]["addrs"] + nethost["ipv6"]["addrs"]
 
-package 'netplan.io' do
+package "netplan.io" do
   action :upgrade
 end
 
-execute 'netplan-apply' do
+execute "netplan-apply" do
   action :nothing
-  command 'netplan apply'
+  command "netplan apply"
 end
 
-template '/etc/netplan/01-netcfg.yaml' do
-  source 'netplan.erb'
+template "/etc/netplan/01-netcfg.yaml" do
+  source "netplan.erb"
   variables(
-    interface: node['bender']['network']['host']['interface'],
+    interface: node["bender"]["network"]["host"]["interface"],
     addresses: addresses,
     extra_addresses: lazy do
-      node['bender']['firewall']['ipv6']['nat'].values.sort.uniq.map { |x| "#{x}/64" }
+      node["bender"]["firewall"]["ipv6"]["nat"].values.sort.uniq.map { |x| "#{x}/64" }
     end,
-    dnscrypt_proxy_address: lazy { node['dnscrypt_proxy']['listen_address'] }
+    dnscrypt_proxy_address: lazy { node["dnscrypt_proxy"]["listen_address"] },
   )
-  notifies :run, 'execute[netplan-apply]', :immediately
+  notifies :run, "execute[netplan-apply]", :immediately
 end

@@ -1,9 +1,9 @@
-node.override['server']['chef']['cron']['minute'] = '10'
-node.override['dnscrypt_proxy']['listen_port'] = '54'
+node.override["server"]["chef"]["cron"]["minute"] = "10"
+node.override["dnscrypt_proxy"]["listen_port"] = "54"
 
-include_recipe 'marvin::openvpn'
-include_recipe 'dnscrypt_proxy'
-include_recipe 'nginx'
-include_recipe 'marvin::oauth2_proxy'
-include_recipe 'marvin::thelounge'
-include_recipe 'marvin::syncthing'
+include_recipe "marvin::openvpn"
+include_recipe "dnscrypt_proxy"
+include_recipe "nginx"
+include_recipe "marvin::oauth2_proxy"
+include_recipe "marvin::thelounge"
+include_recipe "marvin::syncthing"

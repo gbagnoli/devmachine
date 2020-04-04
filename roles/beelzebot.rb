@@ -1,17 +1,17 @@
-name 'beelzebot'
-description 'configure pentolino'
+name "beelzebot"
+description "configure pentolino"
 run_list [
-  'role[server]',
-  'role[container]',
-  'recipe[beelzebot::default]'
+  "role[server]",
+  "role[container]",
+  "recipe[beelzebot::default]",
 ]
 
 default_attributes(
-  'server' => {
-    'components' => {
-      'syncthing' => {
-        'enabled' => false
-      }
-    }
-  }
+  "server" => {
+    "components" => {
+      "syncthing" => {
+        "enabled" => false,
+      },
+    },
+  },
 )

@@ -17,9 +17,9 @@ devices:
     parent: <%= @bridge_interface %>
     type: nic
 <% @volumes.each do |volume| -%>
-  <%= volume['name'] %>:
+  <%= volume["name"] %>:
 <% volume.each do |key, value| -%>
-<% next if key == 'name' -%>
+<% next if key == "name" -%>
     <%= key %>: <%= value %>
 <% end -%>
 <% end -%>

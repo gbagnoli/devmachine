@@ -1,22 +1,22 @@
-name 'bender'
-description 'configure bender'
+name "bender"
+description "configure bender"
 run_list [
-  'role[server]',
-  'recipe[bender::default]'
+  "role[server]",
+  "recipe[bender::default]",
 ]
 
 default_attributes(
-  'server' => {
-    'users' => {
-      'fnigi' => {
-        'unmanaged' => false
+  "server" => {
+    "users" => {
+      "fnigi" => {
+        "unmanaged" => false,
       },
-      'dario' => {
-        'unmanaged' => false
+      "dario" => {
+        "unmanaged" => false,
       },
-      'sonne' => {
-        'unmanaged' => false
-      }
-    }
-  }
+      "sonne" => {
+        "unmanaged" => false,
+      },
+    },
+  },
 )

@@ -6,69 +6,69 @@
    libgssapi-krb5-2:i386 librtmp1:i386 libsm6:i386 libice6:i386
    libuuid1:i386 fonts-liberation lsb-core libglu1-mesa
    gpsbabel gpsbabel-gui libqtcore4].each do |pkg|
-     package pkg
-   end
+  package pkg
+end
 
-package 'python-imaging' if node['lsb']['codename'] == 'xenial'
+package "python-imaging" if node["lsb"]["codename"] == "xenial"
 
-user = node['user']['login']
+user = node["user"]["login"]
 home = "/home/#{user}"
 
-package 'python-tz'
+package "python-tz"
 
 git "#{home}/.local/src/gpicsync" do
-  repository 'https://github.com/metadirective/GPicSync.git'
+  repository "https://github.com/metadirective/GPicSync.git"
   action :sync
   user user
 end
 
 file "#{home}/.local/bin/gpicsync" do
   content <<~EOC
-    #!/bin/bash
-    cd #{home}/.local/src/gpicsync/src/
+                            #!/bin/bash
+                            cd #{home}/.local/src/gpicsync/src/
     /usr/bin/python2.7 gpicsync.py "$@"
-  EOC
+          EOC
   owner user
-  group node['user']['group']
+  group node["user"]["group"]
   mode 0o750
 end
 
 file "#{home}/.local/bin/gpicsync-GUI" do
   content <<~EOC
-    #!/bin/bash
-    cd #{home}/.local/src/gpicsync/src/
+                            #!/bin/bash
+                            cd #{home}/.local/src/gpicsync/src/
     /usr/bin/python2.7 gpicsync-GUI.py "$@"
-  EOC
+          EOC
   owner user
-  group node['user']['group']
+  group node["user"]["group"]
   mode 0o750
 end
 
 git "#{home}/workspace/photo_process" do
-  repository 'git@github.com:gbagnoli/photo_process.git'
-  revision 'master'
-  checkout_branch 'master'
+  repository "git@github.com:gbagnoli/photo_process.git"
+  revision "master"
+  checkout_branch "master"
   user user
-  group node['user']['group']
+  group node["user"]["group"]
   action :sync
 end
 
-version = node['lsb']['release']
+version = node["lsb"]["release"]
 
-apt_repository 'gpxsee' do
+apt_repository "gpxsee" do
   uri "http://download.opensuse.org/repositories/home:/tumic:/GPXSee/xUbuntu_#{version}/"
-  distribution '/'
-  components ['']
+  distribution "/"
+  components [""]
   key "https://download.opensuse.org/repositories/home:tumic:GPXSee/xUbuntu_#{version}/Release.key"
 end
 
-package 'gpxsee'
+package "gpxsee"
 
 directory "#{home}/.local/src/gps_track_pod" do
   action :delete
   recursive true
 end
 
-file '/etc/udev/rules.d/49-gpspod.rules' do
+file "/etc/udev/rules.d/49-gpspod.rules" do
   action :delete
 end

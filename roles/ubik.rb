@@ -1,24 +1,24 @@
-name 'ubik'
-description 'ubik mac laptop'
+name "ubik"
+description "ubik mac laptop"
 run_list [
-  'role[devlaptop]'
+  "role[devlaptop]",
 ]
 
 default_attributes(
-  'user' => {
-    'uid' => 1000,
-    'group' => 1000
+  "user" => {
+    "uid" => 1000,
+    "group" => 1000,
   },
-  'ubik' => {
-    'enable_mtrack' => true
+  "ubik" => {
+    "enable_mtrack" => true,
   },
-  'openvpn' => {
-    'override_distribution' => 'xenial'
+  "openvpn" => {
+    "override_distribution" => "xenial",
   },
-  'users' => {
-    'irene' => {
-      'uid' => 1001,
-      'group' => 1001
-    }
-  }
+  "users" => {
+    "irene" => {
+      "uid" => 1001,
+      "group" => 1001,
+    },
+  },
 )

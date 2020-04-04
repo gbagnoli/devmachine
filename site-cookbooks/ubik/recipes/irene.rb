@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-user = 'irene'
-group = 'irene'
+user = "irene"
+group = "irene"
 home = "/home/#{user}"
-uid = node['users']['irene']['uid']
-gid = node['users']['irene']['gid']
-realname = 'Irene Bagni'
+uid = node["users"]["irene"]["uid"]
+gid = node["users"]["irene"]["gid"]
+realname = "Irene Bagni"
 
 group group do
   gid gid
@@ -13,7 +13,7 @@ end
 
 user user do
   group group
-  shell '/bin/bash'
+  shell "/bin/bash"
   uid uid
   gid gid
   home home
@@ -24,9 +24,9 @@ end
 ["#{home}/Sync",
  "#{home}/Sync/Private"].each do |d|
   directory d do
-    mode '0750'
+    mode "0750"
     owner user
-    group 'users'
+    group "users"
   end
 end
 
@@ -34,10 +34,10 @@ file "#{home}/examples.desktop" do
   action :delete
 end
 
-execute 'irene_unpack_dropbox_daemon' do
-  command 'tar xzf /usr/src/dropbox-daemon.tar.gz'
-  cwd '/home/irene'
-  user 'irene'
-  subscribes :run, 'remote_file[/usr/src/dropbox-daemon.tar.gz]', :immediately
+execute "irene_unpack_dropbox_daemon" do
+  command "tar xzf /usr/src/dropbox-daemon.tar.gz"
+  cwd "/home/irene"
+  user "irene"
+  subscribes :run, "remote_file[/usr/src/dropbox-daemon.tar.gz]", :immediately
   action :nothing
 end

@@ -5,32 +5,32 @@ resource_name :gnome_desktop_file
 property :user, String, required: true
 property :group, [String, NilClass], default: nil
 property :exec, String, required: true
-property :type, String, default: 'Application'
-property :encoding, String, default: 'UTF-8'
+property :type, String, default: "Application"
+property :encoding, String, default: "UTF-8"
 property :fullpath, [String, NilClass], default: nil
 property :options, Hash, default: {}
 
 action :create do
-  app_dir.split('/').each do |dir|
+  app_dir.split("/").each do |dir|
     next if dir == home
 
     directory "#{home}/#{dir}" do
       owner user
       group groupname
-      mode '0755'
+      mode "0755"
     end
   end
-  options['Encoding'] = encoding
-  options['Type'] = type
+  options["Encoding"] = encoding
+  options["Type"] = type
 
   file path do
     owner user
     group groupname
-    mode '0644'
+    mode "0644"
     content <<~HEREDOC
-      [Desktop Entry]
-      #{options_string}
-    HEREDOC
+              [Desktop Entry]
+              #{options_string}
+            HEREDOC
   end
 end
 
@@ -50,7 +50,7 @@ action_class do
   end
 
   def filename
-    "#{new_resource.name.tr(' ', '_').downcase}.desktop"
+    "#{new_resource.name.tr(" ", "_").downcase}.desktop"
   end
 
   def path
@@ -62,7 +62,7 @@ action_class do
   end
 
   def options_string
-    str = ''
+    str = ""
     new_resource.options.each do |k, v|
       str = "#{str}\n#{k.upcase}=#{v}"
     end
