@@ -14,3 +14,4 @@ vendor/
 nodes/*.json
 secrets/*.json
 .rubocop-https---raw-githubusercontent-com-xinminlabs-rubocop-config-rufo-master-rubocop-yml
+chef_guid
