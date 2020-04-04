@@ -1,4 +1,4 @@
-Metrics/LineLength:
+Layout/LineLength:
   Max: 110
 
 Metrics/BlockLength:
@@ -23,8 +23,17 @@ Style/HashTransformKeys:
 Style/HashTransformValues:
   Enabled: true
 
-Style/StringLiterals:
-  EnforcedStyle: double_quotes
-  SupportedStyles:
-    - single_quotes
-    - double_quotes
+Layout/HeredocIndentation:
+  Enabled: false
+
+Lint/RaiseException:
+  Enabled: false
+
+Lint/StructNewOverride:
+  Enabled: true
+
+Lint/SuppressedException:
+  Enabled: false
+
+inherit_from:
+  - https://raw.githubusercontent.com/xinminlabs/rubocop-config-rufo/master/rubocop.yml
