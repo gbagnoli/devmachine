@@ -1,0 +1,9 @@
+--- build/ioq3ded.js.orig	2020-04-01 20:39:17.359677388 +0000
++++ build/ioq3ded.js	2020-04-01 20:38:31.097629483 +0000
+@@ -9637,6 +9637,7 @@
+   		},LoadingProgress:function (frac) {
+   			console.log('loaded ' + (frac*100).toFixed(2) + '%');
+   		},PromptEULA:function (callback) {
++			return callback();
+   			var readline = require('readline');
+   			var lines = SYSC.eula.split('\n');

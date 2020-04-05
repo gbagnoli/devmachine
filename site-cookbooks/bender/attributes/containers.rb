@@ -58,7 +58,7 @@ default["bender"]["containers"]["bloodsea"]["volumes"] = nil
 default["bender"]["containers"]["beelzebot"]["id"] = 6
 default["bender"]["containers"]["beelzebot"]["image"] = "ubuntu:18.04"
 default["bender"]["containers"]["beelzebot"]["forwarded_ports"] = [27_960].map do |port|
-  { protocol: "udp", external_port: port, internal_port: port, ip_version: "all" }
+  { protocol: "all", external_port: port, internal_port: port, ip_version: "all" }
 end
 default["bender"]["containers"]["beelzebot"]["external_ipv6"] = nil
 default["bender"]["containers"]["beelzebot"]["volumes"] = nil
