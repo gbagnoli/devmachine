@@ -19,7 +19,7 @@ Dependencies:
 * [rbenv](https://github.com/rbenv/rbenv)
 * [rbenv-chef-workstation](https://github.com/docwhat/rbenv-chef-workstation)
 * [pyenv](https://github.com/pyenv/pyenv)
-* python3.7 (`pyenv install 3.7.4`)
+* python3.8 (`pyenv install 3.8.2`)
 
 Once installed chef-workstation from deb:
 
@@ -43,10 +43,10 @@ echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nf
 exec "$SHELL"  # reload the settings
 # install needed tools to build python
 apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev
-pyenv install 3.7.4
+pyenv install 3.8.2
 # this should be automatic if pyenv is installed correctly
 # as per .python-version file when you cd into this directory
-pyenv shell 3.7.4
+pyenv shell 3.8.2
 # also, make sure pip and pipenv are installed
 pip install -U pip pipenv
 # install the git commit hook that will run all needed linters
