@@ -47,6 +47,11 @@ packages = {
     only_if_not_installed: true,
   }, "vagrant" => "https://releases.hashicorp.com/vagrant/2.0.2/vagrant_2.0.2_x86_64.deb",
   "viber" => "http://download.cdn.viber.com/cdn/desktop/Linux/viber.deb",
+  "discord" => {
+    deps: %w[libc++1 libc++abi1],
+    deb: "https://discordapp.com/api/download?platform=linux&format=deb",
+    only_if_not_installed: false,
+  },
 }
 
 # accept steam license
@@ -68,9 +73,15 @@ packages.each do |name, desc|
   if desc.is_a? String
     url = desc
     not_if = false
+    deps = nil
   else
     url = desc[:deb]
     not_if = desc[:only_if_not_installed]
+    deps = desc[:deps]
+  end
+
+  deps&.each do |x|
+    package x
   end
 
   not_if = "dpkg -l | grep -E '^ii\s+#{name}'" if not_if
