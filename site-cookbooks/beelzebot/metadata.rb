@@ -15,5 +15,6 @@ supports "ubuntu", ">= 18.04"
 
 depends "git"
 depends "logrotate"
+depends "nginx"
 depends "nodejs"
 depends "server"

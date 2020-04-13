@@ -99,3 +99,19 @@ systemd_unit "quakejs.service" do
   EOH
   action %i[create enable start]
 end
+
+%w[/var/www /var/www/q3a].each do |d|
+  directory d do
+    owner "www-data"
+    group "www-data"
+  end
+end
+
+nginx_site "q3a.tigc.eu" do
+  template "q3a.tigc.eu.erb"
+  variables(
+    directory: '/var/www/q3a',
+    server_name: 'q3a.tigc.eu'
+  )
+  action :enable
+end
