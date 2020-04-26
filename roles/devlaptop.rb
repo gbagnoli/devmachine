@@ -6,7 +6,7 @@ run_list [
   "recipe[ubik::users]",
   "recipe[ubik::python]",
   "recipe[ubik::ruby]",
-  "recipe[java]",
+  "recipe[ubik::java]",
   "recipe[openvpn]",
   "recipe[ubik]",
   "recipe[syncthing]",
@@ -65,13 +65,6 @@ default_attributes(
       "global" => "system",
       "upgrade" => "sync",
     }],
-  },
-  "java" => {
-    "install_flavor" => "oracle",
-    "jdk_version" => "8",
-    "oracle" => {
-      "accept_oracle_download_terms" => true,
-    },
   },
   "ruby_build" => {
     "upgrade" => "sync",

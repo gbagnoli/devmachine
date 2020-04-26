@@ -12,7 +12,7 @@ nodes:
   - upik
   - oldpc
   - beelzebot
-  - ubiktest
+  - ubiktestdesktop
 
 require_secrets:
   - marvin

@@ -51,6 +51,6 @@ Vagrant.configure("2") do |config|
     sudo -i -u vagrant which pipenv || sudo -i -u vagrant pip3 install --user pipenv
     pipenv="$(sudo -i -u vagrant python3 -m site --user-base)"/bin/pipenv
     sudo -i -u vagrant bash -c "cd /vagrant && $pipenv install"
-    yes | sudo -i -u vagrant bash -c "cd /vagrant && $pipenv run -- fab run -H localhost_ubiktest"
+    yes | sudo -i -u vagrant bash -c "cd /vagrant && $pipenv run -- fab run -H localhost_ubiktestdesktop"
   SHELL
 end

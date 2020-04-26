@@ -6,7 +6,7 @@ end
 
 remote_file "/var/cache/chef/godeb-amd64.tar.gz" do
   source "https://godeb.s3.amazonaws.com/godeb-amd64.tar.gz"
-  checksum "4e73d1621495cc2b909893b9d31d74caec9110c0000218d123d8515f87e9c3ff"
+  checksum "f2b3445dda98b31a32381036bf01c7e82df1a5a151e7e838ca1f0d1fb8e80952"
   notifies :run, "execute[unpack godeb]", :immediately
 end
 

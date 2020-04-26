@@ -65,10 +65,11 @@ apt_repository "firefox-beta" do
   uri "ppa:mozillateam/firefox-next"
 end
 
+
 apt_repository "docker" do
   uri "https://download.docker.com/linux/ubuntu"
   arch "amd64"
-  distribution "xenial" # node['lsb']['codename']
+  distribution 'bionic' # FIXME node['lsb']['codename']
   components ["stable"]
   key "https://download.docker.com/linux/ubuntu/gpg"
 end
@@ -76,16 +77,12 @@ end
 apt_repository "signal" do
   uri "https://updates.signal.org/desktop/apt"
   arch "amd64"
-  distribution "xenial"
+  distribution 'xenial'
   components ["main"]
   key "https://updates.signal.org/desktop/apt/keys.asc"
 end
 
-if node["lsb"]["codename"] == "xenial"
-  apt_repository "gnome3-staging" do
-    uri "ppa:gnome3-team/gnome3-staging"
-  end
-
+if node["lsb"]["codename"] != "focal"
   apt_repository "gnome3" do
     uri "ppa:gnome3-team/gnome3"
   end
@@ -94,7 +91,7 @@ end
 apt_repository "virtualbox" do
   uri "https://download.virtualbox.org/virtualbox/debian"
   components ["contrib"]
-  distribution node["lsb"]["codename"]
+  distribution 'bionic' # FIXME node["lsb"]["codename"]
   key "https://www.virtualbox.org/download/oracle_vbox_2016.asc"
 end
 
