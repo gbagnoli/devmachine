@@ -19,7 +19,7 @@ default_attributes(
   },
   "ubik" => {
     "golang" => {
-      "version" => "1.10",
+      "version" => "1.14",
     },
     "languages" => %w[en it],
     "enable_mtrack" => false,
