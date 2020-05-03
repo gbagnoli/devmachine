@@ -83,11 +83,16 @@ if platform?("debian")
   package "libexpat1-dev"
   package "libpython2.7-dev"
 end
-%w[vim libpython-dev python-dev python-pip python3-dev python3-pip].each do |pkg|
+if platform?("ubuntu") && node["platform_version"] != "20.04"
+  %w[libpython-dev python-dev python-pip].each do |pkg|
+    package pkg
+  end
+end
+%w[vim python3-dev python3-pip].each do |pkg|
   package pkg
 end
 
-if platform? "ubuntu"
+if platform? "ubuntu" && node["platform_version"] != "20.04"
   apt_repository "neovim" do
     uri "ppa:neovim-ppa/stable"
   end
@@ -155,15 +160,9 @@ if node["platform"] == "debian"
     mode "0755"
   end
 else
-  distribution = case node["lsb"]["codename"]
-    when "bionic"
-      "artful"
-    else
-      node["lsb"]["codename"]
-    end
   apt_repository "fasd" do
     uri "ppa:aacebedo/fasd"
-    distribution distribution
+    distribution node["lsb"]["codename"]
   end
 
   package "fasd"

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-return if platform?("ubuntu") && node["lsb"]["codename"] == "xenial"
+return if platform?("ubuntu") && node["lsb"]["codename"] != "bionic"
 
 version = "0.4.1"
 package_name = "xserver-xorg-input-mtrack"

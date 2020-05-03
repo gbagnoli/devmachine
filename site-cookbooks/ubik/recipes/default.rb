@@ -27,7 +27,7 @@
 # THE SOFTWARE.
 
 include_recipe "ubik::ubuntu_hwe"
-include_recipe "ubik::packages"
+include_recipe "ubik::packages" unless node["ubik"]["skip_packages"]
 include_recipe "ubik::langs"
 include_recipe "ubik::latex" if node["ubik"]["install_latex"]
 include_recipe "ubik::golang"
