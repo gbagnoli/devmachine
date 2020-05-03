@@ -36,8 +36,12 @@ node["ubik"]["ruby"]["rubies"]&.each do |ruby|
   end
 end
 
-chef_workstation_dir = "/home/#{user}/.rbenv/versions/chef-workstation"
-directory chef_workstation_dir do
+chefdk_dir = "/home/#{user}/.rbenv/versions/chefdk"
+directory chefdk_dir do
   recursive true
   owner user
+end
+
+directory "/home/#{user}/.rbenv/versions/chef-workstation" do
+  action :delete
 end
