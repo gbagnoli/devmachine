@@ -11,12 +11,16 @@ packages = %w[
   libxslt1-dev libxss1 libxtst6 network-manager-openvpn-gnome openvpn powertop
   python python-apt qemu-kvm rsyslog shellcheck telegram tmux
   ttf-mscorefonts-installer ubuntu-gnome-desktop ufraw unity-tweak-tool
-  virtualbox-5.2 xdg-utils wireguard xsel signal-desktop
+  xdg-utils wireguard xsel signal-desktop
 ]
 
 if node["lsb"]["codename"] == "focal"
   packages = packages.map(&:dup).reject { |x| %w[btrfs-tools gir1.2-gnomekeyring-1.0 libgnome-keyring0 ufraw libcurl3].include?(x) }
   packages << "btrfs-progs"
+  packages << "virtualbox"
+  packages << "dropbox"
+else
+  packages << "virtualbox6.1"
 end
 
 package "base install" do
@@ -36,14 +40,13 @@ packages = {
     deb: "https://repo.skype.com/latest/skypeforlinux-64.deb",
     only_if_not_installed: true,
   }, "slack-desktop" => {
-    deb: "https://downloads.slack-edge.com/linux_releases/slack-desktop-3.0.5-amd64.deb",
+    deb: "https://downloads.slack-edge.com/linux_releases/slack-desktop-4.4.2-amd64.deb",
     only_if_not_installed: true,
   },
   "steam-launcher" => {
     deb: "https://steamcdn-a.akamaihd.net/client/installer/steam.deb",
     only_if_not_installed: true,
-  }, "vagrant" => "https://releases.hashicorp.com/vagrant/2.0.2/vagrant_2.0.2_x86_64.deb",
-  "viber" => "http://download.cdn.viber.com/cdn/desktop/Linux/viber.deb",
+  }, "vagrant" => "https://releases.hashicorp.com/vagrant/2.2.7/vagrant_2.2.7_x86_64.deb",
   "discord" => {
     deps: %w[libc++1 libc++abi1],
     deb: "https://discordapp.com/api/download?platform=linux&format=deb",

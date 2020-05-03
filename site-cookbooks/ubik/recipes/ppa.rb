@@ -86,15 +86,23 @@ if node["lsb"]["codename"] != "focal"
   apt_repository "gnome3" do
     uri "ppa:gnome3-team/gnome3"
   end
-end
 
-apt_repository "virtualbox" do
-  uri "https://download.virtualbox.org/virtualbox/debian"
-  components ["contrib"]
-  distribution 'bionic' # FIXME node["lsb"]["codename"]
-  key "https://www.virtualbox.org/download/oracle_vbox_2016.asc"
+  apt_repository "virtualbox" do
+    uri "https://download.virtualbox.org/virtualbox/debian"
+    components ["contrib"]
+    distribution 'bionic' # FIXME node["lsb"]["codename"]
+    key "https://www.virtualbox.org/download/oracle_vbox_2016.asc"
+  end
 end
 
 apt_repository "wireguard" do
   uri "ppa:wireguard/wireguard"
+end
+
+apt_repository "dropbox" do
+  uri "http://linux.dropbox.com/ubuntu"
+  distribution "bionic"
+  arch "amd64"
+  components ["main"]
+  key "1C61A2656FB57B7E4DE0F4C1FC918B335044912E"
 end
