@@ -3,18 +3,18 @@
 set -eu
 set -o pipefail
 
-CHEFDK='https://packages.chef.io/files/stable/chefdk/2.4.17/ubuntu/16.04/chefdk_2.4.17-1_amd64.deb'
+CHEFDK='https://packages.chef.io/files/stable/chefdk/4.7.73/ubuntu/18.04/chefdk_4.7.73-1_amd64.deb'
 
 sudo apt update
 sudo apt full-upgrade -y
-sudo apt install python-pip -y
+sudo apt install python3-pip -y
 
 curl -L "$CHEFDK" -o chefdk.deb
 sudo dpkg -i chefdk.deb
 rm -rf chefdk.deb
 
-pip install --user pipenv
+pip3 install --user pipenv
 
-pipenv="$(python -m site --user-base)"/bin/pipenv
+pipenv="$(python3 -m site --user-base)"/bin/pipenv
 "$pipenv" install
 "$pipenv" run -- fab run
