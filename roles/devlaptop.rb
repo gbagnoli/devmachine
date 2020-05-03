@@ -21,6 +21,10 @@ default_attributes(
     "golang" => {
       "version" => "1.14",
     },
+    "ruby" => {
+        "rubies" => ["2.5.8", "2.7.1"],
+        "user" => "giacomo",
+    },
     "languages" => %w[en it],
     "enable_mtrack" => false,
     "install_latex" => true,
@@ -64,32 +68,6 @@ default_attributes(
       "pythons" => ["2.7.17", "3.8.2"],
       "global" => "system",
       "upgrade" => "sync",
-    }],
-  },
-  "ruby_build" => {
-    "upgrade" => "sync",
-  },
-  "rbenv" => {
-    "git_ref" => "v1.1.2",
-    "user_installs" => [{
-      "upgrade" => "sync",
-      "user" => "giacomo",
-      "plugins" => [{
-        "name" => "chefdk",
-        "git_url" => "https://github.com/docwhat/rbenv-chefdk.git",
-      }],
-      "rubies" => ["2.5.8", "2.7.1"],
-      "global" => "2.7.1",
-      "gems" => {
-        "2.7.1" => [
-          { "name" => "bundler" },
-          { "name" => "rubocop" },
-        ],
-        "2.5.8" => [
-          { "name" => "bundler" },
-          { "name" => "rubocop" },
-        ],
-      },
     }],
   },
   "user" => {

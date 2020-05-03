@@ -6,7 +6,7 @@ packages = %w[
   gir1.2-gnomekeyring-1.0 gnome gnome-shell gnome-terminal google-chrome-stable
   google-talkplugin gstreamer1.0-libav gstreamer1.0-plugins-ugly
   gstreamer1.0-pulseaudio gvfs-bin htop keepassx libappindicator1
-  libappindicator1 libgcrypt20 libgnome-keyring0 libgtk2.0-0
+  libappindicator1 libcurl4 libgcrypt20 libgnome-keyring0 libgtk2.0-0
   libnotify4 libnss3 libsecret-1-0 libudev1 libvirt-dev libxml2-dev
   libxslt1-dev libxss1 libxtst6 network-manager-openvpn-gnome openvpn powertop
   python python-apt qemu-kvm rsyslog shellcheck telegram tmux
@@ -14,10 +14,9 @@ packages = %w[
   virtualbox-5.2 xdg-utils wireguard xsel signal-desktop
 ]
 
-packages << if node["lsb"]["codename"] == "bionic"
-  "libcurl4"
-else
-  "libcurl3"
+if node["lsb"]["codename"] == "focal"
+  packages = packages.map(&:dup).reject { |x| %w[btrfs-tools gir1.2-gnomekeyring-1.0 libgnome-keyring0 ufraw libcurl3].include?(x) }
+  packages << "btrfs-progs"
 end
 
 package "base install" do
