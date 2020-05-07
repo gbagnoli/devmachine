@@ -52,6 +52,11 @@ packages = {
     deb: "https://discordapp.com/api/download?platform=linux&format=deb",
     only_if_not_installed: false,
   },
+  "zoom" => {
+    deb: "https://zoom.us/client/latest/zoom_amd64.deb",
+    only_if_not_installed: true,
+    deps: %w[libgl1-mesa-glx libegl1-mesa libxcb-xtest0],
+  }
 }
 
 # accept steam license
