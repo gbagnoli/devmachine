@@ -15,7 +15,6 @@ depends "java"
 depends "git"
 depends "debconf"
 depends "sudo"
-depends "dnscrypt_proxy"
 depends "ruby_build"
 depends "yubico"
 

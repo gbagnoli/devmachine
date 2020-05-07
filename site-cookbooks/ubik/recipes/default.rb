@@ -32,9 +32,5 @@ include_recipe "ubik::langs"
 include_recipe "ubik::latex" if node["ubik"]["install_latex"]
 include_recipe "ubik::golang"
 include_recipe "ubik::ruby"
-include_recipe "ubik::mtrack" if node["ubik"]["enable_mtrack"]
 include_recipe "ubik::printer"
 include_recipe "ubik::fonts" if node["ubik"]["install_fonts"]
-
-node.override["dnscrypt_proxy"]["listen_address"] = "127.0.2.1"
-include_recipe "dnscrypt_proxy"

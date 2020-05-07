@@ -11,7 +11,6 @@ default_attributes(
     "install_vpnutils" => false,
   },
   "ubik" => {
-    "enable_mtrack" => false,
     "skip_packages" => true,
     "install_latex" => false,
     "install_fonts" => false,

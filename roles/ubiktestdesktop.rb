@@ -11,7 +11,6 @@ override_attributes(
     "install_vpnutils" => false,
   },
   "ubik" => {
-    "enable_mtrack" => false,
     "skip_packages" => false,
     "install_latex" => true,
     "install_fonts" => true,

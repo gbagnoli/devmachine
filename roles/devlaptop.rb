@@ -26,8 +26,7 @@ default_attributes(
         "user" => "giacomo",
     },
     "languages" => %w[en it],
-    "enable_mtrack" => false,
-    "install_latex" => true,
+    "install_latex" => false,
     "install_fonts" => true,
   },
   "os-hardening" => {
