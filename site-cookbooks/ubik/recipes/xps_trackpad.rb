@@ -1,18 +1,5 @@
-if node["lsb"]["codename"] == "xenial"
-  package "xserver-xorg-input-libinput-hwe-16.04"
-else
-  package "xserver-xorg-input-libinput"
-end
-
+package "xserver-xorg-input-libinput"
 x11_conf_d = "/usr/share/X11/xorg.conf.d/"
-
-file "#{x11_conf_d}/51-mtrack.conf" do
-  action :delete
-end
-
-apt_package "xserver-xorg-input-mtrack" do
-  action :purge
-end
 
 file "#{x11_conf_d}/50-xps-touchpad.conf" do
   mode "0644"
