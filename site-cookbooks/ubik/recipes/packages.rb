@@ -145,3 +145,10 @@ execute "unzip_android_platform_tools" do
 end
 
 include_recipe "yubico::personalization"
+
+# VA-API enabled chromium
+apt_repository "chromium-beta" do
+  uri "ppa:saiarcot895/chromium-dev"
+end
+
+package "chromium-browser"
