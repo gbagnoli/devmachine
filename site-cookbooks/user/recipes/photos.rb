@@ -46,6 +46,7 @@ git "#{home}/workspace/photo_process" do
   repository "git@github.com:gbagnoli/photo_process.git"
   revision "master"
   checkout_branch "master"
+  enable_checkout false
   user user
   group node["user"]["group"]
   action :sync
