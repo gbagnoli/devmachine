@@ -9,9 +9,8 @@ host="bender"
 if [[ "$host" == "bender" ]]; then
   ssh-keygen -f "$HOME/.ssh/known_hosts" -R "bender.tigc.eu" &>/dev/null || true
 fi
-ssh -oBatchMode=yes root@"$host" ls &>/dev/null
 
-if [ $? -ne 0 ] ; then
+if ! ssh -oBatchMode=yes root@"$host" ls &>/dev/null ; then
   echo >&2 "cannot connect via ssh to $host as user 'root': is openssh up and pub key setup?"
   exit 1
 fi

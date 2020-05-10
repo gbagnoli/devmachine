@@ -1,7 +1,7 @@
 name "ubiktest"
 description "ubik test"
 run_list [
-  "role[devlaptop]",
+  "role[devmachine]",
 ]
 
 default_attributes(

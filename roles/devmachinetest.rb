@@ -1,7 +1,7 @@
-name "ubiktestdesktop"
-description "ubik test dekstop"
+name "devmachinetest"
+description "ubik test devmachine"
 run_list [
-  "role[devlaptop]",
+  "role[devmachine]",
 ]
 
 override_attributes(

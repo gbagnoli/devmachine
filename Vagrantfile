@@ -23,34 +23,5 @@ Vagrant.configure("2") do |config|
     #   # Customize the amount of memory on the VM:
      vb.memory = "1024"
   end
-  config.vm.provision "shell", inline: <<-SHELL
-    set -eu
-    set -o pipefail
-
-    CHEFDK='https://packages.chef.io/files/stable/chefdk/4.7.73/ubuntu/18.04/chefdk_4.7.73-1_amd64.deb'
-
-    apt-get update
-    apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confnew upgrade
-    apt-get install python3-pip rbenv git -y
-
-    if dpkg -l chefdk &>/dev/null; then
-      echo "Skipping chef install"
-    else
-      echo "Installing chef from $CHEFDK"
-      curl -L "$CHEFDK" -o chefdk.deb
-      dpkg -i chefdk.deb
-      rm -rf chefdk.deb
-    fi
-
-    grep -q "giacomo" /etc/passwd || (
-      echo "Creating user giacomo"
-      groupadd -g 2000 giacomo
-      useradd -u 2000 -g giacomo -G sudo -m -s /bin/bash giacomo
-      echo "giacomo        ALL=(ALL)       NOPASSWD: ALL" > /etc/sudoers.d/giacomo
-    )
-    sudo -i -u vagrant which pipenv || sudo -i -u vagrant pip3 install --user pipenv
-    pipenv="$(sudo -i -u vagrant python3 -m site --user-base)"/bin/pipenv
-    sudo -i -u vagrant bash -c "cd /vagrant && $pipenv install"
-    yes | sudo -i -u vagrant bash -c "cd /vagrant && $pipenv run -- fab run -H localhost_ubiktestdesktop"
-  SHELL
+  config.vm.provision "shell", path: "boostrap/vagrant.sh"
 end

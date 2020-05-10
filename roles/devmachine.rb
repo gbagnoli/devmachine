@@ -1,4 +1,4 @@
-name "devlaptop"
+name "devmachine"
 description "A role to configure a development workstation"
 run_list [
   "recipe[ubik::ppa]",

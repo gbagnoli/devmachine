@@ -169,7 +169,6 @@ GRAPH
   syncthing (0.1.0)
   ubik (0.1.0)
     debconf (>= 0.0.0)
-    dnscrypt_proxy (>= 0.0.0)
     git (>= 0.0.0)
     java (>= 0.0.0)
     pyenv (>= 0.0.0)

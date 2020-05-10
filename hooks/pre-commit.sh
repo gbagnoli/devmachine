@@ -44,7 +44,7 @@ set +e
 ec=0
 
 if $circleci; then
-  if [ -x "$(which circleci)" ]; then
+  if [ -x "$(command -v circleci)" ]; then
     echo "Validating CircleCI config"
     circleci config validate .circleci/config.yml ; ec=$?
   else
@@ -71,13 +71,12 @@ if [ "${#python[@]}" -gt 0 ]; then
 fi
 
 if [ "${#shell[@]}" -gt 0 ]; then
-  if [ -x "$(which shellcheck)" ]; then
+  if [ -x "$(command -v shellcheck)" ]; then
     echo "running shellcheck"
-    shellcheck "${shell[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+    shellcheck -x "${shell[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
   else
     echo >&2 "Please install shellcheck for your platform"; ec=1
   fi
 fi
 
 exit $ec
-

@@ -1,8 +1,7 @@
-name "ubikxps"
-description "ubik xps laptop"
+name "ubik"
+description "ubik workstation"
 run_list [
   "role[devmachine]",
-  "recipe[user::ubikxps]",
 ]
 
 override_attributes(
