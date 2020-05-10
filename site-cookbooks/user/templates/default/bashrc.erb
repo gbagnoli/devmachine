@@ -177,7 +177,6 @@ update_gems_for_ruby() {
   echo "$1";
   rbenv shell "$1"
   gem install --no-rdoc --no-ri bundler rubocop tmuxinator
-  gem install --no-rdoc --no-ri --pre gaptool-client
   rbenv rehash
 }
 
@@ -252,3 +251,13 @@ alias pbcopy='xsel --clipboard --input'
 alias pbpaste='xsel --clipboard --output'
 
 [ -f "$HOME/.bashrc.local" ] && . "$HOME/.bashrc.local"
+
+<% if node.platform?("ubuntu") -%>
+apt_update() {
+  sudo apt update && \
+  sudo apt full-upgrade && \
+  sudo apt autoremove && \
+  sudo apt autoclean
+  return $?
+  }
+<% end -%>
