@@ -32,5 +32,11 @@ Lint/StructNewOverride:
 Lint/SuppressedException:
   Enabled: false
 
+Layout/SpaceAroundMethodCallOperator:
+  Enabled: false
+
+Style/ExponentialNotation:
+  Enabled: false
+
 inherit_from:
   - https://raw.githubusercontent.com/xinminlabs/rubocop-config-rufo/master/rubocop.yml
