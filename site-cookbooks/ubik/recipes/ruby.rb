@@ -1,15 +1,5 @@
 # frozen_string_literal: true
 
-# # git-core is a virt pkg in bionic
-# pkgs = node["rbenv"]["install_pkgs"].map(&:dup).reject { |x| x == "git-core" }
-# pkgs << "git"
-# node.override["rbenv"]["install_pkgs"] = pkgs
-
-# # similarly, libgdm3 is not libgdm5
-# pkgs = node["ruby_build"]["install_pkgs_cruby"].map(&:dup).reject { |x| ["libgdbm3", "libgdm5"].include?(x) }
-# pkgs << "libgdbm6"
-# node.override["ruby_build"]["install_pkgs_cruby"] = pkgs
-
 user = node["ubik"]["ruby"]["user"]
 rbenv_user_install user
 
@@ -18,8 +8,8 @@ rbenv_plugin 'ruby-build' do
   user user
 end
 
-rbenv_plugin 'chefdk' do
-  git_url 'https://github.com/docwhat/rbenv-chefdk.git'
+rbenv_plugin 'chef-workstation' do
+  git_url 'https://github.com/docwhat/rbenv-chef-workstation.git'
   user user
 end
 
@@ -36,12 +26,8 @@ node["ubik"]["ruby"]["rubies"]&.each do |ruby|
   end
 end
 
-chefdk_dir = "/home/#{user}/.rbenv/versions/chefdk"
-directory chefdk_dir do
+chefworkstation_dir = "/home/#{user}/.rbenv/versions/chef-workstation"
+directory chefworkstation_dir do
   recursive true
   owner user
-end
-
-directory "/home/#{user}/.rbenv/versions/chef-workstation" do
-  action :delete
 end

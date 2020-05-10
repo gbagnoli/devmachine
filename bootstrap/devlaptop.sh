@@ -3,15 +3,16 @@
 set -eu
 set -o pipefail
 
-CHEFDK='https://packages.chef.io/files/stable/chefdk/4.7.73/ubuntu/18.04/chefdk_4.7.73-1_amd64.deb'
+CHEF_WORKSTATION='https://packages.chef.io/files/stable/chef-workstation/0.18.3/ubuntu/20.04/chef-workstation_0.18.3-1_amd64.deb'
+CWDEB='/tmp/chef-workstation.deb'
 
 sudo apt update
 sudo apt full-upgrade -y
 sudo apt install python3-pip -y
 
-curl -L "$CHEFDK" -o chefdk.deb
-sudo dpkg -i chefdk.deb
-rm -rf chefdk.deb
+trap 'rm -rf $CWDEB' EXIT
+curl -L "$CHEF_WORKSTATION" -o "$CWDEB"
+sudo dpkg -i "$CWDEB"
 
 pip3 install --user pipenv
 
