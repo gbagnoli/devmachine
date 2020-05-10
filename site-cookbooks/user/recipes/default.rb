@@ -92,7 +92,7 @@ end
   package pkg
 end
 
-if platform? "ubuntu" && node["platform_version"] != "20.04"
+if platform?("ubuntu") && node["platform_version"] != "20.04"
   apt_repository "neovim" do
     uri "ppa:neovim-ppa/stable"
   end

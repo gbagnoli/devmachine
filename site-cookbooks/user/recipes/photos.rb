@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 if platform?("ubuntu") && node["platform_version"] != "20.04"
   %w[exiftool python-wxgtk3.0 python-pil python-unidecode
    libfreeimage3 libfontconfig1:i386 libxt6:i386 libxrender1:i386
@@ -41,7 +42,6 @@ file "#{home}/.local/bin/gpicsync-GUI" do
   mode 0o750
 end
 
-return
 git "#{home}/workspace/photo_process" do
   repository "git@github.com:gbagnoli/photo_process.git"
   revision "master"

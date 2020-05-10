@@ -252,7 +252,7 @@ alias pbpaste='xsel --clipboard --output'
 
 [ -f "$HOME/.bashrc.local" ] && . "$HOME/.bashrc.local"
 
-<% if node.platform?("ubuntu") -%>
+<% if node["platform"] == "ubuntu" -%>
 apt_update() {
   sudo apt update && \
   sudo apt full-upgrade && \

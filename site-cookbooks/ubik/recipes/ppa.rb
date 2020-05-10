@@ -69,7 +69,7 @@ end
 apt_repository "docker" do
   uri "https://download.docker.com/linux/ubuntu"
   arch "amd64"
-  distribution 'bionic' # FIXME node['lsb']['codename']
+  distribution 'bionic' # FIXME: node['lsb']['codename']
   components ["stable"]
   key "https://download.docker.com/linux/ubuntu/gpg"
 end
@@ -90,7 +90,7 @@ if node["lsb"]["codename"] != "focal"
   apt_repository "virtualbox" do
     uri "https://download.virtualbox.org/virtualbox/debian"
     components ["contrib"]
-    distribution 'bionic' # FIXME node["lsb"]["codename"]
+    distribution 'bionic' # FIXME: node["lsb"]["codename"]
     key "https://www.virtualbox.org/download/oracle_vbox_2016.asc"
   end
 end

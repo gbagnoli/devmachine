@@ -15,7 +15,8 @@ packages = %w[
 ]
 
 if node["lsb"]["codename"] == "focal"
-  packages = packages.map(&:dup).reject { |x| %w[btrfs-tools gir1.2-gnomekeyring-1.0 libgnome-keyring0 ufraw libcurl3].include?(x) }
+  oldp = %w[btrfs-tools gir1.2-gnomekeyring-1.0 libgnome-keyring0 ufraw libcurl3]
+  packages = packages.map(&:dup).reject { |x| oldp.include?(x) }
   packages << "btrfs-progs"
   packages << "virtualbox"
   packages << "dropbox"
