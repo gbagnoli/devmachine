@@ -13,8 +13,8 @@ override_attributes(
   },
   "ubik" => {
     "skip_packages" => false,
-    "install_latex" => true,
-    "install_fonts" => true,
+    "install_latex" => false,
+    "install_fonts" => false,
   },
   "syncthing" => {
     "skip_service" => true,

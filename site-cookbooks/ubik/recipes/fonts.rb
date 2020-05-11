@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+return unless node["ubik"]["install_fonts"]
+
 nerdfonts = "/usr/src/nerdfonts"
 nerdfonts_repo = "https://github.com/ryanoasis/nerd-fonts.git"
 

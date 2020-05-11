@@ -2,6 +2,8 @@
 
 default["ubik"]["golang"]["version"] = "1.14"
 default["ubik"]["skip_packages"] = false
+default["ubik"]["install_latex"] = false
+default["ubik"]["install_fonts"] = false
 default["ubik"]["ruby"]["user"] = "giacomo"
 default["ubik"]["ruby"]["rubies"] = []
 
