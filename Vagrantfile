@@ -1,10 +1,5 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
-#
-puts "Removing local-mode-cache folder (requires sudo)"
-command = "sudo rm -rf #{__dir__}/local-mode-cache"
-puts "running: #{command}"
-system(command)
 
 Vagrant.configure("2") do |config|
   # The most common configuration options are documented and commented below.
@@ -27,6 +22,12 @@ Vagrant.configure("2") do |config|
     #
     #   # Customize the amount of memory on the VM:
      vb.memory = "1024"
+  end
+  config.vm.provision :host_shell do |hs|
+    puts "Removing local-mode-cache folder (requires sudo)"
+    command = "sudo rm -rf #{__dir__}/local-mode-cache"
+    puts "running: #{command}"
+    hs.inline = command
   end
   config.vm.provision "shell", path: "bootstrap/install_chef.sh"
   config.vm.provision "shell", path: "bootstrap/vagrant.sh"

@@ -122,6 +122,7 @@ end
 vagrant_plugins = %w[
   vagrant-libvirt
   vagrant-kvm
+  vagrant-host-shell
 ]
 
 vagrant_plugins.each do |plg|
