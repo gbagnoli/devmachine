@@ -1,5 +1,10 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
+#
+puts "Removing local-mode-cache folder (requires sudo)"
+command = "sudo rm -rf #{__dir__}/local-mode-cache"
+puts "running: #{command}"
+system(command)
 
 Vagrant.configure("2") do |config|
   # The most common configuration options are documented and commented below.
@@ -8,7 +13,7 @@ Vagrant.configure("2") do |config|
 
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://vagrantcloud.com/search.
-  config.vm.box = "fasmat/ubuntu2004-desktop"
+  config.vm.box = "chenhan/ubuntu-desktop-20.04"
 
   # Share an additional folder to the guest VM. The first argument is
   # the path on the host to the actual folder. The second argument is
@@ -23,5 +28,6 @@ Vagrant.configure("2") do |config|
     #   # Customize the amount of memory on the VM:
      vb.memory = "1024"
   end
-  config.vm.provision "shell", path: "boostrap/vagrant.sh"
+  config.vm.provision "shell", path: "bootstrap/install_chef.sh"
+  config.vm.provision "shell", path: "bootstrap/vagrant.sh"
 end

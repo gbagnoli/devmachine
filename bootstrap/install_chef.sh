@@ -1,3 +1,7 @@
+#!/bin/bash
+set -eu
+set -o pipefail
+
 CHEF_WORKSTATION='https://packages.chef.io/files/stable/chef-workstation/0.18.3/ubuntu/20.04/chef-workstation_0.18.3-1_amd64.deb'
 CWDEB='/tmp/chef-workstation.deb'
 APTGET="sudo apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confnew"

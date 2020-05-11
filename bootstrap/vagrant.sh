@@ -2,11 +2,6 @@
 set -eu
 set -o pipefail
 
-cd "${BASH_SOURCE%/*}/" || exit
-# shellcheck source=include/install_chef.bash
-# shellcheck disable=SC1091
-source "${BASH_SOURCE%/*}/"include/install_chef.bash
-
 grep -q "giacomo" /etc/passwd || (
   echo "Creating user giacomo"
   groupadd -g 2000 giacomo
@@ -16,4 +11,4 @@ grep -q "giacomo" /etc/passwd || (
 sudo -i -u vagrant which pipenv || sudo -i -u vagrant pip3 install --user pipenv
 pipenv="$(sudo -i -u vagrant python3 -m site --user-base)"/bin/pipenv
 sudo -i -u vagrant bash -c "cd /vagrant && $pipenv install"
-yes | sudo -i -u vagrant bash -c "cd /vagrant && $pipenv run -- fab run -H localhost_devmachinetest"
+sudo -i -u vagrant bash -c "cd /vagrant && CHEF_LICENSE=accept pipenv run -- fab run -H localhost_devmachinetest"
