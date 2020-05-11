@@ -2,7 +2,7 @@ name "ubikxps"
 description "ubik xps laptop"
 run_list [
   "role[devmachine]",
-  "recipe[ubik::xps]",
+  "recipe[ubik::intel]",
 ]
 
 override_attributes(

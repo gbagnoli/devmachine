@@ -2,6 +2,7 @@ name "ubik"
 description "ubik workstation"
 run_list [
   "role[devmachine]",
+  "recipe[ubik::nvidia]",
 ]
 
 override_attributes(
