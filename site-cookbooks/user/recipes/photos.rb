@@ -42,14 +42,16 @@ file "#{home}/.local/bin/gpicsync-GUI" do
   mode 0o750
 end
 
-git "#{home}/workspace/photo_process" do
-  repository "git@github.com:gbagnoli/photo_process.git"
-  revision "master"
-  checkout_branch "master"
-  enable_checkout false
-  user user
-  group node["user"]["group"]
-  action :sync
+if node["user"]["install_photo_process"]
+  git "#{home}/workspace/photo_process" do
+    repository "git@github.com:gbagnoli/photo_process.git"
+    revision "master"
+    checkout_branch "master"
+    enable_checkout false
+    user user
+    group node["user"]["group"]
+    action :sync
+  end
 end
 
 version = node["lsb"]["release"]
@@ -62,12 +64,3 @@ apt_repository "gpxsee" do
 end
 
 package "gpxsee"
-
-directory "#{home}/.local/src/gps_track_pod" do
-  action :delete
-  recursive true
-end
-
-file "/etc/udev/rules.d/49-gpspod.rules" do
-  action :delete
-end

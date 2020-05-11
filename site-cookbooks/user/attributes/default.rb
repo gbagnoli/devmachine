@@ -6,6 +6,7 @@ default["user"]["uid"] = 1000
 default["user"]["gid"] = 1000
 default["user"]["realname"] = "Giacomo Bagnoli"
 default["user"]["install_vpnutils"] = false
+default["user"]["install_photo_process"] = true
 default["user"]["ssh_authorized_keys"] = [{
   name: "giacomo@ubikxps",
   keytype: "ssh-ed25519",
