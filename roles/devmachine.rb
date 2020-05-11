@@ -25,6 +25,11 @@ default_attributes(
         "rubies" => ["2.5.8", "2.7.1"],
         "user" => "giacomo",
     },
+    "python" => {
+      "user" => "giacomo",
+      "versions" => ["2.7.17", "3.8.2"],
+      "user_global" => "3.8.2",
+    },
     "languages" => %w[en it],
     "install_latex" => false,
     "install_fonts" => true,
@@ -59,15 +64,6 @@ default_attributes(
         "port" => 8385,
       },
     },
-  },
-  "pyenv" => {
-    "git_ref" => "v1.2.18",
-    "user_installs" => [{
-      "user" => "giacomo",
-      "pythons" => ["2.7.17", "3.8.2"],
-      "global" => "system",
-      "upgrade" => "sync",
-    }],
   },
   "user" => {
     "login" => "giacomo",

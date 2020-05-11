@@ -33,9 +33,6 @@ DEPENDENCIES
     branch: new_release_url
   profile_sync_daemon
     path: site-cookbooks/profile_sync_daemon
-  pyenv
-    git: https://github.com/sds/chef-pyenv.git
-    revision: 89600c35ea1b5f3de3c9330a80dc62d4021cfd17
   rclone
     path: site-cookbooks/rclone
   server
@@ -74,7 +71,7 @@ GRAPH
   build-essential (8.2.1)
     mingw (>= 1.1)
     seven_zip (>= 0.0.0)
-  chef_client_updater (3.9.0)
+  chef_client_updater (3.10.0)
   chef_handler (3.0.3)
   datadog (3.5.1)
     apt (>= 0.0.0)
@@ -143,12 +140,12 @@ GRAPH
     poise-languages (~> 2.0)
   profile_sync_daemon (0.1.0)
     apt (>= 0.0.0)
-  pyenv (0.2.0)
+  pyenv (3.2.0)
   rclone (0.1.0)
   ruby_build (2.0.0)
     yum-centos (>= 0.0.0)
     yum-epel (>= 0.0.0)
-  ruby_rbenv (2.3.1)
+  ruby_rbenv (2.3.2)
   server (0.1.0)
     apt (>= 0.0.0)
     chef_client_updater (>= 0.0.0)

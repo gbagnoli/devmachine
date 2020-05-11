@@ -1,24 +1,31 @@
 # frozen_string_literal: true
 
-# git-core is a virt pkg in bionic and above
-pkgs = node["pyenv"]["install_pkgs"].map(&:dup).reject { |x| x == "git-core" }
-pkgs << "git"
-node.override["pyenv"]["install_pkgs"] = pkgs
+conf = node['ubik']['python']
+user = conf['user']
 
-# looks like pyenv want /usr/bin/python to exist to use the system version
-if node["lsb"]["codename"] == "focal"
-  link '/usr/bin/python' do
-    to '/usr/bin/python3'
+pyenv_user_install user
+
+pyenv_plugin 'pyenv-virtualenv' do
+  git_url 'https://github.com/pyenv/pyenv-virtualenv.git'
+  user user
+end
+
+if conf['user_global']
+  raise unless conf['versions'].include?(conf['user_global'])
+
+  pyenv_global conf['user_global'] do
+    user user
   end
 end
 
-include_recipe "pyenv::user"
-node["pyenv"]["user_installs"].each do |desc|
-  desc["pythons"].each do |ver|
-    pyenv_script "pyenv_install_bin_#{ver}_#{desc["user"]}" do
-      user desc["user"]
-      pyenv_version ver
-      code "pip install -U -q pip pipenv"
-    end
+conf['versions']&.each do |version|
+  pyenv_python version do
+    user user
+  end
+end
+
+%w[pip pipenv].each do |egg|
+  pyenv_pip egg do
+    user user
   end
 end
