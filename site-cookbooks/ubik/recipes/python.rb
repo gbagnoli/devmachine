@@ -10,16 +10,14 @@ pyenv_plugin 'pyenv-virtualenv' do
   user user
 end
 
-if conf['user_global']
-  raise unless conf['versions'].include?(conf['user_global'])
-
-  pyenv_global conf['user_global'] do
+conf['versions']&.each do |version|
+  pyenv_python version do
     user user
   end
 end
 
-conf['versions']&.each do |version|
-  pyenv_python version do
+if conf['user_global']
+  pyenv_global conf['user_global'] do
     user user
   end
 end

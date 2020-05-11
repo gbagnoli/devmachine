@@ -28,7 +28,7 @@ default_attributes(
     "python" => {
       "user" => "giacomo",
       "versions" => ["2.7.17", "3.8.2"],
-      "user_global" => "3.8.2",
+      "user_global" => "3.8.2 2.7.17",
     },
     "languages" => %w[en it],
     "install_latex" => false,
