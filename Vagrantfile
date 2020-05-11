@@ -24,9 +24,7 @@ Vagrant.configure("2") do |config|
      vb.memory = "1024"
   end
   config.vm.provision :host_shell do |hs|
-    puts "Removing local-mode-cache folder (requires sudo)"
     command = "sudo rm -rf #{__dir__}/local-mode-cache"
-    puts "running: #{command}"
     hs.inline = command
   end
   config.vm.provision "shell", path: "bootstrap/install_chef.sh"
