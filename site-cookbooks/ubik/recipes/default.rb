@@ -25,12 +25,3 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-
-include_recipe "ubik::ubuntu_hwe"
-include_recipe "ubik::packages"
-include_recipe "ubik::langs"
-include_recipe "ubik::latex"
-include_recipe "ubik::golang"
-include_recipe "ubik::ruby"
-include_recipe "ubik::printer"
-include_recipe "ubik::fonts"

@@ -1,5 +1,5 @@
 apt_repository "graphics_drivers" do
-  uri "ppa:graphic-drivers/ppa"
+  uri "ppa:graphics-drivers/ppa"
 end
 
 package "nvidia" do

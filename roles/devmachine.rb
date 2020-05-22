@@ -6,10 +6,16 @@ run_list [
   "recipe[ubik::users]",
   "recipe[ubik::python]",
   "recipe[ubik::ruby]",
+  "recipe[ubik::golang]",
   "recipe[ubik::java]",
-  "recipe[openvpn]",
-  "recipe[ubik]",
+  "recipe[ubik::ubuntu_hwe]",
+  "recipe[ubik::packages]",
+  "recipe[ubik::printer]",
   "recipe[syncthing]",
+  "recipe[openvpn]",
+  "recipe[ubik::langs]",
+  "recipe[ubik::latex]",
+  "recipe[ubik::fonts]",
 ]
 default_attributes(
   "authorization" => {
