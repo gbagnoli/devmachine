@@ -169,6 +169,7 @@ GRAPH
     debconf (>= 0.0.0)
     facl (>= 0.0.0)
     git (>= 0.0.0)
+    gnome (>= 0.0.0)
     java (>= 0.0.0)
     pyenv (>= 0.0.0)
     ruby_build (>= 0.0.0)

@@ -16,6 +16,7 @@ run_list [
   "recipe[ubik::langs]",
   "recipe[ubik::latex]",
   "recipe[ubik::fonts]",
+  "recipe[ubik::gnome_extensions]",
 ]
 default_attributes(
   "authorization" => {
