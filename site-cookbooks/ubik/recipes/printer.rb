@@ -22,4 +22,4 @@ apt_repository "suldr" do
   components ["extra"]
 end
 
-package "suld-driver-4.01.17"
+package "suld-driver2-1.00.39"
