@@ -259,5 +259,21 @@ apt_update() {
   sudo apt autoremove && \
   sudo apt autoclean
   return $?
-  }
+}
 <% end -%>
+
+download_m3u() {
+  local url
+  local output
+  [ $# -lt 1 ] && echo >&2 "usage: $0 <url> [output]" && return 1
+  url="$1"
+  if [ $# -ge 2 ]; then
+    output="$2"
+    shift
+  else
+    output="${1/.m3u8/.mp4}"
+  fi
+  shift;
+  echo ffmpeg -i "$url" -bsf:a aac_adtstoasc -vcodec copy -c copy "${output}" "$@"
+  ffmpeg -i "$url" -bsf:a aac_adtstoasc -vcodec copy -c copy "${output}" "$@"
+}

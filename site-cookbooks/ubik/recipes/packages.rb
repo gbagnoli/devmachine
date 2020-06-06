@@ -13,7 +13,7 @@ packages = %w[
   libxslt1-dev libxss1 libxtst6 network-manager-openvpn-gnome openvpn powertop
   python python-apt qemu-kvm rsyslog shellcheck telegram tmux
   ttf-mscorefonts-installer ubuntu-gnome-desktop ufraw unity-tweak-tool
-  xdg-utils wireguard xsel signal-desktop vlc
+  xdg-utils wireguard xsel signal-desktop vlc ffmpeg
 ]
 
 if node["lsb"]["codename"] == "focal"
