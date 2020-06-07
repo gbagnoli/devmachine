@@ -35,6 +35,10 @@ DEPENDENCIES
     path: site-cookbooks/profile_sync_daemon
   rclone
     path: site-cookbooks/rclone
+  ruby_rbenv
+    git: https://github.com/gbagnoli/ruby_rbenv
+    revision: d490f52fcea67039b9ef4e56de29ef030ed73735
+    branch: ubuntu_20.04
   server
     path: site-cookbooks/server
   syncthing
@@ -145,7 +149,7 @@ GRAPH
   ruby_build (2.0.0)
     yum-centos (>= 0.0.0)
     yum-epel (>= 0.0.0)
-  ruby_rbenv (2.4.0)
+  ruby_rbenv (2.4.1)
   server (0.1.0)
     apt (>= 0.0.0)
     chef_client_updater (>= 0.0.0)
