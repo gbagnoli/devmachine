@@ -37,7 +37,7 @@ DEPENDENCIES
     path: site-cookbooks/rclone
   ruby_rbenv
     git: https://github.com/gbagnoli/ruby_rbenv
-    revision: d490f52fcea67039b9ef4e56de29ef030ed73735
+    revision: 969b9e7a2fad8637f3221cbb8c0db11aef6d0d8a
     branch: ubuntu_20.04
   server
     path: site-cookbooks/server
@@ -98,11 +98,12 @@ GRAPH
   hardening (0.1.0)
     os-hardening (>= 0.0.0)
     ssh-hardening (>= 0.0.0)
+  homebrew (5.1.0)
   hostsfile (3.0.1)
-  java (8.2.1)
+  java (8.3.0)
     line (>= 0.0.0)
   limits (1.0.0)
-  line (2.8.1)
+  line (2.9.0)
   logrotate (2.2.3)
   lxd (0.1.0)
     limits (< 2.0.0)
@@ -144,9 +145,10 @@ GRAPH
     poise-languages (~> 2.0)
   profile_sync_daemon (0.1.0)
     apt (>= 0.0.0)
-  pyenv (3.2.0)
+  pyenv (3.3.0)
   rclone (0.1.0)
-  ruby_build (2.0.0)
+  ruby_build (2.1.0)
+    homebrew (>= 0.0.0)
     yum-centos (>= 0.0.0)
     yum-epel (>= 0.0.0)
   ruby_rbenv (2.4.1)
@@ -166,7 +168,7 @@ GRAPH
   ssh-hardening (2.9.0)
   ssh_authorized_keys (0.4.0)
   ssh_known_hosts (7.0.0)
-  sudo (5.4.5)
+  sudo (5.4.6)
   syncthing (0.1.0)
   ubik (0.1.0)
     debconf (>= 0.0.0)
