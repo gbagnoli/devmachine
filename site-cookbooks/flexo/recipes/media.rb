@@ -45,23 +45,29 @@ execute "setfacl_#{media_d}" do
   not_if "getfacl #{media_d} 2>/dev/null | grep 'default:' -q"
 end
 
-python_runtime "2.7"
+venv_base_path = "/var/lib/virtualenvs"
+{"2.7" => nil, "3.8" => "python3.8"}.each do |version, pkg|
+  python_runtime version do
+    options :system, package_name: pkg
+  end
 
-virtualenv_path = "/var/lib/virtualenvs/2.7"
-directory virtualenv_path do
-  recursive true
-  group "media"
-  mode "0775"
+  virtualenv_path = "#{venv_base_path}/#{version}"
+  directory virtualenv_path do
+    recursive true
+    group "media"
+    mode "0775"
+  end
 end
 
 # rubocop:disable Metrics/BlockLength
 {
   "sickchill" => {
     repo: "https://github.com/SickChill/SickChill.git",
-    command: "%<venv>s/bin/python %<venv>s/src/%<app>s/SickBeard.py --nolaunch " \
+    command: "%<venv>s/bin/python %<venv>s/src/%<app>s/SickChill.py --nolaunch " \
              "-q --datadir=%<datadir>s -p %<port>s",
     config_fname: "config.ini",
     py_packages: [],
+    py_runtime: "3.8",
     dir: "series",
   },
   "couchpotato" => {
@@ -70,9 +76,11 @@ end
     repo: "https://github.com/CouchPotato/CouchPotatoServer.git",
     config_fname: "settings.conf",
     py_packages: %w[lxml pyopenssl],
+    py_runtime: "2.7",
     dir: "movies",
   },
 }.each do |app, config|
+  virtualenv_path = "#{venv_base_path}/#{config[:py_runtime]}"
   venv = "#{virtualenv_path}/#{app}"
   datadir = "/var/lib/#{app}"
   root_d = "#{media_d}/#{config[:dir]}"
@@ -98,7 +106,7 @@ end
     pip_version "18.0"
     group "media"
     user node["flexo"]["media"]["username"]
-    python "2.7"
+    python config[:py_runtime]
   end
 
   config[:py_packages].each do |pkg|
