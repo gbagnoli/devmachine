@@ -265,9 +265,10 @@ action_class do # rubocop:disable Metrics/BlockLength
   end
 
   def get_ip(ip_version)
-    if ip_version.to_s == "ipv4"
+    case ip_version.to_s
+    when "ipv4"
       get_ipv4_address(new_resource.container_name)
-    elsif ip_version.to_s == "ipv6"
+    when "ipv6"
       get_ipv6_address(new_resource.container_name)
     else
       raise ArgumentError, "#{ip_version} not recognized"
