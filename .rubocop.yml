@@ -10,6 +10,7 @@ Naming/HeredocDelimiterNaming:
 
 AllCops:
   TargetRubyVersion: 2.4.2
+  NewCops: enable
 
 Style/FrozenStringLiteralComment:
   Enabled: false
