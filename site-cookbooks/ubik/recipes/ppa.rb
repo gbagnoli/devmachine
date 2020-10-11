@@ -97,6 +97,7 @@ end
 
 apt_repository "wireguard" do
   uri "ppa:wireguard/wireguard"
+  action :remove
 end
 
 apt_repository "dropbox" do
