@@ -10,3 +10,6 @@ default["ubik"]["ruby"]["rubies"] = []
 default["ubik"]["python"]["user"] = "giacomo"
 default["ubik"]["python"]["versions"] = []
 default["ubik"]["python"]["user_global"] = nil
+
+default["ubik"]["rust"]["user"] = "giacomo"
+default["ubik"]["rust"]["version"] = "stable"

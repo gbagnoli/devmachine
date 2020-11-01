@@ -6,6 +6,7 @@ run_list [
   "recipe[ubik::users]",
   "recipe[ubik::python]",
   "recipe[ubik::ruby]",
+  "recipe[ubik::rust]",
   "recipe[ubik::golang]",
   "recipe[ubik::java]",
   "recipe[ubik::ubuntu_hwe]",
@@ -31,6 +32,9 @@ default_attributes(
     "ruby" => {
         "rubies" => ["2.5.8", "2.7.2"],
         "user" => "giacomo",
+    },
+    "rust" => {
+      "version" => "nightly"
     },
     "python" => {
       "user" => "giacomo",
