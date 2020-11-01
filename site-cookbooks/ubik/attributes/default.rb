@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-default["ubik"]["golang"]["version"] = "1.14"
+default["ubik"]["golang"]["version"] = "1.15.3"
 default["ubik"]["skip_packages"] = false
 default["ubik"]["install_latex"] = false
 default["ubik"]["install_fonts"] = false

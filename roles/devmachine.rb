@@ -26,16 +26,16 @@ default_attributes(
   },
   "ubik" => {
     "golang" => {
-      "version" => "1.14",
+      "version" => "1.15.3",
     },
     "ruby" => {
-        "rubies" => ["2.5.8", "2.7.1"],
+        "rubies" => ["2.5.8", "2.7.2"],
         "user" => "giacomo",
     },
     "python" => {
       "user" => "giacomo",
-      "versions" => ["2.7.17", "3.8.2"],
-      "user_global" => "3.8.2 2.7.17",
+      "versions" => ["2.7.17", "3.9.0"],
+      "user_global" => "3.9.0 2.7.17",
     },
     "languages" => %w[en it],
     "install_latex" => true,
