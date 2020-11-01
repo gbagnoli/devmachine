@@ -157,8 +157,8 @@ vpnutils_unconfigure() {
 vpnutils_unconfigure
 
 alias tmux="tmux -2"
-alias tzbuddy="~/.pyenv/versions/tzbuddy/bin/tzbuddy -z UTC -z Europe/Dublin -z Europe/Rome -z US/Pacific -z US/Eastern -L"
-alias tz="~/.pyenv/versions/tzbuddy/bin/tzbuddy -z UTC -z Europe/Dublin -z Europe/Rome -z US/Pacific -z US/Eastern -L -s 7"
+alias tzbuddy="tzbuddy -z Europe/Dublin -z Europe/Rome -z US/Pacific -z US/Eastern"
+alias tz="tzbuddy -s 7"
 
 marvin() {
   rtmux marvin.tigc.eu "$@"
