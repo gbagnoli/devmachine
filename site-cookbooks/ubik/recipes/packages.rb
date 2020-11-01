@@ -13,7 +13,7 @@ packages = %w[
   libxslt1-dev libxss1 libxtst6 network-manager-openvpn-gnome openvpn powertop
   python python-apt qemu-kvm rsyslog shellcheck telegram tmux
   ttf-mscorefonts-installer ubuntu-gnome-desktop ufraw unity-tweak-tool
-  xdg-utils wireguard xsel signal-desktop vlc ffmpeg
+  xdg-utils wireguard xsel signal-desktop vlc ffmpeg jq
 ]
 
 if node["lsb"]["codename"] == "focal"
@@ -155,3 +155,26 @@ apt_repository "chromium-beta" do
 end
 
 package "chromium-browser"
+
+# tzbuddy
+include_recipe 'ark'
+ark 'tzbuddy' do
+  url(lazy do
+    uri = URI("https://api.github.com/repos/gbagnoli/tzbuddy.rs/releases/latest")
+    response = Net::HTTP.get(uri)
+    asset = JSON.parse(response)["assets"].select {|x| x["name"] == "tzbuddy-linux-amd64.tar.gz"}.first
+    asset["browser_download_url"]
+  end)
+  path '/usr/local/bin'
+  creates 'tzbuddy'
+  action :cherry_pick
+  strip_components 0
+end
+
+# fix perms
+
+file '/usr/local/bin/tzbuddy' do
+  mode '0755'
+  owner 'root'
+  group 'root'
+end

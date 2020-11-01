@@ -8,6 +8,7 @@ description "Installs/Configures ubik"
 long_description "Installs/Configures ubik"
 version "0.1.0"
 
+depends "ark"
 depends "debconf"
 depends "facl"
 depends "git"
