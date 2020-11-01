@@ -50,6 +50,8 @@ dotfiles = "#{home}/.local/src/dotfiles"
 git dotfiles do
   repository "https://github.com/gbagnoli/dotfiles.git"
   revision "master"
+  enable_checkout false
+  checkout_branch "master"
   action :sync
   user user
 end
