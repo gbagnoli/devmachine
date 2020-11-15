@@ -155,6 +155,7 @@ apt_repository "chromium-beta" do
 end
 
 package "chromium-browser"
+include_recipe "flatpak"
 
 # tzbuddy
 include_recipe 'ark'
