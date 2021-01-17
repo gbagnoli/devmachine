@@ -13,3 +13,5 @@ default["ubik"]["python"]["user_global"] = nil
 
 default["ubik"]["rust"]["user"] = "giacomo"
 default["ubik"]["rust"]["version"] = "stable"
+
+default["usb"]["always_on_devices"] = {}

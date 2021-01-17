@@ -2,8 +2,6 @@ name "ubik"
 description "ubik workstation"
 run_list [
   "role[devmachine]",
-  # looks like it's not needed on 20.04?
-  # "recipe[ubik::nvidia]",
 ]
 
 override_attributes(
@@ -17,4 +15,11 @@ override_attributes(
       "gid" => 1001,
     },
   },
+  "usb" => {
+    "always_on_devices": {
+      "hub": {idVendor: "05e3", "idProduct": "0610"},
+      "razor": {idVendor: "1532", "idProduct": "0065"},
+      "k3": {idVendor: "2972", "idProduct": "0047"},
+    }
+  }
 )

@@ -1,0 +1,4 @@
+<% @always_on_devices.each do |name, props| -%>
+# <%= name %>
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="<%= props[:idVendor] %>", ATTR{idProduct}=="<%= props[:idProduct] %>", TEST=="power/control", ATTR{power/control}="on"
+<% end -%>

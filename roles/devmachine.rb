@@ -3,6 +3,7 @@ description "A role to configure a development workstation"
 run_list [
   "recipe[ubik::ppa]",
   "recipe[hardening]",
+  "recipe[ubik::udev]",
   "recipe[ubik::users]",
   "recipe[ubik::python]",
   "recipe[ubik::ruby]",
