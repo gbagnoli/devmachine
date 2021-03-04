@@ -1,5 +1,5 @@
 include_recipe "marvin::znc"
-node.override["nodejs"]["repo"] = "https://deb.nodesource.com/node_8.x"
+node.override["nodejs"]["repo"] = "https://deb.nodesource.com/node_14.x"
 include_recipe "nodejs::nodejs_from_package"
 include_recipe "nodejs::npm"
 
