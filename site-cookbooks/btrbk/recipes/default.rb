@@ -3,6 +3,7 @@
 package "git"
 package "perl"
 package "make"
+package "asciidoctor"
 
 if platform?("debian") && node["platform_version"].to_i < 9
   package "btrfs-tools"

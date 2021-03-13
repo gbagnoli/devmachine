@@ -25,7 +25,7 @@ end
 file "/etc/cron.hourly/btrbk" do
   content <<~EOH
     #!/bin/sh
-    exec /usr/sbin/btrbk -q run
+    exec /usr/bin/btrbk -q run
   EOH
   mode "0755"
 end
