@@ -8,8 +8,9 @@ jobs:
     steps:
       - checkout
       - ruby/install-deps
-      - run:
-          command: bundle exec rubocop site-cookbooks roles
+      - ruby/rubocop-check:
+          check-path: site-cookbooks roles
+          label: Inspecting with Rubocop
       - run:
           command: bundle exec foodcritic -B site-cookbooks -R roles
 
