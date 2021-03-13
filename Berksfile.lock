@@ -41,6 +41,8 @@ DEPENDENCIES
     git: https://github.com/gbagnoli/ruby_rbenv
     revision: 969b9e7a2fad8637f3221cbb8c0db11aef6d0d8a
     branch: ubuntu_20.04
+  rupik
+    path: site-cookbooks/rupik
   server
     path: site-cookbooks/server
   syncthing
@@ -157,6 +159,8 @@ GRAPH
     yum-centos (>= 0.0.0)
     yum-epel (>= 0.0.0)
   ruby_rbenv (2.4.1)
+  rupik (0.1.0)
+    btrbk (>= 0.0.0)
   server (0.1.0)
     apt (>= 0.0.0)
     chef_client_updater (>= 0.0.0)

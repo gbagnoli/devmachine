@@ -13,6 +13,7 @@ nodes:
   - oldpc
   - beelzebot
   - devmachinetest
+  - rupik
 
 require_secrets:
   - marvin
