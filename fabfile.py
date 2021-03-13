@@ -123,6 +123,8 @@ def rsync(
             "nodes",
             "secrets",
             "ohai/plugins",
+            ".gnupg",
+            ".cache",
         ),
         extra_opts="-q",
         delete=True,
