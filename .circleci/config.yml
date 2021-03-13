@@ -22,7 +22,7 @@ jobs:
           environment:
             BUNDLE_GEMFILE: .circleci/Gemfile
 
-  ubik_1804:
+  ubik_2004:
     machine: true
     steps:
       - checkout
@@ -41,13 +41,13 @@ jobs:
             BUNDLE_GEMFILE: .circleci/Gemfile
 
       - run:
-          command: bundle exec kitchen test ubik-ubuntu-1804
+          command: bundle exec kitchen test ubik-ubuntu-2004
           no_output_timeout: 1200
           environment:
             KITCHEN_YAML: .kitchen.ci.yml
             BUNDLE_GEMFILE: .circleci/Gemfile
 
-  marvin_1804:
+  marvin_2004:
     machine: true
     steps:
       - checkout
@@ -66,13 +66,13 @@ jobs:
             BUNDLE_GEMFILE: .circleci/Gemfile
 
       - run:
-          command: bundle exec kitchen test marvin-ubuntu-1804
+          command: bundle exec kitchen test marvin-ubuntu-2004
           no_output_timeout: 1200
           environment:
             KITCHEN_YAML: .kitchen.ci.yml
             BUNDLE_GEMFILE: .circleci/Gemfile
 
-  bender_1804:
+  bender_2004:
     machine: true
     steps:
       - checkout
@@ -91,7 +91,7 @@ jobs:
             BUNDLE_GEMFILE: .circleci/Gemfile
 
       - run:
-          command: bundle exec kitchen test bender-ubuntu-1804
+          command: bundle exec kitchen test bender-ubuntu-2004
           no_output_timeout: 1200
           environment:
             KITCHEN_YAML: .kitchen.ci.yml
@@ -102,12 +102,12 @@ workflows:
   converge:
     jobs:
       - style
-      - ubik_1804:
+      - ubik_2004:
           requires:
             - style
-      - marvin_1804:
+      - marvin_2004:
           requires:
             - style
-      # - bender_1804:
+      # - bender_2004:
       #     requires:
       #       - style

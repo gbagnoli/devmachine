@@ -11,9 +11,9 @@ provisioner:
   name: chef_zero
 
 platforms:
-  - name: ubuntu-18.04
+  - name: ubuntu-20.04
     driver:
-      box: ubuntu/bionic64
+      box: ubuntu/focal64
 
 suites:
   - name: ubik
