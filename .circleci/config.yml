@@ -1,26 +1,17 @@
-version: 2
+version: 2.1
+orbs:
+  ruby: circleci/ruby@1.1.2
 jobs:
   style:
-    machine: true
+    docker:
+      - image: 'cimg/ruby:2.7'
     steps:
       - checkout
-
-      - restore_cache:
-          key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
-      - run: bundle install --path vendor/bundle --gemfile .circleci/Gemfile
-      - save_cache:
-          key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
-          paths:
-            - vendor/bundle
-
+      - ruby/install-deps
       - run:
           command: bundle exec rubocop site-cookbooks roles
-          environment:
-            BUNDLE_GEMFILE: .circleci/Gemfile
       - run:
           command: bundle exec foodcritic -B site-cookbooks -R roles
-          environment:
-            BUNDLE_GEMFILE: .circleci/Gemfile
 
   ubik_2004:
     machine: true
@@ -102,12 +93,12 @@ workflows:
   converge:
     jobs:
       - style
-      - ubik_2004:
-          requires:
-            - style
-      - marvin_2004:
-          requires:
-            - style
+      # - ubik_2004:
+      #     requires:
+      #       - style
+      # - marvin_2004:
+      #     requires:
+      #       - style
       # - bender_2004:
       #     requires:
       #       - style
