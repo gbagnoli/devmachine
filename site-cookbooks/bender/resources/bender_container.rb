@@ -283,11 +283,11 @@ action_class do # rubocop:disable Metrics/BlockLength
 
   def create_rule(opts)
     {
-      'local_ip': get_ip(opts[:ip_version]),
-      'local_port': opts[:internal_port],
-      'external_port': opts[:external_port],
-      'proto': opts[:proto].to_s,
-      'external_ip': split_ip(opts[:external_ip]),
+      local_ip: get_ip(opts[:ip_version]),
+      local_port: opts[:internal_port],
+      external_port: opts[:external_port],
+      proto: opts[:proto].to_s,
+      external_ip: split_ip(opts[:external_ip]),
     }
   end
 

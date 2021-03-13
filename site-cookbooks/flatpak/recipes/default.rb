@@ -3,9 +3,7 @@
 #
 # Copyright:: 2020, The Authors, All Rights Reserved.
 
-package 'flatpak' do
-end
-
+package 'flatpak'
 package 'gnome-software-plugin-flatpak'
 
 execute 'add_flathub_repo' do

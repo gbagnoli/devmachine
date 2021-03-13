@@ -13,7 +13,7 @@ package "language-selector-common"
     clsupport = Mixlib::ShellOut.new("check-language-support -l #{lang}")
     clsupport.run_command
     clsupport.error!
-    packages += clsupport.stdout.split(" ")
+    packages += clsupport.stdout.split
   rescue StandardError
   end
 end
