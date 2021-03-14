@@ -351,6 +351,8 @@ GEM
       train-aws (~> 0.1)
       train-habitat (~> 0.1)
       train-winrm (~> 0.2)
+    inspec-bin (4.26.13)
+      inspec (= 4.26.13)
     inspec-core (4.26.13)
       addressable (~> 2.4)
       chef-telemetry (~> 1.0)
@@ -697,6 +699,8 @@ DEPENDENCIES
   berkshelf
   chef (~> 15.0)
   foodcritic
+  inspec
+  inspec-bin
   kitchen-inspec
   kitchen-vagrant
   rubocop
