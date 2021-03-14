@@ -18,7 +18,6 @@ jobs:
     machine: true
     steps:
       - checkout
-
       - restore_cache:
           key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
       - run: bundle install --path vendor/bundle --gemfile .circleci/Gemfile
