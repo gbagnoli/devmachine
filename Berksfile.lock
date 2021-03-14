@@ -35,6 +35,8 @@ DEPENDENCIES
     git: https://github.com/gbagnoli/plex
     revision: 1ac249372af997a9d99e038f7138a158ab10782b
     branch: new_release_url
+  podman
+    path: site-cookbooks/podman
   profile_sync_daemon
     path: site-cookbooks/profile_sync_daemon
   rclone
@@ -144,6 +146,7 @@ GRAPH
     openvpn (>= 0.0.0)
   pleaserun (0.1.1)
   plex (0.2.4)
+  podman (0.1.0)
   poise (2.8.2)
   poise-archive (1.5.0)
     poise (~> 2.6)
@@ -165,6 +168,7 @@ GRAPH
   rupik (0.1.0)
     argonone (>= 0.0.0)
     btrbk (>= 0.0.0)
+    podman (>= 0.0.0)
   server (0.1.0)
     apt (>= 0.0.0)
     chef_client_updater (>= 0.0.0)

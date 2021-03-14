@@ -1,0 +1,6 @@
+[storage]
+driver = "btrfs"
+<% unless @runroot.nil? -%>
+runroot = "<%= @runroot %>"
+<% end -%>
+graphroot = "<%= @graphroot %>"

@@ -1,11 +1,13 @@
-# frozen_string_literal: true
+package "btrfs-progs"
 
 return if node["rupik"]["skip_mounts"]
 
-directory "/srv"
+root = node["rupik"]["storage"]["path"]
+dev = node["rupik"]["storage"]["dev"]
+directory root
 
-mount "/srv" do
-  device "/dev/sda3"
+mount root do
+  device dev
   fstype "btrfs"
   action %i[mount enable]
 end
