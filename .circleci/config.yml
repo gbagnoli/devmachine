@@ -15,16 +15,11 @@ jobs:
           command: bundle exec foodcritic -B site-cookbooks -R roles
 
   ubik_2004:
-    machine: true
+    machine:
+      image: ubuntu-2004:202101-01
     steps:
       - checkout
-      - restore_cache:
-          key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
-      - run: bundle install --path vendor/bundle --gemfile .circleci/Gemfile
-      - save_cache:
-          key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
-          paths:
-            - vendor/bundle
+      - ruby/install-deps
 
       - run:
           command: bundle exec inspec vendor tests/integration/ubik
@@ -39,18 +34,11 @@ jobs:
             BUNDLE_GEMFILE: .circleci/Gemfile
 
   marvin_2004:
-    machine: true
+    machine:
+      image: ubuntu-2004:202101-01
     steps:
       - checkout
-
-      - restore_cache:
-          key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
-      - run: bundle install --path vendor/bundle --gemfile .circleci/Gemfile
-      - save_cache:
-          key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
-          paths:
-            - vendor/bundle
-
+      - ruby/install-deps
       - run:
           command: bundle exec inspec vendor tests/integration/ubik
           environment:
@@ -64,17 +52,10 @@ jobs:
             BUNDLE_GEMFILE: .circleci/Gemfile
 
   bender_2004:
-    machine: true
+    machine:
+      image: ubuntu-2004:202101-01
     steps:
       - checkout
-
-      - restore_cache:
-          key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
-      - run: bundle install --path vendor/bundle --gemfile .circleci/Gemfile
-      - save_cache:
-          key: v1-bundle-{{ checksum ".circleci/Gemfile.lock" }}
-          paths:
-            - vendor/bundle
 
       - run:
           command: bundle exec inspec vendor tests/integration/ubik
@@ -96,9 +77,9 @@ workflows:
       # - ubik_2004:
       #     requires:
       #       - style
-      # - marvin_2004:
-      #     requires:
-      #       - style
+      - marvin_2004:
+          requires:
+            - style
       # - bender_2004:
       #     requires:
       #       - style
