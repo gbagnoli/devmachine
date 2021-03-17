@@ -11,7 +11,7 @@ packages = %w[
   libappindicator1 libcurl4 libgcrypt20 libgnome-keyring0 libgtk2.0-0
   libnotify4 libnss3 libsecret-1-0 libudev1 libvirt-dev libxml2-dev
   libxslt1-dev libxss1 libxtst6 network-manager-openvpn-gnome openvpn powertop
-  python python-apt qemu-kvm rsyslog shellcheck telegram tmux
+  python python-apt qemu-kvm rsyslog shellcheck tmux
   ttf-mscorefonts-installer ubuntu-gnome-desktop ufraw unity-tweak-tool
   xdg-utils wireguard xsel signal-desktop vlc ffmpeg jq
 ]
