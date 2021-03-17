@@ -183,11 +183,7 @@ def check_node(host: str, remote: str, local: bool) -> Tuple[Optional[str], bool
     return None, False
 
 
-@task
-def run(remote: str = "/usr/local/src/chefrepo/") -> None:
-    here = os.path.dirname(os.path.abspath(__file__))
-    install_git_hooks(here)
-
+def resolve_host() -> Tuple[str, bool]:
     if env.host_string is None:
         host = socket.gethostname()
         local = True
@@ -198,11 +194,30 @@ def run(remote: str = "/usr/local/src/chefrepo/") -> None:
         host = env.host_string
         local = False
 
+    return host, local
+
+
+@task
+def sync(remote: str = "/usr/local/src/chefrepo/") -> None:
+    here = os.path.dirname(os.path.abspath(__file__))
+    install_git_hooks(here)
+    host, local = resolve_host()
+
     secrets, skip_secrets_upload = check_node(host, remote, local)
     os.chdir(here)
     vendor()
+    if not local:
+        rsync(remote, secrets, skip_secrets_upload)
+
+
+@task
+def run(remote: str = "/usr/local/src/chefrepo/") -> None:
+    sync(remote)
+    here = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(here)
+    host, local = resolve_host()
+    secrets, skip_secrets_upload = check_node(host, remote, local)
     if local:
         local_chef(host, secrets)
     else:
-        rsync(remote, secrets, skip_secrets_upload)
         chef(host, remote, secrets)
