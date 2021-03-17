@@ -39,7 +39,7 @@ systemd_unit "argononed.service" do
     Type=simple
     Restart=always
     RemainAfterExit=true
-    ExecStart=/usr/bin/python3 /tmp/argon/usr/bin/argononed.py
+    ExecStart=/usr/bin/python3 /usr/bin/argononed.py
     [Install]
     WantedBy=multi-user.target
   EOU
