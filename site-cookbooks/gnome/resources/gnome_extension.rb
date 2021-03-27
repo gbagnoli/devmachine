@@ -1,4 +1,5 @@
 resource_name :gnome_extension
+provides :gnome_extension
 
 property :repository, String, required: true
 property :install_script, String, required: true

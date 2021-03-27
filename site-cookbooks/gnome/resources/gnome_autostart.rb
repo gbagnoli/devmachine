@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 resource_name :gnome_autostart
+provides :gnome_autostart
 
 property :script_content, String, required: true
 property :user, String, required: true

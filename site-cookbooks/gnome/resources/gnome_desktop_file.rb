@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 resource_name :gnome_desktop_file
+provides :gnome_desktop_file
 
 property :user, String, required: true
 property :group, [String, NilClass], default: nil
