@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-include_recipe "facl"
 include_recipe "user"
 include_recipe "user::photos"
 include_recipe "ubik::irene"
@@ -20,15 +19,8 @@ directory "/var/lib/steam" do
   mode "2775"
 end
 
-facl "/var/lib/steam" do
-  user    '': 'rwx'
-  group   '': 'rwx'
-  mask    '': 'rwx'
-  other   '': 'rx'
-  default(
-    user: { '': 'rwx' },
-    group: { '':  'rwx' },
-    mask: { '': 'rwx' },
-    other: { '': 'rx' },
-  )
+execute "setfacl_/var/lib/steam" do
+  command "setfacl -R -d -m u::rwx g::rwx -m o::rx -m m::rwx /var/lib/steam"
+  user "root"
+  not_if "getfacl /var/lib/steam 2>/dev/null | grep 'default:group::rwx' -q"
 end

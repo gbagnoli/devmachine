@@ -10,7 +10,6 @@ version "0.1.0"
 
 depends "ark"
 depends "debconf"
-depends "facl"
 depends "flatpak"
 depends "git"
 depends "gnome"
