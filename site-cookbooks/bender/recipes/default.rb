@@ -1,3 +1,4 @@
+require 'yaml'
 include_recipe "bender::base"
 include_recipe "bender::containers"
 include_recipe "bender::firewall"

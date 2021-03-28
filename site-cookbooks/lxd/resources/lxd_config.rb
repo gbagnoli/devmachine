@@ -1,6 +1,5 @@
-# frozen_string_literal: true
-
 resource_name :lxd_config
+provides :lxd_config
 property :hostname, String, name_property: true
 property :content, String, required: true
 default_action :create

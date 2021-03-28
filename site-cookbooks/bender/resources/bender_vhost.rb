@@ -1,4 +1,5 @@
 resource_name :bender_vhost
+provides :bender_vhost
 
 file_check = {
   "file should exists" => lambda { |path|
@@ -55,7 +56,7 @@ action :create do
     end
 
     acme_certificate letsencrypt_common_name do
-      fullchain certificate_file
+      crt certificate_file
       key certificate_key
       wwwroot www_directory
       contact new_resource.letsencrypt_contact if new_resource.letsencrypt_contact

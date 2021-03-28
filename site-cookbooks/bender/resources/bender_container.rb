@@ -1,4 +1,5 @@
 resource_name :bender_container
+provides :bender_container
 
 id_callbacks = {
   "should be a value between 2 and 254" => lambda { |id|
