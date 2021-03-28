@@ -80,6 +80,10 @@ link "#{home}/.config/nvim/init.vim" do
   to "#{dotfiles}/vim/vimrc"
 end
 
+link "#{home}/.vimrc" do
+  to "#{dotfiles}/vim/vimrc"
+end
+
 if platform?("debian")
   package "libc6-dev"
   package "libexpat1-dev"
