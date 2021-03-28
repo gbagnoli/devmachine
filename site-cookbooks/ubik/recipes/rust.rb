@@ -65,3 +65,8 @@ bash "install cargo completions" do
   EOH
   not_if { ::File.exist?("#{completions}/cargo") }
 end
+
+remote_file '/usr/local/bin/rust-analyzer' do
+  source 'https://github.com/rust-analyzer/rust-analyzer/releases/latest/download/rust-analyzer-linux'
+  mode 0o775
+end
