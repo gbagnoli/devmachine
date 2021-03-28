@@ -159,7 +159,7 @@ def check_node(host: str, remote: str, local: bool) -> Tuple[Optional[str], bool
     here = os.path.dirname(os.path.abspath(__file__))
     try:
         with open(os.path.join(here, "nodes.yaml")) as f:
-            conf = yaml.load(f)
+            conf = yaml.safe_load(f)
     except Exception as e:
         print(f"Cannot parse nodes.yaml: {e}", file=sys.stderr)
         sys.exit(1)
