@@ -86,22 +86,23 @@ if platform?("debian")
   package "libpython2.7-dev"
 end
 
-%w[vim python3-dev python3-pip].each do |pkg|
+%w[vim neovim python3-dev python3-pip].each do |pkg|
   package pkg
 end
 
-package "neovim" do
+package "vim-nox" do
   action :install
-  notifies :run, "bash[set nvim alternatives]", :immediately
+  notifies :run, "bash[set vim alternatives]", :immediately
 end
 
-bash "set nvim alternatives" do
+
+bash "set vim alternatives" do
   code <<-EOH
-  update-alternatives --install /usr/bin/vi vi /usr/bin/nvim 60
+  update-alternatives --install /usr/bin/vi vi /usr/bin/nvim 35
   update-alternatives --config vi
-  update-alternatives --install /usr/bin/vim vim /usr/bin/nvim 60
+  update-alternatives --install /usr/bin/vim vim /usr/bin/nvim 35
   update-alternatives --config vim
-  update-alternatives --install /usr/bin/editor editor /usr/bin/nvim 60
+  update-alternatives --install /usr/bin/editor editor /usr/bin/nvim 35
   update-alternatives --config editor
   EOH
   action :nothing
