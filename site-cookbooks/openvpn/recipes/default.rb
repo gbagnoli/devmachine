@@ -18,3 +18,14 @@ else
 end
 
 package "openvpn"
+
+execute "remove nproclimit from openvpn unit" do
+  command "sed /^LimitNPROC.*$/d /lib/systemd/system/openvpn@.service > /etc/systemd/system/openvpn@.service"
+  not_if { ::File.exist?("/etc/systemd/system/openvpn@.service") }
+  notifies :run, "execute[reload-systemd-openvpn]", :immediately
+end
+
+execute "reload-systemd-openvpn" do
+  action :nothing
+  command "systemctl daemon-reload"
+end

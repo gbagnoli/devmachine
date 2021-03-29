@@ -50,6 +50,8 @@ default["bender"]["containers"]["bloodsea"]["image"] = "ubuntu:18.04"
 default["bender"]["containers"]["bloodsea"]["forwarded_ports"] = [
   { protocol: "tcp", external_port: 22_000, internal_port: 22_000, ip_version: "all",
     external_ipv4: bs_ipv4, external_ipv6: bs_ipv6 },
+  { protocol: "udp", external_port: 1194, internal_port: 1194, ip_version: "all",
+    external_ipv4: bs_ipv4, external_ipv6: bs_ipv6 },
 ]
 default["bender"]["containers"]["bloodsea"]["external_ipv6"] = nil
 default["bender"]["containers"]["bloodsea"]["volumes"] = nil

@@ -3,6 +3,7 @@ description "configure bloodsea"
 run_list [
   "role[server]",
   "role[container]",
+  "recipe[openvpn]",
 ]
 
 default_attributes(
@@ -20,6 +21,14 @@ default_attributes(
         "unmanaged" => false,
       },
     },
+  },
+  # disable pam limits for pw changes
+  "os-hardening" => {
+    "auth" => {
+      "pw_max_age" => -1,
+      "pw_min_age" => -1,
+      "pw_warn_age" => -1,
+    }
   },
   "syncthing" => {
     "users" => {
