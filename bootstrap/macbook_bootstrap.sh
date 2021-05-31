@@ -1,15 +1,28 @@
 #!/bin/bash
 
+set -euo pipefail
+
 which brew &>/dev/null || \
   usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 
+function fixperm() {
+  while true; do
+    sudo chown -R giacomo /usr/local/bin /usr/local/lib /usr/local/sbin
+    sleep 30 || break
+  done
+}
+fixperm &
+FIXPERM=$!
+
 tmpdir="$(mktemp -d)"
 cleanup() {
+  kill "$FIXPERM"
   rm -rf "$tmpdir"
 }
 trap cleanup EXIT
 
-pushd "${0%/*}" > /dev/null 2>&1 || exit 1
+
+pushd "$(dirname "${0%/*}")" > /dev/null 2>&1 || exit 1
 brew tap Homebrew/bundle
 brew bundle --file macos_brewfile
 
