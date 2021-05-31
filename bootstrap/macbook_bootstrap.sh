@@ -3,82 +3,15 @@
 which brew &>/dev/null || \
   usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 
-APPS=(
-  bash
-  git
-  neovim
-  shellcheck
-  pyenv
-  rbenv
-  liquidprompt
-  autossh
-  mosh
-  fasd
-  wget
-  htop
-  syncthing
-  gpsbabel
-  bash-completion
-  brew-cask-completion
-  gem-completion
-  fabric-completion
-  kitchen-completion
-  launchctl-completion
-  pip-completion
-  rake-completion
-  ruby-completion
-  coreutils
-  gnu-sed
-)
-
-CASKS=(
-  caskroom/fonts/font-dejavusansmono-nerd-font
-  caskroom/fonts/font-dejavusansmono-nerd-font-mono
-  caskroom/fonts/font-ubuntumono-nerd-font
-  caskroom/fonts/font-ubuntumono-nerd-font-mono
-  caskroom/fonts/font-codenewroman-nerd-font
-  caskroom/fonts/font-codenewroman-nerd-font-mono
-  spectacle
-  keepassx
-  firefox
-  iterm2
-  whatsapp
-  geotag
-  gpg-suite
-  gpxsee
-  signal
-  skype
-  slack
-  steam
-  tunnelblick
-  vagrant
-)
-
-TAPS=(
-  caskroom/fonts
-  buo/cask-upgrade
-)
-
-SERVICES=(
-  syncthing
-)
-
 tmpdir="$(mktemp -d)"
 cleanup() {
   rm -rf "$tmpdir"
 }
 trap cleanup EXIT
 
-for tap in "${TAPS[@]}"; do
-  brew tap "$tap"
-done
-
-brew install "${APPS[@]}"
-brew cask install "${CASKS[@]}"
-
-for srv in "${SERVICES[@]}"; do
-  brew services start "$srv"
-done
+pushd "${0%/*}" > /dev/null 2>&1 || exit 1
+brew tap Homebrew/bundle
+brew bundle --file macos_brewfile
 
 mkdir -p "$HOME"/.local/{bin,src}
 mkdir -p "$HOME"/.config/nvim/bundle
