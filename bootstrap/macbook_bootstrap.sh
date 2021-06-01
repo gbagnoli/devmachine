@@ -27,7 +27,7 @@ brew tap Homebrew/bundle
 brew bundle --file macos_brewfile
 
 mkdir -p "$HOME"/.local/{bin,src}
-mkdir -p "$HOME"/.config/nvim/bundle
+mkdir -p "$HOME"/.vim
 mkdir -p "$HOME/Downloads/Screenshots"
 
 if [[ "$(defaults read com.apple.screencapture location)" != "$HOME/Downloads/Screenshots" ]]; then
@@ -47,14 +47,11 @@ ln -sf "${dotfiles}/gitconfig" "$HOME"/.gitconfig
 ln -sf "${dotfiles}/gitignore" "$HOME/.gitignore_global"
 ln -sf "${dotfiles}/inputrc" "$HOME/.inputrc"
 ln -sf "${dotfiles}/tmux.conf" "$HOME/.tmux.conf"
-[ -d ~/.vim ] && rm -rf .vim
-ln -sf "$HOME/.config/nvim" "${HOME}/.vim"
-ln -sf "${dotfiles}/vim/vimrc" "$HOME/.config/nvim/init.vim"
+ln -sf "${dotfiles}/vim/vimrc" "$HOME/.vimrc"
 
-if [ ! -d "$HOME"/.config/nvim/bundle/Vundle.vim ]; then
-  cd "$HOME"/.config/nvim/bundle/ || exit 1
-  git clone https://github.com/VundleVim/Vundle.vim.git
-  nvim +PluginInstall +qall!
+if [ ! -d "$HOME"/.vim/bundle/Vundle.vim ]; then
+  git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
+  vim +PluginInstall +qall!
 fi
 
 if [ ! -d "$HOME"/.local/src/autoenv ]; then
@@ -74,10 +71,6 @@ exec python2 "$HOME/.local/src/GPicSync/src/gpicsync.py" "$@"
 EOF
 
 chmod +x "$HOME/.local/bin/gpicsync"
-
-if [ ! -f "$HOME"/.local/.bashrc.local ]; then
-  echo 'alias vim=nvim' >> "$HOME"/.local/.bashrc.local
-fi
 
 # templates are not really templates yet, so just download them
 wget -nc -O "$HOME"/.config/liquid.theme 'https://github.com/gbagnoli/devmachine/raw/master/site-cookbooks/user/files/default/liquid.theme'
