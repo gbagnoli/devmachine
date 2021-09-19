@@ -66,7 +66,29 @@ bash "install cargo completions" do
   not_if { ::File.exist?("#{completions}/cargo") }
 end
 
-remote_file '/usr/local/bin/rust-analyzer' do
-  source 'https://github.com/rust-analyzer/rust-analyzer/releases/latest/download/rust-analyzer-linux'
-  mode 0o775
+ruby_block "get rust-analyzer url" do
+  block do
+    Chef::Resource::RubyBlock.send(:include, Chef::Mixin::ShellOut) # rubocop:disable Lint/SendWithMixinArgument
+    release = "https://api.github.com/repos/rust-analyzer/rust-analyzer/releases/latest"
+    download_url = ".assets[].browser_download_url"
+    command = "curl -sL #{release} | jq -r '#{download_url}' | grep x86_64-unknown-linux-gnu"
+    out = shell_out(command)
+    node.run_state["run_analyzer_url"] = out.stdout
+  end
+  action :run
+end
+
+remote_file "/usr/src/rust-analyzer" do
+  source lazy { node.run_state["run_analyzer_url"].chomp } # rubocop:disable Lint/AmbiguousBlockAssociation
+  mode 0o644
+  notifies :run, "execute[unpack rust analyzer]", :immediately
+end
+
+execute "unpack rust analyzer" do
+  command "gunzip -d /usr/src/analyzer -c > /usr/local/bin/rust-analyzer"
+  action :nothing
+end
+
+file "/usr/local/bin/rust-analyzer" do
+  mode 0o755
 end
