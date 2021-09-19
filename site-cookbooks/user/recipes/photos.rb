@@ -42,6 +42,13 @@ file "#{home}/.local/bin/gpicsync-GUI" do
   mode 0o750
 end
 
+cookbook_file "#{home}/.local/src/exiftool_GPS2MapUrl.config" do
+  owner user
+  group node["user"]["group"]
+  mode 0o644
+  source "exiftool_GPS2MapUrl.config"
+end
+
 if node["user"]["install_photo_process"]
   git "#{home}/workspace/photo_process" do
     repository "git@github.com:gbagnoli/photo_process.git"

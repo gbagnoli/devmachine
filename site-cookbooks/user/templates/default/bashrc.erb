@@ -277,3 +277,7 @@ download_m3u() {
   echo ffmpeg -i "$url" -bsf:a aac_adtstoasc -vcodec copy -c copy "${output}" "$@"
   ffmpeg -i "$url" -bsf:a aac_adtstoasc -vcodec copy -c copy "${output}" "$@"
 }
+
+exiftool_map_url() {
+  exiftool -config ~/.local/src/exiftool_GPS2MapUrl.config -GoogleMapsUrl "$@"
+}
