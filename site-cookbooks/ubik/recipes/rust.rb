@@ -78,14 +78,14 @@ ruby_block "get rust-analyzer url" do
   action :run
 end
 
-remote_file "/usr/src/rust-analyzer" do
+remote_file "/usr/src/rust-analyzer.gz" do
   source lazy { node.run_state["run_analyzer_url"].chomp } # rubocop:disable Lint/AmbiguousBlockAssociation
   mode 0o644
   notifies :run, "execute[unpack rust analyzer]", :immediately
 end
 
 execute "unpack rust analyzer" do
-  command "gunzip -d /usr/src/analyzer -c > /usr/local/bin/rust-analyzer"
+  command "gunzip -d /usr/src/rust-analyzer.gz -c > /usr/local/bin/rust-analyzer"
   action :nothing
 end
 
