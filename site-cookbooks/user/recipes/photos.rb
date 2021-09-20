@@ -15,7 +15,7 @@ user = node["user"]["login"]
 home = "/home/#{user}"
 
 git "#{home}/.local/src/gpicsync" do
-  repository "https://github.com/metadirective/GPicSync.git"
+  repository "https://github.com/FrancoisSchnell/GPicSync.git"
   action :sync
   user user
 end

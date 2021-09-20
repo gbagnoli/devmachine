@@ -143,7 +143,7 @@ if node["user"]["install_vpnutils"]
 end
 
 git "#{home}/.local/src/autoenv" do
-  repository "git://github.com/kennethreitz/autoenv.git"
+  repository "git://github.com/hyperupcall/autoenv.git"
   action :sync
   user user
 end
