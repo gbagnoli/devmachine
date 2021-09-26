@@ -23,8 +23,24 @@ directory "/usr/local/bin/" do
   mode 0o775
 end
 
-link "/usr/local/bin/kitty" do
+bin = "/usr/local/bin/kitty"
+alt_name = "x-terminal-emulator"
+alt_link = "/usr/bin/#{alt_name}"
+
+link bin do
   to "/usr/local/kitty/bin/kitty"
+  notifies :run, "execute[add kitty #{alt_name} alternative]", :immediately
+end
+
+execute "add kitty #{alt_name} alternative" do
+  command "update-alternatives --install #{alt_link} #{alt_name} #{bin} 30"
+  action :nothing
+  notifies :run, "execute[use kitty as default #{alt_name}]", :immediately
+end
+
+execute "use kitty as default #{alt_name}" do
+  command "update-alternatives --set #{alt_name} #{bin}"
+  action :nothing
 end
 
 node["kitty"]["users"].to_a.each do |info|
@@ -62,8 +78,14 @@ node["kitty"]["users"].to_a.each do |info|
     group info["group"]
     mode 0o640
     content <<~EOH
+      copy_on_select yes
+      map cmd+c        copy_to_clipboard
+      map cmd+v        paste_from_clipboard
+      map shift+insert paste_from_clipboard
+
       font_family #{font}
       font_size #{font_size}
+
       # tango light
       cursor #000000
       cursor_text_color background
