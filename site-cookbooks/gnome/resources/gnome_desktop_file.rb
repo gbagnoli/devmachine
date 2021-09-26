@@ -7,7 +7,6 @@ property :user, String, required: true
 property :group, [String, NilClass], default: nil
 property :exec, String, required: true
 property :type, String, default: "Application"
-property :encoding, String, default: "UTF-8"
 property :fullpath, [String, NilClass], default: nil
 property :options, Hash, default: {}
 
@@ -21,8 +20,10 @@ action :create do
       mode "0755"
     end
   end
-  options["Encoding"] = encoding
-  options["Type"] = type
+  new_resource.options["Name"] = new_resource.name
+  new_resource.options["Type"] = new_resource.type
+  new_resource.options["Exec"] = new_resource.exec
+  new_resource.options["TryExec"] = new_resource.exec
 
   file path do
     owner user
@@ -64,8 +65,8 @@ action_class do
 
   def options_string
     str = ""
-    new_resource.options.each do |k, v|
-      str = "#{str}\n#{k.upcase}=#{v}"
+    new_resource.options.sort_by {|k, _| k }.each do |k, v|
+      str = "#{str}\n#{k}=#{v}"
     end
     str
   end

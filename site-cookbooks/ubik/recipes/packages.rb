@@ -179,3 +179,5 @@ file '/usr/local/bin/tzbuddy' do
   owner 'root'
   group 'root'
 end
+
+include_recipe "kitty"

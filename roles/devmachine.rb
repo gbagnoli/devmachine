@@ -68,6 +68,16 @@ default_attributes(
       },
     },
   },
+  "kitty" => {
+    "users" => [
+      {
+       "user" => "giacomo",
+       "group" => "giacomo",
+       "font" => "MesloLGSDZ Nerd Font Mono Regular",
+       "font_size" => "13"
+      },
+    ]
+  },
   "syncthing" => {
     "users" => {
       "giacomo" => nil,

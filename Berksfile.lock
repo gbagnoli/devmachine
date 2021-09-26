@@ -20,6 +20,8 @@ DEPENDENCIES
     path: site-cookbooks/gnome
   hardening
     path: site-cookbooks/hardening
+  kitty
+    path: site-cookbooks/kitty
   lxd
     path: site-cookbooks/lxd
   marvin
@@ -112,10 +114,13 @@ GRAPH
     ssh-hardening (>= 0.0.0)
   homebrew (5.2.2)
   hostsfile (3.0.1)
-  java (10.0.0)
+  java (10.0.1)
     line (>= 0.0.0)
+  kitty (0.1.0)
+    ark (>= 0.0.0)
+    gnome (>= 0.0.0)
   limits (1.0.0)
-  line (4.4.0)
+  line (4.4.1)
   logrotate (3.0.4)
   lxd (0.1.0)
     limits (< 2.0.0)
@@ -195,6 +200,7 @@ GRAPH
     git (>= 0.0.0)
     gnome (>= 0.0.0)
     java (>= 0.0.0)
+    kitty (>= 0.0.0)
     pyenv (>= 0.0.0)
     ruby_build (>= 0.0.0)
     ruby_rbenv (>= 0.0.0)
