@@ -82,6 +82,7 @@ node["kitty"]["users"].to_a.each do |info|
       map cmd+c        copy_to_clipboard
       map cmd+v        paste_from_clipboard
       map shift+insert paste_from_clipboard
+      enable_audio_bell no
 
       font_family #{font}
       font_size #{font_size}
