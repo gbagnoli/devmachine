@@ -120,7 +120,7 @@ GRAPH
     ark (>= 0.0.0)
     gnome (>= 0.0.0)
   limits (1.0.0)
-  line (4.4.1)
+  line (4.4.2)
   logrotate (3.0.4)
   lxd (0.1.0)
     limits (< 2.0.0)
