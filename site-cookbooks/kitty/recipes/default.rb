@@ -20,7 +20,7 @@ ark 'kitty' do
 end
 
 directory "/usr/local/bin/" do
-  mode 0o775
+  mode 0o750
 end
 
 bin = "/usr/local/bin/kitty"
