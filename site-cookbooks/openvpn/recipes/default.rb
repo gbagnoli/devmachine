@@ -19,9 +19,24 @@ end
 
 package "openvpn"
 
-execute "remove nproclimit from openvpn unit" do
-  command "sed /^LimitNPROC.*$/d /lib/systemd/system/openvpn@.service > /etc/systemd/system/openvpn@.service"
-  not_if { ::File.exist?("/etc/systemd/system/openvpn@.service") }
+file "/etc/systemd/system/openvpn@.service" do
+  action :delete
+end
+
+directory "/etc/systemd/system/openvpn@.service.d" do
+  mode 0o750
+  owner "root"
+  group "root"
+end
+
+file "/etc/systemd/system/openvpn@.service.d/override.conf" do
+  mode 0o644
+  owner "root"
+  group "root"
+  content <<~EOH
+    [Service]
+    LimitNPROC=infinity
+  EOH
   notifies :run, "execute[reload-systemd-openvpn]", :immediately
 end
 
