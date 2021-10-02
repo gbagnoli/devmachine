@@ -220,6 +220,6 @@ GRAPH
     sudo (>= 0.0.0)
   windows (7.0.2)
   yubico (0.1.0)
-  yum (7.1.0)
+  yum (7.2.0)
   yum-centos (5.1.2)
   yum-epel (4.1.4)
