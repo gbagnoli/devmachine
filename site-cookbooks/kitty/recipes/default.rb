@@ -7,7 +7,7 @@ ruby_block "get kitty latest version" do
     parsed = JSON.parse(response)
     asset = parsed["assets"].select {|x| x["label"] == "Linux amd64 binary bundle"}.first
     node.run_state["kitty_download_url"] = asset["browser_download_url"]
-    node.run_state["kitty_version"] = parsed["tag_name"][1..-1]
+    node.run_state["kitty_version"] = parsed["tag_name"][1..]
   end
 end
 
