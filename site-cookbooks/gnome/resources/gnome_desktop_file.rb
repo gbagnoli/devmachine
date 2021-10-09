@@ -17,7 +17,6 @@ action :create do
     directory "#{home}/#{dir}" do
       owner user
       group groupname
-      mode "0755"
     end
   end
   new_resource.options["Name"] = new_resource.name
