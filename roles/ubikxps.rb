@@ -6,6 +6,13 @@ run_list [
 ]
 
 override_attributes(
+  "os-hardening" => {
+    "auth" => {
+      "pw_max_age" => "-1",
+      "pw_min_age" => "-1",
+      "pw_warn_age" => "-1",
+    }
+  },
   "user" => {
     "uid" => 1001,
     "gid" => 1001,
