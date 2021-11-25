@@ -37,12 +37,12 @@ default["bender"]["containers"]["flexo"]["volumes"] = [
 ]
 
 # PENTOLINO
-default["bender"]["containers"]["pentolino"]["id"] = 4
-default["bender"]["containers"]["pentolino"]["image"] = "ubuntu:18.04"
-default["bender"]["containers"]["pentolino"]["forwarded_ports"] = []
-default["bender"]["containers"]["pentolino"]["external_ipv6"] = nil
-default["bender"]["containers"]["pentolino"]["volumes"] = nil
-default["bender"]["containers"]["pentolino"]["action"] = :delete
+# default["bender"]["containers"]["pentolino"]["id"] = 4
+# default["bender"]["containers"]["pentolino"]["image"] = "ubuntu:18.04"
+# default["bender"]["containers"]["pentolino"]["forwarded_ports"] = []
+# default["bender"]["containers"]["pentolino"]["external_ipv6"] = nil
+# default["bender"]["containers"]["pentolino"]["volumes"] = nil
+# default["bender"]["containers"]["pentolino"]["action"] = :delete
 
 # BLOODSEA
 default["bender"]["containers"]["bloodsea"]["id"] = 5
@@ -56,11 +56,12 @@ default["bender"]["containers"]["bloodsea"]["forwarded_ports"] = [
 default["bender"]["containers"]["bloodsea"]["external_ipv6"] = nil
 default["bender"]["containers"]["bloodsea"]["volumes"] = nil
 
-# BEELZEBOT
-default["bender"]["containers"]["beelzebot"]["id"] = 6
-default["bender"]["containers"]["beelzebot"]["image"] = "ubuntu:18.04"
-default["bender"]["containers"]["beelzebot"]["forwarded_ports"] = [27_960].map do |port|
-  { protocol: "all", external_port: port, internal_port: port, ip_version: "all" }
-end
-default["bender"]["containers"]["beelzebot"]["external_ipv6"] = nil
-default["bender"]["containers"]["beelzebot"]["volumes"] = nil
+# # BEELZEBOT
+# default["bender"]["containers"]["beelzebot"]["id"] = 6
+# default["bender"]["containers"]["beelzebot"]["image"] = "ubuntu:18.04"
+# default["bender"]["containers"]["beelzebot"]["forwarded_ports"] = [27_960].map do |port|
+#   { protocol: "all", external_port: port, internal_port: port, ip_version: "all" }
+# end
+# default["bender"]["containers"]["beelzebot"]["external_ipv6"] = nil
+# default["bender"]["containers"]["beelzebot"]["volumes"] = nil
+# default["bender"]["containers"]["beelzebot"]["action"] = :delete
