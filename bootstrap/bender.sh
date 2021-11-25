@@ -3,6 +3,9 @@
 set -eu
 set -o pipefail
 
+# SCRIPTPATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+# BUNDLER_VERSION="$( grep "BUNDLED WITH" -A 1 "$SCRIPTPATH"/../Gemfile.lock | tail -n 1 | sed 's/ *//g')"
+
 host="bender"
 [ $# -eq 1 ] && host="$1"
 
@@ -46,8 +49,8 @@ grep -q "giacomo" /etc/passwd || (
 )
 
 dpkg -l chef &>/dev/null || (
-  curl -L https://packages.chef.io/files/stable/chef/14.14.29/ubuntu/18.04/chef_14.14.29-1_amd64.deb -o chef.deb
-  sudo dpkg -i chef.deb
+  wget https://omnitruck.chef.io/chef/install.sh -O install_chef.sh
+  bash install_chef.sh -v 16
 )
 EOM
 
