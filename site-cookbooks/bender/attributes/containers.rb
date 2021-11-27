@@ -11,7 +11,9 @@ default["bender"]["containers"]["marvin"]["image"] = "ubuntu:18.04"
 # format:
 # [{internal_port: x, external_port: y, ip_version: <ipv4|ipv6|all>, protocol: <tcp|udp|all>}, {}]
 default["bender"]["containers"]["marvin"]["forwarded_ports"] = [
+  # openvpn
   { protocol: "udp", external_port: 1195, internal_port: 1194, ip_version: "all" },
+  # syncthing
   { protocol: "tcp", external_port: 22_000, internal_port: 22_000, ip_version: "all",
     external_ipv4: def_ipv4, external_ipv6: def_ipv6 },
 ]
@@ -23,6 +25,7 @@ default["bender"]["containers"]["marvin"]["volumes"] = nil
 default["bender"]["containers"]["flexo"]["id"] = 3
 default["bender"]["containers"]["flexo"]["image"] = "ubuntu:18.04"
 default["bender"]["containers"]["flexo"]["forwarded_ports"] = [
+  # plex
   { protocol: "tcp", internal_port: 32_400, external_port: 32_400, ip_version: "all" },
 ]
 default["bender"]["containers"]["flexo"]["external_ipv6"] = nil
@@ -40,28 +43,31 @@ default["bender"]["containers"]["flexo"]["volumes"] = [
 default["bender"]["containers"]["bloodsea"]["id"] = 5
 default["bender"]["containers"]["bloodsea"]["image"] = "ubuntu:18.04"
 default["bender"]["containers"]["bloodsea"]["forwarded_ports"] = [
+  # syncthing
   { protocol: "tcp", external_port: 22_000, internal_port: 22_000, ip_version: "all",
     external_ipv4: bs_ipv4, external_ipv6: bs_ipv6 },
+  # openvpn
   { protocol: "udp", external_port: 1194, internal_port: 1194, ip_version: "all",
     external_ipv4: bs_ipv4, external_ipv6: bs_ipv6 },
 ]
 default["bender"]["containers"]["bloodsea"]["external_ipv6"] = nil
 default["bender"]["containers"]["bloodsea"]["volumes"] = nil
 
-# BEELZEBOT
+# BEELZEBOT (retired)
 default["bender"]["containers"]["beelzebot"]["id"] = 6
 default["bender"]["containers"]["beelzebot"]["image"] = "ubuntu:20.04"
 default["bender"]["containers"]["beelzebot"]["forwarded_ports"] = []
-# default["bender"]["containers"]["beelzebot"]["forwarded_ports"] = [27_960].map do |port|
-#   { protocol: "all", external_port: port, internal_port: port, ip_version: "all" }
-# end
 default["bender"]["containers"]["beelzebot"]["external_ipv6"] = nil
 default["bender"]["containers"]["beelzebot"]["volumes"] = nil
-# default["bender"]["containers"]["beelzebot"]["action"] = :delete
+default["bender"]["containers"]["beelzebot"]["action"] = :delete
 
 # WHITESTONE
 default["bender"]["containers"]["whitestone"]["id"] = 7
 default["bender"]["containers"]["whitestone"]["image"] = "ubuntu:20.04"
-default["bender"]["containers"]["whitestone"]["forwarded_ports"] = []
+default["bender"]["containers"]["whitestone"]["forwarded_ports"] = [
+  # minecraft
+  { protocol: "tcp", external_port: 25_565, internal_port: 22_565, ip_version: "all",
+    external_ipv4: bs_ipv4, external_ipv6: bs_ipv6 },
+]
 default["bender"]["containers"]["whitestone"]["external_ipv6"] = nil
 default["bender"]["containers"]["whitestone"]["volumes"] = nil
