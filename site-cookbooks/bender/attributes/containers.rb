@@ -66,7 +66,7 @@ default["bender"]["containers"]["whitestone"]["id"] = 7
 default["bender"]["containers"]["whitestone"]["image"] = "ubuntu:20.04"
 default["bender"]["containers"]["whitestone"]["forwarded_ports"] = [
   # minecraft
-  { protocol: "tcp", external_port: 25_565, internal_port: 22_565, ip_version: "all",
+  { protocol: "tcp", external_port: 25_565, internal_port: 25_565, ip_version: "all",
     external_ipv4: bs_ipv4, external_ipv6: bs_ipv6 },
 ]
 default["bender"]["containers"]["whitestone"]["external_ipv6"] = nil

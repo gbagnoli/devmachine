@@ -43,6 +43,7 @@ default_attributes(
       "properties" => {
         # password in secrets.json
         # add extra conf here
+        "server-ip" => "172.24.24.7"
       }
     }
   }

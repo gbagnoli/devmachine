@@ -72,8 +72,21 @@ template "#{server_d}/server.properties" do
   action :create_if_missing
 end
 
+rcon_addr = config["server"]["properties"]["server-ip"]
 rconp = config["server"]["properties"]["rcon.password"]
 rcon_port = config["server"]["properties"]["rcon.port"]
+
+template "/usr/local/bin/rcon" do
+  source "minecraft_rcon.sh.erb"
+  mode 0o750
+  user config["user"]
+  group config["group"]
+  variables(
+    rcon_addr: rcon_addr,
+    rcon_password: rconp,
+    rcon_port: rcon_port,
+  )
+end
 
 template "/usr/local/bin/minecraft-backup" do
   source "minecraft_backup.sh.erb"
@@ -81,8 +94,6 @@ template "/usr/local/bin/minecraft-backup" do
   user config["user"]
   group config["group"]
   variables(
-    rcon_password: rconp,
-    rcon_port: rcon_port,
     data_directory: config["data_directory"],
   )
 end
