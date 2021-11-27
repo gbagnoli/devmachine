@@ -1,1 +1,1 @@
-openjdk_pkg_install '14'
+openjdk_pkg_install '17'
