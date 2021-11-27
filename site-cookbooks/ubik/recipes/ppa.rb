@@ -49,10 +49,6 @@ apt_repository "ubuntu-partner" do
   arch "i386"
 end
 
-apt_repository "telegram" do
-  uri "ppa:atareao/telegram"
-end
-
 apt_package "firefox-trunk" do
   action :purge
 end
