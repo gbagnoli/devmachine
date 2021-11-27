@@ -1,0 +1,23 @@
+#!/bin/bash
+set -euo pipefail
+
+function rcon {
+  /usr/local/bin/mcrcon -H 127.0.0.1 -P <%= @rcon_port %> -p <%= @rcon_password %> "$1"
+}
+
+echo "Disabling automatic saving"
+rcon "save-off"
+echo "Performing final save"
+rcon "save-all"
+echo "Sleeping 10 seconds for save to settle"
+sleep 10
+
+tarfile=<%= @data_directory %>/backups/server-"$(date +%F-%H-%M)".tar.gz
+echo "Saving backup at $tarfile"
+tar -cvpzf "$tarfile" <%= @data_directory %>/server >/dev/null
+
+echo "Reenabling automatic saves"
+rcon "save-on"
+
+echo "Delete old backups"
+find <%= @data_directory %>/backups/ -type f -mtime +15 -name '*.gz' -delete

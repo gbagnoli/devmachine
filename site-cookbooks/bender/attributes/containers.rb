@@ -56,12 +56,20 @@ default["bender"]["containers"]["bloodsea"]["forwarded_ports"] = [
 default["bender"]["containers"]["bloodsea"]["external_ipv6"] = nil
 default["bender"]["containers"]["bloodsea"]["volumes"] = nil
 
-# # BEELZEBOT
-# default["bender"]["containers"]["beelzebot"]["id"] = 6
-# default["bender"]["containers"]["beelzebot"]["image"] = "ubuntu:18.04"
+# BEELZEBOT
+default["bender"]["containers"]["beelzebot"]["id"] = 6
+default["bender"]["containers"]["beelzebot"]["image"] = "ubuntu:20.04"
+default["bender"]["containers"]["beelzebot"]["forwarded_ports"] = []
 # default["bender"]["containers"]["beelzebot"]["forwarded_ports"] = [27_960].map do |port|
 #   { protocol: "all", external_port: port, internal_port: port, ip_version: "all" }
 # end
-# default["bender"]["containers"]["beelzebot"]["external_ipv6"] = nil
-# default["bender"]["containers"]["beelzebot"]["volumes"] = nil
+default["bender"]["containers"]["beelzebot"]["external_ipv6"] = nil
+default["bender"]["containers"]["beelzebot"]["volumes"] = nil
 # default["bender"]["containers"]["beelzebot"]["action"] = :delete
+
+# WHITESTONE
+default["bender"]["containers"]["whitestone"]["id"] = 7
+default["bender"]["containers"]["whitestone"]["image"] = "ubuntu:20.04"
+default["bender"]["containers"]["whitestone"]["forwarded_ports"] = []
+default["bender"]["containers"]["whitestone"]["external_ipv6"] = nil
+default["bender"]["containers"]["whitestone"]["volumes"] = nil
