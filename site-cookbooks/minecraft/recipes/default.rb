@@ -2,6 +2,9 @@ openjdk_pkg_install '17'
 package 'build-essential'
 
 config = node["minecraft"]
+if config["server"]["properties"]["rcon.password"].empty?
+  raise Exception, "Please set rcon.password property in secrets"
+end
 
 group config["group"] do
   gid config["gid"]
@@ -66,6 +69,7 @@ template "#{server_d}/server.properties" do
   group config["group"]
   mode 0o640
   variables properties: config["server"]["properties"]
+  action :create_if_missing
 end
 
 rconp = config["server"]["properties"]["rcon.password"]
