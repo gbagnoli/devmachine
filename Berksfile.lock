@@ -74,7 +74,6 @@ GRAPH
   beelzebot (0.1.0)
     git (>= 0.0.0)
     logrotate (>= 0.0.0)
-    minecraft (>= 0.0.0)
     nginx (>= 0.0.0)
     nodejs (>= 0.0.0)
     server (>= 0.0.0)
