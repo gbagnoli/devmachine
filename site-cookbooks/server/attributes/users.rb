@@ -11,13 +11,6 @@ default["server"]["users"]["giacomo"]["unmanaged"] = true
 default["server"]["users"]["giacomo"]["sysadmins"] = true
 default["server"]["users"]["giacomo"]["delete"] = false
 
-# fnigi
-default["server"]["users"]["fnigi"]["unmanaged"] = true
-default["server"]["users"]["fnigi"]["delete"] = true
-default["server"]["users"]["fnigi"]["id"] = 2001
-default["server"]["users"]["fnigi"]["shell"] = "/bin/bash"
-default["server"]["users"]["fnigi"]["ssh_keys"] = []
-
 # dario
 default["server"]["users"]["dario"]["unmanaged"] = true
 default["server"]["users"]["dario"]["delete"] = false

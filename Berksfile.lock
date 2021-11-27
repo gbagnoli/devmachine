@@ -30,8 +30,6 @@ DEPENDENCIES
     path: site-cookbooks/minecraft
   openvpn
     path: site-cookbooks/openvpn
-  pentolino
-    path: site-cookbooks/pentolino
   pleaserun
     git: https://github.com/mjuarez/chef-pleaserun.git
     revision: e104c998f064879afaab4ba89b779434de38c83c
@@ -149,11 +147,6 @@ GRAPH
   ohai (5.3.0)
   openvpn (0.1.0)
   os-hardening (4.0.0)
-  pentolino (0.1.0)
-    dnscrypt_proxy (>= 0.0.0)
-    logrotate (>= 0.0.0)
-    nginx (>= 0.0.0)
-    openvpn (>= 0.0.0)
   pleaserun (0.1.1)
   plex (0.2.4)
   podman (0.1.0)
