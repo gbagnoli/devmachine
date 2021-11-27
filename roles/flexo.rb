@@ -9,13 +9,7 @@ run_list [
 default_attributes(
   "server" => {
     "users" => {
-      "fnigi" => {
-        "unmanaged" => false,
-      },
       "dario" => {
-        "unmanaged" => false,
-      },
-      "sonne" => {
         "unmanaged" => false,
       },
     },

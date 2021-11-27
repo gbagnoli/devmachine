@@ -11,16 +11,12 @@ default["server"]["users"]["giacomo"]["unmanaged"] = true
 default["server"]["users"]["giacomo"]["sysadmins"] = true
 default["server"]["users"]["giacomo"]["delete"] = false
 
-# rubocop:disable Layout/LineLength
 # fnigi
 default["server"]["users"]["fnigi"]["unmanaged"] = true
-default["server"]["users"]["fnigi"]["delete"] = false
+default["server"]["users"]["fnigi"]["delete"] = true
 default["server"]["users"]["fnigi"]["id"] = 2001
 default["server"]["users"]["fnigi"]["shell"] = "/bin/bash"
-default["server"]["users"]["fnigi"]["ssh_keys"] = [
-  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDiNEgGDeGozxr0UAV+TbDgoC5Lgemfa+uCDwjTriF3VebPFhNxXbzYh9NXKnj7X294XUIwwVBSJ7GOy6HavI5pg8Kmr/8K3/tkvpP9ojqSukLHuULHL4Ks3vH9ZKRvWockZCV3FZ2TUpM1cwrIlnX2r/bjhidXv+jhutO9ASi73YkfDmPIiSXyL2GnS0VoRemYV/3O3cdK+W2Y8ycluecSOhlpEK03AJmdPfBgSr+sww/OO6ofSk+bxACZS/uWcJR+4rfB1nTRp7uyabJgVIdzQ3t3/3MmSQdKnlU8Q5G3Q7KN/ANA+QzqoER1oYP0kfYNzHGKOOoWwzauwq6jMCxtX+0DuyQzECbczbvZgtbxu8/8EX9KN0ay91/4jyNatfXrlzU/2YuycNDHp2LKM70k/gkSog69pbhpEbeLUp14VvGbRKXMBil2h6swZCiW55eLQ77ZIjUasEBTOHeKWQWg6QFQYKqLMuis0gxsgViPd0qQWjbNKNgVip/pi97Xv9OPpAx4HZVoblYVqIRGF28QaosIiTHk0tv1XdJvS41fDtAWRw+cNvz64EYWVRVSVci7q0Nati/qyaKhYtZXW0SoBsYnQlp+0bbnKRSQviZRwF/xMwN2D1F1h/qLd1q7awuMSMUR7OFmOEiJtyLgB8pcPZVk+Xo8TwhA2xhSxHY/cQ==",
-  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCx5Ue76VVttCI1KBLLmnpAaKdrbe/1N7rf2KOjhB+mKIp3DD0CdSgpTXDTEitz9PZCKhE1RCWXpzWFXW+IxtmKcEKvBWMWnTFphe8lMDpH8gIgMjeVHzxmz3JD4gae8QQWh6pzIxOtVakGAPHAWXClo4S7JE5QmPVjcUjMUBfWDii+Tu815sZxxXhfznnea4QbDRlCPJ/HQsnYtcLWPuVc0OnVEWMdSY4m+rgZbyr37QKsaTyfTdvwQikUaAG75ZhE9n42aRmPrAvh4cjEjT7+lbxk/QTjDItyNV8ZNUtExaiLRAZVQKAQrRx5Hx0CCkTtRHMN09QJ4rsCRuD9gLXb",
-]
+default["server"]["users"]["fnigi"]["ssh_keys"] = []
 
 # dario
 default["server"]["users"]["dario"]["unmanaged"] = true
@@ -30,8 +26,3 @@ default["server"]["users"]["dario"]["shell"] = "/bin/bash"
 default["server"]["users"]["dario"]["ssh_keys"] = [
   "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILDS/c+bNRBdYvNvcTSf/ptLWBtOBzf26vc/xQuPhpRC",
 ]
-
-# sonne
-default["server"]["users"]["sonne"]["unmanaged"] = true
-default["server"]["users"]["sonne"]["delete"] = true
-# rubocop:enable Layout/LineLength
