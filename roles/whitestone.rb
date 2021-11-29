@@ -4,6 +4,7 @@ run_list [
   "role[server]",
   "role[container]",
   "recipe[minecraft::default]",
+  "recipe[minecraft::geyser]",
 ]
 
 default_attributes(

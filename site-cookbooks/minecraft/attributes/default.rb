@@ -59,3 +59,5 @@ default["minecraft"]["server"]["properties"] = {
     "allow-flight" => "false",
     "max-world-size" => "29999984",
 }
+
+default["minecraft"]["geyser"]["url"] = "https://ci.opencollab.dev/job/GeyserMC/job/Geyser/job/master/lastSuccessfulBuild/artifact/bootstrap/standalone/target/Geyser.jar"
