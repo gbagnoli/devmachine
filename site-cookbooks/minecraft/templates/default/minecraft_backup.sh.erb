@@ -2,9 +2,9 @@
 set -euo pipefail
 
 echo "Disabling automatic saving"
-rcon "save-off"
+/usr/local/bin/rcon "save-off"
 echo "Performing final save"
-rcon "save-all"
+/usr/local/bin/rcon "save-all"
 echo "Sleeping 10 seconds for save to settle"
 sleep 10
 
@@ -13,7 +13,7 @@ echo "Saving backup at $tarfile"
 tar -cvpzf "$tarfile" <%= @data_directory %>/server >/dev/null
 
 echo "Reenabling automatic saves"
-rcon "save-on"
+/usr/local/bin/rcon "save-on"
 
 echo "Delete old backups"
 find <%= @data_directory %>/backups/ -type f -mtime +15 -name '*.gz' -delete
