@@ -74,6 +74,7 @@ template "#{server_d}/server.properties" do
 end
 
 rcon_addr = config["server"]["properties"]["server-ip"]
+rcon_addr = "127.0.0.1" if rcon_addr.empty?
 rconp = config["server"]["properties"]["rcon.password"]
 rcon_port = config["server"]["properties"]["rcon.port"]
 
@@ -125,6 +126,7 @@ systemd_unit "minecraft.service" do
     WorkingDirectory=#{config["data_directory"]}/server
     ExecStart=/usr/bin/java -Xmx#{jconf["xmx"]} -Xms#{jconf["xms"]} -jar server.jar nogui
     ExecStop=/usr/local/bin/mcrcon -H 127.0.0.1 -P #{rcon_port} -p #{rconp}  stop
+    ExecStop=/bin/bash -c "while ps -p $MAINPID > /dev/null; do /bin/sleep 1; done"
     [Install]
     WantedBy=multi-user.target
   EOU
