@@ -39,6 +39,7 @@ default_attributes(
     },
   },
   "minecraft" => {
+    "group_users" => %w[giacomo dario],
     "server" => {
       "properties" => {
         # password in secrets.json

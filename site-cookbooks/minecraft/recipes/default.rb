@@ -8,6 +8,7 @@ end
 
 group config["group"] do
   gid config["gid"]
+  users config["group_users"]
 end
 
 user config["user"] do

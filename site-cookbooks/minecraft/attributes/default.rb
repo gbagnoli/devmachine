@@ -1,5 +1,6 @@
 default["minecraft"]["user"] = "minecraft"
 default["minecraft"]["group"] = "minecraft"
+default["minecraft"]["group_users"] = []
 default["minecraft"]["gid"] = "3001"
 default["minecraft"]["uid"] = "3001"
 default["minecraft"]["data_directory"] = "/var/lib/minecraft"
