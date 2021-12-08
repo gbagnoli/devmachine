@@ -9,6 +9,7 @@ default["minecraft"]["mcrcon"]["revision"] = "master"
 
 default["minecraft"]["server"]["url"] = "https://launcher.mojang.com/v1/objects/3cf24a8694aca6267883b17d934efacc5e44440d/server.jar"
 default["minecraft"]["server"]["java"]["xmx"] = "4G"
+default["minecraft"]["server"]["java"]["g_xmx"] = "1G"
 default["minecraft"]["server"]["java"]["xmn"] = "2G"
 default["minecraft"]["server"]["java"]["xms"] = "512M"
 default["minecraft"]["server"]["java"]["gcthreads"] = "4"
