@@ -124,7 +124,7 @@ systemd_unit "minecraft.service" do
     PrivateDevices=true
     NoNewPrivileges=true
     WorkingDirectory=#{config["data_directory"]}/server
-    ExecStart=/usr/bin/java -Xmx#{jconf["xmx"]} -Xnm#{jconf["xmn"]} -Xms#{jconf["xms"]} -XX:ParallelGCThreads=#{jconf["gcthreads"]} -jar server.jar nogui
+    ExecStart=/usr/bin/java -Xmx#{jconf["xmx"]} -Xms#{jconf["xms"]} -XX:ParallelGCThreads=#{jconf["gcthreads"]} -jar server.jar nogui
     ExecStop=/usr/local/bin/mcrcon -H 127.0.0.1 -P #{rcon_port} -p #{rconp}  stop
     ExecStop=/bin/bash -c "while ps -p $MAINPID > /dev/null; do /bin/sleep 1; done"
     [Install]

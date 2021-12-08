@@ -22,7 +22,6 @@ systemd_unit "geyser.service" do
     [Service]
     User=#{config["user"]}
     Nice=1
-    KillMode=none
     SuccessExitStatus=0 1
     ProtectHome=true
     ProtectSystem=full
