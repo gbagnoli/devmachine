@@ -29,7 +29,7 @@ systemd_unit "geyser.service" do
     PrivateDevices=true
     NoNewPrivileges=true
     WorkingDirectory=#{gdir}
-    ExecStart=/usr/bin/java -Xmx#{jconf["xmx"]} -Xms#{jconf["xms"]} -jar geyser.jar
+    ExecStart=/usr/bin/java -Xmx#{jconf["xmx"]} -Xms#{jconf["xms"]} -jar geyser.jar nogui
     [Install]
     WantedBy=multi-user.target
   EOU

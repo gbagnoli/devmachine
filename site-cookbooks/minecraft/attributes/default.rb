@@ -8,8 +8,10 @@ default["minecraft"]["mcrcon"]["repository"] = "https://github.com/Tiiffi/mcrcon
 default["minecraft"]["mcrcon"]["revision"] = "master"
 
 default["minecraft"]["server"]["url"] = "https://launcher.mojang.com/v1/objects/a16d67e5807f57fc4e550299cf20226194497dc2/server.jar"
-default["minecraft"]["server"]["java"]["xmx"] = "1024M"
+default["minecraft"]["server"]["java"]["xmx"] = "4G"
+default["minecraft"]["server"]["java"]["xmn"] = "2G"
 default["minecraft"]["server"]["java"]["xms"] = "512M"
+default["minecraft"]["server"]["java"]["gcthreads"] = "4"
 default["minecraft"]["server"]["properties"] = {
     "broadcast-rcon-to-ops" => "true",
     "view-distance" => "10",
