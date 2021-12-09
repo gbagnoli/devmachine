@@ -6,6 +6,9 @@ default["minecraft"]["uid"] = "3001"
 default["minecraft"]["data_directory"] = "/var/lib/minecraft"
 default["minecraft"]["mcrcon"]["repository"] = "https://github.com/Tiiffi/mcrcon.git"
 default["minecraft"]["mcrcon"]["revision"] = "master"
+default["minecraft"]["spigot"]["buildtools"]["url"] = "https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar"
+default["minecraft"]["spigot"]["floodgate"]["url"] = "https://ci.opencollab.dev/job/GeyserMC/job/Floodgate/job/master/lastSuccessfulBuild/artifact/spigot/target/floodgate-spigot.jar"
+default["minecraft"]["geyser"]["url"] = "https://ci.opencollab.dev/job/GeyserMC/job/Geyser/job/master/lastSuccessfulBuild/artifact/bootstrap/standalone/target/Geyser.jar"
 
 default["minecraft"]["server"]["url"] = "https://launcher.mojang.com/v1/objects/3cf24a8694aca6267883b17d934efacc5e44440d/server.jar"
 default["minecraft"]["server"]["java"]["xmx"] = "4G"
@@ -65,4 +68,3 @@ default["minecraft"]["server"]["properties"] = {
     "max-world-size" => "29999984",
 }
 
-default["minecraft"]["geyser"]["url"] = "https://ci.opencollab.dev/job/GeyserMC/job/Geyser/job/master/lastSuccessfulBuild/artifact/bootstrap/standalone/target/Geyser.jar"

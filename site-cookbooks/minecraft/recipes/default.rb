@@ -18,12 +18,46 @@ user config["user"] do
   manage_home true
 end
 
-["", "backups", "tools", "server"].each do |dir|
+["", "backups", "tools", "server", "server/plugins", "tools/spigot"].each do |dir|
   directory "#{config["data_directory"]}/#{dir}" do
     owner config["user"]
     group config["group"]
     mode 0o755
   end
+end
+
+build_d = "#{config["data_directory"]}/tools/spigot"
+server_d = "#{config["data_directory"]}/server"
+plugin_d = "#{server_d}/plugins"
+
+# compile spigot
+remote_file "#{build_d}/BuildTools.jar" do
+  source config["spigot"]["buildtools"]["url"]
+  owner config["user"]
+  group config["group"]
+  notifies :run, "execute[compile_spigot]", :immediately
+end
+
+execute "compile_spigot" do
+  command "sudo -i -u #{config["user"]} /bin/bash -l -c "\
+          "'cd #{build_d} && java -jar BuildTools.jar --rev latest'"
+  notifies :run, "execute[install_spigot]", :immediately
+  action :nothing
+end
+
+execute "install_spigot" do
+  command "install -T -m 0755 -o #{config["user"]} -g #{config["group"]} "\
+          "-p spigot-*.jar  #{server_d}/server.jar"
+  cwd build_d
+  action :nothing
+  notifies :restart, "systemd_unit[minecraft.service]", :delayed
+end
+
+remote_file "#{plugin_d}/floodgate-spigot.jar" do
+  source config["spigot"]["floodgate"]["url"]
+  owner config["user"]
+  group config["group"]
+  notifies :restart, "systemd_unit[minecraft.service]", :delayed
 end
 
 mcrcon_d = "#{config["data_directory"]}/tools/mcrcon"
@@ -51,11 +85,6 @@ file "/usr/local/bin/mcrcon" do
   action :create
 end
 
-server_d = "#{config["data_directory"]}/server"
-jar = "#{server_d}/server.jar"
-remote_file jar do
-  source config["server"]["url"]
-end
 
 file "#{server_d}/eula.txt" do
   content <<~EOH
@@ -123,8 +152,8 @@ systemd_unit "minecraft.service" do
     ProtectSystem=full
     PrivateDevices=true
     NoNewPrivileges=true
-    WorkingDirectory=#{config["data_directory"]}/server
-    ExecStart=/usr/bin/java -Xmx#{jconf["xmx"]} -Xms#{jconf["xms"]} -XX:ParallelGCThreads=#{jconf["gcthreads"]} -jar server.jar nogui
+    WorkingDirectory=#{server_d}
+    ExecStart=/usr/bin/java -Xmx#{jconf["xmx"]} -Xms#{jconf["xms"]} -XX:+UseG1GC -XX:ParallelGCThreads=#{jconf["gcthreads"]} -jar server.jar nogui
     ExecStop=/usr/local/bin/mcrcon -H 127.0.0.1 -P #{rcon_port} -p #{rconp}  stop
     ExecStop=/bin/bash -c "while ps -p $MAINPID > /dev/null; do /bin/sleep 1; done"
     [Install]
