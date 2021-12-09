@@ -7,6 +7,17 @@ run_list [
   "recipe[minecraft::geyser]",
 ]
 
+override_attributes(
+  "server" => {
+    "chef" => {
+      "cron" => {
+        "hour" => "5",
+        "minute" => "15",
+      }
+    }
+  }
+)
+
 default_attributes(
   "chef_client_updater" => {
     "version" => "17",
