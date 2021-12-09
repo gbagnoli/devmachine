@@ -13,7 +13,7 @@ remote_file "#{gdir}/geyser.jar" do
   notifies :restart, "systemd_unit[geyser.service]", :delayed
 end
 
-jconf = config["server"]["java"]
+jconf = node["geyser"]["server"]["java"]
 systemd_unit "geyser.service" do
   content <<~EOU
     [Unit]
