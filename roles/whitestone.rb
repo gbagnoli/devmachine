@@ -8,6 +8,9 @@ run_list [
 ]
 
 default_attributes(
+  "chef_client_updater" => {
+    "version" => "17",
+  },
   "server" => {
     "components" => {
       "syncthing" => {
