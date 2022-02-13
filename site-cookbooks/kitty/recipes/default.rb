@@ -41,6 +41,7 @@ end
 execute "use kitty as default #{alt_name}" do
   command "update-alternatives --set #{alt_name} #{bin}"
   action :nothing
+  not_if node["kitty"]["set-alternative"] == false
 end
 
 node["kitty"]["users"].to_a.each do |info|

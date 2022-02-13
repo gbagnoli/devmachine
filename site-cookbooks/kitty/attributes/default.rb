@@ -1,4 +1,5 @@
 default["kitty"]["users"] = {}
+default["kitty"]["set-alternative"] = false
 
 # each user
 # user: username - required
