@@ -23,4 +23,6 @@ require_secrets:
   - pentolino
   - bloodsea
   - beelzebot
+  - ubik
+  - ubikxps
   - whitestone
