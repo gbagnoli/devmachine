@@ -28,3 +28,9 @@ default["user"]["ssh_authorized_keys"] = [{
   keytype: "ssh-ed25519",
   pubkey: "AAAAC3NzaC1lZDI1NTE5AAAAIJ7IqCcv/ybJQ8Y0u60y3JltCDqgQ+UZyTzjVwiYY1m+",
 }]
+
+# must be set in secrets
+default["gphotos_uploader_cli"] = nil
+# default["gphotos_uploader_cli"]["ClientID"] = nil
+# default["gphotos_uploader_cli"]["ClientSecret"] = nil
+# default["gphotos_uploader_cli"]["Account"] = nil

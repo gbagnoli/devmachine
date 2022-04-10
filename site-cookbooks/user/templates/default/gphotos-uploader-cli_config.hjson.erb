@@ -1,0 +1,19 @@
+{
+  APIAppCredentials:
+  {
+    ClientID: <%= @conf["ClientID"] %>
+    ClientSecret: <%= @conf["ClientSecret"] %>
+  }
+  Account: <%= @conf["Account"] %>
+  SecretsBackendType: auto
+  Jobs:
+  [
+    {
+      SourceFolder: /home/giacomo/Pictures
+      CreateAlbums: Off
+      DeleteAfterUpload: true
+      IncludePatterns: []
+      ExcludePatterns: []
+    }
+  ]
+}
