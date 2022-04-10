@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-Fabric3 = "*"
+Fabric = ">=1.15.0,<2"
 flake8 = "*"
 mypy = "*"
 black = "*"
