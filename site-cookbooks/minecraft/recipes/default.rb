@@ -81,7 +81,7 @@ file "/usr/local/bin/mcrcon" do
   owner 'root'
   group 'root'
   mode 0o755
-  content ::File.open("#{mcrcon_d}/mcrcon").read
+  content ::File.read("#{mcrcon_d}/mcrcon")
   action :create
 end
 
