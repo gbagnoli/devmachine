@@ -11,10 +11,13 @@ property :fullpath, [String, NilClass], default: nil
 property :options, Hash, default: {}
 
 action :create do
-  app_dir.split("/").each do |dir|
+  cur = home
+  app_dir.sub(home, "").split("/").each do |dir|
     next if dir == home
 
-    directory "#{home}/#{dir}" do
+    cur = ::File.join(cur, dir)
+
+    directory cur do
       owner user
       group groupname
     end
