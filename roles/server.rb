@@ -20,7 +20,7 @@ default_attributes(
     },
   },
   "chef_client_updater" => {
-    "version" => "16",
+    "version" => "17",
     "upgrade_delay" => 0,
   },
   "os-hardening" => {

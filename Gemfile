@@ -1,7 +1,7 @@
 source 'https://rubygems.org'
 
 gem 'berkshelf'
-gem 'chef', '~> 16.0'
+gem 'chef', '~> 17.0'
 gem 'foodcritic'
 gem 'inspec'
 gem 'inspec-bin'
