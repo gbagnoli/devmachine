@@ -28,6 +28,9 @@ DEPENDENCIES
     path: site-cookbooks/marvin
   minecraft
     path: site-cookbooks/minecraft
+  oauth2_proxy
+    git: https://github.com/gbagnoli/cookbook-oauth2_proxy
+    revision: 686cd45b832d8150f51458bbeb1d8478ee5ef3af
   openvpn
     path: site-cookbooks/openvpn
   pleaserun
