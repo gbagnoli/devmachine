@@ -72,6 +72,7 @@ end
     py_packages: [],
     py_runtime: "3.8",
     dir: "series",
+    enabled: true,
   },
   "couchpotato" => {
     command: "%<venv>s/bin/python %<venv>s/src/%<app>s/CouchPotato.py" \
@@ -81,8 +82,11 @@ end
     py_packages: %w[lxml pyopenssl],
     py_runtime: "2.7",
     dir: "movies",
+    enabled: false,
   },
 }.each do |app, config|
+  next unless config[:enabled]
+
   virtualenv_path = "#{venv_base_path}/#{config[:py_runtime]}"
   venv = "#{virtualenv_path}/#{app}"
   datadir = "/var/lib/#{app}"
