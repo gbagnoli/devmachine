@@ -42,11 +42,19 @@ end
 
 venv = "/var/lib/virtualenvs/2.7/putio_automator"
 
-python_virtualenv venv do
-  pip_version "18.0"
+execute "create_venv_#{venv}" do
+  command "/usr/bin/python3 -m virtualenv -p /usr/bin/python2.7 #{venv}"
   group "media"
-  user media_user
-  python "2.7"
+  user node["flexo"]["media"]["username"]
+  not_if { ::File.directory?(venv) }
+  notifies :run, "execute[install_deps_in_venv_#{venv}]", :immediately
+end
+
+execute "install_deps_in_venv_#{venv}" do
+  command "#{venv}/bin/pip install -U pip wheel setuptools"
+  group "media"
+  user node["flexo"]["media"]["username"]
+  action :nothing
 end
 
 ["#{venv}/src", "#{root}/tmp", "#{root}/torrents"].each do |d|
@@ -156,7 +164,7 @@ systemd_unit "putio-watcher.service" do
     [Service]
     User=#{node["flexo"]["media"]["username"]}
     Group=media
-    ExecStart=bin/putio torrents watch -p #{node["flexo"]["putio"]["watcher_parent_id"]}
+    ExecStart=#{venv}/bin/putio torrents watch -p #{node["flexo"]["putio"]["watcher_parent_id"]}
     WorkingDirectory=#{venv}
 
     [Install]
