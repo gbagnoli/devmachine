@@ -46,9 +46,11 @@ execute "setfacl_#{media_d}" do
 end
 
 venv_base_path = "/var/lib/virtualenvs"
-{"2.7" => nil, "3.8" => "python3.8"}.each do |version, pkg|
-  python_runtime version do
-    options :system, package_name: pkg
+{"2.7" => "python", "3.8" => "python3"}.each do |version, pfx|
+  package "python#{version}" do
+    package_name ["python#{version}", "python#{version}-dev",
+                  "#{pfx}-wheel", "#{pfx}-pip", "#{pfx}-setuptools",
+                  "#{pfx}-virtualenv"]
   end
 
   virtualenv_path = "#{venv_base_path}/#{version}"
@@ -100,18 +102,30 @@ end
     port: attrs["port"],
   }
 
-  # once poise-python 1.7.1 is release we can use
-  # pip versions >= 18.1
-  python_virtualenv venv do
-    pip_version "18.0"
+  execute "create_venv[#{venv}]" do
+    command "/usr/bin/python3 -m virtualenv -p /usr/bin/python#{config[:py_runtime]} #{venv}"
     group "media"
     user node["flexo"]["media"]["username"]
-    python config[:py_runtime]
+    not_if { ::File.directory?(venv) }
+    notifies :run, "execute[install_deps_in_venv_#{venv}]", :immediately
+  end
+
+  vpip = "#{venv}/bin/pip"
+
+  execute "install_deps_in_venv_#{venv}" do
+    command "#{vpip} install -U pip wheel setuptools"
+    group "media"
+    user node["flexo"]["media"]["username"]
+    action :nothing
   end
 
   config[:py_packages].each do |pkg|
-    python_package pkg do
-      virtualenv venv
+    execute "install #{pkg} in #{venv}" do
+      command "#{vpip} install -U #{pkg}"
+      group "media"
+      user node["flexo"]["media"]["username"]
+      action :nothing
+      subscribes :run, "execute[install_deps_in_venv_#{venv}]", :immediately
     end
   end
 

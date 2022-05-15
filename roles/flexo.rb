@@ -14,5 +14,4 @@ default_attributes(
       },
     },
   },
-  "chef_client_updater" => { "version" => "16" },
 )
