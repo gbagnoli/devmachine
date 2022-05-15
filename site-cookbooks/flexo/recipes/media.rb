@@ -1,7 +1,8 @@
 Chef::Recipe.include Flexo::RandomPassword
 
-package "git"
-package "unrar"
+package "install_deps_for_media" do
+  package_name %w[git unrar curl sqlite3]
+end
 
 node.override["nodejs"]["repo"] = "https://deb.nodesource.com/node_8.x"
 include_recipe "nodejs::nodejs_from_package"
@@ -201,6 +202,54 @@ end
 end
 # rubocop:enable Metrics/BlockLength
 
+radarr_root_d = "/var/lib/radarr"
+radarr_code_d = "#{radarr_root_d}/Radarr"
+radarr_conf_d = "#{radarr_root_d}/conf"
+radarr_listen_d = "#{media_d}/downloads/movies"
+
+[radarr_root_d, radarr_code_d, radarr_conf_d, radarr_listen_d].each do |dir|
+  directory dir do
+    user node["flexo"]["media"]["username"]
+    group "media"
+    mode 0o750
+  end
+end
+
+remote_file "#{Chef::Config[:file_cache_path]}/radarr.tar.gz" do
+  source 'http://radarr.servarr.com/v1/update/master/updatefile?os=linux&runtime=netcore&arch=x64'
+  user node["flexo"]["media"]["username"]
+  group "media"
+  mode 0o644
+  notifies :run, "execute[unpack_radarr]", :immediately
+end
+
+execute "unpack_radarr" do
+  action :nothing
+  group "media"
+  user node["flexo"]["media"]["username"]
+  command "tar xzf #{Chef::Config[:file_cache_path]}/radarr.tar.gz -C #{radarr_root_d}"
+end
+
+systemd_unit "radarr.service" do
+  content <<~EOU
+    [Unit]
+    Description=Radarr Daemon
+    After=syslog.target network.target
+    [Service]
+    User=#{node["flexo"]["media"]["username"]}
+    Group=media
+    Type=simple
+
+    ExecStart=#{radarr_code_d}/Radarr -nobrowser -data=#{radarr_conf_d}/
+    TimeoutStopSec=20
+    KillMode=process
+    Restart=on-failure
+    [Install]
+    WantedBy=multi-user.target
+  EOU
+  action %i[create enable start]
+end
+
 directory "/var/www/" do
   owner "www-data"
   group "www-data"
@@ -218,6 +267,7 @@ nginx_site "media.tigc.eu" do
     host: "127.0.0.1",
     sickchill_port: node["flexo"]["media"]["sickchill"]["port"],
     couchpotato_port: node["flexo"]["media"]["couchpotato"]["port"],
+    radarr_port: node["flexo"]["media"]["radarr"]["port"],
     server_name: "media.tigc.eu",
     oauth2_proxy_port: lazy { node["server"]["oauth2_proxy"]["http_port"] },
     oauth2_proxy_upstream_port: lazy { node["server"]["oauth2_proxy"]["upstream_port"] },

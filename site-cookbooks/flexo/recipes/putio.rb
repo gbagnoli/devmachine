@@ -2,7 +2,7 @@ media_user = node["flexo"]["media"]["username"]
 include_recipe "rclone"
 
 if node["putio"].nil? || [node["putio"]["password_encrypted"], node["putio"]["username"]].map(&:nil?).any?
-  Chef::Log.error("Skipping rclone config as no username or password has been provided")
+  Chef::Log.error("Skipping rclone/putio config as no username or password has been provided")
   return
 end
 
@@ -144,4 +144,23 @@ logrotate_app "putio-sync" do
   frequency "daily"
   rotate 30
   create "644 #{media_user} media"
+end
+
+systemd_unit "putio-watcher.service" do
+  content <<~EOU
+    [Unit]
+    Description=Putio torrent watcher
+    Wants=network-online.target
+    After=network-online.target
+
+    [Service]
+    User=#{node["flexo"]["media"]["username"]}
+    Group=media
+    ExecStart=bin/putio torrents watch -p #{node["flexo"]["putio"]["watcher_parent_id"]}
+    WorkingDirectory=#{venv}
+
+    [Install]
+    WantedBy=multi-user.target
+  EOU
+  action %i[create enable start]
 end
