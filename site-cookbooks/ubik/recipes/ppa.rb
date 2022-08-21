@@ -78,7 +78,7 @@ apt_repository "signal" do
   key "https://updates.signal.org/desktop/apt/keys.asc"
 end
 
-if node["lsb"]["codename"] != "focal"
+unless %w[focal jammy].include?(node["lsb"]["codename"])
   apt_repository "gnome3" do
     uri "ppa:gnome3-team/gnome3"
   end

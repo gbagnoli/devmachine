@@ -157,7 +157,7 @@ if node["platform"] == "debian"
     mode "0755"
   end
 else
-  codename = node["lsb"]["codename"] == "groovy" ? "focal" : node["lsb"]["codename"]
+  codename = node["lsb"]["codename"]
   apt_repository "fasd" do
     uri "ppa:aacebedo/fasd"
     distribution codename

@@ -3,27 +3,23 @@
 return if node["ubik"]["skip_packages"]
 
 packages = %w[
-  apt-transport-https btrfs-tools compizconfig-settings-manager dkms docker-ce
+  apt-transport-https btrfs-progs compizconfig-settings-manager dkms docker-ce
   dstat exfat-fuse exfat-utils firefox gconf-service gconf2 gdm3
-  gir1.2-gnomekeyring-1.0 gnome gnome-shell gnome-terminal google-chrome-stable
+  gnome gnome-shell gnome-terminal google-chrome-stable
   google-talkplugin gstreamer1.0-libav gstreamer1.0-plugins-ugly
   gstreamer1.0-pulseaudio gvfs-bin htop keepassx libappindicator1
-  libappindicator1 libcurl4 libgcrypt20 libgnome-keyring0 libgtk2.0-0
+  libappindicator1 libcurl4 libgcrypt20 libgtk2.0-0
   libnotify4 libnss3 libsecret-1-0 libudev1 libvirt-dev libxml2-dev
   libxslt1-dev libxss1 libxtst6 network-manager-openvpn-gnome openvpn powertop
   python python-apt qemu-kvm rsyslog shellcheck tmux
-  ttf-mscorefonts-installer ubuntu-gnome-desktop ufraw unity-tweak-tool
-  xdg-utils wireguard xsel signal-desktop vlc ffmpeg jq
+  ttf-mscorefonts-installer ubuntu-gnome-desktop unity-tweak-tool
+  xdg-utils wireguard xsel signal-desktop vlc ffmpeg jq virtualbox
 ]
 
-if node["lsb"]["codename"] == "focal"
-  oldp = %w[btrfs-tools gir1.2-gnomekeyring-1.0 libgnome-keyring0 ufraw libcurl3]
+unless %w[focal jammy].include? node["lsb"]["codename"]
+  oldp = %w[libcurl3]
   packages = packages.map(&:dup).reject { |x| oldp.include?(x) }
-  packages << "btrfs-progs"
-  packages << "virtualbox"
   packages << "dropbox"
-else
-  packages << "virtualbox6.1"
 end
 
 package "base install" do

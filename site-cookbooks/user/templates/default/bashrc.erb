@@ -257,11 +257,12 @@ alias pbpaste='xsel --clipboard --output'
 
 <% if node["platform"] == "ubuntu" -%>
 apt_update() {
-  sudo apt update && \
-  sudo apt full-upgrade && \
-  sudo apt autoremove && \
-  sudo apt autoclean
-  return $?
+  yes | (
+    sudo apt update && \
+    sudo apt full-upgrade && \
+    sudo apt autoremove && \
+    sudo apt autoclean
+  )
 }
 <% end -%>
 
