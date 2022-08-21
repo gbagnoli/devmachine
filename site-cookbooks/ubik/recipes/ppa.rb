@@ -57,8 +57,10 @@ file "/etc/apt/sources.list.d/firefox-nightly.list" do
   action :delete
 end
 
-apt_repository "firefox-beta" do
-  uri "ppa:mozillateam/firefox-next"
+if node["lsb"]["codename"] == "focal"
+  apt_repository "firefox-beta" do
+    uri "ppa:mozillateam/firefox-next"
+  end
 end
 
 

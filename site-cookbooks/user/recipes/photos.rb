@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-if platform?("ubuntu") && node["platform_version"] != "20.04"
+if platform?("ubuntu") && ! %w[focal jammy].include?(node["lsb"]["codename"])
   %w[exiftool python-wxgtk3.0 python-pil python-unidecode
    libfreeimage3 libfontconfig1:i386 libxt6:i386 libxrender1:i386
    libxext6:i386 libgl1-mesa-glx:i386 libgl1-mesa-dri:i386 libcurl3:i386

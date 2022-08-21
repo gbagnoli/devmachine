@@ -16,10 +16,13 @@ packages = %w[
   xdg-utils wireguard xsel signal-desktop vlc ffmpeg jq virtualbox
 ]
 
-unless %w[focal jammy].include? node["lsb"]["codename"]
-  oldp = %w[libcurl3]
+if node["lsb"]["codename"] == "jammy"
+  oldp = %w[exfat-utils python gvfs-bin firefox]
   packages = packages.map(&:dup).reject { |x| oldp.include?(x) }
-  packages << "dropbox"
+  packages << "python3"
+  packages << "exfatprogs"
+
+  # TODO: install firefox from flatkpak
 end
 
 package "base install" do
