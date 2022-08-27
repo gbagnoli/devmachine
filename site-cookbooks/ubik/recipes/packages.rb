@@ -4,7 +4,7 @@ return if node["ubik"]["skip_packages"]
 
 packages = %w[
   apt-transport-https btrfs-progs compizconfig-settings-manager dkms docker-ce
-  dstat exfat-fuse exfat-utils firefox gconf-service gconf2 gdm3
+  dstat exfat-fuse exfat-utils gconf-service gconf2 gdm3
   gnome gnome-shell gnome-terminal google-chrome-stable
   google-talkplugin gstreamer1.0-libav gstreamer1.0-plugins-ugly
   gstreamer1.0-pulseaudio gvfs-bin htop keepassx libappindicator1
@@ -17,12 +17,10 @@ packages = %w[
 ]
 
 if node["lsb"]["codename"] == "jammy"
-  oldp = %w[exfat-utils python gvfs-bin firefox]
+  oldp = %w[exfat-utils python gvfs-bin]
   packages = packages.map(&:dup).reject { |x| oldp.include?(x) }
   packages << "python3"
   packages << "exfatprogs"
-
-  # TODO: install firefox from flatkpak
 end
 
 package "base install" do
@@ -151,7 +149,6 @@ apt_repository "chromium-beta" do
 end
 
 package "chromium-browser"
-include_recipe "flatpak"
 
 # tzbuddy
 include_recipe 'ark'
@@ -177,3 +174,20 @@ file '/usr/local/bin/tzbuddy' do
 end
 
 include_recipe "kitty"
+
+if node["lsb"]["codename"] == "jammy"
+  # remove firefox snap
+  snap_package 'firefox' do
+    action :remove
+  end
+
+  flatpak_install 'flathub'
+  flatpak_app 'org.mozilla.firefox'
+  flatpak_app 'org.freedesktop.Platform.ffmpeg-full/x86_64/20.08'
+else
+  apt_repository "firefox-beta" do
+    uri "ppa:mozillateam/firefox-next"
+  end
+
+  package 'firefox'
+end

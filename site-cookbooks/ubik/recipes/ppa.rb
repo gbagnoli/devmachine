@@ -49,21 +49,6 @@ apt_repository "ubuntu-partner" do
   arch "i386"
 end
 
-apt_package "firefox-trunk" do
-  action :purge
-end
-
-file "/etc/apt/sources.list.d/firefox-nightly.list" do
-  action :delete
-end
-
-if node["lsb"]["codename"] == "focal"
-  apt_repository "firefox-beta" do
-    uri "ppa:mozillateam/firefox-next"
-  end
-end
-
-
 apt_repository "docker" do
   uri "https://download.docker.com/linux/ubuntu"
   arch "amd64"

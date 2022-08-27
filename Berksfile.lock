@@ -12,8 +12,6 @@ DEPENDENCIES
     revision: eab415649ba9a5ab9ab348ae098bf6bbf04cfdff
   dnscrypt_proxy
     path: site-cookbooks/dnscrypt_proxy
-  flatpak
-    path: site-cookbooks/flatpak
   flexo
     path: site-cookbooks/flexo
   gnome
@@ -91,7 +89,7 @@ GRAPH
   build-essential (8.2.1)
     mingw (>= 1.1)
     seven_zip (>= 0.0.0)
-  chef_client_updater (3.12.2)
+  chef_client_updater (3.12.3)
   chef_handler (3.0.3)
   chocolatey (3.0.0)
   datadog (3.5.1)
@@ -100,7 +98,7 @@ GRAPH
     yum (>= 3.0)
   debconf (0.0.1)
   dnscrypt_proxy (0.1.0)
-  flatpak (0.1.0)
+  flatpak (1.0.1)
   flexo (0.1.0)
     git (>= 0.0.0)
     logrotate (>= 0.0.0)
@@ -109,7 +107,7 @@ GRAPH
     plex (>= 0.0.0)
     rclone (>= 0.0.0)
     server (>= 0.0.0)
-  git (11.0.1)
+  git (11.1.0)
     ark (>= 0.0.0)
   gnome (0.1.0)
   hardening (0.1.0)
@@ -123,7 +121,7 @@ GRAPH
     ark (>= 0.0.0)
     gnome (>= 0.0.0)
   limits (1.0.0)
-  line (4.4.4)
+  line (4.5.2)
   logrotate (3.0.9)
   lxd (0.1.0)
     limits (< 2.0.0)
@@ -142,7 +140,7 @@ GRAPH
     build-essential (>= 5.0)
     ohai (>= 4.1.0)
     yum-epel (>= 0.0.0)
-  nodejs (10.0.0)
+  nodejs (10.1.0)
     ark (>= 2.0.2)
     chocolatey (>= 3.0)
     yum (>= 7.2)
@@ -158,9 +156,8 @@ GRAPH
     apt (>= 0.0.0)
   pyenv (3.5.1)
   rclone (0.1.0)
-  ruby_build (2.2.2)
+  ruby_build (2.3.0)
     homebrew (>= 0.0.0)
-    yum-centos (>= 0.0.0)
     yum-epel (>= 0.0.0)
   ruby_rbenv (2.4.1)
   rupik (0.1.0)
@@ -213,5 +210,4 @@ GRAPH
   windows (7.0.2)
   yubico (0.1.0)
   yum (7.4.0)
-  yum-centos (5.2.0)
-  yum-epel (4.4.1)
+  yum-epel (4.5.0)
