@@ -58,7 +58,7 @@ file "/etc/systemd/resolved.conf" do
     #ResolveUnicastSingleLabel=no
      DNSStubListener=no
   EOU
-  notifies :restart, "service[systemd-resolved]"
+  notifies :restart, "service[systemd-resolved]", :immediately
 end
 
 link "/etc/resolv.conf" do
