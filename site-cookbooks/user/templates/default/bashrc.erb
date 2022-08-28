@@ -262,7 +262,9 @@ apt_update() {
     sudo apt full-upgrade && \
     sudo apt autoremove && \
     sudo apt autoclean
-  )
+  ) && \
+  echo "Updating flatpak" && \
+  sudo flatpak update --noninteractive -y
 }
 <% end -%>
 
