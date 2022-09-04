@@ -3,7 +3,9 @@
 conf = node['ubik']['python']
 user = conf['user']
 
-pyenv_user_install user
+pyenv_install 'user' do
+  user user
+end
 
 pyenv_plugin 'pyenv-virtualenv' do
   git_url 'https://github.com/pyenv/pyenv-virtualenv.git'

@@ -6,7 +6,6 @@ cookbook 'plex', git: 'https://github.com/gbagnoli/plex', branch: 'new_release_u
 cookbook 'ruby_rbenv', git: 'https://github.com/gbagnoli/ruby_rbenv', branch: 'ubuntu_20.04'
 cookbook 'oauth2_proxy', git: 'https://github.com/gbagnoli/cookbook-oauth2_proxy'
 cookbook 'seven_zip', '<=3.2.2'
-cookbook 'pyenv', '<4'
 
 cbs = Dir.entries('site-cookbooks').select do |e|
   dir = File.join('site-cookbooks', e)
