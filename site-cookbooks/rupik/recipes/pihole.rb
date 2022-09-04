@@ -94,3 +94,15 @@ systemd_unit "pihole.service" do
   EOU
   action %i[create enable start]
 end
+
+cookbook_file "/usr/local/bin/update_pihole" do
+  source "update_pihole_podman"
+  mode "0754"
+end
+
+cron "update pihole image" do
+  command "/usr/local/bin/update_pihole &> /var/log/update_pihole.log"
+  minute "18"
+  hour "4"
+  user "root"
+end
