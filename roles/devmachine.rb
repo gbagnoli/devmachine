@@ -28,10 +28,10 @@ default_attributes(
   },
   "ubik" => {
     "golang" => {
-      "version" => "1.18",
+      "version" => "1.19",
     },
     "ruby" => {
-        "rubies" => ["3.1.1"],
+        "rubies" => ["3.1.2"],
         "user" => "giacomo",
     },
     "rust" => {
@@ -39,8 +39,8 @@ default_attributes(
     },
     "python" => {
       "user" => "giacomo",
-      "versions" => ["2.7.18", "3.10.2"],
-      "user_global" => "3.10.2 2.7.18",
+      "versions" => ["2.7.18", "3.10.2", "3.10.6"],
+      "user_global" => "3.10.6 2.7.18",
     },
     "languages" => %w[en it],
     "install_latex" => true,
