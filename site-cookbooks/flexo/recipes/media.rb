@@ -4,7 +4,7 @@ package "install_deps_for_media" do
   package_name %w[git unrar curl sqlite3]
 end
 
-node.override["nodejs"]["repo"] = "https://deb.nodesource.com/node_8.x"
+node.override["nodejs"]["repo"] = "https://deb.nodesource.com/node_18.x"
 include_recipe "nodejs::nodejs_from_package"
 include_recipe "nodejs::npm"
 
@@ -47,7 +47,7 @@ execute "setfacl_#{media_d}" do
 end
 
 venv_base_path = "/var/lib/virtualenvs"
-{"2.7" => "python", "3.8" => "python3"}.each do |version, pfx|
+{"3.8" => "python3"}.each do |version, pfx|
   package "python#{version}" do
     package_name ["python#{version}", "python#{version}-dev",
                   "#{pfx}-wheel", "#{pfx}-pip", "#{pfx}-setuptools",
@@ -73,17 +73,7 @@ end
     py_runtime: "3.8",
     dir: "series",
     enabled: true,
-  },
-  "couchpotato" => {
-    command: "%<venv>s/bin/python %<venv>s/src/%<app>s/CouchPotato.py" \
-             " --quiet --data_dir=%<datadir>s",
-    repo: "https://github.com/CouchPotato/CouchPotatoServer.git",
-    config_fname: "settings.conf",
-    py_packages: %w[lxml pyopenssl],
-    py_runtime: "2.7",
-    dir: "movies",
-    enabled: false,
-  },
+  }
 }.each do |app, config|
   next unless config[:enabled]
 

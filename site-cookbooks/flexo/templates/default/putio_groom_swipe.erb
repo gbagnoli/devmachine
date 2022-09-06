@@ -9,10 +9,10 @@ fi
 
 (
   flock -n 9 || exit 1
-  echo "Downloading files"
+  echo "[$(date)] Downloading files"
   <%= @rclone %>
 
-  echo "Grooming and removing remote files"
+  echo "[$(date)] Grooming and removing remote files"
   <%= @putio %> transfers swipe
   exit $?
 ) 9>/run/lock/putio_groom_swipe

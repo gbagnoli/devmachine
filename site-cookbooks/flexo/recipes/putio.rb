@@ -40,10 +40,10 @@ template "/usr/local/bin/rclone_putio" do
   )
 end
 
-venv = "/var/lib/virtualenvs/2.7/putio_automator"
+venv = "/var/lib/virtualenvs/3.8/putio_automator"
 
 execute "create_venv_#{venv}" do
-  command "/usr/bin/python3 -m virtualenv -p /usr/bin/python2.7 #{venv}"
+  command "/usr/bin/python3 -m virtualenv #{venv}"
   group "media"
   user node["flexo"]["media"]["username"]
   not_if { ::File.directory?(venv) }
@@ -164,7 +164,7 @@ systemd_unit "putio-watcher.service" do
     [Service]
     User=#{node["flexo"]["media"]["username"]}
     Group=media
-    ExecStart=#{venv}/bin/putio torrents watch -p #{node["flexo"]["putio"]["watcher_parent_id"]}
+    ExecStart=#{venv}/bin/putio torrents watch --parent-id #{node["flexo"]["putio"]["watcher_parent_id"]}
     WorkingDirectory=#{venv}
 
     [Install]
