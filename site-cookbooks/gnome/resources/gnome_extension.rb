@@ -1,11 +1,12 @@
 resource_name :gnome_extension
 provides :gnome_extension
+unified_mode true
 
 property :repository, String, required: true
 property :install_script, String, required: true
 property :deps, [Array, NilClass], default: []
 property :revision, String, default: "master"
-default_action %I[install enable]
+default_action %I(install enable)
 
 action :install do
   # specify all paths so we can set permissions

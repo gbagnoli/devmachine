@@ -4,7 +4,7 @@ packages = []
 
 package "language-selector-common"
 
-[*node["ubik"]["languages"]].each do |lang|
+Array(node["ubik"]["languages"]).each do |lang|
   packages += ["language-pack-#{lang}",
                "language-pack-gnome-#{lang}",
                "language-pack-#{lang}-base",

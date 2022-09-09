@@ -2,12 +2,13 @@
 
 resource_name :gnome_desktop_file
 provides :gnome_desktop_file
+unified_mode true
 
 property :user, String, required: true
-property :group, [String, NilClass], default: nil
+property :group, [String, NilClass]
 property :exec, String, required: true
 property :type, String, default: "Application"
-property :fullpath, [String, NilClass], default: nil
+property :fullpath, [String, NilClass]
 property :options, Hash, default: {}
 
 action :create do

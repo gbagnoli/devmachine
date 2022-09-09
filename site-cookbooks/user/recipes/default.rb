@@ -90,7 +90,7 @@ if platform?("debian")
   package "libpython2.7-dev"
 end
 
-%w[vim neovim python3-dev python3-pip].each do |pkg|
+%w(vim neovim python3-dev python3-pip).each do |pkg|
   package pkg
 end
 
@@ -129,7 +129,7 @@ bash "install vundle" do
   EOH
 end
 
-%w[bitbucket.org github.com].each do |site|
+%w(bitbucket.org github.com).each do |site|
   ssh_known_hosts_entry site
 end
 
@@ -152,7 +152,7 @@ end
 package "liquidprompt"
 package "autossh"
 package "mosh"
-if node["platform"] == "debian"
+if platform?('debian')
   remote_file "/usr/bin/fasd" do
     source "https://raw.githubusercontent.com/clvv/fasd/master/fasd"
     mode "0755"
@@ -216,7 +216,7 @@ sudo "#{node["user"]["login"]}_docker" do
   nopasswd true
   commands ["/usr/bin/docker"]
   user node["user"]["login"]
-  action :remove
+  action :delete
 end
 
 group "docker" do

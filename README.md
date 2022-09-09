@@ -54,7 +54,6 @@ ln -s hooks/pre-commit.sh .git/hooks/pre-commit
 ln -s hooks/pre-push.sh .git/hooks/pre-push
 pipenv shell
 pipenv install
-bundle install
 ```
 
 In case you use [autoenv](https://github.com/kennethreitz/autoenv) you can add this to the `.env` file
@@ -93,11 +92,11 @@ Install [vagrant](https://www.vagrantup.com/downloads.html) using the deb from
 the site and virtualbox (`sudo apt install virtualbox`) then:
 
 ```bash
-bundle exec kitchen test ubik-ubuntu-1804
+chef exec kitchen test ubik-ubuntu-1804
 ```
 
 You can list the available tests with
 
 ```bash
-bundle exec kitchen list
+chef exec kitchen list
 ```

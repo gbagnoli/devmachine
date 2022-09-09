@@ -40,7 +40,7 @@ end
   { key: "kernel.keys.maxkeys", value: "2000" },
   { key: "net.core.netdev_max_backlog", value: "182757" },
 ].each do |ctl|
-  sysctl_param ctl[:key] do
+  sysctl ctl[:key] do
     value ctl[:value]
   end
 end

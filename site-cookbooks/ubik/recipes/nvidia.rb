@@ -3,5 +3,5 @@ apt_repository "graphics_drivers" do
 end
 
 package "nvidia" do
-  package_name %w[nvidia-graphics-drivers-440 nvidia-settings]
+  package_name %w(nvidia-graphics-drivers-440 nvidia-settings)
 end

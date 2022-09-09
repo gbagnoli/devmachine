@@ -5,7 +5,6 @@ maintainer "Giacomo Bagnoli"
 maintainer_email "gbagnoli@gmail.com"
 license "MIT"
 description "Installs/Configures marvin"
-long_description "Installs/Configures marvin"
 version "0.1.0"
 
 issues_url "https://github.com/gbagnoli/devmachine/issues"

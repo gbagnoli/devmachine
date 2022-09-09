@@ -38,7 +38,6 @@ done < <(git diff --cached --name-only --diff-filter=ACM)
 
 if [ $total -eq 0 ];then exit 0 ; fi
 
-bundle check >/dev/null || bundle install
 git checkout-index --prefix="$tmpdir"/ -af
 set +e
 ec=0
@@ -51,13 +50,8 @@ if $circleci; then
     echo "Cannot validate CircleCI config, missing CLI"
   fi
 fi
-if [ "${#ruby[@]}" -gt 0 ]; then
-  echo "Running rubocop"
-  bundle exec rubocop --config "$tmpdir/.rubocop.yml" "${ruby[@]}"; ec=$?
-fi
-if [ "${#chef[@]}" -gt 0 ]; then
-  echo "Running foodcritic"
-  bundle exec foodcritic -B "$tmpdir/site-cookbooks" -R "$tmpdir/roles"; e=$?; [ $e -ne 0 ] && ec=$e
+if [ "${#ruby[@]}" -gt 0 ] || [ "${#chef[@]}" -gt 0 ]; then
+  chef exec cookstyle "$tmpdir/site-cookbooks"; e=$?; [ $e -ne 0 ] && ec=$e
 fi
 if [ "${#python[@]}" -gt 0 ]; then
   echo "Running black "
@@ -66,7 +60,8 @@ if [ "${#python[@]}" -gt 0 ]; then
   pipenv run isort "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
   echo "Running flake8 "
   pipenv run flake8 --ignore=E501 "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
-  echo "Running mypy "
+  echo -n "Running mypy :"
+  yes | pipenv run mypy --install-types &>/dev/null
   pipenv run mypy --ignore-missing-imports "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
 fi
 

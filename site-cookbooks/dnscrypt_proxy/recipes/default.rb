@@ -72,7 +72,7 @@ systemd_unit "dnscrypt-proxy.service" do
     Group=nogroup
     ExecStart=/usr/bin/dnscrypt-proxy -config #{config}
   EOU
-  action %i[create]
+  action %i(create)
 end
 
 port = node["dnscrypt_proxy"]["listen_port"]
@@ -93,7 +93,7 @@ systemd_unit "dnscrypt-proxy.socket" do
     [Install]
     WantedBy=sockets.target
   EOU
-  action %i[create enable]
+  action %i(create enable)
   notifies :start, "systemd_unit[dnscrypt-proxy.service]", :immediately
   notifies :enable, "systemd_unit[dnscrypt-proxy.service]", :immediately
 end

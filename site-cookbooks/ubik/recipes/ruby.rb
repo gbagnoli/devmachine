@@ -18,7 +18,7 @@ node["ubik"]["ruby"]["rubies"]&.each do |ruby|
     user user
   end
 
-  %w[bundler rubocop].each do |g|
+  %w(bundler rubocop).each do |g|
     rbenv_gem g do
       user user
       rbenv_version ruby

@@ -22,7 +22,7 @@ end
   directory "#{config["data_directory"]}/#{dir}" do
     owner config["user"]
     group config["group"]
-    mode 0o755
+    mode '755'
   end
 end
 
@@ -80,7 +80,7 @@ end
 file "/usr/local/bin/mcrcon" do
   owner 'root'
   group 'root'
-  mode 0o755
+  mode '755'
   content ::File.read("#{mcrcon_d}/mcrcon")
   action :create
 end
@@ -97,7 +97,7 @@ template "#{server_d}/server.properties" do
   source "server.properties.erb"
   owner config["user"]
   group config["group"]
-  mode 0o640
+  mode '640'
   variables properties: config["server"]["properties"]
   action :create_if_missing
 end
@@ -109,7 +109,7 @@ rcon_port = config["server"]["properties"]["rcon.port"]
 
 template "/usr/local/bin/rcon" do
   source "minecraft_rcon.sh.erb"
-  mode 0o750
+  mode '750'
   user config["user"]
   group config["group"]
   variables(
@@ -121,7 +121,7 @@ end
 
 template "/usr/local/bin/minecraft-backup" do
   source "minecraft_backup.sh.erb"
-  mode 0o750
+  mode '750'
   user config["user"]
   group config["group"]
   variables(
@@ -159,5 +159,5 @@ systemd_unit "minecraft.service" do
     [Install]
     WantedBy=multi-user.target
   EOU
-  action %i[create enable start]
+  action %i(create enable start)
 end

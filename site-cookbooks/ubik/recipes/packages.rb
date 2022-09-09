@@ -2,7 +2,7 @@
 
 return if node["ubik"]["skip_packages"]
 
-packages = %w[
+packages = %w(
   apt-transport-https btrfs-progs compizconfig-settings-manager dkms docker-ce
   dstat exfat-fuse exfat-utils gconf-service gconf2 gdm3
   gnome gnome-shell gnome-terminal google-chrome-stable
@@ -14,10 +14,10 @@ packages = %w[
   python python-apt qemu-kvm rsyslog shellcheck tmux
   ttf-mscorefonts-installer ubuntu-gnome-desktop unity-tweak-tool
   xdg-utils wireguard xsel signal-desktop vlc ffmpeg jq virtualbox
-]
+)
 
 if node["lsb"]["codename"] == "jammy"
-  oldp = %w[exfat-utils python gvfs-bin]
+  oldp = %w(exfat-utils python gvfs-bin)
   packages = packages.map(&:dup).reject { |x| oldp.include?(x) }
   packages << "python3"
   packages << "exfatprogs"
@@ -45,14 +45,14 @@ packages = {
     only_if_not_installed: true,
   }, "vagrant" => "https://releases.hashicorp.com/vagrant/2.2.7/vagrant_2.2.7_x86_64.deb",
   "discord" => {
-    deps: %w[libc++1 libc++abi1],
+    deps: %w(libc++1 libc++abi1),
     deb: "https://discordapp.com/api/download?platform=linux&format=deb",
     only_if_not_installed: false,
   },
   "zoom" => {
     deb: "https://zoom.us/client/latest/zoom_amd64.deb",
     only_if_not_installed: true,
-    deps: %w[libgl1-mesa-glx libegl1-mesa libxcb-xtest0],
+    deps: %w(libgl1-mesa-glx libegl1-mesa libxcb-xtest0),
   }
 }
 
@@ -113,11 +113,11 @@ remote_file "/usr/local/bin/dropbox.py" do
   mode "0755"
 end
 
-vagrant_plugins = %w[
+vagrant_plugins = %w(
   vagrant-libvirt
   vagrant-kvm
   vagrant-host-shell
-]
+)
 
 vagrant_plugins.each do |plg|
   execute "vagrant_install_#{plg}" do

@@ -25,9 +25,9 @@ packages.each do |name, url|
 end
 
 service "mongodb" do
-  action %i[stop disable]
+  action %i(stop disable)
 end
 
 service "unifi" do
-  action %i[start enable]
+  action %i(start enable)
 end

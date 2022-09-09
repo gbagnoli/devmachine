@@ -5,7 +5,6 @@ maintainer "Giacomo Bagnoli"
 maintainer_email "gbagnoli@gmail.com"
 license "MIT"
 description "Wrapper for the various hardening cookbooks"
-long_description "Wrapper for the various hardening cookbooks"
 version "0.1.0"
 
 depends "os-hardening"

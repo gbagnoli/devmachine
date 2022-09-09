@@ -4,7 +4,7 @@ package "python3-smbus"
 template "/etc/argononed.conf" do
   source "argononed.conf.erb"
   variables fan_control: node["argonone"]["fan_control"]
-  mode 0o644
+  mode '644'
   owner "root"
   group "root"
 end
@@ -13,19 +13,19 @@ cookbook_file "/lib/systemd/system-shutdown/argononed-poweroff.py" do
   source "argononed-poweroff.py"
   owner "root"
   group "root"
-  mode 0o755
+  mode '755'
 end
 
 cookbook_file "/usr/bin/argononed.py" do
   source "argononed.py"
   owner "root"
   group "root"
-  mode 0o755
+  mode '755'
 end
 
 cookbook_file "/usr/bin/argon_temp_monitor" do
   source "argon_temp_monitor.sh"
-  mode 0o755
+  mode '755'
   owner "root"
   group "root"
 end
@@ -43,5 +43,5 @@ systemd_unit "argononed.service" do
     [Install]
     WantedBy=multi-user.target
   EOU
-  action %i[create enable start]
+  action %i(create enable start)
 end

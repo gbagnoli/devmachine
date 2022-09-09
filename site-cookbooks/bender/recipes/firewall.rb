@@ -7,7 +7,7 @@ node.override["sysctl"]["params"]["net"]["ipv4"]["conf"]["default"]["log_martian
 }.each do |pkg, protocol|
   package pkg
 
-  %w[policy].each do |shore_file|
+  %w(policy).each do |shore_file|
     cookbook_file "/etc/#{pkg}/#{shore_file}" do
       action :create
       owner "root"
@@ -27,7 +27,7 @@ node.override["sysctl"]["params"]["net"]["ipv4"]["conf"]["default"]["log_martian
     notifies :restart, "service[#{pkg}]"
   end
 
-  %w[zones rules interfaces masq nat].each do |shore_template|
+  %w(zones rules interfaces masq nat).each do |shore_template|
     next if shore_template == "nat" && protocol != "ipv6"
 
     template "/etc/#{pkg}/#{shore_template}" do
@@ -48,6 +48,6 @@ node.override["sysctl"]["params"]["net"]["ipv4"]["conf"]["default"]["log_martian
   end
 
   service pkg do
-    action %w[enable start]
+    action %w(enable start)
   end
 end

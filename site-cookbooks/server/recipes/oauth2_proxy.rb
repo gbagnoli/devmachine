@@ -16,7 +16,7 @@ end
 
 file "/etc/oauth2_proxy/#{instance}.emails.txt" do
   content conf["authenticated_emails"].sort.join("\n")
-  mode 0o400
+  mode '400'
   owner "oauth2proxy"
   group "nogroup"
   notifies :restart, "service[oauth2_proxy-#{instance}]"

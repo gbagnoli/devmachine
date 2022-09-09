@@ -36,5 +36,5 @@ systemd_unit "znc.service" do
     [Install]
     WantedBy=multi-user.target
   EOU
-  action %i[create enable]
+  action %i(create enable)
 end

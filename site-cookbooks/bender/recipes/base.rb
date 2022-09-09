@@ -1,9 +1,7 @@
-include_recipe "apt"
-
 file "/etc/apt/apt.conf.d/local" do
   owner "root"
   group "root"
-  mode 0o0644
+  mode '644'
   content 'Dpkg::Options {
    "--force-confdef";
    "--force-confold";
@@ -11,14 +9,16 @@ file "/etc/apt/apt.conf.d/local" do
   action :create
 end
 
+apt_update 'update apt cache'
+
 cookbook_file "/etc/apt/sources.list" do
   source "apt.sources.list"
   mode "0644"
-  notifies :run, "execute[apt-get update]", :immediately
+  notifies :update, 'apt_update[update apt cache]', :immediately
 end
 
 package "base" do
-  package_name %w[curl htop iotop iperf]
+  package_name %w(curl htop iotop iperf)
 end
 
 node.override["dnscrypt_proxy"]["listen_address"] = "127.0.2.1"

@@ -44,7 +44,6 @@ end
 
 apt_repository "ubuntu-partner" do
   uri "http://archive.canonical.com/"
-  distribution node["lsb"]["codename"]
   components ["partner"]
   arch "i386"
 end
@@ -65,7 +64,7 @@ apt_repository "signal" do
   key "https://updates.signal.org/desktop/apt/keys.asc"
 end
 
-unless %w[focal jammy].include?(node["lsb"]["codename"])
+unless %w(focal jammy).include?(node["lsb"]["codename"])
   apt_repository "gnome3" do
     uri "ppa:gnome3-team/gnome3"
   end

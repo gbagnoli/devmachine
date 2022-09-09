@@ -11,7 +11,7 @@ gnome_extension "no-title-bar@jonaspoehler.de" do
   install_script <<-EOH
   DESTDIR=/ make install
   EOH
-  deps %w[x11-utils]
+  deps %w(x11-utils)
 end
 
 gnome_extension "freon@UshakovVasilii_Github.yahoo.com" do
@@ -22,5 +22,5 @@ gnome_extension "freon@UshakovVasilii_Github.yahoo.com" do
   cp -r %<src_dir>s/%<name>s %<install_dir>s
   chmod o+rX -R %<install_dir>s
   EOH
-  deps %w[nvme-cli]
+  deps %w(nvme-cli)
 end

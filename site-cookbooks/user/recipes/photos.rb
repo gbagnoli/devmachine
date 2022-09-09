@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-if platform?("ubuntu") && ! %w[focal jammy].include?(node["lsb"]["codename"])
-  %w[exiftool python-wxgtk3.0 python-pil python-unidecode
+if platform?("ubuntu") && ! %w(focal jammy).include?(node["lsb"]["codename"])
+  %w(exiftool python-wxgtk3.0 python-pil python-unidecode
    libfreeimage3 libfontconfig1:i386 libxt6:i386 libxrender1:i386
    libxext6:i386 libgl1-mesa-glx:i386 libgl1-mesa-dri:i386 libcurl3:i386
    libgssapi-krb5-2:i386 librtmp1:i386 libsm6:i386 libice6:i386
    libuuid1:i386 fonts-liberation lsb-core libglu1-mesa
-   gpsbabel gpsbabel-gui libqtcore4 python-tz rename].each do |pkg|
+   gpsbabel gpsbabel-gui libqtcore4 python-tz rename).each do |pkg|
     package pkg
   end
 end
@@ -28,7 +28,7 @@ file "#{home}/.local/bin/gpicsync" do
           EOC
   owner user
   group node["user"]["group"]
-  mode 0o750
+  mode '750'
 end
 
 file "#{home}/.local/bin/gpicsync-GUI" do
@@ -39,13 +39,13 @@ file "#{home}/.local/bin/gpicsync-GUI" do
           EOC
   owner user
   group node["user"]["group"]
-  mode 0o750
+  mode '750'
 end
 
 cookbook_file "#{home}/.local/src/exiftool_GPS2MapUrl.config" do
   owner user
   group node["user"]["group"]
-  mode 0o644
+  mode '644'
   source "exiftool_GPS2MapUrl.config"
 end
 
@@ -87,7 +87,7 @@ end
 
 remote_file "/usr/src/gphotos-uploader-cli.tar.gz" do
   source lazy { node.run_state["gphotos_uploader_cli_url"].chomp } # rubocop:disable Lint/AmbiguousBlockAssociation
-  mode 0o644
+  mode '644'
   notifies :run, "execute[unpack gphotos uploader cli]", :immediately
 end
 
@@ -97,7 +97,7 @@ execute "unpack gphotos uploader cli" do
 end
 
 file "/usr/local/bin/gphotos-uploader-cli" do
-  mode 0o755
+  mode '755'
 end
 
 user = node["user"]["login"]

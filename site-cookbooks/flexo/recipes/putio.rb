@@ -170,5 +170,5 @@ systemd_unit "putio-watcher.service" do
     [Install]
     WantedBy=multi-user.target
   EOU
-  action %i[create enable start]
+  action %i(create enable start)
 end

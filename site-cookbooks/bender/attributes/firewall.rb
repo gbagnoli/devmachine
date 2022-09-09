@@ -1,6 +1,6 @@
-default["bender"]["firewall"]["ipv4"]["open_ports"][22] = %w[tcp]
-default["bender"]["firewall"]["ipv4"]["open_ports"][80] = %w[tcp]
-default["bender"]["firewall"]["ipv4"]["open_ports"][443] = %w[tcp]
+default["bender"]["firewall"]["ipv4"]["open_ports"][22] = %w(tcp)
+default["bender"]["firewall"]["ipv4"]["open_ports"][80] = %w(tcp)
+default["bender"]["firewall"]["ipv4"]["open_ports"][443] = %w(tcp)
 default["bender"]["firewall"]["ipv4"]["dnat_rules"] = {
  # example
    # "rulename" => {
@@ -13,8 +13,8 @@ default["bender"]["firewall"]["ipv4"]["dnat_rules"] = {
   }
 
 # and again, for ipv6
-default["bender"]["firewall"]["ipv6"]["open_ports"][22] = %w[tcp]
-default["bender"]["firewall"]["ipv6"]["open_ports"][80] = %w[tcp]
-default["bender"]["firewall"]["ipv6"]["open_ports"][443] = %w[tcp]
+default["bender"]["firewall"]["ipv6"]["open_ports"][22] = %w(tcp)
+default["bender"]["firewall"]["ipv6"]["open_ports"][80] = %w(tcp)
+default["bender"]["firewall"]["ipv6"]["open_ports"][443] = %w(tcp)
 default["bender"]["firewall"]["ipv6"]["dnat_rules"] = {}
 default["bender"]["firewall"]["ipv6"]["nat"] = {}

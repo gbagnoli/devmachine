@@ -6,7 +6,7 @@ include_recipe "ubik::irene"
 
 users = [node["user"]["login"], "irene"]
 
-%w[adm sudo cdrom dip plugdev lpadmin sambashare users games lp].each do |grp|
+%w(adm sudo cdrom dip plugdev lpadmin sambashare users games lp).each do |grp|
   group grp do
     members users
     action :manage

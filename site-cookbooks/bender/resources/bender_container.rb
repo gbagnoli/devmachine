@@ -1,5 +1,6 @@
 resource_name :bender_container
 provides :bender_container
+unified_mode true
 
 id_callbacks = {
   "should be a value between 2 and 254" => lambda { |id|
@@ -22,12 +23,12 @@ ports_callbacks = {
   },
   'ip_version should be either "ipv4", "ipv6" or "all"' => lambda { |ports|
     ports.to_a.map do |pair|
-      %w[ipv4 ipv6 all].include?(pair["ip_version"].to_s)
+      %w(ipv4 ipv6 all).include?(pair["ip_version"].to_s)
     end.all?
   },
   'protocol should be either "tcp", "udp" or "all"' => lambda { |ports|
     ports.to_a.map do |pair|
-      %w[tcp udp all].include?(pair["protocol"].to_s)
+      %w(tcp udp all).include?(pair["protocol"].to_s)
     end.all?
   },
   "if there is an external_ip, it must be defined for both protocols" => lambda { |ports|
@@ -61,10 +62,10 @@ ipv6_callbacks = {
   },
 }
 
-allowed_volume_keys = %w[
+allowed_volume_keys = %w(
   limits.read limits.write limits.max
   path source optional readonly recursive pool propagation
-].sort
+).sort
 
 volumes_callbacks = {
   'it must be an hash with "source" and "path" required attribute' => lambda { |volumes|
@@ -98,9 +99,9 @@ property :id, Integer, required: true, callbacks: id_callbacks
 property :image, String, required: true
 property :description, [String, NilClass], default: ""
 property :forwarded_ports, [Array, NilClass], callbacks: ports_callbacks, default: []
-property :external_ipv6, [String, NilClass], default: nil, callbacks: ipv6_callbacks
+property :external_ipv6, [String, NilClass], callbacks: ipv6_callbacks
 # snapshots scheduling support is merged but not released yet as of 3/12/18
-property :snapshots, [TrueClass, FalseClass], default: false
+property :snapshots, [true, false], default: false
 property :volumes, Array, default: [], callbacks: volumes_callbacks
 default_action :create
 
@@ -148,13 +149,18 @@ action :create do
     # rubocop:enable Layout/LineLength
   end
 
-  execute "copy_ssh_config_for_root_#{new_resource.container_name}" do
-    # we need to sleep as we need to wait for the container to boot. This sucks, but it's enough for now
+  chef_sleep "wait_for_container_#{new_resource.container_name}" do
+    seconds 30
+    action :nothing
+  end
 
+  execute "copy_ssh_config_for_root_#{new_resource.container_name}" do
     # rubocop:disable Layout/LineLength
-    command "sleep 30s && lxc file push /root/.ssh/authorized_keys #{new_resource.container_name}/root/.ssh/authorized_keys --mode 0400"
+    command "lxc file push /root/.ssh/authorized_keys #{new_resource.container_name}/root/.ssh/authorized_keys --mode 0400"
     # rubocop:enable Layout/LineLength
     action :nothing
+    # we need to sleep as we need to wait for the container to boot. This sucks, but it's enough for now
+    notifies :sleep, "chef_sleep[wait_for_container_#{new_resource.container_name}]", :before
   end
 
   # rubocop:disable Layout/LineLength
@@ -164,8 +170,8 @@ action :create do
   node.override["bender"]["containers"]["marvin"]["ipv6_address"] = get_ipv6_address(new_resource.container_name)
 
   new_resource.forwarded_ports.each do |portdesc|
-    protocols = portdesc["protocol"].to_s == "all" ? %i[tcp udp] : [portdesc["protocol"].to_sym]
-    versions = portdesc["ip_version"].to_s == "all" ? %i[ipv4 ipv6] : [portdesc["ip_version"].to_sym]
+    protocols = portdesc["protocol"].to_s == "all" ? %i(tcp udp) : [portdesc["protocol"].to_sym]
+    versions = portdesc["ip_version"].to_s == "all" ? %i(ipv4 ipv6) : [portdesc["ip_version"].to_sym]
     external = portdesc["external_port"]
     internal = portdesc["internal_port"]
 
@@ -277,7 +283,7 @@ action_class do # rubocop:disable Metrics/BlockLength
   end
 
   def split_ip(ip)
-    return nil if ip.nil?
+    return if ip.nil?
 
     ip.split("/")[0]
   end

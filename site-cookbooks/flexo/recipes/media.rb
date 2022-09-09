@@ -1,7 +1,7 @@
-Chef::Recipe.include Flexo::RandomPassword
+Chef::DSL::Recipe.include Flexo::RandomPassword
 
 package "install_deps_for_media" do
-  package_name %w[git unrar curl sqlite3]
+  package_name %w(git unrar curl sqlite3)
 end
 
 node.override["nodejs"]["repo"] = "https://deb.nodesource.com/node_18.x"
@@ -191,7 +191,7 @@ end
       [Install]
       WantedBy=multi-user.target
     EOU
-    action %i[create enable start]
+    action %i(create enable start)
   end
 end
 # rubocop:enable Metrics/BlockLength
@@ -205,7 +205,7 @@ radarr_listen_d = "#{media_d}/downloads/movies"
   directory dir do
     user node["flexo"]["media"]["username"]
     group "media"
-    mode 0o750
+    mode '750'
   end
 end
 
@@ -213,7 +213,7 @@ remote_file "#{Chef::Config[:file_cache_path]}/radarr.tar.gz" do
   source 'http://radarr.servarr.com/v1/update/master/updatefile?os=linux&runtime=netcore&arch=x64'
   user node["flexo"]["media"]["username"]
   group "media"
-  mode 0o644
+  mode '644'
   notifies :run, "execute[unpack_radarr]", :immediately
 end
 
@@ -241,7 +241,7 @@ systemd_unit "radarr.service" do
     [Install]
     WantedBy=multi-user.target
   EOU
-  action %i[create enable start]
+  action %i(create enable start)
 end
 
 directory "/var/www/" do

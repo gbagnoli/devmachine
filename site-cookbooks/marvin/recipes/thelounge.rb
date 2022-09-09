@@ -48,7 +48,7 @@ systemd_unit "thelounge.service" do
     [Install]
     WantedBy = multi-user.target
   EOU
-  action %i[create enable start]
+  action %i(create enable start)
 end
 
 nginx_site "thelounge.tigc.eu" do

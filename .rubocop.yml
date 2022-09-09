@@ -24,6 +24,9 @@ Style/HashTransformKeys:
 Style/HashTransformValues:
   Enabled: true
 
+Style/PercentLiteralDelimiters:
+  Enabled: false
+
 Lint/RaiseException:
   Enabled: false
 

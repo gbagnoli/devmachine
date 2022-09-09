@@ -39,7 +39,7 @@ node["syncthing"]["users"].each do |user, conf|
   next if node["syncthing"]["skip_service"]
 
   service "syncthing@#{user}" do
-    action %i[enable start]
+    action %i(enable start)
     provider Chef::Provider::Service::Systemd
   end
 end

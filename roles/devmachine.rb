@@ -42,7 +42,7 @@ default_attributes(
       "versions" => ["2.7.18", "3.10.2", "3.10.6"],
       "user_global" => "3.10.6 2.7.18",
     },
-    "languages" => %w[en it],
+    "languages" => %w(en it),
     "install_latex" => true,
     "install_fonts" => true,
   },
@@ -63,8 +63,8 @@ default_attributes(
     "security" => {
       "kernel" => {
         "enable_module_loading" => true,
-        "disable_filesystems" => %w[cramfs freevxfs jffs2 hfs
-                                    hfsplus squashfs udf],
+        "disable_filesystems" => %w(cramfs freevxfs jffs2 hfs
+                                    hfsplus squashfs udf),
       },
     },
   },

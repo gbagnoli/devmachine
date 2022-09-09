@@ -20,7 +20,7 @@ ark 'kitty' do
 end
 
 directory "/usr/local/bin/" do
-  mode 0o755
+  mode '755'
 end
 
 bin = "/usr/local/bin/kitty"
@@ -67,7 +67,7 @@ node["kitty"]["users"].to_a.each do |info|
     directory d do
       owner info["user"]
       group info["group"]
-      mode 0o750
+      mode '750'
     end
   end
   next if info["user"]["skip_config"]
@@ -77,7 +77,7 @@ node["kitty"]["users"].to_a.each do |info|
   file kitty_conf do
     owner info["user"]
     group info["group"]
-    mode 0o640
+    mode '640'
     content <<~EOH
       copy_on_select yes
       map cmd+c        copy_to_clipboard

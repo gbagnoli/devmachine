@@ -2,6 +2,7 @@
 
 resource_name :gnome_autostart
 provides :gnome_autostart
+unified_mode true
 
 property :script_content, String, required: true
 property :user, String, required: true
@@ -10,7 +11,7 @@ property :comment, String, default: ""
 property :shell, String, default: "/bin/bash"
 
 action :install do
-  %w[.local .local/bin .local/logs .config .config/autostart].each do |dir|
+  %w(.local .local/bin .local/logs .config .config/autostart).each do |dir|
     directory "#{home}/#{dir}" do
       owner user
       group group

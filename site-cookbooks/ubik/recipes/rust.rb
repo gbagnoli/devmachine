@@ -80,7 +80,7 @@ end
 
 remote_file "/usr/src/rust-analyzer.gz" do
   source lazy { node.run_state["run_analyzer_url"].chomp } # rubocop:disable Lint/AmbiguousBlockAssociation
-  mode 0o644
+  mode '644'
   notifies :run, "execute[unpack rust analyzer]", :immediately
 end
 
@@ -90,5 +90,5 @@ execute "unpack rust analyzer" do
 end
 
 file "/usr/local/bin/rust-analyzer" do
-  mode 0o755
+  mode '755'
 end

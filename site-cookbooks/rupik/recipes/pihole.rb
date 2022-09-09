@@ -8,7 +8,7 @@ system_containers_path = "#{root}/system"
 user_containers_path = "#{root}/#{user["login"]}"
 
 directory root do
-  mode 0o755
+  mode '755'
 end
 
 [{path: system_containers_path, owner: "root", group: "root",
@@ -23,13 +23,13 @@ config: "/home/#{user["login"]}/.config/containers/storage.conf"}].each do |info
   directory info[:path] do
     owner info[:owner]
     group info[:group]
-    mode 0o775
+    mode '775'
   end
 
   directory File.dirname(info[:config]) do
     owner info[:owner]
     group info[:group]
-    mode 0o775
+    mode '775'
     recursive true
   end
 
@@ -67,7 +67,7 @@ link "/etc/resolv.conf" do
 end
 
 service "systemd-resolved" do
-  action %i[nothing]
+  action %i(nothing)
 end
 
 directory "/etc/pihole"
@@ -92,7 +92,7 @@ systemd_unit "pihole.service" do
     PIDFile=%t/container-03561845db5d7f5a8ac0729a15d9e89cd0188c276bc827d20f2eeb1976b11156.pid
     Type=forking
   EOU
-  action %i[create enable start]
+  action %i(create enable start)
 end
 
 cookbook_file "/usr/local/bin/update_pihole" do

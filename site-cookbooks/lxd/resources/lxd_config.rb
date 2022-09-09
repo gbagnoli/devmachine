@@ -1,5 +1,6 @@
 resource_name :lxd_config
 provides :lxd_config
+unified_mode true
 property :hostname, String, name_property: true
 property :content, String, required: true
 default_action :create

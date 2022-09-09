@@ -43,7 +43,7 @@ template "/etc/network/interfaces.d/eth0" do
 end
 
 service "wicd" do
-  action %i[stop disable]
+  action %i(stop disable)
 end
 
 # neovim pinning

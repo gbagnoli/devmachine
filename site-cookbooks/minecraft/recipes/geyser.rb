@@ -5,7 +5,7 @@ gdir = "#{config["data_directory"]}/geyser"
 directory gdir do
   owner config["user"]
   group config["group"]
-  mode 0o755
+  mode '755'
 end
 
 remote_file "#{gdir}/geyser.jar" do
@@ -32,5 +32,5 @@ systemd_unit "geyser.service" do
     [Install]
     WantedBy=multi-user.target
   EOU
-  action %i[create enable start]
+  action %i(create enable start)
 end

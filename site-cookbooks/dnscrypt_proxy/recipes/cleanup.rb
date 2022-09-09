@@ -12,7 +12,7 @@ apt_package "dnscrypt-proxy" do
   action :nothing
 end
 
-%w[dnscrypt-autoinstall dnscrypt-autoinstall-backup].each do |svc|
+%w(dnscrypt-autoinstall dnscrypt-autoinstall-backup).each do |svc|
   service svc do
     action :nothing
   end
@@ -25,7 +25,7 @@ directory node["dnscrypt_proxy"]["autoinstall_src_dir"] do
   notifies :stop, "service[dnscrypt-autoinstall-backup]", :immediately
 end
 
-%w[autoinstall.service autoinstall-backupi.service autoinstall.conf].each do |f|
+%w(autoinstall.service autoinstall-backupi.service autoinstall.conf).each do |f|
   file "/etc/systemd/system/dnscrypt-#{f}" do
     action :delete
   end

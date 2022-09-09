@@ -37,13 +37,13 @@ npm_package "quakejs" do
   action :nothing
 end
 
-%w[base base/baseq3].each do |d|
+%w(base base/baseq3).each do |d|
   directory "#{srcdir}/#{d}" do
     user conf["user"]
     group conf["group"]
   end
 end
-%w[autoexec.cfg server.cfg bots.cfg server.cfg levels.cfg].each do |f|
+%w(autoexec.cfg server.cfg bots.cfg server.cfg levels.cfg).each do |f|
   template "#{srcdir}/base/baseq3/#{f}" do
     source "#{f}.erb"
     owner conf["user"]
@@ -97,10 +97,10 @@ systemd_unit "quakejs.service" do
     [Install]
     WantedBy=multi-user.target
   EOH
-  action %i[create enable start]
+  action %i(create enable start)
 end
 
-%w[/var/www /var/www/q3a].each do |d|
+%w(/var/www /var/www/q3a).each do |d|
   directory d do
     owner "www-data"
     group "www-data"

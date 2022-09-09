@@ -1,5 +1,6 @@
 resource_name :bender_vhost
 provides :bender_vhost
+unified_mode true
 
 file_check = {
   "file should exists" => lambda { |path|
@@ -16,17 +17,17 @@ container_check = {
 property :vhost_name, String, name_property: true
 property :server_name, [Array, String], required: true
 property :port, [Integer, NilClass], default: nil
-property :upstream_url, [String, NilClass], default: nil
-property :upstream_protocol, String, default: "http", equal_to: %w[http https]
-property :container, [String, NilClass], default: nil, callbacks: container_check
-property :ssl, [TrueClass, FalseClass], default: false
-property :letsencrypt, [TrueClass, FalseClass], default: false
-property :letsencrypt_common_name, [String, NilClass], default: nil
-property :letsencrypt_contact, [String, NilClass], default: nil
+property :upstream_url, [String, NilClass]
+property :upstream_protocol, String, default: "http", equal_to: %w(http https)
+property :container, [String, NilClass], callbacks: container_check
+property :ssl, [true, false], default: false
+property :letsencrypt, [true, false], default: false
+property :letsencrypt_common_name, [String, NilClass]
+property :letsencrypt_contact, [String, NilClass]
 property :letsencrypt_alt_names, [Array, NilClass], default: nil
-property :ssl_cert_path, [String, NilClass], default: nil, callbacks: file_check
-property :ssl_key_path, [String, NilClass], default: nil, callbacks: file_check
-property :cloudflare, [TrueClass, FalseClass], default: false
+property :ssl_cert_path, [String, NilClass], callbacks: file_check
+property :ssl_key_path, [String, NilClass], callbacks: file_check
+property :cloudflare, [true, false], default: false
 
 action :create do
   port = new_resource.ssl ? "443" : new_resource.port || "80"

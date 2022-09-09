@@ -24,7 +24,7 @@ if conf['user_global']
   end
 end
 
-%w[pip pipenv].each do |egg|
+%w(pip pipenv).each do |egg|
   pyenv_pip egg do
     user user
   end

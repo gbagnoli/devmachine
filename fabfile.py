@@ -32,10 +32,7 @@ sudoers = "/etc/sudoers.d/chef"
 
 def vendor() -> None:
     with settings(hide("stdout")):
-        try:
-            local("berks vendor")
-        except Exception:
-            local("bundle exec berks vendor")
+        local("chef exec berks vendor")
 
 
 def validate_secrets(
