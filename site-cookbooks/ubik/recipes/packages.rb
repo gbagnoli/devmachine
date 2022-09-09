@@ -179,6 +179,7 @@ if node["lsb"]["codename"] == "jammy"
   # remove firefox snap
   snap_package 'firefox' do
     action :remove
+    only_if { ::File.exist?('/run/snapd.socket') }
   end
 
   flatpak_install 'flathub'
