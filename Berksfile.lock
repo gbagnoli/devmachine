@@ -42,6 +42,10 @@ DEPENDENCIES
     path: site-cookbooks/podman
   profile_sync_daemon
     path: site-cookbooks/profile_sync_daemon
+  pyenv
+    git: https://github.com/gbagnoli/pyenv
+    revision: ad0a6867c2f17e7de34f54cd2e1fbb2b85cda138
+    branch: ubuntu-jammy
   rclone
     path: site-cookbooks/rclone
   ruby_rbenv
