@@ -44,7 +44,7 @@ DEPENDENCIES
     path: site-cookbooks/profile_sync_daemon
   pyenv
     git: https://github.com/gbagnoli/pyenv
-    revision: e60d8b78ea00ad8741fbd894c30973685a99e3f2
+    revision: 9ee0b90befbebb0386d5935b56b6a9e7e7ca0dbb
     branch: ubuntu-jammy
   rclone
     path: site-cookbooks/rclone
