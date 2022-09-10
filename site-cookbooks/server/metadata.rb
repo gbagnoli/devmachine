@@ -13,7 +13,7 @@ chef_version ">=13"
 supports "ubuntu", ">= 18.04"
 
 depends "chef_client_updater"
-depends "datadog", "<4.0.0"
+depends "datadog"
 depends "hardening"
 depends "logrotate"
 depends "oauth2_proxy"
