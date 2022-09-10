@@ -1,22 +1,19 @@
 version: 2.1
 orbs:
-  ruby: circleci/ruby@1.1.2
+  ruby: circleci/ruby@1.8.0
 jobs:
   style:
     docker:
-      - image: 'cimg/ruby:2.7'
+      - image: 'cimg/ruby:3.1'
     steps:
       - checkout
       - ruby/install-deps
-      - ruby/rubocop-check:
-          check-path: site-cookbooks roles
-          label: Inspecting with Rubocop
       - run:
-          command: bundle exec foodcritic -B site-cookbooks -R roles
+          command: bundle exec cookstyle site-cookbooks roles
 
-  ubik_2004:
+  ubik_2204:
     machine:
-      image: ubuntu-2004:202101-01
+      image: ubuntu-2204:202101-01
     steps:
       - checkout
       - ruby/install-deps
@@ -27,15 +24,15 @@ jobs:
             BUNDLE_GEMFILE: .circleci/Gemfile
 
       - run:
-          command: bundle exec kitchen test ubik-ubuntu-2004
+          command: bundle exec kitchen test ubik-ubuntu-2204
           no_output_timeout: 1200
           environment:
             KITCHEN_YAML: .kitchen.ci.yml
             BUNDLE_GEMFILE: .circleci/Gemfile
 
-  marvin_2004:
+  marvin_2204:
     machine:
-      image: ubuntu-2004:202101-01
+      image: ubuntu-2204:202101-01
     steps:
       - checkout
       - ruby/install-deps
@@ -45,15 +42,15 @@ jobs:
             BUNDLE_GEMFILE: .circleci/Gemfile
 
       - run:
-          command: bundle exec kitchen test marvin-ubuntu-2004
+          command: bundle exec kitchen test marvin-ubuntu-2204
           no_output_timeout: 1200
           environment:
             KITCHEN_YAML: .kitchen.ci.yml
             BUNDLE_GEMFILE: .circleci/Gemfile
 
-  bender_2004:
+  bender_2204:
     machine:
-      image: ubuntu-2004:202101-01
+      image: ubuntu-2204:202101-01
     steps:
       - checkout
 
@@ -63,7 +60,7 @@ jobs:
             BUNDLE_GEMFILE: .circleci/Gemfile
 
       - run:
-          command: bundle exec kitchen test bender-ubuntu-2004
+          command: bundle exec kitchen test bender-ubuntu-2204
           no_output_timeout: 1200
           environment:
             KITCHEN_YAML: .kitchen.ci.yml
@@ -74,12 +71,12 @@ workflows:
   converge:
     jobs:
       - style
-      # - ubik_2004:
+      # - ubik_2204:
       #     requires:
       #       - style
-      # - marvin_2004:
+      # - marvin_2204:
       #     requires:
       #       - style
-      # - bender_2004:
+      # - bender_2204:
       #     requires:
       #       - style
