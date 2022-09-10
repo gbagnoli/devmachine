@@ -12,7 +12,6 @@ node.override["sysctl"]["params"]["net"]["ipv4"]["ip_forward"] = 1
 node.override["sysctl"]["params"]["net"]["ipv6"]["conf"]["all"]["forwarding"] = 1
 node.override["sysctl"]["params"]["net"]["ipv6"]["conf"]["all"]["disable_ipv6"] = 0
 
-# https://lxd.readthedocs.io/en/latest/production-setup/
 [
   { domain: "*", type: "soft", item: "nofile", value: "1048576" },
   { domain: "*", type: "hard", item: "nofile", value: "1048576" },
@@ -21,11 +20,13 @@ node.override["sysctl"]["params"]["net"]["ipv6"]["conf"]["all"]["disable_ipv6"] 
   { domain: "*", type: "soft", item: "memlock", value: "unlimited" },
   { domain: "*", type: "hard", item: "memlock", value: "unlimited" },
 ].each do |conf|
-  set_limit conf[:domain] do
+  limit "#{conf[:path]}-#{conf[:domain]}-#{conf[:type]}-#{conf[:item]}" do
+    domain conf[:domain]
+    path '/etc/security/limits.conf'
     type conf[:type]
     item conf[:item]
     value conf[:value]
-    use_system true
+    comment 'https://lxd.readthedocs.io/en/latest/production-setup/'
   end
 end
 
