@@ -6,15 +6,6 @@ end
 include_recipe "datadog::dd-agent"
 include_recipe "datadog::dd-handler"
 
-include_recipe "nginx::http_stub_status_module"
-
-node.override["datadog"]["nginx"]["instances"] = [{
-  "nginx_status_url" => "http://localhost:#{node["nginx"]["status"]["port"]}/nginx_status/",
-  "tags" => %w(bender prod),
-}]
-
-include_recipe "datadog::nginx"
-
 package "dd-check-btrfs"
 directory "/etc/dd-agent/conf.d" do
   owner "dd-agent"
