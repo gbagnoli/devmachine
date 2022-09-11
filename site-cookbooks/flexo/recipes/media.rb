@@ -47,7 +47,7 @@ execute "setfacl_#{media_d}" do
 end
 
 venv_base_path = "/var/lib/virtualenvs"
-{"3.8" => "python3"}.each do |version, pfx|
+{"3.10" => "python3"}.each do |version, pfx|
   package "python#{version}" do
     package_name ["python#{version}", "python#{version}-dev",
                   "#{pfx}-wheel", "#{pfx}-pip", "#{pfx}-setuptools",
@@ -70,7 +70,7 @@ end
              "-q --datadir=%<datadir>s -p %<port>s",
     config_fname: "config.ini",
     py_packages: [],
-    py_runtime: "3.8",
+    py_runtime: "3.10",
     dir: "series",
     enabled: true,
   }

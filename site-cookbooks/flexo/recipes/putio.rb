@@ -40,7 +40,7 @@ template "/usr/local/bin/rclone_putio" do
   )
 end
 
-venv = "/var/lib/virtualenvs/3.8/putio_automator"
+venv = "/var/lib/virtualenvs/3.10/putio_automator"
 
 execute "create_venv_#{venv}" do
   command "/usr/bin/python3 -m virtualenv #{venv}"
