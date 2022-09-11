@@ -2,7 +2,7 @@
 set -eu
 set -o pipefail
 
-CHEF_WORKSTATION='wget https://packages.chef.io/files/stable/chef-workstation/21.10.640/ubuntu/20.04/chef-workstation_21.10.640-1_amd64.deb'
+CHEF_WORKSTATION='wget https://packages.chef.io/files/stable/chef-workstation/22.7.1006/ubuntu/20.04/chef-workstation_22.7.1006-1_amd64.deb'
 CWDEB='/tmp/chef-workstation.deb'
 APTGET="sudo apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confnew"
 
