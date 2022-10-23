@@ -58,8 +58,6 @@ DEPENDENCIES
     path: site-cookbooks/syncthing
   ubik
     path: site-cookbooks/ubik
-  upik
-    path: site-cookbooks/upik
   user
     path: site-cookbooks/user
   yubico
@@ -185,10 +183,6 @@ GRAPH
     sudo (>= 0.0.0)
     user (>= 0.0.0)
     yubico (>= 0.0.0)
-  upik (0.1.0)
-    btrbk (>= 0.0.0)
-    chef_client_updater (>= 0.0.0)
-    dnscrypt_proxy (>= 0.0.0)
   user (0.1.0)
     git (>= 0.0.0)
     gnome (>= 0.0.0)

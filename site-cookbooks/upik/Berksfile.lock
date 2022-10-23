@@ -1,9 +1,0 @@
-DEPENDENCIES
-  upik
-    path: .
-    metadata: true
-
-GRAPH
-  omnibus_updater (2.0.0)
-  upik (0.1.0)
-    omnibus_updater (~> 2.0.0)
