@@ -289,3 +289,29 @@ download_m3u() {
 exiftool_map_url() {
   exiftool -config ~/.local/src/exiftool_GPS2MapUrl.config -GoogleMapsUrl "$@"
 }
+
+dd_to_iso() {
+  local output
+  local device
+  local blocksize
+  local volumesize
+  [ $# -lt 1 ] && echo >&2 "usage: $0 <output> [device]" && return 1
+  output="$1"
+  if [ $# -ge 2 ]; then
+    device="$2"
+    shift
+  else
+    device="/dev/cdrom"
+  fi
+  set -o pipefail
+  isoinfo="$(isoinfo -d -i "$device" | grep -i -E 'block size|volume size')"
+  local err=$?
+  if [ $err -ne 0 ]; then
+    echo >&2 "Could not run isoinfo"
+    return $err
+  fi
+  blocksize="$(echo "$isoinfo" | grep -i 'block' | sed -e 's/.*: //')"
+  volumesize="$(echo "$isoinfo" | grep -i 'volume' | sed -e 's/.*: //')"
+  echo "Device: $device, block size: $blocksize, volume size: $volumesize"
+  dd if="$device" bs="$blocksize" count="$volumesize" status=progress | xz -T 0 -c -z - > "$output"
+}
