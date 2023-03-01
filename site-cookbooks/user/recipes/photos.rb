@@ -24,7 +24,7 @@ file "#{home}/.local/bin/gpicsync" do
   content <<~EOC
     #!/bin/bash
     cd #{home}/.local/src/gpicsync/src/
-    /usr/bin/python gpicsync.py "$@"
+    /usr/bin/python3 gpicsync.py "$@"
           EOC
   owner user
   group node["user"]["group"]
