@@ -24,3 +24,13 @@ gnome_extension "freon@UshakovVasilii_Github.yahoo.com" do
   EOH
   deps %w(nvme-cli)
 end
+
+gnome_extension "emoji-selector@maestroschan.fr" do
+  repository "https://github.com/maoschanz/emoji-selector-for-gnome.git"
+  install_script <<-EOH
+  glib-compile-schemas %<name>s
+  rm -rf %<install_dir>s
+  cp -r %<src_dir>s/%<name>s %<install_dir>s
+  chmod o+rX -R %<install_dir>s
+  EOH
+end
