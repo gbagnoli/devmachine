@@ -81,11 +81,3 @@ apt_repository "wireguard" do
   uri "ppa:wireguard/wireguard"
   action :remove
 end
-
-apt_repository "dropbox" do
-  uri "http://linux.dropbox.com/ubuntu"
-  distribution "bionic"
-  arch "amd64"
-  components ["main"]
-  key "1C61A2656FB57B7E4DE0F4C1FC918B335044912E"
-end

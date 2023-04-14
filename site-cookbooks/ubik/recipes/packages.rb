@@ -30,10 +30,7 @@ package "base install" do
 end
 
 packages = {
-  "dropbox" => {
-    deb: "https://linux.dropbox.com/packages/ubuntu/dropbox_2015.10.28_amd64.deb",
-    only_if_not_installed: true,
-  }, "keybase" => {
+  "keybase" => {
     deb: "https://prerelease.keybase.io/keybase_amd64.deb",
     only_if_not_installed: true,
   }, "slack-desktop" => {
@@ -100,17 +97,6 @@ packages.each do |name, desc|
     action :nothing
     command "dpkg -i #{debfile}"
   end
-end
-
-# dropbox daemon
-remote_file "/usr/src/dropbox-daemon.tar.gz" do
-  source "https://www.dropbox.com/download?plat=lnx.x86_64"
-end
-
-# dropbox control daemon from cli
-remote_file "/usr/local/bin/dropbox.py" do
-  source "https://www.dropbox.com/download?dl=packages/dropbox.py"
-  mode "0755"
 end
 
 vagrant_plugins = %w(
@@ -188,6 +174,9 @@ if node["lsb"]["codename"] == "jammy"
   flatpak_app 'app/com.discordapp.Discord/x86_64/stable'
   flatpak_app 'com.spotify.Client'
   flatpak_app 'org.inkscape.Inkscape'
+  flatpak_app 'com.mastermindzh.tidal-hifi'
+  flatpak_app 'com.dropbox.Client'
+  flatpak_app 'us.zoom.Zoom'
 else
   apt_repository "firefox-beta" do
     uri "ppa:mozillateam/firefox-next"
