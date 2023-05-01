@@ -39,6 +39,8 @@ default["bender"]["containers"]["flexo"]["volumes"] = [
   },
 ]
 
+# PENTOLINO (retired)  - id 4
+
 # BLOODSEA
 default["bender"]["containers"]["bloodsea"]["id"] = 5
 default["bender"]["containers"]["bloodsea"]["image"] = "ubuntu:18.04"
@@ -53,13 +55,7 @@ default["bender"]["containers"]["bloodsea"]["forwarded_ports"] = [
 default["bender"]["containers"]["bloodsea"]["external_ipv6"] = nil
 default["bender"]["containers"]["bloodsea"]["volumes"] = nil
 
-# BEELZEBOT (retired)
-default["bender"]["containers"]["beelzebot"]["id"] = 6
-default["bender"]["containers"]["beelzebot"]["image"] = "ubuntu:20.04"
-default["bender"]["containers"]["beelzebot"]["forwarded_ports"] = []
-default["bender"]["containers"]["beelzebot"]["external_ipv6"] = nil
-default["bender"]["containers"]["beelzebot"]["volumes"] = nil
-default["bender"]["containers"]["beelzebot"]["action"] = :delete
+# BEELZEBOT (retired) - id 6
 
 # WHITESTONE
 default["bender"]["containers"]["whitestone"]["id"] = 7
