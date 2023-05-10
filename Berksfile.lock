@@ -65,7 +65,7 @@ DEPENDENCIES
 
 GRAPH
   acme (4.1.6)
-  apt (7.5.11)
+  apt (7.5.12)
   argonone (0.1.0)
   ark (6.0.21)
     seven_zip (>= 3.1)
