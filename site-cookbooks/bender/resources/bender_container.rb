@@ -144,7 +144,7 @@ action :create do
   execute "lxd_lauch_container_#{new_resource.container_name}" do
     # rubocop:disable Layout/LineLength
     command "lxc launch -p default -p #{new_resource.container_name} #{new_resource.image} #{new_resource.container_name}"
-    not_if { ::File.exist?("/var/lib/lxd/containers/#{new_resource.container_name}/metadata.yaml") }
+    not_if "/usr/bin/nsenter -t \"$(cat /var/snap/lxd/common/lxd.pid)\" -m /usr/bin/test -f \"/var/snap/lxd/common/lxd/storage-pools/containers/containers/#{new_resource.container_name}/metadata.yaml\""
     notifies :run, "execute[copy_ssh_config_for_root_#{new_resource.container_name}]", :immediately
     # rubocop:enable Layout/LineLength
   end
