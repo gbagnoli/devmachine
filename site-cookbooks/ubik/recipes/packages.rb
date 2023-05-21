@@ -7,7 +7,7 @@ packages = %w(
   dstat exfat-fuse exfat-utils gconf-service gconf2 gdm3
   gnome gnome-shell gnome-terminal google-chrome-stable
   google-talkplugin gstreamer1.0-libav gstreamer1.0-plugins-ugly
-  gstreamer1.0-pulseaudio gvfs-bin htop keepassx libappindicator1
+  gstreamer1.0-pulseaudio gvfs-bin htop libappindicator1
   libappindicator1 libcurl4 libgcrypt20 libgtk2.0-0
   libnotify4 libnss3 libsecret-1-0 libudev1 libvirt-dev libxml2-dev
   libxslt1-dev libxss1 libxtst6 network-manager-openvpn-gnome openvpn powertop
@@ -177,6 +177,7 @@ if node["lsb"]["codename"] == "jammy"
   flatpak_app 'com.mastermindzh.tidal-hifi'
   flatpak_app 'com.dropbox.Client'
   flatpak_app 'us.zoom.Zoom'
+  flatpak_app 'org.keepassxc.KeePassXC'
 else
   apt_repository "firefox-beta" do
     uri "ppa:mozillateam/firefox-next"
