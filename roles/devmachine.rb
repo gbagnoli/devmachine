@@ -64,7 +64,7 @@ default_attributes(
       "kernel" => {
         "enable_module_loading" => true,
         "disable_filesystems" => %w(cramfs freevxfs jffs2 hfs
-                                    hfsplus squashfs udf),
+                                    hfsplus squashfs),
       },
     },
   },
