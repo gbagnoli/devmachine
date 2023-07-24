@@ -1,7 +1,3 @@
-apt_repository "znc" do
-  uri "ppa:teward/znc"
-end
-
 package "znc"
 zncd = "/var/lib/znc"
 
