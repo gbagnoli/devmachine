@@ -10,6 +10,7 @@ include_recipe "nodejs::npm"
 
 users = node["server"]["users"].reject { |_, v| v["delete"] }.keys.dup
 users << "plex"
+users << "jellyfin"
 
 group "media" do
   gid node["flexo"]["media"]["gid"]
@@ -249,11 +250,16 @@ directory "/var/www/" do
   group "www-data"
 end
 
-cookbook_file "/var/www/index.html" do
-  source "index.html"
+template "/var/www/index.html" do
+  source "index.html.erb"
   owner "www-data"
   group "www-data"
+  variables(
+    jellyfin_base_url: node["flexo"]["jellyfin"]["base_url"],
+  )
 end
+
+include_recipe "flexo::jellyfin"
 
 nginx_site "media.tigc.eu" do
   template "media.nginx.erb"
@@ -262,6 +268,8 @@ nginx_site "media.tigc.eu" do
     sickchill_port: node["flexo"]["media"]["sickchill"]["port"],
     couchpotato_port: node["flexo"]["media"]["couchpotato"]["port"],
     radarr_port: node["flexo"]["media"]["radarr"]["port"],
+    jellyfin_port: node["flexo"]["jellyfin"]["port"],
+    jellyfin_base_url: node["flexo"]["jellyfin"]["base_url"],
     server_name: "media.tigc.eu",
     oauth2_proxy_port: lazy { node["server"]["oauth2_proxy"]["http_port"] },
     oauth2_proxy_upstream_port: lazy { node["server"]["oauth2_proxy"]["upstream_port"] },
