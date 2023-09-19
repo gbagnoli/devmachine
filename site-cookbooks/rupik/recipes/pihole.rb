@@ -128,7 +128,7 @@ end
 systemd_unit 'unifi.service' do
   content <<EOU
   [Unit]
-  Description=Podman container-a7a0bb5683b930b739c8951fc08d4c558262499db61cc2e99d9fed5828224baa.service
+  Description=Podman container-7d1ce893c913637f1977fe61011eb693a007ad93ba2080a64e59e7a42299a35f.service
   Documentation=man:podman-generate-systemd(1)
   Wants=network-online.target
   After=network-online.target
@@ -138,10 +138,10 @@ systemd_unit 'unifi.service' do
   Environment=PODMAN_SYSTEMD_UNIT=%n
   Restart=on-failure
   TimeoutStopSec=70
-  ExecStart=/usr/bin/podman start a7a0bb5683b930b739c8951fc08d4c558262499db61cc2e99d9fed5828224baa
-  ExecStop=/usr/bin/podman stop -t 10 a7a0bb5683b930b739c8951fc08d4c558262499db61cc2e99d9fed5828224baa
-  ExecStopPost=/usr/bin/podman stop -t 10 a7a0bb5683b930b739c8951fc08d4c558262499db61cc2e99d9fed5828224baa
-  PIDFile=/run/containers/storage/btrfs-containers/a7a0bb5683b930b739c8951fc08d4c558262499db61cc2e99d9fed5828224baa/userdata/conmon.pid
+  ExecStart=/usr/bin/podman start 7d1ce893c913637f1977fe61011eb693a007ad93ba2080a64e59e7a42299a35f
+  ExecStop=/usr/bin/podman stop -t 10 7d1ce893c913637f1977fe61011eb693a007ad93ba2080a64e59e7a42299a35f
+  ExecStopPost=/usr/bin/podman stop -t 10 7d1ce893c913637f1977fe61011eb693a007ad93ba2080a64e59e7a42299a35f
+  PIDFile=/run/containers/storage/btrfs-containers/7d1ce893c913637f1977fe61011eb693a007ad93ba2080a64e59e7a42299a35f/userdata/conmon.pid
   Type=forking
 
   [Install]
