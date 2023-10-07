@@ -6,7 +6,8 @@ bs_ipv6 = node["bender"]["network"]["host"]["ipv6"]["addrs"][1]
 # MARVIN
 # id must be unique. Used for ips etc
 default["bender"]["containers"]["marvin"]["id"] = 2
-default["bender"]["containers"]["marvin"]["image"] = "ubuntu:18.04"
+default["bender"]["containers"]["marvin"]["image"] = "ubuntu:22.04"
+default["bender"]["containers"]["marvin"]["use_gpu"] = false
 # ssh auto-forwarded from base_ssh + id => 22
 # format:
 # [{internal_port: x, external_port: y, ip_version: <ipv4|ipv6|all>, protocol: <tcp|udp|all>}, {}]
@@ -23,7 +24,8 @@ default["bender"]["containers"]["marvin"]["volumes"] = nil
 
 # FLEXO
 default["bender"]["containers"]["flexo"]["id"] = 3
-default["bender"]["containers"]["flexo"]["image"] = "ubuntu:18.04"
+default["bender"]["containers"]["flexo"]["image"] = "ubuntu:22.04"
+default["bender"]["containers"]["flexo"]["use_gpu"] = true
 default["bender"]["containers"]["flexo"]["forwarded_ports"] = [
   # plex
   { protocol: "tcp", internal_port: 32_400, external_port: 32_400, ip_version: "all" },
@@ -43,7 +45,8 @@ default["bender"]["containers"]["flexo"]["volumes"] = [
 
 # BLOODSEA
 default["bender"]["containers"]["bloodsea"]["id"] = 5
-default["bender"]["containers"]["bloodsea"]["image"] = "ubuntu:18.04"
+default["bender"]["containers"]["bloodsea"]["image"] = "ubuntu:22.04"
+default["bender"]["containers"]["bloodsea"]["use_gpu"] = false
 default["bender"]["containers"]["bloodsea"]["forwarded_ports"] = [
   # syncthing
   { protocol: "tcp", external_port: 22_000, internal_port: 22_000, ip_version: "all",
@@ -59,7 +62,8 @@ default["bender"]["containers"]["bloodsea"]["volumes"] = nil
 
 # WHITESTONE
 default["bender"]["containers"]["whitestone"]["id"] = 7
-default["bender"]["containers"]["whitestone"]["image"] = "ubuntu:20.04"
+default["bender"]["containers"]["whitestone"]["image"] = "ubuntu:22.04"
+default["bender"]["containers"]["whitestone"]["use_gpu"] = false
 default["bender"]["containers"]["whitestone"]["forwarded_ports"] = [
   # minecraft
   { protocol: "tcp", external_port: 25_565, internal_port: 25_565, ip_version: "all",

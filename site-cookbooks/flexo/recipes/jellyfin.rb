@@ -6,6 +6,7 @@ apt_repository 'jellyfin' do
 end
 
 package "jellyfin"
+package "intel-opencl-icd"
 
 media_d = node["flexo"]["media"]["path"]
 jellyfin_d = "#{media_d}/jellyfin"

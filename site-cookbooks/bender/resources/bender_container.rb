@@ -103,6 +103,7 @@ property :external_ipv6, [String, NilClass], callbacks: ipv6_callbacks
 # snapshots scheduling support is merged but not released yet as of 3/12/18
 property :snapshots, [true, false], default: false
 property :volumes, Array, default: [], callbacks: volumes_callbacks
+property :use_gpu, [true, false], default: false
 default_action :create
 
 action :create do
@@ -136,6 +137,7 @@ action :create do
       ipv6_addr: ipv6_addr,
       bridge_interface: node["bender"]["network"]["containers"]["interface"],
       volumes: volumes,
+      use_gpu: use_gpu,
     )
     notifies :run, "execute[create_profile_#{new_resource.container_name}]", :immediately
     notifies :run, "execute[update_profile_#{new_resource.container_name}]", :immediately

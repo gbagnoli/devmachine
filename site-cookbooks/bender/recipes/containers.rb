@@ -46,5 +46,6 @@ node["bender"]["containers"].each do |name, conf|
     external_ipv6 conf["external_ipv6"]
     volumes conf["volumes"] || []
     action conf["action"] || :create
+    use_gpu conf["use_gpu"] || false
   end
 end
