@@ -171,7 +171,6 @@ if node["lsb"]["codename"] == "jammy"
   flatpak_install 'flathub'
   flatpak_app 'org.mozilla.firefox'
   flatpak_app 'org.freedesktop.Platform.ffmpeg-full/x86_64/20.08'
-  flatpak_app 'app/com.discordapp.Discord/x86_64/stable'
   flatpak_app 'com.spotify.Client'
   flatpak_app 'org.inkscape.Inkscape'
   flatpak_app 'com.mastermindzh.tidal-hifi'
