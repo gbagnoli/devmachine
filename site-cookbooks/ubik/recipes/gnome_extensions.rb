@@ -34,3 +34,12 @@ gnome_extension "emoji-selector@maestroschan.fr" do
   chmod o+rX -R %<install_dir>s
   EOH
 end
+
+gnome_extension "tailscale-status@maxgallup.github.com" do
+  repository "https://github.com/maxgallup/tailscale-status.git"
+  revision "main"
+  install_script <<-EOH
+  rm -rf %<install_dir>s
+  cp -r %<src_dir>s/%<name>s %<install_dir>s
+  EOH
+end
