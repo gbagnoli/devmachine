@@ -5,3 +5,7 @@ apt_repository 'tailscale' do
 end
 
 package 'tailscale'
+
+service 'tailscaled' do
+  action %i[start enable]
+end

@@ -1,17 +1,10 @@
-# frozen_string_literal: true
-
-name "rupik"
+name "tailscale"
 maintainer "Giacomo Bagnoli"
 maintainer_email "gbagnoli@gmail.com"
 license "MIT"
-description "Installs/Configures rubik"
+description "Installs and configure tailscale"
 version "0.1.0"
-
-depends "btrbk"
-depends "argonone"
-depends "podman"
-depends "tailscale"
 issues_url "https://github.com/gbagnoli/devmachine/issues"
 source_url "https://github.com/gbagnoli/devmachine"
 chef_version ">=14"
-supports "ubuntu", ">= 20.04"
+supports "ubuntu", ">= 22.04"

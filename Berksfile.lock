@@ -56,6 +56,8 @@ DEPENDENCIES
   seven_zip (<= 3.2.2)
   syncthing
     path: site-cookbooks/syncthing
+  tailscale
+    path: site-cookbooks/tailscale
   ubik
     path: site-cookbooks/ubik
   user
@@ -150,7 +152,7 @@ GRAPH
     argonone (>= 0.0.0)
     btrbk (>= 0.0.0)
     podman (>= 0.0.0)
-    ubik (>= 0.0.0)
+    tailscale (>= 0.0.0)
   server (0.1.0)
     chef_client_updater (>= 0.0.0)
     datadog (>= 0.0.0)
@@ -168,6 +170,7 @@ GRAPH
   ssh_known_hosts (7.0.0)
   sudo (5.4.7)
   syncthing (0.1.0)
+  tailscale (0.1.0)
   ubik (0.1.0)
     ark (>= 0.0.0)
     debconf (>= 0.0.0)
