@@ -150,6 +150,7 @@ GRAPH
     argonone (>= 0.0.0)
     btrbk (>= 0.0.0)
     podman (>= 0.0.0)
+    ubik (>= 0.0.0)
   server (0.1.0)
     chef_client_updater (>= 0.0.0)
     datadog (>= 0.0.0)
