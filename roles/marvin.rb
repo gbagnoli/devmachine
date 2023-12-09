@@ -4,6 +4,7 @@ run_list [
   "role[server]",
   "role[container]",
   "recipe[marvin::default]",
+  "recipe[tailscale::install]",
 ]
 
 default_attributes(
