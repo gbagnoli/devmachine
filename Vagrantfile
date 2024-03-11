@@ -8,25 +8,51 @@ Vagrant.configure("2") do |config|
 
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://vagrantcloud.com/search.
-  config.vm.box = "ubuntu/jammy64"
+  config.vm.define "ubuntu" do |ubuntu|
+    ubuntu.vm.box = "ubuntu/jammy64"
 
-  # Share an additional folder to the guest VM. The first argument is
-  # the path on the host to the actual folder. The second argument is
-  # the path on the guest to mount the folder. And the optional third
-  # argument is a set of non-required options.
-  # config.vm.synced_folder "../data", "/vagrant_data"
+    # Share an additional folder to the guest VM. The first argument is
+    # the path on the host to the actual folder. The second argument is
+    # the path on the guest to mount the folder. And the optional third
+    # argument is a set of non-required options.
+    # ubuntu.vm.synced_folder "../data", "/vagrant_data"
 
-  config.vm.provider "virtualbox" do |vb|
-    #   # Display the VirtualBox GUI when booting the machine
-    #   vb.gui = true
-    #
-    #   # Customize the amount of memory on the VM:
-     vb.memory = "1024"
+    ubuntu.vm.provider "virtualbox" do |vb|
+      #   # Display the VirtualBox GUI when booting the machine
+      #   vb.gui = true
+      #
+      #   # Customize the amount of memory on the VM:
+       vb.memory = "1024"
+    end
+    ubuntu.vm.provision :host_shell do |hs|
+      command = "sudo rm -rf #{__dir__}/local-mode-cache"
+      hs.inline = command
+    end
+    ubuntu.vm.provision "shell", path: "bootstrap/install_chef.sh", args: %w{ubuntu}
+    ubuntu.vm.provision "shell", path: "bootstrap/vagrant.sh"
   end
-  config.vm.provision :host_shell do |hs|
-    command = "sudo rm -rf #{__dir__}/local-mode-cache"
-    hs.inline = command
+
+  config.vm.define "calculon" do |calculon|
+    calculon.vm.box = "fedora/39-cloud-base"
+
+    # Share an additional folder to the guest VM. The first argument is
+    # the path on the host to the actual folder. The second argument is
+    # the path on the guest to mount the folder. And the optional third
+    # argument is a set of non-required options.
+    # calculon.vm.synced_folder "../data", "/vagrant_data"
+
+    calculon.vm.provider "virtualbox" do |vb|
+      #   # Display the VirtualBox GUI when booting the machine
+      #   vb.gui = true
+      #
+      #   # Customize the amount of memory on the VM:
+       vb.memory = "1024"
+    end
+    calculon.vm.provision :host_shell do |hs|
+      command = "sudo rm -rf #{__dir__}/local-mode-cache"
+      hs.inline = command
+    end
+    calculon.vm.provision "shell", path: "bootstrap/install_chef.sh", args: %w{fedora}
+    calculon.vm.provision "shell", path: "bootstrap/vagrant.sh", args: %w{localhost_calculon}
   end
-  config.vm.provision "shell", path: "bootstrap/install_chef.sh"
-  config.vm.provision "shell", path: "bootstrap/vagrant.sh"
 end

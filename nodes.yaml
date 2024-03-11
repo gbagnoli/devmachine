@@ -15,6 +15,7 @@ nodes:
   - devmachinetest
   - rupik
   - whitestone
+  - calculon
 
 require_secrets:
   - marvin
