@@ -40,7 +40,7 @@ packages = {
   "steam-launcher" => {
     deb: "https://steamcdn-a.akamaihd.net/client/installer/steam.deb",
     only_if_not_installed: true,
-  }, "vagrant" => "https://releases.hashicorp.com/vagrant/2.2.7/vagrant_2.2.7_x86_64.deb",
+  }, "vagrant" => "https://releases.hashicorp.com/vagrant/2.4.1/vagrant_2.4.1-1_amd64.deb",
   "discord" => {
     deps: %w(libc++1 libc++abi1),
     deb: "https://discordapp.com/api/download?platform=linux&format=deb",
