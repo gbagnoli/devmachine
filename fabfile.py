@@ -142,6 +142,7 @@ def install_git_hooks(here: str) -> None:
     pre_commit = os.path.join(here, ".git", "hooks", "pre-commit")
     pre_push = os.path.join(here, ".git", "hooks", "pre-push")
     hooks = {pre_commit: pre_commit_src, pre_push: pre_push_src}
+    local(f"mkdir -p {os.path.join(here, '.git', 'hooks')}")
     for dest, src in hooks.items():
         try:
             os.symlink(src, dest)
