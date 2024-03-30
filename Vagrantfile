@@ -11,7 +11,7 @@ Vagrant.configure("2") do |config|
   config.vm.define "ubuntu" do |ubuntu|
     ubuntu.vm.box = "ubuntu/jammy64"
 
-    calculon.vm.synced_folder(
+    ubuntu.vm.synced_folder(
       ".", "/vagrant",
       type: "rsync",
       rsync__exclude: ["local-mode-cache", ".git"],
@@ -43,5 +43,6 @@ Vagrant.configure("2") do |config|
 
     calculon.vm.provision "shell", path: "bootstrap/install_chef.sh", args: %w{fedora}
     calculon.vm.provision "shell", path: "bootstrap/vagrant.sh", args: %w{localhost_calculon}
+    calculon.ssh.forward_agent = true
   end
 end
