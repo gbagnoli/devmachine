@@ -131,8 +131,9 @@ end
 bash "install vundle" do
   action :nothing
   cwd home
+  user user
   code <<-EOH
-    sudo -l nvim +PluginInstall +qall!
+     echo | echo | vim +PluginInstall! +qall &>/dev/null
   EOH
 end
 
@@ -173,7 +174,12 @@ if node.platform_family? "debian"
     package "fasd"
   end
 elsif node.platform_family? "fedora"
-  # TODO: install fasd and liquidprompt on fedora
+  git "/usr/share/liquidprompt" do
+    repository "https://github.com/nojhan/liquidprompt.git"
+    action :sync
+    user "root"
+    revision "stable"
+  end
 end
 
 cookbook_file "#{home}/.config/liquid.theme" do
