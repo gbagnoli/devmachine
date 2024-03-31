@@ -9,7 +9,7 @@ default_attributes(
   "server" => {
     "users" => {
       "dario" => {
-        "unmanaged" => false,
+        "unmanaged" => true,
       },
     },
   },
