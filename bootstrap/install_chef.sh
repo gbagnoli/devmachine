@@ -9,7 +9,7 @@ fi
 
 if [[ "$1" == "ubuntu" ]]
 then
-  CHEF_WORKSTATION='wget https://packages.chef.io/files/stable/chef-workstation/21.10.640/el/8/chef-workstation-21.10.640-1.el8.x86_64.rpm'
+  CHEF_WORKSTATION='https://packages.chef.io/files/stable/chef-workstation/21.10.640/ubuntu/20.04/chef-workstation_21.10.640-1_amd64.deb'
   CWDEB='/tmp/chef-workstation.deb'
   APTGET="sudo apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confnew"
 
