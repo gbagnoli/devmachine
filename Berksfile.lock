@@ -7,6 +7,8 @@ DEPENDENCIES
     path: site-cookbooks/bender
   btrbk
     path: site-cookbooks/btrbk
+  calculon
+    path: site-cookbooks/calculon
   debconf
     git: https://github.com/ophymx/debconf.git
     revision: eab415649ba9a5ab9ab348ae098bf6bbf04cfdff
@@ -85,6 +87,9 @@ GRAPH
     lxd (>= 0.0.0)
     nginx (>= 0.0.0)
   btrbk (0.1.0)
+  calculon (0.1.0)
+    datadog (>= 0.0.0)
+    hostsfile (>= 0.0.0)
   chef_client_updater (3.12.3)
   chocolatey (3.0.0)
   datadog (4.19.0)
