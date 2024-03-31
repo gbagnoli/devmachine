@@ -90,11 +90,16 @@ if platform?("debian")
   package "libpython2.7-dev"
 end
 
-%w(vim neovim python3-dev python3-pip).each do |pkg|
+packages = value_for_platform(
+  %w{ubuntu debian} => {default: %w{python3-dev vim vim-nox python3-pip}},
+  %w{centos fedora} => {default: %w{python3-devel vim nvim python3-pip}},
+)
+
+packages.each do |pkg|
   package pkg
 end
 
-package "vim-nox" do
+package "nvim" do
   action :install
   notifies :run, "bash[set vim alternatives]", :immediately
 end
@@ -148,23 +153,25 @@ git "#{home}/.local/src/autoenv" do
   user user
 end
 
-package "liquidprompt"
-package "autossh"
-package "mosh"
-if platform?('debian')
-  remote_file "/usr/bin/fasd" do
-    source "https://raw.githubusercontent.com/clvv/fasd/master/fasd"
-    mode "0755"
-  end
-else
-  codename = "focal" # no jammy yet
-  apt_repository "fasd" do
-    uri "ppa:aacebedo/fasd"
-    distribution codename
-  end
+if node.platform_family?("debian")
+  package "liquidprompt"
 
-  package "fasd"
+  if platform?('debian')
+    remote_file "/usr/bin/fasd" do
+      source "https://raw.githubusercontent.com/clvv/fasd/master/fasd"
+      mode "0755"
+    end
+  else
+    codename = "focal" # no jammy yet
+    apt_repository "fasd" do
+      uri "ppa:aacebedo/fasd"
+      distribution codename
+    end
+
+    package "fasd"
+  end
 end
+# TODO: install fasd and liquidprompt on fedora
 
 cookbook_file "#{home}/.config/liquid.theme" do
   source "liquid.theme"
@@ -192,12 +199,6 @@ cookbook_file "#{home}/.profile" do
   mode "0640"
   owner user
   group group
-end
-
-if File.directory? "#{home}/Sync/Private/weechat"
-  link "#{home}/.weechat" do
-    to "#{home}/Sync/Private/weechat"
-  end
 end
 
 file "#{home}/.bashrc.local" do
