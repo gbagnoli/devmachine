@@ -92,16 +92,18 @@ end
 
 packages = value_for_platform(
   %w{ubuntu debian} => {default: %w{python3-dev vim vim-nox python3-pip}},
-  %w{centos fedora} => {default: %w{python3-devel vim nvim python3-pip}},
+  %w{centos fedora} => {default: %w{python3-devel vim neovim python3-pip}},
 )
 
-packages.each do |pkg|
-  package pkg
+package "editors" do
+  package_name packages
+  action :install
 end
 
 package "nvim" do
   action :install
   notifies :run, "bash[set vim alternatives]", :immediately
+  only_if { node.platform_family?("debian") }
 end
 
 
@@ -153,7 +155,7 @@ git "#{home}/.local/src/autoenv" do
   user user
 end
 
-if node.platform_family?("debian")
+if node.platform_family? "debian"
   package "liquidprompt"
 
   if platform?('debian')
@@ -170,8 +172,9 @@ if node.platform_family?("debian")
 
     package "fasd"
   end
+elsif node.platform_family? "fedora"
+  # TODO: install fasd and liquidprompt on fedora
 end
-# TODO: install fasd and liquidprompt on fedora
 
 cookbook_file "#{home}/.config/liquid.theme" do
   source "liquid.theme"
