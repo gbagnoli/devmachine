@@ -15,7 +15,7 @@ from fabric.contrib.files import exists as remote_exists
 from fabric.contrib.project import rsync_project
 
 env.use_ssh_config = True
-chef_command = "chef-client -N {host} -z -c chef-client.rb -o 'role[{host}]'{secrets}"
+chef_command = "chef-client --chef-license accept-silent -N {host} -z -c chef-client.rb -o 'role[{host}]'{secrets}"
 chef_script = """
 #!/bin/bash
 cd {remote}
