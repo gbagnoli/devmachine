@@ -17,6 +17,9 @@ server {
     proxy_set_header X-Real-IP $remote_addr;
   }
 
+  <% if @extra_config -%>
+  <%= @extra_config %>
+  <% end -%>
   access_log    /var/log/nginx/<%= @vhost %>_access.log;
   error_log  /var/log/nginx/<%= @vhost %>_error.log;
 

@@ -28,6 +28,7 @@ property :letsencrypt_alt_names, [Array, NilClass], default: nil
 property :ssl_cert_path, [String, NilClass], callbacks: file_check
 property :ssl_key_path, [String, NilClass], callbacks: file_check
 property :cloudflare, [true, false], default: false
+property :extra_config, [String, NilClass], default: nil
 
 action :create do
   port = new_resource.ssl ? "443" : new_resource.port || "80"
@@ -45,6 +46,7 @@ action :create do
       letsencrypt: new_resource.letsencrypt,
       cloudflare: new_resource.cloudflare,
       www_directory: www_directory,
+      extra_config: new_resource.extra_config,
     )
     notifies :reload, "service[nginx]", :immediately
   end

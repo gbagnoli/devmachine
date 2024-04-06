@@ -67,5 +67,6 @@ node["bender"]["vhosts"].each do |vhost, conf|
     ssl_cert_path conf["ssl_cert_path"]
     ssl_key_path conf["ssl_key_path"]
     cloudflare conf["cloudflare"]
+    extra_config conf["extra_config"]
   end
 end
