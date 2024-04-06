@@ -49,4 +49,25 @@ default["bender"]["vhosts"]["media.tigc.eu"] = {
   ssl: true,
   letsencrypt: true,
   cloudflare: true,
+  extra_config: <<EOH
+  # Jellyfin does not use oauth_proxy
+  location /player {
+      return 302 $scheme://$host/player/;
+  }
+
+  location /player/ {
+      proxy_pass http://flexo.lxd:8096/player/;
+      access_log /var/log/nginx/jellyfin.log;
+      proxy_pass_request_headers on;
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Forwarded-Host $http_host;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection $http_connection;
+      # Disable buffering when the nginx proxy gets very resource heavy upon streaming
+      proxy_buffering off;
+  }
+EOH
 }
