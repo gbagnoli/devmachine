@@ -28,7 +28,7 @@ property :letsencrypt_alt_names, [Array, NilClass], default: nil
 property :ssl_cert_path, [String, NilClass], callbacks: file_check
 property :ssl_key_path, [String, NilClass], callbacks: file_check
 property :cloudflare, [true, false], default: false
-property :extra_config, [String, NilClass], default: nil
+property :extra_config, [String, NilClass]
 
 action :create do
   port = new_resource.ssl ? "443" : new_resource.port || "80"
