@@ -1,3 +1,4 @@
+apt_update
 node.override["server"]["chef"]["cron"]["minute"] = "45"
 nginx_install 'nginx' do
   source 'repo'

@@ -5,7 +5,10 @@ apt_repository 'jellyfin' do
   key "https://repo.jellyfin.org/jellyfin_team.gpg.key"
 end
 
-package "jellyfin"
+package "jellyfin" do
+  action :upgrade
+end
+
 package "intel-opencl-icd"
 
 media_d = node["flexo"]["media"]["path"]

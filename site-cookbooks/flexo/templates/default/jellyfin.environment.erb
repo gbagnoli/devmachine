@@ -47,6 +47,7 @@ JELLYFIN_ADDITIONAL_OPTS=""
 # Note: These options are ignored by systemd; use /etc/systemd/system/jellyfin.d overrides instead.
 #
 
+MALLOC_TRIM_THRESHOLD_=131072
 # Application username
 JELLYFIN_USER="<%= node["flexo"]["media"]["username"] %>"
 # Full application command
