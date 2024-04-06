@@ -137,7 +137,7 @@ action :create do
       ipv6_addr: ipv6_addr,
       bridge_interface: node["bender"]["network"]["containers"]["interface"],
       volumes: volumes,
-      use_gpu: use_gpu,
+      use_gpu: new_resource.use_gpu,
     )
     notifies :run, "execute[create_profile_#{new_resource.container_name}]", :immediately
     notifies :run, "execute[update_profile_#{new_resource.container_name}]", :immediately
