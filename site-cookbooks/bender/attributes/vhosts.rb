@@ -51,12 +51,12 @@ default["bender"]["vhosts"]["media.tigc.eu"] = {
   cloudflare: true,
   extra_config: <<EOH
   # Jellyfin does not use oauth_proxy
-  location /player {
+  location #{node["flexo"]["jellyfin"]["base_url"]} {
       return 302 $scheme://$host/player/;
   }
 
-  location /player/ {
-      proxy_pass http://flexo.lxd:8096/player/;
+  location #{node["flexo"]["jellyfin"]["base_url"]}/ {
+      proxy_pass http://172.24.24.3:8096;
       access_log /var/log/nginx/jellyfin.log;
       proxy_pass_request_headers on;
       proxy_set_header Host $host;

@@ -83,6 +83,7 @@ GRAPH
     acme (>= 0.0.0)
     datadog (>= 0.0.0)
     dnscrypt_proxy (>= 0.0.0)
+    flexo (>= 0.0.0)
     hostsfile (>= 0.0.0)
     lxd (>= 0.0.0)
     nginx (>= 0.0.0)

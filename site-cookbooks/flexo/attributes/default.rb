@@ -14,7 +14,7 @@ default["flexo"]["putio"]["watcher_parent_id"] = "591184156"
 
 # remember this needs to be set in jellyfin configuration
 # Admin Dashboard -> Networking -> Base URL
-# base_url *must* not have a trailing slash and can't be empty
-default["flexo"]["jellyfin"]["base_url"] = "/player"
+# base_url *must* NOT have a trailing slash and can't be empty
+default["flexo"]["jellyfin"]["base_url"] = "/jellyfin"
 # Admin Dashboard -> Networking -> HTTP port
 default["flexo"]["jellyfin"]["port"] = 8096

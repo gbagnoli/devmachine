@@ -168,8 +168,8 @@ action :create do
   # rubocop:disable Layout/LineLength
   node.override["bender"]["firewall"]["ipv4"]["dnat_rules"]["#{new_resource.container_name}_ssh"] = ssh_rule_v4
   node.override["bender"]["firewall"]["ipv6"]["dnat_rules"]["#{new_resource.container_name}_v6_ssh"] = ssh_rule_v6
-  node.override["bender"]["containers"]["marvin"]["ipv4_address"] = get_ipv4_address(new_resource.container_name)
-  node.override["bender"]["containers"]["marvin"]["ipv6_address"] = get_ipv6_address(new_resource.container_name)
+  node.override["bender"]["containers"][new_resource.container_name]["ipv4_address"] = get_ipv4_address(new_resource.container_name)
+  node.override["bender"]["containers"][new_resource.container_name]["ipv6_address"] = get_ipv6_address(new_resource.container_name)
 
   new_resource.forwarded_ports.each do |portdesc|
     protocols = portdesc["protocol"].to_s == "all" ? %i(tcp udp) : [portdesc["protocol"].to_sym]

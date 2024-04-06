@@ -54,26 +54,6 @@ server {
         proxy_redirect default;
     }
 
-    # Jellyfin does not use oauth_proxy
-    location <%= @jellyfin_base_url %> {
-        return 302 $scheme://$host/<%= @jellyfin_base_url %>/;
-    }
-
-    location <%= @jellyfin_base_url %>/ {
-        proxy_pass http://jellyfin/<%= @jellyfin_base_url %>/;
-        access_log /var/log/nginx/jellyfin.log;
-        proxy_pass_request_headers on;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $http_host;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection $http_connection;
-        # Disable buffering when the nginx proxy gets very resource heavy upon streaming
-        proxy_buffering off;
-    }
-
     location / {
       proxy_pass http://<%= @host %>:<%= @oauth2_proxy_port %>;
       proxy_set_header Host $host;

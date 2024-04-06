@@ -269,7 +269,6 @@ nginx_site "media.tigc.eu" do
     couchpotato_port: node["flexo"]["media"]["couchpotato"]["port"],
     radarr_port: node["flexo"]["media"]["radarr"]["port"],
     jellyfin_port: node["flexo"]["jellyfin"]["port"],
-    jellyfin_base_url: node["flexo"]["jellyfin"]["base_url"],
     server_name: "media.tigc.eu",
     oauth2_proxy_port: lazy { node["server"]["oauth2_proxy"]["http_port"] },
     oauth2_proxy_upstream_port: lazy { node["server"]["oauth2_proxy"]["upstream_port"] },
