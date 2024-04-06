@@ -1,3 +1,14 @@
+<% if @proxy_caches -%>
+<% @proxy_caches.each do |dir, conf| -%>
+proxy_cache_path <%= dir %> <%= conf %>;
+<% end -%>
+<% end -%>
+<% if @maps -%>
+<% @maps.each do |conf| -%>
+map <%= conf %>;
+<% end -%>
+<% end -%>
+
 server {
   <% if @ssl -%>
   listen <%= @port %> ssl;

@@ -53,7 +53,19 @@ end
 #   end
 # end
 
+
 node["bender"]["vhosts"].each do |vhost, conf|
+  unless conf["proxy_caches"].nil?
+    conf["proxy_caches"].each do |dir, _|
+      directory dir do
+        recursive true
+        owner "www-data"
+        group "www-data"
+        mode "0755"
+      end
+    end
+  end
+
   bender_vhost vhost do
     server_name conf["server_name"]
     port conf["port"]
@@ -68,5 +80,7 @@ node["bender"]["vhosts"].each do |vhost, conf|
     ssl_key_path conf["ssl_key_path"]
     cloudflare conf["cloudflare"]
     extra_config conf["extra_config"]
+    proxy_caches conf["proxy_caches"]
+    maps conf["maps"]
   end
 end

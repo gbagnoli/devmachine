@@ -29,6 +29,8 @@ property :ssl_cert_path, [String, NilClass], callbacks: file_check
 property :ssl_key_path, [String, NilClass], callbacks: file_check
 property :cloudflare, [true, false], default: false
 property :extra_config, [String, NilClass]
+property :maps, [Array, NilClass]
+property :proxy_caches, [Hash, NilClass]
 
 action :create do
   port = new_resource.ssl ? "443" : new_resource.port || "80"
@@ -47,6 +49,8 @@ action :create do
       cloudflare: new_resource.cloudflare,
       www_directory: www_directory,
       extra_config: new_resource.extra_config,
+      maps: new_resource.maps,
+      proxy_caches: new_resource.proxy_caches,
     )
     notifies :reload, "service[nginx]", :immediately
   end
