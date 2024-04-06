@@ -92,7 +92,7 @@ end
 
 packages = value_for_platform(
   %w{ubuntu debian} => {default: %w{python3-dev vim vim-nox python3-pip}},
-  %w{centos fedora} => {default: %w{python3-devel vim neovim python3-pip}},
+  %w{centos fedora} => {default: %w{python3-devel vim python3-pip}},
 )
 
 package "editors" do
@@ -100,7 +100,7 @@ package "editors" do
   action :install
 end
 
-package "nvim" do
+package "neovim" do
   action :install
   notifies :run, "bash[set vim alternatives]", :immediately
   only_if { node.platform_family?("debian") }
