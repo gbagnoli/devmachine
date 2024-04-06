@@ -30,10 +30,7 @@ package "base install" do
 end
 
 packages = {
-  "keybase" => {
-    deb: "https://prerelease.keybase.io/keybase_amd64.deb",
-    only_if_not_installed: true,
-  }, "slack-desktop" => {
+  "slack-desktop" => {
     deb: "https://downloads.slack-edge.com/linux_releases/slack-desktop-4.4.2-amd64.deb",
     only_if_not_installed: true,
   },
