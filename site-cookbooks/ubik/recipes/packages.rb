@@ -13,7 +13,7 @@ packages = %w(
   libxslt1-dev libxss1 libxtst6 network-manager-openvpn-gnome openvpn powertop
   python python-apt qemu-kvm rsyslog shellcheck tmux
   ttf-mscorefonts-installer ubuntu-gnome-desktop unity-tweak-tool
-  xdg-utils wireguard xsel signal-desktop vlc ffmpeg jq virtualbox
+  xdg-utils wireguard xsel signal-desktop vlc ffmpeg jq
 )
 
 if node["lsb"]["codename"] == "jammy"
