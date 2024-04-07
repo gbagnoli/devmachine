@@ -61,7 +61,7 @@ default["bender"]["vhosts"]["media.tigc.eu"] = {
   extra_config: <<EOH
   set $jellyfin 172.24.24.3;
   location #{node["flexo"]["jellyfin"]["base_url"]} {
-      return 302 $scheme://$host/player/;
+      return 302 $scheme://$host/#{node["flexo"]["jellyfin"]["base_url"]}/;
   }
 
   location ~* ^/jellyfin/Videos/(.*)/(?!live) {
