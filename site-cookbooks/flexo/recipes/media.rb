@@ -263,17 +263,18 @@ include_recipe "flexo::jellyfin"
 
 nginx_site "media.tigc.eu" do
   template "media.nginx.erb"
+  cookbook "flexo"
   variables(
     host: "127.0.0.1",
     sickchill_port: node["flexo"]["media"]["sickchill"]["port"],
     couchpotato_port: node["flexo"]["media"]["couchpotato"]["port"],
     radarr_port: node["flexo"]["media"]["radarr"]["port"],
-    jellyfin_port: node["flexo"]["jellyfin"]["port"],
+    tdarr_port: 8265,
     server_name: "media.tigc.eu",
     oauth2_proxy_port: lazy { node["server"]["oauth2_proxy"]["http_port"] },
     oauth2_proxy_upstream_port: lazy { node["server"]["oauth2_proxy"]["upstream_port"] },
   )
-  action :enable
+  action %i{create enable}
 end
 
 include_recipe "flexo::putio"
