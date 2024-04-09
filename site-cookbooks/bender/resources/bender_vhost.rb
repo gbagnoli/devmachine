@@ -17,7 +17,7 @@ container_check = {
 property :vhost_name, String, name_property: true
 property :server_name, [Array, String], required: true
 property :port, [Integer, NilClass], default: nil
-property :disable_default_location, [TrueClass, FalseClass], default: false
+property :disable_default_location, [true, false], default: false
 property :upstream_url, [String, NilClass]
 property :upstream_protocol, String, default: "http", equal_to: %w(http https)
 property :container, [String, NilClass], callbacks: container_check
