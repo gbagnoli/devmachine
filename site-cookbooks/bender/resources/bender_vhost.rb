@@ -17,6 +17,7 @@ container_check = {
 property :vhost_name, String, name_property: true
 property :server_name, [Array, String], required: true
 property :port, [Integer, NilClass], default: nil
+property :disable_default_location, [TrueClass, FalseClass], default: false
 property :upstream_url, [String, NilClass]
 property :upstream_protocol, String, default: "http", equal_to: %w(http https)
 property :container, [String, NilClass], callbacks: container_check
@@ -41,6 +42,7 @@ action :create do
       vhost: new_resource.vhost_name,
       port: port,
       server_name: server_names,
+      disable_default_location: new_resource.disable_default_location,
       upstream_url: upstream_url,
       certificate_key: certificate_key,
       certificate_file: certificate_file,
@@ -101,7 +103,7 @@ action_class do
   end
 
   def upstream_url
-    if new_resource.upstream_url.nil? && new_resource.container.nil?
+    if !new_resource.disable_default_location && new_resource.upstream_url.nil? && new_resource.container.nil?
       raise ArgumentError, "either upstream_url or container parameters required"
     end
 

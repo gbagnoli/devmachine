@@ -70,6 +70,7 @@ node["bender"]["vhosts"].each do |vhost, conf|
     server_name conf["server_name"]
     port conf["port"]
     upstream_url conf["upstream_url"]
+    disable_default_location conf["disable_default_location"]
     container conf["container"]
     ssl conf["ssl"]
     letsencrypt conf["letsencrypt"]

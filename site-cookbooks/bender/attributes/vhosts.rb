@@ -43,13 +43,13 @@ default["bender"]["vhosts"]["chat.tigc.eu"] = {
 }
 
 # rubocop:disable Layout/LineLength
-default["bender"]["vhosts"]["media.tigc.eu"] = {
-  server_name: "media.tigc.eu",
+default["bender"]["vhosts"]["jellyfin.tigc.eu"] = {
+  server_name: "jellyfin.tigc.eu",
+  disable_default_location: true,
   container: "flexo",
-  upstream_protocol: "http",
   ssl: true,
   letsencrypt: true,
-  cloudflare: true,
+  cloudflare: false,
   proxy_caches: {
     "/var/cache/nginx/jellyfin-videos" => "levels=1:2 keys_zone=jellyfin-videos:100m inactive=90d max_size=35000m",
     "/var/cache/nginx/jellyfin" => "levels=1:2 keys_zone=jellyfin:100m max_size=15g inactive=30d use_temp_path=off",
@@ -60,11 +60,51 @@ default["bender"]["vhosts"]["media.tigc.eu"] = {
   ],
   extra_config: <<EOH
   set $jellyfin 172.24.24.3;
-  location #{node["flexo"]["jellyfin"]["base_url"]} {
-      return 302 $scheme://$host/#{node["flexo"]["jellyfin"]["base_url"]}/;
+
+  location = / {
+    return 302 $scheme://$host/web/;
   }
 
-  location ~* ^/jellyfin/Videos/(.*)/(?!live) {
+  location / {
+    # Proxy main Jellyfin traffic
+    proxy_pass http://$jellyfin:8096;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Protocol $scheme;
+    proxy_set_header X-Forwarded-Host $http_host;
+
+    # Disable buffering when the nginx proxy gets very resource heavy upon streaming
+     proxy_buffering off;
+  }
+
+  location = /web/ {
+    # Proxy main Jellyfin traffic
+    proxy_pass http://$jellyfin:8096/web/index.html;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Protocol $scheme;
+    proxy_set_header X-Forwarded-Host $http_host;
+  }
+
+  location /socket {
+     # Proxy Jellyfin Websockets traffic
+     proxy_pass http://$jellyfin:8096;
+     proxy_http_version 1.1;
+     proxy_set_header Upgrade $http_upgrade;
+     proxy_set_header Connection "upgrade";
+     proxy_set_header Host $host;
+     proxy_set_header X-Real-IP $remote_addr;
+     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+     proxy_set_header X-Forwarded-Proto $scheme;
+     proxy_set_header X-Forwarded-Protocol $scheme;
+     proxy_set_header X-Forwarded-Host $http_host;
+  }
+
+  location ~* ^/Videos/(.*)/(?!live) {
       # Set size of a slice (this amount will be always requested from the backend by nginx)
       # Higher value means more latency, lower more overhead
       # This size is independent of the size clients/browsers can request
@@ -96,7 +136,7 @@ default["bender"]["vhosts"]["media.tigc.eu"] = {
       # add_header X-Cache-Status $upstream_cache_status; # This is only for debugging cache
   }
 
-  location ~ /jellyfin/Items/(.*)/Images {
+  location ~ /Items/(.*)/Images {
       access_log /var/log/nginx/jellyfin-cache.log;
       proxy_pass http://$jellyfin:8096;
       proxy_set_header Host $host;
@@ -111,21 +151,15 @@ default["bender"]["vhosts"]["media.tigc.eu"] = {
       proxy_cache_lock on;
       # add_header X-Cache-Status $upstream_cache_status; # This is only to check if cache is working
   }
-
-  location #{node["flexo"]["jellyfin"]["base_url"]}/ {
-      proxy_pass http://$jellyfin:8096;
-      access_log /var/log/nginx/jellyfin.log;
-      proxy_pass_request_headers on;
-      proxy_set_header Host $host;
-      proxy_set_header X-Real-IP $remote_addr;
-      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header X-Forwarded-Proto $scheme;
-      proxy_set_header X-Forwarded-Host $http_host;
-      proxy_set_header Upgrade $http_upgrade;
-      proxy_set_header Connection $http_connection;
-      # Disable buffering when the nginx proxy gets very resource heavy upon streaming
-      proxy_buffering off;
-  }
 EOH
 }
 # rubocop:enable Layout/LineLength
+
+default["bender"]["vhosts"]["media.tigc.eu"] = {
+  server_name: "media.tigc.eu",
+  container: "flexo",
+  upstream_protocol: "http",
+  ssl: true,
+  letsencrypt: true,
+  cloudflare: true,
+}
