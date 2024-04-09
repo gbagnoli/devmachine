@@ -76,7 +76,7 @@ systemd_unit "tdarr-server.service" do
   WorkingDirectory=#{tdarr_root}/server
   ExecStart=#{tdarr_root}/server/Tdarr_Server
   TimeoutStopSec=20
-  KillMode=process
+  KillMode=control-group
   Restart=on-failure
 
   [Install]
