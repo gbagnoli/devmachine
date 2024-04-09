@@ -6,10 +6,15 @@ run_list [
 ]
 
 default_attributes(
+  "ssh-hardening" => {
+    "sshclient" => {
+      "package" => "openssh-clients"
+    }
+  },
   "server" => {
     "components" => {
       "syncthing" => {
-        "enabled" => "false"
+        "enabled" => false
       },
     },
     "users" => {

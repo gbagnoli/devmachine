@@ -14,5 +14,6 @@ supports "fedora"
 
 depends "hostsfile"
 depends "datadog"
-# depends "nginx"
+depends "yum-epel"
+depends "yum-elrepo"
 # depends "acme"

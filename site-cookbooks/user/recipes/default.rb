@@ -92,7 +92,7 @@ end
 
 packages = value_for_platform(
   %w{ubuntu debian} => {default: %w{python3-dev vim vim-nox python3-pip}},
-  %w{centos fedora} => {default: %w{python3-devel vim python3-pip}},
+  %w{centos fedora rocky} => {default: %w{python3-devel vim python3-pip}},
 )
 
 package "editors" do
