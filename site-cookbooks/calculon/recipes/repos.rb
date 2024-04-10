@@ -11,3 +11,5 @@ include_recipe "yum-epel"
 
 node.default["yum"]["elrepo"]["enabled"] = true
 include_recipe "yum-elrepo"
+include_recipe "yum-elrepo::extras"
+include_recipe "yum-elrepo::kernel"

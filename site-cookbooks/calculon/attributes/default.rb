@@ -1,16 +1,30 @@
-default["calculon"]["containers"]["storage"]["driver"] = "btrfs"
-default["calculon"]["containers"]["storage"]["runroot"] = "/var/lib/containers/run"
-default["calculon"]["containers"]["storage"]["graphroot"] = "/var/lib/containers/graph"
+default["calculon"]["rocky"]["btfrs_progs"] = {
+  version: "6.8-1.el9",
+  url: "https://cbs.centos.org/kojifiles/packages/btrfs-progs",
+  packages: %w{btrfs-progs btrfs-progs-devel libbtrfs libbtrfsutil python3-btrfsutil}
+}
 
+default["calculon"]["rocky"]["podman"] = {
+  version: "5.0.0-1.el9",
+  url: "https://rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/",
+  package: "podman",
+}
 
 default["calculon"]["data"]["username"] = "media"
 default["calculon"]["data"]["group"] = "data"
 default["calculon"]["data"]["uid"] = "2001"
 default["calculon"]["data"]["gid"] = "2001"
 
-default["calculon"]["paths"]["root"] = "/var/lib/data"
-default["calculon"]["paths"]["sync"] = "/var/lib/data/sync"
-default["calculon"]["paths"]["media"] = "/var/lib/data/media"
-default["calculon"]["paths"]["downloads"] = "/var/lib/data/media/downloads"
-default["calculon"]["paths"]["library"] = "/var/lib/data/media/library"
-default["calculon"]["paths"]["library_dirs"] = %w{movies series}
+default["calculon"]["storage"]["manage"] = true
+default["calculon"]["storage"]["dev"] = "/dev/sda5"
+default["calculon"]["storage"]["paths"]["root"] = "/var/lib/data"
+default["calculon"]["storage"]["paths"]["sync"] = "/var/lib/data/sync"
+default["calculon"]["storage"]["paths"]["media"] = "/var/lib/data/media"
+default["calculon"]["storage"]["paths"]["downloads"] = "/var/lib/data/media/downloads"
+default["calculon"]["storage"]["paths"]["library"] = "/var/lib/data/media/library"
+default["calculon"]["storage"]["library_dirs"] = %w{movies series}
+
+default["calculon"]["containers"]["storage"]["volume"] = "/var/lib/data/containers"
+default["calculon"]["containers"]["storage"]["driver"] = "btrfs"
+default["calculon"]["containers"]["storage"]["runroot"] = "/var/lib/data/containers/run"
+default["calculon"]["containers"]["storage"]["graphroot"] = "/var/lib/data/containers/graph"

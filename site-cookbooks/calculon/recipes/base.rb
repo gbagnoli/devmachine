@@ -1,22 +1,76 @@
+include_recipe "calculon::repos"
+
+if platform?("rocky")
+  # sad, but rocky doesn't have btrfs-progs in repos
+  conf = node["calculon"]["rocky"]["btfrs_progs"]
+  arch = node["kernel"]["machine"]
+  v, r = conf[:version].split("-")
+  url = "#{conf[:url]}/#{v}/#{r}/#{arch}"
+  packages = []
+
+  conf[:packages].each do |pkg|
+    rpm = "#{pkg}-#{conf[:version]}.#{arch}.rpm"
+    remote = "#{url}/#{rpm}"
+    local = "#{Chef::Config[:file_cache_path]}/#{rpm}"
+    packages << local
+
+    remote_file local do
+      source remote
+      action :create
+    end
+  end
+
+  execute "install btrfs-progs" do
+    command "dnf install --assumeyes #{packages.join(" ")}"
+    not_if "dnf list installed btrfs-progs | grep -q #{conf[:version]}"
+  end
+
+  # also install kernel-ml as there will be no btrfs otherwise
+  package "kernel-ml" do
+    notifies :reboot_now, "reboot[install_kernel_ml]", :immediately
+  end
+
+  reboot "install_kernel_ml" do
+    reason "New kernel has been installed"
+    action :nothing
+  end
+end
+
 package "base" do
   package_name %w(curl htop iotop iperf btrfs-progs acl)
 end
 
-group node["calculon"]["data"]["group"] do
+data_user = node["calculon"]["data"]["username"]
+data_group = node["calculon"]["data"]["group"]
+
+group data_group do
   gid node["calculon"]["data"]["gid"]
   members users
   append true
 end
 
-user node["calculon"]["data"]["username"] do
+user data_user do
   uid node["calculon"]["data"]["uid"]
   gid node["calculon"]["data"]["gid"]
   system true
   shell "/bin/false"
 end
 
-%w{root sync media downloads library}.each do |vol|
-  path = node["calculon"]["paths"][vol]
+paths = node["calculon"]["storage"]["paths"]
+
+directory paths["root"]
+
+if node["calculon"]["storage"]["manage"]
+  mount paths["root"] do
+    device node["calculon"]["storage"]["dev"]
+    fstype "btrfs"
+    options %w{rw noatime compress=zstd:3,space_cache=v2,autodefrag}
+    action %i(mount enable)
+  end
+end
+
+%w{sync media downloads library}.each do |vol|
+  path = paths[vol]
 
   execute "create subvolume at #{path}" do
     command "btrfs subvolume create #{path}"
@@ -24,8 +78,8 @@ end
   end
 
   directory path do
-    group node["calculon"]["data"]["group"]
-    owner node["calculon"]["data"]["username"]
+    group data_group
+    owner data_user
     mode "2775"
   end
 
@@ -36,12 +90,12 @@ end
   end
 end
 
-node["calculon"]["paths"]["library_dirs"].each do |dir|
+node["calculon"]["storage"]["library_dirs"].each do |dir|
   %w{downloads library}.each do |parent|
-    path = "#{node["calculon"]["paths"][parent]}/#{dir}"
+    path = "#{paths[parent]}/#{dir}"
     directory path do
-      group node["calculon"]["data"]["group"]
-      owner node["calculon"]["data"]["username"]
+      group data_group
+      owner data_user
       mode "2775"
     end
   end
