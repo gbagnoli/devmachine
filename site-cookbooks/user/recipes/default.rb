@@ -173,13 +173,13 @@ if node.platform_family? "debian"
 
     package "fasd"
   end
-elsif node.platform_family? "fedora"
-  git "/usr/share/liquidprompt" do
-    repository "https://github.com/nojhan/liquidprompt.git"
-    action :sync
-    user "root"
-    revision "stable"
-  end
+end
+
+git "/usr/share/liquidprompt" do
+  repository "https://github.com/liquidprompt/liquidprompt.git"
+  action :sync
+  user "root"
+  revision "stable"
 end
 
 cookbook_file "#{home}/.config/liquid.theme" do
