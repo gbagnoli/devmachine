@@ -18,14 +18,25 @@ if platform?("rocky")
     package_name crun[:deps]
   end
 
-  execute "lock podman" do
-    command "dnf versionlock podman"
-    not_if "dnf versionlock | grep -q podman"
-  end
-
   execute "lock crun" do
     command "dnf versionlock crun"
     not_if "dnf versionlock crun | grep -q crun"
+  end
+
+  podman[:download].each do |spec|
+    spec[:rpms].each do |rpm|
+      local = "#{Chef::Config[:file_cache_path]}/#{rpm}"
+      remote = "#{spec[:url]}/#{rpm}"
+      remote_file local do
+        source remote
+        notifies :run, "execute[install_#{rpm}]", :immediately
+      end
+
+      execute "install_#{rpm}" do
+        action :nothing
+        command "dnf install --assumeyes #{local}"
+      end
+    end
   end
 
   git "#{Chef::Config[:file_cache_path]}/podman" do
@@ -41,7 +52,10 @@ if platform?("rocky")
     cwd "#{Chef::Config[:file_cache_path]}/podman"
     code <<-EOH
       make
-      cp -v bin/* /usr/bin
+      make rpm
+      dnf install --assumeyes rpm/RPMS/*/*.rpm
+      git checkout rpm/podman.spec
+      git rm -r rpm/BUILD rpm/podman-.*.tar.gz
     EOH
   end
 

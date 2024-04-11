@@ -4,14 +4,18 @@ default["calculon"]["rocky"]["btfrs_progs"] = {
   packages: %w{btrfs-progs btrfs-progs-devel libbtrfs libbtrfsutil python3-btrfsutil}
 }
 
+# rubocop:disable Layout/LineLength
 default["calculon"]["rocky"]["podman"]["git"] = {
   url: "https://github.com/containers/podman.git",
   tag: "v5.0.1",
   # btrfs-devel is already installed from downloaded rpm in rocky
-  deps:  %w{go systemd-devel gpgme-devel libseccomp-devel},
+  deps:  %w{go systemd-devel gpgme-devel libseccomp-devel ostree-devel shadow-utils-subid-devel},
+  download: [{
+    url: "https://kojipkgs.fedoraproject.org//packages/containers-common/1/95.fc39/noarch",
+    rpms: %w{containers-common-1-95.fc39.noarch.rpm containers-common-extra-1-95.fc39.noarch.rpm}
+  }]
 }
 
-# rubocop:disable Layout/LineLength
 default["calculon"]["rocky"]["crun"]["git"] = {
   url: "https://github.com/containers/crun.git",
   tag: "1.14.4",
