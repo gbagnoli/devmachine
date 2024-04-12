@@ -1,6 +1,5 @@
 include_recipe "rupik::mounts"
-include_recipe "podman::install"
-include_recipe "podman::api"
+include_recipe "rupik::podman"
 
 root = "#{node["rupik"]["storage"]["path"]}/containers"
 user = node["user"]
