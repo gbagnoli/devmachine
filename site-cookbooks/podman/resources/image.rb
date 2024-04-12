@@ -9,7 +9,6 @@ default_action :create
 
 
 action :create do
-  config[:Image].insert(0, "Image=#{new_resource.name}")
   podman_systemd_unit "#{new_resource.name}.image" do
     config new_resource.config
     action :create

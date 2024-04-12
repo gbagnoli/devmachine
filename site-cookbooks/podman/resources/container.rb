@@ -9,7 +9,7 @@ property :triggers_reload, [true, false], default: true
 default_action :create
 
 action :create do
-  config[:Container].insert(0, "ContainerName=#{container_name}")
+  new_resource.config[:Container].insert(0, "ContainerName=#{container_name}")
   podman_systemd_unit "#{new_resource.name}.container" do
     config new_resource.config
     action :create
@@ -21,6 +21,12 @@ action :delete do
   podman_systemd_unit new_resource.name do
     action :delete
     triggers_reload new_resource.triggers_reload
+  end
+end
+
+action :start do
+  systemd_unit "#{new_resource.name}.service" do
+    action :start
   end
 end
 

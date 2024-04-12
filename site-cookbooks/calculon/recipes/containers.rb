@@ -19,12 +19,44 @@ end
 podman_network "calculon" do
   config(
     Network: [
-      "Driver=Bridge",
+      "Driver=bridge",
       "IPv6=True",
       "Subnet=#{node["calculon"]["network"]["containers"]["ipv4"]["network"]}",
       "Subnet=#{node["calculon"]["network"]["containers"]["ipv6"]["network"]}",
       "Gateway=#{node["calculon"]["network"]["containers"]["ipv4"]["addr"]}",
       "Gateway=#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}",
+    ]
+  )
+  action %i{create start}
+end
+
+podman_image "syncthing" do
+  config(
+    Image: ["Image=docker.io/syncthing/syncthing"],
+  )
+end
+
+podman_container "syncthing" do
+  config(
+    Container: [
+      "Image=docker.io/syncthing/syncthing",
+      "Environment=PUID=#{node["calculon"]["data"]["uid"]}",
+      "Environment=PGID=#{node["calculon"]["data"]["gid"]}",
+      "PublishPort=8384:8384",
+      "PublishPort=22000:22000/tcp",
+      "PublishPort=22000:22000/udp",
+      "Volume=#{node["calculon"]["storage"]["paths"]["sync"]}:/var/syncthing",
+      "HostName=sync.tigc.eu",
+      "Network=calculon.network",
+    ],
+    Service: [
+      "Restart=Always"
+    ],
+    Unit: [
+      "Description=Start Syncthing file synchronization",
+    ],
+    Install: [
+      "WantedBy=multi-user.target"
     ]
   )
   action %i{create start}
