@@ -1,0 +1,7 @@
+<% @config.each do |sect, sectconf| -%>
+[<%= sect %>]
+<% sectconf.each do |entry| -%>
+<%= entry %>
+<% end -%>
+
+<% end -%>

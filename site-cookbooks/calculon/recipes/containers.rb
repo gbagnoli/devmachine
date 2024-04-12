@@ -15,3 +15,17 @@ template "/etc/containers/storage.conf" do
   mode "0755"
   notifies :run, "execute[podman_system_reset]", :before
 end
+
+podman_network "calculon" do
+  config(
+    Network: [
+      "Driver=Bridge",
+      "IPv6=True",
+      "Subnet=#{node["calculon"]["network"]["containers"]["ipv4"]["network"]}",
+      "Subnet=#{node["calculon"]["network"]["containers"]["ipv6"]["network"]}",
+      "Gateway=#{node["calculon"]["network"]["containers"]["ipv4"]["addr"]}",
+      "Gateway=#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}",
+    ]
+  )
+  action %i{create start}
+end

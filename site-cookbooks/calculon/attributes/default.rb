@@ -22,3 +22,10 @@ default["calculon"]["containers"]["storage"]["volume"] = "/var/lib/data/containe
 default["calculon"]["containers"]["storage"]["driver"] = "btrfs"
 default["calculon"]["containers"]["storage"]["runroot"] = "/var/lib/data/containers/run"
 default["calculon"]["containers"]["storage"]["graphroot"] = "/var/lib/data/containers/graph"
+
+default["calculon"]["network"]["containers"]["ipv4"]["addr"] = "172.25.25.1"
+default["calculon"]["network"]["containers"]["ipv4"]["addr_cidr"] = "172.25.25.1/24"
+default["calculon"]["network"]["containers"]["ipv4"]["network"] = "172.25.25.0/24"
+default["calculon"]["network"]["containers"]["ipv6"]["addr"] = "fd05:f439:6192:ffff::1"
+default["calculon"]["network"]["containers"]["ipv6"]["addr_cidr"] = "fd05:f439:6192:ffff::1/64"
+default["calculon"]["network"]["containers"]["ipv6"]["network"] = "fd05:f439:6192:ffff::0/64"
