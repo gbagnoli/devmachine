@@ -109,8 +109,4 @@ service "et" do
   action %i{enable start}
 end
 
-execute "open et port" do
-  command "firewall-cmd --zone=public --add-port=2022/tcp"
-  not_if "firewall-cmd --zone=public --list-ports | grep -q 2022/tcp"
-  notifies :run, "execute[persist_firewalld]"
-end
+calculon_firewalld_port "2022/tcp"

@@ -63,3 +63,7 @@ podman_container "syncthing" do
     }
   )
 end
+
+calculon_firewalld_port "syncthing" do
+  port %w{20022/tcp 20022/udp}
+end
