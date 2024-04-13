@@ -2,7 +2,6 @@ resource_name :podman_image
 provides :podman_image
 unified_mode true
 
-property :name, String, name_property: true
 property :config, Hash, required: true
 property :triggers_reload, [true, false], default: true
 default_action :create

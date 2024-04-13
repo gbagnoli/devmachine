@@ -2,8 +2,7 @@ resource_name :podman_volume
 provides :podman_volume
 unified_mode true
 
-property :name, String, name_property: true
-property :volume_name, [String, NilClass], default: nil
+property :volume_name, [String, NilClass]
 property :config, Hash, required: true
 property :triggers_reload, [true, false], default: true
 default_action :create

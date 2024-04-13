@@ -2,8 +2,7 @@ resource_name :podman_container
 provides :podman_container
 unified_mode true
 
-property :name, String, name_property: true
-property :container_name, [String, NilClass], default: nil
+property :container_name, [String, NilClass]
 property :config, Hash, required: true
 property :triggers_reload, [true, false], default: true
 default_action :create

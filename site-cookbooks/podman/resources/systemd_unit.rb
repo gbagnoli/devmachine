@@ -2,11 +2,10 @@ resource_name :podman_systemd_unit
 provides :podman_systemd_unit
 unified_mode true
 
-property :name, String, name_property: true
 property :config, Hash, required: true
 property :triggers_reload, [true, false], default: true
 property :restart_service, [true, false], default: true
-property :user, [String, NilClass], default: nil
+property :user, [String, NilClass]
 default_action :create
 
 action :create do
