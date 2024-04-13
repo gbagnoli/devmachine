@@ -42,6 +42,7 @@ podman_container "syncthing" do
       Environment=PUID=#{node["calculon"]["data"]["uid"]}
       Environment=PGID=#{node["calculon"]["data"]["gid"]}
       PublishPort=[::1]:8384:8384
+      PublishPort=127.0.0.1:8384:8384
       PublishPort=[::]:22000:22000/tcp
       PublishPort=[::]:22000:22000/udp
       PublishPort=22000:22000/tcp
