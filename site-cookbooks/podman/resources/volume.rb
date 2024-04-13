@@ -13,6 +13,7 @@ action :create do
   podman_systemd_unit "#{new_resource.name}.volume" do
     config new_resource.config
     action :create
+    restart_service false
     triggers_reload new_resource.triggers_reload
   end
 end

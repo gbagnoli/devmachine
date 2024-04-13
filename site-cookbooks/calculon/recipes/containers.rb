@@ -27,7 +27,6 @@ podman_network "calculon" do
       "Gateway=#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}",
     ]
   )
-  action %i{create start}
 end
 
 podman_image "syncthing" do
@@ -39,7 +38,7 @@ end
 podman_container "syncthing" do
   config(
     Container: [
-      "Image=docker.io/syncthing/syncthing",
+      "Image=syncthing.image",
       "Environment=PUID=#{node["calculon"]["data"]["uid"]}",
       "Environment=PGID=#{node["calculon"]["data"]["gid"]}",
       "PublishPort=8384:8384",
@@ -59,5 +58,4 @@ podman_container "syncthing" do
       "WantedBy=multi-user.target"
     ]
   )
-  action %i{create start}
 end

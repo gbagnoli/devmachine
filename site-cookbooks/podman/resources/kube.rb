@@ -21,3 +21,11 @@ action :delete do
     triggers_reload new_resource.triggers_reload
   end
 end
+
+action :stop do
+  find_resource(:podman_systemd_unit, "#{new_resource.name}.kube").run_action(:stop_service)
+end
+
+action :restart do
+  find_resource(:podman_systemd_unit, "#{new_resource.name}.kube").run_action(:restart_service)
+end

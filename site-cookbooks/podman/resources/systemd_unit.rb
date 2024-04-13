@@ -5,6 +5,7 @@ unified_mode true
 property :name, String, name_property: true
 property :config, Hash, required: true
 property :triggers_reload, [true, false], default: true
+property :restart_service, [true, false], default: true
 property :user, [String, NilClass], default: nil
 default_action :create
 
@@ -18,37 +19,34 @@ action :create do
     variables(
       config: new_resource.config
     )
+    notifies :run, reload_resource, :immediately if new_resource.triggers_reload
+    notifies :restart, service_unit if service? && new_resource.restart_service
   end
 
-  maybe_reload_systemd
+  service_unit.run_action(:start) if service?
+end
+
+action :start_service do
+  service_unit.run_action(:start) if service?
+end
+
+action :stop_service do
+  service_unit.run_action(:stop) if service?
+end
+
+action :restart_service do
+  service_unit.run_action(:restart) if service?
 end
 
 action :delete do
   file unit_path do
     action :delete
+    notifies :run, reload_resource, :immediately if new_resource.triggers_reload
+    notities :stop, service_unit, :before if service?(new_resource)
   end
-
-  maybe_reload_systemd
 end
 
 action_class do
-  def maybe_reload_systemd
-    return unless new_resource.triggers_reload
-
-    execute "reload_systemd_podman_#{new_resource.name}" do
-      command 'systemctl daemon-reload'
-    end
-  end
-
-  def type
-    t = new_resouce.name.split(".")[1]
-    unless %w(container image kube network pod volume).include? t
-      raise "Invalid unit type #{t} in #{new_resource.name}"
-    end
-
-    t
-  end
-
   def unit_path
     "#{configuration_dir}/#{new_resource.name}"
   end
@@ -83,5 +81,58 @@ action_class do
         group info.gid
       end
     end
+  end
+
+  def service_unit
+    create_service_unit unless service_unit_exists?
+    service_unit_resource
+  end
+
+  def service?
+    _, type = extract_service_name_and_type
+    return false if %w(volume image).include? type
+
+    true
+  end
+
+  def reload_resource
+    find_resource!(:execute, "podman_reload_systemd")
+  rescue Chef::Exceptions::ResourceNotFound
+    declare_resource(:execute, "podman_reload_systemd") do
+      command "systemctl daemon-reload"
+      action :nothing
+    end
+  end
+
+  def create_service_unit
+    with_run_context(:root) do
+      declare_resource(:systemd_unit, service_unit_name)
+    end
+  end
+
+  def service_unit_resource
+    find_resource(:systemd_unit, service_unit_name)
+  end
+
+  def service_unit_exists?
+    !service_unit_resource.nil?
+  rescue Chef::Exceptions::ResourceNotFound
+    false
+  end
+
+  def service_unit_name
+    name, type = extract_service_name_and_type
+    return name if type == "container"
+
+    "#{name}-#{type}.service"
+  end
+
+  def extract_service_name_and_type
+    name, type = new_resource.name.split(".")
+    unless %w(container image kube network pod volume).include? type
+      raise "Invalid unit type #{t} in #{new_resource.name}"
+    end
+
+    [name, type]
   end
 end

@@ -24,6 +24,14 @@ action :delete do
   end
 end
 
+action :stop do
+  find_resource(:podman_systemd_unit, "#{new_resource.name}.pod").run_action(:stop_service)
+end
+
+action :restart do
+  find_resource(:podman_systemd_unit, "#{new_resource.name}.pod").run_action(:restart_service)
+end
+
 action_class do
   def pod_name
     if new_resource.pod_name.nil?

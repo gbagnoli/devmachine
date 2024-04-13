@@ -17,6 +17,7 @@ if platform?("rocky")
     remote_file local do
       source remote
       action :create
+      not_if "dnf list installed btrfs-progs | grep -q #{conf[:version]}"
     end
   end
 

@@ -14,13 +14,17 @@ action :create do
     config new_resource.config
     action :create
     triggers_reload new_resource.triggers_reload
+    # updates on network files are not even supported anyway
+    restart_service false
   end
 end
 
-action :start do
-  systemd_unit "#{new_resource.name}-network.service" do
-    action :start
-  end
+action :stop do
+  find_resource(:podman_systemd_unit, "#{new_resource.name}.network").run_action(:stop_service)
+end
+
+action :restart do
+  find_resource(:podman_systemd_unit, "#{new_resource.name}.network").run_action(:restart_service)
 end
 
 action :delete do

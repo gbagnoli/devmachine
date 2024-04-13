@@ -24,10 +24,12 @@ action :delete do
   end
 end
 
-action :start do
-  systemd_unit "#{new_resource.name}.service" do
-    action :start
-  end
+action :stop do
+  find_resource(:podman_systemd_unit, "#{new_resource.name}.container").run_action(:stop_service)
+end
+
+action :restart do
+  find_resource(:podman_systemd_unit, "#{new_resource.name}.container").run_action(:restart_service)
 end
 
 action_class do
