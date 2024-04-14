@@ -4,6 +4,7 @@ set -eu
 set -o pipefail
 
 if [ $# -eq 1 ] && [[ "$1" == "system" ]]; then
+  echo "Note: system mode does NOT synchronize secrets to /usr/local/src/chefrepo/secrets"
   pushd "$(dirname "$0")" &>/dev/null
   if [ ! -f /usr/local/bin/run-chef ]; then
     echo >&2 "/usr/local/bin/run-chef not present, cannot do a system run"
