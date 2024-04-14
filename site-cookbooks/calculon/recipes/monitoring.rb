@@ -6,14 +6,13 @@ end
 include_recipe "datadog::dd-agent"
 include_recipe "datadog::dd-handler"
 
-package "dd-check-btrfs"
-directory "/etc/dd-agent/conf.d" do
+directory "/etc/datadog-agent/conf.d" do
   owner "dd-agent"
   group "dd-agent"
   mode "0755"
 end
 
-file "/etc/dd-agent/conf.d/btrfs.yaml" do
+file "/etc/datadog-agent/conf.d/btrfs.yaml" do
   content <<~CONTENT
     init_config:
     # Not required for this check
@@ -30,6 +29,12 @@ node.override["calculon"]["tcp_checks"]["calculon_ssh"] = {
   name: "calculon_ssh",
   host: "localhost",
   port: 22,
+}
+
+node.override["calculon"]["tcp_checks"]["calculon_et"] = {
+  name: "calculon_ssh",
+  host: "localhost",
+  port: 2202,
 }
 
 # monitor ssh for containers
