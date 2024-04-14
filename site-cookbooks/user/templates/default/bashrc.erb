@@ -214,15 +214,16 @@ fi
 [ -f ~/.local/src/autoenv/activate.sh ] && . ~/.local/src/autoenv/activate.sh
 # shellcheck disable=SC1091
 # shellcheck disable=SC2039
-command -v fasd &>/dev/null && eval "$(fasd --init auto)"
-alias j="fasd_cd -d"
-alias v="f -e nvim"
-alias o="a -e open"
-_fasd_bash_hook_cmd_complete v m j o
+if command -v fasd &>/dev/null; then
+  eval "$(fasd --init auto)"
+  alias j="fasd_cd -d"
+  alias v="f -e nvim"
+  alias o="a -e open"
+  _fasd_bash_hook_cmd_complete v m j o
+fi
 
-export LP_MARK_GIT="±"
 # Only load liquidprompt in interactive shells, not from a script or from scp
-echo $- | grep -q i 2>/dev/null && . /usr/share/liquidprompt/liquidprompt
+[[ $- = *i* ]] && source /usr/share/liquidprompt/liquidprompt
 
 alias be="bundle exec"
 alias bi="bundle install"

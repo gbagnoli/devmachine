@@ -157,8 +157,6 @@ git "#{home}/.local/src/autoenv" do
 end
 
 if node.platform_family? "debian"
-  package "liquidprompt"
-
   if platform?('debian')
     remote_file "/usr/bin/fasd" do
       source "https://raw.githubusercontent.com/clvv/fasd/master/fasd"
@@ -179,20 +177,21 @@ git "/usr/share/liquidprompt" do
   repository "https://github.com/liquidprompt/liquidprompt.git"
   action :sync
   user "root"
-  revision "stable"
+  revision "master"
 end
 
-cookbook_file "#{home}/.config/liquid.theme" do
-  source "liquid.theme"
-  mode "0640"
-  owner user
-  group group
+file "#{home}/.config/liquid.theme" do
+  action :delete
 end
 
-template "#{home}/.config/liquidpromptrc" do
-  owner user
-  group group
-  mode "0640"
+file "#{home}/.config/liquidpromptrc" do
+  action :delete
+end
+
+template "/etc/liquidpromptrc" do
+  owner "root"
+  group "root"
+  mode "0755"
   source "liquidpromptrc.erb"
 end
 
