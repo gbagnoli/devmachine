@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -euo pipefail
+
+[ $# -ne 1 ] && echo >&2 "Usage: $0 <domain>" && exit 1
+
+domain="$1"
+certificate="<%= @lego_path %>/certificates/$domain.crt"
+if [ -f "$certificate" ]; then
+  echo >&2 "Skipping - Certificate exists at $certificate"
+  exit 0
+fi
+
+/usr/local/bin/lego \
+          --path "<%= @lego_path %>" \
+          --email="<%= @email %>" \
+          --accept-tos \
+          --key-type "<%= @key_type %>" \
+          --http --http.port 127.0.0.1:<%= @lego_port %> \
+          --pem \
+          --domains "$domain" \
+          run
+exit $?

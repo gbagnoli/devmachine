@@ -4,6 +4,15 @@ default["calculon"]["rocky"]["btfrs_progs"] = {
   packages: %w{btrfs-progs btrfs-progs-devel libbtrfs libbtrfsutil python3-btrfsutil}
 }
 
+default["calculon"]["acme"]["lego"]["port"] = "4180"
+default["calculon"]["acme"]["lego"]["email"] = nil
+default["calculon"]["acme"]["certs_dir"] = "/etc/pki/acme"
+default["calculon"]["acme"]["key_type"] = "ec384"
+default["calculon"]["acme"]["renew_days"] = "30"
+default["calculon"]["nginx"]["user"] = "nginx"
+default["calculon"]["nginx"]["group"] = "nginx"
+
+
 default["calculon"]["data"]["username"] = "media"
 default["calculon"]["data"]["group"] = "data"
 default["calculon"]["data"]["uid"] = "2001"
