@@ -1,5 +1,19 @@
 #!/bin/bash
 
 set -eu
+set -o pipefail
 
-pipenv run -- fab run "$@"
+if [ $# -eq 1 ] && [[ "$1" == "system" ]]; then
+  pushd "$(dirname "$0")" &>/dev/null
+  if [ ! -f /usr/local/bin/run-chef ]; then
+    echo >&2 "/usr/local/bin/run-chef not present, cannot do a system run"
+    exit 1
+  fi
+  set -x
+  sudo mkdir -p /usr/local/src/chefrepo
+  chef exec berks vendor >/dev/null
+  sudo rsync --verbose --delete --exclude "data" --exclude "boostrap" --exclude "local-mode-cache" --exclude ".git" --exclude "nodes" --exclude "secrets" --exclude "ohai/plugins" --exclude ".gnupg" --exclude ".cache" -pthrvz -q  ./ /usr/local/src/chefrepo/
+  sudo /usr/local/bin/run-chef
+else
+  pipenv run -- fab run "$@"
+fi
