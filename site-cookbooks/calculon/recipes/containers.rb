@@ -68,3 +68,9 @@ end
 calculon_firewalld_port "syncthing" do
   port %w{20022/tcp 20022/udp}
 end
+
+calculon_vhost "calculon.tigc.eu" do
+  server_name "calculon.tigc.eu"
+  upstream_url "127.0.0.1:8384"
+  cloudflare true
+end

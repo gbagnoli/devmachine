@@ -90,8 +90,6 @@ template "/usr/local/bin/lego_request" do
   )
 end
 
-calculon_acme_certificate "calculon.tigc.eu"
-
 # TODO install systemd timer
 # https://go-acme.github.io/lego/usage/cli/renew-a-certificate/
 systemd_unit "lego_renew_certificates.service" do
@@ -126,4 +124,40 @@ systemd_unit "lego_renew_certificates.timer" do
     WantedBy=timers.target
   EOH
   action %i(create enable start)
+end
+
+directory "/var/www" do
+  owner "root"
+  group "root"
+  mode "0755"
+end
+
+directory "/var/log/nginx/vhosts" do
+  owner node["calculon"]["nginx"]["user"]
+  group node["calculon"]["nginx"]["group"]
+  mode "0755"
+end
+
+remote_file "#{Chef::Config[:file_cache_path]}/cloudflare-ipv4.txt" do
+  source "https://www.cloudflare.com/ips-v4"
+  notifies :create, "template[/etc/nginx/cloudflare.conf]"
+end
+
+remote_file "#{Chef::Config[:file_cache_path]}/cloudflare-ipv6.txt" do
+  source "https://www.cloudflare.com/ips-v6"
+  notifies :create, "template[/etc/nginx/cloudflare.conf]"
+end
+
+template "/etc/nginx/cloudflare.conf" do
+  source "cloudflare_realip.erb"
+  variables(
+    lazy do
+      {
+        ipv4: ::IO.read("#{Chef::Config[:file_cache_path]}/cloudflare-ipv4.txt").split,
+        ipv6: ::IO.read("#{Chef::Config[:file_cache_path]}/cloudflare-ipv6.txt").split,
+      }
+    end
+  )
+  action :nothing
+  notifies :reload, "service[nginx]", :delayed
 end

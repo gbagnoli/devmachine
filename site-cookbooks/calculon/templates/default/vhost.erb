@@ -10,14 +10,16 @@ map <%= conf %>
 <% end -%>
 
 server {
-  <% if @ssl -%>
-  listen <%= @port %> ssl;
-  listen [::]:<%= @port %> ssl;
-  <% else -%>
-  listen <%= @port %>;
-  listen [::]:<%= @port %>;
-  <% end -%>
-  server_name  <%= @server_name %>;
+  listen 443 ssl http2;
+  listen [::]:443 ssl;
+  server_name  <%= Array(@server_name).join(" ") %>;
+
+  ssl_protocols TLSv1.3;
+  ssl_ecdh_curve X25519:secp384r1;
+  ssl_conf_command Options PrioritizeChaCha;
+  ssl_conf_command Ciphersuites TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384;
+  add_header Strict-Transport-Security 'max-age=31536000; includeSubDomains; preload';
+
   <% if !@disable_default_location -%>
   location / {
     proxy_pass <%= @upstream_url %>;
@@ -32,39 +34,28 @@ server {
   <% end -%>
   <% if @extra_config -%>
   <%= @extra_config %>
-  <% end -%>
-  access_log /var/log/nginx/<%= @vhost %>_access.log;
-  error_log  /var/log/nginx/<%= @vhost %>_error.log;
 
-  <% if @ssl -%>
-  <% if ::File.exists?(@certificate_file) -%>
+  <% end -%>
+  access_log <%= @access_log %>;
+  error_log  <%= @error_log %>;
+
   ssl_certificate     <%= @certificate_file %>;
   ssl_certificate_key <%= @certificate_key %>;
-  <% else -%>
-  ssl_certificate     /etc/ssl/certs/ssl-cert-snakeoil.pem;
-  ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
-  <% end -%>
-  <% end -%>
 
   <% if @cloudflare -%>
   include /etc/nginx/cloudflare.conf;
   <% end -%>
 }
 
-<% if @ssl -%>
 server {
   listen 80;
   listen [::]:80;
   server_name    <%= @server_name %>;
-  <% if @letsencrypt -%>
-  location ^~ /.well-known/acme-challenge/ {
-    allow all;
-    default_type "text/plain";
-    root     <%= @www_directory %>;
+  location /.well-known/acme-challenge/ {
+    proxy_pass http://127.0.0.1:<%= node["calculon"]["acme"]["lego"]["port"] %>;
+    proxy_set_header Host $host;
   }
-  <% end -%>
   location / {
-    return         301 https://$host$request_uri;
+    return 301 https://$host$request_uri;
   }
 }
-<% end -%>
