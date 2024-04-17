@@ -120,6 +120,13 @@ if ! shopt -oq posix; then
   fi
 fi
 
+if command -v zoxide &>/dev/null; then
+  eval "$(zoxide init bash)"
+  [ -f /etc/bash_completion.d/zoxide.bash ] && source /etc/bash_completion.d/zoxide.bash
+  j() {
+    z "$@"
+  }
+fi
 
 export CLICOLOR=1
 export PATH="$HOME/.local/bin:$PATH"
@@ -163,18 +170,6 @@ alias tmux="tmux -2"
 alias tzbuddy="tzbuddy -z Europe/Dublin -z Europe/Rome -z US/Pacific -z US/Eastern"
 alias tz="tzbuddy -s 7"
 
-marvin() {
-  rtmux marvin.tigc.eu "$@"
-}
-
-beelzebot() {
-  rtmux beelzebot.tigc.eu "$@"
-}
-
-bender() {
-  rtmux bender.tigc.eu "$@"
-}
-
 update_gems_for_ruby() {
   [ $# -ne 1 ] && echo "usage: update_gems_for_ruby <ruby>" && return 1
   echo "$1";
@@ -198,13 +193,6 @@ aws_enable() {
     complete -C aws_completer aws
 }
 
-rtmux() {
-  case "$2" in
-    "") autossh -M 0 "$1" -t "export TERM=screen-256color-bce; if tmux -2 -qu has; then tmux -2 -qu attach; else tmux -2 -qu new; fi";;
-    *) autossh -M 0 "$1" -t "export TERM=screen-256color-bce; if tmux -2 -qu has -t $2; then tmux -2 -qu attach -t $2; else tmux -2 -qu new -s $2; fi";;
-  esac
-}
-
 # shellcheck disable=SC2039
 if command -v rbenv &>/dev/null; then
   eval "$(rbenv init -)"
@@ -214,14 +202,6 @@ fi
 [ -f ~/.local/src/autoenv/activate.sh ] && . ~/.local/src/autoenv/activate.sh
 # shellcheck disable=SC1091
 # shellcheck disable=SC2039
-if command -v fasd &>/dev/null; then
-  eval "$(fasd --init auto)"
-  alias j="fasd_cd -d"
-  alias v="f -e nvim"
-  alias o="a -e open"
-  _fasd_bash_hook_cmd_complete v m j o
-fi
-
 # Only load liquidprompt in interactive shells, not from a script or from scp
 [[ $- = *i* ]] && source /usr/share/liquidprompt/liquidprompt
 

@@ -156,23 +156,6 @@ git "#{home}/.local/src/autoenv" do
   user user
 end
 
-if node.platform_family? "debian"
-  if platform?('debian')
-    remote_file "/usr/bin/fasd" do
-      source "https://raw.githubusercontent.com/clvv/fasd/master/fasd"
-      mode "0755"
-    end
-  else
-    codename = "focal" # no jammy yet
-    apt_repository "fasd" do
-      uri "ppa:aacebedo/fasd"
-      distribution codename
-    end
-
-    package "fasd"
-  end
-end
-
 git "/usr/share/liquidprompt" do
   repository "https://github.com/liquidprompt/liquidprompt.git"
   action :sync
@@ -238,4 +221,29 @@ node["user"]["ssh_authorized_keys"].each do |desc|
     user node["user"]["login"]
     keytype desc[:keytype]
   end
+end
+
+ruby_block "get zoxide latest version" do
+  block do
+    uri = URI("https://api.github.com/repos/ajeetdsouza/zoxide/releases/latest")
+    response = Net::HTTP.get(uri)
+    parsed = JSON.parse(response)
+    asset = parsed["assets"].select {|x| x["name"].include?("x86_64-unknown-linux")}.first
+    node.run_state["zoxide_download_url"] = asset["browser_download_url"]
+    node.run_state["zoxide_version"] = parsed["tag_name"][1..]
+  end
+end
+
+zoxide_tar = "#{Chef::Config[:file_cache_path]}/zoxide.latest.tar.gz"
+remote_file zoxide_tar do
+  source(lazy { node.run_state["zoxide_download_url"] })
+  notifies :run, "bash[install_zoxide]", :immediately
+end
+
+bash "install_zoxide" do
+  action :nothing
+  code <<~EOH
+    tar -xpzf #{zoxide_tar} -C /usr/bin zoxide
+    tar --strip-components=1 -xpzf #{zoxide_tar} -C /etc/bash_completion.d/ completions/zoxide.bash
+  EOH
 end
