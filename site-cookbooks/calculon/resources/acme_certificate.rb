@@ -9,6 +9,6 @@ action :request do
 
   execute "request_certificate_#{new_resource.name}" do
     command "/usr/local/bin/lego_request #{new_resource.name}"
-    not_if { ::File.exists?("#{node["calculon"]["acme"]["certs_dir"]}/certificates/#{new_resource.name}.crt") }
+    not_if { ::File.exist?("#{node["calculon"]["acme"]["certs_dir"]}/certificates/#{new_resource.name}.crt") }
   end
 end

@@ -90,8 +90,6 @@ template "/usr/local/bin/lego_request" do
   )
 end
 
-# TODO install systemd timer
-# https://go-acme.github.io/lego/usage/cli/renew-a-certificate/
 systemd_unit "lego_renew_certificates.service" do
 	content <<~EOH
     [Unit]
