@@ -3,8 +3,6 @@ user = "nobody"
 group = "nobody"
 auth_key = node["calculon"]["tailscale"]["authkey"]
 
-raise 'AUTH_KEY not set for tailscale - node["calculon"]["tailscale"]["auth_key"]' if auth_key.nil?
-
 calculon_btrfs_volume tsdir do
   owner user
   group group
@@ -21,10 +19,11 @@ podman_container "tailscale" do
     Container: %W{
       Image=tailscale
       Volume=#{tsdir}:/var/lib/tailscale:rw
-      Environment=TS_STATE_DIR=#{tsdir}
+      Environment=TS_STATE_DIR=/var/lib/tailscale
       Environment=TS_USERSPACE=0
       Environment=TS_AUTHKEY=#{auth_key}
       Environment=TS_HOSTNAME=calculon.tigc.eu
+      Environment=TS_EXTRA_ARGS=--advertise-exit-node
       AddDevice=/dev/net/tun:/dev/net/tun:rw
       AddCapability=NET_ADMIN
       AddCapability=NET_RAW
