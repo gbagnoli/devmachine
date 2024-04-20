@@ -81,3 +81,7 @@ apt_repository "wireguard" do
   uri "ppa:wireguard/wireguard"
   action :remove
 end
+
+apt_repository "eternalterminal" do
+  uri "ppa:jgmath2000/et"
+end
