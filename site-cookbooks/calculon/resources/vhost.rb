@@ -17,21 +17,29 @@ action :create do
     calculon_acme_certificate name
   end
 
-  directory www_directory do
+  directory local_vhost_root do
     mode "0755"
   end
 
-  template vhost_conf_file do
+  directory local_cache do
+    mode "0755"
+    user node["calculon"]["nginx"]["user"]
+    group node["calculon"]["nginx"]["group"]
+  end
+
+  template local_vhost_conf_file do
     source "vhost.erb"
     variables(
+      paths: node["calculon"]["nginx"]["container"],
       vhost: new_resource.name,
       server_name: server_name,
       upstream_url: upstream_url,
-      certificate_key: certificate_key,
-      certificate_file: certificate_file,
+      certificate_key: container_certificate_key,
+      certificate_file: container_certificate_file,
       disable_default_location: new_resource.disable_default_location,
       cloudflare: new_resource.cloudflare,
-      www_directory: www_directory,
+      www_directory: container_www,
+      cache_directory: container_cache,
       access_log: access_log,
       error_log: error_log,
       extra_config: new_resource.extra_config,
@@ -51,15 +59,62 @@ action :delete do
     action :delete
   end
 
-  file vhost_conf_file do
+  file local_vhost_conf_file do
     action :delete
     notifies :reload, "service[nginx]", :immediately
+  end
+
+  directory local_cache do
+    action :remove
+    recursive true
+  end
+
+  directory local_vhost_root do
+    action :remove
+    recursive true
   end
 end
 
 action_class do
+
+  def local_paths
+    node["calculon"]["storage"]["paths"]
+  end
+
+  def container_paths
+    node["calculon"]["nginx"]["container"]
+  end
+
   def cert_root
     "#{node["calculon"]["acme"]["certs_dir"]}/certificates/#{new_resource.name}"
+  end
+
+  def container_cert_root
+    "#{container_paths["ssl"]}/#{new_resource.name}"
+  end
+
+  def container_www
+    "#{container_paths["www"]}/#{new_resource.name}"
+  end
+
+  def container_cache
+    "#{container_paths["cache"]}/#{new_resource.name}"
+  end
+
+  def local_vhost_root
+    "#{local_paths["www"]}/vhosts/#{new_resource.name}"
+  end
+
+  def local_cache
+    "#{local_paths["www"]}/cache/#{new_resource.name}"
+  end
+
+  def container_certificate_file
+    "#{container_cert_root}.crt"
+  end
+
+  def container_certificate_key
+    "#{container_cert_root}.key"
   end
 
   def certificate_file
@@ -70,12 +125,8 @@ action_class do
     "#{cert_root}.key"
   end
 
-  def vhost_conf_file
-    "/etc/nginx/conf.d/#{new_resource.name}.conf"
-  end
-
-  def www_directory
-    "/var/www/#{new_resource.name}"
+  def local_vhost_conf_file
+    "#{local_paths["www"]}/etc/conf.d/#{new_resource.name}.conf"
   end
 
   def upstream_url
@@ -83,10 +134,10 @@ action_class do
   end
 
   def access_log
-    "/var/log/nginx/vhosts/#{new_resource.name}.access.log"
+    "#{container_paths["logs"]}/#{new_resource.name}.access.log"
   end
 
   def error_log
-    "/var/log/nginx/vhosts/#{new_resource.name}.error.log"
+    "#{container_paths["logs"]}/#{new_resource.name}.error.log"
   end
 end

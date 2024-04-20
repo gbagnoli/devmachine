@@ -1,34 +1,3 @@
-include_recipe "podman::install"
-
-path = node["calculon"]["containers"]["storage"]["volume"]
-
-execute "create subvolume at #{path}" do
-  command "btrfs subvolume create #{path}"
-  not_if "btrfs subvolume show #{path} &>/dev/null"
-end
-
-template "/etc/containers/storage.conf" do
-  variables node["calculon"]["containers"]["storage"]
-  source "podman_storage.conf.erb"
-  owner "root"
-  group "root"
-  mode "0755"
-  notifies :run, "execute[podman_system_reset]", :before
-end
-
-podman_network "calculon" do
-  config(
-    Network: %W{
-      Driver=bridge
-      IPv6=True
-      Subnet=#{node["calculon"]["network"]["containers"]["ipv4"]["network"]}
-      Subnet=#{node["calculon"]["network"]["containers"]["ipv6"]["network"]}
-      Gateway=#{node["calculon"]["network"]["containers"]["ipv4"]["addr"]}
-      Gateway=#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}
-    }
-  )
-end
-
 podman_image "syncthing" do
   config(
     Image: ["Image=docker.io/syncthing/syncthing"],
@@ -41,8 +10,8 @@ podman_container "syncthing" do
       Image=syncthing.image
       Environment=PUID=#{node["calculon"]["data"]["uid"]}
       Environment=PGID=#{node["calculon"]["data"]["gid"]}
-      PublishPort=[::1]:8384:8384
-      PublishPort=127.0.0.1:8384:8384
+      PublishPort=[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]:8384:8384
+      PublishPort=#{node["calculon"]["network"]["containers"]["ipv4"]["addr"]}:8384:8384
       PublishPort=[::]:22000:22000/tcp
       PublishPort=[::]:22000:22000/udp
       PublishPort=22000:22000/tcp
@@ -54,23 +23,24 @@ podman_container "syncthing" do
     Service: %w{
       Restart=always
     },
+    # description has spaces, use a normal list
     Unit: [
       "Description=Start Syncthing file synchronization",
       "After=network-online.target",
       "Wants=network-online.target",
     ],
     Install: %w{
-      WantedBy=multi-user.targe
+      WantedBy=multi-user.target
     }
   )
 end
 
 calculon_firewalld_port "syncthing" do
-  port %w{20022/tcp 20022/udp}
+  port %w{22000/tcp 22000/udp}
 end
 
 calculon_vhost "calculon.tigc.eu" do
   server_name "calculon.tigc.eu"
-  upstream_url "127.0.0.1:8384"
+  upstream_url "[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]:8384"
   cloudflare true
 end

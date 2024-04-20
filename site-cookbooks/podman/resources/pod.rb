@@ -8,7 +8,7 @@ property :triggers_reload, [true, false], default: true
 default_action :create
 
 action :create do
-  config[:Pod].insert(0, "PodName=#{pod_name}")
+  new_resource.config[:Pod].insert(0, "PodName=#{pod_name}")
   podman_systemd_unit "#{new_resource.name}.pod" do
     config new_resource.config
     action :create

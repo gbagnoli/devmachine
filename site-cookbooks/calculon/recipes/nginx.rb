@@ -1,152 +1,77 @@
-package "nginx"
-
-service "nginx" do
-  action :start
+package "nginx" do
+  action :purge
 end
 
-calculon_firewalld_port "nginx" do
-  port %w{80/tcp 443/tcp}
+podman_pod "web" do
+  config(
+    Pod: %w{
+      Network=calculon.network
+      PublishPort=[::]:80:80/tcp
+      PublishPort=80:80/tcp
+      PublishPort=[::]:443:443/tcp
+      PublishPort=443:443/tcp
+    }
+  )
 end
-# install lego for letsencrypt
 
-ruby_block "get lego latest version" do
-  block do
-    uri = URI("https://api.github.com/repos/go-acme/lego/releases/latest")
-    response = Net::HTTP.get(uri)
-    parsed = JSON.parse(response)
-    asset = parsed["assets"].select {|x| x["name"].include?("linux_amd64")}.first
-    node.run_state["lego_download_url"] = asset["browser_download_url"]
-    node.run_state["lego_version"] = parsed["tag_name"][1..]
+www = node["calculon"]["storage"]["paths"]["www"]
+%W{
+  #{www}/etc
+  #{www}/etc/conf.d
+  #{www}/etc/default.d
+  #{www}/vhosts
+  #{www}/vhosts/default
+}.each do |dir|
+  directory dir do
+    mode "0755"
+    owner "root"
+    group "root"
   end
 end
 
-remote_file "#{Chef::Config[:file_cache_path]}/lego.latest.tar.gz" do
-  source(lazy { node.run_state["lego_download_url"] })
-  notifies :run, "execute[install_lego]", :immediately
+user = node["calculon"]["nginx"]["user"]
+group = node["calculon"]["nginx"]["group"]
+uid = node["calculon"]["nginx"]["uid"]
+gid = node["calculon"]["nginx"]["gid"]
+
+group group do
+  system true
+  gid gid
 end
 
-execute "install_lego" do
-  action :nothing
-  command "tar -xpzf #{Chef::Config[:file_cache_path]}/lego.latest.tar.gz -C /usr/local/bin lego"
+user user do
+  system true
+  shell "/bin/nologin"
+  uid uid
+  gid gid
 end
 
-directory node["calculon"]["acme"]["certs_dir"] do
-  owner "root"
-  group node["calculon"]["nginx"]["group"]
-  mode "0755"
+%W{#{www}/logs #{www}/logs/vhosts #{www}/cache}.each do |dir|
+  directory dir do
+    owner user
+    group group
+    mode "0755"
+  end
 end
 
-certificates_d = "#{node["calculon"]["acme"]["certs_dir"]}/certificates"
-directory certificates_d  do
-  owner "root"
-  group node["calculon"]["nginx"]["group"]
-  mode "2750"
-end
-
-execute "setfacl_#{certificates_d}" do
-  command "setfacl -R -d -m g::r -m o::- #{certificates_d}"
-  user "root"
-  not_if "getfacl #{certificates_d} 2>/dev/null | grep 'default:' -q"
-end
-
-file "/etc/nginx/default.d/lego.conf" do
-  content <<~EOH
-  location /.well-known/acme-challenge/ {
-      proxy_pass http://127.0.0.1:#{node["calculon"]["acme"]["lego"]["port"]};
-      proxy_set_header Host $host;
-  }
-  EOH
-  notifies :reload, "service[nginx]", :immediately
-end
-
-raise 'Password not set for ACME - node["calculon"]["acme"]["lego"]["email"]' if node["calculon"]["acme"]["lego"]["email"].nil?
-
-template "/usr/local/bin/lego_periodic_renew" do
-  source "lego_periodic_renew.sh.erb"
-  mode "0755"
-  user "root"
-  group "root"
+template "#{www}/etc/conf.d/default.conf" do
+  source "nginx_default_vhost.erb"
   variables(
-    lego_path: node["calculon"]["acme"]["certs_dir"],
-    lego_port: node["calculon"]["acme"]["lego"]["port"],
-    email: node["calculon"]["acme"]["lego"]["email"],
-    lego: "/usr/local/bin/lego",
-    key_type: node["calculon"]["acme"]["key_type"],
-    renew_days: node["calculon"]["acme"]["renew_days"]
+    paths: node["calculon"]["nginx"]["container"]
   )
-end
-
-template "/usr/local/bin/lego_request" do
-  source "lego_request.sh.erb"
-  mode "0755"
-  user "root"
-  group "root"
-  variables(
-    lego_path: node["calculon"]["acme"]["certs_dir"],
-    lego_port: node["calculon"]["acme"]["lego"]["port"],
-    email: node["calculon"]["acme"]["lego"]["email"],
-    lego: "/usr/local/bin/lego",
-    key_type: node["calculon"]["acme"]["key_type"],
-  )
-end
-
-systemd_unit "lego_renew_certificates.service" do
-	content <<~EOH
-    [Unit]
-    Description=Renew certificates from letsencrypt
-
-    [Service]
-    type=oneshot
-    ExecStart=/usr/local/bin/lego_periodic_renew
-    User=root
-    Group=systemd-journal
-	EOH
-  action %i(create enable)
-end
-
-systemd_unit "lego_renew_certificates.timer" do
-  content <<~EOH
-    [Unit]
-    Description=Renew certificates
-
-    [Timer]
-    Unit=lego_renew_certificates.service
-    Persistent=true
-
-    # instead, use a randomly chosen time:
-    OnCalendar=*-*-* 6:13
-    # add extra delay, here up to 1 hour:
-    RandomizedDelaySec=1h
-
-    [Install]
-    WantedBy=timers.target
-  EOH
-  action %i(create enable start)
-end
-
-directory "/var/www" do
-  owner "root"
-  group "root"
-  mode "0755"
-end
-
-directory "/var/log/nginx/vhosts" do
-  owner node["calculon"]["nginx"]["user"]
-  group node["calculon"]["nginx"]["group"]
-  mode "0755"
 end
 
 remote_file "#{Chef::Config[:file_cache_path]}/cloudflare-ipv4.txt" do
   source "https://www.cloudflare.com/ips-v4"
-  notifies :create, "template[/etc/nginx/cloudflare.conf]"
+  notifies :create, "template[#{www}/etc/cloudflare.conf]"
 end
 
 remote_file "#{Chef::Config[:file_cache_path]}/cloudflare-ipv6.txt" do
   source "https://www.cloudflare.com/ips-v6"
-  notifies :create, "template[/etc/nginx/cloudflare.conf]"
+  notifies :create, "template[#{www}/etc/cloudflare.conf]"
 end
 
-template "/etc/nginx/cloudflare.conf" do
+template "#{www}/etc/cloudflare.conf" do
   source "cloudflare_realip.erb"
   variables(
     lazy do
@@ -158,4 +83,51 @@ template "/etc/nginx/cloudflare.conf" do
   )
   action :nothing
   notifies :reload, "service[nginx]", :delayed
+end
+
+podman_image "nginx" do
+  config(
+    Image: ["Image=docker.io/nginx:stable"],
+  )
+end
+
+certificates = "#{node["calculon"]["acme"]["certs_dir"]}/certificates/"
+cpaths = node["calculon"]["nginx"]["container"]
+
+podman_container "nginx" do
+  config(
+    Container: %W{
+      Pod=web.pod
+      Image=nginx.image
+      Volume=#{www}/etc/conf.d:#{cpaths["etc"]}/conf.d:ro
+      Volume=#{www}/etc/default.d:#{cpaths["etc"]}/default.d:ro
+      Volume=#{www}/etc/cloudflare.conf:#{cpaths["etc"]}/cloudflare.conf:ro
+      Volume=#{www}/vhosts:#{cpaths["www"]}:ro
+      Volume=#{www}/logs:#{cpaths["logs"]}
+      Volume=#{www}/cache:#{cpaths["cache"]}
+      Volume=#{certificates}:#{cpaths["ssl"]}:ro
+      Volume=/sys:/sys:ro
+    },
+    Service: [
+      "Restart=always",
+      "ExecReload=podman exec nginx nginx -t",
+      "ExecReload=podman exec nginx nginx -s reload",
+    ],
+    Unit: [
+      "Description=Start NGINX web server",
+      "After=network-online.target",
+      "Wants=network-online.target",
+    ],
+    Install: %w{
+      WantedBy=multi-user.target
+    }
+  )
+end
+
+calculon_firewalld_port "nginx" do
+  port %w{80/tcp 443/tcp}
+end
+
+service "nginx" do
+  action :start
 end

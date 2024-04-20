@@ -15,4 +15,6 @@ default["podman"]["rocky"]["crun"]["git"] = {
   tag: "1.14.4",
   deps: %w{make automake autoconf gettext libtool gcc libcap-devel systemd-devel yajl-devel glibc-static libseccomp-devel},
 }
+
+default["catatonic"]["git"] = "https://github.com/openSUSE/catatonit.git"
 # rubocop:enable Layout/LineLength

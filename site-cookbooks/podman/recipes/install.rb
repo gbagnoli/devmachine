@@ -77,13 +77,26 @@ if platform?("rocky")
       make install
     EOH
   end
+
+  git "#{Chef::Config[:file_cache_path]}/catatonic" do
+    repository node["catatonic"]["git"]
+    action :sync
+    user "root"
+    notifies :run, "bash[build and install catatonic]", :immediately
+  end
+
+  bash "build and install catatonic" do
+    action :nothing
+    cwd "#{Chef::Config[:file_cache_path]}/catatonic"
+    code <<~EOH
+    ./autogen.sh
+    ./configure --prefix=/usr
+    make -j8
+    make install
+    EOH
+  end
 else
   package "virt" do
     package_name %w(crun podman)
   end
-end
-
-execute "podman_system_reset" do
-  command "podman system reset -f"
-  action :nothing
 end

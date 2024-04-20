@@ -1,6 +1,6 @@
 <% if @proxy_caches -%>
 <% @proxy_caches.each do |dir, conf| -%>
-proxy_cache_path <%= dir %> <%= conf %>;
+  proxy_cache_path <%= @cache_directory %>/<%= dir %> <%= conf %>;
 <% end -%>
 <% end -%>
 <% if @maps -%>
@@ -50,7 +50,7 @@ server {
 server {
   listen 80;
   listen [::]:80;
-  server_name    <%= @server_name %>;
+  server_name  <%= Array(@server_name).join(" ") %>;
   location /.well-known/acme-challenge/ {
     proxy_pass http://127.0.0.1:<%= node["calculon"]["acme"]["lego"]["port"] %>;
     proxy_set_header Host $host;
