@@ -55,14 +55,12 @@ end
 
 
 node["bender"]["vhosts"].each do |vhost, conf|
-  unless conf["proxy_caches"].nil?
-    conf["proxy_caches"].each do |dir, _|
-      directory dir do
-        recursive true
-        owner "www-data"
-        group "www-data"
-        mode "0755"
-      end
+  conf["proxy_caches"]&.each do |dir, _|
+    directory dir do
+      recursive true
+      owner "www-data"
+      group "www-data"
+      mode "0755"
     end
   end
 

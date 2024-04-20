@@ -89,10 +89,10 @@ if platform?("rocky")
     action :nothing
     cwd "#{Chef::Config[:file_cache_path]}/catatonic"
     code <<~EOH
-    ./autogen.sh
-    ./configure --prefix=/usr
-    make -j8
-    make install
+      ./autogen.sh
+      ./configure --prefix=/usr
+      make -j8
+      make install
     EOH
   end
 else

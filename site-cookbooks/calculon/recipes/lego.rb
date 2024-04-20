@@ -42,35 +42,37 @@ end
 
 file "#{node["calculon"]["storage"]["paths"]["www"]}/etc/default.d/lego.conf" do
   content <<~EOH
-  location /.well-known/acme-challenge/ {
-      proxy_pass http://127.0.0.1:#{node["calculon"]["acme"]["lego"]["port"]};
-      proxy_set_header Host $host;
-  }
+    location /.well-known/acme-challenge/ {
+        proxy_pass http://127.0.0.1:#{node["calculon"]["acme"]["lego"]["port"]};
+        proxy_set_header Host $host;
+    }
   EOH
   notifies :reload, "service[nginx]", :immediately
 end
 
-raise 'email not set for ACME - node["calculon"]["acme"]["lego"]["email"]' if node["calculon"]["acme"]["lego"]["email"].nil?
+if node["calculon"]["acme"]["lego"]["email"].nil?
+  raise 'email not set for ACME - node["calculon"]["acme"]["lego"]["email"]'
+end
 
 file "/usr/local/bin/lego" do
   owner "root"
   group "root"
   mode "0750"
   content <<~EOH
-  #!/bin/bash
-  set -eu
-  podman run \
-  --rm \
-  --net calculon \
-  --read-only \
-  -q \
-  --user #{node["calculon"]["acme"]["lego"]["uid"]} \
-  -p #{node["calculon"]["acme"]["lego"]["port"]}:#{node["calculon"]["acme"]["lego"]["port"]} \
-  -v #{node["calculon"]["acme"]["certs_dir"]}:#{node["calculon"]["acme"]["certs_dir"]} \
-  -w #{node["calculon"]["acme"]["certs_dir"]} \
-  -e /usr/bin/lego \
-  #{lego_image} \
-  "$@"
+    #!/bin/bash
+    set -eu
+    podman run \
+    --rm \
+    --net calculon \
+    --read-only \
+    -q \
+    --user #{node["calculon"]["acme"]["lego"]["uid"]} \
+    -p #{node["calculon"]["acme"]["lego"]["port"]}:#{node["calculon"]["acme"]["lego"]["port"]} \
+    -v #{node["calculon"]["acme"]["certs_dir"]}:#{node["calculon"]["acme"]["certs_dir"]} \
+    -w #{node["calculon"]["acme"]["certs_dir"]} \
+    -e /usr/bin/lego \
+    #{lego_image} \
+    "$@"
   EOH
 end
 
@@ -103,18 +105,16 @@ template "/usr/local/bin/lego_request" do
   )
 end
 
-# TODO install systemd timer
-# https://go-acme.github.io/lego/usage/cli/renew-a-certificate/
 systemd_unit "lego_renew_certificates.service" do
 	content <<~EOH
-    [Unit]
-    Description=Renew certificates from letsencrypt
+   [Unit]
+   Description=Renew certificates from letsencrypt
 
-    [Service]
-    Type=oneshot
-    ExecStart=/usr/local/bin/lego_periodic_renew
-    User=root
-    Group=systemd-journal
+   [Service]
+   Type=oneshot
+   ExecStart=/usr/local/bin/lego_periodic_renew
+   User=root
+   Group=systemd-journal
 	EOH
   action %i(create enable)
 end
