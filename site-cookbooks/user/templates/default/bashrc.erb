@@ -121,11 +121,12 @@ if ! shopt -oq posix; then
 fi
 
 if command -v zoxide &>/dev/null; then
-  eval "$(zoxide init bash)"
+  eval "$(zoxide init bash --cmd j)"
   [ -f /etc/bash_completion.d/zoxide.bash ] && source /etc/bash_completion.d/zoxide.bash
-  j() {
-    z "$@"
-  }
+fi
+
+if command -v fzf &>/dev/null; then
+  eval "$(fzf --bash)"
 fi
 
 export CLICOLOR=1

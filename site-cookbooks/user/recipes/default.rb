@@ -247,3 +247,28 @@ bash "install_zoxide" do
     tar --strip-components=1 -xpzf #{zoxide_tar} -C /etc/bash_completion.d/ completions/zoxide.bash
   EOH
 end
+
+
+ruby_block "get fzf latest version" do
+  block do
+    uri = URI("https://api.github.com/repos/junegunn/fzf/releases/latest")
+    response = Net::HTTP.get(uri)
+    parsed = JSON.parse(response)
+    asset = parsed["assets"].select {|x| x["name"].include?("linux_amd64")}.first
+    node.run_state["fzf_download_url"] = asset["browser_download_url"]
+    node.run_state["fzf_version"] = parsed["tag_name"][1..]
+  end
+end
+
+fzf_tar = "#{Chef::Config[:file_cache_path]}/fzf.latest.tar.gz"
+remote_file fzf_tar do
+  source(lazy { node.run_state["fzf_download_url"] })
+  notifies :run, "bash[install_fzf]", :immediately
+end
+
+bash "install_fzf" do
+  action :nothing
+  code <<~EOH
+    tar -xpzf #{fzf_tar} -C /usr/bin fzf
+  EOH
+end
