@@ -15,6 +15,9 @@ podman_pod "web" do
 end
 
 www = node["calculon"]["storage"]["paths"]["www"]
+
+calculon_btrfs_volume www
+
 %W{
   #{www}/etc
   #{www}/etc/conf.d

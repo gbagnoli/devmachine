@@ -70,24 +70,12 @@ if node["calculon"]["storage"]["manage"]
   end
 end
 
-%w{sync media downloads library www}.each do |vol|
-  path = paths[vol]
-
-  execute "create subvolume at #{path}" do
-    command "btrfs subvolume create #{path}"
-    not_if "btrfs subvolume show #{path} &>/dev/null"
-  end
-
-  directory path do
+%w{sync media downloads library}.each do |vol|
+  calculon_btrfs_volume paths[vol] do
     group data_group
     owner data_user
     mode "2775"
-  end
-
-  execute "setfacl_#{path}" do
-    command "setfacl -R -d -m g::rwx -m o::rx #{path}"
-    user "root"
-    not_if "getfacl #{path} 2>/dev/null | grep 'default:' -q"
+    setfacl true
   end
 end
 
