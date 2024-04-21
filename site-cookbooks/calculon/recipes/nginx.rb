@@ -49,13 +49,21 @@ user user do
   gid gid
 end
 
-%W{#{www}/logs #{www}/logs/vhosts #{www}/cache}.each do |dir|
+%W{#{www}/logs #{www}/cache}.each do |dir|
   directory dir do
     owner user
     group group
     mode "0755"
   end
 end
+
+logrotate_app "nginx" do
+  path "#{www}/logs/*.log"
+  frequency "daily"
+  rotate 15
+  create "644 #{user} #{group}"
+end
+
 
 template "#{www}/etc/conf.d/default.conf" do
   source "nginx_default_vhost.erb"

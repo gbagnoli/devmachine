@@ -91,6 +91,7 @@ GRAPH
   calculon (0.1.0)
     datadog (>= 0.0.0)
     hostsfile (>= 0.0.0)
+    logrotate (>= 0.0.0)
     podman (>= 0.0.0)
     sysctl (>= 0.0.0)
     yum-elrepo (>= 0.0.0)
