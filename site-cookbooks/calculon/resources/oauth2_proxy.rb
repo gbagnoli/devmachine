@@ -98,7 +98,7 @@ action_class do
   end
 
   def upstreams
-    ["#{new_resource.upstream_protocol}:#{new_resource.upstream_address}:#{new_resource.upstream_port}"]
+    ["#{new_resource.upstream_protocol}://#{new_resource.upstream_address}:#{new_resource.upstream_port}"]
   end
 
   def secrets
