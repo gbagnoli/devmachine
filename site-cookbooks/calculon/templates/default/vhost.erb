@@ -50,6 +50,8 @@ server {
 server {
   listen 80;
   listen [::]:80;
+  access_log <%= @access_log %>;
+  error_log  <%= @error_log %>;
   server_name  <%= Array(@server_name).join(" ") %>;
   location /.well-known/acme-challenge/ {
     proxy_pass http://127.0.0.1:<%= node["calculon"]["acme"]["lego"]["port"] %>;

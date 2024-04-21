@@ -51,3 +51,9 @@ default["calculon"]["network"]["containers"]["ipv4"]["network"] = "172.25.25.0/2
 default["calculon"]["network"]["containers"]["ipv6"]["addr"] = "fd05:f439:6192:ffff::1"
 default["calculon"]["network"]["containers"]["ipv6"]["addr_cidr"] = "fd05:f439:6192:ffff::1/64"
 default["calculon"]["network"]["containers"]["ipv6"]["network"] = "fd05:f439:6192:ffff::0/64"
+
+# oauth2 proxy
+default["server"]["oauth2_proxy"]["secrets"]["client-secret"] = nil
+default["server"]["oauth2_proxy"]["secrets"]["client-id"] = nil
+default["server"]["oauth2_proxy"]["secrets"]["cookie-secret"] = nil
+default["server"]["oauth2_proxy"]["secrets"]["syncthing_authenticated_emails"] = nil

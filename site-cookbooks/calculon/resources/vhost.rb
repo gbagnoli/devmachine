@@ -3,10 +3,12 @@ provides :calculon_vhost
 unified_mode true
 
 property :server_name, [Array, String]
-property :upstream_url, [String]
+property :upstream_address, String, default: "[::1]"
+property :upstream_port, [String, Integer]
 property :upstream_protocol, String, default: "http", equal_to: %w(http https)
 property :disable_default_location, [true, false], default: false
 property :cloudflare, [true, false], default: true
+property :oauth2_proxy, [Hash, NilClass], default: nil
 property :extra_config, [String, NilClass]
 property :maps, [Array, NilClass]
 property :proxy_caches, [Hash, NilClass]
@@ -15,6 +17,23 @@ action :create do
   server_name = Array(new_resource.server_name).map(&:to_s)
   server_name.each do |name|
     calculon_acme_certificate name
+  end
+
+  unless new_resource.oauth2_proxy.nil?
+    conf = new_resource.oauth2_proxy
+     calculon_oauth2_proxy new_resource.name do
+       emails conf[:emails]
+       port conf[:port]
+
+       # these are optional
+       redirect_url conf[:redirect_url] || "https://#{server_name.first}/oauth2/callback"
+       address "[::1]"
+       auth_provider conf[:auth_provider]
+
+       upstream_port new_resource.upstream_port
+       upstream_address new_resource.upstream_address
+       upstream_protocol new_resource.upstream_protocol
+     end
   end
 
   directory local_vhost_root do
@@ -130,7 +149,12 @@ action_class do
   end
 
   def upstream_url
-    "#{new_resource.upstream_protocol}://#{new_resource.upstream_url}"
+    if new_resource.oauth2_proxy.nil?
+      "#{new_resource.upstream_protocol}://#{new_resource.upstream_address}:#{new_resource.upstream_port}"
+    else
+      port = new_resource.oauth2_proxy[:port]
+      "http://[::1]:#{port}"
+    end
   end
 
   def access_log

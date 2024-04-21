@@ -127,9 +127,9 @@ action_class do
   end
 
   def extract_service_name_and_type
-    name, type = new_resource.name.split(".")
+    name, _, type = new_resource.name.rpartition(".")
     unless %w(container image kube network pod volume).include? type
-      raise "Invalid unit type #{t} in #{new_resource.name}"
+      raise "Invalid unit type #{type} in #{new_resource.name}"
     end
 
     [name, type]

@@ -41,6 +41,12 @@ end
 
 calculon_vhost "calculon.tigc.eu" do
   server_name "calculon.tigc.eu"
-  upstream_url "[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]:8384"
+  upstream_address "[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]"
+  upstream_port 8384
+  oauth2_proxy(
+    emails: node["calculon"]["oauth2_proxy"]["secrets"]["syncthing_authenticated_emails"],
+    port: 4000
+  )
   cloudflare true
+
 end
