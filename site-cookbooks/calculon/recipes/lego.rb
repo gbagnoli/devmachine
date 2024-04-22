@@ -63,11 +63,10 @@ file "/usr/local/bin/lego" do
     set -eu
     podman run \
     --rm \
-    --net calculon \
+    --pod web \
     --read-only \
     -q \
     --user #{node["calculon"]["acme"]["lego"]["uid"]} \
-    -p #{node["calculon"]["acme"]["lego"]["port"]}:#{node["calculon"]["acme"]["lego"]["port"]} \
     -v #{node["calculon"]["acme"]["certs_dir"]}:#{node["calculon"]["acme"]["certs_dir"]} \
     -w #{node["calculon"]["acme"]["certs_dir"]} \
     -e /usr/bin/lego \

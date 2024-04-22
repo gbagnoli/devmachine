@@ -65,7 +65,7 @@ logrotate_app "nginx" do
 end
 
 
-template "#{www}/etc/conf.d/default.conf" do
+template "#{www}/etc/conf.d/000-default.conf" do
   source "nginx_default_vhost.erb"
   variables(
     paths: node["calculon"]["nginx"]["container"]

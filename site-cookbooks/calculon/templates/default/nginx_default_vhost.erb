@@ -1,17 +1,24 @@
 server {
-    listen       80;
-    listen       [::]:80;
-    server_name  _;
-    root         <%= @paths["www"] %>/vhosts/default;
+  listen       80;
+  listen       [::]:80;
+  server_name  _;
+  root         <%= @paths["www"] %>/vhosts/default;
 
-    # Load configuration files for the default server block.
-    include <%= @paths["etc"] %>/default.d/*.conf;
+  access_log /var/logs/nginx/access.log;
+  error_log /var/logs/nginx/error.log;
 
-    error_page 404 /404.html;
+  # Load configuration files for the default server block.
+  include <%= @paths["etc"] %>/default.d/*.conf;
+
+  error_page 404 /404.html;
     location = /404.html {
-    }
+  }
 
-    error_page 500 502 503 504 /50x.html;
+  error_page 500 502 503 504 /50x.html;
     location = /50x.html {
-    }
+  }
+
+  location / {
+    return 301 https://$host$request_uri;
+  }
 }
