@@ -41,7 +41,7 @@ podman_container "tailscale" do
   config(
     Container: %W{
       Network=host
-      Image=tailscale
+      Image=tailscale.image
       Volume=#{tsdir}:/var/lib/tailscale:rw
       Environment=PORT=39129
       Environment=TS_STATE_DIR=/var/lib/tailscale
