@@ -63,13 +63,13 @@ server {
 
   <% end -%>
 
-  <% @upstream_paths.sort.to_h.each do |path, url| -%>
+  <% @upstream_paths.sort.to_h.each do |path, opts| -%>
   location <%= path %> {
     return 302 $scheme://$host<%= path %>/;
   }
 
   location <%= path %>/ {
-    proxy_pass <%= url %>/;
+    proxy_pass <%= opts["upstream"] %>/;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Host $host;
     proxy_set_header X-Forwarded-Server $host;

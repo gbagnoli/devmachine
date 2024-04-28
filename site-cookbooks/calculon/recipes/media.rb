@@ -63,19 +63,8 @@ podman_container "tdarr" do
   )
 end
 
-calculon_vhost "tdarr.calculon.tigc.eu" do
-  server_name "tdarr.calculon.tigc.eu"
-  upstream_address "[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]"
-  upstream_port 8265
-  oauth2_proxy(
-    emails: node["calculon"]["oauth2_proxy"]["secrets"]["syncthing_authenticated_emails"],
-    port: 4001
-  )
-  cloudflare true
-  action :delete
-end
-
 calculon_www_upstream "/tdarr" do
   upstream_address "[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]"
   upstream_port 8265
+  title "Tdarr (Transcoding)"
 end

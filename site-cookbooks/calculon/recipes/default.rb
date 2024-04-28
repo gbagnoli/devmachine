@@ -9,18 +9,25 @@ include_recipe "calculon::containers"
 include_recipe "calculon::media"
 
 # create the www vhost with the accumulated hosts
-unless node["calculon"]["www"]["domain"].nil?
-  calculon_vhost node["calculon"]["www"]["domain"] do
-    server_name node["calculon"]["www"]["domain"]
+domain = node["calculon"]["www"]["domain"]
+unless domain.nil?
+  calculon_vhost domain do
+    server_name domain
     cloudflare true
-    upstream_paths lazy { node["calculon"]["www"]["upstreams"].to_h }
+    upstream_paths(lazy { node["calculon"]["www"]["upstreams"].to_h })
     oauth2_proxy(
       emails: node["calculon"]["oauth2_proxy"]["secrets"]["syncthing_authenticated_emails"],
       port: 4100
     )
     act_as_upstream 4101
   end
+
+  www = node["calculon"]["storage"]["paths"]["www"]
+  template "#{www}/vhosts/#{domain}/index.html" do
+    source "www_host_index.erb"
+    variables(
+      upstream_paths: lazy { node["calculon"]["www"]["upstreams"].to_h },
+      domain: domain,
+    )
+  end
 end
-
-
-# TODO: render default page for upstreams

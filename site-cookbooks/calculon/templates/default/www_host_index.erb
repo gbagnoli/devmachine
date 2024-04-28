@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+	<head>
+    <title><%= @domain %></title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css" rel="stylesheet">
+		<script type="text/javascript">
+// delegate event for performance, and save attaching a million events to each anchor
+document.addEventListener('click', function(event) {
+  var target = event.target;
+  if (target.tagName.toLowerCase() == 'a')
+  {
+    var port = target.getAttribute('href').match(/^:(\d+)(.*)/);
+    if (port)
+    {
+       target.href = port[2];
+       target.port = port[1];
+    }
+  }
+}, false);
+		</script>
+	</head>
+	<body>
+		<div class="container">
+			<!-- Static navbar -->
+			<div class="navbar navbar-default" role="navigation">
+				<div class="navbar-header">
+					<a class="navbar-brand" href="#">media.tigc.eu</a>
+				</div>
+				<div class="navbar-collapse collapse">
+					<ul class="nav navbar-nav">
+            <% @upstream_paths.sort.to_h.each do |path, opts| -%>
+            <li><a href="<%= path %>"><%= opts["title"] %></a></li>
+            <% end -%>
+					</ul>
+				</div><!--/.nav-collapse -->
+			</div>
+
+			<!-- Main component for a primary marketing message or call to action -->
+			<div class="jumbotron">
+				<h1><%= @domain %></h1>
+        <% @upstream_paths.sort.to_h.each do |path, opts| -%>
+        <p><a class="btn btn-lg btn-primary" href="<%= path %>"><%= opts["title"] %></a></p>
+        <% end -%>
+			</div>
+
+		</div> <!-- /container -->
+
+		<script src="//code.jquery.com/jquery-2.1.1.min.js"></script>
+		<script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>
+	</body>
+</html>
