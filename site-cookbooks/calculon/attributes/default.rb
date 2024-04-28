@@ -35,6 +35,10 @@ default["calculon"]["nginx"]["group"] = "nginx"
 default["calculon"]["nginx"]["uid"] = 101
 default["calculon"]["nginx"]["gid"] = 101
 
+# set to a valid domain to enable
+default["calculon"]["www"]["domain"] = "www.tigc.eu"
+default["calculon"]["www"]["upstreams"] = {}
+
 default["calculon"]["nginx"]["container"]["etc"] = "/etc/nginx"
 default["calculon"]["nginx"]["container"]["www"] = "/var/www"
 default["calculon"]["nginx"]["container"]["cache"] = "/var/cache/www"

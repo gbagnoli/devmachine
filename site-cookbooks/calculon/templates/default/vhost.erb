@@ -46,3 +46,41 @@ server {
   include /etc/nginx/cloudflare.conf;
   <% end -%>
 }
+
+<% unless @act_as_upstream.nil? -%>
+server {
+  listen <%= @act_as_upstream %>;
+  listen [::]:<%= @act_as_upstream %>;
+  server_name  <%= Array(@server_name).join(" ") %>;
+  root <%= @www_directory %>;
+  index index.html;
+
+  access_log <%= @access_log %>;
+  error_log  <%= @error_log %>;
+
+  <% if @extra_config_as_upstream -%>
+  <%= @extra_config_as_upstream %>
+
+  <% end -%>
+
+  <% @upstream_paths.sort.to_h.each do |path, url| -%>
+  location <%= path %> {
+    return 302 $scheme://$host<%= path %>/;
+  }
+
+  location <%= path %>/ {
+    proxy_pass <%= url %>/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Server $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+
+  <% end -%>
+  location / {
+    try_files $uri $uri/ /index.html;
+  }
+}
+<% end -%>

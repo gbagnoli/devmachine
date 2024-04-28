@@ -72,4 +72,10 @@ calculon_vhost "tdarr.calculon.tigc.eu" do
     port: 4001
   )
   cloudflare true
+  action :delete
+end
+
+calculon_www_upstream "/tdarr" do
+  upstream_address "[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]"
+  upstream_port 8265
 end

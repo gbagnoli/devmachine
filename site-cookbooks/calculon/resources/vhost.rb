@@ -12,6 +12,9 @@ property :oauth2_proxy, [Hash, NilClass], default: nil
 property :extra_config, [String, NilClass]
 property :maps, [Array, NilClass]
 property :proxy_caches, [Hash, NilClass]
+property :upstream_paths, Hash, default: {}
+property :act_as_upstream, [String, Integer, NilClass]
+property :extra_config_as_upstream, [String, NilClass]
 
 action :create do
   server_name = Array(new_resource.server_name).map(&:to_s)
@@ -19,6 +22,7 @@ action :create do
     calculon_acme_certificate name
   end
 
+  # handle the default oauth2 proxy if any
   unless new_resource.oauth2_proxy.nil?
     conf = new_resource.oauth2_proxy
      calculon_oauth2_proxy new_resource.name do
@@ -30,8 +34,8 @@ action :create do
        address "[::1]"
        auth_provider conf[:auth_provider]
 
-       upstream_port new_resource.upstream_port
-       upstream_address new_resource.upstream_address
+       upstream_port oauth2_proxy_upstream_port
+       upstream_address oauth2_proxy_upstream_address
        upstream_protocol new_resource.upstream_protocol
      end
   end
@@ -64,6 +68,9 @@ action :create do
       extra_config: new_resource.extra_config,
       maps: new_resource.maps,
       proxy_caches: new_resource.proxy_caches,
+      upstream_paths: new_resource.upstream_paths,
+      act_as_upstream: new_resource.act_as_upstream,
+      extra_config_as_upstream: new_resource.extra_config_as_upstream,
     )
     notifies :reload, "service[nginx]", :immediately
   end
@@ -84,12 +91,12 @@ action :delete do
   end
 
   directory local_cache do
-    action :remove
+    action :delete
     recursive true
   end
 
   directory local_vhost_root do
-    action :remove
+    action :delete
     recursive true
   end
 end
@@ -154,6 +161,22 @@ action_class do
     else
       port = new_resource.oauth2_proxy[:port]
       "http://[::1]:#{port}"
+    end
+  end
+
+  def oauth2_proxy_upstream_port
+    if new_resource.act_as_upstream.nil?
+      new_resource.upstream_port
+    else
+      new_resource.act_as_upstream
+    end
+  end
+
+  def oauth2_proxy_upstream_address
+    if new_resource.act_as_upstream.nil?
+      new_resource.upstream_address
+    else
+     "[::1]"
     end
   end
 
