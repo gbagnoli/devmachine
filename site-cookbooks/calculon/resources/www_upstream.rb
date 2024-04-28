@@ -8,7 +8,7 @@ path_callback = {
   },
 }
 
-property :path, String, name_property: true, required: true, callbacks: path_callback
+property :path, String, name_property: true, callbacks: path_callback
 property :upstream_address, String, default: "[::1]"
 property :upstream_port, [String, Integer], required: true
 property :upstream_protocol, String, default: "http", equal_to: %w(http https)

@@ -23,4 +23,4 @@ unless node["calculon"]["www"]["domain"].nil?
 end
 
 
-# TODO render default page for upstreams
+# TODO: render default page for upstreams
