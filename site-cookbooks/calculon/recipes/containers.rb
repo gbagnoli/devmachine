@@ -93,6 +93,7 @@ podman_container "filebrowser" do
       "Volume=#{fbsettings}:/.filebrowser.json",
       "Network=calculon.network",
       "HostName=files.tigc.eu",
+      "User=#{node["calculon"]["data"]["uid"]}:#{node["calculon"]["data"]["gid"]}",
       "Exec=-a 0.0.0.0 -r /files/ -p 8080 -c /.filebrowser.json",
     ],
     Service: %w{
