@@ -43,7 +43,7 @@ end
 
 podman_image "filebrowser" do
   config(
-    Image: ["Image=docker.io/filebrowser/filebrowser:s6"],
+    Image: ["Image=docker.io/filebrowser/filebrowser"],
   )
 end
 
@@ -71,29 +71,30 @@ file fbsettings do
   mode "0700"
   content({
     port: 8080,
-    baseURL: "",
+    baseURL: "/files",
     address: "0.0.0.0",
     log: "stdout",
-    database: "/database/filebrowser.db",
-    root: "/srv"
+    database: "/database.db",
+    root: "/files"
   }.to_json)
   notifies :restart, "service[filebrowser]", :delayed
 end
 
 podman_container "filebrowser" do
   config(
-    Container: %W{
-      Image=filebrowser.image
-      Environment=PUID=#{node["calculon"]["data"]["uid"]}
-      Environment=PGID=#{node["calculon"]["data"]["gid"]}
-      PublishPort=[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]:8385:8080
-      PublishPort=#{node["calculon"]["network"]["containers"]["ipv4"]["addr"]}:8385:8080
-      Volume=#{sync}:/srv
-      Volume=#{fbfile}:/database/filebrowser.db
-      Volume=#{fbsettings}:/config/settings.json
-      Network=calculon.network
-      HostName=files.tigc.eu
-    },
+    Container: [
+      "Image=filebrowser.image",
+      "Environment=PUID=#{node["calculon"]["data"]["uid"]}",
+      "Environment=PGID=#{node["calculon"]["data"]["gid"]}",
+      "PublishPort=[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]:8385:8080",
+      "PublishPort=#{node["calculon"]["network"]["containers"]["ipv4"]["addr"]}:8385:8080",
+      "Volume=#{sync}:/files",
+      "Volume=#{fbfile}:/database.db",
+      "Volume=#{fbsettings}:/.filebrowser.json",
+      "Network=calculon.network",
+      "HostName=files.tigc.eu",
+      "Exec=-a 0.0.0.0 -r /files/ -p 8080 -c /.filebrowser.json",
+    ],
     Service: %w{
       Restart=always
     },
