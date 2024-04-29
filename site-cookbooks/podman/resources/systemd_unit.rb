@@ -41,7 +41,7 @@ action :delete do
   file unit_path do
     action :delete
     notifies :run, reload_resource, :immediately if new_resource.triggers_reload
-    notities :stop, service_unit, :before if service?(new_resource)
+    notifies :stop, service_unit, :before if service?
   end
 end
 

@@ -17,8 +17,9 @@ action :create do
 end
 
 action :delete do
-  podman_systemd_unit new_resource.name do
+  podman_systemd_unit "#{new_resource.name}.container" do
     action :delete
+    config new_resource.config
     triggers_reload new_resource.triggers_reload
   end
 end

@@ -58,11 +58,12 @@ end
 
 action :remove do
   podman_container "oauth2-proxy-#{new_resource.name}" do
-    action :remove
+    action :delete
+    config nil.to_h
   end
   [emails_file, config_file].each do |f|
     file f do
-      action :remove
+      action :delete
     end
   end
 end

@@ -28,9 +28,9 @@ action :create do
      calculon_oauth2_proxy new_resource.name do
        emails conf[:emails]
        port conf[:port]
+       redirect_url conf[:redirect_url] || "https://#{server_name.first}/oauth2/callback"
 
        # these are optional
-       redirect_url conf[:redirect_url] || "https://#{server_name.first}/oauth2/callback"
        address "[::1]"
        auth_provider conf[:auth_provider]
 
@@ -98,6 +98,15 @@ action :delete do
   directory local_vhost_root do
     action :delete
     recursive true
+  end
+  unless new_resource.oauth2_proxy.nil?
+    calculon_oauth2_proxy new_resource.name do
+      emails ["notimportant"]
+      port 1111
+      redirect_url "notimportant"
+      action :remove
+      upstream_port 1112
+    end
   end
 end
 
