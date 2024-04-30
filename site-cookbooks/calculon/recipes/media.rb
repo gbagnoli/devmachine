@@ -4,12 +4,13 @@ tdarr_root = node["calculon"]["storage"]["paths"]["tdarr"]
 prowlarr_root = node["calculon"]["storage"]["paths"]["prowlarr"]
 putioarr_root = node["calculon"]["storage"]["paths"]["putioarr"]
 radarr_root = node["calculon"]["storage"]["paths"]["radarr"]
+sonarr_root = node["calculon"]["storage"]["paths"]["sonarr"]
 user = node["calculon"]["data"]["username"]
 group = node["calculon"]["data"]["group"]
 uid = node["calculon"]["data"]["uid"]
 gid = node["calculon"]["data"]["gid"]
 
-[prowlarr_root, tdarr_root, radarr_root, putioarr_root].each do |r|
+[prowlarr_root, tdarr_root, sonarr_root, radarr_root, putioarr_root].each do |r|
   calculon_btrfs_volume r do
     owner user
     group group
@@ -136,6 +137,38 @@ podman_container "radarr" do
   )
 end
 
+podman_image "sonarr" do
+  config(
+    Image: ["Image=lscr.io/linuxserver/sonarr:latest"],
+  )
+end
+
+podman_container "sonarr" do
+  config(
+    Container: %W{
+      Image=sonarr.image
+      Pod=web.pod
+      Environment=TZ=#{node["calculon"]["TZ"]}
+      Environment=PUID=#{uid}
+      Environment=PGID=#{gid}
+      Volume=#{sonarr_root}:/config
+      Volume=#{node["calculon"]["storage"]["paths"]["library"]}/series:/tv
+      Volume=#{node["calculon"]["storage"]["paths"]["downloads"]}/series:/downloads
+    },
+    Service: %w{
+      Restart=always
+    },
+    Unit: [
+      "Description=sonarr",
+      "After=network-online.target",
+      "Wants=network-online.target",
+    ],
+    Install: %w{
+      WantedBy=multi-user.target
+    }
+  )
+end
+
 podman_image "putioarr" do
   config(
     Image: ["Image=ghcr.io/wouterdebie/putioarr:latest"],
@@ -147,6 +180,11 @@ services = {
     "address" => "[::1]",
     "port" => 7878,
     "api_key" => node["putioarr"]["radarr_api_key"]
+  },
+  "sonarr" => {
+    "address" => "[::1]",
+    "port" => 8989,
+    "api_key" => node["putioarr"]["sonarr_api_key"]
   }
 }
 
@@ -232,6 +270,12 @@ end
 calculon_www_upstream "/radarr" do
   upstream_port 7878
   title "Radarr (Movies)"
+  matcher "^~"
+end
+
+calculon_www_upstream "/sonarr" do
+  upstream_port 8989
+  title "Sonarr (Series)"
   matcher "^~"
 end
 
