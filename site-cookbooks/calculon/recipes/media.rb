@@ -148,4 +148,5 @@ end
 calculon_www_upstream "/radarr" do
   upstream_port 7878
   title "Radarr (Movies)"
+  matcher "^~"
 end

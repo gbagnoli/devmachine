@@ -64,12 +64,17 @@ server {
   <% end -%>
 
   <% @upstream_paths.sort.to_h.each do |path, opts| -%>
+  <% if opts["matcher"].nil? -%>
   location <%= path %> {
     return 302 $scheme://$host<%= path %>/;
   }
 
   location <%= path %>/ {
     proxy_pass <%= opts["upstream"] %>/;
+  <% else -%>
+  location <%= opts["matcher"] %> <%= path %> {
+    proxy_pass <%= opts["upstream"] %>;
+  <% end -%>
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Host $host;
     proxy_set_header X-Forwarded-Server $host;

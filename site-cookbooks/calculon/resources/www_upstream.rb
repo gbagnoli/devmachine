@@ -15,6 +15,7 @@ property :upstream_port, [String, Integer], required: true
 property :upstream_protocol, String, default: "http", equal_to: %w(http https)
 property :extra_properties, [Hash, NilClass]
 property :upgrade, [true, false], default: false
+property :matcher, [String, NilClass]
 default_action :add
 
 action :add do
@@ -23,6 +24,7 @@ action :add do
     "title" => new_resource.title,
     "extra_properties" => new_resource.extra_properties.to_h,
     "upgrade" => new_resource.upgrade,
+    "matcher" => new_resource.matcher,
   }
 end
 
