@@ -1,11 +1,12 @@
 tdarr_root = node["calculon"]["storage"]["paths"]["tdarr"]
 jackett_root = node["calculon"]["storage"]["paths"]["jackett"]
+radarr_root = node["calculon"]["storage"]["paths"]["radarr"]
 user = node["calculon"]["data"]["username"]
 group = node["calculon"]["data"]["group"]
 uid = node["calculon"]["data"]["uid"]
 gid = node["calculon"]["data"]["gid"]
 
-[jackett_root, tdarr_root].each do |r|
+[jackett_root, tdarr_root, radarr_root].each do |r|
   calculon_btrfs_volume r do
     owner user
     group group
@@ -100,12 +101,51 @@ podman_container "jackett" do
   )
 end
 
+podman_image "radarr" do
+  config(
+    Image: ["Image=lscr.io/linuxserver/radarr:latest"],
+  )
+end
+
+podman_container "radarr" do
+  config(
+    Container: %W{
+      Image=radarr.image
+      Pod=web.pod
+      Environment=TZ=#{node["calculon"]["TZ"]}
+      Environment=PUID=#{uid}
+      Environment=GUID=#{gid}
+      Volume=#{radarr_root}:/config
+      Volume=#{node["calculon"]["storage"]["paths"]["library"]}/movies:/movies
+      Volume=#{node["calculon"]["storage"]["paths"]["downloads"]}/movies:/downloads
+    },
+    Service: %w{
+      Restart=always
+    },
+    Unit: [
+      "Description=Radarr",
+      "After=network-online.target",
+      "Wants=network-online.target",
+    ],
+    Install: %w{
+      WantedBy=multi-user.target
+    }
+  )
+end
+
+
 calculon_www_upstream "/tdarr" do
   upstream_port 8265
   title "Tdarr (Transcoding)"
+  upgrade true
 end
 
 calculon_www_upstream "/jackett" do
   upstream_port 9117
   title "Jackett (Indexer)"
+end
+
+calculon_www_upstream "/radarr" do
+  upstream_port 7878
+  title "Radarr (Movies)"
 end
