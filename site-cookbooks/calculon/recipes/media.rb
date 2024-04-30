@@ -1,21 +1,17 @@
-podman_image "tdarr" do
-  config(
-    Image: ["Image=ghcr.io/haveagitgat/tdarr"],
-  )
-end
-
-
 tdarr_root = node["calculon"]["storage"]["paths"]["tdarr"]
+jackett_root = node["calculon"]["storage"]["paths"]["jackett"]
 user = node["calculon"]["data"]["username"]
 group = node["calculon"]["data"]["group"]
 uid = node["calculon"]["data"]["uid"]
 gid = node["calculon"]["data"]["gid"]
 
-calculon_btrfs_volume tdarr_root do
-  owner user
-  group group
-  mode "2775"
-  setfacl true
+[jackett_root, tdarr_root].each do |r|
+  calculon_btrfs_volume r do
+    owner user
+    group group
+    mode "2775"
+    setfacl true
+  end
 end
 
 %w[server configs logs cache cache/series cache/movies].each do |dir|
@@ -24,6 +20,12 @@ end
     group group
     mode "2755"
   end
+end
+
+podman_image "tdarr" do
+  config(
+    Image: ["Image=ghcr.io/haveagitgat/tdarr"],
+  )
 end
 
 podman_container "tdarr" do
@@ -61,7 +63,49 @@ podman_container "tdarr" do
   )
 end
 
+directory node["calculon"]["storage"]["paths"]["blackhole"] do
+  group group
+  owner user
+  mode "2775"
+end
+
+podman_image "jackett" do
+  config(
+    Image: ["Image=lscr.io/linuxserver/jackett:latest"],
+  )
+end
+
+podman_container "jackett" do
+  config(
+    Container: %W{
+      Image=jackett.image
+      Pod=web.pod
+      Environment=TZ=#{node["calculon"]["TZ"]}
+      Environment=PUID=#{uid}
+      Environment=GUID=#{gid}
+      Volume=#{jackett_root}:/config
+      Volume=#{node["calculon"]["storage"]["paths"]["blackhole"]}:/downloads
+    },
+    Service: %w{
+      Restart=always
+    },
+    Unit: [
+      "Description=Jackett Indexer",
+      "After=network-online.target",
+      "Wants=network-online.target",
+    ],
+    Install: %w{
+      WantedBy=multi-user.target
+    }
+  )
+end
+
 calculon_www_upstream "/tdarr" do
   upstream_port 8265
   title "Tdarr (Transcoding)"
+end
+
+calculon_www_upstream "/jackett" do
+  upstream_port 9117
+  title "Jackett (Indexer)"
 end

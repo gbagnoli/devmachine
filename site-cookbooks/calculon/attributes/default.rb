@@ -26,8 +26,10 @@ default["calculon"]["storage"]["paths"]["sync"] = "/var/lib/data/sync"
 default["calculon"]["storage"]["paths"]["www"] = "/var/lib/data/www"
 default["calculon"]["storage"]["paths"]["tailscale"] = "/var/lib/data/tailscale"
 default["calculon"]["storage"]["paths"]["tdarr"] = "/var/lib/data/tdarr"
+default["calculon"]["storage"]["paths"]["jackett"] = "/var/lib/data/jackett"
 default["calculon"]["storage"]["paths"]["media"] = "/var/lib/data/media"
 default["calculon"]["storage"]["paths"]["downloads"] = "/var/lib/data/media/downloads"
+default["calculon"]["storage"]["paths"]["blackhole"] = "/var/lib/data/media/downloads/blackhole"
 default["calculon"]["storage"]["paths"]["library"] = "/var/lib/data/media/library"
 default["calculon"]["storage"]["library_dirs"] = %w{movies series}
 
