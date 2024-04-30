@@ -118,11 +118,21 @@ end
 calculon_www_upstream "/sync" do
   upstream_address "[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]"
   upstream_port 8384
+  extra_properties(
+    proxy_read_timeout: "600s",
+    proxy_send_timeout: "600s",
+  )
   title "Syncthing GUI"
 end
 
 calculon_www_upstream "/files" do
   upstream_address "[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]"
   upstream_port 8385
+  upgrade true
   title "Syncthing Files"
+  extra_properties(
+    client_max_body_size: "2048m",
+    proxy_read_timeout: "86400s",
+    proxy_send_timeout: "86400s",
+  )
 end
