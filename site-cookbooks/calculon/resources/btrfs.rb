@@ -30,3 +30,11 @@ action :create do
     end
   end
 end
+
+action :delete do
+  path = new_resource.name
+  execute "delete subvolume at #{path}" do
+    command "btrfs subvolume delete --commit-after #{path}"
+    only_if "btrfs subvolume show #{path} &>/dev/null"
+  end
+end
