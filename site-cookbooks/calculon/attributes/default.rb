@@ -4,6 +4,7 @@ default["calculon"]["rocky"]["btfrs_progs"] = {
   packages: %w{btrfs-progs btrfs-progs-devel libbtrfs libbtrfsutil python3-btrfsutil}
 }
 
+default["calculon"]["TZ"] = "Europe/Madrid"
 default["calculon"]["acme"]["lego"]["uid"] = "5000"
 default["calculon"]["acme"]["lego"]["gid"] = "5000"
 default["calculon"]["acme"]["lego"]["port"] = "4180"

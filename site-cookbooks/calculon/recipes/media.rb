@@ -30,8 +30,8 @@ podman_container "tdarr" do
   config(
     Container: %W{
       Image=tdarr.image
-      Network=calculon.network
-      Environment=TZ=Europe/Madrid
+      Pod=web.pod
+      Environment=TZ=#{node["calculon"]["TZ"]}
       Environment=PUID=#{uid}
       Environment=GUID=#{gid}
       Environment=serverPort=8266
@@ -39,8 +39,6 @@ podman_container "tdarr" do
       Environment=internalNode=true
       Environment=inContainer=true
       Environment=nodeName=tdarr.calculon.tigc.eu
-      PublishPort=[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]:8265:8265/tcp
-      PublishPort=#{node["calculon"]["network"]["containers"]["ipv4"]["addr"]}:8265:8265/tcp
       Volume=#{tdarr_root}/server:/app/server
       Volume=#{tdarr_root}/configs:/app/configs
       Volume=#{tdarr_root}/logs:/app/logs
@@ -64,7 +62,6 @@ podman_container "tdarr" do
 end
 
 calculon_www_upstream "/tdarr" do
-  upstream_address "[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]"
   upstream_port 8265
   title "Tdarr (Transcoding)"
 end
