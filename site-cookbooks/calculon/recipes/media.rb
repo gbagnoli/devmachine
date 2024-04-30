@@ -5,12 +5,19 @@ prowlarr_root = node["calculon"]["storage"]["paths"]["prowlarr"]
 putioarr_root = node["calculon"]["storage"]["paths"]["putioarr"]
 radarr_root = node["calculon"]["storage"]["paths"]["radarr"]
 sonarr_root = node["calculon"]["storage"]["paths"]["sonarr"]
+jellyfin_root = node["calculon"]["storage"]["paths"]["jellyfin"]
 user = node["calculon"]["data"]["username"]
 group = node["calculon"]["data"]["group"]
 uid = node["calculon"]["data"]["uid"]
 gid = node["calculon"]["data"]["gid"]
 
-[prowlarr_root, tdarr_root, sonarr_root, radarr_root, putioarr_root].each do |r|
+[ jellyfin_root,
+  putioarr_root,
+  radarr_root,
+  sonarr_root,
+  tdarr_root,
+  prowlarr_root,
+].each do |r|
   calculon_btrfs_volume r do
     owner user
     group group
@@ -260,6 +267,41 @@ node["calculon"]["storage"]["library_dirs"].sort.each do |library, libconf|
   end
 end
 
+podman_image "jellyfin" do
+  config(
+    Image: ["Image=lscr.io/linuxserver/jellyfin:latest"],
+  )
+end
+
+podman_container "jellyfin" do
+  config(
+    Container: %W{
+      Image=jellyfin.image
+      Network=calculon.network
+      Environment=TZ=#{node["calculon"]["TZ"]}
+      Environment=PUID=#{uid}
+      Environment=PGID=#{gid}
+      Volume=#{jellyfin_root}:/config
+      Volume=#{node["calculon"]["storage"]["paths"]["library"]}/series:/dara/tvshows
+      Volume=#{node["calculon"]["storage"]["paths"]["library"]}/movies:/data/movies
+      Volume=#{node["calculon"]["storage"]["paths"]["sync"]}/music:/data/music
+      PublishPort=[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]:8096:8096/tcp
+      PublishPort=#{node["calculon"]["network"]["containers"]["ipv4"]["addr"]}:8096:8096/tcp
+    },
+    Service: %w{
+      Restart=always
+    },
+    Unit: [
+      "Description=jellyfin media server",
+      "After=network-online.target",
+      "Wants=network-online.target",
+    ],
+    Install: %w{
+      WantedBy=multi-user.target
+    }
+  )
+end
+
 
 calculon_www_upstream "/tdarr" do
   upstream_port 8265
@@ -283,4 +325,19 @@ calculon_www_upstream "/prowlarr" do
   upstream_port 9696
   title "Prowlarr (Indexer)"
   matcher "^~"
+end
+
+calculon_www_upstream "/jellyfin" do
+  upstream_address "#{node["calculon"]["network"]["containers"]["ipv4"]["addr"]}"
+  upstream_port 8096
+  title "Jellyfin (Media Server)"
+  upgrade true
+  extra_properties(
+    client_max_body_size: "20M",
+    add_header: 'Cross-Origin-Opener-Policy "same-origin" always',
+    add_header: 'Cross-Origin-Embedder-Policy "require-corp" always',
+    add_header: 'Cross-Origin-Resource-Policy "same-origin" always',
+    proxy_buffering: "off",
+  )
+  matcher ""  # empty matcher to avoid the /
 end
