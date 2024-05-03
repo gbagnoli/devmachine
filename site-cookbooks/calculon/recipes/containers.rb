@@ -123,6 +123,7 @@ calculon_www_upstream "/sync" do
     proxy_send_timeout: "600s",
   )
   title "Syncthing GUI"
+  category "Tools"
 end
 
 calculon_www_upstream "/files" do
@@ -135,4 +136,5 @@ calculon_www_upstream "/files" do
     proxy_read_timeout: "86400s",
     proxy_send_timeout: "86400s",
   )
+  category "Media"
 end

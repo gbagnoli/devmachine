@@ -10,6 +10,7 @@ path_callback = {
 
 property :path, String, name_property: true, callbacks: path_callback
 property :title, [String, NilClass]
+property :category, String, default: "Tools"
 property :upstream_address, String, default: "[::1]"
 property :upstream_port, [String, Integer], required: true
 property :upstream_protocol, String, default: "http", equal_to: %w(http https)
@@ -25,11 +26,12 @@ action :add do
     "extra_properties" => new_resource.extra_properties.to_h,
     "upgrade" => new_resource.upgrade,
     "matcher" => new_resource.matcher,
+    "category" => new_resource.category,
   }
 end
 
 action :remove do
-  node.override["calculon"]["www"]["upstreams"][new_resource.path] = nil
+  # not adding it equals removing it
 end
 
 action_class do

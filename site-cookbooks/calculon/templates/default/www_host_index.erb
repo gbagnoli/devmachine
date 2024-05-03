@@ -29,7 +29,7 @@ document.addEventListener('click', function(event) {
 				</div>
 				<div class="navbar-collapse collapse">
 					<ul class="nav navbar-nav">
-            <% @upstream_paths.sort.to_h.each do |path, opts| -%>
+            <% @upstreams.sort_by { |_, v| v["category"] }.to_h.each do |path, opts| -%>
             <li><a href="<%= path %>"><%= opts["title"] %></a></li>
             <% end -%>
 					</ul>
@@ -38,9 +38,11 @@ document.addEventListener('click', function(event) {
 
 			<!-- Main component for a primary marketing message or call to action -->
 			<div class="jumbotron">
-				<h1><%= @domain %></h1>
-        <% @upstream_paths.sort.to_h.each do |path, opts| -%>
-        <p><a class="btn btn-lg btn-primary" href="<%= path %>"><%= opts["title"] %></a></p>
+        <% categories = @upstreams.map { |_, v| v["category"]}.sort.uniq.each do |category| -%>
+        <h3><%= category %></h3>
+          <% @upstreams.select { |k, v| v["category"] == category }.sort.each do |path, opts| -%>
+          <p><a class="btn btn-lg btn-primary" href="<%= path %>"><%= opts["title"] %></a></p>
+          <% end -%>
         <% end -%>
 			</div>
 

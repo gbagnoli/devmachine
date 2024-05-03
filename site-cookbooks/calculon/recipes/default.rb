@@ -26,7 +26,7 @@ unless domain.nil?
   template "#{www}/vhosts/#{domain}/index.html" do
     source "www_host_index.erb"
     variables(
-      upstream_paths: lazy { node["calculon"]["www"]["upstreams"].to_h },
+      upstreams: lazy { node["calculon"]["www"]["upstreams"].to_h },
       domain: domain,
     )
   end

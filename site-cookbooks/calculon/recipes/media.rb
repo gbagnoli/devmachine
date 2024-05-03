@@ -305,32 +305,36 @@ end
 
 calculon_www_upstream "/tdarr" do
   upstream_port 8265
-  title "Tdarr (Transcoding)"
+  title "Transcoding"
   upgrade true
+  category "Tools"
 end
 
 calculon_www_upstream "/radarr" do
   upstream_port 7878
-  title "Radarr (Movies)"
+  title "Movies"
   matcher "^~"
+  category "Media"
 end
 
 calculon_www_upstream "/sonarr" do
   upstream_port 8989
-  title "Sonarr (Series)"
+  title "Series"
   matcher "^~"
+  category "Media"
 end
 
 calculon_www_upstream "/prowlarr" do
   upstream_port 9696
-  title "Prowlarr (Indexer)"
+  title "Indexer"
   matcher "^~"
+  category "Tools"
 end
 
 calculon_www_upstream "/jellyfin" do
   upstream_address "#{node["calculon"]["network"]["containers"]["ipv4"]["addr"]}"
   upstream_port 8096
-  title "Jellyfin (Media Server)"
+  title "Jellyfin"
   upgrade true
   extra_properties(
     client_max_body_size: "20M",
@@ -340,4 +344,5 @@ calculon_www_upstream "/jellyfin" do
     proxy_buffering: "off",
   )
   matcher ""  # empty matcher to avoid the /
+  category "Media"
 end
