@@ -14,11 +14,20 @@ server {
   listen [::]:443 ssl;
   server_name  <%= Array(@server_name).join(" ") %>;
 
+  ssl_conf_command Options KTLS;
   ssl_protocols TLSv1.3;
   ssl_ecdh_curve X25519:secp384r1;
   ssl_conf_command Options PrioritizeChaCha;
   ssl_conf_command Ciphersuites TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384;
+  ssl_prefer_server_ciphers on;
+  ssl_buffer_size 4k;
+  ssl_stapling on;
+  ssl_stapling_verify on;
   add_header Strict-Transport-Security 'max-age=31536000; includeSubDomains; preload';
+  ssl_session_cache shared:dotmesecure:10m;
+  ssl_ocsp_cache shared:dotmestaple:10m;
+  ssl_certificate     <%= @certificate_file %>;
+  ssl_certificate_key <%= @certificate_key %>;
 
   <% if !@disable_default_location -%>
   location / {
@@ -38,9 +47,6 @@ server {
   <% end -%>
   access_log <%= @access_log %>;
   error_log  <%= @error_log %>;
-
-  ssl_certificate     <%= @certificate_file %>;
-  ssl_certificate_key <%= @certificate_key %>;
 
   <% if @cloudflare -%>
   include /etc/nginx/cloudflare.conf;
@@ -64,6 +70,7 @@ server {
   <% end -%>
 
   <% @upstream_paths.sort.to_h.each do |path, opts| -%>
+  <% next if opts["link_only"] -%>
   <% if opts["matcher"].nil? -%>
   location <%= path %> {
     return 302 $scheme://$host<%= path %>/;

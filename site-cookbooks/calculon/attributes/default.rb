@@ -53,6 +53,7 @@ default["calculon"]["nginx"]["gid"] = 101
 
 # set to a valid domain to enable
 default["calculon"]["www"]["domain"] = nil
+default["calculon"]["www"]["media_domain"] = nil
 default["calculon"]["www"]["upstreams"] = {}
 
 default["calculon"]["nginx"]["container"]["etc"] = "/etc/nginx"
