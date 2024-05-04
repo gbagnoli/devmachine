@@ -227,8 +227,6 @@ services = {
 
 node["calculon"]["storage"]["library_dirs"].sort.each do |library, libconf|
   configd = "#{putioarr_root}/#{library}"
-  download_dir = "#{node["calculon"]["storage"]["paths"]["media"]}/#{library}/downloads"
-  library_dir = "#{node["calculon"]["storage"]["paths"]["media"]}/#{library}/library"
   port = libconf["putioarr_port"]
   service = services[libconf["service"]]
   next if service.nil?

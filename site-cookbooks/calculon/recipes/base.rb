@@ -79,7 +79,7 @@ end
   end
 end
 
-node["calculon"]["storage"]["library_dirs"].keys.each do |dir|
+node["calculon"]["storage"]["library_dirs"].keys_each do |dir|
   path = "#{paths["media"]}/#{dir}"
   ["", "/downloads", "/library"].each do |child|
     directory "#{path}#{child}" do
