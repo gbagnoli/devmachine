@@ -5,6 +5,7 @@ prowlarr_root = node["calculon"]["storage"]["paths"]["prowlarr"]
 putioarr_root = node["calculon"]["storage"]["paths"]["putioarr"]
 radarr_root = node["calculon"]["storage"]["paths"]["radarr"]
 sonarr_root = node["calculon"]["storage"]["paths"]["sonarr"]
+lidarr_root = node["calculon"]["storage"]["paths"]["lidarr"]
 jellyfin_root = node["calculon"]["storage"]["paths"]["jellyfin"]
 user = node["calculon"]["data"]["username"]
 group = node["calculon"]["data"]["group"]
@@ -17,6 +18,7 @@ gid = node["calculon"]["data"]["gid"]
   sonarr_root,
   tdarr_root,
   prowlarr_root,
+  lidarr_root,
 ].each do |r|
   calculon_btrfs_volume r do
     owner user
@@ -56,8 +58,8 @@ podman_container "tdarr" do
       Volume=#{tdarr_root}/server:/app/server
       Volume=#{tdarr_root}/configs:/app/configs
       Volume=#{tdarr_root}/logs:/app/logs
-      Volume=#{node["calculon"]["storage"]["paths"]["library"]}/movies:/media/movies
-      Volume=#{node["calculon"]["storage"]["paths"]["library"]}/series:/media/series
+      Volume=#{node["calculon"]["storage"]["paths"]["media"]}/movies/library:/media/movies
+      Volume=#{node["calculon"]["storage"]["paths"]["media"]}/series/library:/media/series
       Volume=#{tdarr_root}/cache/movies:/var/cache/transcode/movies
       Volume=#{tdarr_root}/cache/series:/var/cache/transcode/series
     },
@@ -73,13 +75,6 @@ podman_container "tdarr" do
       WantedBy=multi-user.target
     }
   )
-end
-
-directory node["calculon"]["storage"]["paths"]["blackhole"] do
-  group group
-  owner user
-  mode "2775"
-  action :delete
 end
 
 podman_image "prowlarr" do
@@ -127,8 +122,7 @@ podman_container "radarr" do
       Environment=PUID=#{uid}
       Environment=PGID=#{gid}
       Volume=#{radarr_root}:/config
-      Volume=#{node["calculon"]["storage"]["paths"]["library"]}/movies:/movies
-      Volume=#{node["calculon"]["storage"]["paths"]["downloads"]}/movies:/downloads
+      Volume=#{node["calculon"]["storage"]["paths"]["media"]}/movies:/movies
     },
     Service: %w{
       Restart=always
@@ -159,14 +153,45 @@ podman_container "sonarr" do
       Environment=PUID=#{uid}
       Environment=PGID=#{gid}
       Volume=#{sonarr_root}:/config
-      Volume=#{node["calculon"]["storage"]["paths"]["library"]}/series:/tv
-      Volume=#{node["calculon"]["storage"]["paths"]["downloads"]}/series:/downloads
+      Volume=#{node["calculon"]["storage"]["paths"]["media"]}/series:/tv
     },
     Service: %w{
       Restart=always
     },
     Unit: [
       "Description=sonarr",
+      "After=network-online.target",
+      "Wants=network-online.target",
+    ],
+    Install: %w{
+      WantedBy=multi-user.target
+    }
+  )
+end
+
+podman_image "lidarr" do
+  config(
+    Image: ["Image=lscr.io/linuxserver/lidarr:latest"],
+  )
+end
+
+podman_container "lidarr" do
+  config(
+    Container: %W{
+      Image=lidarr.image
+      Pod=web.pod
+      Environment=TZ=#{node["calculon"]["TZ"]}
+      Environment=PUID=#{uid}
+      Environment=PGID=#{gid}
+      Volume=#{lidarr_root}:/config
+      Volume=#{node["calculon"]["storage"]["paths"]["sync"]}/music:/music
+      Volume=#{node["calculon"]["storage"]["paths"]["media"]}/music/downloads:/downloads
+    },
+    Service: %w{
+      Restart=always
+    },
+    Unit: [
+      "Description=lidarr",
       "After=network-online.target",
       "Wants=network-online.target",
     ],
@@ -192,13 +217,18 @@ services = {
     "address" => "[::1]",
     "port" => 8989,
     "api_key" => node["putioarr"]["sonarr_api_key"]
+  },
+  "lidarr" => {
+    "address" => "[::1]",
+    "port" => 8686,
+    "api_key" => node["putioarr"]["lidarr_api_key"],
   }
 }
 
 node["calculon"]["storage"]["library_dirs"].sort.each do |library, libconf|
   configd = "#{putioarr_root}/#{library}"
-  download_dir = "#{node["calculon"]["storage"]["paths"]["downloads"]}/#{library}"
-  library_dir = "#{node["calculon"]["storage"]["paths"]["library"]}/#{library}"
+  download_dir = "#{node["calculon"]["storage"]["paths"]["media"]}/#{library}/downloads"
+  library_dir = "#{node["calculon"]["storage"]["paths"]["media"]}/#{library}/library"
   port = libconf["putioarr_port"]
   service = services[libconf["service"]]
   next if service.nil?
@@ -246,7 +276,7 @@ node["calculon"]["storage"]["library_dirs"].sort.each do |library, libconf|
         Environment=PUID=#{uid}
         Environment=PGID=#{gid}
         Volume=#{configd}:/config
-        Volume=#{node["calculon"]["storage"]["paths"]["downloads"]}/#{library}:/downloads
+        Volume=#{node["calculon"]["storage"]["paths"]["media"]}/#{library}/downloads:/downloads
         ExposeHostPort=#{port}
       },
       Service: %w{
@@ -282,8 +312,8 @@ podman_container "jellyfin" do
       Environment=PUID=#{uid}
       Environment=PGID=#{gid}
       Volume=#{jellyfin_root}:/config
-      Volume=#{node["calculon"]["storage"]["paths"]["library"]}/series:/dara/tvshows
-      Volume=#{node["calculon"]["storage"]["paths"]["library"]}/movies:/data/movies
+      Volume=#{node["calculon"]["storage"]["paths"]["media"]}/series/library:/dara/tvshows
+      Volume=#{node["calculon"]["storage"]["paths"]["media"]}/movies/library:/data/movies
       Volume=#{node["calculon"]["storage"]["paths"]["sync"]}/music:/data/music
       PublishPort=[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]:8096:8096/tcp
       PublishPort=#{node["calculon"]["network"]["containers"]["ipv4"]["addr"]}:8096:8096/tcp
@@ -320,6 +350,13 @@ end
 calculon_www_upstream "/sonarr" do
   upstream_port 8989
   title "Series"
+  matcher "^~"
+  category "Media"
+end
+
+calculon_www_upstream "/lidarr" do
+  upstream_port 8686
+  title "Music"
   matcher "^~"
   category "Media"
 end

@@ -70,7 +70,7 @@ if node["calculon"]["storage"]["manage"]
   end
 end
 
-%w{sync media downloads library}.each do |vol|
+%w{sync media}.each do |vol|
   calculon_btrfs_volume paths[vol] do
     group data_group
     owner data_user
@@ -79,10 +79,10 @@ end
   end
 end
 
-node["calculon"]["storage"]["library_dirs"].each do |dir|
-  %w{downloads library}.each do |parent|
-    path = "#{paths[parent]}/#{dir}"
-    directory path do
+node["calculon"]["storage"]["library_dirs"].keys.each do |dir|
+  path = "#{paths["media"]}/#{dir}"
+  ["", "/downloads", "/library"].each do |child|
+    directory "#{path}#{child}" do
       group data_group
       owner data_user
       mode "2775"

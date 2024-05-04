@@ -28,21 +28,23 @@ default["calculon"]["storage"]["paths"]["tailscale"] = "/var/lib/data/tailscale"
 default["calculon"]["storage"]["paths"]["tdarr"] = "/var/lib/data/tdarr"
 default["calculon"]["storage"]["paths"]["radarr"] = "/var/lib/data/radarr"
 default["calculon"]["storage"]["paths"]["sonarr"] = "/var/lib/data/sonarr"
+default["calculon"]["storage"]["paths"]["lidarr"] = "/var/lib/data/lidarr"
 default["calculon"]["storage"]["paths"]["putioarr"] = "/var/lib/data/putioarr"
 default["calculon"]["storage"]["paths"]["prowlarr"] = "/var/lib/data/prowlarr"
 default["calculon"]["storage"]["paths"]["jellyfin"] = "/var/lib/data/jellyfin"
 default["calculon"]["storage"]["paths"]["media"] = "/var/lib/data/media"
-default["calculon"]["storage"]["paths"]["downloads"] = "/var/lib/data/media/downloads"
-default["calculon"]["storage"]["paths"]["blackhole"] = "/var/lib/data/media/downloads/blackhole"
-default["calculon"]["storage"]["paths"]["library"] = "/var/lib/data/media/library"
 default["calculon"]["storage"]["library_dirs"] = {
   "movies" => {
     "service" => "radarr",
-    "putioarr_port" => 9091
+    "putioarr_port" => 9091,
   },
   "series" => {
     "service" => "sonarr",
-    "putioarr_port" => 9092
+    "putioarr_port" => 9092,
+  },
+  "music" => {
+    "service" => "lidarr",
+    "putioarr_port" => 9093,
   }
 }
 
