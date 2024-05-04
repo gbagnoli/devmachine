@@ -89,6 +89,7 @@ GRAPH
     nginx (>= 0.0.0)
   btrbk (0.1.0)
   calculon (0.1.0)
+    btrbk (>= 0.0.0)
     datadog (>= 0.0.0)
     hostsfile (>= 0.0.0)
     logrotate (>= 0.0.0)

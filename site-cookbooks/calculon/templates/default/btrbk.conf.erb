@@ -1,0 +1,10 @@
+timestamp_format        long
+snapshot_preserve_min   6h
+snapshot_preserve       24h 31d 6m
+
+volume <%= @vol %>
+<% @subvolumes.each do |sub| -%>
+  snapshot_dir <%= @snapshotd %>/<%= sub %>
+  subvolume <%= sub %>
+
+<% end -%>
