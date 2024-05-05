@@ -79,7 +79,7 @@ end
   end
 end
 
-node["calculon"]["storage"]["library_dirs"].keys_each do |dir|
+node["calculon"]["storage"]["library_dirs"].each_key do |dir|
   path = "#{paths["media"]}/#{dir}"
   ["", "/downloads", "/library"].each do |child|
     directory "#{path}#{child}" do
@@ -166,6 +166,7 @@ systemd_unit 'btrbk_hourly.timer' do
     [Timer]
     OnCalendar=hourly
     Persistent=true
+    Unit=btrbk.service
 
     [Install]
     WantedBy=timers.target
