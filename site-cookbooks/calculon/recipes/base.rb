@@ -129,3 +129,7 @@ podman_network "calculon" do
     }
   )
 end
+
+systemd_unit 'podman-auto-update.timer' do
+  action %i{enable start}
+end
