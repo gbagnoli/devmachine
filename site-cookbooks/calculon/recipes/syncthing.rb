@@ -138,3 +138,48 @@ calculon_www_upstream "/files" do
   )
   category "Media"
 end
+
+include_recipe "btrbk"
+
+volumes = node["calculon"]["storage"]["snapshots_volumes"]
+snapd = "#{node["calculon"]["storage"]["paths"]["root"]}/snapshots/"
+directory snapd
+volumes.each do |vol|
+  directory "#{snapd}/#{vol}"
+end
+
+directory "/etc/btrbk" do
+  mode "0755"
+end
+
+template "/etc/btrbk/btrbk.conf" do
+  mode "0644"
+  source "btrbk.conf.erb"
+  variables(
+    vol: node["calculon"]["storage"]["paths"]["root"],
+    snapshotd: "snapshots",
+    subvolumes: node["calculon"]["storage"]["snapshots_volumes"]
+  )
+end
+
+# disable builtin daily timer
+systemd_unit 'btrbk.timer' do
+  action :disable
+end
+
+systemd_unit 'btrbk_hourly.timer' do
+  content <<~EOH
+    [Unit]
+    Description=btrbk hourly backup
+
+    [Timer]
+    OnCalendar=hourly
+    Persistent=true
+    Unit=btrbk.service
+
+    [Install]
+    WantedBy=timers.target
+  EOH
+  action %i{create enable start}
+end
+
