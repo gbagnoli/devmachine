@@ -171,5 +171,5 @@ systemd_unit 'btrbk_hourly.timer' do
     [Install]
     WantedBy=timers.target
   EOH
-  action %i{create enable}
+  action %i{create enable start}
 end
