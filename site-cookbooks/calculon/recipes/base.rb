@@ -79,7 +79,13 @@ end
   end
 end
 
-node["calculon"]["storage"]["library_dirs"].each_key do |dir|
+directory node["calculon"]["storage"]["paths"]["downloads"] do
+  group data_group
+  owner data_user
+  mode "2775"
+end
+
+node["calculon"]["storage"]["library_dirs"].each do |dir, conf|
   path = "#{paths["media"]}/#{dir}"
   ["", "/downloads", "/library"].each do |child|
     directory "#{path}#{child}" do
@@ -87,6 +93,16 @@ node["calculon"]["storage"]["library_dirs"].each_key do |dir|
       owner data_user
       mode "2775"
     end
+  end
+
+  mount "bind mount downloads for #{dir}" do
+    device node["calculon"]["storage"]["paths"]["downloads"]
+    mount_point "#{path}/downloads"
+    fstype "none"
+    options "bind,rw"
+    action %i{mount enable}
+    only_if { conf["mount"] }
+    not_if "mount | grep -q '#{path}/downloads'"
   end
 end
 

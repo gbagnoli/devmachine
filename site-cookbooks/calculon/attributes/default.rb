@@ -33,19 +33,20 @@ default["calculon"]["storage"]["paths"]["putioarr"] = "/var/lib/data/putioarr"
 default["calculon"]["storage"]["paths"]["prowlarr"] = "/var/lib/data/prowlarr"
 default["calculon"]["storage"]["paths"]["jellyfin"] = "/var/lib/data/jellyfin"
 default["calculon"]["storage"]["paths"]["media"] = "/var/lib/data/media"
+default["calculon"]["storage"]["paths"]["downloads"] = "/var/lib/data/media/downloads"
 default["calculon"]["storage"]["snapshots_volumes"] = %w{sync}
 default["calculon"]["storage"]["library_dirs"] = {
   "movies" => {
     "service" => "radarr",
-    "putioarr_port" => 9091,
+    "mount": true,
   },
   "series" => {
     "service" => "sonarr",
-    "putioarr_port" => 9092,
+    "mount": true,
   },
   "music" => {
     "service" => "lidarr",
-    "putioarr_port" => 9093,
+    "mount": false,
   }
 }
 
