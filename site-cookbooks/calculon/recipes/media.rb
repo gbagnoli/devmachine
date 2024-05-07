@@ -452,6 +452,7 @@ calculon_vhost domain do
 
     location = /web/ {
     	proxy_pass http://$jellyfin:8096/web/index.html;
+    	proxy_http_version 1.1;
     	proxy_set_header Host $host;
     	proxy_set_header X-Real-IP $remote_addr;
     	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -478,6 +479,7 @@ calculon_vhost domain do
 
     location ~ /Items/(.*)/Images {
     	proxy_pass http://$jellyfin:8096;
+    	proxy_http_version 1.1;
     	proxy_set_header Host $host;
     	proxy_set_header X-Real-IP $remote_addr;
     	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
