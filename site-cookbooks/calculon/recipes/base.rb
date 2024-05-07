@@ -85,7 +85,7 @@ directory node["calculon"]["storage"]["paths"]["downloads"] do
   mode "2775"
 end
 
-node["calculon"]["storage"]["library_dirs"].each do |dir, conf|
+node["calculon"]["storage"]["library_dirs"].each do |dir, libconf|
   path = "#{paths["media"]}/#{dir}"
   ["", "/downloads", "/library"].each do |child|
     directory "#{path}#{child}" do
@@ -101,7 +101,7 @@ node["calculon"]["storage"]["library_dirs"].each do |dir, conf|
     fstype "none"
     options "bind,rw"
     action %i{mount enable}
-    only_if { conf["mount"] }
+    only_if { libconf["mount"] }
     not_if "mount | grep -q '#{path}/downloads'"
   end
 end

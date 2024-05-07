@@ -45,8 +45,6 @@ action_class do
       up
     elsif up
       '"upgrade"'
-    else
-      nil
     end
   end
 end
