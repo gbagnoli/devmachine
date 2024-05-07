@@ -331,6 +331,7 @@ calculon_www_upstream "/tdarr" do
   title "Transcoding"
   upgrade true
   category "Tools"
+  upgrade "$http_connection"
 end
 
 calculon_www_upstream "/radarr" do
@@ -338,6 +339,7 @@ calculon_www_upstream "/radarr" do
   title "Movies"
   matcher "^~"
   category "Media"
+  upgrade "$http_connection"
 end
 
 calculon_www_upstream "/sonarr" do
@@ -345,6 +347,7 @@ calculon_www_upstream "/sonarr" do
   title "Series"
   matcher "^~"
   category "Media"
+  upgrade "$http_connection"
 end
 
 calculon_www_upstream "/lidarr" do
@@ -352,6 +355,7 @@ calculon_www_upstream "/lidarr" do
   title "Music"
   matcher "^~"
   category "Media"
+  upgrade "$http_connection"
 end
 
 calculon_www_upstream "/prowlarr" do
@@ -359,6 +363,7 @@ calculon_www_upstream "/prowlarr" do
   title "Indexer"
   matcher "^~"
   category "Tools"
+  upgrade "$http_connection"
 end
 
 domain = node["calculon"]["www"]["media_domain"]
