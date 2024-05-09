@@ -48,6 +48,7 @@ podman_container "tailscale" do
       Environment=TS_USERSPACE=0
       Environment=TS_AUTHKEY=#{auth_key}
       Environment=TS_HOSTNAME=calculon.tigc.eu
+      Environment=TS_ROUTES=#{node["calculon"]["network"]["containers"]["ipv4"]["network"]},#{node["calculon"]["network"]["containers"]["ipv6"]["network"]}
       Environment=TS_EXTRA_ARGS=--advertise-exit-node
       AddDevice=/dev/net/tun:/dev/net/tun:rw
       AddCapability=NET_ADMIN
