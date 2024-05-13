@@ -307,6 +307,7 @@ podman_container "jellyfin" do
       Volume=#{jellyfin_root}:/config
       Volume=#{node["calculon"]["storage"]["paths"]["media"]}/series/library:/dara/tvshows
       Volume=#{node["calculon"]["storage"]["paths"]["media"]}/movies/library:/data/movies
+      Volume=#{node["calculon"]["storage"]["paths"]["media"]}/yoga-pilates/library:/data/yoga-pilates
       Volume=#{node["calculon"]["storage"]["paths"]["sync"]}/music:/data/music
       PublishPort=[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]:8096:8096/tcp
       PublishPort=#{node["calculon"]["network"]["containers"]["ipv4"]["addr"]}:8096:8096/tcp
