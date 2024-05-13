@@ -144,6 +144,7 @@ upstreams = {
     "/sync" => {
       "upstream" => "http://[#{ipv6}]:8386",
       "title" => "Syncthing GUI",
+      "upgrade" => true,
       "extra_properties" => {
         proxy_read_timeout: "600s",
         proxy_send_timeout: "600s",
@@ -153,6 +154,7 @@ upstreams = {
     "/files" => {
       "upstream" => "http://[#{ipv6}]:8387",
       "title" => "Browse Files",
+      "upgrade" => true,
       "extra_properties" => {
         client_max_body_size: "2048m",
         proxy_read_timeout: "86400s",
