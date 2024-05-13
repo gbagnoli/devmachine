@@ -82,4 +82,3 @@ default["calculon"]["network"]["containers"]["ipv6"]["network"] = "fd05:f439:619
 default["server"]["oauth2_proxy"]["secrets"]["client-secret"] = nil
 default["server"]["oauth2_proxy"]["secrets"]["client-id"] = nil
 default["server"]["oauth2_proxy"]["secrets"]["cookie-secret"] = nil
-default["server"]["oauth2_proxy"]["secrets"]["syncthing_authenticated_emails"] = nil

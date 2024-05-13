@@ -16,7 +16,7 @@ unless domain.nil?
     cloudflare true
     upstream_paths(lazy { node["calculon"]["www"]["upstreams"].to_h })
     oauth2_proxy(
-      emails: node["calculon"]["oauth2_proxy"]["secrets"]["syncthing_authenticated_emails"],
+      emails: node["calculon"]["www"]["user_emails"],
       port: 4100
     )
     act_as_upstream 4101
