@@ -82,3 +82,10 @@ default["calculon"]["network"]["containers"]["ipv6"]["network"] = "fd05:f439:619
 default["server"]["oauth2_proxy"]["secrets"]["client-secret"] = nil
 default["server"]["oauth2_proxy"]["secrets"]["client-id"] = nil
 default["server"]["oauth2_proxy"]["secrets"]["cookie-secret"] = nil
+
+default["calculon"]["magiusstaff"]["username"] = "magiusstaff"
+default["calculon"]["magiusstaff"]["group"] = "magiusstaff"
+default["calculon"]["magiusstaff"]["uid"] = "2002"
+default["calculon"]["magiusstaff"]["gid"] = "2002"
+default["calculon"]["magiusstaff"]["user_emails"] = nil
+default["calculon"]["magiusstaff"]["paths"]["root"] = "/var/lib/data/magiusstaff"

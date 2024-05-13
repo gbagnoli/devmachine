@@ -8,6 +8,8 @@ include_recipe "calculon::tailscale"
 include_recipe "calculon::containers"
 include_recipe "calculon::media"
 
+include_recipe "calculon::magiusstaff"
+
 # create the www vhost with the accumulated hosts
 domain = node["calculon"]["www"]["domain"]
 unless domain.nil?
