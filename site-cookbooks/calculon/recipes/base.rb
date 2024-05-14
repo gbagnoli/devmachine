@@ -70,7 +70,7 @@ if node["calculon"]["storage"]["manage"]
   end
 end
 
-%w{sync media}.each do |vol|
+%w{sync media tmp}.each do |vol|
   calculon_btrfs_volume paths[vol] do
     group data_group
     owner data_user

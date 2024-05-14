@@ -22,6 +22,7 @@ default["calculon"]["data"]["gid"] = "2001"
 default["calculon"]["storage"]["manage"] = true
 default["calculon"]["storage"]["dev"] = "/dev/sda5"
 default["calculon"]["storage"]["paths"]["root"] = "/var/lib/data"
+default["calculon"]["storage"]["paths"]["tmp"] = "/var/lib/data/tmp"
 default["calculon"]["storage"]["paths"]["sync"] = "/var/lib/data/sync"
 default["calculon"]["storage"]["paths"]["www"] = "/var/lib/data/www"
 default["calculon"]["storage"]["paths"]["tailscale"] = "/var/lib/data/tailscale"
