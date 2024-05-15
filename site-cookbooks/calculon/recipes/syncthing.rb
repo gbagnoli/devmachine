@@ -183,3 +183,19 @@ systemd_unit 'btrbk_hourly.timer' do
   action %i{create enable start}
 end
 
+ruby_block "get gpth latest version" do
+  block do
+    uri = URI("https://api.github.com/repos/TheLastGimbus/GooglePhotosTakeoutHelper/releases/latest")
+    response = Net::HTTP.get(uri)
+    parsed = JSON.parse(response)
+    asset = parsed["assets"].select {|x| x["name"].include?("gpth-linux")}.first
+    node.run_state["gpth_download_url"] = asset["browser_download_url"]
+    node.run_state["gpth_version"] = parsed["tag_name"][1..]
+  end
+end
+
+remote_file "/usr/local/bin/gpth" do
+  source(lazy { node.run_state["gpth_download_url"] })
+  owner "root"
+  mode "0755"
+end
