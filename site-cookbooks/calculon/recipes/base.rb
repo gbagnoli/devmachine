@@ -2,29 +2,30 @@ include_recipe "calculon::repos"
 
 if platform?("rocky")
   # sad, but rocky doesn't have btrfs-progs in repos
-  conf = node["calculon"]["rocky"]["btfrs_progs"]
-  arch = node["kernel"]["machine"]
-  v, r = conf[:version].split("-")
-  url = "#{conf[:url]}/#{v}/#{r}/#{arch}"
-  packages = []
+  node["calculon"]["rocky"]["btrfs"].each do |package_group, conf|
+    arch = node["kernel"]["machine"]
+    v, r = conf[:version].split("-")
+    url = "#{conf[:url]}/#{v}/#{r}/#{arch}"
+    packages = []
 
-  conf[:packages].each do |pkg|
-    rpm = "#{pkg}-#{conf[:version]}.#{arch}.rpm"
-    remote = "#{url}/#{rpm}"
-    local = "#{Chef::Config[:file_cache_path]}/#{rpm}"
-    packages << local
+    conf[:packages].each do |pkg|
+      rpm = "#{pkg}-#{conf[:version]}.#{arch}.rpm"
+      remote = "#{url}/#{rpm}"
+      local = "#{Chef::Config[:file_cache_path]}/#{rpm}"
+      packages << local
 
-    remote_file local do
-      source remote
-      action :create
-      not_if "dnf list installed btrfs-progs | grep -q #{conf[:version]}"
+      remote_file local do
+        source remote
+        action :create_if_missing
+      end
+    end
+
+    execute "install #{package_group}" do
+      command "dnf install --assumeyes #{packages.join(" ")}"
+      not_if "dnf list installed #{package_group} | grep -q #{conf[:version]}"
     end
   end
 
-  execute "install btrfs-progs" do
-    command "dnf install --assumeyes #{packages.join(" ")}"
-    not_if "dnf list installed btrfs-progs | grep -q #{conf[:version]}"
-  end
 
   # also install kernel-ml as there will be no btrfs otherwise
   package "kernel-ml" do

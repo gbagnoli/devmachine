@@ -5,10 +5,8 @@ include_recipe "calculon::zram"
 include_recipe "calculon::nginx"
 include_recipe "calculon::lego"
 include_recipe "calculon::tailscale"
-
 include_recipe "calculon::containers"
 include_recipe "calculon::media"
-
 include_recipe "calculon::magiusstaff"
 
 # create the www vhost with the accumulated hosts

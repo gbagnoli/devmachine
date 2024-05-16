@@ -1,7 +1,12 @@
-default["calculon"]["rocky"]["btfrs_progs"] = {
+default["calculon"]["rocky"]["btrfs"]["btrfs-progs"] = {
   version: "6.8-1.el9",
   url: "https://cbs.centos.org/kojifiles/packages/btrfs-progs",
   packages: %w{btrfs-progs btrfs-progs-devel libbtrfs libbtrfsutil python3-btrfsutil}
+}
+default["calculon"]["rocky"]["btrfs"]["compsize"] = {
+  version: "1.5-3.hsx.el9",
+  url: "https://cbs.centos.org/kojifiles/packages/compsize",
+  packages: %w{compsize}
 }
 
 default["calculon"]["TZ"] = "Europe/Madrid"
