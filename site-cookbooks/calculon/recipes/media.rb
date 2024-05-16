@@ -7,9 +7,12 @@ radarr_root = node["calculon"]["storage"]["paths"]["radarr"]
 sonarr_root = node["calculon"]["storage"]["paths"]["sonarr"]
 lidarr_root = node["calculon"]["storage"]["paths"]["lidarr"]
 jellyfin_root = node["calculon"]["storage"]["paths"]["jellyfin"]
+plex_root = node["calculon"]["storage"]["paths"]["plex"]
 user = node["calculon"]["data"]["username"]
 group = node["calculon"]["data"]["group"]
 uid = node["calculon"]["data"]["uid"]
+ipv6 = node["calculon"]["network"]["containers"]["ipv6"]["addr"]
+ipv4 = node["calculon"]["network"]["containers"]["ipv4"]["addr"]
 gid = node["calculon"]["data"]["gid"]
 
 [ jellyfin_root,
@@ -19,6 +22,7 @@ gid = node["calculon"]["data"]["gid"]
   tdarr_root,
   prowlarr_root,
   lidarr_root,
+  plex_root,
 ].each do |r|
   calculon_btrfs_volume r do
     owner user
@@ -30,6 +34,14 @@ end
 
 %w[server configs logs cache cache/series cache/movies].each do |dir|
   directory "#{tdarr_root}/#{dir}" do
+    owner user
+    group group
+    mode "2755"
+  end
+end
+
+%w[config transcode].each do |dir|
+  directory "#{plex_root}/#{dir}" do
     owner user
     group group
     mode "2755"
@@ -309,8 +321,8 @@ podman_container "jellyfin" do
       Volume=#{node["calculon"]["storage"]["paths"]["media"]}/movies/library:/data/movies
       Volume=#{node["calculon"]["storage"]["paths"]["media"]}/yoga-pilates/library:/data/yoga-pilates
       Volume=#{node["calculon"]["storage"]["paths"]["sync"]}/music:/data/music
-      PublishPort=[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]:8096:8096/tcp
-      PublishPort=#{node["calculon"]["network"]["containers"]["ipv4"]["addr"]}:8096:8096/tcp
+      PublishPort=[#{ipv6}]:8096:8096/tcp
+      PublishPort=#{ipv4}:8096:8096/tcp
     },
     Service: %w{
       Restart=always
@@ -326,6 +338,56 @@ podman_container "jellyfin" do
   )
 end
 
+podman_image "plex" do
+  config(
+    Image: ["Image=docker.io/plexinc/pms-docker:latest"],
+  )
+end
+
+publishports = []
+openports = []
+{tcp: %w{32400 8324 32469 1900}, udp: %w{32410 32412 32413 32414}}.each do |proto, ports|
+  ports.each do |port|
+    publishports << "PublishPort=[#{ipv6}]:#{port}:#{port}/#{proto}"
+    publishports << "PublishPort=#{ipv4}:#{port}:#{port}/#{proto}"
+    openports << "#{port}/#{proto}"
+  end
+end
+
+calculon_firewalld_port "syncthing" do
+  port openports
+end
+
+podman_container "plex" do
+  config(
+    Container: %W{
+      Image=plex.image
+      Network=calculon.network
+      Hostname=plex.tigc.eu
+      Environment=TZ=#{node["calculon"]["TZ"]}
+      Environment=PLEX_UID=#{uid}
+      Environment=PLEX_GID=#{gid}
+      Environment=CHANGE_CONFIG_DIR_OWNERSHIP=false
+      Volume=#{plex_root}/config:/config
+      Volume=#{plex_root}/transcode:/transcode
+      Volume=#{node["calculon"]["storage"]["paths"]["media"]}/series/library:/data/tvshows
+      Volume=#{node["calculon"]["storage"]["paths"]["media"]}/movies/library:/data/movies
+      Volume=#{node["calculon"]["storage"]["paths"]["media"]}/yoga-pilates/library:/data/yoga-pilates
+      Volume=#{node["calculon"]["storage"]["paths"]["sync"]}/music:/data/music
+    } + publishports,
+    Service: %w{
+      Restart=always
+    },
+    Unit: [
+      "Description=jellyfin media server",
+      "After=network-online.target",
+      "Wants=network-online.target",
+    ],
+    Install: %w{
+      WantedBy=multi-user.target
+    }
+  )
+end
 
 calculon_www_upstream "/tdarr" do
   upstream_port 8265
@@ -419,7 +481,7 @@ calculon_vhost domain do
     add_header Referrer-Policy strict-origin-when-cross-origin;
     add_header Alt-Svc 'h3-32=":$server_port"; ma=86400, h3=":$server_port"; ma=86400';
     add_header X-protocol $server_protocol always;
-    set $jellyfin #{node["calculon"]["network"]["containers"]["ipv4"]["addr"]};
+    set $jellyfin #{ipv4};
     if ($request_method !~ ^(GET|HEAD|POST|DELETE)$ ) {
     	return 405;
     }
