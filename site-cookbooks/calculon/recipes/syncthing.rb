@@ -145,7 +145,9 @@ volumes = node["calculon"]["storage"]["snapshots_volumes"]
 snapd = "#{node["calculon"]["storage"]["paths"]["root"]}/snapshots/"
 directory snapd
 volumes.each do |vol|
-  directory "#{snapd}/#{vol}"
+  directory "#{snapd}/#{vol}" do
+    recursive true
+  end
 end
 
 directory "/etc/btrbk" do
