@@ -199,3 +199,24 @@ remote_file "/usr/local/bin/gpth" do
   owner "root"
   mode "0755"
 end
+
+package "backup_tools" do
+  package_name %w{rsync tar parallel}
+end
+
+user = node["user"]["login"]
+group = node["user"]["group"]
+home = "/home/#{user}"
+
+directory "#{home}/.config/rclone" do
+  owner user
+  group group
+  mode "0700"
+end
+
+template "#{home}/.config/rclone/rclone.conf" do
+  owner user
+  group group
+  mode "0600"
+  variables(remotes: node["rclone"]["remotes"])
+end

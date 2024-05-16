@@ -1,0 +1,6 @@
+<% @remotes.each do |name, conf| -%>
+[<%= name %>]
+<% conf.each do |k, v| -%>
+<%= k %> = <%= v %>
+<% end -%>
+<% end -%>
