@@ -38,6 +38,7 @@ default["calculon"]["storage"]["paths"]["lidarr"] = "/var/lib/data/lidarr"
 default["calculon"]["storage"]["paths"]["putioarr"] = "/var/lib/data/putioarr"
 default["calculon"]["storage"]["paths"]["prowlarr"] = "/var/lib/data/prowlarr"
 default["calculon"]["storage"]["paths"]["jellyfin"] = "/var/lib/data/jellyfin"
+default["calculon"]["storage"]["paths"]["plex"] = "/var/lib/data/plex"
 default["calculon"]["storage"]["paths"]["media"] = "/var/lib/data/media"
 default["calculon"]["storage"]["paths"]["downloads"] = "/var/lib/data/media/downloads"
 default["calculon"]["storage"]["snapshots_volumes"] = %w{sync magiusstaff/sync}

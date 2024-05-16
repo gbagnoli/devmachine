@@ -348,8 +348,8 @@ publishports = []
 openports = []
 {tcp: %w{32400 8324 32469 1900}, udp: %w{32410 32412 32413 32414}}.each do |proto, ports|
   ports.each do |port|
-    publishports << "PublishPort=[#{ipv6}]:#{port}:#{port}/#{proto}"
-    publishports << "PublishPort=#{ipv4}:#{port}:#{port}/#{proto}"
+    publishports << "PublishPort=[::]:#{port}:#{port}/#{proto}"
+    publishports << "PublishPort=#{port}:#{port}/#{proto}"
     openports << "#{port}/#{proto}"
   end
 end
@@ -363,7 +363,7 @@ podman_container "plex" do
     Container: %W{
       Image=plex.image
       Network=calculon.network
-      Hostname=plex.tigc.eu
+      HostName=plex.tigc.eu
       Environment=TZ=#{node["calculon"]["TZ"]}
       Environment=PLEX_UID=#{uid}
       Environment=PLEX_GID=#{gid}
