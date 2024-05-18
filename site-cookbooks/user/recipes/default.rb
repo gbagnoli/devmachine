@@ -223,12 +223,13 @@ node["user"]["ssh_authorized_keys"].each do |desc|
   end
 end
 
+machine = node["kernel"]["machine"]
 ruby_block "get zoxide latest version" do
   block do
     uri = URI("https://api.github.com/repos/ajeetdsouza/zoxide/releases/latest")
     response = Net::HTTP.get(uri)
     parsed = JSON.parse(response)
-    asset = parsed["assets"].select {|x| x["name"].include?("x86_64-unknown-linux")}.first
+    asset = parsed["assets"].select {|x| x["name"].include?("#{machine}-unknown-linux")}.first
     node.run_state["zoxide_download_url"] = asset["browser_download_url"]
     node.run_state["zoxide_version"] = parsed["tag_name"][1..]
   end
@@ -249,12 +250,22 @@ bash "install_zoxide" do
 end
 
 
+arch = case machine
+       when "x86_64"
+         "amd64"
+       when "aarch64"
+         "arm64"
+       else
+         Chef::Log.fatal("Unsupported arch #{node["kernel"]["machine"]}")
+         raise
+       end
+
 ruby_block "get fzf latest version" do
   block do
     uri = URI("https://api.github.com/repos/junegunn/fzf/releases/latest")
     response = Net::HTTP.get(uri)
     parsed = JSON.parse(response)
-    asset = parsed["assets"].select {|x| x["name"].include?("linux_amd64")}.first
+    asset = parsed["assets"].select {|x| x["name"].include?("linux_#{arch}")}.first
     node.run_state["fzf_download_url"] = asset["browser_download_url"]
     node.run_state["fzf_version"] = parsed["tag_name"][1..]
   end
