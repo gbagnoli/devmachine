@@ -67,6 +67,8 @@ if node["lsb"]["release"] == "22.04"
 
 
   directory "/etc/containers"
+  directory "/etc/containers/systemd"
+  directory "/etc/containers/networks"
 
   remote_file "/etc/containers/registries.conf" do
     source "https://src.fedoraproject.org/rpms/containers-common/raw/main/f/registries.conf"
@@ -93,7 +95,6 @@ if node["lsb"]["release"] == "22.04"
 else
   package "podman"
 end
-
 
 service "podman.socket" do
   action %i(enable start)
