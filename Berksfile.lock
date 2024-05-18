@@ -162,6 +162,7 @@ GRAPH
   rupik (0.1.0)
     argonone (>= 0.0.0)
     btrbk (>= 0.0.0)
+    podman (>= 0.0.0)
     tailscale (>= 0.0.0)
   server (0.1.0)
     chef_client_updater (>= 0.0.0)
