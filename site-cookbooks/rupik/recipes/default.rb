@@ -3,6 +3,7 @@ include_recipe "argonone"
 include_recipe "rupik::mounts"
 include_recipe "rupik::btrbk"
 include_recipe "rupik::pihole"
+include_recipe "rupik::unifi"
 include_recipe "syncthing"
 
 node.override["tailscale"]["install_type"] = "podman"

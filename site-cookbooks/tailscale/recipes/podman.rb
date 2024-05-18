@@ -55,7 +55,7 @@ podman_container "tailscale" do
     Unit: [
       "Description=Start tailscaled",
       "After=network-online.target",
-      "Wants=network-online.target",
+      "Wants=network.target",
     ],
     Install: [
       "WantedBy=multi-user.target default.target",
