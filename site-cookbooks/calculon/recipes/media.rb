@@ -299,7 +299,7 @@ podman_container "putioarr" do
 end
 
 service "putioarr" do
-  action %i{start enable}
+  action %i{start}
 end
 
 podman_image "jellyfin" do

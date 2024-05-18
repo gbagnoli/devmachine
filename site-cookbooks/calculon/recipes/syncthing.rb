@@ -43,7 +43,7 @@ end
 
 podman_image "filebrowser" do
   config(
-    Image: ["Image=docker.io/filebrowser/filebrowser"],
+    Image: ["Image=docker.io/filebrowser/filebrowser:latest"],
   )
 end
 

@@ -1,4 +1,3 @@
-include_recipe "rupik::mounts"
 include_recipe "btrbk"
 
 directory "/srv/snapshots/sync" do
