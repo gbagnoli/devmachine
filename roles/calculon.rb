@@ -12,11 +12,6 @@ default_attributes(
     }
   },
   "server" => {
-    "components" => {
-      "syncthing" => {
-        "enabled" => false
-      },
-    },
     "users" => {
       "dario" => {
         "unmanaged" => true,
