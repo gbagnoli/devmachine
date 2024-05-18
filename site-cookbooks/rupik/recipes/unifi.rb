@@ -16,27 +16,34 @@ end
   end
 end
 
-systemd_unit 'unifi.service' do
-  content <<EOU
-  [Unit]
-  Description=Podman container-7d1ce893c913637f1977fe61011eb693a007ad93ba2080a64e59e7a42299a35f.service
-  Documentation=man:podman-generate-systemd(1)
-  Wants=network-online.target
-  After=network-online.target
-  RequiresMountsFor=/run/containers/storage
+podman_image "unifi" do
+  config(
+    Image: ["Image=docker.io/jacobalberty/unifi:latest"],
+  )
+end
 
-  [Service]
-  Environment=PODMAN_SYSTEMD_UNIT=%n
-  Restart=on-failure
-  TimeoutStopSec=70
-  ExecStart=/usr/bin/podman start 7d1ce893c913637f1977fe61011eb693a007ad93ba2080a64e59e7a42299a35f
-  ExecStop=/usr/bin/podman stop -t 10 7d1ce893c913637f1977fe61011eb693a007ad93ba2080a64e59e7a42299a35f
-  ExecStopPost=/usr/bin/podman stop -t 10 7d1ce893c913637f1977fe61011eb693a007ad93ba2080a64e59e7a42299a35f
-  PIDFile=/run/containers/storage/btrfs-containers/7d1ce893c913637f1977fe61011eb693a007ad93ba2080a64e59e7a42299a35f/userdata/conmon.pid
-  Type=forking
-
-  [Install]
-  WantedBy=multi-user.target default.target
-EOU
-  action %i(create enable start)
+podman_container "unifi" do
+  config(
+    Container: %w{
+      Network=bridge
+      Image=unifi.image
+      Volume=/srv/unifi:/unifi
+      User=unifi
+      Environment=TZ=Europe/Madrid
+      PublishPort=8080:8080/tcp
+      PublishPort=8443:8443/tcp
+      PublishPort=3748:3748/udp
+    },
+    Service: [
+      "Restart=always",
+    ],
+    Unit: [
+      "Description=Unifi Controller",
+      "Wants=network.target",
+      "After=network-online.target",
+    ],
+    Install: [
+      "WantedBy=multi-user.target default.target",
+    ]
+  )
 end

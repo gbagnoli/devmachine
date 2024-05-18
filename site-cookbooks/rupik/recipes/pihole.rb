@@ -33,9 +33,6 @@ podman_container "pihole" do
       Image=pihole.image
       Volume=/etc/pihole/conf:/etc/pihole
       Volume=/etc/pihole/dnsmasq.d/etc/dnsmasq.d
-      Dns=1.1.1.1
-      Dns=127.0.0.1
-      Hostname=pihole.rupik.tigc.eu
       Environment=VIRTUAL_HOST=pi.hole
       Environment=PROXY_LOCATION=pi.hole
       Environment=TZ=Europe/Madrid
