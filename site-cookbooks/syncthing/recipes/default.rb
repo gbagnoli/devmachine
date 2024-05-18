@@ -7,7 +7,9 @@ apt_repository "syncthing" do
   key "https://syncthing.net/release-key.txt"
 end
 
-package "syncthing"
+package "syncthing" do
+  action :upgrade
+end
 
 node["syncthing"]["users"].each do |user, conf|
   home = "/home/#{user}"
