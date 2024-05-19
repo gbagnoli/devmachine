@@ -3,7 +3,6 @@ include_recipe "calculon::monitoring"
 include_recipe "calculon::base"
 include_recipe "calculon::zram"
 include_recipe "calculon::nginx"
-include_recipe "calculon::lego"
 include_recipe "calculon::tailscale"
 include_recipe "calculon::containers"
 include_recipe "calculon::media"
@@ -12,7 +11,7 @@ include_recipe "calculon::magiusstaff"
 # create the www vhost with the accumulated hosts
 domain = node["calculon"]["www"]["domain"]
 unless domain.nil?
-  calculon_vhost domain do
+  podman_nginx_vhost domain do
     server_name domain
     cloudflare true
     upstream_paths(lazy { node["calculon"]["www"]["upstreams"].to_h })

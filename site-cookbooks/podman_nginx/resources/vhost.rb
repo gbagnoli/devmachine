@@ -1,5 +1,5 @@
-resource_name :calculon_vhost
-provides :calculon_vhost
+resource_name :podman_nginx_vhost
+provides :podman_nginx_vhost
 unified_mode true
 
 property :server_name, [Array, String]
@@ -19,13 +19,13 @@ property :extra_config_as_upstream, [String, NilClass]
 action :create do
   server_name = Array(new_resource.server_name).map(&:to_s)
   server_name.each do |name|
-    calculon_acme_certificate name
+    podman_nginx_acme_certificate name
   end
 
   # handle the default oauth2 proxy if any
   unless new_resource.oauth2_proxy.nil?
     conf = new_resource.oauth2_proxy
-     calculon_oauth2_proxy new_resource.name do
+     podman_nginx_oauth2_proxy new_resource.name do
        emails conf[:emails]
        port conf[:port]
        redirect_url conf[:redirect_url] || "https://#{server_name.first}/oauth2/callback"
@@ -46,14 +46,14 @@ action :create do
 
   directory local_cache do
     mode "0755"
-    user node["calculon"]["nginx"]["user"]
-    group node["calculon"]["nginx"]["group"]
+    user node["podman"]["nginx"]["user"]
+    group node["podman"]["nginx"]["group"]
   end
 
   template local_vhost_conf_file do
     source "vhost.erb"
     variables(
-      paths: node["calculon"]["nginx"]["container"],
+      paths: container_paths,
       vhost: new_resource.name,
       server_name: server_name,
       upstream_url: upstream_url,
@@ -100,7 +100,7 @@ action :delete do
     recursive true
   end
   unless new_resource.oauth2_proxy.nil?
-    calculon_oauth2_proxy new_resource.name do
+    podman_nginx_oauth2_proxy new_resource.name do
       emails ["notimportant"]
       port 1111
       redirect_url "notimportant"
@@ -112,16 +112,16 @@ end
 
 action_class do
 
-  def local_paths
-    node["calculon"]["storage"]["paths"]
+  def local_path
+    node["podman"]["nginx"]["path"]
   end
 
   def container_paths
-    node["calculon"]["nginx"]["container"]
+    node["podman"]["nginx"]["container"]
   end
 
   def cert_root
-    "#{node["calculon"]["acme"]["certs_dir"]}/certificates/#{new_resource.name}"
+    "#{node["podman"]["nginx"]["acme"]["certs_dir"]}/certificates/#{new_resource.name}"
   end
 
   def container_cert_root
@@ -137,11 +137,11 @@ action_class do
   end
 
   def local_vhost_root
-    "#{local_paths["www"]}/vhosts/#{new_resource.name}"
+    "#{local_path}/vhosts/#{new_resource.name}"
   end
 
   def local_cache
-    "#{local_paths["www"]}/cache/#{new_resource.name}"
+    "#{local_path}/cache/#{new_resource.name}"
   end
 
   def container_certificate_file
@@ -161,7 +161,7 @@ action_class do
   end
 
   def local_vhost_conf_file
-    "#{local_paths["www"]}/etc/conf.d/#{new_resource.name}.conf"
+    "#{local_path}/etc/conf.d/#{new_resource.name}.conf"
   end
 
   def upstream_url

@@ -164,7 +164,7 @@ upstreams = {
     }
 }
 
-calculon_vhost domain do
+podman_nginx_vhost domain do
   server_name domain
   cloudflare true
   upstream_paths upstreams

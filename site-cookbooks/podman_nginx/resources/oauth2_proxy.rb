@@ -1,5 +1,5 @@
-resource_name :calculon_oauth2_proxy
-provides :calculon_oauth2_proxy
+resource_name :podman_nginx_oauth2_proxy
+provides :podman_nginx_oauth2_proxy
 unified_mode true
 
 property :emails, Array, required: true
@@ -14,7 +14,7 @@ property :auth_provider, String, default: "google"
 default_action :create
 
 action :create do
-  include_recipe "calculon::oauth2_proxy"
+  include_recipe "podman_nginx::oauth2_proxy"
   require 'toml'
 
   file emails_file do
@@ -42,12 +42,12 @@ action :create do
       },
       Unit: [
         "Description=Start oauth2 proxy for #{new_resource.name}",
-        "After=network-online.target",
+        "After=network.target",
         "Wants=network-online.target",
       ],
-      Install: %w{
-        WantedBy=multi-user.target
-      }
+      Install: [
+        "WantedBy=multi-user.target default.target"
+      ]
     )
   end
 
@@ -103,6 +103,6 @@ action_class do
   end
 
   def secrets
-    node["calculon"]["oauth2_proxy"]["secrets"]
+    node["podman"]["nginx"]["oauth2_proxy"]["secrets"]
   end
 end

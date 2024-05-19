@@ -10,19 +10,11 @@ default["calculon"]["rocky"]["btrfs"]["compsize"] = {
 }
 
 default["calculon"]["TZ"] = "Europe/Madrid"
-default["calculon"]["acme"]["lego"]["uid"] = "5000"
-default["calculon"]["acme"]["lego"]["gid"] = "5000"
-default["calculon"]["acme"]["lego"]["port"] = "4180"
-default["calculon"]["acme"]["lego"]["email"] = nil
-default["calculon"]["acme"]["certs_dir"] = "/etc/pki/acme"
-default["calculon"]["acme"]["key_type"] = "ec384"
-default["calculon"]["acme"]["renew_days"] = "30"
 
 default["calculon"]["data"]["username"] = "media"
 default["calculon"]["data"]["group"] = "data"
 default["calculon"]["data"]["uid"] = "2001"
 default["calculon"]["data"]["gid"] = "2001"
-
 
 default["calculon"]["storage"]["manage"] = true
 default["calculon"]["storage"]["dev"] = "/dev/sda5"
@@ -57,21 +49,10 @@ default["calculon"]["storage"]["library_dirs"] = {
   }
 }
 
-default["calculon"]["nginx"]["user"] = "nginx"
-default["calculon"]["nginx"]["group"] = "nginx"
-default["calculon"]["nginx"]["uid"] = 101
-default["calculon"]["nginx"]["gid"] = 101
-
 # set to a valid domain to enable
 default["calculon"]["www"]["domain"] = nil
 default["calculon"]["www"]["media_domain"] = nil
 default["calculon"]["www"]["upstreams"] = {}
-
-default["calculon"]["nginx"]["container"]["etc"] = "/etc/nginx"
-default["calculon"]["nginx"]["container"]["www"] = "/var/www"
-default["calculon"]["nginx"]["container"]["cache"] = "/var/cache/www"
-default["calculon"]["nginx"]["container"]["logs"] = "/var/logs/nginx"
-default["calculon"]["nginx"]["container"]["ssl"] = "/etc/ssl/acme"
 
 default["calculon"]["containers"]["storage"]["volume"] = "/var/lib/data/containers"
 default["calculon"]["containers"]["storage"]["driver"] = "btrfs"
@@ -84,11 +65,6 @@ default["calculon"]["network"]["containers"]["ipv4"]["network"] = "172.25.25.0/2
 default["calculon"]["network"]["containers"]["ipv6"]["addr"] = "fd05:f439:6192:ffff::1"
 default["calculon"]["network"]["containers"]["ipv6"]["addr_cidr"] = "fd05:f439:6192:ffff::1/64"
 default["calculon"]["network"]["containers"]["ipv6"]["network"] = "fd05:f439:6192:ffff::0/64"
-
-# oauth2 proxy
-default["server"]["oauth2_proxy"]["secrets"]["client-secret"] = nil
-default["server"]["oauth2_proxy"]["secrets"]["client-id"] = nil
-default["server"]["oauth2_proxy"]["secrets"]["cookie-secret"] = nil
 
 default["calculon"]["magiusstaff"]["username"] = "magiusstaff"
 default["calculon"]["magiusstaff"]["group"] = "magiusstaff"

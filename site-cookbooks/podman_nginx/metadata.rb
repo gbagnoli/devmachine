@@ -1,24 +1,13 @@
-# frozen_string_literal: true
-
-name "calculon"
+name "podman_nginx"
 maintainer "Giacomo Bagnoli"
 maintainer_email "gbagnoli@gmail.com"
 license "MIT"
-description "Installs/Configures calculon"
+description "Installs/Configures podman based nginx"
 version "0.1.0"
 
 issues_url "https://github.com/gbagnoli/devmachine/issues"
 source_url "https://github.com/gbagnoli/devmachine"
 chef_version ">=17"
-supports "fedora"
 supports "rocky", ">= 9.0"
-
-depends "hostsfile"
-depends "datadog"
-depends "podman"
-depends "podman_nginx"
-depends "yum-epel"
-depends "yum-elrepo"
+supports "ubuntu", ">= 22.04"
 depends "logrotate"
-depends "btrbk"
-depends "tailscale"

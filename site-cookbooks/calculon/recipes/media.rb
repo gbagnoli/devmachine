@@ -458,7 +458,7 @@ jfmap = <<~EOH
 	}
 EOH
 
-calculon_vhost domain do
+podman_nginx_vhost domain do
     server_name domain
     cloudflare true
     disable_default_location true

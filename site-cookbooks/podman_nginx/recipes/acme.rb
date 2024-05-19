@@ -1,4 +1,10 @@
-include_recipe "calculon::nginx"
+include_recipe "podman_nginx::default"
+conf = node["podman"]["nginx"]["acme"]
+
+if conf["lego"]["email"].nil?
+  Chef::Log.fatal('email not set for ACME - node["podman"]["nginx"]["acme"]["lego"]["email"]')
+  raise
+end
 
 lego_image = "docker.io/goacme/lego"
 podman_image "lego" do
@@ -10,24 +16,24 @@ end
 group "lego" do
   comment "ACME lego"
   system true
-  gid node["calculon"]["acme"]["lego"]["gid"]
+  gid conf["lego"]["gid"]
 end
 
 user "lego" do
   comment "ACME lego"
   system true
   shell "/bin/nologin"
-  uid node["calculon"]["acme"]["lego"]["uid"]
-  gid node["calculon"]["acme"]["lego"]["gid"]
+  uid conf["lego"]["uid"]
+  gid conf["lego"]["gid"]
 end
 
-directory node["calculon"]["acme"]["certs_dir"] do
+directory conf["certs_dir"] do
   owner "lego"
   group "lego"
   mode "0755"
 end
 
-certificates_d = "#{node["calculon"]["acme"]["certs_dir"]}/certificates"
+certificates_d = "#{conf["certs_dir"]}/certificates"
 directory certificates_d  do
   owner "lego"
   group "lego"
@@ -40,18 +46,14 @@ execute "setfacl_#{certificates_d}" do
   not_if "getfacl #{certificates_d} 2>/dev/null | grep 'default:' -q"
 end
 
-file "#{node["calculon"]["storage"]["paths"]["www"]}/etc/default.d/lego.conf" do
+file "#{node["podman"]["nginx"]["path"]}/etc/default.d/lego.conf" do
   content <<~EOH
     location /.well-known/acme-challenge/ {
-        proxy_pass http://127.0.0.1:#{node["calculon"]["acme"]["lego"]["port"]};
+        proxy_pass http://127.0.0.1:#{conf["lego"]["port"]};
         proxy_set_header Host $host;
     }
   EOH
   notifies :reload, "service[nginx]", :immediately
-end
-
-if node["calculon"]["acme"]["lego"]["email"].nil?
-  raise 'email not set for ACME - node["calculon"]["acme"]["lego"]["email"]'
 end
 
 file "/usr/local/bin/lego" do
@@ -66,9 +68,9 @@ file "/usr/local/bin/lego" do
     --pod web \
     --read-only \
     -q \
-    --user #{node["calculon"]["acme"]["lego"]["uid"]} \
-    -v #{node["calculon"]["acme"]["certs_dir"]}:#{node["calculon"]["acme"]["certs_dir"]} \
-    -w #{node["calculon"]["acme"]["certs_dir"]} \
+    --user #{conf["lego"]["uid"]} \
+    -v #{conf["certs_dir"]}:#{conf["certs_dir"]} \
+    -w #{conf["certs_dir"]} \
     -e /usr/bin/lego \
     #{lego_image} \
     "$@"
@@ -81,12 +83,12 @@ template "/usr/local/bin/lego_periodic_renew" do
   user "root"
   group "root"
   variables(
-    lego_path: node["calculon"]["acme"]["certs_dir"],
-    lego_port: node["calculon"]["acme"]["lego"]["port"],
-    email: node["calculon"]["acme"]["lego"]["email"],
+    lego_path: conf["certs_dir"],
+    lego_port: conf["lego"]["port"],
+    email: conf["lego"]["email"],
     lego: "/usr/local/bin/lego",
-    key_type: node["calculon"]["acme"]["key_type"],
-    renew_days: node["calculon"]["acme"]["renew_days"]
+    key_type: conf["key_type"],
+    renew_days: conf["renew_days"]
   )
 end
 
@@ -96,11 +98,11 @@ template "/usr/local/bin/lego_request" do
   user "root"
   group "root"
   variables(
-    lego_path: node["calculon"]["acme"]["certs_dir"],
-    lego_port: node["calculon"]["acme"]["lego"]["port"],
-    email: node["calculon"]["acme"]["lego"]["email"],
+    lego_path: conf["certs_dir"],
+    lego_port: conf["lego"]["port"],
+    email: conf["lego"]["email"],
     lego: "/usr/local/bin/lego",
-    key_type: node["calculon"]["acme"]["key_type"],
+    key_type: conf["key_type"],
   )
 end
 

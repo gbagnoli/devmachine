@@ -42,6 +42,8 @@ DEPENDENCIES
     branch: new_release_url
   podman
     path: site-cookbooks/podman
+  podman_nginx
+    path: site-cookbooks/podman_nginx
   profile_sync_daemon
     path: site-cookbooks/profile_sync_daemon
   pyenv (>= 4.2.0)
@@ -94,6 +96,7 @@ GRAPH
     hostsfile (>= 0.0.0)
     logrotate (>= 0.0.0)
     podman (>= 0.0.0)
+    podman_nginx (>= 0.0.0)
     tailscale (>= 0.0.0)
     yum-elrepo (>= 0.0.0)
     yum-epel (>= 0.0.0)
@@ -153,6 +156,8 @@ GRAPH
   pleaserun (0.1.1)
   plex (0.2.4)
   podman (0.2.0)
+  podman_nginx (0.1.0)
+    logrotate (>= 0.0.0)
   profile_sync_daemon (0.1.0)
   pyenv (4.2.7)
   rclone (0.1.0)
