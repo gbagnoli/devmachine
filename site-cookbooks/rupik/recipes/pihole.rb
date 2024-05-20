@@ -53,15 +53,3 @@ podman_container "pihole" do
     ]
   )
 end
-
-file "/usr/local/bin/update_pihole" do
-  action :delete
-end
-
-cron "update pihole image" do
-  command "/usr/local/bin/update_pihole &> /var/log/update_pihole.log"
-  minute "18"
-  hour "4"
-  user "root"
-  action :delete
-end
