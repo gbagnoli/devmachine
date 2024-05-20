@@ -14,12 +14,17 @@ default["podman"]["nginx"]["container"]["ssl"] = "/etc/ssl/acme"
 default["podman"]["nginx"]["acme"]["lego"]["uid"] = "5000"
 default["podman"]["nginx"]["acme"]["lego"]["uid"] = "5000"
 default["podman"]["nginx"]["acme"]["lego"]["gid"] = "5000"
-default["podman"]["nginx"]["acme"]["lego"]["port"] = "4180"
 default["podman"]["nginx"]["acme"]["lego"]["email"] = nil
 default["podman"]["nginx"]["acme"]["certs_dir"] = "/etc/pki/acme"
 default["podman"]["nginx"]["acme"]["key_type"] = "ec384"
 default["podman"]["nginx"]["acme"]["renew_days"] = "30"
+default["podman"]["nginx"]["acme"]["lego"]["provider"] = "http"
+default["podman"]["nginx"]["acme"]["lego"]["http_port"] = "4180"
+default["podman"]["nginx"]["acme"]["lego"]["environment"] = nil
 
 default["podman"]["nginx"]["oauth2_proxy"]["secrets"]["client-secret"] = nil
 default["podman"]["nginx"]["oauth2_proxy"]["secrets"]["client-id"] = nil
 default["podman"]["nginx"]["oauth2_proxy"]["secrets"]["cookie-secret"] = nil
+
+default["podman"]["nginx"]["default_vhost"]["template"] = "default_vhost.erb"
+default["podman"]["nginx"]["default_vhost"]["cookbook"] = "podman_nginx"

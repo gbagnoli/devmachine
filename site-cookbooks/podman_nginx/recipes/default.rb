@@ -87,10 +87,12 @@ logrotate_app "nginx" do
 end
 
 template "#{www}/etc/conf.d/000-default.conf" do
-  source "default_vhost.erb"
+  source node["podman"]["nginx"]["default_vhost"]["template"]
+  cookbook node["podman"]["nginx"]["default_vhost"]["cookbook"]
   variables(
     paths: container_paths
   )
+  notifies :reload, "service[nginx]", :delayed
 end
 
 remote_file "#{Chef::Config[:file_cache_path]}/cloudflare-ipv4.txt" do

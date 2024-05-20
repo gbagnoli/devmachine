@@ -49,12 +49,16 @@ end
 file "#{node["podman"]["nginx"]["path"]}/etc/default.d/lego.conf" do
   content <<~EOH
     location /.well-known/acme-challenge/ {
-        proxy_pass http://127.0.0.1:#{conf["lego"]["port"]};
+        proxy_pass http://127.0.0.1:#{conf["lego"]["http_port"]};
         proxy_set_header Host $host;
     }
   EOH
   notifies :reload, "service[nginx]", :immediately
 end
+
+environment_args = conf["lego"]["environment"].to_h.map do |k, v|
+  "--env='#{k}=#{v}'"
+end.sort.join(" ")
 
 file "/usr/local/bin/lego" do
   owner "root"
@@ -67,7 +71,7 @@ file "/usr/local/bin/lego" do
     --rm \
     --pod web \
     --read-only \
-    -q \
+    #{environment_args} -q \
     --user #{conf["lego"]["uid"]} \
     -v #{conf["certs_dir"]}:#{conf["certs_dir"]} \
     -w #{conf["certs_dir"]} \
@@ -84,7 +88,8 @@ template "/usr/local/bin/lego_periodic_renew" do
   group "root"
   variables(
     lego_path: conf["certs_dir"],
-    lego_port: conf["lego"]["port"],
+    provider: conf["lego"]["provider"],
+    http_port: conf["lego"]["http_port"],
     email: conf["lego"]["email"],
     lego: "/usr/local/bin/lego",
     key_type: conf["key_type"],
@@ -99,7 +104,8 @@ template "/usr/local/bin/lego_request" do
   group "root"
   variables(
     lego_path: conf["certs_dir"],
-    lego_port: conf["lego"]["port"],
+    provider: conf["lego"]["provider"],
+    http_port: conf["lego"]["http_port"],
     email: conf["lego"]["email"],
     lego: "/usr/local/bin/lego",
     key_type: conf["key_type"],

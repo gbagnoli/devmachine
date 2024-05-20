@@ -16,7 +16,11 @@ fi
           --email="<%= @email %>" \
           --accept-tos \
           --key-type "<%= @key_type %>" \
+          <% if @provider == "http" -%>
           --http --http.port 127.0.0.1:<%= @lego_port %> \
+          <% else -%>
+          --dns <%= @provider %> \
+          <% end -%>
           --pem \
           --domains "$domain" \
           run
