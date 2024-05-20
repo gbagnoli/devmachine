@@ -29,11 +29,10 @@ podman_container "syncthing" do
     Unit: [
       "Description=Start Syncthing file synchronization",
       "After=network-online.target",
-      "Wants=network-online.target",
     ],
-    Install: %w{
-      WantedBy=multi-user.target
-    }
+    Install: [
+      "WantedBy=multi-user.target default.target"
+    ]
   )
 end
 
@@ -103,11 +102,10 @@ podman_container "filebrowser" do
     Unit: [
       "Description=Filebrowser for syncthing data",
       "After=network-online.target",
-      "Wants=network-online.target",
     ],
-    Install: %w{
-      WantedBy=multi-user.target
-    }
+    Install: [
+      "WantedBy=multi-user.target default.target"
+    ]
   )
 end
 

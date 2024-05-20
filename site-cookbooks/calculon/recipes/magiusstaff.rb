@@ -60,11 +60,10 @@ podman_container "magiusstaff-syncthing" do
     Unit: [
       "Description=Magiusstaff Syncthing file synchronization",
       "After=network-online.target",
-      "Wants=network-online.target",
     ],
-    Install: %w{
-      WantedBy=multi-user.target
-    }
+    Install: [
+      "WantedBy=multi-user.target default.target"
+    ]
   )
 end
 
@@ -128,11 +127,10 @@ podman_container "magiusstaff-filebrowser" do
     Unit: [
       "Description=Magiusstaff Filebrowser for syncthing data",
       "After=network-online.target",
-      "Wants=network-online.target",
     ],
-    Install: %w{
-      WantedBy=multi-user.target
-    }
+    Install: [
+      "WantedBy=multi-user.target default.target"
+    ]
   )
 end
 

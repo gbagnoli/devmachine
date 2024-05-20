@@ -81,11 +81,10 @@ podman_container "tdarr" do
     Unit: [
       "Description=Tdarr Media Transcoding",
       "After=network-online.target",
-      "Wants=network-online.target",
     ],
-    Install: %w{
-      WantedBy=multi-user.target
-    }
+    Install: [
+      "WantedBy=multi-user.target default.target"
+    ]
   )
 end
 
@@ -111,11 +110,10 @@ podman_container "prowlarr" do
     Unit: [
       "Description=Prowlarr Indexer",
       "After=network-online.target",
-      "Wants=network-online.target",
     ],
-    Install: %w{
-      WantedBy=multi-user.target
-    }
+    Install: [
+      "WantedBy=multi-user.target default.target"
+    ]
   )
 end
 
@@ -142,11 +140,10 @@ podman_container "radarr" do
     Unit: [
       "Description=Radarr",
       "After=network-online.target",
-      "Wants=network-online.target",
     ],
-    Install: %w{
-      WantedBy=multi-user.target
-    }
+    Install: [
+      "WantedBy=multi-user.target default.target"
+    ]
   )
 end
 
@@ -173,11 +170,10 @@ podman_container "sonarr" do
     Unit: [
       "Description=sonarr",
       "After=network-online.target",
-      "Wants=network-online.target",
     ],
-    Install: %w{
-      WantedBy=multi-user.target
-    }
+    Install: [
+      "WantedBy=multi-user.target default.target"
+    ]
   )
 end
 
@@ -205,11 +201,10 @@ podman_container "lidarr" do
     Unit: [
       "Description=lidarr",
       "After=network-online.target",
-      "Wants=network-online.target",
     ],
-    Install: %w{
-      WantedBy=multi-user.target
-    }
+    Install: [
+      "WantedBy=multi-user.target default.target"
+    ]
   )
 end
 
@@ -290,11 +285,10 @@ podman_container "putioarr" do
     Unit: [
       "Description=Putio proxy",
       "After=network-online.target",
-      "Wants=network-online.target",
     ],
-    Install: %w{
-      WantedBy=multi-user.target
-    }
+    Install: [
+      "WantedBy=multi-user.target default.target"
+    ]
   )
 end
 
@@ -330,11 +324,10 @@ podman_container "jellyfin" do
     Unit: [
       "Description=jellyfin media server",
       "After=network-online.target",
-      "Wants=network-online.target",
     ],
-    Install: %w{
-      WantedBy=multi-user.target
-    }
+    Install: [
+      "WantedBy=multi-user.target default.target"
+    ]
   )
 end
 
@@ -381,11 +374,10 @@ podman_container "plex" do
     Unit: [
       "Description=jellyfin media server",
       "After=network-online.target",
-      "Wants=network-online.target",
     ],
-    Install: %w{
-      WantedBy=multi-user.target
-    }
+    Install: [
+      "WantedBy=multi-user.target default.target"
+    ]
   )
 end
 
