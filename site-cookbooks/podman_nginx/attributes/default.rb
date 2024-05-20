@@ -7,7 +7,7 @@ default["podman"]["nginx"]["gid"] = 101
 
 default["podman"]["nginx"]["container"]["etc"] = "/etc/nginx"
 default["podman"]["nginx"]["container"]["www"] = "/var/www"
-default["podman"]["nginx"]["container"]["cache"] = "/var/cache/www"
+default["podman"]["nginx"]["container"]["cache"] = "/var/cache/nginx"
 default["podman"]["nginx"]["container"]["logs"] = "/var/logs/nginx"
 default["podman"]["nginx"]["container"]["ssl"] = "/etc/ssl/acme"
 

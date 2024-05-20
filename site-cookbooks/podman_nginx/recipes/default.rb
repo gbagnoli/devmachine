@@ -1,7 +1,45 @@
+include_recipe "podman_nginx::default"
 conf = node["podman"]["nginx"]
 
 package "nginx" do
   action :purge
+end
+
+www = conf["path"]
+user = conf["user"]
+group = conf["group"]
+uid = conf["uid"]
+gid = conf["gid"]
+
+# we need to make sure the gid and uid are "free"
+# if they are not, let's free them
+execute "free_uid_for_nginx" do
+  command "usermod -u 9#{uid} $(getent passwd #{uid} | cut -d':' -f 1)"
+  not_if "getent passwd #{uid} | cut -d':' -f 1 | grep -q #{user}"
+  notifies :request_reboot, "reboot[nginx_user]", :immediately
+end
+
+execute "free_guid_for_nginx" do
+  command "groupmod -g 9#{gid} $(getent group #{gid} | cut -d':' -f 1)"
+  not_if "getent group #{gid} | cut -d':' -f 1 | grep -q #{group}"
+  notifies :request_reboot, "reboot[nginx_user]", :immediately
+end
+
+reboot "nginx_user" do
+  reason "Potentially have changed uid/gid of system users"
+  action :nothing
+end
+
+group group do
+  system true
+  gid gid
+end
+
+user user do
+  system true
+  shell "/bin/nologin"
+  uid uid
+  gid gid
 end
 
 pod_extra_conf = conf["pod_extra_config"].to_a
@@ -16,14 +54,9 @@ podman_pod "web" do
     }
   )
 end
-
-www = conf["path"]
-user = conf["user"]
-group = conf["group"]
-uid = conf["uid"]
-gid = conf["gid"]
 container_paths = node["podman"]["nginx"]["container"]
 
+directory www
 %W{
   #{www}/etc
   #{www}/etc/conf.d
@@ -36,18 +69,6 @@ container_paths = node["podman"]["nginx"]["container"]
     owner "root"
     group "root"
   end
-end
-
-group group do
-  system true
-  gid gid
-end
-
-user user do
-  system true
-  shell "/bin/nologin"
-  uid uid
-  gid gid
 end
 
 %W{#{www}/logs #{www}/cache}.each do |dir|

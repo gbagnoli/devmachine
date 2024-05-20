@@ -22,26 +22,24 @@ directory "/etc/pihole/dnsmasq.d"
 
 podman_image "pihole" do
   config(
-    Image: ["Image=pihole/pihole:latest"],
+    Image: ["Image=docker.io/pihole/pihole:latest"],
   )
 end
 
 podman_container "pihole" do
   config(
     Container: %w{
-      Network=bridge
+      Pod=web.pod
       Image=pihole.image
       Volume=/etc/pihole/conf:/etc/pihole
       Volume=/etc/pihole/dnsmasq.d/etc/dnsmasq.d
       Environment=VIRTUAL_HOST=pi.hole
       Environment=PROXY_LOCATION=pi.hole
       Environment=TZ=Europe/Madrid
-      Environment=ServerIP=127.0.0.1
-      PublishPort=80:80/tcp
-      PublishPort=443:443/tcp
-      PublishPort=53:53/tcp
-      PublishPort=53:53/udp
-    },
+      Environment=WEB_PORT=8888
+    } + [
+      "PodmanArgs=--dns 127.0.0.1 --dns 1.1.1.1"
+    ],
     Service: [
       "Restart=always",
     ],
