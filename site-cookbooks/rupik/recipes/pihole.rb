@@ -45,7 +45,6 @@ podman_container "pihole" do
     ],
     Unit: [
       "Description=Pi. Hole",
-      "Wants=network.target",
       "After=network-online.target",
       "Before=tailscale.service",
     ],

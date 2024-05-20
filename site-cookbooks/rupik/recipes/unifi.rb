@@ -36,7 +36,6 @@ podman_container "unifi" do
     ],
     Unit: [
       "Description=Unifi Controller",
-      "Wants=network.target",
       "After=network-online.target",
     ],
     Install: [
