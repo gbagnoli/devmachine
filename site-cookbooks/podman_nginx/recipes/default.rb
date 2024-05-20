@@ -146,11 +146,10 @@ podman_container "nginx" do
     ],
     Unit: [
       "Description=Start NGINX web server",
-      "After=network.target",
-      "Wants=network-online.target",
+      "After=network-online.target",
     ],
     Install: [
-      "WantedBy=multi-user.target dafault.target"
+      "WantedBy=multi-user.target default.target"
     ]
   )
 end
