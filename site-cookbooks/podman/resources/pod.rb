@@ -9,6 +9,13 @@ default_action :create
 
 action :create do
   new_resource.config[:Pod].insert(0, "PodName=#{pod_name}")
+  new_resource.config[:Unit] ||= [
+    "Description=#{pod_name} pod",
+    "After=network-online.target",
+  ]
+  new_resource.config[:Install] ||= [
+    "WantedBy=multi-user.target default.target"
+  ]
   podman_systemd_unit "#{new_resource.name}.pod" do
     config new_resource.config
     action :create
