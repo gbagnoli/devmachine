@@ -17,7 +17,7 @@ end
 
 nogroup = value_for_platform_family(
   "rhel" => "nobody",
-  "debian" => "nobody",
+  "debian" => "nogroup",
   "default" => "nobody"
 )
 

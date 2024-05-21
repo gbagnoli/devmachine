@@ -24,6 +24,7 @@ unless domain.nil?
   www = node["calculon"]["storage"]["paths"]["www"]
   template "#{www}/vhosts/#{domain}/index.html" do
     source "www_host_index.erb"
+    cookbook "podman_nginx"
     variables(
       upstreams: lazy { node["calculon"]["www"]["upstreams"].to_h },
       domain: domain,

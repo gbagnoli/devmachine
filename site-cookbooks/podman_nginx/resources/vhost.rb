@@ -4,7 +4,7 @@ unified_mode true
 
 property :server_name, [Array, String]
 property :upstream_address, String, default: "[::1]"
-property :upstream_port, [String, Integer]
+property :upstream_port, [String, Integer], default: 8080
 property :upstream_protocol, String, default: "http", equal_to: %w(http https)
 property :disable_default_location, [true, false], default: false
 property :cloudflare, [true, false], default: true
@@ -15,6 +15,8 @@ property :proxy_caches, [Hash, NilClass]
 property :upstream_paths, Hash, default: {}
 property :act_as_upstream, [String, Integer, NilClass]
 property :extra_config_as_upstream, [String, NilClass]
+property :upgrade, [true, false], default: true
+
 
 action :create do
   server_name = Array(new_resource.server_name).map(&:to_s)
@@ -72,6 +74,7 @@ action :create do
       upstream_paths: new_resource.upstream_paths,
       act_as_upstream: new_resource.act_as_upstream,
       extra_config_as_upstream: new_resource.extra_config_as_upstream,
+      upgrade: new_resource.upgrade,
     )
     notifies :reload, "service[nginx]", :immediately
   end

@@ -8,6 +8,9 @@ default["rupik"]["dns-nameservers"] = nil
 default["rupik"]["skip_mounts"] = false
 default["rupik"]["storage"]["dev"] = "/dev/sda3"
 default["rupik"]["storage"]["path"] = "/srv"
+default["rupik"]["www"]["domain"] = nil
+default["rupik"]["www"]["pihole_domain"] = nil
+default["rupik"]["www"]["user_emails"] = []
 
 default["rupik"]["lan"]["ipv4"]["network"] = "172.25.2.0/24"
 default["rupik"]["lan"]["ipv4"]["addr"] = "172.25.2.253"

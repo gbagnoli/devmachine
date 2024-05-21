@@ -143,21 +143,21 @@ upstreams = {
       "upstream" => "http://[#{ipv6}]:8386",
       "title" => "Syncthing GUI",
       "upgrade" => true,
-      "extra_properties" => {
-        proxy_read_timeout: "600s",
-        proxy_send_timeout: "600s",
-      },
+      "extra_properties" => [
+        "proxy_read_timeout 600s",
+        "proxy_send_timeout 600s",
+      ],
       "category" => "Files"
     },
     "/files" => {
       "upstream" => "http://[#{ipv6}]:8387",
       "title" => "Browse Files",
       "upgrade" => true,
-      "extra_properties" => {
-        client_max_body_size: "2048m",
-        proxy_read_timeout: "86400s",
-        proxy_send_timeout: "86400s",
-      },
+      "extra_properties" => [
+        "client_max_body_size 2048m",
+        "proxy_read_timeout 86400s",
+        "proxy_send_timeout 86400s",
+      ],
       "category" => "Files"
     }
 }
@@ -176,6 +176,7 @@ end
 www = node["calculon"]["storage"]["paths"]["www"]
 template "#{www}/vhosts/#{domain}/index.html" do
   source "www_host_index.erb"
+  cookbook "podman_nginx"
   variables(
     upstreams: upstreams,
     domain: domain,
