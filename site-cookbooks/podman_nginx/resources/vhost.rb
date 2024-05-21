@@ -51,6 +51,7 @@ action :create do
   end
 
   template local_vhost_conf_file do
+    cookbook "podman_nginx"
     source "vhost.erb"
     variables(
       paths: container_paths,

@@ -1,7 +1,7 @@
 calculon_btrfs_volume node["calculon"]["storage"]["paths"]["www"]
 
-node.override["podman"]["nginx"]["pod_extra_conf"] = ["Network=calculon.network"]
-node.override["podman"]["nginx"]["path"] = www
+node.override["podman"]["nginx"]["pod_extra_config"] = ["Network=calculon.network"]
+node.override["podman"]["nginx"]["path"] = node["calculon"]["storage"]["paths"]["www"]
 
 include_recipe "podman_nginx"
 include_recipe "podman_nginx::acme"

@@ -4,7 +4,6 @@ include_recipe "calculon::base"
 include_recipe "calculon::zram"
 include_recipe "calculon::nginx"
 include_recipe "calculon::tailscale"
-include_recipe "calculon::containers"
 include_recipe "calculon::media"
 include_recipe "calculon::magiusstaff"
 

@@ -16,7 +16,7 @@ podman_image "oauth2_proxy" do
 end
 
 nogroup = value_for_platform_family(
-  "rhel" => "nogroup",
+  "rhel" => "nobody",
   "debian" => "nobody",
   "default" => "nobody"
 )

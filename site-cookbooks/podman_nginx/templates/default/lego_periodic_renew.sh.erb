@@ -12,7 +12,7 @@ reload=0
           --accept-tos \
           --key-type "<%= @key_type %>" \
           <% if @provider == "http" -%>
-          --http --http.port 127.0.0.1:<%= @lego_port %> \
+          --http --http.port 127.0.0.1:<%= @http_port %> \
           <% else -%>
           --dns <%= @provider %> \
           <% end -%>
