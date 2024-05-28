@@ -70,14 +70,32 @@ if node["lsb"]["release"] == "22.04"
   directory "/etc/containers/systemd"
   directory "/etc/containers/networks"
 
-  remote_file "/etc/containers/registries.conf" do
-    source "https://src.fedoraproject.org/rpms/containers-common/raw/main/f/registries.conf"
+  file "/etc/containers/registries.conf" do
     mode "0644"
+    content <<~EOH
+      unqualified-search-registries = ["registry.fedoraproject.org", "registry.access.redhat.com", "docker.io", "quay.io"]
+      short-name-mode="enforcing"
+    EOH
   end
 
-  remote_file "/etc/containers/policy.json" do
-    source "https://src.fedoraproject.org/rpms/containers-common/raw/main/f/default-policy.json"
+  file "/etc/containers/policy.json" do
     mode "0644"
+    content <<~EOH
+      {
+      "default": [
+          {
+              "type": "insecureAcceptAnything"
+          }
+      ],
+      "transports":
+          {
+              "docker-daemon":
+                  {
+                      "": [{"type":"insecureAcceptAnything"}]
+                  }
+          }
+      }
+    EOH
   end
 
   include_recipe "podman::sources"

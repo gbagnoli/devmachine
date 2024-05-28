@@ -5,7 +5,7 @@ include_recipe "rupik::nginx"
 include_recipe "rupik::pihole"
 include_recipe "rupik::unifi"
 include_recipe "rupik::btrbk"
-include_recipe "syncthing"
+include_recipe "rupik::syncthing"
 include_recipe "rupik::tailscale"
 
 domain = node["rupik"]["www"]["pihole_domain"]
@@ -29,5 +29,26 @@ unless domain.nil?
         proxy_set_header Connection $http_connection;
       }
     EOH
+  end
+end
+
+domain = node["rupik"]["www"]["domain"]
+unless domain.nil?
+  podman_nginx_vhost domain do
+    server_name domain
+    act_as_upstream 4201
+    oauth2_proxy(
+      emails: node["rupik"]["www"]["user_emails"],
+      port: 4200
+    )
+    upstream_paths(
+      "/sync/rupik" => {
+        "upstream" => "http://#{node["rupik"]["lan"]["ipv4"]["addr"]}:8384",
+        "upgrade" => true,
+        "extra_properties" => [
+          "proxy_read_timeout 600s",
+          "proxy_send_timeout 600s",
+        ]
+      })
   end
 end

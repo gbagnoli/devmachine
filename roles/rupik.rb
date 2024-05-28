@@ -6,11 +6,6 @@ run_list [
 ]
 
 default_attributes(
-  "syncthing" => {
-    "users" => {
-      "giacomo" => nil,
-    },
-  },
   "user" => {
     "login" => "giacomo",
     "group" => "giacomo",

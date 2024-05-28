@@ -1,40 +1,24 @@
-podman_image "syncthing" do
-  config(
-    Image: ["Image=docker.io/syncthing/syncthing"],
-  )
-end
-
 sync = node["calculon"]["storage"]["paths"]["sync"]
-
-podman_container "syncthing" do
-  config(
-    Container: %W{
-      Image=syncthing.image
-      Environment=PUID=#{node["calculon"]["data"]["uid"]}
-      Environment=PGID=#{node["calculon"]["data"]["gid"]}
-      PublishPort=[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]:8384:8384
-      PublishPort=#{node["calculon"]["network"]["containers"]["ipv4"]["addr"]}:8384:8384
-      PublishPort=[::]:22000:22000/tcp
-      PublishPort=[::]:22000:22000/udp
-      PublishPort=22000:22000/tcp
-      PublishPort=22000:22000/udp
-      Volume=#{sync}:/var/syncthing
+node.override["syncthing"]["install_type"] = "podman"
+node.override["syncthing"]["podman"] = {
+  "directory" => sync,
+  "uid" => node["calculon"]["data"]["uid"],
+  "gid" => node["calculon"]["data"]["gid"],
+  "ipv6" => {
+    "gui" => node["calculon"]["network"]["containers"]["ipv6"]["addr"],
+    "service" => "::",
+  },
+  "ipv4" => {
+    "gui" => node["calculon"]["network"]["containers"]["ipv4"]["addr"],
+    "service" => "",
+  },
+  "extra_conf" => %w{
       HostName=sync.tigc.eu
       Network=calculon.network
-    },
-    Service: %w{
-      Restart=always
-    },
-    # description has spaces, use a normal list
-    Unit: [
-      "Description=Start Syncthing file synchronization",
-      "After=network-online.target",
-    ],
-    Install: [
-      "WantedBy=multi-user.target default.target"
-    ]
-  )
-end
+  }
+}
+
+include_recipe "syncthing::default"
 
 calculon_firewalld_port "syncthing" do
   port %w{22000/tcp 22000/udp}
