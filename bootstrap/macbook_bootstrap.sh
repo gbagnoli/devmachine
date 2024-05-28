@@ -3,12 +3,7 @@
 set -euo pipefail
 
 if ! which brew &>/dev/null ; then
-  echo "Installing brew"
-  pushd $HOME &>/dev/null
-  mkdir -p homebrew && curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C homebrew
-  eval "$(homebrew/bin/brew shellenv)"
-  export PATH="$HOME/homebrew/bin:$HOME/homebrew/sbin:$PATH"
-  popd &>/dev/null
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 fi
 
 tmpdir="$(mktemp -d)"
@@ -68,7 +63,7 @@ EOF
 chmod +x "$HOME/.local/bin/gpicsync"
 
 # templates are not really templates yet, so just download them
-wget -nc -O "$HOME"/.config/liquid.theme 'https://github.com/gbagnoli/devmachine/raw/master/site-cookbooks/user/files/default/liquid.theme'
+# wget -nc -O "$HOME"/.config/liquid.theme 'https://github.com/gbagnoli/devmachine/raw/master/site-cookbooks/user/files/default/liquid.theme'
 wget -nc -O "$HOME"/.config/liquidpromptrc 'https://github.com/gbagnoli/devmachine/raw/master/site-cookbooks/user/templates/default/liquidpromptrc.erb'
 wget -nc -O "$HOME"/.bashrc https://github.com/gbagnoli/devmachine/raw/master/site-cookbooks/user/templates/default/bashrc.erb
 chmod +x "$HOME/.local/bin/photo_process.sh"
