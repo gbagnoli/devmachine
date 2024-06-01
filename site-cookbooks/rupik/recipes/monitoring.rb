@@ -6,23 +6,18 @@ end
 include_recipe "datadog::dd-agent"
 include_recipe "datadog::dd-handler"
 
-directory "/etc/datadog-agent/conf.d" do
-  owner "dd-agent"
-  group "dd-agent"
-  mode "0755"
-end
+node.override["datadog"]["tags"] = [
+  "datacenter:bcn",
+  "availiability-zone:ftwo-bcn-a",
+  "role:pihole",
+  "role:sync",
+  "role:vpn",
+  "env:home",
+  "region:ftwo"
+]
 
 file "/etc/datadog-agent/conf.d/btrfs.yaml" do
-  content <<~CONTENT
-    init_config:
-    # Not required for this check
-
-    instances:
-      - excluded_devices: []
-  CONTENT
-  notifies :restart, "service[datadog-agent]"
-  owner "dd-agent"
-  group "dd-agent"
+  action :delete
 end
 
 node.override["rupik"]["tcp_checks"]["rupisk_ssh"] = {
@@ -35,3 +30,18 @@ node.override["rupik"]["tcp_checks"]["rupisk_ssh"] = {
 datadog_monitor "tcp_check" do
   instances(lazy { node["rupik"]["tcp_checks"].values.sort_by { |c| c[:name] } })
 end
+
+include_recipe "datadog::network"
+
+# nginx
+node.override["datadog"]["nginx"]["instances"] = [{
+  "nginx_status_url" => "http://localhost/nginx_status/",
+  "tags" => ["prod"],
+}]
+
+include_recipe "datadog::nginx"
+
+# btrfs
+node.override["datadog"]["btrfs"]["init_config"]["service"] = nil
+node.override["datadog"]["btrfs"]["instances"] = [{}]
+include_recipe "datadog::btrfs"

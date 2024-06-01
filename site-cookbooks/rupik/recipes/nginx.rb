@@ -13,5 +13,10 @@ node.override["podman"]["nginx"]["acme"]["lego"]["environment"] = {
   "CF_ZONE_API_TOKEN" => node["cloudflare"]["zone_api_token"],
 }
 
+node.override["podman"]["nginx"]["status"]["enable"] = true
+node.override["podman"]["nginx"]["status"]["allow"] = [
+  "10.88.0.1"
+]
+
 include_recipe "podman_nginx"
 include_recipe "podman_nginx::acme"

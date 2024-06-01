@@ -28,3 +28,7 @@ default["podman"]["nginx"]["oauth2_proxy"]["secrets"]["cookie-secret"] = nil
 
 default["podman"]["nginx"]["default_vhost"]["template"] = "default_vhost.erb"
 default["podman"]["nginx"]["default_vhost"]["cookbook"] = "podman_nginx"
+
+default["podman"]["nginx"]["status"]["enable"] = false
+default["podman"]["nginx"]["status"]["allow"] = []
+default["podman"]["nginx"]["status"]["path"] = "/nginx_status"

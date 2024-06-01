@@ -95,6 +95,21 @@ template "#{www}/etc/conf.d/000-default.conf" do
   notifies :reload, "service[nginx]", :delayed
 end
 
+if conf["status"]["enable"]
+  allows = conf["status"]["allow"].map{ |a| "allow #{a};" }.join("\n")
+  file "#{www}/etc/default.d/nginx_status.conf" do
+    content <<~EOH
+      location #{conf["status"]["path"]} {
+        stub_status;
+        access_log off;
+        #{allows}
+        deny all;
+      }
+    EOH
+    notifies :reload, "service[nginx]"
+  end
+end
+
 remote_file "#{Chef::Config[:file_cache_path]}/cloudflare-ipv4.txt" do
   source "https://www.cloudflare.com/ips-v4"
   notifies :create, "template[#{www}/etc/cloudflare.conf]"
