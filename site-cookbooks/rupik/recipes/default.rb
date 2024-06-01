@@ -7,6 +7,7 @@ include_recipe "rupik::unifi"
 include_recipe "rupik::btrbk"
 include_recipe "rupik::syncthing"
 include_recipe "rupik::tailscale"
+include_recipe "rupik::cloudflare_ddns"
 
 domain = node["rupik"]["www"]["pihole_domain"]
 unless domain.nil?

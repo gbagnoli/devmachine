@@ -9,4 +9,5 @@ environment_path "#{root}/environments"
 node_path "#{root}/nodes"
 role_path "#{root}/roles"
 ohai.plugin_path << "#{root}/ohai/plugins"
+ohai.optional_plugins = %i{Passwd}
 # rubocop:enable Naming/FileName

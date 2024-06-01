@@ -1,7 +1,3 @@
-# frozen_string_literal: true
-
-# an array of hashes
-# each hash, if not nil, must have hostname and port keys
 default["syncthing"]["install_type"] = "users"
 default["syncthing"]["users"] = {}
 default["syncthing"]["skip_service"] = false
