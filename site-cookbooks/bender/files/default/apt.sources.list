@@ -1,4 +1,0 @@
-deb http://mirror.hetzner.de/ubuntu/packages focal main restricted universe multiverse
-deb http://mirror.hetzner.de/ubuntu/packages focal-updates main restricted universe multiverse
-deb http://mirror.hetzner.de/ubuntu/packages focal-backports main restricted universe multiverse
-deb http://security.ubuntu.com/ubuntu focal-security main restricted universe multiverse

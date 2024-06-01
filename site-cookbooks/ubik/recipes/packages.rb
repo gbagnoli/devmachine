@@ -10,7 +10,7 @@ packages = %w(
   gstreamer1.0-pulseaudio gvfs-bin htop libappindicator1
   libappindicator1 libcurl4 libgcrypt20 libgtk2.0-0
   libnotify4 libnss3 libsecret-1-0 libudev1 libvirt-dev libxml2-dev
-  libxslt1-dev libxss1 libxtst6 network-manager-openvpn-gnome openvpn powertop
+  libxslt1-dev libxss1 libxtst6 powertop
   python python-apt qemu-kvm rsyslog shellcheck tmux
   ttf-mscorefonts-installer ubuntu-gnome-desktop unity-tweak-tool
   xdg-utils wireguard xsel signal-desktop vlc ffmpeg jq et

@@ -14,7 +14,6 @@ run_list [
   "recipe[ubik::packages]",
   "recipe[ubik::printer]",
   "recipe[syncthing]",
-  "recipe[openvpn]",
   "recipe[ubik::langs]",
   "recipe[ubik::latex]",
   "recipe[ubik::fonts]",

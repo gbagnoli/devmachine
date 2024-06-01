@@ -1,7 +1,0 @@
-DEPENDENCIES
-  dnscrypt_proxy
-    path: .
-    metadata: true
-
-GRAPH
-  dnscrypt_proxy (0.1.0)

@@ -2,30 +2,14 @@
 # this is consumed by the fabfile
 
 nodes:
-  - bender
-  - bloodsea
-  - flexo
-  - marvin
-  - pentolino
-  - ubik
-  - ubikxps
-  - upik
-  - oldpc
-  - beelzebot
+  - calculon
   - devmachinetest
   - rupik
-  - whitestone
-  - calculon
-
-require_secrets:
-  - marvin
-  - flexo
-  - bender
-  - pentolino
-  - bloodsea
-  - beelzebot
   - ubik
   - ubikxps
-  - whitestone
+
+require_secrets:
   - calculon
   - rupik
+  - ubik
+  - ubikxps

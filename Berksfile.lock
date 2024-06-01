@@ -1,10 +1,6 @@
 DEPENDENCIES
   argonone
     path: site-cookbooks/argonone
-  beelzebot
-    path: site-cookbooks/beelzebot
-  bender
-    path: site-cookbooks/bender
   btrbk
     path: site-cookbooks/btrbk
   calculon
@@ -12,27 +8,15 @@ DEPENDENCIES
   debconf
     git: https://github.com/ophymx/debconf.git
     revision: eab415649ba9a5ab9ab348ae098bf6bbf04cfdff
-  dnscrypt_proxy
-    path: site-cookbooks/dnscrypt_proxy
-  flexo
-    path: site-cookbooks/flexo
   gnome
     path: site-cookbooks/gnome
   hardening
     path: site-cookbooks/hardening
   kitty
     path: site-cookbooks/kitty
-  lxd
-    path: site-cookbooks/lxd
-  marvin
-    path: site-cookbooks/marvin
-  minecraft
-    path: site-cookbooks/minecraft
   oauth2_proxy
     git: https://github.com/gbagnoli/cookbook-oauth2_proxy
     revision: 715274b5560e880fa68c5c643f0a0d6adc018a70
-  openvpn
-    path: site-cookbooks/openvpn
   pleaserun
     git: https://github.com/mjuarez/chef-pleaserun.git
     revision: e104c998f064879afaab4ba89b779434de38c83c
@@ -44,8 +28,6 @@ DEPENDENCIES
     path: site-cookbooks/podman
   podman_nginx
     path: site-cookbooks/podman_nginx
-  profile_sync_daemon
-    path: site-cookbooks/profile_sync_daemon
   pyenv (>= 4.2.0)
   rclone
     path: site-cookbooks/rclone
@@ -70,25 +52,10 @@ DEPENDENCIES
     path: site-cookbooks/yubico
 
 GRAPH
-  acme (4.1.6)
   apt (7.5.22)
   argonone (0.1.0)
   ark (6.0.29)
     seven_zip (>= 3.1)
-  beelzebot (0.1.0)
-    git (>= 0.0.0)
-    logrotate (>= 0.0.0)
-    nginx (>= 0.0.0)
-    nodejs (>= 0.0.0)
-    server (>= 0.0.0)
-  bender (0.1.0)
-    acme (>= 0.0.0)
-    datadog (>= 0.0.0)
-    dnscrypt_proxy (>= 0.0.0)
-    flexo (>= 0.0.0)
-    hostsfile (>= 0.0.0)
-    lxd (>= 0.0.0)
-    nginx (>= 0.0.0)
   btrbk (0.1.0)
   calculon (0.1.0)
     btrbk (>= 0.0.0)
@@ -102,21 +69,11 @@ GRAPH
     yum-elrepo (>= 0.0.0)
     yum-epel (>= 0.0.0)
   chef_client_updater (3.12.3)
-  chocolatey (3.0.0)
   datadog (4.19.0)
     apt (>= 0.0.0)
     yum (>= 3.0)
   debconf (0.0.1)
-  dnscrypt_proxy (0.1.0)
   flatpak (1.0.1)
-  flexo (0.1.0)
-    git (>= 0.0.0)
-    logrotate (>= 0.0.0)
-    nginx (>= 0.0.0)
-    nodejs (>= 0.0.0)
-    plex (>= 0.0.0)
-    rclone (>= 0.0.0)
-    server (>= 0.0.0)
   git (12.1.5)
     ark (>= 0.0.0)
   gnome (0.1.0)
@@ -130,36 +87,17 @@ GRAPH
   kitty (0.1.0)
     ark (>= 0.0.0)
     gnome (>= 0.0.0)
-  limits (2.3.0)
   line (4.5.19)
   logrotate (3.0.25)
-  lxd (0.1.0)
-    limits (>= 0.0.0)
-  marvin (0.1.0)
-    dnscrypt_proxy (>= 0.0.0)
-    logrotate (>= 0.0.0)
-    nginx (>= 0.0.0)
-    nodejs (>= 0.0.0)
-    openvpn (>= 0.0.0)
-    server (>= 0.0.0)
-  minecraft (0.1.0)
-    java (>= 0.0.0)
-  nginx (12.2.9)
-  nodejs (10.1.18)
-    ark (>= 2.0.2)
-    chocolatey (>= 3.0)
-    yum (>= 7.2)
   oauth2_proxy (1.0.0)
     ark (>= 0.0.0)
   ohai (5.3.1)
-  openvpn (0.1.0)
   os-hardening (4.2.0)
   pleaserun (0.1.1)
   plex (0.2.4)
   podman (0.2.0)
   podman_nginx (0.1.0)
     logrotate (>= 0.0.0)
-  profile_sync_daemon (0.1.0)
   pyenv (4.2.7)
   rclone (0.1.0)
   ruby_build (2.5.9)

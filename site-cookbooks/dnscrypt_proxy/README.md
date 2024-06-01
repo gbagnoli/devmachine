@@ -1,1 +1,0 @@
-# dnscrypt_proxy

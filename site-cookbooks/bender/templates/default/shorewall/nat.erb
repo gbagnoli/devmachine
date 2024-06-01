@@ -1,4 +1,0 @@
-# EXTERNAL  INTERFACE INTERNAL ALLINTS LOCAL
-<% @firewall["nat"].each do |external, internal| -%>
-<%= external %> <%= node["bender"]["network"]["host"]["interface"] %> <%= internal %> yes yes
-<% end -%>
