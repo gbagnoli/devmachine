@@ -9,6 +9,7 @@ version "0.1.0"
 
 depends "btrbk"
 depends "argonone"
+depends "datadog"
 depends "podman"
 depends "podman_nginx"
 depends "syncthing"

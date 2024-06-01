@@ -25,19 +25,13 @@ file "/etc/datadog-agent/conf.d/btrfs.yaml" do
   group "dd-agent"
 end
 
-node.override["calculon"]["tcp_checks"]["calculon_ssh"] = {
-  name: "calculon_ssh",
+node.override["rupik"]["tcp_checks"]["rupisk_ssh"] = {
+  name: "rupik_ssh",
   host: "localhost",
   port: 22,
 }
 
-node.override["calculon"]["tcp_checks"]["calculon_et"] = {
-  name: "calculon_et",
-  host: "localhost",
-  port: 2202,
-}
-
 # monitor ssh for containers
 datadog_monitor "tcp_check" do
-  instances(lazy { node["calculon"]["tcp_checks"].values.sort_by { |c| c[:name] } })
+  instances(lazy { node["rupik"]["tcp_checks"].values.sort_by { |c| c[:name] } })
 end

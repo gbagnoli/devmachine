@@ -112,6 +112,7 @@ GRAPH
     argonone (>= 0.0.0)
     btrbk (>= 0.0.0)
     cloudflare_ddns (>= 0.0.0)
+    datadog (>= 0.0.0)
     podman (>= 0.0.0)
     podman_nginx (>= 0.0.0)
     syncthing (>= 0.0.0)
