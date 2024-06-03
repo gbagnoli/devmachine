@@ -2,6 +2,7 @@
 # this is consumed by the fabfile
 
 nodes:
+  - boxy
   - calculon
   - devmachinetest
   - rupik
@@ -9,6 +10,7 @@ nodes:
   - ubikxps
 
 require_secrets:
+  - boxy
   - calculon
   - rupik
   - ubik

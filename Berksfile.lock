@@ -1,6 +1,8 @@
 DEPENDENCIES
   argonone
     path: site-cookbooks/argonone
+  boxy
+    path: site-cookbooks/boxy
   btrbk
     path: site-cookbooks/btrbk
   calculon
@@ -58,6 +60,14 @@ GRAPH
   argonone (0.1.0)
   ark (6.0.29)
     seven_zip (>= 3.1)
+  boxy (0.1.0)
+    btrbk (>= 0.0.0)
+    cloudflare_ddns (>= 0.0.0)
+    datadog (>= 0.0.0)
+    podman (>= 0.0.0)
+    podman_nginx (>= 0.0.0)
+    syncthing (>= 0.0.0)
+    tailscale (>= 0.0.0)
   btrbk (0.1.0)
   calculon (0.1.0)
     btrbk (>= 0.0.0)
