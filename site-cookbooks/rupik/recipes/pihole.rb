@@ -53,3 +53,8 @@ podman_container "pihole" do
     ]
   )
 end
+
+datadog_integration "datadog-pihole" do
+  version "3.14.1"
+  third_party true
+end

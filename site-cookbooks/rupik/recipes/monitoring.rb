@@ -45,3 +45,19 @@ include_recipe "datadog::nginx"
 node.override["datadog"]["btrfs"]["init_config"]["service"] = nil
 node.override["datadog"]["btrfs"]["instances"] = [{}]
 include_recipe "datadog::btrfs"
+
+package 'iputils-ping'
+datadog_integration "datadog-ping" do
+  version "1.0.2"
+  third_party true
+end
+
+datadog_monitor "ping" do
+  use_integration_template true
+  instances([{
+    # calculon and rupik
+    "hosts" => ["100.98.243.29", "100.126.221.76"]
+  },{
+    "hosts" => ["calculon.tigc.eu"]
+  }])
+end

@@ -1,5 +1,6 @@
 include_recipe "rupik::mounts"
 include_recipe "argonone"
+include_recipe "rupik::monitoring"
 include_recipe "rupik::podman"
 include_recipe "rupik::nginx"
 include_recipe "rupik::pihole"
@@ -8,7 +9,6 @@ include_recipe "rupik::btrbk"
 include_recipe "rupik::syncthing"
 include_recipe "rupik::tailscale"
 include_recipe "rupik::cloudflare_ddns"
-include_recipe "rupik::monitoring"
 
 domain = node["rupik"]["www"]["pihole_domain"]
 unless domain.nil?
