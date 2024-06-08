@@ -6,6 +6,8 @@ if conf["lego"]["email"].nil?
   raise
 end
 
+package "acl"
+
 lego_image = "docker.io/goacme/lego"
 podman_image "lego" do
   config(

@@ -19,4 +19,3 @@ node.override["podman"]["nginx"]["status"]["allow"] = [
 ]
 
 include_recipe "podman_nginx"
-include_recipe "podman_nginx::acme"

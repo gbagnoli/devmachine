@@ -10,7 +10,6 @@ node.override["podman"]["nginx"]["status"]["allow"] = [
 ]
 
 include_recipe "podman_nginx"
-include_recipe "podman_nginx::acme"
 
 calculon_firewalld_port "nginx" do
   port %w{80/tcp 443/tcp}

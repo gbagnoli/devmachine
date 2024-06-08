@@ -1,4 +1,5 @@
 include_recipe "podman_nginx::default"
+include_recipe "podman_nginx::acme"
 conf = node["podman"]["nginx"]
 
 package "nginx" do
@@ -55,6 +56,7 @@ podman_pod "web" do
   )
 end
 container_paths = node["podman"]["nginx"]["container"]
+certificates_d = "#{node["podman"]["nginx"]["acme"]["certs_dir"]}/certificates/"
 
 directory www
 %W{
@@ -139,8 +141,6 @@ podman_image "nginx" do
     Image: ["Image=docker.io/nginx:stable"],
   )
 end
-
-certificates_d = "#{node["podman"]["nginx"]["acme"]["certs_dir"]}/certificates/"
 
 podman_container "nginx" do
   config(
