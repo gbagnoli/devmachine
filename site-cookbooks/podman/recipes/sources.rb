@@ -33,7 +33,7 @@ end
     code <<-EOH
     ./autogen.sh
     ./configure --prefix=/usr
-    make
+    make -j$(nproc --all)
     PREFIX=/usr make install
     EOH
     subscribes :run, "git[#{Chef::Config[:file_cache_path]}/#{app}]", :immediately
