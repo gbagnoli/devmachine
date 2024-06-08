@@ -27,4 +27,7 @@ override_attributes(
       ],
     },
   },
+  "chef_client_updater" => {
+    "product_name" => "chef"
+  }
 )

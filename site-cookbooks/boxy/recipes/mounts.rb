@@ -1,16 +1,7 @@
 package "btrfs-progs"
 
-return if node["boxy"]["skip_mounts"]
-
 root = node["boxy"]["storage"]["path"]
-dev = node["boxy"]["storage"]["dev"]
 directory root
-
-mount root do
-  device dev
-  fstype "btrfs"
-  action %i(mount enable)
-end
 
 root = "#{node["boxy"]["storage"]["path"]}/containers"
 user = node["user"]

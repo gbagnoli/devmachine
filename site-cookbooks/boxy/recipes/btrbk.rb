@@ -1,6 +1,6 @@
 include_recipe "btrbk"
 
-directory "/srv/snapshots/sync" do
+directory "#{node["boxy"]["storage"]["path"]}/snapshots/sync" do
   recursive true
 end
 
