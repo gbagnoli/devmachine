@@ -56,9 +56,27 @@ unless domain.nil?
         "upstream" => "http://boxy.ftwo.tigc.eu:8384",
         "upgrade" => true,
         "extra_properties" => [
-            "proxy_read_timeout 600s",
-              "proxy_send_timeout 600s",
-            ]
+          "proxy_read_timeout 600s",
+          "proxy_send_timeout 600s",
+        ]
+      },
+      "/pihole/boxy" => {
+        "upstream" => "http://#{node["boxy"]["www"]["pihole_domain"]}",
+        "upgrade" => true,
+        "extra_properties" => [
+          "proxy_read_timeout 600s",
+          "proxy_send_timeout 600s",
+          "proxy_redirect /admin/ $scheme://$host/pihole/boxy/admin/",
+        ]
+      },
+      "/pihole/rupik" => {
+        "upstream" => "http://#{node["rupik"]["www"]["pihole_domain"]}",
+        "upgrade" => true,
+        "extra_properties" => [
+          "proxy_read_timeout 600s",
+          "proxy_send_timeout 600s",
+          "proxy_redirect /admin/ $scheme://$host/pihole/rupik/admin/",
+        ]
       }
     )
   end
