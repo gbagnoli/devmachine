@@ -67,6 +67,15 @@ unless domain.nil?
           "proxy_read_timeout 600s",
           "proxy_send_timeout 600s",
         ]
-      })
+      },
+      "/sync/rupik" => {
+        "upstream" => "http://rupik.ftwo.tigc.eu:8384",
+        "upgrade" => true,
+        "extra_properties" => [
+            "proxy_read_timeout 600s",
+              "proxy_send_timeout 600s",
+            ]
+      }
+    )
   end
 end

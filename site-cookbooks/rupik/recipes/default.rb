@@ -51,6 +51,15 @@ unless domain.nil?
           "proxy_read_timeout 600s",
           "proxy_send_timeout 600s",
         ]
-      })
+      },
+      "/sync/boxy" => {
+        "upstream" => "http://boxy.ftwo.tigc.eu:8384",
+        "upgrade" => true,
+        "extra_properties" => [
+            "proxy_read_timeout 600s",
+              "proxy_send_timeout 600s",
+            ]
+      }
+    )
   end
 end
