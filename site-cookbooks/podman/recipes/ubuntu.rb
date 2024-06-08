@@ -1,11 +1,11 @@
 return unless platform?("ubuntu")
 
-if node["lsb"]["release"] == "22.04"
+if node["lsb"]["release"] == "22.04" || node["lsb"]["release"] == "24.04"
   # in another spiral of sadness, ubuntu ships with 3.4 on 22.04 and there is
   # no good ppa (unstable does not have btrfs support)
   package "old_podman_packages" do
     action :remove
-    package_name %{conmon podman catatonic}
+    package_name %w{podman conmon crun catatonit}
   end
 
   package "podman_build_deps" do

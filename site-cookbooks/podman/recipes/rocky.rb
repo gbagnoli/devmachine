@@ -54,7 +54,3 @@ bash "build and install podman" do
   EOH
   subscribes :run, "git[#{Chef::Config[:file_cache_path]}/podman]", :immediately
 end
-
-# package "virt" do
-#   package_name %w(crun podman)
-# end
