@@ -15,7 +15,6 @@ default_action :create
 
 action :create do
   include_recipe "podman_nginx::oauth2_proxy"
-  require 'toml'
 
   file emails_file do
     content new_resource.emails.sort.join("\n")
@@ -78,7 +77,14 @@ action_class do
   end
 
   def toml_config
-    TOML::Generator.new(config_hash).body
+    config_hash.sort.map do |k, v|
+      val = if v.is_a?(Array)
+              "[#{v.sort.map {|x| "\"#{x}\""}.join(", ")}]"
+            else
+              "\"#{v}\""
+            end
+      "#{k} = #{val}"
+    end.join("\n")
   end
 
   def config_hash

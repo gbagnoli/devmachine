@@ -7,7 +7,6 @@ conf["secrets"].each do |secret, value|
 end
 
 include_recipe "podman_nginx::default"
-chef_gem "toml"
 
 podman_image "oauth2_proxy" do
   config(
