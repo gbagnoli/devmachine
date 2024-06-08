@@ -14,16 +14,18 @@ node["podman"]["sources"].each do |app, conf|
 
 end
 
-bash "build and install conmon" do
-  action :nothing
-  cwd "#{Chef::Config[:file_cache_path]}/conmon"
-  code <<-EOH
-  make
-  PREFIX=/usr make install
-  PREFIX=/usr make podman
-  PREFIX=/usr make crio
-  EOH
-  subscribes :run, "git[#{Chef::Config[:file_cache_path]}/conmon]", :immediately
+unless platform?("rocky")
+  bash "build and install conmon" do
+    action :nothing
+    cwd "#{Chef::Config[:file_cache_path]}/conmon"
+    code <<-EOH
+    make
+    PREFIX=/usr make install
+    PREFIX=/usr make podman
+    PREFIX=/usr make crio
+    EOH
+    subscribes :run, "git[#{Chef::Config[:file_cache_path]}/conmon]", :immediately
+  end
 end
 
 %w{crun catatonit}.each do |app|

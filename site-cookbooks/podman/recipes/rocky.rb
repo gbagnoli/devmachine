@@ -8,23 +8,12 @@ package "podman" do
   package_name %w{podman crun python3-dnf-plugin-versionlock.noarch}
 end
 
-podman = node["podman"]["rocky"]["podman"]["git"]
-crun = node["podman"]["rocky"]["crun"]["git"]
-
-package "podman deps" do
-  package_name podman[:deps]
-end
-
-package "crun deps" do
-  package_name crun[:deps]
-end
-
 execute "lock crun" do
   command "dnf versionlock crun"
   not_if "dnf versionlock crun | grep -q crun"
 end
 
-podman[:download].each do |spec|
+node["podman"]["sources"]["podman"]["rpms"].each do |spec|
   spec[:rpms].each do |rpm|
     local = "#{Chef::Config[:file_cache_path]}/#{rpm}"
     remote = "#{spec[:url]}/#{rpm}"

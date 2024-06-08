@@ -8,7 +8,7 @@ default["podman"]["sources"]["podman"] = {
     %w{fedora rhel} => %w{go systemd-devel gpgme-devel libseccomp-devel ostree-devel shadow-utils-subid-devel},
     "debian"=> %w{}
   ),
-  download: [{
+  rpms: [{
     url: "https://kojipkgs.fedoraproject.org//packages/containers-common/1/95.fc39/noarch",
     rpms: %w{containers-common-1-95.fc39.noarch.rpm containers-common-extra-1-95.fc39.noarch.rpm}
   }]
