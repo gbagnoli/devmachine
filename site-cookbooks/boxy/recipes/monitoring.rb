@@ -55,8 +55,9 @@ end
 datadog_monitor "ping" do
   use_integration_template true
   instances({
-   "100.98.243.29" => "tailscale",
-   "100.126.221.76" => "tailscale",
+   "rupik.tadpole-drum.ts.net" => "tailscale",
+   "calculon.tadpole-drum.ts.net" => "tailscale",
+   "rupik.ftwo.tigc.eu" => "local",
    "calculon.tigc.eu" => "internet"
   }.sort.map {|h, t| {"host" => h, "tags" => Array(t).map { |tag| "ping:#{tag}"} }})
 end
