@@ -34,13 +34,16 @@ extra_env = conf["extra_env"].to_h.map do |k, v|
 end
 
 extra_env << "Environment=TS_AUTHKEY=#{auth_key}" unless auth_key.nil?
+volumes = %W{
+  Volume=#{conf["config_dir"]}:/var/lib/tailscale:rw
+}
+volumes << "Volume=/etc/resolv.conf:/etc/resolv.conf:rw" if conf["export_resolv.conf"]
 
 podman_container "tailscale" do
   config(
     Container: %W{
       Network=host
       Image=tailscale.image
-      Volume=#{conf["config_dir"]}:/var/lib/tailscale:rw
       Environment=PORT=#{node["tailscale"]["port"]}
       Environment=TS_STATE_DIR=/var/lib/tailscale
       Environment=TS_USERSPACE=0
@@ -48,7 +51,7 @@ podman_container "tailscale" do
       AddDevice=/dev/net/tun:/dev/net/tun:rw
       AddCapability=NET_ADMIN
       AddCapability=NET_RAW
-    } + extra_env,
+    } + volumes + extra_env,
     Service: [
       "Restart=always",
     ],

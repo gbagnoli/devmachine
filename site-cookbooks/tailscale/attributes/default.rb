@@ -8,3 +8,4 @@ default["tailscale"]["podman"]["group"] = "nobody"
 default["tailscale"]["podman"]["config_dir"] = "/var/lib/tailscale"
 default["tailscale"]["podman"]["hostname"] = nil
 default["tailscale"]["podman"]["extra_env"] = nil
+default["tailscale"]["podman"]["export_resolv.conf"] = false
