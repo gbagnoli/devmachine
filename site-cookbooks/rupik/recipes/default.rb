@@ -35,7 +35,7 @@ unless domain.nil?
 end
 
 domain = node["rupik"]["www"]["domain"]
-aliases = node["boxy"]["www"]["domain_aliases"]
+aliases = node["rupik"]["www"]["domain_aliases"]
 unless domain.nil?
   podman_nginx_vhost domain do
     server_name Array(domain) | Array(aliases).sort

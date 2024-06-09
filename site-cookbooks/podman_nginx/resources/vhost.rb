@@ -19,7 +19,7 @@ property :upgrade, [true, false], default: true
 
 
 action :create do
-  server_name = Array(new_resource.server_name).map(&:to_s)
+  server_name = Array(new_resource.server_name).map(&:to_s).sort
   server_name.each do |name|
     podman_nginx_acme_certificate name
   end
@@ -60,8 +60,7 @@ action :create do
       vhost: new_resource.name,
       server_name: server_name,
       upstream_url: upstream_url,
-      certificate_key: container_certificate_key,
-      certificate_file: container_certificate_file,
+      certificate_root: container_cert_root,
       disable_default_location: new_resource.disable_default_location,
       cloudflare: new_resource.cloudflare,
       www_directory: container_www,
@@ -81,12 +80,13 @@ action :create do
 end
 
 action :delete do
-  file certificate_file do
-    action :delete
-  end
-
-  file certificate_key do
-    action :delete
+  server_name = Array(new_resource.server_name).map(&:to_s)
+  server_name.each do |name|
+    %w{crt key}.each do |ext|
+      file "#{cert_root}/#{name}.#{ext}" do
+        action :delete
+      end
+    end
   end
 
   file local_vhost_conf_file do
@@ -125,11 +125,11 @@ action_class do
   end
 
   def cert_root
-    "#{node["podman"]["nginx"]["acme"]["certs_dir"]}/certificates/#{new_resource.name}"
+    "#{node["podman"]["nginx"]["acme"]["certs_dir"]}/certificates/"
   end
 
   def container_cert_root
-    "#{container_paths["ssl"]}/#{new_resource.name}"
+    container_paths["ssl"]
   end
 
   def container_www
@@ -146,22 +146,6 @@ action_class do
 
   def local_cache
     "#{local_path}/cache/#{new_resource.name}"
-  end
-
-  def container_certificate_file
-    "#{container_cert_root}.crt"
-  end
-
-  def container_certificate_key
-    "#{container_cert_root}.key"
-  end
-
-  def certificate_file
-    "#{cert_root}.crt"
-  end
-
-  def certificate_key
-    "#{cert_root}.key"
   end
 
   def local_vhost_conf_file

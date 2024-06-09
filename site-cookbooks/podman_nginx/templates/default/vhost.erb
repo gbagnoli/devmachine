@@ -9,11 +9,12 @@ map <%= conf %>
 <% end -%>
 <% end -%>
 
+<% @server_name.each do |sname| -%>
 server {
   listen 443 ssl;
   listen [::]:443 ssl;
   http2 on;
-  server_name  <%= Array(@server_name).join(" ") %>;
+  server_name  <%= sname %>;
 
   ssl_conf_command Options KTLS;
   ssl_protocols TLSv1.3;
@@ -27,8 +28,8 @@ server {
   add_header Strict-Transport-Security 'max-age=31536000; includeSubDomains; preload';
   ssl_session_cache shared:dotmesecure:10m;
   ssl_ocsp_cache shared:dotmestaple:10m;
-  ssl_certificate     <%= @certificate_file %>;
-  ssl_certificate_key <%= @certificate_key %>;
+  ssl_certificate     <%= @certificate_root %>/<%= sname %>.crt;
+  ssl_certificate_key <%= @certificate_root %>/<%= sname %>.key;
 
   <% if !@disable_default_location -%>
   location / {
@@ -58,6 +59,7 @@ server {
   include /etc/nginx/cloudflare.conf;
   <% end -%>
 }
+<% end -%>
 
 <% unless @act_as_upstream.nil? -%>
 server {
