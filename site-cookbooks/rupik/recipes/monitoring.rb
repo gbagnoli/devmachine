@@ -54,10 +54,9 @@ end
 
 datadog_monitor "ping" do
   use_integration_template true
-  instances([{
-    # calculon and rupik
-    "hosts" => ["100.98.243.29", "100.126.221.76"]
-  },{
-    "hosts" => ["calculon.tigc.eu"]
-  }])
+  instances({
+   "100.96.214.82" => "tailscale",
+   "100.126.221.76" => "tailscale",
+   "calculon.tigc.eu" => "internet"
+  }.sort.map {|h, t| {"host" => h, "tags" => Array(t).map { |tag| "ping:#{tag}"} }})
 end

@@ -35,7 +35,7 @@ include_recipe "datadog::network"
 
 # nginx
 node.override["datadog"]["nginx"]["instances"] = [{
-  "nginx_status_url" => "http://localhost/nginx_status/",
+  "nginx_status_url" => "http://127.0.0.1/nginx_status/",
   "tags" => ["prod"],
 }]
 
@@ -54,10 +54,9 @@ end
 
 datadog_monitor "ping" do
   use_integration_template true
-  instances([{
-    # calculon and boxy
-    "hosts" => ["100.98.243.29", "100.126.221.76"]
-  },{
-    "hosts" => ["calculon.tigc.eu"]
-  }])
+  instances({
+   "100.98.243.29" => "tailscale",
+   "100.126.221.76" => "tailscale",
+   "calculon.tigc.eu" => "internet"
+  }.sort.map {|h, t| {"host" => h, "tags" => Array(t).map { |tag| "ping:#{tag}"} }})
 end
