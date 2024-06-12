@@ -46,7 +46,7 @@ fi
 
 if [ ! -d "$HOME"/.local/src/autoenv ]; then
   cd "$HOME"/.local/src || exit 1
-  git clone git://github.com/kennethreitz/autoenv.git
+  git clone https://github.com/hyperupcall/autoenv.git
 fi
 
 # gpicsync
