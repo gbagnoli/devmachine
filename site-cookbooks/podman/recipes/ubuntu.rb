@@ -106,7 +106,7 @@ if node["lsb"]["release"] == "22.04" || node["lsb"]["release"] == "24.04"
     code <<~EOH
       export PATH="/usr/local/go/bin:$PATH"
       make BUILDTAGS="seccomp systemd cni"
-      make install prefix=/usr
+      PREFIX=/usr make install
     EOH
     subscribes :run, "git[#{Chef::Config[:file_cache_path]}/podman]", :immediately
   end
