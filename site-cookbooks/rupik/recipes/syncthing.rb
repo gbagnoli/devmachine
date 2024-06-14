@@ -11,9 +11,6 @@ node.override["syncthing"]["podman"] = {
     "gui" => "",
     "service" => "",
   },
-  "extra_conf" => %w{
-    Hostname=rupik.tigc.eu
-  }
 }
 
 include_recipe "syncthing::default"
