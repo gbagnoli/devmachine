@@ -6,6 +6,7 @@ nodes:
   - calculon
   - devmachinetest
   - rupik
+  - toolbox
   - ubik
   - ubikxps
 
