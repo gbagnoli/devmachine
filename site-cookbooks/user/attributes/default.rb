@@ -13,7 +13,7 @@ default["user"]["ssh_authorized_keys"] = [{
   pubkey: "AAAAC3NzaC1lZDI1NTE5AAAAICYS/jhr4/Ld55BT2YjP+b+LHWNkaSuRYSuLre2Mbxwz",
 }, {
   name: "giacomo@ubik",
-  pubkey: "AAAAC3NzaC1lZDI1NTE5AAAAIInHiA0bvhG12svBVSkAJ8Aug/9u5kFYR9jVWnaxd5/6",
+  pubkey: "AAAAC3NzaC1lZDI1NTE5AAAAIG5BCzEZkae5DssrD+FFi0a4YGYT55b57LbXW8SveytN",
   keytype: "ssh-ed25519",
 }, {
   name: "giacomo@android",
