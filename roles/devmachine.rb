@@ -3,6 +3,7 @@ description "A role to configure a development workstation"
 run_list [
   "recipe[ubik::ppa]",
   "recipe[hardening]",
+  "recipe[podman::install]",
   "recipe[ubik::udev]",
   "recipe[ubik::users]",
   "recipe[ubik::python]",
@@ -95,4 +96,11 @@ default_attributes(
     "realname" => "Giacomo Bagnoli",
     "install_vpnutils" => true,
   },
+  "podman" => {
+    "sources" => {
+      "podman" => {
+        "tag" => "v5.1.1"
+      }
+    }
+  }
 )

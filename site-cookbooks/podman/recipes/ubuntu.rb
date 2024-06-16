@@ -31,7 +31,6 @@ if node["lsb"]["release"] == "22.04" || node["lsb"]["release"] == "24.04"
       libsystemd-dev
       libtool
       libyajl-dev
-      netavark
       pkg-config
       pkgconf
       uidmap
