@@ -15,11 +15,11 @@ There are several scripts in the [boostrap](./boostrap) folder.
 ## development
 
 Dependencies:
-* [Chef-Workstation](https://downloads.chef.io/chef-workstation/)
+* [cinc-workstation](https://cinc.sh/start/workstation/)
 * [rbenv](https://github.com/rbenv/rbenv)
 * [rbenv-chef-workstation](https://github.com/docwhat/rbenv-chef-workstation)
 * [pyenv](https://github.com/pyenv/pyenv)
-* python3.10 (`pyenv install 3.10.6`)
+* python3.10 (`pyenv install 3.12.2`)
 
 Once installed chef-workstation from deb:
 
