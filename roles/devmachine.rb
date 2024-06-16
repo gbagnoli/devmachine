@@ -18,7 +18,6 @@ run_list [
   "recipe[ubik::latex]",
   "recipe[ubik::fonts]",
   "recipe[ubik::gnome_extensions]",
-  "recipe[ubik::mullvad]",
   "recipe[tailscale::install]",
 ]
 default_attributes(
