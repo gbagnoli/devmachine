@@ -52,7 +52,8 @@ def validate_secrets(
             print("Using remote version.", file=sys.stderr)
             return True
         else:
-            print("aborting", file=sys.stderr)
+            print("Cannot find secrets neither locally nor remote.", file=sys.stderr)
+            print(f"Check for permissions remotely at {remote_path}. Aborting", file=sys.stderr)
             sys.exit(1)
 
 
