@@ -126,7 +126,7 @@ if command -v zoxide &>/dev/null; then
 fi
 
 if command -v fzf &>/dev/null; then
-  eval "$(fzf --bash)"
+  fzf --help | grep -q -- --bash && eval "$(fzf --bash)"
 fi
 
 export CLICOLOR=1
@@ -136,9 +136,9 @@ if [ -d /opt/android/platform-tools/ ]; then
 fi
 
 # python
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin:$PATH"
 if command -v pyenv > /dev/null; then
-  export PYENV_ROOT="$HOME/.pyenv"
-  export PATH="$PYENV_ROOT/bin:$PATH"
   eval "$(pyenv init -)"
   eval "$(pyenv init --path)"
   if command -v pyenv-virtualenv-init > /dev/null; then
@@ -204,7 +204,7 @@ fi
 # shellcheck disable=SC1091
 # shellcheck disable=SC2039
 # Only load liquidprompt in interactive shells, not from a script or from scp
-[[ $- = *i* ]] && source /usr/share/liquidprompt/liquidprompt
+[[ $- = *i* ]] && [ -f /usr/share/liquidprompt/liquidprompt ] && source /usr/share/liquidprompt/liquidprompt
 
 alias be="bundle exec"
 alias bi="bundle install"
