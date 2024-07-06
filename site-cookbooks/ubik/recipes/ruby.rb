@@ -11,6 +11,14 @@ end
 rbenv_plugin 'chef-workstation' do
   git_url 'https://github.com/docwhat/rbenv-chef-workstation.git'
   user user
+  only_if { ::File.directory?("/opt/chef-workstation") }
+end
+
+rbenv_plugin 'cinc-workstation' do
+  git_url 'https://github.com/david-alpert-nl/rbenv-chef-workstation.git'
+  git_ref "cinc-workstation"
+  user user
+  only_if { ::File.directory?("/opt/cinc-workstation") }
 end
 
 node["ubik"]["ruby"]["rubies"]&.each do |ruby|
@@ -30,4 +38,12 @@ chefworkstation_dir = "/home/#{user}/.rbenv/versions/chef-workstation"
 directory chefworkstation_dir do
   recursive true
   owner user
+  only_if { ::File.directory?("/opt/chef-workstation") }
+end
+
+cincworkstation_dir = "/home/#{user}/.rbenv/versions/cinc-workstation"
+directory cincworkstation_dir do
+  recursive true
+  owner user
+  only_if { ::File.directory?("/opt/cinc-workstation") }
 end
