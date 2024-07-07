@@ -6,7 +6,7 @@ run_list [
   "recipe[ubik::ruby]",
   # "recipe[ubik::rust]",
   "recipe[ubik::golang]",
-  "recipe[ubik::java]",
+  # "recipe[ubik::java]",
 ]
 default_attributes(
   "ubik" => {
