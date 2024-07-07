@@ -67,6 +67,6 @@ getent group ubuntu | grep 1010 -q || sudo groupmod -g 1010 ubuntu
 # some cache files are present but the binary is not installed
 # this will confuse chef as it won't run the unpack.
 # let's remove the cached files?
-sudo rm -fv local-mode-cache/cache/go*
+sudo rm -fv local-mode-cache/cache/{go,fzf,zoxide}*
 
 pipenv run ./run -H localhost_toolbox
