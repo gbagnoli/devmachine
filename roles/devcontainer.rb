@@ -4,9 +4,8 @@ run_list [
   "recipe[user::default]",
   "recipe[ubik::python]",
   "recipe[ubik::ruby]",
-  # "recipe[ubik::rust]",
   "recipe[ubik::golang]",
-  # "recipe[ubik::java]",
+  "recipe[user::photos]",
 ]
 default_attributes(
   "ubik" => {
