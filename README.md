@@ -17,11 +17,11 @@ There are several scripts in the [boostrap](./boostrap) folder.
 Dependencies:
 * [cinc-workstation](https://cinc.sh/start/workstation/)
 * [rbenv](https://github.com/rbenv/rbenv)
-* [rbenv-chef-workstation](https://github.com/docwhat/rbenv-chef-workstation)
+* [rbenv-cinc-workstation](https://github.com/yacn/rbenv-cinc-workstation.git)
 * [pyenv](https://github.com/pyenv/pyenv)
-* python3.10 (`pyenv install 3.12.2`)
+* python3.12 (`pyenv install 3.12.2`)
 
-Once installed chef-workstation from deb:
+Once installed cinc-workstation from deb:
 
 ```bash
 sudo apt install rbenv git
@@ -31,9 +31,9 @@ rbenv init
 mkdir -p "$(rbenv root)"/plugins
 git clone https://github.com/rbenv/ruby-build.git "$(rbenv root)"/plugins/ruby-build
 # install rbenv-chefdk
-git clone https://github.com/docwhat/rbenv-chef-workstation.git  "$(rbenv root)"/plugins/rbenv-chef-workstation
-mkdir "$(rbenv root)/versions/chef-workstation"
-rbenv shell chef-workstation
+git clone https://github.com/yacn/rbenv-cinc-workstation.git  "$(rbenv root)"/plugins/rbenv-cinc-workstation
+mkdir "$(rbenv root)/versions/cinc-workstation"
+rbenv shell cinc-workstation
 rbenv rehash
 # install pyenv
 git clone https://github.com/pyenv/pyenv.git ~/.pyenv
