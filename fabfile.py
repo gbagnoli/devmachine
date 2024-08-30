@@ -53,7 +53,10 @@ def validate_secrets(
             return True
         else:
             print("Cannot find secrets neither locally nor remote.", file=sys.stderr)
-            print(f"Check for permissions remotely at {remote_path}. Aborting", file=sys.stderr)
+            print(
+                f"Check for permissions remotely at {remote_path}. Aborting",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
 
