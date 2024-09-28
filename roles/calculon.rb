@@ -11,7 +11,16 @@ default_attributes(
       "package" => "openssh-clients"
     }
   },
+  "chef_client_updater" => {
+    "product_name" => "cinc-workstation",
+    "version" => "latest"
+  },
   "server" => {
+    "components" => {
+      "chef_client_updater" => {
+        "enabled" => false
+      }
+    },
     "users" => {
       "dario" => {
         "unmanaged" => true,

@@ -23,3 +23,4 @@ depends "logrotate"
 depends "btrbk"
 depends "tailscale"
 depends "syncthing"
+gem 'toml'

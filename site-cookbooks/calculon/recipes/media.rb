@@ -1,4 +1,6 @@
-require 'toml'
+chef_gem 'toml-rb' do
+  compile_time true
+end
 
 tdarr_root = node["calculon"]["storage"]["paths"]["tdarr"]
 prowlarr_root = node["calculon"]["storage"]["paths"]["prowlarr"]
@@ -263,7 +265,7 @@ file "#{putioarr_root}/config.toml" do
   owner user
   group group
   mode "0700"
-  content TOML::Generator.new(config_hash).body
+  content lazy { to_toml(config_hash) }
   notifies :restart, "service[putioarr]", :delayed
 end
 
