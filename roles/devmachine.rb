@@ -40,8 +40,8 @@ default_attributes(
     },
     "python" => {
       "user" => "giacomo",
-      "versions" => ["2.7.18", "3.12.2"],
-      "user_global" => "3.12.2 2.7.18",
+      "versions" => ["2.7.18", "3.13.0"],
+      "user_global" => "3.13.0 2.7.18",
     },
     "languages" => %w(en it),
     "install_latex" => true,

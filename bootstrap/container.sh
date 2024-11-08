@@ -2,7 +2,7 @@
 #
 # AIM: boostrap a distrobox/toolbox container
 # this assumes ubuntu-24.04
-PYTHON_VERSION=3.12.2
+PYTHON_VERSION=3.13.0
 
 set -euo pipefail
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
@@ -40,7 +40,7 @@ rbenv rehash
 
 if [ ! -d ~/.pyenv ]; then
   git clone https://github.com/pyenv/pyenv.git ~/.pyenv
-  exec "$SHELL"
+  "$SHELL"
   rbenv shell cinc-workstation
 fi
 
