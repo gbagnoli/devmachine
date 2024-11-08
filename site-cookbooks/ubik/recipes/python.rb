@@ -10,6 +10,13 @@ end
 pyenv_plugin 'pyenv-virtualenv' do
   git_url 'https://github.com/pyenv/pyenv-virtualenv.git'
   user user
+  git_ref 'master'
+end
+
+pyenv_plugin 'pyenv-update' do
+  git_url 'https://github.com/pyenv/pyenv-update.git'
+  user user
+  git_ref 'master'
 end
 
 conf['versions']&.each do |version|
