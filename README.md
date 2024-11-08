@@ -50,8 +50,8 @@ pyenv shell 3.12.2
 # also, make sure pip and pipenv are installed
 pip install -U pip pipenv
 # install the git commit hook that will run all needed linters
-ln -s hooks/pre-commit.sh .git/hooks/pre-commit
-ln -s hooks/pre-push.sh .git/hooks/pre-push
+ln -s $(pwd)/hooks/pre-commit.sh .git/hooks/pre-commit
+ln -s $(pwd)/hooks/pre-push.sh .git/hooks/pre-push
 pipenv shell
 pipenv install
 ```
