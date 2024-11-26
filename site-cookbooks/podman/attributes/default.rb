@@ -2,7 +2,7 @@
 default["podman"]["go"]["version"] = "1.22.3"
 default["podman"]["sources"]["podman"] = {
   url: "https://github.com/containers/podman.git",
-  tag: "v5.0.1",
+  tag: "v5.3.1",
   # btrfs-devel is already installed from downloaded rpm in rocky
   deps:  value_for_platform_family(
     %w{fedora rhel} => %w{go systemd-devel gpgme-devel libseccomp-devel ostree-devel shadow-utils-subid-devel},
@@ -16,7 +16,7 @@ default["podman"]["sources"]["podman"] = {
 
 default["podman"]["sources"]["crun"] = {
   url: "https://github.com/containers/crun.git",
-  tag: "1.14.4",
+  tag: "1.18.2",
   deps:  value_for_platform_family(
     %w{fedora rhel} => %w{make automake autoconf gettext libtool gcc libcap-devel systemd-devel yajl-devel glibc-static libseccomp-devel},
     "debian"=> %w{make git gcc build-essential pkgconf libtool libsystemd-dev libprotobuf-c-dev libcap-dev libseccomp-dev libyajl-dev go-md2man autoconf python3 automake}
