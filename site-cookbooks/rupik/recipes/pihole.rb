@@ -1,21 +1,3 @@
-# disable stub DNS resolver for systemd-resolve
-file "/etc/systemd/resolved.conf" do
-  content <<~EOU
-    [Resolve]
-     DNSStubListener=no
-  EOU
-  notifies :restart, "service[systemd-resolved]", :immediately
-end
-
-link "/etc/resolv.conf" do
-  to "/run/systemd/resolve/resolv.conf"
-  notifies :restart, "service[systemd-resolved]", :immediately
-end
-
-service "systemd-resolved" do
-  action %i(nothing)
-end
-
 directory "/etc/pihole"
 directory "/etc/pihole/conf"
 directory "/etc/pihole/dnsmasq.d"
@@ -24,6 +6,16 @@ podman_image "pihole" do
   config(
     Image: ["Image=docker.io/pihole/pihole:latest"],
   )
+end
+
+unless node["podman"]["pihole"]["dns"]["custom"].nil?
+  template "/etc/pihole/conf/custom.list" do
+    mode "0644"
+    variables(custom: node["podman"]["pihole"]["dns"]["custom"])
+    source "custom.list.erb"
+    notifies :restart, "service[pihole]", :delayed
+    cookbook "rupik"
+  end
 end
 
 podman_container "pihole" do
@@ -57,4 +49,8 @@ end
 datadog_integration "datadog-pihole" do
   version "3.14.1"
   third_party true
+end
+
+service "pihole" do
+  action :start
 end

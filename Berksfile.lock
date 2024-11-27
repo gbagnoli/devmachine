@@ -66,6 +66,7 @@ GRAPH
     datadog (>= 0.0.0)
     podman (>= 0.0.0)
     podman_nginx (>= 0.0.0)
+    rupik (>= 0.0.0)
     syncthing (>= 0.0.0)
     tailscale (>= 0.0.0)
   btrbk (0.1.0)
