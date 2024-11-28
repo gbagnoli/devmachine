@@ -1,3 +1,4 @@
+<% domain = @fqdn ? ".#{@fqdn}" : "" -%>
 <% @custom.each do |ip, dns| -%>
-<%= ip %> <%= dns %>
+<%= ip %> <%= dns %><%= domain %>
 <% end -%>
