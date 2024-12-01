@@ -7,3 +7,6 @@ default["server"]["chef"]["cron"]["hour"] = "*"
 default["server"]["chef"]["cron"]["minute"] = "30"
 
 default["chef_client"]["config"] = {}
+
+# name => mac
+default["server"]["wol"]["targets"] = {}

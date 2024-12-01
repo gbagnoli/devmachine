@@ -2,6 +2,7 @@ name "boxy"
 description "Configure boxy"
 run_list [
   "role[server]",
+  "recipe[server::wol]",
   "recipe[boxy]",
 ]
 

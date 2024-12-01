@@ -2,6 +2,7 @@ name "rupik"
 description "Configure rupik"
 run_list [
   "role[server]",
+  "recipe[server::wol]",
   "recipe[rupik]",
 ]
 
