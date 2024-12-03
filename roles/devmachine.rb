@@ -29,7 +29,7 @@ default_attributes(
   },
   "ubik" => {
     "golang" => {
-      "version" => "1.22.2",
+      "version" => "1.23.3",
     },
     "ruby" => {
         "rubies" => ["3.3.0"],
@@ -95,12 +95,5 @@ default_attributes(
     "gid" => 1000,
     "realname" => "Giacomo Bagnoli",
     "install_vpnutils" => true,
-  },
-  "podman" => {
-    "sources" => {
-      "podman" => {
-        "tag" => "v5.1.1"
-      }
-    }
   }
 )

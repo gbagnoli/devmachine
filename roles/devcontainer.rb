@@ -10,7 +10,7 @@ run_list [
 default_attributes(
   "ubik" => {
     "golang" => {
-      "version" => "1.22.2",
+      "version" => "1.23.3",
     },
     "ruby" => {
         "rubies" => ["3.3.0"],

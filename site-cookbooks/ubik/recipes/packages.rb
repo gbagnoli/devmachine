@@ -3,25 +3,18 @@
 return if node["ubik"]["skip_packages"]
 
 packages = %w(
-  apt-transport-https btrfs-progs compizconfig-settings-manager dkms docker-ce
-  dstat exfat-fuse exfat-utils gconf-service gconf2 gdm3
+  apt-transport-https btrfs-progs compizconfig-settings-manager dkms
+  dstat exfat-fuse exfatprogs gdm3
   gnome gnome-shell gnome-terminal google-chrome-stable
   google-talkplugin gstreamer1.0-libav gstreamer1.0-plugins-ugly
-  gstreamer1.0-pulseaudio gvfs-bin htop libappindicator1
-  libappindicator1 libcurl4 libgcrypt20 libgtk2.0-0
+  gstreamer1.0-pulseaudio htop
+  libcurl4 libgcrypt20 libgtk2.0-0
   libnotify4 libnss3 libsecret-1-0 libudev1 libvirt-dev libxml2-dev
   libxslt1-dev libxss1 libxtst6 powertop
-  python python-apt qemu-kvm rsyslog shellcheck tmux
+  python3 python-apt qemu-kvm rsyslog shellcheck tmux
   ttf-mscorefonts-installer ubuntu-gnome-desktop unity-tweak-tool
   xdg-utils wireguard xsel signal-desktop vlc ffmpeg jq et
 )
-
-if node["lsb"]["codename"] == "jammy"
-  oldp = %w(exfat-utils python gvfs-bin)
-  packages = packages.map(&:dup).reject { |x| oldp.include?(x) }
-  packages << "python3"
-  packages << "exfatprogs"
-end
 
 package "base install" do
   package_name packages
@@ -37,7 +30,7 @@ packages = {
   "steam-launcher" => {
     deb: "https://steamcdn-a.akamaihd.net/client/installer/steam.deb",
     only_if_not_installed: true,
-  }, "vagrant" => "https://releases.hashicorp.com/vagrant/2.4.1/vagrant_2.4.1-1_amd64.deb",
+  }, "vagrant" => "https://releases.hashicorp.com/vagrant/2.4.3/vagrant_2.4.3_linux_amd64.zip",
   "discord" => {
     deps: %w(libc++1 libc++abi1),
     deb: "https://discordapp.com/api/download?platform=linux&format=deb",
@@ -124,15 +117,6 @@ execute "unzip_android_platform_tools" do
   command "unzip -o /usr/src/android_platform_tools.zip -d /opt/android/"
 end
 
-include_recipe "yubico::personalization"
-
-# VA-API enabled chromium
-apt_repository "chromium-beta" do
-  uri "ppa:saiarcot895/chromium-dev"
-end
-
-package "chromium-browser"
-
 # tzbuddy
 include_recipe 'ark'
 ark 'tzbuddy' do
@@ -156,28 +140,18 @@ file '/usr/local/bin/tzbuddy' do
   group 'root'
 end
 
-include_recipe "kitty"
-
-if node["lsb"]["codename"] == "jammy"
-  # remove firefox snap
-  snap_package 'firefox' do
-    action :remove
-    only_if { ::File.exist?('/run/snapd.socket') }
-  end
-
-  flatpak_install 'flathub'
-  flatpak_app 'org.mozilla.firefox'
-  flatpak_app 'org.freedesktop.Platform.ffmpeg-full/x86_64/20.08'
-  flatpak_app 'com.spotify.Client'
-  flatpak_app 'org.inkscape.Inkscape'
-  flatpak_app 'com.mastermindzh.tidal-hifi'
-  flatpak_app 'com.dropbox.Client'
-  flatpak_app 'us.zoom.Zoom'
-  flatpak_app 'org.keepassxc.KeePassXC'
-else
-  apt_repository "firefox-beta" do
-    uri "ppa:mozillateam/firefox-next"
-  end
-
-  package 'firefox'
+# remove firefox snap
+snap_package 'firefox' do
+  action :remove
+  only_if { ::File.exist?('/run/snapd.socket') }
 end
+
+flatpak_install 'flathub'
+flatpak_app 'org.mozilla.firefox'
+flatpak_app 'org.freedesktop.Platform.ffmpeg-full/x86_64/20.08'
+flatpak_app 'com.spotify.Client'
+flatpak_app 'org.inkscape.Inkscape'
+flatpak_app 'com.mastermindzh.tidal-hifi'
+flatpak_app 'com.dropbox.Client'
+flatpak_app 'us.zoom.Zoom'
+flatpak_app 'org.keepassxc.KeePassXC'
