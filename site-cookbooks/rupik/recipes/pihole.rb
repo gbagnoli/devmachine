@@ -2,6 +2,10 @@ directory "/etc/pihole"
 directory "/etc/pihole/conf"
 directory "/etc/pihole/dnsmasq.d"
 
+directory "/var/log/pihole" do
+  mode "0755"
+end
+
 podman_image "pihole" do
   config(
     Image: ["Image=docker.io/pihole/pihole:latest"],
@@ -26,6 +30,7 @@ podman_container "pihole" do
       Image=pihole.image
       Volume=/etc/pihole/conf:/etc/pihole
       Volume=/etc/pihole/dnsmasq.d/etc/dnsmasq.d
+      Volume=/var/log/pihole:/var/log/pihole
       Environment=VIRTUAL_HOST=pi.hole
       Environment=PROXY_LOCATION=pi.hole
       Environment=TZ=Europe/Madrid
