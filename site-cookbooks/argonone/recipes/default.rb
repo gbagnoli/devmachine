@@ -1,47 +1,21 @@
-package "python3-rpi.gpio"
-package "python3-smbus"
-
-template "/etc/argononed.conf" do
-  source "argononed.conf.erb"
-  variables fan_control: node["argonone"]["fan_control"]
-  mode '644'
-  owner "root"
-  group "root"
+%w[
+/lib/systemd/system-shutdown/argononed-poweroff.py
+/usr/bin/argononed.py
+/usr/bin/argon_temp_monitor
+/etc/systemd/system/argononed.service
+].each do |f|
+  file f do
+    action :delete
+  end
 end
 
-cookbook_file "/lib/systemd/system-shutdown/argononed-poweroff.py" do
-  source "argononed-poweroff.py"
-  owner "root"
-  group "root"
-  mode '755'
+remote_file "#{Chef::Config[:file_cache_path]}/argon1.sh" do
+  source "https://download.argon40.com/argon1.sh"
+  mode "0755"
+  notifies :run, "execute[install_argonone_scripts]", :immediately
 end
 
-cookbook_file "/usr/bin/argononed.py" do
-  source "argononed.py"
-  owner "root"
-  group "root"
-  mode '755'
-end
-
-cookbook_file "/usr/bin/argon_temp_monitor" do
-  source "argon_temp_monitor.sh"
-  mode '755'
-  owner "root"
-  group "root"
-end
-
-systemd_unit "argononed.service" do
-  content <<~EOU
-    [Unit]
-    Description=Argon One Fan and Button Service
-    After=multi-user.target
-    [Service]
-    Type=simple
-    Restart=always
-    RemainAfterExit=true
-    ExecStart=/usr/bin/python3 /usr/bin/argononed.py
-    [Install]
-    WantedBy=multi-user.target
-  EOU
-  action %i(create enable start)
+execute "install_argonone_scripts" do
+  action :nothing
+  command "#{Chef::Config[:file_cache_path]}/argon1.sh"
 end
