@@ -28,6 +28,22 @@ override_attributes(
       ],
     },
   },
+  "sysctl" => {
+    "params" => {
+      "net" => {
+        "ipv4" => {
+          "conf" => {
+            "all" => {
+              "log_martians" => 0
+            },
+            "default" => {
+              "log_martians" => 0
+            },
+          },
+        },
+      },
+    },
+  },
   "chef_client_updater" => {
     "product_name" => "chef"
   }
