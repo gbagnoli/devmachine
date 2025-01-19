@@ -1,5 +1,5 @@
 default["calculon"]["rocky"]["btrfs"]["btrfs-progs"] = {
-  version: "6.8-1.el9",
+  version: "6.10-1.el9",
   url: "https://cbs.centos.org/kojifiles/packages/btrfs-progs",
   packages: %w{btrfs-progs btrfs-progs-devel libbtrfs libbtrfsutil python3-btrfsutil}
 }
