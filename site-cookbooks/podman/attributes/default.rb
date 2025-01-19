@@ -1,5 +1,5 @@
 # rubocop:disable Layout/LineLength
-default["podman"]["go"]["version"] = "1.22.3"
+default["podman"]["go"]["version"] = "1.22.5"
 default["podman"]["sources"]["podman"] = {
   url: "https://github.com/containers/podman.git",
   tag: "v5.3.1",
@@ -16,7 +16,7 @@ default["podman"]["sources"]["podman"] = {
 
 default["podman"]["sources"]["crun"] = {
   url: "https://github.com/containers/crun.git",
-  tag: "1.18.2",
+  tag: "1.19.1",
   deps:  value_for_platform_family(
     %w{fedora rhel} => %w{make automake autoconf gettext libtool gcc libcap-devel systemd-devel yajl-devel glibc-static libseccomp-devel},
     "debian"=> %w{make git gcc build-essential pkgconf libtool libsystemd-dev libprotobuf-c-dev libcap-dev libseccomp-dev libyajl-dev go-md2man autoconf python3 automake}
@@ -34,7 +34,7 @@ default["podman"]["sources"]["conmon"] = {
 
 default["podman"]["sources"]["catatonit"] = {
   url: "https://github.com/openSUSE/catatonit.git",
-  tag: "v0.2.0",
+  tag: "v0.2.1",
   deps:  value_for_platform_family(
     %w{fedora rhel} => [],
     "debian"=> [],
