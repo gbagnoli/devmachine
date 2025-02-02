@@ -12,6 +12,7 @@ default["calculon"]["rocky"]["btrfs"]["compsize"] = {
 default["calculon"]["TZ"] = "Europe/Madrid"
 
 default["calculon"]["data"]["username"] = "media"
+default["calculon"]["distrobox"]["users"] = []
 default["calculon"]["data"]["group"] = "data"
 default["calculon"]["data"]["uid"] = "2001"
 default["calculon"]["data"]["gid"] = "2001"

@@ -6,6 +6,7 @@ include_recipe "calculon::nginx"
 include_recipe "calculon::tailscale"
 include_recipe "calculon::media"
 include_recipe "calculon::magiusstaff"
+include_recipe "calculon::distrobox"
 
 # create the www vhost with the accumulated hosts
 domain = node["calculon"]["www"]["domain"]
