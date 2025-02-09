@@ -35,6 +35,7 @@ end
     code <<-EOH
     ./autogen.sh
     ./configure --prefix=/usr
+    make clean
     make -j$(nproc --all)
     PREFIX=/usr make install
     EOH
