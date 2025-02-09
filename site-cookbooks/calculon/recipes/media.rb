@@ -50,45 +50,47 @@ end
   end
 end
 
-# podman_image "tdarr" do
-#   config(
-#     Image: ["Image=ghcr.io/haveagitgat/tdarr"],
-#   )
-# end
+podman_image "tdarr" do
+  config(
+    Image: ["Image=ghcr.io/haveagitgat/tdarr"],
+  )
+  action :delete
+end
 
-# podman_container "tdarr" do
-#   config(
-#     Container: %W{
-#       Image=tdarr.image
-#       Pod=web.pod
-#       Environment=TZ=#{node["calculon"]["TZ"]}
-#       Environment=PUID=#{uid}
-#       Environment=PGID=#{gid}
-#       Environment=serverPort=8266
-#       Environment=webUIPort=8265
-#       Environment=internalNode=true
-#       Environment=inContainer=true
-#       Environment=nodeName=tdarr.calculon.tigc.eu
-#       Volume=#{tdarr_root}/server:/app/server
-#       Volume=#{tdarr_root}/configs:/app/configs
-#       Volume=#{tdarr_root}/logs:/app/logs
-#       Volume=#{node["calculon"]["storage"]["paths"]["media"]}/movies/library:/media/movies
-#       Volume=#{node["calculon"]["storage"]["paths"]["media"]}/series/library:/media/series
-#       Volume=#{tdarr_root}/cache/movies:/var/cache/transcode/movies
-#       Volume=#{tdarr_root}/cache/series:/var/cache/transcode/series
-#     },
-#     Service: %w{
-#       Restart=always
-#     },
-#     Unit: [
-#       "Description=Tdarr Media Transcoding",
-#       "After=network-online.target",
-#     ],
-#     Install: [
-#       "WantedBy=multi-user.target default.target"
-#     ]
-#   )
-# end
+podman_container "tdarr" do
+  config(
+    Container: %W{
+      Image=tdarr.image
+      Pod=web.pod
+      Environment=TZ=#{node["calculon"]["TZ"]}
+      Environment=PUID=#{uid}
+      Environment=PGID=#{gid}
+      Environment=serverPort=8266
+      Environment=webUIPort=8265
+      Environment=internalNode=true
+      Environment=inContainer=true
+      Environment=nodeName=tdarr.calculon.tigc.eu
+      Volume=#{tdarr_root}/server:/app/server
+      Volume=#{tdarr_root}/configs:/app/configs
+      Volume=#{tdarr_root}/logs:/app/logs
+      Volume=#{node["calculon"]["storage"]["paths"]["media"]}/movies/library:/media/movies
+      Volume=#{node["calculon"]["storage"]["paths"]["media"]}/series/library:/media/series
+      Volume=#{tdarr_root}/cache/movies:/var/cache/transcode/movies
+      Volume=#{tdarr_root}/cache/series:/var/cache/transcode/series
+    },
+    Service: %w{
+      Restart=always
+    },
+    Unit: [
+      "Description=Tdarr Media Transcoding",
+      "After=network-online.target",
+    ],
+    Install: [
+      "WantedBy=multi-user.target default.target"
+    ]
+  )
+  action :delete
+end
 
 podman_image "prowlarr" do
   config(
