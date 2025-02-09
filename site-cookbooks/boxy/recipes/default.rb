@@ -25,6 +25,7 @@ include_recipe "boxy::btrbk"
 include_recipe "boxy::syncthing"
 include_recipe "boxy::tailscale"
 include_recipe "boxy::cloudflare_ddns"
+include_recipe "rupik::eternal_terminal"
 
 domain = node["boxy"]["www"]["pihole_domain"]
 unless domain.nil?
