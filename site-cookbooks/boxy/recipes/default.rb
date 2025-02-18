@@ -33,10 +33,10 @@ unless domain.nil?
     server_name domain
     disable_default_location true
     extra_config <<~EOH
-      location /admin/ {
+      location / {
         # lack of trailing / is significant as we want to
         # pass /admin to the url.
-        proxy_pass http://localhost:8888;
+        proxy_pass http://localhost:8088;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Host $host;

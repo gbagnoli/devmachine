@@ -14,7 +14,7 @@ end
 
 unless node["podman"]["pihole"]["dns"]["custom"].nil?
   template "/etc/pihole/conf/custom.list" do
-    mode "0644"
+    mode "0660"
     variables(custom: node["podman"]["pihole"]["dns"]["custom"],
               fqdn: node["podman"]["pihole"]["dns"]["custom_domain"])
     source "custom.list.erb"
@@ -31,13 +31,10 @@ podman_container "pihole" do
       Volume=/etc/pihole/conf:/etc/pihole
       Volume=/etc/pihole/dnsmasq.d/etc/dnsmasq.d
       Volume=/var/log/pihole:/var/log/pihole
-      Environment=VIRTUAL_HOST=pi.hole
-      Environment=PROXY_LOCATION=pi.hole
       Environment=TZ=Europe/Madrid
-      Environment=WEB_PORT=8888
-    } + [
-      "PodmanArgs=--dns 127.0.0.1 --dns 1.1.1.1"
-    ],
+      Environment=FTLCONF_dns_upstreams=1.1.1.1;8.8.8.8
+      Environment=FTLCONF_webserver_port=8088o,[::]:8088o
+    },
     Service: [
       "Restart=always",
     ],
