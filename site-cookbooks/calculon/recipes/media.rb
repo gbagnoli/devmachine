@@ -426,6 +426,37 @@ calculon_www_upstream "/prowlarr" do
   upgrade "$http_connection"
 end
 
+systemd_unit "servarr_delete_stale_downloads.service" do
+  content <<~EOH
+   [Unit]
+   Description=Remove stale downloads older than a week
+
+   [Service]
+   Type=oneshot
+   ExecStart=/bin/find #{node["calculon"]["storage"]["paths"]["downloads"]} -type f -mtime +7 -delete
+   ExecStart=/bin/find #{node["calculon"]["storage"]["paths"]["downloads"]} -type d -mtime +7 -delete
+   User=root
+   Group=systemd-journal
+	EOH
+  action %i(create enable)
+end
+
+systemd_unit "servarr_delete_stale_downloads.timer" do
+  content <<~EOH
+    [Unit]
+    Description=Periodically cleanup old downloads
+
+    [Timer]
+    Unit=servarr_delete_stale_downloads.service
+    Persistent=true
+    OnCalendar=daily
+
+    [Install]
+    WantedBy=timers.target
+  EOH
+  action %i(create enable start)
+end
+
 domain = node["calculon"]["www"]["media_domain"]
 return if domain.nil?
 
@@ -587,35 +618,4 @@ podman_nginx_vhost domain do
     	return 444;
     }
     EOH
-end
-
-systemd_unit "servarr_delete_stale_downloads.service" do
-  content <<~EOH
-   [Unit]
-   Description=Remove stale downloads older than a week
-
-   [Service]
-   Type=oneshot
-   ExecStart=/bin/find #{node["calculon"]["storage"]["paths"]["downloads"]} -type f -mtime +7 -delete
-   ExecStart=/bin/find #{node["calculon"]["storage"]["paths"]["downloads"]} -type d -mtime +7 -delete
-   User=root
-   Group=systemd-journal
-	EOH
-  action %i(create enable)
-end
-
-systemd_unit "servarr_delete_stale_downloads.timer" do
-  content <<~EOH
-    [Unit]
-    Description=Periodically cleanup old downloads
-
-    [Timer]
-    Unit=servarr_delete_stale_downloads.service
-    Persistent=true
-    OnCalendar=daily
-
-    [Install]
-    WantedBy=timers.target
-  EOH
-  action %i(create enable start)
 end
