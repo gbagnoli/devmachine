@@ -391,6 +391,7 @@ calculon_www_upstream "/tdarr" do
   upgrade true
   category "Tools"
   upgrade "$http_connection"
+  action :remove
 end
 
 calculon_www_upstream "/radarr" do
