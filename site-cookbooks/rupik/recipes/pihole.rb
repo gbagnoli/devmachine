@@ -14,7 +14,7 @@ end
 
 unless node["podman"]["pihole"]["dns"]["custom"].nil?
   template "/etc/pihole/conf/custom.list" do
-    mode "0660"
+    mode "0640"
     variables(custom: node["podman"]["pihole"]["dns"]["custom"],
               fqdn: node["podman"]["pihole"]["dns"]["custom_domain"])
     source "custom.list.erb"
