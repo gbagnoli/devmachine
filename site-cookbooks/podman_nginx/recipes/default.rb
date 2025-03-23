@@ -1,5 +1,3 @@
-include_recipe "podman_nginx::default"
-include_recipe "podman_nginx::acme"
 conf = node["podman"]["nginx"]
 
 package "nginx" do
@@ -43,21 +41,6 @@ user user do
   gid gid
 end
 
-pod_extra_conf = conf["pod_extra_config"].to_a
-
-podman_pod "web" do
-  config(
-    Pod: pod_extra_conf + %w{
-      PublishPort=[::]:80:80/tcp
-      PublishPort=80:80/tcp
-      PublishPort=[::]:443:443/tcp
-      PublishPort=443:443/tcp
-    }
-  )
-end
-container_paths = node["podman"]["nginx"]["container"]
-certificates_d = "#{node["podman"]["nginx"]["acme"]["certs_dir"]}/certificates/"
-
 directory www
 %W{
   #{www}/etc
@@ -80,6 +63,22 @@ end
     mode "0755"
   end
 end
+
+include_recipe "podman_nginx::acme"
+pod_extra_conf = conf["pod_extra_config"].to_a
+
+podman_pod "web" do
+  config(
+    Pod: pod_extra_conf + %w{
+      PublishPort=[::]:80:80/tcp
+      PublishPort=80:80/tcp
+      PublishPort=[::]:443:443/tcp
+      PublishPort=443:443/tcp
+    }
+  )
+end
+container_paths = node["podman"]["nginx"]["container"]
+certificates_d = "#{node["podman"]["nginx"]["acme"]["certs_dir"]}/certificates/"
 
 logrotate_app "nginx" do
   path "#{www}/logs/*.log"
