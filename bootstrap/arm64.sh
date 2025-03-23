@@ -4,10 +4,6 @@ set -u
 set -e
 set -o pipefail
 
-# looks like chef doesn't package for arm64.
-# there is some packages for armhf here: https://mattray.github.io/arm/
-# let's install for armhf using multiarch.
-
 if [ $# -lt 1 ] ; then
   echo >&2 "usage: $0 <host> [user]"
   exit 1
