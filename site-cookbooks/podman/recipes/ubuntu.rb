@@ -109,10 +109,36 @@ if node["lsb"]["release"] == "22.04" || node["lsb"]["release"] == "24.04"
     EOH
     subscribes :run, "git[#{Chef::Config[:file_cache_path]}/podman]", :immediately
   end
+
+  # download the cni-plugins
+  cni_version = node["podman"]["cni-plugins"]["version"]
+  cni_tar = "cni-plugins-linux-#{arch}-#{cni_version}.tgz"
+  cni_url = "#{node["podman"]["cni-plugins"]["url"]}/#{cni_version}/#{cni_tar}"
+  directory "/usr/lib/cni"
+  remote_file "#{Chef::Config[:file_cache_path]}/#{cni_tar}" do
+    source cni_url
+    notifies :run, "bash[install cni plugins]", :immediately
+  end
+
+  bash "install cni plugins" do
+    cwd "/usr/lib/cni"
+    action :nothing
+    code <<~EOH
+      tar xzf #{Chef::Config[:file_cache_path]}/#{cni_tar} -C /usr/lib/cni/
+    EOH
+  end
 else
   package "podman"
 end
 
 service "podman.socket" do
   action %i(enable start)
+  subscribes :restart, "bash[build and install podman]", :immediately
+  subscribes :restart, "package[podman]", :immediately
+end
+
+link "/usr/local/bin/podman" do
+  to "/usr/bin/podman"
+  not_if { ::File.exist?("/usr/local/bin/podman") }
+  only_if { ::File.exist?("/usr/bin/podman") }
 end

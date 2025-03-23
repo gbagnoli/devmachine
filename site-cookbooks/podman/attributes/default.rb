@@ -40,4 +40,6 @@ default["podman"]["sources"]["catatonit"] = {
     "debian"=> [],
   ),
 }
+default["podman"]["cni-plugins"]["version"] = "v1.6.2"
+default["podman"]["cni-plugins"]["url"]="https://github.com/containernetworking/plugins/releases/download"
 # rubocop:enable Layout/LineLength
