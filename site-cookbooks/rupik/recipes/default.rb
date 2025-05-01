@@ -22,7 +22,7 @@ service "systemd-resolved" do
 end
 
 include_recipe "rupik::nginx"
-node.default["pihole"]["container"]["pod"] = "Web.pod"
+node.default["pihole"]["container"]["pod"] = "web.pod"
 include_recipe "pihole"
 include_recipe "rupik::unifi"
 include_recipe "rupik::btrbk"
