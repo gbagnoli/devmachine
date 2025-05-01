@@ -2,25 +2,7 @@ include_recipe "rupik::mounts"
 include_recipe "argonone"
 include_recipe "rupik::monitoring"
 include_recipe "rupik::podman"
-
-# disable stub DNS resolver for systemd-resolve
-file "/etc/systemd/resolved.conf" do
-  content <<~EOU
-    [Resolve]
-     DNSStubListener=no
-  EOU
-  notifies :restart, "service[systemd-resolved]", :immediately
-end
-
-link "/etc/resolv.conf" do
-  to "/run/systemd/resolve/resolv.conf"
-  notifies :restart, "service[systemd-resolved]", :immediately
-end
-
-service "systemd-resolved" do
-  action %i(nothing)
-end
-
+include_recipe "pihole::disable_systemd_resolved"
 include_recipe "rupik::nginx"
 node.default["pihole"]["container"]["pod"] = "web.pod"
 include_recipe "pihole"
