@@ -24,13 +24,15 @@ unless node["pihole"]["dns"]["custom"].nil?
 end
 
 conf = node["pihole"]["conf"]
-extra_config = conf.map { |k,v| "Environment=FTLCONF_#{k}=#{v}" }.join("\n")
-if node["pihole"]["container"]["pod"]
-  extra_config = %W{
-  Pod=#{node["pihole"]["container"]["pod"]}
+extra_config = conf.sort.map { |k,v| "Environment=FTLCONF_#{k}=#{v}" }.join("\n")
+container_conf = node["pihole"]["container"].sort.map do |k, v|
+  "#{k}=#{v}"
+end.join("\n")
+
+extra_config = %W{
+  #{container_conf}
   #{extra_config}
-  }
-end
+}
 
 podman_container "pihole" do
   config(
