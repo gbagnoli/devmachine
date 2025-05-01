@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 name "rupik"
 maintainer "Giacomo Bagnoli"
 maintainer_email "gbagnoli@gmail.com"
@@ -15,6 +13,7 @@ depends "podman_nginx"
 depends "syncthing"
 depends "tailscale"
 depends "cloudflare_ddns"
+depends "pihole"
 issues_url "https://github.com/gbagnoli/devmachine/issues"
 source_url "https://github.com/gbagnoli/devmachine"
 chef_version ">=14"

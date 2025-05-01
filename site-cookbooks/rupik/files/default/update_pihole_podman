@@ -1,6 +1,0 @@
-#!/bin/bash
-set -xeuo pipefail
-
-podman pull 'docker.io/pihole/pihole'
-systemctl restart pihole.service
-podman system prune --force

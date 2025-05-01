@@ -21,6 +21,8 @@ DEPENDENCIES
   oauth2_proxy
     git: https://github.com/gbagnoli/cookbook-oauth2_proxy
     revision: 715274b5560e880fa68c5c643f0a0d6adc018a70
+  pihole
+    path: site-cookbooks/pihole
   pleaserun
     git: https://github.com/mjuarez/chef-pleaserun.git
     revision: e104c998f064879afaab4ba89b779434de38c83c
@@ -56,14 +58,15 @@ DEPENDENCIES
     path: site-cookbooks/yubico
 
 GRAPH
-  apt (7.5.23)
+  apt (7.6.0)
   argonone (0.1.0)
-  ark (6.0.31)
+  ark (6.0.32)
     seven_zip (>= 3.1)
   boxy (0.1.0)
     btrbk (>= 0.0.0)
     cloudflare_ddns (>= 0.0.0)
     datadog (>= 0.0.0)
+    pihole (>= 0.0.0)
     podman (>= 0.0.0)
     podman_nginx (>= 0.0.0)
     rupik (>= 0.0.0)
@@ -84,7 +87,7 @@ GRAPH
   chef_client_updater (3.12.3)
   cloudflare_ddns (0.1.0)
     podman (>= 0.0.0)
-  datadog (4.21.0)
+  datadog (4.22.2)
     apt (>= 0.0.0)
     yum (>= 3.0)
   debconf (0.0.1)
@@ -95,19 +98,22 @@ GRAPH
   hardening (0.1.0)
     os-hardening (>= 0.0.0)
     ssh-hardening (>= 0.0.0)
-  homebrew (5.4.9)
+  homebrew (6.0.1)
   hostsfile (3.0.1)
-  java (12.0.7)
+  java (12.1.1)
     line (>= 0.0.0)
   kitty (0.1.0)
     ark (>= 0.0.0)
     gnome (>= 0.0.0)
   line (4.5.21)
-  logrotate (3.0.27)
+  logrotate (3.0.29)
   oauth2_proxy (1.0.0)
     ark (>= 0.0.0)
   ohai (5.3.1)
   os-hardening (4.2.0)
+  pihole (0.1.0)
+    datadog (>= 0.0.0)
+    podman (>= 0.0.0)
   pleaserun (0.1.1)
   plex (0.2.4)
   podman (0.2.0)
@@ -124,6 +130,7 @@ GRAPH
     btrbk (>= 0.0.0)
     cloudflare_ddns (>= 0.0.0)
     datadog (>= 0.0.0)
+    pihole (>= 0.0.0)
     podman (>= 0.0.0)
     podman_nginx (>= 0.0.0)
     syncthing (>= 0.0.0)
@@ -169,6 +176,6 @@ GRAPH
     sudo (>= 0.0.0)
   windows (7.0.2)
   yubico (0.1.0)
-  yum (7.4.19)
-  yum-elrepo (2.2.10)
+  yum (7.4.20)
+  yum-elrepo (2.3.0)
   yum-epel (5.0.8)
