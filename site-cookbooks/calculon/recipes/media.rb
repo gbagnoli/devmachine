@@ -214,7 +214,8 @@ end
 
 podman_image "putioarr" do
   config(
-    Image: ["Image=ghcr.io/wouterdebie/putioarr:v0.5.20"],
+    # Image: ["Image=ghcr.io/wouterdebie/putioarr:v0.5.20"],
+    Image: ["Image=localhost/putioarr:v0.5.34"],
   )
 end
 
