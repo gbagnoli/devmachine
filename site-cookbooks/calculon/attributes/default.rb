@@ -23,6 +23,7 @@ default["calculon"]["storage"]["paths"]["root"] = "/var/lib/data"
 default["calculon"]["storage"]["paths"]["tmp"] = "/var/lib/data/tmp"
 default["calculon"]["storage"]["paths"]["sync"] = "/var/lib/data/sync"
 default["calculon"]["storage"]["paths"]["www"] = "/var/lib/data/www"
+default["calculon"]["storage"]["paths"]["pihole"] = "/var/lib/data/pihole"
 default["calculon"]["storage"]["paths"]["tailscale"] = "/var/lib/data/tailscale"
 default["calculon"]["storage"]["paths"]["tdarr"] = "/var/lib/data/tdarr"
 default["calculon"]["storage"]["paths"]["radarr"] = "/var/lib/data/radarr"
@@ -38,15 +39,15 @@ default["calculon"]["storage"]["snapshots_volumes"] = %w{sync magiusstaff/sync}
 default["calculon"]["storage"]["library_dirs"] = {
   "movies" => {
     "service" => "radarr",
-    "mount": true,
+    "mount" => true,
   },
   "series" => {
     "service" => "sonarr",
-    "mount": true,
+    "mount" => true,
   },
   "music" => {
     "service" => "lidarr",
-    "mount": false,
+    "mount" => false,
   }
 }
 

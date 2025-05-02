@@ -15,6 +15,7 @@ supports "rocky", ">= 9.0"
 
 depends "hostsfile"
 depends "datadog"
+depends "pihole"
 depends "podman"
 depends "podman_nginx"
 depends "yum-epel"

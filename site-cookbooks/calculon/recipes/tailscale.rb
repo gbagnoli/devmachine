@@ -1,12 +1,28 @@
 tsdir = node["calculon"]["storage"]["paths"]["tailscale"]
+phdir = node["calculon"]["storage"]["paths"]["pihole"]
 user = "nobody"
 group = "nobody"
 
-calculon_btrfs_volume tsdir do
-  owner user
-  group group
-  mode "0700"
+[tsdir, phdir].each do |vol|
+  calculon_btrfs_volume vol do
+    owner user
+    group group
+    mode "0700"
+  end
 end
+
+%w{conf log}.each do |dir|
+  directory "#{phdir}/#{dir}" do
+    owner user
+    group group
+    mode "0700"
+  end
+end
+
+node.default["pihole"]["paths"]["root"] = "#{phdir}/conf"
+node.default["pihole"]["paths"]["logs"] = "#{phdir}/log"
+node.default["pihole"]["container"]["Pod"] = "web.pod"
+include_recipe "pihole"
 
 net = node["calculon"]["network"]["containers"]
 node.override["tailscale"]["install_type"] = "podman"

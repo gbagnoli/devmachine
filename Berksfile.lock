@@ -78,6 +78,7 @@ GRAPH
     datadog (>= 0.0.0)
     hostsfile (>= 0.0.0)
     logrotate (>= 0.0.0)
+    pihole (>= 0.0.0)
     podman (>= 0.0.0)
     podman_nginx (>= 0.0.0)
     syncthing (>= 0.0.0)
