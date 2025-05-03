@@ -31,7 +31,7 @@ node.override["tailscale"]["podman"]["group"] = group
 node.override["tailscale"]["podman"]["config_dir"] = tsdir
 node.override["tailscale"]["podman"]["extra_env"] = {
   "TS_ROUTES" => "#{net["ipv4"]["network"]},#{net["ipv6"]["network"]}",
-  "TS_EXTRA_ARGS" => "--advertise-exit-node"
+  "TS_EXTRA_ARGS" => '"--advertise-exit-node --accept-routes --snat-subnet-routes=false"'
 }
 
 bash "enable masquerading" do
