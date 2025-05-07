@@ -271,6 +271,11 @@ file "#{putioarr_root}/config.toml" do
   notifies :restart, "service[putioarr]", :delayed
 end
 
+# FIXME: the putioarr volume is to have a fresher binary until
+# https://github.com/wouterdebie/putioarr/issues/17 is resolved
+# and https://github.com/wouterdebie/putioarr/pull/18 merged
+# the binary needs to be built and put in /usr/local/bin/putioarr
+# with proper permissions (755) and owners (root:root) manually.
 podman_container "putioarr" do
   config(
     Container: %W{
@@ -281,6 +286,7 @@ podman_container "putioarr" do
       Environment=PGID=#{gid}
       Volume=#{putioarr_root}:/config
       Volume=#{node["calculon"]["storage"]["paths"]["downloads"]}:/downloads
+      Volume=/usr/local/bin/putioarr:/usr/bin/putioarr
       ExposeHostPort=9091
     },
     Service: %w{
