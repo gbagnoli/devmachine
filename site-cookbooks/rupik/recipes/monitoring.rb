@@ -3,6 +3,11 @@ if node["datadog"]["api_key"].nil? || node["datadog"]["application_key"].nil?
   return
 end
 
+node.override["datadog"]["enable_process_agent"] = true
+node.override["datadog"]["system_probe"]["enabled"] = true
+node.override["datadog"]["system_probe"]["network_enabled"] = true
+node.override["datadog"]["system_probe"]["service_monitoring_enabled"] = true
+
 include_recipe "datadog::dd-agent"
 include_recipe "datadog::dd-handler"
 
