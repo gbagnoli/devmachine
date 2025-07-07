@@ -115,6 +115,7 @@ podman_container "magiusstaff-filebrowser" do
       "Volume=#{syncd}:/files",
       "Volume=#{fbfile}:/database.db",
       "Volume=#{fbsettings}:/.filebrowser.json",
+      "Volume=#{fbsettings}:/config/settings.json",
       "Network=calculon.network",
       "HostName=magiusstaff-files.tigc.eu",
       "User=#{user_uid}:#{group_gid}",

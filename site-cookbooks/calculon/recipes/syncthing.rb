@@ -74,6 +74,7 @@ podman_container "filebrowser" do
       "Volume=#{sync}:/files",
       "Volume=#{fbfile}:/database.db",
       "Volume=#{fbsettings}:/.filebrowser.json",
+      "Volume=#{fbsettings}:/config/settings.json",
       "Network=calculon.network",
       "HostName=files.tigc.eu",
       "User=#{node["calculon"]["data"]["uid"]}:#{node["calculon"]["data"]["gid"]}",
