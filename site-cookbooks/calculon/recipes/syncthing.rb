@@ -31,7 +31,7 @@ podman_image "filebrowser" do
 end
 
 fbdir = "#{sync}/.filebrowser"
-fbfile = "#{fbdir}/database.db"
+fbdatabase = "#{fbdir}/database.db"
 fbsettings = "#{fbdir}/settings.json"
 
 directory fbdir do
@@ -40,7 +40,7 @@ directory fbdir do
   mode "0700"
 end
 
-file fbfile do
+file fbdatabase do
   owner node["calculon"]["data"]["username"]
   group node["calculon"]["data"]["group"]
   mode "0700"
@@ -72,13 +72,12 @@ podman_container "filebrowser" do
       "PublishPort=[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]:8385:8080",
       "PublishPort=#{node["calculon"]["network"]["containers"]["ipv4"]["addr"]}:8385:8080",
       "Volume=#{sync}:/files",
-      "Volume=#{fbfile}:/database.db",
-      "Volume=#{fbsettings}:/.filebrowser.json",
+      "Volume=#{fbdatabase}:/database.db",
       "Volume=#{fbsettings}:/config/settings.json",
       "Network=calculon.network",
       "HostName=files.tigc.eu",
       "User=#{node["calculon"]["data"]["uid"]}:#{node["calculon"]["data"]["gid"]}",
-      "Exec=-a 0.0.0.0 -r /files/ -p 8080 -c /.filebrowser.json",
+      "Exec=-a 0.0.0.0 -r /files/ -p 8080",
     ],
     Service: %w{
       Restart=always

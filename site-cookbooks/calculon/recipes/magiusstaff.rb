@@ -114,12 +114,11 @@ podman_container "magiusstaff-filebrowser" do
       "PublishPort=#{ipv4}:8387:8080",
       "Volume=#{syncd}:/files",
       "Volume=#{fbfile}:/database.db",
-      "Volume=#{fbsettings}:/.filebrowser.json",
       "Volume=#{fbsettings}:/config/settings.json",
       "Network=calculon.network",
       "HostName=magiusstaff-files.tigc.eu",
       "User=#{user_uid}:#{group_gid}",
-      "Exec=-a 0.0.0.0 -r /files/ -p 8080 -c /.filebrowser.json",
+      "Exec=-a 0.0.0.0 -r /files/ -p 8080",
     ],
     Service: %w{
       Restart=always
