@@ -24,7 +24,7 @@ else
 fi
 
 echo "* Installing rbenv and cinc-workstation plugin"
-apt_get install rbenv git lsb-release
+apt_get install rbenv git lsb-release shellcheck
 if [ ! -d "$(rbenv root)"/plugins ]; then
   mkdir -p "$(rbenv root)"/plugins
   git clone -b cinc-workstation https://github.com/david-alpert-nl/rbenv-chef-workstation.git "$(rbenv root)"/plugins/ruby-build
@@ -57,8 +57,8 @@ eval "$(pyenv init -)"
 pyenv shell $PYTHON_VERSION
 pip install -U pip pipenv
 
-[ ! -L .git/hooks/pre-commit ] && ln -s hooks/pre-commit.sh .git/hooks/pre-commit
-[ ! -L .git/hooks/pre-push ] && ln -s hooks/pre-push.sh .git/hooks/pre-push
+[ ! -L .git/hooks/pre-commit ] && ln -s "$(pwd)/hooks/pre-commit.sh" .git/hooks/pre-commit
+[ ! -L .git/hooks/pre-push ] && ln -s "$(pwd)/hooks/pre-push.sh" .git/hooks/pre-push
 pipenv install
 # we need to fix ubuntu's gid for the ubuntu group to avoid a clash
 getent group ubuntu | grep 1010 -q || sudo groupmod -g 1010 ubuntu
