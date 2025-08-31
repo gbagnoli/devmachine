@@ -2,7 +2,7 @@
 
 user = node["user"]["login"]
 group = node["user"]["group"]
-home = "/home/#{user}"
+home = "#{node["user"]["homedir"]}/#{user}"
 uid = node["user"]["uid"]
 gid = node["user"]["gid"]
 realname = node["user"]["realname"]

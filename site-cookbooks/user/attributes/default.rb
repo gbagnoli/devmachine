@@ -2,6 +2,7 @@
 
 default["user"]["login"] = "giacomo"
 default["user"]["group"] = "giacomo"
+default["user"]["homedir"] = "/home"
 default["user"]["uid"] = 1000
 default["user"]["gid"] = 1000
 default["user"]["realname"] = "Giacomo Bagnoli"

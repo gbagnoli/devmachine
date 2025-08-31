@@ -24,7 +24,7 @@ else
 fi
 
 echo "* Installing rbenv and cinc-workstation plugin"
-apt_get install rbenv git
+apt_get install rbenv git lsb-release
 if [ ! -d "$(rbenv root)"/plugins ]; then
   mkdir -p "$(rbenv root)"/plugins
   git clone -b cinc-workstation https://github.com/david-alpert-nl/rbenv-chef-workstation.git "$(rbenv root)"/plugins/ruby-build

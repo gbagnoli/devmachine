@@ -35,5 +35,6 @@ default_attributes(
     "gid" => 1000,
     "realname" => "Giacomo Bagnoli",
     "install_vpnutils" => false,
+    "homedir" => "/var/home",
   }
 )
