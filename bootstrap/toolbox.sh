@@ -20,7 +20,7 @@ if command -v cinc-shell; then
   echo "* cinc-workstation already installed"
 else
   echo "* Installing cinc-workstation (might be very slow)"
-  curl -L https://omnitruck.cinc.sh/install.sh | sudo bash -s -- -P cinc-workstation -v 22
+  curl -L https://omnitruck.cinc.sh/install.sh | sudo bash -s -- -P cinc-workstation -v 24
 fi
 
 echo "* Installing rbenv and cinc-workstation plugin"
