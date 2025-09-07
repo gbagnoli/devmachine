@@ -13,7 +13,7 @@ if [ $# -eq 1 ] && [[ "$1" == "system" ]]; then
   set -x
   sudo mkdir -p /usr/local/src/chefrepo
   chef exec berks vendor >/dev/null
-  sudo rsync --verbose --delete --exclude "data" --exclude "boostrap" --exclude "local-mode-cache" --exclude ".git" --exclude "nodes" --exclude "secrets" --exclude "ohai/plugins" --exclude ".gnupg" --exclude ".cache" -pthrvz -q  ./ /usr/local/src/chefrepo/
+  sudo rsync --verbose --delete --exclude "data" --exclude butane --exclude "boostrap" --exclude "local-mode-cache" --exclude ".git" --exclude "nodes" --exclude "secrets" --exclude "ohai/plugins" --exclude ".gnupg" --exclude ".cache" -pthrvz -q  ./ /usr/local/src/chefrepo/
   sudo /usr/local/bin/run-chef
 else
   pipenv run -- fab run "$@"

@@ -126,6 +126,7 @@ def rsync(
             "ohai/plugins",
             ".gnupg",
             ".cache",
+            "butane",
         ),
         extra_opts="-q",
         delete=True,
