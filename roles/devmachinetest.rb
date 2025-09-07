@@ -8,7 +8,6 @@ override_attributes(
   "user" => {
     "uid" => 2000,
     "gid" => 2000,
-    "install_vpnutils" => false,
     "install_photo_process" => false,
   },
   "ubik" => {
@@ -26,4 +25,3 @@ override_attributes(
     },
   },
 )
-

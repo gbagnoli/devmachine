@@ -141,15 +141,6 @@ end
   ssh_known_hosts_entry site
 end
 
-if node["user"]["install_vpnutils"]
-  git "#{home}/.local/src/vpnutils" do
-    repository "git@github.com:gbagnoli/vpnutils.git"
-    action :sync
-    revision "development"
-    user user
-  end
-end
-
 git "#{home}/.local/src/autoenv" do
   repository "https://github.com/hyperupcall/autoenv.git"
   action :sync

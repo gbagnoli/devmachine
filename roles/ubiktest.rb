@@ -8,7 +8,6 @@ default_attributes(
   "user" => {
     "uid" => 2000,
     "gid" => 2000,
-    "install_vpnutils" => false,
   },
   "ubik" => {
     "skip_packages" => true,

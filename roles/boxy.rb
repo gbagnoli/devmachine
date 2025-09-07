@@ -13,7 +13,6 @@ default_attributes(
     "uid" => 1003,
     "gid" => 1003,
     "realname" => "Giacomo Bagnoli",
-    "install_vpnutils" => false,
   },
 )
 
