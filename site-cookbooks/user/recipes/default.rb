@@ -69,9 +69,15 @@ end
   end
 end
 
-{ '.vim': "#{home}/.config/nvim",
+{ '.config/flake8': "#{dotfiles}/flake8",
   '.config/nvim/init.vim': "#{dotfiles}/vim/vimrc",
+  '.vim': "#{home}/.config/nvim",
   '.vimrc': "#{dotfiles}/vim/vimrc" }.each do |source, dest|
+  file "#{home}/#{source}" do
+    action :delete
+    not_if { File.symlink? path }
+  end
+
   link "#{home}/#{source}" do
     to dest
   end
@@ -173,13 +179,6 @@ end
 
 file "#{home}/.bashrc.local" do
   action :create_if_missing
-end
-
-cookbook_file "#{home}/.config/flake8" do
-  source "flake8"
-  mode "0644"
-  owner user
-  group group
 end
 
 sudo "#{node["user"]["login"]}_docker" do
