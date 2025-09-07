@@ -56,32 +56,17 @@ git dotfiles do
   user user
 end
 
-link "#{home}/.inputrc" do
-  to "#{dotfiles}/inputrc"
+
+%w(inputrc gitconfig bashrc gitignore_global tmux.conf).each do |conf|
+  link "#{home}/.#{conf}" do
+    to "#{dotfiles}/#{conf}"
+  end
 end
 
-link "#{home}/.gitconfig" do
-  to "#{dotfiles}/gitconfig"
-end
-
-link "#{home}/.gitignore_global" do
-  to "#{dotfiles}/gitignore"
-end
-
-link "#{home}/.tmux.conf" do
-  to "#{dotfiles}/tmux.conf"
-end
-
-link "#{home}/.vim" do
-  to "#{home}/.config/nvim"
-end
-
-link "#{home}/.config/nvim/init.vim" do
-  to "#{dotfiles}/vim/vimrc"
-end
-
-link "#{home}/.vimrc" do
-  to "#{dotfiles}/vim/vimrc"
+{ '.vim': "#{home}/.config/nvim", '.config/nvim/init.vim': "#{dotfiles}/vim/vimrc", '.vimrc': "#{dotfiles}/vim/vimrc" }.each do |source, dest|
+  link "#{home}/#{source}" do
+    to "#{dest}"
+  end
 end
 
 if platform?("debian")
@@ -176,13 +161,6 @@ template "/etc/liquidpromptrc" do
   group "root"
   mode "0755"
   source "liquidpromptrc.erb"
-end
-
-template "#{home}/.bashrc" do
-  owner user
-  group group
-  mode "0640"
-  source "bashrc.erb"
 end
 
 cookbook_file "#{home}/.profile" do
