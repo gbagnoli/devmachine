@@ -3,14 +3,14 @@
 user = node["user"]["login"]
 group = node["user"]["group"]
 home = "#{node["user"]["homedir"]}/#{user}"
-uid = node["user"]["uid"]
 gid = node["user"]["gid"]
-realname = node["user"]["realname"]
 
 group user do
   gid gid
 end
 
+uid = node["user"]["uid"]
+realname = node["user"]["realname"]
 user user do
   group group
   shell "/bin/bash"
@@ -19,6 +19,7 @@ user user do
   gid user
   home home
   comment realname
+  not_if "getent passwd #{user}"
 end
 
 [home, "#{home}/.ssh"].each do |d|
