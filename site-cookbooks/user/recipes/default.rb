@@ -70,6 +70,7 @@ end
 end
 
 { '.config/flake8': "#{dotfiles}/flake8",
+  '.config/liquidpromptrc': "#{dotfiles}/liquidpromptrc",
   '.config/nvim/init.vim': "#{dotfiles}/vim/vimrc",
   '.vim': "#{home}/.config/nvim",
   '.vimrc': "#{dotfiles}/vim/vimrc" }.each do |source, dest|
@@ -162,30 +163,12 @@ git "/usr/share/liquidprompt" do
   revision "master"
 end
 
-file "#{home}/.config/liquid.theme" do
+file "/etc/liquidpromptrc" do
   action :delete
-end
-
-file "#{home}/.config/liquidpromptrc" do
-  action :delete
-end
-
-template "/etc/liquidpromptrc" do
-  owner "root"
-  group "root"
-  mode "0755"
-  source "liquidpromptrc.erb"
 end
 
 file "#{home}/.bashrc.local" do
   action :create_if_missing
-end
-
-sudo "#{node["user"]["login"]}_docker" do
-  nopasswd true
-  commands ["/usr/bin/docker"]
-  user node["user"]["login"]
-  action :delete
 end
 
 group "docker" do
