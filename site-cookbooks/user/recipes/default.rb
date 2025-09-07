@@ -57,16 +57,23 @@ git dotfiles do
   user user
 end
 
+%w(inputrc gitconfig bashrc gitignore_global tmux.conf profile).each do |conf|
+  path="#{home}/.#{conf}"
+  file path do
+    action :delete
+    not_if { File.symlink? path }
+  end
 
-%w(inputrc gitconfig bashrc gitignore_global tmux.conf).each do |conf|
-  link "#{home}/.#{conf}" do
+  link path do
     to "#{dotfiles}/#{conf}"
   end
 end
 
-{ '.vim': "#{home}/.config/nvim", '.config/nvim/init.vim': "#{dotfiles}/vim/vimrc", '.vimrc': "#{dotfiles}/vim/vimrc" }.each do |source, dest|
+{ '.vim': "#{home}/.config/nvim",
+  '.config/nvim/init.vim': "#{dotfiles}/vim/vimrc",
+  '.vimrc': "#{dotfiles}/vim/vimrc" }.each do |source, dest|
   link "#{home}/#{source}" do
-    to "#{dest}"
+    to dest
   end
 end
 
@@ -162,13 +169,6 @@ template "/etc/liquidpromptrc" do
   group "root"
   mode "0755"
   source "liquidpromptrc.erb"
-end
-
-cookbook_file "#{home}/.profile" do
-  source "profile"
-  mode "0640"
-  owner user
-  group group
 end
 
 file "#{home}/.bashrc.local" do
