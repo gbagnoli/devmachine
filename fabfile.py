@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-from __future__ import print_function
-
 import json
 import os
 import socket
@@ -24,9 +22,7 @@ cd {remote}
 script = "/usr/local/bin/run-chef"
 wrapper_script = """#!/bin/bash
 sudo {} "$@"
-""".format(
-    script
-)
+""".format(script)
 sudoers = "/etc/sudoers.d/chef"
 
 
