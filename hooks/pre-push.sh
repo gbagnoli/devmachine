@@ -4,6 +4,6 @@ set -eu
 
 pushd "$(git rev-parse --show-toplevel)" >/dev/null
 chef exec cookstyle site-cookbooks roles
-black --check fabfile.py
-isort fabfile.py
+uv run ruff check --diff
+uv run ruff format --diff
 popd >/dev/null

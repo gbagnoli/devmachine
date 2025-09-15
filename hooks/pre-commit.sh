@@ -56,10 +56,10 @@ if [ "${#ruby[@]}" -gt 0 ] || [ "${#chef[@]}" -gt 0 ]; then
 fi
 if [ "${#python[@]}" -gt 0 ]; then
   echo "Running ruff "
-  ruff check --no-fix --diff "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
-  ruff format --diff "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  uv run ruff check --no-fix --diff "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  uv run ruff format --diff "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
   echo -n "Running mypy :"
-  mypy --ignore-missing-imports "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  uv run mypy --ignore-missing-imports "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
 fi
 
 if [ "${#shell[@]}" -gt 0 ]; then
