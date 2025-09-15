@@ -3,6 +3,7 @@ description "A role to configure a development container"
 run_list [
   "recipe[user::default]",
   "recipe[ubik::ruby]",
+  "recipe[ubik::rust]",
   "recipe[ubik::golang]",
   "recipe[user::photos]",
 ]
@@ -16,11 +17,8 @@ default_attributes(
         "user" => "giacomo",
     },
     "rust" => {
-      "version" => "nightly"
+      "version" => "stable"
     },
-    "languages" => %w(en it),
-    "install_latex" => true,
-    "install_fonts" => true,
   },
   "user" => {
     "login" => "giacomo",

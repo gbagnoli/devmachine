@@ -4,15 +4,10 @@
 nodes:
   - boxy
   - calculon
-  - devmachinetest
   - rupik
   - toolbox
-  - ubik
-  - ubikxps
 
 require_secrets:
   - boxy
   - calculon
   - rupik
-  - ubik
-  - ubikxps
