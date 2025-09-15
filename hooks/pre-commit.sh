@@ -6,6 +6,7 @@ pushd "$(git rev-parse --show-toplevel)" >/dev/null
 tmpdir="$(mktemp -d)"
 
 cleanup() {
+  # shellcheck disable=SC2317
   rm -rf "$tmpdir"
 }
 
@@ -55,14 +56,14 @@ if [ "${#ruby[@]}" -gt 0 ] || [ "${#chef[@]}" -gt 0 ]; then
 fi
 if [ "${#python[@]}" -gt 0 ]; then
   echo "Running black "
-  pipenv run black --check --diff "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  black --check --diff "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
   echo "Running isort "
-  pipenv run isort "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  isort "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
   echo "Running flake8 "
-  pipenv run flake8 --ignore=E501 "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  flake8 --ignore=E501 "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
   echo -n "Running mypy :"
-  yes | pipenv run mypy --install-types &>/dev/null
-  pipenv run mypy --ignore-missing-imports "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  yes | mypy --install-types &>/dev/null
+  mypy --ignore-missing-imports "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
 fi
 
 if [ "${#shell[@]}" -gt 0 ]; then

@@ -1,0 +1,18 @@
+[project]
+name = "devmachine"
+version = "0.0.1"
+dependencies = [
+    "Fabric>=1.15.0,<2",
+    "flake8",
+    "mypy",
+    "black",
+    "isort",
+    "pyyaml",
+]
+
+[tool.uv]
+package = false
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.python.org/simple"

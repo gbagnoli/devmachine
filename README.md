@@ -18,8 +18,8 @@ Dependencies:
 * [cinc-workstation](https://cinc.sh/start/workstation/)
 * [rbenv](https://github.com/rbenv/rbenv)
 * [rbenv-cinc-workstation](https://github.com/yacn/rbenv-cinc-workstation.git)
-* [pyenv](https://github.com/pyenv/pyenv)
-* python3.13 (`pyenv install 3.13.0`)
+* [brew](https://brew.sh)
+* [uv](https://github.com/astral-sh/uv)
 
 Once installed cinc-workstation from deb:
 
@@ -35,25 +35,16 @@ git clone https://github.com/yacn/rbenv-cinc-workstation.git  "$(rbenv root)"/pl
 mkdir "$(rbenv root)/versions/cinc-workstation"
 rbenv shell cinc-workstation
 rbenv rehash
-# install pyenv
-git clone https://github.com/pyenv/pyenv.git ~/.pyenv
-echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
-echo 'export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
-echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bashrc
-exec "$SHELL"  # reload the settings
-# install needed tools to build python
-apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev
-pyenv install 3.13.0
-# this should be automatic if pyenv is installed correctly
-# as per .python-version file when you cd into this directory
-pyenv shell 3.13.0
-# also, make sure pip and pipenv are installed
-pip install -U pip pipenv
+# install brew
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+export PATH="$PATH:/home/linuxbrew/.linuxbrew/bin"
+brew install uv
+uv venv
+source .venv/bin/activate
+uv sync --dev
 # install the git commit hook that will run all needed linters
 ln -s $(pwd)/hooks/pre-commit.sh .git/hooks/pre-commit
 ln -s $(pwd)/hooks/pre-push.sh .git/hooks/pre-push
-pipenv shell
-pipenv install
 ```
 
 In case you use [autoenv](https://github.com/kennethreitz/autoenv) you can add this to the `.env` file
@@ -61,8 +52,8 @@ In case you use [autoenv](https://github.com/kennethreitz/autoenv) you can add t
 ```bash
 #!/bin/bash
 
-if [ -z ${PIPENV_ACTIVE+x} ]; then
-  pipenv shell
+if [ -z ${VIRTUAL_ENV+x} ] && [ -f .venv/bin/activate ]; then
+  .  .venv/bin/activate
 fi
 ```
 
