@@ -55,14 +55,10 @@ if [ "${#ruby[@]}" -gt 0 ] || [ "${#chef[@]}" -gt 0 ]; then
   chef exec cookstyle "$tmpdir/site-cookbooks"; e=$?; [ $e -ne 0 ] && ec=$e
 fi
 if [ "${#python[@]}" -gt 0 ]; then
-  echo "Running black "
-  black --check --diff "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
-  echo "Running isort "
-  isort "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
-  echo "Running flake8 "
-  flake8 --ignore=E501 "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  echo "Running ruff "
+  ruff check --no-fix --diff "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
+  ruff format --diff "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
   echo -n "Running mypy :"
-  yes | mypy --install-types &>/dev/null
   mypy --ignore-missing-imports "${python[@]}"; e=$?; [ $e -ne 0 ] && ec=$e
 fi
 
