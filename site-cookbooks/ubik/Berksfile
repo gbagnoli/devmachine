@@ -5,5 +5,4 @@ source "https://supermarket.chef.io"
 metadata
 
 cookbook "flatpack"
-cookbook "pyenv"
 cookbook "debconf", git: "https://github.com/ophymx/debconf.git"

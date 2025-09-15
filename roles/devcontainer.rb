@@ -2,7 +2,6 @@ name "devcontainer"
 description "A role to configure a development container"
 run_list [
   "recipe[user::default]",
-  "recipe[ubik::python]",
   "recipe[ubik::ruby]",
   "recipe[ubik::golang]",
   "recipe[user::photos]",
@@ -18,11 +17,6 @@ default_attributes(
     },
     "rust" => {
       "version" => "nightly"
-    },
-    "python" => {
-      "user" => "giacomo",
-      "versions" => ["2.7.18", "3.13.0"],
-      "user_global" => "3.13.0 2.7.18",
     },
     "languages" => %w(en it),
     "install_latex" => true,

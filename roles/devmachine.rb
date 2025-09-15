@@ -6,7 +6,6 @@ run_list [
   "recipe[podman::install]",
   "recipe[ubik::udev]",
   "recipe[ubik::users]",
-  "recipe[ubik::python]",
   "recipe[ubik::ruby]",
   "recipe[ubik::rust]",
   "recipe[ubik::golang]",
@@ -37,11 +36,6 @@ default_attributes(
     },
     "rust" => {
       "version" => "nightly"
-    },
-    "python" => {
-      "user" => "giacomo",
-      "versions" => ["2.7.18", "3.13.0"],
-      "user_global" => "3.13.0 2.7.18",
     },
     "languages" => %w(en it),
     "install_latex" => true,
