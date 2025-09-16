@@ -1,8 +1,7 @@
 #!/bin/bash
 #
 # AIM: boostrap a distrobox/toolbox container
-# this assumes ubuntu-24.04
-PYTHON_VERSION=3.13.0
+# this assumes ubuntu
 
 set -euo pipefail
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
@@ -20,12 +19,22 @@ if command -v cinc-shell; then
   echo "* cinc-workstation already installed"
 else
   echo "* Installing cinc-workstation (might be very slow)"
-  curl -L https://omnitruck.cinc.sh/install.sh | sudo bash -s -- -P cinc-workstation -v 24
+  curl -L https://omnitruck.cinc.sh/install.sh | sudo bash -s -- -P cinc-workstation -v 25
 fi
 
-echo "* Installing rbenv and cinc-workstation plugin"
-apt_get install rbenv git lsb-release shellcheck
+echo "* Installing utilities"
+apt_get install rbenv lsb-release git
+export PATH="$PATH:/home/linuxbrew/.linuxbrew/bin"
+if command -v brew; then
+  echo "* brew already installed"
+else
+  echo "* Installing brew"
+  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+fi
+
+brew install shellcheck uv
 if [ ! -d "$(rbenv root)"/plugins ]; then
+  echo "* Installing rbenv chefdk plugin"
   mkdir -p "$(rbenv root)"/plugins
   git clone -b cinc-workstation https://github.com/david-alpert-nl/rbenv-chef-workstation.git "$(rbenv root)"/plugins/ruby-build
   mkdir -p "$(rbenv root)/versions/cinc-workstation"
@@ -38,28 +47,12 @@ rbenv shell cinc-workstation
 set -u
 rbenv rehash
 
-if [ ! -d ~/.pyenv ]; then
-  git clone https://github.com/pyenv/pyenv.git ~/.pyenv
-  "$SHELL"
-  rbenv shell cinc-workstation
-fi
-
-if ! pyenv version | grep $PYTHON_VERSION -q; then
-  echo "* Installing python $PYTHON_VERSION"
-  apt_get install make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev
-  pyenv install $PYTHON_VERSION
-fi
-
-echo "* Entering pyenv shell"
-export PYENV_ROOT="$HOME/.pyenv"
-[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init -)"
-pyenv shell $PYTHON_VERSION
-pip install -U pip pipenv
+echo "* Creating uv venv"
+uv venv --allow-existing
+uv sync --dev
 
 [ ! -L .git/hooks/pre-commit ] && ln -s "$(pwd)/hooks/pre-commit.sh" .git/hooks/pre-commit
 [ ! -L .git/hooks/pre-push ] && ln -s "$(pwd)/hooks/pre-push.sh" .git/hooks/pre-push
-pipenv install
 # we need to fix ubuntu's gid for the ubuntu group to avoid a clash
 getent group ubuntu | grep 1010 -q || sudo groupmod -g 1010 ubuntu
 
@@ -67,6 +60,6 @@ getent group ubuntu | grep 1010 -q || sudo groupmod -g 1010 ubuntu
 # some cache files are present but the binary is not installed
 # this will confuse chef as it won't run the unpack.
 # let's remove the cached files?
-sudo rm -fv local-mode-cache/cache/{go,fzf,zoxide}*
+sudo rm -fv local-mode-cache/cache/{go,fzf,zoxide,rust-analyzer}*
 
-pipenv run ./run -H localhost_toolbox
+uv run ./run -H localhost_toolbox
