@@ -183,7 +183,7 @@ end
 
 podman_image "lidarr" do
   config(
-    Image: ["Image=lscr.io/linuxserver/lidarr:latest"],
+    Image: ["Image=lscr.io/linuxserver/lidarr:nightly"],
   )
 end
 
