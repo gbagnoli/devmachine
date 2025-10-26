@@ -53,7 +53,7 @@ DEPENDENCIES
     path: site-cookbooks/user
 
 GRAPH
-  apt (7.6.1)
+  apt (7.7.0)
   argonone (0.1.0)
   ark (6.0.33)
     seven_zip (>= 3.1)
@@ -83,7 +83,7 @@ GRAPH
   chef_client_updater (3.12.3)
   cloudflare_ddns (0.1.0)
     podman (>= 0.0.0)
-  datadog (4.22.2)
+  datadog (4.22.3)
     apt (>= 0.0.0)
     yum (>= 3.0)
   debconf (0.0.1)
