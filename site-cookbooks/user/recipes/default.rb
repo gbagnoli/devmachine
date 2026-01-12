@@ -55,6 +55,16 @@ git dotfiles do
   checkout_branch "master"
   action :sync
   user user
+  notifies :run, "execute[install dotfiles]", :immediately
+end
+
+execute "install dotfiles" do
+  action :run
+  environment HOME: home
+  cwd dotfiles
+  command "#{dotfiles}/install.sh"
+  user user
+  group group
 end
 
 %w(inputrc gitconfig bashrc gitignore_global tmux.conf profile).each do |conf|
@@ -172,66 +182,6 @@ node["user"]["ssh_authorized_keys"].each do |desc|
     key desc[:pubkey]
     user node["user"]["login"]
     keytype desc[:keytype]
+    not_if { File.symlink?("#{home}/.ssh/authorized_key") }
   end
-end
-
-machine = node["kernel"]["machine"]
-ruby_block "get zoxide latest version" do
-  block do
-    uri = URI("https://api.github.com/repos/ajeetdsouza/zoxide/releases/latest")
-    response = Net::HTTP.get(uri)
-    parsed = JSON.parse(response)
-    asset = parsed["assets"].select {|x| x["name"].include?("#{machine}-unknown-linux")}.first
-    node.run_state["zoxide_download_url"] = asset["browser_download_url"]
-    node.run_state["zoxide_version"] = parsed["tag_name"][1..]
-  end
-end
-
-zoxide_tar = "#{Chef::Config[:file_cache_path]}/zoxide.latest.tar.gz"
-remote_file zoxide_tar do
-  source(lazy { node.run_state["zoxide_download_url"] })
-  notifies :run, "bash[install_zoxide]", :immediately
-end
-
-bash "install_zoxide" do
-  action :nothing
-  code <<~EOH
-    tar -xpzf #{zoxide_tar} -C /usr/bin zoxide
-    tar --strip-components=1 -xpzf #{zoxide_tar} -C /etc/bash_completion.d/ completions/zoxide.bash
-  EOH
-end
-
-
-arch = case machine
-       when "x86_64"
-         "amd64"
-       when "aarch64"
-         "arm64"
-       else
-         Chef::Log.fatal("Unsupported arch #{node["kernel"]["machine"]}")
-         raise
-       end
-
-ruby_block "get fzf latest version" do
-  block do
-    uri = URI("https://api.github.com/repos/junegunn/fzf/releases/latest")
-    response = Net::HTTP.get(uri)
-    parsed = JSON.parse(response)
-    asset = parsed["assets"].select {|x| x["name"].include?("linux_#{arch}")}.first
-    node.run_state["fzf_download_url"] = asset["browser_download_url"]
-    node.run_state["fzf_version"] = parsed["tag_name"][1..]
-  end
-end
-
-fzf_tar = "#{Chef::Config[:file_cache_path]}/fzf.latest.tar.gz"
-remote_file fzf_tar do
-  source(lazy { node.run_state["fzf_download_url"] })
-  notifies :run, "bash[install_fzf]", :immediately
-end
-
-bash "install_fzf" do
-  action :nothing
-  code <<~EOH
-    tar -xpzf #{fzf_tar} -C /usr/bin fzf
-  EOH
 end

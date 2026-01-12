@@ -2,24 +2,9 @@ name "devcontainer"
 description "A role to configure a development container"
 run_list [
   "recipe[user::default]",
-  "recipe[ubik::ruby]",
-  "recipe[ubik::rust]",
-  "recipe[ubik::golang]",
   "recipe[user::photos]",
 ]
 default_attributes(
-  "ubik" => {
-    "golang" => {
-      "version" => "1.23.3",
-    },
-    "ruby" => {
-        "rubies" => ["3.3.0"],
-        "user" => "giacomo",
-    },
-    "rust" => {
-      "version" => "stable"
-    },
-  },
   "user" => {
     "login" => "giacomo",
     "group" => "giacomo",

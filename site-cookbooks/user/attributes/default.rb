@@ -27,6 +27,14 @@ default["user"]["ssh_authorized_keys"] = [{
   name: "giacomo@mac",
   pubkey: "AAAAC3NzaC1lZDI1NTE5AAAAIB+LUBD9jvN98k6es/W/0h/nGibhHGf7OY6JZG+H3pQL",
   keytype: "ssh-ed25519",
+}, {
+  name: "giacomo@boxy",
+  pubkey: "AAAAC3NzaC1lZDI1NTE5AAAAIBwFi5pLjXnHnYtnfC/jP3/PrNUVDNUwCy5qCevHf53y",
+  keytype: "ssh-ed25519",
+}, {
+  name: "giacomo@rupik",
+  pubkey: "AAAAC3NzaC1lZDI1NTE5AAAAIPDIJgqIRuNxzc8097VrA91Ig7XK99kzIqUnrlKaJNNR",
+  keytype: "ssh-ed25519",
 }]
 
 # must be set in secrets

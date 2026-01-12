@@ -14,6 +14,8 @@ apt_get () {
   -o Dpkg::Options::=--force-confdef \
   -y --allow-downgrades --allow-remove-essential --allow-change-held-packages "$@"
 }
+apt_get update
+apt_get dist-upgrade
 
 if command -v cinc-shell; then
   echo "* cinc-workstation already installed"
