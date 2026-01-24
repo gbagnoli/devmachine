@@ -1,0 +1,161 @@
+#!/bin/bash
+
+set -euo pipefail
+
+script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+CONTAINER="ubuntu"
+IMAGE=ghcr.io/gbagnoli/ubuntu
+PTYXIS_DCONF_PATH="/org/gnome/Ptyxis/Profiles"
+PTYXIS_PROFILE="Development"
+PTYXIS_GSETTINGS_PATH="org.gnome.Ptyxis"
+BB="\e[1m"
+BE="\e[0m"
+
+disable_colors() {
+  BB=""
+  BE=""
+}
+
+if [ ! -t 1 ] || [ "$(tput colors 2>/dev/null || echo 0)" -lt 8 ]; then
+  disable_colors
+fi
+
+usage() {
+  exit_code=0
+  echo -e >&2 "${BB}Usage${BE}: $(basename "$0") [-Cfhv] [-c container_name] [-i image]"
+  echo -e >&2
+  echo -e >&2 "${BB}Options${BE}"
+  echo -e >&2 "  ${BB}-h${BE}: print this help"
+  echo -e >&2 "  ${BB}-c <container_name>${BE}: set the container name. Default to '$CONTAINER'"
+  echo -e >&2 "  ${BB}-i <image>${BE}: set the image to use. Default to '$IMAGE'"
+  echo -e >&2 "  ${BB}-f${BE}: recreate container even if its image is updated"
+  echo -e >&2 "  ${BB}-v${BE}: verbose (not used yet)"
+  echo -e >&2 "  ${BB}-C${BE}: disable colors"
+  [ $# -ge 1 ] && exit_code="$1" && shift
+  [ $# -ge 1 ] && echo -e >&2 "$@"
+  exit "$exit_code"
+}
+
+log() {
+  echo -e >&2 "$BB* $*$BE"
+}
+
+FORCE_RECREATE=false
+while getopts "Cfvhc:i:" opt; do
+  case $opt in
+    f) FORCE_RECREATE=true ;;   # $OPTARG holds the value after -n
+    c) CONTAINER="$OPTARG" ;;
+    i) IMAGE="$IMAGE" ;;
+    v) : ;;
+    C) disable_colors ;;
+    h) usage 0;;
+    \?) echo "Invalid option -$OPTARG" >&2; exit 1 ;;
+  esac
+done
+
+
+get_image_id() {
+  podman inspect --format '{{.Image}}' "$1"
+}
+
+container_exists() {
+  distrobox list --no-color | tail -n +2 | cut -d '|' -f 2 | sed 's/^[[:space:]]*//' | grep -q "$CONTAINER";
+}
+
+pull_image() {
+  # returns 0 if there was a newer image to pull
+  old_image_id=""
+  container_exists && old_image_id="$(get_image_id "$CONTAINER")"
+  log "Pulling podman image $IMAGE"
+  podman image pull "$IMAGE" &>/dev/null
+  image_id="$(get_image_id "$CONTAINER")"
+  echo "$old_image_id"
+  [[ "$old_image_id" != "$image_id" ]]
+}
+
+container_init() {
+  log "Init container - this might take a while"
+  init_script="$(realpath "${script_dir}/../../bootstrap/toolbox.sh")"
+  distrobox enter "$CONTAINER" -- /bin/bash "$init_script"
+}
+
+container_rm() {
+  distrobox rm -f "$CONTAINER"
+}
+
+container_create() {
+  distrobox create -n "${CONTAINER}" -i "$IMAGE" --volume "/home/linuxbrew:/home/linuxbrew"
+  container_init
+}
+
+pull_and_recreate_container() {
+  if container_exists; then
+    old_image_id=$(pull_image) && updated=true || updated=false
+    if $updated || $FORCE_RECREATE; then
+      log "Container $CONTAINER exists, replacing it"
+      # check if the container exists
+      # if yes, and it's running, stop it. Get the image id first.
+      # Then update/recreate it and remove the old image
+      podman inspect "$CONTAINER" --format '{{.State.Running}}' | grep -q true && log "Stopping container $CONTAINER" && distrobox stop --yes "$CONTAINER"
+      log "Replacing container $CONTAINER"
+      container_rm
+      container_create
+      if $updated; then
+        log "Removing old podman image $old_image_id"
+        podman rmi "$old_image_id"
+      fi
+    else
+      log "Container $CONTAINER up-to-date"
+    fi
+  else
+    log "Container $CONTAINER not found, creating"
+    container_create
+  fi
+}
+
+set_ptyxis_profile() {
+  # update the container id in the profile
+  container_id="$(podman inspect "$CONTAINER" --format '{{.ID}}')"
+  # update terminal profile
+  profile_id="$(dconf dump "${PTYXIS_DCONF_PATH}/" | yq -p=ini '.[] | select(.label == "'"$PTYXIS_PROFILE"'") | key')"
+  if [ -z "$profile_id" ]; then
+    log "Profile $PTYXIS_PROFILE not found in dconf at $PTYXIS_DCONF_PATH/ - creating it"
+    tmpfile=$(mktemp)
+    trap 'rm -f "$tmpfile"' EXIT
+
+    profile_id="$(uuidgen | tr -d '-' | tr '[:upper:]' '[:lower:]')"
+
+    cat <<EOF > "$tmpfile"
+[/]
+default-container='$container_id'
+label='$PTYXIS_PROFILE'
+login-shell=true
+palette='Vs Code'
+preserve-container='never'
+EOF
+    dconf load "${PTYXIS_DCONF_PATH}/${profile_id}/" < "$tmpfile"
+    CURRENT_LIST=$(gsettings get "$PTYXIS_GSETTINGS_PATH" profile-uuids)
+    if [[ "$CURRENT_LIST" == "[]" ]]; then
+      NEW_LIST="['$profile_id']"
+    else
+      NEW_LIST="${CURRENT_LIST%]*}, '$profile_id']"
+    fi
+    log "Setting profile $PTYXIS_PROFILE [$profile_id] as default"
+    gsettings set "$PTYXIS_GSETTINGS_PATH" profile-uuids "$NEW_LIST"
+    gsettings set "$PTYXIS_GSETTINGS_PATH" default-profile-uuid "'$profile_id'"
+  else
+    existing_container_id="$(dconf dump "${PTYXIS_DCONF_PATH}/${profile_id}/" | yq -p=ini '.[] | .default-container')"
+    if [[ "${existing_container_id}" != "${container_id}" ]]; then
+      log "updating the profile $PTYXIS_PROFILE at ${PTYXIS_DCONF_PATH}/${profile_id} with container id ${container_id}"
+      dconf write "${PTYXIS_DCONF_PATH}/${profile_id}"/default-container "'""$container_id""'"
+    else
+      log "Profile $PTYXIS_PROFILE up-to-date"
+    fi
+  fi
+}
+
+## MAIN
+pull_and_recreate_container
+set_ptyxis_profile
+
+log "Done"
