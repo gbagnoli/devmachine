@@ -24,18 +24,7 @@ else
 fi
 
 echo "* Installing utilities"
-apt_get install rbenv lsb-release git
-export PATH="$PATH:/home/linuxbrew/.linuxbrew/bin"
-if ! command -v brew; then
-  echo "* Installing brew"
-  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-fi
-
-for pkg in shellcheck uv; do
-  if ! command -v "$pkg"; then
-    brew install $pkg
-  fi
-done
+apt_get install rbenv lsb-release git vim vim-nox neovim
 
 if [ ! -d "$(rbenv root)"/plugins ]; then
   echo "* Installing rbenv chefdk plugin"
@@ -44,25 +33,14 @@ if [ ! -d "$(rbenv root)"/plugins ]; then
   mkdir -p "$(rbenv root)/versions/cinc-workstation"
 fi
 
-echo "* Entering rbenv shell"
-set +u
-eval "$(rbenv init -)" || true
-rbenv shell cinc-workstation
-set -u
+user=giacomo
+group=giacomo
 
-echo "* Creating uv venv"
-uv venv --allow-existing
-uv sync --dev
-
-[ ! -L .git/hooks/pre-commit ] && ln -s "$(pwd)/hooks/pre-commit.sh" .git/hooks/pre-commit
-[ ! -L .git/hooks/pre-push ] && ln -s "$(pwd)/hooks/pre-push.sh" .git/hooks/pre-push
 # we need to fix ubuntu's gid for the ubuntu group to avoid a clash
 getent group ubuntu | grep 1010 -q || sudo groupmod -g 1010 ubuntu
+getent group $group &>/dev/null || sudo groupadd -g 1000 $group
+getent group $group | grep 1000 -q || sudo groupmod -g 1000 $group
 
-# so it might be that chef has been run in another container, as such
-# some cache files are present but the binary is not installed
-# this will confuse chef as it won't run the unpack.
-# let's remove the cached files?
-sudo rm -fv local-mode-cache/cache/{go,fzf,zoxide,rust-analyzer}*
-
-uv run ./run -H localhost_toolbox
+home="$(getent passwd "$user" | cut -d: -f6)"
+chgrp $group "$home"/.ssh
+chmod 700 "$home"/.ssh

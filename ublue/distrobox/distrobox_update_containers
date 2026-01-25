@@ -72,19 +72,30 @@ pull_image() {
   [[ "$old_image_id" != "$image_id" ]]
 }
 
-container_init() {
+container_rm() {
+  container_stop
+  log "Replacing container $CONTAINER"
+  distrobox rm -f "$CONTAINER"
+}
+
+container_create() {
+  log "Creating container $CONTAINER with image $IMAGE"
+  distrobox create -n "${CONTAINER}" -i "$IMAGE" --volume "/home/linuxbrew:/home/linuxbrew"
+
   log "Init container - this might take a while"
   init_script="$(realpath "${script_dir}/init-container.sh")"
   distrobox enter "$CONTAINER" -- /bin/bash "$init_script"
 }
 
-container_rm() {
-  distrobox rm -f "$CONTAINER"
-}
+container_stop() {
+  podman inspect "$CONTAINER" --format '{{.State.Running}}' | grep -q true || return 0
 
-container_create() {
-  distrobox create -n "${CONTAINER}" -i "$IMAGE" --volume "/home/linuxbrew:/home/linuxbrew"
-  container_init
+  log "Stopping container $CONTAINER"
+  while podman inspect "$CONTAINER" --format '{{.State.Running}}' | grep -q true; do
+    if ! distrobox stop --yes "$CONTAINER" &>/dev/null; then
+      sleep 5
+    fi
+  done
 }
 
 pull_and_recreate_container() {
@@ -95,8 +106,6 @@ pull_and_recreate_container() {
       # check if the container exists
       # if yes, and it's running, stop it. Get the image id first.
       # Then update/recreate it and remove the old image
-      podman inspect "$CONTAINER" --format '{{.State.Running}}' | grep -q true && log "Stopping container $CONTAINER" && distrobox stop --yes "$CONTAINER"
-      log "Replacing container $CONTAINER"
       container_rm
       container_create
       if $updated; then
