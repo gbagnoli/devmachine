@@ -3,22 +3,15 @@
 set -euo pipefail
 
 script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/utils.sh
+source "$(realpath "$script_dir/../lib/utils.sh")"
+
 CONTAINER="ubuntu"
 IMAGE=ghcr.io/gbagnoli/ubuntu
 PTYXIS_DCONF_PATH="/org/gnome/Ptyxis/Profiles"
 PTYXIS_PROFILE="Development"
 PTYXIS_GSETTINGS_PATH="org.gnome.Ptyxis"
-BB="\e[1m"
-BE="\e[0m"
-
-disable_colors() {
-  BB=""
-  BE=""
-}
-
-if [ ! -t 1 ] || [ "$(tput colors 2>/dev/null || echo 0)" -lt 8 ]; then
-  disable_colors
-fi
 
 usage() {
   exit_code=0
@@ -36,16 +29,12 @@ usage() {
   exit "$exit_code"
 }
 
-log() {
-  echo -e >&2 "$BB* $*$BE"
-}
-
 FORCE_RECREATE=false
 while getopts "Cfvhc:i:" opt; do
   case $opt in
     f) FORCE_RECREATE=true ;;   # $OPTARG holds the value after -n
     c) CONTAINER="$OPTARG" ;;
-    i) IMAGE="$IMAGE" ;;
+    i) IMAGE="$OPTARG" ;;
     v) : ;;
     C) disable_colors ;;
     h) usage 0;;
@@ -53,6 +42,7 @@ while getopts "Cfvhc:i:" opt; do
   esac
 done
 
+exit_if_running_in_distrobox
 
 get_image_id_of_container() {
   podman inspect --format '{{.Image}}' "$1"
