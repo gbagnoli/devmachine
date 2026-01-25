@@ -1,11 +1,10 @@
 #!/bin/bash
 #
-# AIM: boostrap a distrobox/toolbox container
-# this assumes ubuntu
+# boostrap a distrobox ubuntu container
 
 set -euo pipefail
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-pushd "$SCRIPT_DIR"/../ &>/dev/null
+pushd "$SCRIPT_DIR"/../../ &>/dev/null
 
 apt_get () {
   DEBIAN_FRONTEND=noninteractive \
@@ -17,7 +16,7 @@ apt_get () {
 apt_get update
 apt_get dist-upgrade
 
-if command -v cinc-shell; then
+if [ -d /opt/cinc-workstation/ ]; then
   echo "* cinc-workstation already installed"
 else
   echo "* Installing cinc-workstation (might be very slow)"
@@ -27,14 +26,17 @@ fi
 echo "* Installing utilities"
 apt_get install rbenv lsb-release git
 export PATH="$PATH:/home/linuxbrew/.linuxbrew/bin"
-if command -v brew; then
-  echo "* brew already installed"
-else
+if ! command -v brew; then
   echo "* Installing brew"
   NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 fi
 
-brew install shellcheck uv
+for pkg in shellcheck uv; do
+  if ! command -v "$pkg"; then
+    brew install $pkg
+  fi
+done
+
 if [ ! -d "$(rbenv root)"/plugins ]; then
   echo "* Installing rbenv chefdk plugin"
   mkdir -p "$(rbenv root)"/plugins
@@ -44,10 +46,9 @@ fi
 
 echo "* Entering rbenv shell"
 set +u
-eval "$(rbenv init -)"
+eval "$(rbenv init -)" || true
 rbenv shell cinc-workstation
 set -u
-rbenv rehash
 
 echo "* Creating uv venv"
 uv venv --allow-existing

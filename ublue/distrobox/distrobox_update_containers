@@ -54,7 +54,7 @@ while getopts "Cfvhc:i:" opt; do
 done
 
 
-get_image_id() {
+get_image_id_of_container() {
   podman inspect --format '{{.Image}}' "$1"
 }
 
@@ -65,17 +65,16 @@ container_exists() {
 pull_image() {
   # returns 0 if there was a newer image to pull
   old_image_id=""
-  container_exists && old_image_id="$(get_image_id "$CONTAINER")"
+  container_exists && old_image_id="$(get_image_id_of_container "$CONTAINER")"
   log "Pulling podman image $IMAGE"
-  podman image pull "$IMAGE" &>/dev/null
-  image_id="$(get_image_id "$CONTAINER")"
+  image_id=$(podman image pull "$IMAGE")
   echo "$old_image_id"
   [[ "$old_image_id" != "$image_id" ]]
 }
 
 container_init() {
   log "Init container - this might take a while"
-  init_script="$(realpath "${script_dir}/../../bootstrap/toolbox.sh")"
+  init_script="$(realpath "${script_dir}/init-container.sh")"
   distrobox enter "$CONTAINER" -- /bin/bash "$init_script"
 }
 
