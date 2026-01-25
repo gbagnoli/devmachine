@@ -5,7 +5,6 @@ nodes:
   - boxy
   - calculon
   - rupik
-  - toolbox
 
 require_secrets:
   - boxy
