@@ -1,0 +1,15 @@
+[Container]
+ContainerName=openwebui
+Image=ghcr.io/open-webui/open-webui:latest
+Environment=OLLAMA_BASE_URL=http://localhost:11434
+Volume=/var/lib/open-webui/:/app/backend/data:Z
+Pod=ollama.pod
+
+[Unit]
+Description="OpenWebUI web interface"
+After=ollama.service
+Requires=ollama.service
+BindsTo=ollama.service
+
+[Install]
+WantedBy=default.target

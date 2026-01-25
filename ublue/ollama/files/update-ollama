@@ -1,0 +1,70 @@
+#!/bin/bash
+
+set -ueo pipefail
+[ $UID -ne 0 ] && echo >&2 "Need to be run as root" && exit 1
+
+check_and_restart() {
+    local image_name="$1"
+    local service_name="$2"
+
+    CURRENT_DIGEST=$(podman inspect "$image_name" --format '{{.RepoDigests}}' 2>/dev/null | cut -d'@' -f2)
+
+    if [[ -z "$CURRENT_DIGEST" ]]; then
+        echo "Error: Image '$image_name' not found locally. Pulling now..." >&2
+        podman pull "$image_name" || {
+            echo "Error: Failed to pull '$image_name'."
+            return 1
+        }
+        CURRENT_DIGEST=$(podman inspect "$image_name" --format '{{.RepoDigests}}' 2>/dev/null | cut -d'@' -f2)
+    fi
+
+    # CURRENT_DIGEST MUST EXISTS
+    [[ -z "$CURRENT_DIGEST" ]] && echo >&2 "Internal error: current digest not found for $image_name" && return 1
+
+    echo "Pulling $image_name to check for updates..."
+    podman pull "$image_name" || {
+        echo "Error: Failed to pull '$image_name'." >&2
+        return 1
+    }
+
+    # Get the new digest after pull
+    NEW_DIGEST=$(podman inspect "$image_name" --format '{{.RepoDigests}}' 2>/dev/null | cut -d'@' -f2)
+    [[ -z "$NEW_DIGEST" ]] && echo >&2 "Internal error: new digest not found for $image_name" && return 1
+
+    if [[ "$CURRENT_DIGEST" != "$NEW_DIGEST" ]]; then
+        echo >&2 "Image '$image_name' was updated! Restarting $service_name..."
+        verb="restart"
+        systemctl is-active --quiet "$service_name" || verb="start"
+        echo "Running systemctl $verb $service_name" >&2
+        systemctl "$verb" "$service_name" || {
+            echo "Error: Failed to $verb $service_name."
+            return 1
+        }
+    else
+      systemctl start "$service_name"
+    fi
+}
+
+echo "Stopping openwebui.service and ollama.service" >&2
+systemctl is-active --quiet openwebui.service && systemctl stop openwebui.service
+systemctl is-active --quiet ollama.service && systemctl stop ollama.service
+
+check_and_restart "ghcr.io/open-webui/open-webui:latest" "openwebui.service"
+check_and_restart "docker.io/ollama/ollama:latest" "ollama.service"
+
+mapfile -t dangling_images < <(podman images --filter "dangling=true" --format "{{.ID}}")
+if [[ ${#dangling_images[@]} -gt 0 ]]; then
+    echo "Found ${#dangling_images[@]} dangling images. Removing them..."
+    podman rmi "${dangling_images[@]}"
+fi
+
+echo >&2 "Pulling ollama models"
+mapfile -t models < <(curl -s http://ubik:11434/api/tags  | jq -r '.models[] | .name')
+for model in "${models[@]}"; do
+    echo "Pulling model: $model" >&2
+
+    # Pull the model
+    if ! podman exec -it ollama ollama pull "$model" >&2; then
+        echo "Error: Failed to pull model: $model" >&2
+    fi
+done

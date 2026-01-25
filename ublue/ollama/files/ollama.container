@@ -1,0 +1,14 @@
+[Container]
+ContainerName=ollama
+Image=docker.io/ollama/ollama:latest
+PodmanArgs=--gpus all
+Volume=/var/lib/ollama:/root/.ollama:Z
+Environment=OLLAMA_CONTEXT_LENGTH=32768
+Pod=ollama.pod
+
+[Unit]
+Description="Ollama"
+After=network-online.service
+
+[Install]
+WantedBy=default.target

@@ -1,9 +1,21 @@
 #!/bin/bash
 
-script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+lib_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
-# shellcheck source=/dev/null
-source "$(realpath "$script_dir/logging.sh")"
+for script in "$lib_dir"/*.sh; do
+  if [[ "$(basename "$script")" == "utils.sh" ]]; then
+    continue
+  fi
+  # shellcheck source=/dev/null
+  source "$(realpath "${script}")"
+done
+
+ensure_sudo() {
+  if ! sudo -v; then
+    log "Root privileges are required. Exiting."
+    exit 1
+  fi
+}
 
 running_in_distrobox() {
   [ -f "/run/.containerenv" ] && [ -f "/run/host/etc/hostname" ]
