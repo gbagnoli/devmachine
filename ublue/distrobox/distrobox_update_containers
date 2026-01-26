@@ -112,6 +112,12 @@ pull_and_recreate_container() {
 }
 
 set_ptyxis_profile() {
+  for cmd in dconf gsettings; do
+    if ! command -v "$cmd"; then
+      log "* $cmd not installed. Cannot set ptyxis profile"
+      return 0
+    fi
+  done
   # update the container id in the profile
   container_id="$(podman inspect "$CONTAINER" --format '{{.ID}}')"
   # update terminal profile
