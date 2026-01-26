@@ -32,6 +32,7 @@ end
   bash "build and install #{app}" do
     action :nothing
     cwd "#{Chef::Config[:file_cache_path]}/#{app}"
+    environment PKG_CONFIG_PATH: "/usr/lib64/pkgconfig/"
     code <<-EOH
     ./autogen.sh
     ./configure --prefix=/usr

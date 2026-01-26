@@ -5,7 +5,7 @@ default["podman"]["sources"]["podman"] = {
   tag: "v5.7.1",
   # btrfs-devel is already installed from downloaded rpm in rocky
   deps:  value_for_platform_family(
-    %w{fedora rhel} => %w{go systemd-devel gpgme-devel libseccomp-devel ostree-devel shadow-utils-subid-devel},
+    %w{fedora rhel} => %w{go systemd-devel gpgme-devel libseccomp-devel ostree-devel shadow-utils-subid-devel sqlite-devel},
     "debian"=> %w{}
   ),
   rpms: [{
