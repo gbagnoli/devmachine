@@ -1,5 +1,5 @@
 # rubocop:disable Layout/LineLength
-default["podman"]["go"]["version"] = "1.22.5"
+default["podman"]["go"]["version"] = "1.25.6"
 default["podman"]["sources"]["podman"] = {
   url: "https://github.com/containers/podman.git",
   tag: "v5.7.1",
