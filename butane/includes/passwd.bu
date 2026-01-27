@@ -1,0 +1,45 @@
+variant: fcos
+version: 1.6.0
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG5BCzEZkae5DssrD+FFi0a4YGYT55b57LbXW8SveytN giacomo@ubik
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGMkGTp3emesafdNNkprN2Hx1i2wLER9RUhWguwTLu6+ giacomo@android
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAID19B1eeB6KClwXbmu+RWo+3nrXl33Yf3+Oh/WVigrwl giacomo@calculon
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB+LUBD9jvN98k6es/W/0h/nGibhHGf7OY6JZG+H3pQL giacomo@mac
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICYS/jhr4/Ld55BT2YjP+b+LHWNkaSuRYSuLre2Mbxwz giacomo@ubikxps
+    - name: giacomo
+      # use `podman run -ti --rm quay.io/coreos/mkpasswd --method=yescrypt` to generate
+      password_hash: $y$j9T$qZZDJA1mtgqcweax2rZJV0$sszn8dbKHhmElZGrOBAGpHGgSfhqtEP4NJZbMlW4py9
+      groups:
+        - wheel
+        - docker
+        - sudo
+      ssh_authorized_keys:
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG5BCzEZkae5DssrD+FFi0a4YGYT55b57LbXW8SveytN giacomo@ubik
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGMkGTp3emesafdNNkprN2Hx1i2wLER9RUhWguwTLu6+ giacomo@android
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAID19B1eeB6KClwXbmu+RWo+3nrXl33Yf3+Oh/WVigrwl giacomo@calculon
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB+LUBD9jvN98k6es/W/0h/nGibhHGf7OY6JZG+H3pQL giacomo@mac
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICYS/jhr4/Ld55BT2YjP+b+LHWNkaSuRYSuLre2Mbxwz giacomo@ubikxps
+storage:
+  files:
+    - path: /usr/local/bin/force_pw_change.sh
+      contents:
+        inline: |
+          #!/bin/bash
+          chage -d 0 giacomo
+      mode: 0755
+systemd:
+  units:
+    - name: force-pw-change.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Force password change for new user
+        After=network-online.target
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/bin/force_pw_change.sh
+        [Install]
+        WantedBy=multi-user.target

@@ -1,0 +1,106 @@
+#!/bin/bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+OUTPUTDIR="$(realpath "$SCRIPT_DIR/../ignition")"
+INCLUDES=includes
+INPUT=""
+RAW=false
+STDOUT=true
+
+pushd "$SCRIPT_DIR/.." &>/dev/null
+
+usage() {
+  echo "$(realpath --relative-to="$SCRIPT_DIR" "$0") [-hrs] [-o OUTPUT_DIR] <config.bu> [config.ign]"
+  echo
+  echo "By default, ignition file is pretty printed to stdout"
+
+  echo "Options:"
+  echo "-h : show this help"
+  echo "-r : do not prettyfy stdout"
+  echo "-s : save to file"
+  echo "-o : output directory for ignition files. Defaults to $OUTPUTDIR"
+}
+
+run() {
+  podman run --interactive --rm --security-opt label=disable \
+         --volume "${PWD}:/pwd" --workdir /pwd quay.io/coreos/butane:release \
+         --pretty --strict --files-dir "$(basename "$OUTPUTDIR")" "$1"
+  return $?
+}
+
+while getopts "rsho:" opt; do
+  case $opt in
+    o)
+      OUTPUTDIR="$OPTARG"
+      ;;
+    r)
+      RAW=true
+      ;;
+    s)
+      STDOUT=false
+      ;;
+    h)
+      usage
+      exit 0
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      usage
+      exit 1
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument." >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [ $# -lt $OPTIND ]; then
+  echo "Missing input script" >&2
+  usage
+  exit 1
+fi
+
+INPUT="$(eval echo \$$OPTIND)"
+OUTPUT="${INPUT/.bu/.ign}"
+
+if [ $# -gt $OPTIND ]; then
+  IDX=$(( OPTIND + 1 ))
+  OUTPUT="$(eval echo \$$IDX)"
+fi
+OUTPUT="$(realpath "${OUTPUTDIR}/${OUTPUT}")"
+
+# first. We need to transpile every (sigh) include
+for fragment in $(yq '.ignition.config.merge[] | select (.local == "*.bu") | .local' "$INPUT"); do
+  fragment_name="${fragment%.bu}"
+  fragment_out="$(realpath "${OUTPUTDIR}/${fragment_name}.ign")"
+  run "$INCLUDES/${fragment}" > "${fragment_out}"
+done
+
+temp_input=$(mktemp --tmpdir="$PWD" )
+cp "$INPUT" "$temp_input"
+sed -i $(yq '.ignition.config.merge[] | select(.local == "*.bu") | .local | "-e s/" + . + "/" + sub(".bu", ".ign") + "/"' "$INPUT" | tr '\n' ' ') "$temp_input"
+
+trap 'rm $temp_input' EXIT
+new_input="$(basename "$temp_input")"
+
+if $STDOUT; then
+  if $RAW; then
+    run "$new_input"
+    exit $?
+  fi
+  run "$new_input" | jq .
+  exit $?
+fi
+
+# ok we are not printing to stdot
+if [ "$OUTPUT" -ef "$INPUT" ];then
+  echo >&2 "output $OUTPUT and input $INPUT are the same file"
+  exit 1
+fi
+
+echo "Saving to $OUTPUT" >&2
+run "$new_input" > "$OUTPUT"
+exit $?

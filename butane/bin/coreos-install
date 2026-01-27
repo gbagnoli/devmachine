@@ -1,0 +1,56 @@
+#!/bin/bash
+
+set -euo pipefail
+
+
+if [ $# -lt 1 ]; then
+  echo "Missing butane input script" >&2
+  exit 1
+fi
+
+BUTANE_CONFIG="$1"
+if [[ ! -f "$BUTANE_CONFIG" ]]; then
+  echo "Cannot find file at $BUTANE_CONFIG" >&2
+  exit 1
+fi
+
+if [[ "$BUTANE_CONFIG" != *".bu" ]]; then
+  echo "Invalid file $BUTANE_CONFIG: should be a butane config" >&2
+  exit 1
+fi
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+IGNITION_CONFIG_NAME="${BUTANE_CONFIG/.bu/.ign}"
+IGNITION_CONFIG="$(realpath "$SCRIPT_DIR/../ignition/$IGNITION_CONFIG_NAME")"
+echo >&2 "Creating $IGNITION_CONFIG from $BUTANE_CONFIG"
+"$SCRIPT_DIR"/butane -s -o "$SCRIPT_DIR/../ignition" "$BUTANE_CONFIG" "$IGNITION_CONFIG_NAME"
+
+VM_NAME="${BUTANE_CONFIG/.bu/}"
+IMAGES_DIR="$(realpath "$SCRIPT_DIR/../images/")"
+mkdir -p "$IMAGES_DIR"
+IMAGE_NAME="coreos.qcow2"
+IMAGE_PATH="$IMAGES_DIR/$IMAGE_NAME"
+
+if [[ ! -f "$IMAGE_PATH" ]]; then
+  set -x
+  distrobox-host-exec podman run --pull=always --privileged --rm -v "${IMAGES_DIR}:/data" -w /data \
+    quay.io/coreos/coreos-installer:release download -s stable -p qemu -f "qcow2.xz" --decompress
+  set +x
+  for file in "$IMAGES_DIR"/fedora-coreos-*; do
+      latest=$(basename "$file")
+  done
+
+  ln -vs "$IMAGES_DIR/$latest" "$IMAGE_PATH"
+fi
+
+echo >&2 "Creating copy of image file"
+VM_IMAGE="${VM_NAME}.img"
+VM_IMAGE_PATH="${IMAGES_DIR}/$VM_IMAGE"
+rm -f "$VM_IMAGE_PATH"
+cp -v "$IMAGE_PATH" "$VM_IMAGE_PATH"
+
+set -x
+distrobox-host-exec qemu-kvm -m 8192 -cpu host \
+  -drive "if=virtio,format=qcow2,file=$(realpath "$VM_IMAGE_PATH")" \
+  -fw_cfg "name=opt/com.coreos/config,file=${IGNITION_CONFIG}" \
+  -nic "user,model=virtio,hostfwd=tcp::2222-:22"

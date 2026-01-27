@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -euo pipefail
+
+distrobox-host-exec flatpak run --filesystem=host --command=virt-install org.virt_manager.virt-manager "$@"
+exit $?

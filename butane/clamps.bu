@@ -1,0 +1,32 @@
+variant: fcos
+version: 1.6.0
+ignition:
+  config:
+    merge:
+      - local: passwd.bu
+      - local: zram.bu
+storage:
+  disks:
+    - # The link to the block device the OS was booted from.
+      device: /dev/vda
+      # We do not want to wipe the partition table since this is the primary
+      # device.
+      wipe_table: false
+      partitions:
+        - number: 4
+          label: root
+          size_mib: 0
+          resize: true
+  filesystems:
+    - device: /dev/disk/by-partlabel/root
+      wipe_filesystem: true
+      format: btrfs
+      label: root
+  links:
+    - path: /etc/localtime
+      target: ../usr/share/zoneinfo/Europe/Madrid
+  files:
+    - path: /etc/hostname
+      mode: 0644
+      contents:
+        inline: clamps

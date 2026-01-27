@@ -1,3 +1,4 @@
+*/target
 .DS_store
 .bundle
 .env
@@ -8,7 +9,8 @@
 .rubocop-https---raw-githubusercontent-com-xinminlabs-rubocop-config-rufo-master-rubocop-yml
 .vagrant
 __pycache__
-*/target
+butane/images
+butane/ignition/*
 berks-cookbooks
 chef_guid
 cinc_guid
