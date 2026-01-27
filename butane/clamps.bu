@@ -3,6 +3,7 @@ version: 1.6.0
 ignition:
   config:
     merge:
+      - local: ucore.bu
       - local: passwd.bu
       - local: zram.bu
 storage:
