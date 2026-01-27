@@ -36,10 +36,13 @@ systemd:
       enabled: true
       contents: |
         [Unit]
-        Description=Force password change for new user
+        Description=Force password change for user
         After=network-online.target
+        ConditionPathExists=!/var/lib/.force-pw-change
         [Service]
         Type=oneshot
         ExecStart=/usr/local/bin/force_pw_change.sh
+        ExecStartPost=/usr/bin/touch /var/lib/.force-pw-change
+        RemainAfterExit=yes
         [Install]
         WantedBy=multi-user.target
