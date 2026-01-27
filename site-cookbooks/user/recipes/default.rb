@@ -48,6 +48,8 @@ end
 
 package "git"
 dotfiles = "#{home}/.local/src/dotfiles"
+is_initial_checkout = !Dir.exist?("#{dotfiles}/.git")
+
 git dotfiles do
   repository "https://github.com/gbagnoli/dotfiles.git"
   revision "master"
@@ -65,6 +67,7 @@ execute "install dotfiles" do
   command "#{dotfiles}/install.sh"
   user user
   group group
+  only_if { is_initial_checkout }
 end
 
 %w(inputrc gitconfig bashrc gitignore_global tmux.conf profile).each do |conf|
