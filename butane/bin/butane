@@ -76,11 +76,13 @@ OUTPUT="$(realpath "${OUTPUTDIR}/${OUTPUT}")"
 for fragment in $(yq '.ignition.config.merge[] | select (.local == "*.bu") | .local' "$INPUT"); do
   fragment_name="${fragment%.bu}"
   fragment_out="$(realpath "${OUTPUTDIR}/${fragment_name}.ign")"
+  echo >&2 "Compiling fragment ${fragment}"
   run "$INCLUDES/${fragment}" > "${fragment_out}"
 done
 
 temp_input=$(mktemp --tmpdir="$PWD" )
 cp "$INPUT" "$temp_input"
+# shellcheck disable=SC2046
 sed -i $(yq '.ignition.config.merge[] | select(.local == "*.bu") | .local | "-e s/" + . + "/" + sub(".bu", ".ign") + "/"' "$INPUT" | tr '\n' ' ') "$temp_input"
 
 trap 'rm $temp_input' EXIT
