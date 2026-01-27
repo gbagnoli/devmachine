@@ -1,12 +1,9 @@
-# frozen_string_literal: true
-
 default["user"]["login"] = "giacomo"
 default["user"]["group"] = "giacomo"
 default["user"]["homedir"] = "/home"
 default["user"]["uid"] = 1000
 default["user"]["gid"] = 1000
 default["user"]["realname"] = "Giacomo Bagnoli"
-default["user"]["install_photo_process"] = true
 default["user"]["ssh_authorized_keys"] = [{
   name: "giacomo@ubikxps",
   keytype: "ssh-ed25519",
@@ -36,9 +33,3 @@ default["user"]["ssh_authorized_keys"] = [{
   pubkey: "AAAAC3NzaC1lZDI1NTE5AAAAIPDIJgqIRuNxzc8097VrA91Ig7XK99kzIqUnrlKaJNNR",
   keytype: "ssh-ed25519",
 }]
-
-# must be set in secrets
-default["gphotos_uploader_cli"] = nil
-# default["gphotos_uploader_cli"]["ClientID"] = nil
-# default["gphotos_uploader_cli"]["ClientSecret"] = nil
-# default["gphotos_uploader_cli"]["Account"] = nil
