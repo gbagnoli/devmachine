@@ -36,3 +36,11 @@ exit_if_not_running_in_distrobox() {
     exit 1
   fi
 }
+
+run_on_host() {
+  if running_in_distrobox; then
+    distrobox-host-exec "$@"
+  else
+    "$@"
+  fi
+}

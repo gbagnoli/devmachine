@@ -2,5 +2,10 @@
 
 set -euo pipefail
 
-distrobox-host-exec flatpak run --filesystem=host --command=virt-install org.virt_manager.virt-manager "$@"
+script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../../lib/utils.sh
+source "$(realpath "$script_dir/../../lib/utils.sh")"
+
+run_on_host flatpak run --filesystem=host --command=virt-install org.virt_manager.virt-manager "$@"
 exit $?

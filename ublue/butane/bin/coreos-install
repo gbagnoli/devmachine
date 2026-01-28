@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../../lib/utils.sh
+source "$(realpath "$script_dir/../../lib/utils.sh")"
 
 if [ $# -lt 1 ]; then
   echo "Missing butane input script" >&2
@@ -33,7 +37,7 @@ IMAGE_PATH="$IMAGES_DIR/$IMAGE_NAME"
 
 if [[ ! -f "$IMAGE_PATH" ]]; then
   set -x
-  distrobox-host-exec podman run --pull=always --privileged --rm -v "${IMAGES_DIR}:/data" -w /data \
+  run_on_host podman run --pull=always --privileged --rm -v "${IMAGES_DIR}:/data" -w /data \
     quay.io/coreos/coreos-installer:release download -s stable -p qemu -f "qcow2.xz" --decompress
   set +x
   for file in "$IMAGES_DIR"/fedora-coreos-*; do
@@ -50,7 +54,7 @@ rm -f "$VM_IMAGE_PATH"
 cp -v "$IMAGE_PATH" "$VM_IMAGE_PATH"
 
 set -x
-distrobox-host-exec qemu-kvm -m 8192 -cpu host \
+run_on_host qemu-kvm -m 8192 -cpu host \
   -drive "if=virtio,format=qcow2,file=$(realpath "$VM_IMAGE_PATH")" \
   -fw_cfg "name=opt/com.coreos/config,file=${IGNITION_CONFIG}" \
   -nic "user,model=virtio,hostfwd=tcp::2222-:22"
