@@ -9,8 +9,8 @@
 .rubocop-https---raw-githubusercontent-com-xinminlabs-rubocop-config-rufo-master-rubocop-yml
 .vagrant
 __pycache__
-butane/images
-butane/ignition/*
+ublue/butane/images
+ublue/butane/ignition/*
 berks-cookbooks
 chef_guid
 cinc_guid
