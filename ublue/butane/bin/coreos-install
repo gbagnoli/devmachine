@@ -35,7 +35,7 @@ mkdir -p "$IMAGES_DIR"
 IMAGE_NAME="coreos.qcow2"
 IMAGE_PATH="$IMAGES_DIR/$IMAGE_NAME"
 
-if [[ ! -f "$IMAGE_PATH" ]]; then
+if [[ ! -L "$IMAGE_PATH" ]]; then
   set -x
   run_on_host podman run --pull=always --privileged --rm -v "${IMAGES_DIR}:/data" -w /data \
     quay.io/coreos/coreos-installer:release download -s stable -p qemu -f "qcow2.xz" --decompress
