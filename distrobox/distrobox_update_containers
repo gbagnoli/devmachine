@@ -4,8 +4,8 @@ set -euo pipefail
 
 script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 # shellcheck source-path=SCRIPTDIR
-# shellcheck source=../lib/utils.sh
-source "$(realpath "$script_dir/../lib/utils.sh")"
+# shellcheck source=../ublue/lib/utils.sh
+source "$(realpath "$script_dir/../ublue/lib/utils.sh")"
 
 CONTAINER="ubuntu"
 IMAGE=ghcr.io/gbagnoli/ubuntu

@@ -6,8 +6,8 @@ set -euo pipefail
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 # shellcheck source-path=SCRIPTDIR
-# shellcheck source=../lib/utils.sh
-source "$(realpath "$SCRIPT_DIR/../lib/utils.sh")"
+# shellcheck source=../ublue/lib/utils.sh
+source "$(realpath "$SCRIPT_DIR/../ublue/lib/utils.sh")"
 pushd "$SCRIPT_DIR"/../../ &>/dev/null
 
 exit_if_not_running_in_distrobox
