@@ -3,9 +3,9 @@ version: 1.6.0
 ignition:
   config:
     merge:
-      - local: ucore.bu
-      - local: passwd.bu
-      - local: zram.bu
+      - local: includes/ucore.bu
+      - local: includes/passwd.bu
+      - local: includes/zram.bu
 storage:
   disks:
     - # The link to the block device the OS was booted from.
