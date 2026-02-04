@@ -38,6 +38,7 @@ podman_container "pihole" do
   config(
     Container: %W{
       Image=pihole.image
+      Pull=missing
       Volume=#{root}/conf:/etc/pihole
       Volume=#{root}/dnsmasq.d/etc/dnsmasq.d
       Volume=#{node["pihole"]["paths"]["logs"]}:/var/log/pihole
