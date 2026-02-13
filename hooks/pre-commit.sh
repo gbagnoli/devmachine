@@ -11,7 +11,6 @@ ruby=()
 python=()
 chef=()
 shell=()
-circleci=false
 total=0
 while read -r fname; do
   total=$((total + 1))
@@ -24,9 +23,6 @@ while read -r fname; do
   if [[ "$fname" == site-cookbooks/* ]] || [[ "$fname" == roles/* ]]; then
     chef+=("$fullpath")
   fi
-  if [[ "$fname" == ".circleci/config.yml" ]]; then
-    circleci=true
-  fi
   if [[ "$fname" == *.sh ]]; then
     shell+=("$fullpath")
   fi
@@ -38,14 +34,6 @@ git checkout-index --prefix="$tmpdir"/ -af
 set +e
 ec=0
 
-if $circleci; then
-  if [ -x "$(command -v circleci)" ]; then
-    echo "Validating CircleCI config"
-    circleci config validate .circleci/config.yml ; ec=$?
-  else
-    echo "Cannot validate CircleCI config, missing CLI"
-  fi
-fi
 if [ "${#ruby[@]}" -gt 0 ] || [ "${#chef[@]}" -gt 0 ]; then
   cinc exec cookstyle "$tmpdir/site-cookbooks"; e=$?; [ $e -ne 0 ] && ec=$e
 fi

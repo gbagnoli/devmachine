@@ -1,6 +1,6 @@
 # devmachine
 
-[![CircleCI](https://circleci.com/gh/gbagnoli/devmachine.svg?style=svg)](https://circleci.com/gh/gbagnoli/devmachine)
+[![CI](https://github.com/gbagnoli/devmachine/actions/workflows/ci.yml/badge.svg)](https://github.com/gbagnoli/devmachine/actions/workflows/ci.yml)
 
 Installs the development environment.  This is very opinionated, and personal,
 so I don't think this is going to help anyone else -- but you can use the code
