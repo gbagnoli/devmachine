@@ -14,9 +14,7 @@ user="${2:-$USER}"
 here="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 parent="$(realpath "$here/..")"
 
-ssh -oBatchMode=yes "$user"@"$host" ls &>/dev/null
-# shellcheck disable=SC2181
-if [ $? -ne 0 ] ; then
+if ! ssh -oBatchMode=yes "$user"@"$host" ls &>/dev/null; then
   echo >&2 "cannot connect via ssh to $host as user '$user': is openssh up and pub key setup?"
   exit 1
 fi

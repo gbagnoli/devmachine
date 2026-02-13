@@ -3,9 +3,7 @@ set -eu
 set -o pipefail
 
 ssh-keygen -f "$HOME/.ssh/known_hosts" -R "bender.tigc.eu" &>/dev/null || true
-ssh -oBatchMode=yes root@bender ls &>/dev/null
-
-if [ $? -ne 0 ] ; then
+if ! ssh -oBatchMode=yes root@bender ls &>/dev/null; then
   echo >&2 "cannot connect via ssh to bender as user 'root': is openssh up and pub key setup?"
   exit 1
 fi

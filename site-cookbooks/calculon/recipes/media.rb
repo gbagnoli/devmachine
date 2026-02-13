@@ -620,7 +620,7 @@ podman_nginx_vhost domain do
       # add_header X-Cache-Status $upstream_cache_status; # This is only for debugging cache
     }
 
-    location ~\.(pl|cgi|py|sh|lua|asp|php)$ {
+    location ~\\.(pl|cgi|py|sh|lua|asp|php)$ {
     	return 444;
     }
     EOH

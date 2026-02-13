@@ -1,4 +1,3 @@
-# rubocop:disable Layout/LineLength
 default["podman"]["go"]["version"] = "1.25.6"
 default["podman"]["sources"]["podman"] = {
   url: "https://github.com/containers/podman.git",
@@ -42,4 +41,3 @@ default["podman"]["sources"]["catatonit"] = {
 }
 default["podman"]["cni-plugins"]["version"] = "v1.9.0"
 default["podman"]["cni-plugins"]["url"]="https://github.com/containernetworking/plugins/releases/download"
-# rubocop:enable Layout/LineLength

@@ -21,16 +21,13 @@ echo " .. record_id: $record_id | ip: $zone_ip"
 echo "Getting current ip"
 echo -n "* trying ifconfig.co"
 set +e
-current_ip="$(curl -s https://ifconfig.co)"
-if [ $? -ne 0 ]; then
+if ! current_ip="$(curl -s https://ifconfig.co)"; then
   echo " .. FAIL"
   echo -n "* Trying ident.me"
-  current_ip="$(curl -s http://ident.me)"
-  if [ $? -ne 0 ]; then
+  if ! current_ip="$(curl -s http://ident.me)"; then
     echo " .. FAIL"
     echo -n "* Trying ifconfig.me"
-    current_ip="$(curl -s http://ifconfig.me/ip)"
-    if [ $? -ne 0]; then
+    if ! current_ip="$(curl -s http://ifconfig.me/ip)"; then
       echo " .. FAIL"
       echo >&2 "None of the providers to get the current ip worked. Exiting"
       exit 1
@@ -45,7 +42,7 @@ if [[ "$current_ip" == "$zone_ip" ]]; then
 fi
 
 echo "Updating ${ENTRY}.${ZONE} to resolve to $current_ip"
-curl -s https://www.cloudflare.com/api_json.html \
+if ! curl -s https://www.cloudflare.com/api_json.html \
 	     -d 'a=rec_edit' \
 	     -d "tkn=$CLOUDFLARE_API_TKN" \
              -d "email=$CLOUDFLARE_EMAIL" \
@@ -54,11 +51,9 @@ curl -s https://www.cloudflare.com/api_json.html \
 	     -d 'type=A' \
 	     -d "name=${ENTRY}.${ZONE}" \
 	     -d 'ttl=300' \
-	     -d "content=$current_ip" | jq .
-res=$?
-if [ $res -ne 0 ]; then
+	     -d "content=$current_ip" | jq .; then
   echo "FAIL"
-  exit $res
+  exit 1
 fi
 echo "OK"
 exit 0
