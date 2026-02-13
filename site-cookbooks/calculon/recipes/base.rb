@@ -80,7 +80,13 @@ end
   end
 end
 
-directory node["calculon"]["storage"]["paths"]["downloads"] do
+directory paths["backups"] do
+  group data_group
+  owner data_user
+  mode "2775"
+end
+
+directory paths["downloads"] do
   group data_group
   owner data_user
   mode "2775"

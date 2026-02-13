@@ -1,0 +1,20 @@
+#!/bin/bash
+set -euo pipefail
+BACKUP_DIR="<%= @backup_dir %>"
+LATEST_BACKUP=$(find "$BACKUP_DIR" -name "joplin_db_*.sql.zst" -printf "%T@ %p\n" | sort -n | tail -1 | cut -d' ' -f2-)
+
+if [[ -z "$LATEST_BACKUP" ]]; then
+    echo >&2 "No backup file found in $BACKUP_DIR"
+    exit 1
+fi
+
+echo >&2 "Restoring from: $LATEST_BACKUP"
+
+systemctl stop joplin-server
+# Drop and recreate DB as superuser
+podman exec -u postgres joplin-db dropdb -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>"
+podman exec -u postgres joplin-db createdb -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>"
+
+# Decompress and import
+zstd -d -c "$LATEST_BACKUP" | podman exec -i joplin-db psql -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>"
+systemctl start joplin-server
