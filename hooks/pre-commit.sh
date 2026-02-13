@@ -5,12 +5,7 @@ set -eu
 pushd "$(git rev-parse --show-toplevel)" >/dev/null
 tmpdir="$(mktemp -d)"
 
-cleanup() {
-  # shellcheck disable=SC2317
-  rm -rf "$tmpdir"
-}
-
-trap cleanup EXIT
+trap 'rm -rf "$tmpdir"' EXIT
 
 ruby=()
 python=()
@@ -52,7 +47,7 @@ if $circleci; then
   fi
 fi
 if [ "${#ruby[@]}" -gt 0 ] || [ "${#chef[@]}" -gt 0 ]; then
-  chef exec cookstyle "$tmpdir/site-cookbooks"; e=$?; [ $e -ne 0 ] && ec=$e
+  cinc exec cookstyle "$tmpdir/site-cookbooks"; e=$?; [ $e -ne 0 ] && ec=$e
 fi
 if [ "${#python[@]}" -gt 0 ]; then
   echo "Running ruff "

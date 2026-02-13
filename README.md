@@ -83,11 +83,11 @@ Install [vagrant](https://www.vagrantup.com/downloads.html) using the deb from
 the site and virtualbox (`sudo apt install virtualbox`) then:
 
 ```bash
-chef exec kitchen test ubik-ubuntu-1804
+cinc exec kitchen test ubik-ubuntu-1804
 ```
 
 You can list the available tests with
 
 ```bash
-chef exec kitchen list
+cinc exec kitchen list
 ```
