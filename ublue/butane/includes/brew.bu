@@ -1,0 +1,67 @@
+variant: fcos
+version: 1.6.0
+storage:
+  directories:
+    - path: /home/linuxbrew
+      mode: 0755
+      user:
+        name: giacomo
+      group:
+        name: giacomo
+    - path: /home/giacomo/.local
+      mode: 0750
+      user:
+        name: giacomo
+      group:
+        name: giacomo
+    - path: /home/giacomo/.local/src
+      mode: 0750
+      user:
+        name: giacomo
+      group:
+        name: giacomo
+systemd:
+  units:
+    - name: brew-install.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Install Homebrew
+        After=network-online.target
+        Wants=network-online.target
+        ConditionPathExists=!/home/linuxbrew/.linuxbrew/bin/brew
+
+        [Service]
+        Type=oneshot
+        StandardOutput=journal+console
+        User=giacomo
+        Environment="NONINTERACTIVE=1"
+        ExecStart=curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o /tmp/install_brew.sh
+        ExecStart=/bin/bash /tmp/install_brew.sh
+        RemainAfterExit=yes
+
+        [Install]
+        WantedBy=multi-user.target
+    - name: dotfiles-install.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Install dotfiles
+        # This ensures the service waits for brew to finish
+        After=brew-install.service
+        Requires=brew-install.service
+        Wants=network-online.target
+        ConditionPathExists=!/home/giacomo/.local/src/dotfiles
+
+        [Service]
+        Type=oneshot
+        User=giacomo
+        StandardOutput=journal+console
+        WorkingDirectory=/home/giacomo/.local/src
+        Environment="PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/bin:/bin"
+        ExecStart=/usr/bin/git clone https://github.com/gbagnoli/dotfiles.git
+        ExecStart=/bin/bash /home/giacomo/.local/src/dotfiles/install.sh -b core -V
+        RemainAfterExit=yes
+
+        [Install]
+        WantedBy=multi-user.target
