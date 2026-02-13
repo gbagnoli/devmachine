@@ -155,7 +155,7 @@ end
 calculon_www_upstream "/joplin" do
   upstream_port joplin_port
   title "Notes"
-  category "Utils"
+  category "Apps"
   upgrade "$http_connection"
   extra_properties [
     "client_max_body_size 100m",

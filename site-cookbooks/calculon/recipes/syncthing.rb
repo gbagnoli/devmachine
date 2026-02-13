@@ -118,7 +118,7 @@ calculon_www_upstream "/files" do
     "proxy_read_timeout 86400s",
     "proxy_send_timeout 86400s",
   ]
-  category "Media"
+  category "Apps"
 end
 
 include_recipe "btrbk"
