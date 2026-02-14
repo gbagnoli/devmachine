@@ -16,6 +16,7 @@ property :upstream_paths, Hash, default: {}
 property :act_as_upstream, [String, Integer, NilClass]
 property :extra_config_as_upstream, [String, NilClass]
 property :upgrade, [true, false], default: true
+property :default_location_extra_config, [String, NilClass]
 
 
 action :create do
@@ -74,6 +75,7 @@ action :create do
       act_as_upstream: new_resource.act_as_upstream,
       extra_config_as_upstream: new_resource.extra_config_as_upstream,
       upgrade: new_resource.upgrade,
+      default_location_extra_config: new_resource.default_location_extra_config,
     )
     notifies :reload, "service[nginx]", :immediately
   end

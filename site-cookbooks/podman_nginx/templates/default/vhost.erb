@@ -45,6 +45,10 @@ server {
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection $http_connection;
     <% end -%>
+    <% if @default_location_extra_config -%>
+    <%= @default_location_extra_config %>
+
+    <% end -%>
   }
 
   <% end -%>
