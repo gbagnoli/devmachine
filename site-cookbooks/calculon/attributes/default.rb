@@ -55,6 +55,7 @@ default["calculon"]["storage"]["library_dirs"] = {
 
 # set to a valid domain to enable
 default["calculon"]["www"]["domain"] = nil
+default["calculon"]["www"]["notes_domain"] = nil
 default["calculon"]["www"]["media_domain"] = nil
 default["calculon"]["www"]["upstreams"] = {}
 

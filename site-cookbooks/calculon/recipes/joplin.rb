@@ -12,7 +12,9 @@ if pgpasswd.nil?
   Chef::Log.info('calculon: missing secrets for postgresql')
   raise
 end
-joplin_base_url="https://#{node["calculon"]["www"]["domain"]}/joplin"
+domain = node["calculon"]["www"]["notes_domain"]
+joplin_base_url = "https://#{domain}/"
+joplin_base_url = "https://#{node["calculon"]["www"]["domain"]}/joplin" if domain.nil?
 
 calculon_btrfs_volume jp_root do
   owner user
@@ -152,14 +154,48 @@ WantedBy=timers.target
   action %i(create enable start)
 end
 
-calculon_www_upstream "/joplin" do
-  upstream_port joplin_port
-  title "Notes"
+if domain.nil?
+  # if we don't have a domain, at least setup the upstream
+  calculon_www_upstream "/joplin" do
+    upstream_port joplin_port
+    title "Notes"
+    category "Apps"
+    upgrade "$http_connection"
+    extra_properties [
+      "client_max_body_size 100m",
+      "proxy_read_timeout 86400s",
+      "proxy_send_timeout 86400s",
+    ]
+  end
+  # return - the rest is for the external domain
+  return
+end
+
+calculon_www_link "Notes" do
   category "Apps"
-  upgrade "$http_connection"
-  extra_properties [
-    "client_max_body_size 100m",
-    "proxy_read_timeout 86400s",
-    "proxy_send_timeout 86400s",
-  ]
+  url joplin_base_url
+end
+
+podman_nginx_vhost domain do
+    server_name domain
+    cloudflare true
+    disable_default_location true
+    extra_config <<~EOH
+    location / {
+      proxy_pass http://[::1]:#{joplin_port};
+      proxy_http_version 1.1;
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-Host $host;
+      proxy_set_header X-Forwarded-Server $host;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection $http_connection;
+      client_max_body_size 100m;
+      proxy_read_timeout 86400s;
+      proxy_send_timeout 86400s;
+    }
+    EOH
+
 end
