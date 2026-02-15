@@ -70,6 +70,23 @@ podman_container "joplin-db" do
   )
 end
 
+mail_config = []
+mconf = node["calculon"]["joplin"]["secrets"]["mail"]
+unless mconf.nil?
+  mail_config = %W{
+    Environment=MAILER_ENABLED=1
+    Environment=MAILER_HOST=#{mconf["host"]}
+    Environment=MAILER_PORT=#{mconf["port"]}
+    Environment=MAILER_SECURITY=#{mconf["security"]}
+    Environment=MAILER_AUTH_USER=#{mconf["username"]}
+    Environment=MAILER_AUTH_PASSWORD=#{mconf["password"]}
+    Environment=MAILER_NOREPLY_NAME=#{mconf["mailer_name"]}
+    Environment=MAILER_NOREPLY_EMAIL=#{mconf["mailer_email"]}
+    Environment=SUPPORT_EMAIL=#{mconf['support_email']}
+    Environment=SUPPORT_NAME=#{mconf['support_name']}
+  }
+end
+
 podman_container "joplin-server" do
   config(
     Container: %W{
@@ -86,7 +103,7 @@ podman_container "joplin-server" do
       Annotation=run.oci.condition-wait=joplin-db.service:healthy
       Environment=MAX_TIME_DRIFT=0
       Volume=/etc/localtime:/etc/localtime:ro
-    },
+    } + mail_config,
     Service: %w{
       Restart=always
     },
