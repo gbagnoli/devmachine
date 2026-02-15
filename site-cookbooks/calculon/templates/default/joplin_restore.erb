@@ -1,14 +1,41 @@
 #!/bin/bash
+# usage:
+# $0 [file]
+#
+# if file is not set on commandline, it will find the last one.
+# if file is set on commandline, it must be the full path
+# it will ask for confirm unless FORCE env var is set:
+# i.e. FORCE=1 $0 <file>
+
 set -euo pipefail
 BACKUP_DIR="<%= @backup_dir %>"
-LATEST_BACKUP=$(find "$BACKUP_DIR" -name "joplin_db_*.sql.zst" -printf "%T@ %p\n" | sort -n | tail -1 | cut -d' ' -f2-)
-
-if [[ -z "$LATEST_BACKUP" ]]; then
-    echo >&2 "No backup file found in $BACKUP_DIR"
-    exit 1
+if [ $# -eq 1 ]; then
+  BACKUP_TO_RESTORE="$1"
+else
+  echo >&2 "No backup file set on commandline, autodiscovery last from $BACKUP_DIR"
+  BACKUP_TO_RESTORE=$(find "$BACKUP_DIR" -name "joplin_db_*.sql.zst" -printf "%T@ %p\n" | sort -n | tail -1 | cut -d' ' -f2-)
+  if [[ -z "$BACKUP_TO_RESTORE" ]]; then
+      echo >&2 "No backup file found in $BACKUP_DIR"
+      exit 1
+  fi
 fi
 
-echo >&2 "Restoring from: $LATEST_BACKUP"
+if [ ! -f "$BACKUP_TO_RESTORE" ]; then
+  echo >&2 "File do not exist at $BACKUP_TO_RESTORE"
+  exit 1
+fi
+echo >&2 "Restoring from: $BACKUP_TO_RESTORE"
+
+if [ -z "${FORCE-}" ]; then
+  # Ask the user
+  read -r -p "Do you want to continue? (y/N) " answer
+
+    # Stop if they don't say 'y'
+    if [ "$answer" != "y" ]; then
+      echo "Exiting."
+      exit 0
+    fi
+fi
 
 systemctl stop joplin-server
 # Drop and recreate DB as superuser
@@ -16,5 +43,5 @@ podman exec -u postgres joplin-db dropdb -p "<%= @db_port %>" -U "<%= @db_user %
 podman exec -u postgres joplin-db createdb -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>"
 
 # Decompress and import
-zstd -d -c "$LATEST_BACKUP" | podman exec -i joplin-db psql -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>"
+zstd -d -c "$BACKUP_TO_RESTORE" | podman exec -i joplin-db psql -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>"
 systemctl start joplin-server
