@@ -52,7 +52,7 @@ podman_container "joplin-db" do
       "Environment=POSTGRES_DATABASE=#{pgdb}",
       "Environment=POSTGRES_USER=#{pguser}",
       "Environment=POSTGRES_PASSWORD=#{pgpasswd}",
-      "Volume=#{db_path}:/var/lib/postgres/data",
+      "Volume=#{db_path}:/var/lib/postgresql",
       "HealthCmd=pg_isready -p #{pgport} -U #{pguser} -d #{pgdb}",
       "HealthInterval=5s",
       "HealthRetries=5",
