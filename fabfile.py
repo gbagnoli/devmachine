@@ -73,7 +73,7 @@ def validate_secrets(
 def chef(c: Connection, host: str, remote: str, secrets: Optional[str] = None) -> None:
     secrets_opts = f" -j {secrets}" if secrets else ""
     cmd = chef_command.format(host=host, secrets=secrets_opts)
-    wrapper = f"/usr/local/bin/run-chef-{c.user}"
+    wrapper = "/usr/local/bin/run-chef"
 
     if (
         not remote_exists(c, script)
@@ -96,9 +96,10 @@ def chef(c: Connection, host: str, remote: str, secrets: Optional[str] = None) -
 
 
 def local_chef(c: Context, localhost: str, secrets: Optional[str] = None) -> None:
+    user = getpass.getuser()
     secrets_opts = f" -j {secrets}" if secrets else ""
     cmd = chef_command.format(host=localhost, secrets=secrets_opts)
-    wrapper = f"/usr/local/bin/run-chef-{c.user}"
+    wrapper = "/usr/local/bin/run-chef"
 
     if not os.path.exists(script):
         with open("/tmp/run-chef", "w") as f:
@@ -111,7 +112,7 @@ def local_chef(c: Context, localhost: str, secrets: Optional[str] = None) -> Non
     if not os.path.exists(wrapper):
         with open("/tmp/run-chef-wrapper", "w") as f:
             f.write(wrapper_script)
-        c.run(f"sudo install -T -m 755 -o {c.user} /tmp/run-chef-wrapper {wrapper}")
+        c.run(f"sudo install -T -m 755 -o {user} /tmp/run-chef-wrapper {wrapper}")
         os.unlink("/tmp/run-chef-wrapper")
 
     c.run(wrapper)
