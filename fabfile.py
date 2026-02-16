@@ -18,15 +18,11 @@ chef_script = """
 cd {remote}
 {chef_command} "$@"
 """
-script = "/usr/local/bin/run-chef"
-wrapper_script = f"""#!/bin/bash
-sudo {script} "$@"
-"""
-sudoers = "/etc/sudoers.d/chef"
+RUN_CHEF_PATH = "/usr/local/bin/run-chef"
 
 
 def setup_passwords(c: Connection) -> Connection:
-    ssh_pass = getpass.getpass(f"SSH password for {c.original_host}: ")
+    ssh_pass = getpass.getpass("SSH local key passphrase (empty to skip): ")
     sudo_pass = getpass.getpass(f"Enter sudo password for {c.original_host}: ")
 
     # Mutate the connection object directly
@@ -41,9 +37,9 @@ def remote_exists(c: Connection, path: str) -> bool:
     return c.run(f"test -e {path}", warn=True).ok
 
 
-def vendor(c: Context) -> None:
+def berks_vendor(c: Context) -> None:
     with c.cd(os.path.dirname(os.path.abspath(__file__))):
-        print("Vendoring local berks cookbooks")
+        print("Running `cinc exec berks vendor`")
         c.run("cinc exec berks vendor", hide=True)
 
 
@@ -73,49 +69,31 @@ def validate_secrets(
 def chef(c: Connection, host: str, remote: str, secrets: Optional[str] = None) -> None:
     secrets_opts = f" -j {secrets}" if secrets else ""
     cmd = chef_command.format(host=host, secrets=secrets_opts)
-    wrapper = "/usr/local/bin/run-chef"
 
     if (
-        not remote_exists(c, script)
-        or not c.run(f"grep -q '{cmd}' {script}", warn=True).ok
+        not remote_exists(c, RUN_CHEF_PATH)
+        or not c.run(f"grep -q '{cmd}' {RUN_CHEF_PATH}", warn=True).ok
     ):
         Transfer(c).put(
             StringIO(chef_script.format(remote=remote, chef_command=cmd)),
-            remote=script,
+            remote=RUN_CHEF_PATH,
         )
-        c.sudo(f"chmod 750 {script}")
+        c.sudo(f"chmod 750 {RUN_CHEF_PATH}")
 
-    if remote_exists(c, sudoers):
-        c.sudo(f"rm -f {sudoers}")
-
-    if not remote_exists(c, wrapper):
-        Transfer(c).put(StringIO(wrapper_script), remote=wrapper)
-        c.sudo(f"chmod 750 {wrapper}")
-
-    c.sudo(script)
+    c.sudo(RUN_CHEF_PATH)
 
 
 def local_chef(c: Context, localhost: str, secrets: Optional[str] = None) -> None:
-    user = getpass.getuser()
     secrets_opts = f" -j {secrets}" if secrets else ""
     cmd = chef_command.format(host=localhost, secrets=secrets_opts)
-    wrapper = "/usr/local/bin/run-chef"
 
-    if not os.path.exists(script):
+    if not os.path.exists(RUN_CHEF_PATH):
         with open("/tmp/run-chef", "w") as f:
             f.write(chef_script.format(remote=os.getcwd(), chef_command=cmd))
-        c.run(f"sudo install -T -m 755 /tmp/run-chef {script}")
+        c.run(f"sudo install -T -m 755 /tmp/run-chef {RUN_CHEF_PATH}")
         os.unlink("/tmp/run-chef")
 
-    c.run(f"sudo rm -f {sudoers}", warn=True)
-
-    if not os.path.exists(wrapper):
-        with open("/tmp/run-chef-wrapper", "w") as f:
-            f.write(wrapper_script)
-        c.run(f"sudo install -T -m 755 -o {user} /tmp/run-chef-wrapper {wrapper}")
-        os.unlink("/tmp/run-chef-wrapper")
-
-    c.run(wrapper)
+    c.run(f"sudo ${RUN_CHEF_PATH}")
 
 
 def rsync(
@@ -143,7 +121,10 @@ def rsync(
     ]
     exclude_opts = " ".join([f"--exclude='{e}'" for e in excludes])
     local_path = os.path.dirname(os.path.abspath(__file__))
-    c.local(f"rsync -avz -q --delete {exclude_opts} {local_path}/ {host}:{remote}/")
+    c.local(
+        f"rsync -avz -q --delete {exclude_opts} {local_path}/ {host}:{remote}/",
+        echo=True,
+    )
 
     if secrets and not skip_secrets_upload:
         c.sudo(f"mkdir -p {remote}/secrets")
@@ -216,7 +197,6 @@ def resolve_host(c: Connection) -> Tuple[str, bool]:
 
 @task
 def sync(c: Connection, remote: str = "/usr/local/src/chefrepo/") -> None:
-    here = os.path.dirname(os.path.abspath(__file__))
     ctx = Context()
     install_git_hooks(ctx)
     host, local = resolve_host(c)
@@ -224,8 +204,7 @@ def sync(c: Connection, remote: str = "/usr/local/src/chefrepo/") -> None:
         c = setup_passwords(c)
 
     secrets, skip_secrets_upload = check_node(c, host, remote, local)
-    with ctx.cd(here):
-        vendor(ctx)
+    berks_vendor(ctx)
     if not local:
         rsync(c, host, remote, secrets, skip_secrets_upload)
 
@@ -242,3 +221,9 @@ def run(c: Connection, remote: str = "/usr/local/src/chefrepo/") -> None:
             local_chef(ctx, host, secrets)
         else:
             chef(c, host, remote, secrets)
+
+
+@task
+def vendor(c: Connection) -> None:
+    ctx = Context()
+    berks_vendor(ctx)
