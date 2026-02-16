@@ -1,10 +1,13 @@
 [project]
 name = "devmachine"
 version = "0.0.1"
-requires-python = "~=3.13.0"
+requires-python = ">=3.14"
 dependencies = [
-    "Fabric>=1.15.0,<2",
+    "fabric>=3.0,<4",
     "pyyaml",
+    "mypy>=1.18.1",
+    "ruff>=0.13.0",
+    "types-pyyaml>=6.0.12.20250915",
 ]
 
 [tool.ruff]
@@ -16,10 +19,3 @@ package = false
 [[tool.uv.index]]
 name = "pypi"
 url = "https://pypi.python.org/simple"
-
-[dependency-groups]
-dev = [
-    "mypy>=1.18.1",
-    "ruff>=0.13.0",
-    "types-pyyaml>=6.0.12.20250915",
-]
