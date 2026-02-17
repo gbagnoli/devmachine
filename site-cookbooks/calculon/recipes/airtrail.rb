@@ -4,7 +4,8 @@ pgdb = "airtrail"
 pguser = "airtrail"
 pgpasswd = node["calculon"]["airtrail"]["secrets"]["pgpasswd"]
 airtrail_port = 3214
-airtrail_base_url = "https://#{node["calculon"]["www"]["domain"]}/airtrail"
+domain = node["calculon"]["airtrail"]["domain"]
+airtrail_base_url = "https://#{domain}"
 airtrail_files = node["calculon"]["storage"]["paths"]["airtrail"]
 backup_path = "#{node["calculon"]["storage"]["paths"]["backups"]}/airtrail"
 db_service_unit = "postgresql-airtrail.service"
@@ -57,11 +58,15 @@ podman_container "airtrail" do
   )
 end
 
-calculon_www_upstream "/airtrail" do
-  upstream_port airtrail_port
-  upgrade true
-  title "AirTrail"
+calculon_www_link "Airtrail" do
   category "Apps"
+  url airtrail_base_url
+end
+
+podman_nginx_vhost domain do
+    server_name domain
+    cloudflare true
+    upstream_port airtrail_port
 end
 
 systemd_unit "airtrail-backup-files.service" do
