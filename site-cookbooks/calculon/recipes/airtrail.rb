@@ -67,6 +67,10 @@ podman_nginx_vhost domain do
     server_name domain
     cloudflare true
     upstream_port airtrail_port
+    oauth2_proxy(
+      emails: node["calculon"]["www"]["user_emails"],
+      port: 4200
+    )
 end
 
 systemd_unit "airtrail-backup-files.service" do
