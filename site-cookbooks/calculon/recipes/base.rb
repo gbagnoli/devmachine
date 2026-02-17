@@ -71,7 +71,7 @@ if node["calculon"]["storage"]["manage"]
   end
 end
 
-%w{sync media tmp databases}.each do |vol|
+%w{sync media tmp databases airtrail}.each do |vol|
   calculon_btrfs_volume paths[vol] do
     group data_group
     owner data_user
