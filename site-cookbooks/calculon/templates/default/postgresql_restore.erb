@@ -13,7 +13,7 @@ if [ $# -eq 1 ]; then
   BACKUP_TO_RESTORE="$1"
 else
   echo >&2 "No backup file set on commandline, autodiscovery last from $BACKUP_DIR"
-  BACKUP_TO_RESTORE=$(find "$BACKUP_DIR" -name "joplin_db_*.sql.zst" -printf "%T@ %p\n" | sort -n | tail -1 | cut -d' ' -f2-)
+  BACKUP_TO_RESTORE=$(find "$BACKUP_DIR" -name "<%= @db %>_*.sql.zst" -printf "%T@ %p\n" | sort -n | tail -1 | cut -d' ' -f2-)
   if [[ -z "$BACKUP_TO_RESTORE" ]]; then
       echo >&2 "No backup file found in $BACKUP_DIR"
       exit 1
