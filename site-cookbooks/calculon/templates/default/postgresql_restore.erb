@@ -39,9 +39,9 @@ fi
 
 systemctl stop joplin-server
 # Drop and recreate DB as superuser
-podman exec -u postgres joplin-db dropdb -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>"
-podman exec -u postgres joplin-db createdb -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>"
+podman exec -u postgres "<%= @container %>" dropdb -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>"
+podman exec -u postgres "<%= @container %>" createdb -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>"
 
 # Decompress and import
-zstd -d -c "$BACKUP_TO_RESTORE" | podman exec -i joplin-db psql -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>"
+zstd -d -c "$BACKUP_TO_RESTORE" | podman exec -i "<%= @container %>" psql -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>"
 systemctl start joplin-server

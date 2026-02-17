@@ -71,7 +71,7 @@ if node["calculon"]["storage"]["manage"]
   end
 end
 
-%w{sync media tmp}.each do |vol|
+%w{sync media tmp databases}.each do |vol|
   calculon_btrfs_volume paths[vol] do
     group data_group
     owner data_user
@@ -155,4 +155,10 @@ end
 
 systemd_unit 'podman-auto-update.timer' do
   action %i{enable start}
+end
+
+podman_image "postgres" do
+  config(
+    Image: ["Image=docker.io/postgres:18"],
+  )
 end

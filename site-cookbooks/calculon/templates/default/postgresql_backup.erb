@@ -3,6 +3,6 @@ set -euo pipefail
 BACKUP_DIR="<%= @backup_dir %>"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
-podman exec joplin-db pg_dump -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>" | zstd -o "$BACKUP_DIR/joplin_db_$TIMESTAMP.sql.zst"
+podman exec "<%= @container %>" pg_dump -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>" | zstd -o "$BACKUP_DIR/joplin_db_$TIMESTAMP.sql.zst"
 
 find "$BACKUP_DIR" -name "joplin_db_*.sql.zst" -mtime +7 -delete
