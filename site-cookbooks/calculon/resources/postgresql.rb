@@ -25,14 +25,19 @@ action :create do
     end
   end
 
+  podman_secret password_secret do
+    value new_resource.password
+  end
+
   podman_container service_name do
     config(
       Container: [
         "Image=postgres.image",
         "Exec=-p #{new_resource.port}",
+        "Secret=#{password_secret}",
         "Environment=POSTGRES_DATABASE=#{new_resource.name}",
         "Environment=POSTGRES_USER=#{new_resource.user}",
-        "Environment=POSTGRES_PASSWORD=#{new_resource.password}",
+        "Environment=POSTGRES_PASSWORD_FILE=#{password_secret_path}",
         "Volume=#{database_path}:/var/lib/postgresql",
         "HealthCmd=pg_isready -p #{new_resource.port} -U #{new_resource.user} -d #{new_resource.name}",
         "HealthInterval=5s",
@@ -109,12 +114,46 @@ action :create do
 end
 
 action :remove do
-  # TODO
+  %W{postgresql_backup_#{new_resource.name}.timer postgresql_backup_#{new_resource.name}.service}.each do |unit|
+    systemd_unit unit do
+      action :delete
+    end
+  end
+
+  %W{/usr/local/bin/postgresql_restore_#{new_resource.name} /usr/local/bin/postgresql_backup_#{new_resource.name}}.each do |f|
+    file f do
+      action :delete
+    end
+  end
+
+  podman_container service_name do
+    # config is required
+    config({})
+    action :delete
+  end
+
+  podman_secret password_secret do
+    action :delete
+  end
+
+  # leave backups around :)
+  directory database_path do
+    action :delete
+    recursive true
+  end
 end
 
 action_class do
   def service_name
     "postgresql-#{new_resource.name}"
+  end
+
+  def password_secret
+    "#{service_name}_password"
+  end
+
+  def password_secret_path
+    "/run/secrets/#{password_secret}"
   end
 
   def pod_quadlet_config
