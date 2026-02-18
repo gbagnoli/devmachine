@@ -15,6 +15,7 @@ action :create do
     cookbook "podman"
     owner user.uid
     group user.uid
+    mode '0400'
     variables(
       config: new_resource.config
     )
