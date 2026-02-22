@@ -28,4 +28,9 @@ override_attributes(
       ],
     },
   },
+  "pihole" => {
+    "paths" => {
+      "root" => "/srv/pihole",
+    }
+  }
 )
