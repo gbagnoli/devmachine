@@ -40,6 +40,8 @@ action :create do
        upstream_port oauth2_proxy_upstream_port
        upstream_address oauth2_proxy_upstream_address
        upstream_protocol new_resource.upstream_protocol
+       pass_auth !!conf[:pass_auth]
+       extra_config conf[:extra_config].to_h
      end
   end
 

@@ -18,7 +18,7 @@ end
   gokapi_data,
   gokapi_config
 ].each do |dir|
-  directory "#{dir}" do
+  directory dir do
     owner user
     group group
     mode "2755"
@@ -45,7 +45,7 @@ template "#{gokapi_config}/config.json" do
   variables(
     port: gokapi_port,
     public_name: secrets["public_name"],
-    server_url: server_url,
+    server_url: "#{server_url}/",
     redirect_url: "#{server_url}/admin",
     admin_username: secrets["admin_username"]
   )
@@ -62,6 +62,7 @@ podman_container "gokapi" do
       User=#{uid}
       Group=#{gid}
       Environment=TZ=Europe/Madrid
+      Environment=GOKAPI_USE_CLOUDFLARE=true
       Environment=GOKAPI_ADMIN_USER=#{secrets["admin_username"]}
       Volume=#{gokapi_data}:/app/data
       Volume=#{gokapi_config}:/app/config
@@ -91,6 +92,24 @@ podman_nginx_vhost secrets["domain"] do
     oauth2_proxy(
       emails: node["calculon"]["www"]["user_emails"],
       port: 4201,
-      pass_auth: true
+      pass_auth: true,
+      extra_config: {
+        skip_auth_regex: [
+          "^/d.*",
+          "^/js/.*",
+          "^/static/.*",
+          "^/downloadFile.*",
+          "^/publicUpload.*",
+          "^/api/uploadrequest/chunk/.*"
+        ]
+      }
     )
+    extra_config <<-EOH
+      client_max_body_size 200M;
+      client_body_buffer_size 128k;
+      proxy_read_timeout 300;
+      proxy_send_timeout 300;
+      proxy_connect_timeout 300;
+      send_timeout 300;
+    EOH
 end

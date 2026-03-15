@@ -11,6 +11,7 @@ property :upstream_protocol, String, default: "http", equal_to: %w(http https)
 property :address, String, default: "[::]"
 property :auth_provider, String, default: "google"
 property :pass_auth, [true, false], default: false
+property :extra_config, Hash, default: {}
 
 default_action :create
 
@@ -81,6 +82,8 @@ action_class do
     config_hash.sort.map do |k, v|
       val = if v.is_a?(Array)
               "[#{v.sort.map {|x| "\"#{x}\""}.join(", ")}]"
+            elsif [true, false].include?(v)
+              v
             else
               "\"#{v}\""
             end
@@ -100,10 +103,9 @@ action_class do
       client_secret: secrets["client-secret"],
     }
     if new_resource.pass_auth
-      cfg[:pass_auth_headers] = true
       cfg[:set_xauthrequest] = true
     end
-    cfg
+    cfg.merge(new_resource.extra_config)
   end
 
   def http_address
