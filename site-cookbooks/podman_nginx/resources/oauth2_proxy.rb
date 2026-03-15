@@ -10,6 +10,7 @@ property :upstream_address, String, default: "[::1]"
 property :upstream_protocol, String, default: "http", equal_to: %w(http https)
 property :address, String, default: "[::]"
 property :auth_provider, String, default: "google"
+property :pass_auth, [true, false], default: false
 
 default_action :create
 
@@ -88,7 +89,7 @@ action_class do
   end
 
   def config_hash
-    {
+    cfg = {
       provider: new_resource.auth_provider,
       http_address: http_address ,
       upstreams: upstreams,
@@ -98,6 +99,11 @@ action_class do
       client_id: secrets["client-id"],
       client_secret: secrets["client-secret"],
     }
+    if new_resource.pass_auth
+      cfg[:pass_auth_headers] = true
+      cfg[:set_xauthrequest] = true
+    end
+    cfg
   end
 
   def http_address

@@ -1,9 +1,11 @@
 gokapi_port = 53842
 gokapi_root = node["calculon"]["storage"]["paths"]["gokapi"]
-gokapi_files = "#{gokapi_root}/files"
+gokapi_data = "#{gokapi_root}/files"
 gokapi_config = "#{gokapi_root}/config"
 user = node["calculon"]["data"]["username"]
 group = node["calculon"]["data"]["group"]
+uid = node["calculon"]["data"]["uid"]
+gid = node["calculon"]["data"]["gid"]
 
 calculon_btrfs_volume gokapi_root do
   owner user
@@ -13,7 +15,7 @@ calculon_btrfs_volume gokapi_root do
 end
 
 [
-  gokapi_files,
+  gokapi_data,
   gokapi_config
 ].each do |dir|
   directory "#{dir}" do
@@ -24,7 +26,7 @@ end
 end
 
 secrets = node["calculon"]["gokapi"]["secrets"].to_h
-%w{public_name server_url saltadmin saltfiles admin_username}.each do |s|
+%w{public_name domain admin_username}.each do |s|
   if secrets[s].nil?
     Chef::Log.info("calculon: missing secret #{s} for gokapi")
     raise
@@ -44,10 +46,8 @@ template "#{gokapi_config}/config.json" do
     port: gokapi_port,
     public_name: secrets["public_name"],
     server_url: server_url,
-    redirect_url: "#{secrets["server_url"]}/admin",
-    saltadmin: secrets["saltadmin"],
-    saltfiles: secrets["saltfiles"],
-    username: secrets["admin_username"]
+    redirect_url: "#{server_url}/admin",
+    admin_username: secrets["admin_username"]
   )
   user user
   group group
@@ -57,12 +57,13 @@ end
 podman_container "gokapi" do
   config(
     Container: %W{
-      Image=airtrail.image
+      Image=gokapi.image
       Pod=web.pod
-      User=#{user}
-      Group=#{group}
+      User=#{uid}
+      Group=#{gid}
       Environment=TZ=Europe/Madrid
-      Volume=#{gokapi_files}:/app/data
+      Environment=GOKAPI_ADMIN_USER=#{secrets["admin_username"]}
+      Volume=#{gokapi_data}:/app/data
       Volume=#{gokapi_config}:/app/config
     },
     Service: %w{
@@ -89,6 +90,7 @@ podman_nginx_vhost secrets["domain"] do
     upstream_port gokapi_port
     oauth2_proxy(
       emails: node["calculon"]["www"]["user_emails"],
-      port: 4201
+      port: 4201,
+      pass_auth: true
     )
 end
