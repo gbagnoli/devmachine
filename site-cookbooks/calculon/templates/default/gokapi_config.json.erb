@@ -1,0 +1,38 @@
+{
+  "Authentication": {
+    "Method": 2,
+    "SaltAdmin": "<%= @saltadmin %>",
+    "SaltFiles": "<%= @saltfiles %>",
+    "Username": "<%= @admin_username %>",
+    "HeaderKey": "X-Forwarded-Email",
+    "OauthProvider": "",
+    "OAuthClientId": "",
+    "OAuthClientSecret": "",
+    "OauthGroupScope": "",
+    "OAuthRecheckInterval": 12,
+    "OAuthGroups": [],
+    "OnlyRegisteredUsers": true
+  },
+  "Port": ":<%= @port %>",
+  "ServerUrl": "<%= @server_url %>",
+  "RedirectUrl": "<%= @redirect_url %>",
+  "PublicName": "<%= @public_name %>",
+  "DataDir": "data",
+  "DatabaseUrl": "sqlite://./data/gokapi.sqlite",
+  "ConfigVersion": 22,
+  "MaxFileSizeMB": 102400,
+  "MaxMemory": 50,
+  "ChunkSize": 45,
+  "MaxParallelUploads": 3,
+  "Encryption": {
+    "Level": 0,
+    "Cipher": null,
+    "Salt": "",
+    "Checksum": "",
+    "ChecksumSalt": ""
+  },
+  "UseSsl": false,
+  "PicturesAlwaysLocal": false,
+  "SaveIp": false,
+  "IncludeFilename": false
+}

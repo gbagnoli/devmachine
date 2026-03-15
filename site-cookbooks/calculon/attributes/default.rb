@@ -25,6 +25,7 @@ default["calculon"]["storage"]["paths"]["airtrail"] = "/var/lib/data/sync/airtra
 default["calculon"]["storage"]["paths"]["backups"] = "/var/lib/data/sync/backups"
 default["calculon"]["storage"]["paths"]["databases"] = "/var/lib/data/dbs"
 default["calculon"]["storage"]["paths"]["downloads"] = "/var/lib/data/media/downloads"
+default["calculon"]["storage"]["paths"]["gokapi"] = "/var/lib/data/gokapi"
 default["calculon"]["storage"]["paths"]["jellyfin"] = "/var/lib/data/jellyfin"
 default["calculon"]["storage"]["paths"]["lidarr"] = "/var/lib/data/lidarr"
 default["calculon"]["storage"]["paths"]["media"] = "/var/lib/data/media"
@@ -60,6 +61,9 @@ default["calculon"]["www"]["domain"] = nil
 default["calculon"]["www"]["notes_domain"] = nil
 default["calculon"]["www"]["media_domain"] = nil
 default["calculon"]["www"]["upstreams"] = {}
+
+# need to be set
+default["calculon"]["gokapi"]["secrets"] = {}
 
 default["calculon"]["containers"]["storage"]["volume"] = "/var/lib/data/containers"
 default["calculon"]["containers"]["storage"]["driver"] = "btrfs"
