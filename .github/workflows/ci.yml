@@ -49,3 +49,42 @@ jobs:
         run: |
           find . -name "*.sh" -not -path "./.venv/*" -not -path "./berks-cookbooks/*" -exec shellcheck -x {} +
           shellcheck -x run
+
+  skillet-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            rust:
+              - 'ublue/skillet/**'
+      
+      - name: Set up Rust
+        if: steps.filter.outputs.rust == 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Rust Cache
+        if: steps.filter.outputs.rust == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ublue/skillet
+
+      - name: Run Clippy
+        if: steps.filter.outputs.rust == 'true'
+        run: cd ublue/skillet && cargo clippy -- -D warnings
+
+      - name: Run Unit Tests
+        if: steps.filter.outputs.rust == 'true'
+        run: cd ublue/skillet && cargo test
+
+      - name: Run Integration Tests
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          # Build binary explicitly for the test runner to find it
+          cargo build
+          ./target/debug/skillet test run beezelbot --image fedora:latest
