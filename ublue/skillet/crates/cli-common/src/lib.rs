@@ -1,4 +1,3 @@
-use anyhow::{Context, Result};
 use clap::Parser;
 use skillet_core::files::LocalFileResource;
 use skillet_core::recorder::Recorder;
@@ -6,8 +5,21 @@ use skillet_core::system::LinuxSystemResource;
 use skillet_hardening::apply;
 use std::fs;
 use std::path::PathBuf;
+use thiserror::Error;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
+
+#[derive(Error, Debug)]
+pub enum CliCommonError {
+    #[error("Failed to apply hardening: {0}")]
+    Hardening(#[from] skillet_hardening::HardeningError),
+    #[error("Failed to set default tracing subscriber: {0}")]
+    SetLogger(#[from] tracing::subscriber::SetGlobalDefaultError),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Serialization error: {0}")]
+    Yaml(#[from] serde_yaml::Error),
+}
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -30,7 +42,7 @@ pub enum HostCommands {
     },
 }
 
-pub fn run_host(hostname: &str) -> Result<()> {
+pub fn run_host(hostname: &str) -> Result<(), CliCommonError> {
     let args = HostArgs::parse();
 
     let subscriber = FmtSubscriber::builder()
@@ -41,14 +53,14 @@ pub fn run_host(hostname: &str) -> Result<()> {
         })
         .finish();
 
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+    tracing::subscriber::set_global_default(subscriber)?;
 
     match args.command {
         HostCommands::Apply { record } => handle_apply(hostname, record),
     }
 }
 
-fn handle_apply(hostname: &str, record_path: Option<PathBuf>) -> Result<()> {
+fn handle_apply(hostname: &str, record_path: Option<PathBuf>) -> Result<(), CliCommonError> {
     info!("Starting Skillet configuration for {}...", hostname);
 
     let system = LinuxSystemResource::new();
@@ -62,7 +74,7 @@ fn handle_apply(hostname: &str, record_path: Option<PathBuf>) -> Result<()> {
 
         let ops = recorder_system.get_ops();
         let yaml = serde_yaml::to_string(&ops)?;
-        fs::write(&path, yaml).context("Failed to write recording")?;
+        fs::write(&path, yaml)?;
         info!("Recording saved to {}", path.display());
     } else {
         apply(&system, &files)?;
