@@ -63,7 +63,7 @@ fn main() -> Result<()> {
         })
         .finish();
 
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+    tracing::subscriber::set_global_default(subscriber).context("setting default subscriber failed")?;
 
     match args.command {
         Commands::Apply { record } => handle_apply(record),
