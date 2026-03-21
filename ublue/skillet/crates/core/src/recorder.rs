@@ -23,7 +23,7 @@ impl<T> Recorder<T> {
     }
 
     pub fn get_ops(&self) -> Vec<ResourceOp> {
-        self.ops.lock().unwrap().clone()
+        self.ops.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
     pub fn shared_ops(&self) -> Arc<Mutex<Vec<ResourceOp>>> {
@@ -31,7 +31,7 @@ impl<T> Recorder<T> {
     }
 
     fn record(&self, op: ResourceOp) {
-        self.ops.lock().unwrap().push(op);
+        self.ops.lock().unwrap_or_else(|e| e.into_inner()).push(op);
     }
 }
 
@@ -51,7 +51,7 @@ impl<T: FileResource> FileResource for Recorder<T> {
         self.record(ResourceOp::EnsureFile {
             path: path.display().to_string(),
             content_hash: hash,
-            mode,
+            mode: mode.map(|m| format!("0o{:o}", m)),
             owner: owner.map(|s| s.to_string()),
             group: group.map(|s| s.to_string()),
         });
