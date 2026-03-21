@@ -1,0 +1,6 @@
+- !EnsureFile
+  path: /etc/sysctl.d/99-hardening.conf
+  content_hash: c71e2f0edb84c44cfb601a2dc3d35df3b46afbbe9d28e02283a12d4b5f55b89d
+  mode: 420
+  owner: root
+  group: root
