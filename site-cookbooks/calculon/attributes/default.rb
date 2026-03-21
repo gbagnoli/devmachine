@@ -58,8 +58,9 @@ default["calculon"]["storage"]["library_dirs"] = {
 
 # set to a valid domain to enable
 default["calculon"]["www"]["domain"] = nil
-default["calculon"]["www"]["notes_domain"] = nil
 default["calculon"]["www"]["media_domain"] = nil
+default["calculon"]["www"]["notes_domain"] = nil
+default["calculon"]["www"]["openclaw_domain"] = nil
 default["calculon"]["www"]["upstreams"] = {}
 
 # need to be set
@@ -83,3 +84,7 @@ default["calculon"]["magiusstaff"]["uid"] = "2002"
 default["calculon"]["magiusstaff"]["gid"] = "2002"
 default["calculon"]["magiusstaff"]["user_emails"] = nil
 default["calculon"]["magiusstaff"]["paths"]["root"] = "/var/lib/data/magiusstaff"
+
+default["calculon"]["openclaw"]["ipv4"] = ""
+default["calculon"]["openclaw"]["ipv6"] = "::1"
+default["calculon"]["openclaw"]["port"] = "18789"
