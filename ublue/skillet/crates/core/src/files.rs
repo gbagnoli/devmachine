@@ -2,7 +2,7 @@ use nix::unistd::{chown, Gid, Uid};
 use sha2::{Digest, Sha256};
 use std::fs::{self};
 use std::io::{self, Write};
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
 use tempfile::NamedTempFile;
 use thiserror::Error;
@@ -66,19 +66,6 @@ impl LocalFileResource {
                 changed = true;
             }
         }
-
-        if let Some(desired_user) = owner {
-            let _user = get_user_by_name(desired_user)
-                .ok_or_else(|| FileError::UserNotFound(desired_user.to_string()))?;
-            if metadata.permissions().mode() & 0o777 != 0 { // Placeholder for real check
-                 // For ownership we really need to check stat, not just permissions
-                 // Let's use nix::sys::stat::stat or std::os::unix::fs::MetadataExt
-            }
-        }
-
-        // Ownership check is a bit more involved with std::fs::Metadata.
-        // We can use MetadataExt.
-        use std::os::unix::fs::MetadataExt;
 
         if let Some(desired_user) = owner {
             let user = get_user_by_name(desired_user)

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-skillet_core.workspace = true
+skillet_core = { workspace = true, features = ["test-utils"] }
 thiserror.workspace = true
 tracing.workspace = true
 

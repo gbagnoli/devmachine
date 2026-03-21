@@ -1,5 +1,6 @@
 use super::*;
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use tempfile::tempdir;
 
 #[test]
@@ -52,6 +53,36 @@ fn test_ensure_file_updates_content() {
         .unwrap();
     assert!(changed);
     assert_eq!(fs::read(&file_path).unwrap(), b"updated");
+}
+
+#[test]
+fn test_ensure_file_metadata() {
+    let dir = tempdir().unwrap();
+    let file_path = dir.path().join("test_meta.txt");
+    let resource = LocalFileResource::new();
+    let content = b"metadata test";
+
+    // 1. Create with default meta
+    resource
+        .ensure_file(&file_path, content, None, None, None)
+        .unwrap();
+
+    // 2. Change mode
+    let changed = resource
+        .ensure_file(&file_path, content, Some(0o644), None, None)
+        .unwrap();
+    assert!(changed);
+    let meta = fs::metadata(&file_path).unwrap();
+    assert_eq!(meta.permissions().mode() & 0o777, 0o644);
+
+    // 3. Idempotent mode change
+    let changed_again = resource
+        .ensure_file(&file_path, content, Some(0o644), None, None)
+        .unwrap();
+    assert!(!changed_again);
+
+    // Note: Testing owner/group change typically requires root, so we skip it in unit tests
+    // or we would need to mock the underlying chown call.
 }
 
 #[test]

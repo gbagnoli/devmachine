@@ -81,14 +81,14 @@ fn handle_apply(record_path: Option<PathBuf>) -> Result<()> {
         let recorder_system = Recorder::new(system);
         let recorder_files = Recorder::with_ops(files, recorder_system.shared_ops());
 
-        apply(&recorder_system, &recorder_files).map_err(|e| anyhow!(e))?;
+        apply(&recorder_system, &recorder_files)?;
 
         let ops = recorder_system.get_ops();
         let yaml = serde_yaml::to_string(&ops)?;
         fs::write(&path, yaml).context("Failed to write recording")?;
         info!("Recording saved to {}", path.display());
     } else {
-        apply(&system, &files).map_err(|e| anyhow!(e))?;
+        apply(&system, &files)?;
     }
 
     info!("Configuration applied successfully.");
@@ -207,7 +207,9 @@ fn run_container_test(hostname: &str, image: &str, is_record: bool) -> Result<()
                 .args([
                     "cp",
                     &format!("{}:/tmp/ops.yaml", container_name),
-                    dest_file.to_str().unwrap(),
+                    dest_file
+                        .to_str()
+                        .ok_or_else(|| anyhow!("Destination path is not valid UTF-8"))?,
                 ])
                 .status()?;
 
@@ -217,7 +219,10 @@ fn run_container_test(hostname: &str, image: &str, is_record: bool) -> Result<()
         } else {
             info!("Verifying recording...");
             let temp_dest = tempfile::Builder::new().suffix(".yaml").tempfile()?;
-            let temp_path = temp_dest.path().to_str().unwrap();
+            let temp_path = temp_dest
+                .path()
+                .to_str()
+                .ok_or_else(|| anyhow!("Temporary path is not valid UTF-8"))?;
 
             let cp_status = Command::new("podman")
                 .args([
