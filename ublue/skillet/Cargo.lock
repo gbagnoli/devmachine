@@ -492,8 +492,15 @@ name = "skillet-beezelbot"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "skillet_cli_common",
+]
+
+[[package]]
+name = "skillet_cli_common"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
  "clap",
- "hex",
  "serde",
  "serde_yaml",
  "skillet_core",
