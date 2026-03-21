@@ -34,9 +34,11 @@ impl SystemResource for MockSystem {
     }
 }
 
+pub type FileMetadata = (Option<u32>, Option<String>, Option<String>);
+
 pub struct MockFiles {
     pub files: Arc<Mutex<HashMap<String, Vec<u8>>>>,
-    pub metadata: Arc<Mutex<HashMap<String, (Option<u32>, Option<String>, Option<String>)>>>,
+    pub metadata: Arc<Mutex<HashMap<String, FileMetadata>>>,
 }
 
 impl MockFiles {
