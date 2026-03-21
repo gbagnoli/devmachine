@@ -5,11 +5,13 @@ members = [
     "crates/hardening",
     "crates/cli",
     "crates/hosts/beezelbot",
+    "crates/cli-common",
 ]
 
 [workspace.dependencies]
 skillet_core = { path = "crates/core" }
 skillet_hardening = { path = "crates/hardening" }
+skillet_cli_common = { path = "crates/cli-common" }
 thiserror = "1.0"
 sha2 = "0.10"
 users = "0.11"
