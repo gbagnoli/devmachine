@@ -499,12 +499,12 @@ dependencies = [
 name = "skillet_cli_common"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "clap",
  "serde",
  "serde_yaml",
  "skillet_core",
  "skillet_hardening",
+ "thiserror",
  "tracing",
  "tracing-subscriber",
 ]
