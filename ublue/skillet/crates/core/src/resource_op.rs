@@ -5,7 +5,7 @@ pub enum ResourceOp {
     EnsureFile {
         path: String,
         content_hash: String,
-        mode: Option<u32>,
+        mode: Option<String>,
         owner: Option<String>,
         group: Option<String>,
     },
