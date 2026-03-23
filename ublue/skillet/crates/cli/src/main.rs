@@ -63,7 +63,8 @@ fn main() -> Result<()> {
         })
         .finish();
 
-    tracing::subscriber::set_global_default(subscriber).context("setting default subscriber failed")?;
+    tracing::subscriber::set_global_default(subscriber)
+        .context("setting default subscriber failed")?;
 
     match args.command {
         Commands::Apply { record } => handle_apply(record),
@@ -179,16 +180,57 @@ fn run_container_test(hostname: &str, image: &str, is_record: bool) -> Result<()
     }
 
     let result = (|| -> Result<()> {
+        // Prepare entrypoint script
+        let entrypoint_content = include_str!("test_entrypoint.sh");
+        let mut temp_entrypoint = tempfile::Builder::new().suffix(".sh").tempfile()?;
+        use std::io::Write;
+        temp_entrypoint.write_all(entrypoint_content.as_bytes())?;
+        let temp_entrypoint_path = temp_entrypoint
+            .path()
+            .to_str()
+            .ok_or_else(|| anyhow!("Entrypoint path is not valid UTF-8"))?;
+
+        // Copy entrypoint to container
+        info!("Copying test entrypoint to container...");
+        let cp_status = Command::new("podman")
+            .args([
+                "cp",
+                temp_entrypoint_path,
+                &format!("{}:/tmp/test_entrypoint.sh", container_name),
+            ])
+            .status()
+            .context("Failed to copy entrypoint")?;
+
+        if !cp_status.success() {
+            return Err(anyhow!("Failed to copy entrypoint to container"));
+        }
+
+        // Make executable
+        let chmod_status = Command::new("podman")
+            .args([
+                "exec",
+                &container_name,
+                "chmod",
+                "+x",
+                "/tmp/test_entrypoint.sh",
+            ])
+            .status()
+            .context("Failed to chmod entrypoint")?;
+
+        if !chmod_status.success() {
+            return Err(anyhow!("Failed to chmod entrypoint in container"));
+        }
+
         info!("Executing skillet inside container...");
-        // Use 'skillet apply' directly as it's the interface for all our binaries now
-        // We ensure /etc/sysctl.d exists because many minimal container images lack it.
         let exec_status = Command::new("podman")
             .args([
                 "exec",
                 &container_name,
-                "sh",
-                "-c",
-                "mkdir -p /etc/sysctl.d && skillet apply --record /tmp/ops.yaml",
+                "/tmp/test_entrypoint.sh",
+                "skillet",
+                "apply",
+                "--record",
+                "/tmp/ops.yaml",
             ])
             .status()
             .context("Failed to exec skillet")?;
