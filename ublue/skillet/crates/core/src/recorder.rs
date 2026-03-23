@@ -74,4 +74,25 @@ impl<T: SystemResource> SystemResource for Recorder<T> {
         });
         self.inner.ensure_group(name)
     }
+
+    fn service_start(&self, name: &str) -> Result<(), SystemError> {
+        self.record(ResourceOp::ServiceStart {
+            name: name.to_string(),
+        });
+        self.inner.service_start(name)
+    }
+
+    fn service_stop(&self, name: &str) -> Result<(), SystemError> {
+        self.record(ResourceOp::ServiceStop {
+            name: name.to_string(),
+        });
+        self.inner.service_stop(name)
+    }
+
+    fn service_restart(&self, name: &str) -> Result<(), SystemError> {
+        self.record(ResourceOp::ServiceRestart {
+            name: name.to_string(),
+        });
+        self.inner.service_restart(name)
+    }
 }

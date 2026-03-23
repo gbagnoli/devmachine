@@ -1,39 +1,46 @@
 use super::*;
-use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
-
-// Mock implementation for testing consumers
-pub struct MockSystemResource {
-    pub groups: Arc<Mutex<HashSet<String>>>,
-}
-
-impl MockSystemResource {
-    pub fn new() -> Self {
-        Self {
-            groups: Arc::new(Mutex::new(HashSet::new())),
-        }
-    }
-}
-
-impl SystemResource for MockSystemResource {
-    fn ensure_group(&self, name: &str) -> Result<bool, SystemError> {
-        let mut groups = self.groups.lock().unwrap();
-        if groups.contains(name) {
-            Ok(false)
-        } else {
-            groups.insert(name.to_string());
-            Ok(true)
-        }
-    }
-}
+#[cfg(feature = "test-utils")]
+use crate::test_utils::MockSystem;
 
 #[test]
+#[cfg(feature = "test-utils")]
 fn test_mock_system_resource() {
-    let system = MockSystemResource::new();
+    let system = MockSystem::new();
     let changed = system.ensure_group("syslog").unwrap();
     assert!(changed);
-    assert!(system.groups.lock().unwrap().contains("syslog"));
+    assert!(system
+        .groups
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .contains("syslog"));
 
     let changed_again = system.ensure_group("syslog").unwrap();
     assert!(!changed_again);
+}
+
+#[test]
+#[cfg(feature = "test-utils")]
+fn test_mock_system_services() {
+    let system = MockSystem::new();
+    system.service_start("test-service").unwrap();
+    assert_eq!(
+        system
+            .services
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get("test-service")
+            .unwrap(),
+        "started"
+    );
+
+    system.service_restart("test-service").unwrap();
+    assert_eq!(
+        system
+            .services
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get("test-service")
+            .unwrap(),
+        "restarted"
+    );
 }

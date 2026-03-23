@@ -11,4 +11,13 @@ fn test_hardening_applies_sysctl() {
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .contains_key("/etc/sysctl.d/99-hardening.conf"));
+    assert_eq!(
+        system
+            .services
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get("systemd-sysctl")
+            .unwrap(),
+        "restarted"
+    );
 }

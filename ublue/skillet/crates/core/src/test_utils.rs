@@ -6,12 +6,14 @@ use std::sync::{Arc, Mutex};
 
 pub struct MockSystem {
     pub groups: Arc<Mutex<HashSet<String>>>,
+    pub services: Arc<Mutex<HashMap<String, String>>>, // name -> state (started, stopped, restarted)
 }
 
 impl MockSystem {
     pub fn new() -> Self {
         Self {
             groups: Arc::new(Mutex::new(HashSet::new())),
+            services: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -31,6 +33,30 @@ impl SystemResource for MockSystem {
             groups.insert(name.to_string());
             Ok(true)
         }
+    }
+
+    fn service_start(&self, name: &str) -> Result<(), SystemError> {
+        self.services
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(name.to_string(), "started".to_string());
+        Ok(())
+    }
+
+    fn service_stop(&self, name: &str) -> Result<(), SystemError> {
+        self.services
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(name.to_string(), "stopped".to_string());
+        Ok(())
+    }
+
+    fn service_restart(&self, name: &str) -> Result<(), SystemError> {
+        self.services
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(name.to_string(), "restarted".to_string());
+        Ok(())
     }
 }
 
