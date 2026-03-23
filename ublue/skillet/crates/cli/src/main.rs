@@ -1,12 +1,9 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
-use skillet_core::files::LocalFileResource;
-use skillet_core::recorder::Recorder;
 use skillet_core::resource_op::ResourceOp;
-use skillet_core::system::LinuxSystemResource;
-use skillet_hardening::apply;
 use std::fs;
-use std::path::PathBuf;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
@@ -67,32 +64,12 @@ fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     match args.command {
-        Commands::Apply { record } => handle_apply(record),
-        Commands::Test { test_command } => handle_test(test_command),
+        Commands::Apply { record } => {
+            skillet_cli_common::handle_apply("(Agent Mode)", record)
+                .map_err(|e| anyhow!("Failed to apply configuration: {}", e))?;
+        }
+        Commands::Test { test_command } => handle_test(test_command)?,
     }
-}
-
-fn handle_apply(record_path: Option<PathBuf>) -> Result<()> {
-    info!("Starting Skillet configuration (Agent Mode)...");
-
-    let system = LinuxSystemResource::new();
-    let files = LocalFileResource::new();
-
-    if let Some(path) = record_path {
-        let recorder_system = Recorder::new(system);
-        let recorder_files = Recorder::with_ops(files, recorder_system.shared_ops());
-
-        apply(&recorder_system, &recorder_files)?;
-
-        let ops = recorder_system.get_ops();
-        let yaml = serde_yaml::to_string(&ops)?;
-        fs::write(&path, yaml).context("Failed to write recording")?;
-        info!("Recording saved to {}", path.display());
-    } else {
-        apply(&system, &files)?;
-    }
-
-    info!("Configuration applied successfully.");
     Ok(())
 }
 
@@ -114,7 +91,28 @@ fn handle_test(cmd: TestCommands) -> Result<()> {
 }
 
 fn run_container_test(hostname: &str, image: &str, is_record: bool) -> Result<()> {
-    // 1. Build binary
+    build_workspace()?;
+
+    let binary_path = locate_binary(hostname)?;
+    let container_name = format!("skillet-test-{}", hostname);
+
+    setup_container(&container_name, image, &binary_path)?;
+
+    let result = (|| -> Result<()> {
+        prepare_and_run_skillet(&container_name)?;
+        verify_or_record(hostname, &container_name, is_record)?;
+        Ok(())
+    })();
+
+    info!("Stopping container...");
+    let _ = Command::new("podman")
+        .args(["kill", &container_name])
+        .output();
+
+    result
+}
+
+fn build_workspace() -> Result<()> {
     info!("Building skillet workspace...");
     let build_status = Command::new("cargo")
         .args(["build"])
@@ -124,8 +122,10 @@ fn run_container_test(hostname: &str, image: &str, is_record: bool) -> Result<()
     if !build_status.success() {
         return Err(anyhow!("Build failed"));
     }
+    Ok(())
+}
 
-    // 2. Locate binary (with fallback)
+fn locate_binary(hostname: &str) -> Result<PathBuf> {
     let host_binary_name = format!("skillet-{}", hostname);
     let target_debug = PathBuf::from("target/debug");
 
@@ -146,17 +146,17 @@ fn run_container_test(hostname: &str, image: &str, is_record: bool) -> Result<()
             binary_path.display()
         ));
     }
-    let abs_binary_path = fs::canonicalize(&binary_path)?;
+    fs::canonicalize(&binary_path).context("Failed to canonicalize binary path")
+}
 
-    // 3. Start Container
-    let container_name = format!("skillet-test-{}", hostname);
+fn setup_container(container_name: &str, image: &str, binary_path: &Path) -> Result<()> {
     info!(
         "Starting container {} from image {}...",
         container_name, image
     );
 
     let _ = Command::new("podman")
-        .args(["rm", "-f", &container_name])
+        .args(["rm", "-f", container_name])
         .output();
 
     let run_status = Command::new("podman")
@@ -165,9 +165,9 @@ fn run_container_test(hostname: &str, image: &str, is_record: bool) -> Result<()
             "-d",
             "--rm",
             "--name",
-            &container_name,
+            container_name,
             "-v",
-            &format!("{}:/usr/bin/skillet:ro", abs_binary_path.display()),
+            &format!("{}:/usr/bin/skillet:ro", binary_path.display()),
             image,
             "sleep",
             "infinity",
@@ -178,133 +178,128 @@ fn run_container_test(hostname: &str, image: &str, is_record: bool) -> Result<()
     if !run_status.success() {
         return Err(anyhow!("Failed to start container"));
     }
+    Ok(())
+}
 
-    let result = (|| -> Result<()> {
-        // Prepare entrypoint script
-        let entrypoint_content = include_str!("test_entrypoint.sh");
-        let mut temp_entrypoint = tempfile::Builder::new().suffix(".sh").tempfile()?;
-        use std::io::Write;
-        temp_entrypoint.write_all(entrypoint_content.as_bytes())?;
-        let temp_entrypoint_path = temp_entrypoint
-            .path()
-            .to_str()
-            .ok_or_else(|| anyhow!("Entrypoint path is not valid UTF-8"))?;
+fn prepare_and_run_skillet(container_name: &str) -> Result<()> {
+    // Prepare entrypoint script
+    let entrypoint_content = include_str!("test_entrypoint.sh");
+    let mut temp_entrypoint = tempfile::Builder::new().suffix(".sh").tempfile()?;
+    temp_entrypoint.write_all(entrypoint_content.as_bytes())?;
+    let temp_entrypoint_path = temp_entrypoint
+        .path()
+        .to_str()
+        .ok_or_else(|| anyhow!("Entrypoint path is not valid UTF-8"))?;
 
-        // Copy entrypoint to container
-        info!("Copying test entrypoint to container...");
+    // Copy entrypoint to container
+    info!("Copying test entrypoint to container...");
+    let cp_status = Command::new("podman")
+        .args([
+            "cp",
+            temp_entrypoint_path,
+            &format!("{}:/tmp/test_entrypoint.sh", container_name),
+        ])
+        .status()
+        .context("Failed to copy entrypoint")?;
+
+    if !cp_status.success() {
+        return Err(anyhow!("Failed to copy entrypoint to container"));
+    }
+
+    // Make executable
+    let chmod_status = Command::new("podman")
+        .args([
+            "exec",
+            container_name,
+            "chmod",
+            "+x",
+            "/tmp/test_entrypoint.sh",
+        ])
+        .status()
+        .context("Failed to chmod entrypoint")?;
+
+    if !chmod_status.success() {
+        return Err(anyhow!("Failed to chmod entrypoint in container"));
+    }
+
+    info!("Executing skillet inside container...");
+    let exec_status = Command::new("podman")
+        .args([
+            "exec",
+            container_name,
+            "/tmp/test_entrypoint.sh",
+            "skillet",
+            "apply",
+            "--record",
+            "/tmp/ops.yaml",
+        ])
+        .status()
+        .context("Failed to exec skillet")?;
+
+    if !exec_status.success() {
+        return Err(anyhow!("skillet apply failed inside container"));
+    }
+    Ok(())
+}
+
+fn verify_or_record(hostname: &str, container_name: &str, is_record: bool) -> Result<()> {
+    let dest_dir = PathBuf::from("integration_tests/recordings");
+    fs::create_dir_all(&dest_dir)?;
+    let dest_file = dest_dir.join(format!("{}.yaml", hostname));
+
+    if is_record {
+        info!("Copying recording to {}", dest_file.display());
         let cp_status = Command::new("podman")
             .args([
                 "cp",
-                temp_entrypoint_path,
-                &format!("{}:/tmp/test_entrypoint.sh", container_name),
+                &format!("{}:/tmp/ops.yaml", container_name),
+                dest_file
+                    .to_str()
+                    .ok_or_else(|| anyhow!("Destination path is not valid UTF-8"))?,
             ])
-            .status()
-            .context("Failed to copy entrypoint")?;
+            .status()?;
 
         if !cp_status.success() {
-            return Err(anyhow!("Failed to copy entrypoint to container"));
+            return Err(anyhow!("Failed to copy recording from container"));
         }
+    } else {
+        info!("Verifying recording...");
+        let temp_dest = tempfile::Builder::new().suffix(".yaml").tempfile()?;
+        let temp_path = temp_dest
+            .path()
+            .to_str()
+            .ok_or_else(|| anyhow!("Temporary path is not valid UTF-8"))?;
 
-        // Make executable
-        let chmod_status = Command::new("podman")
+        let cp_status = Command::new("podman")
             .args([
-                "exec",
-                &container_name,
-                "chmod",
-                "+x",
-                "/tmp/test_entrypoint.sh",
+                "cp",
+                &format!("{}:/tmp/ops.yaml", container_name),
+                temp_path,
             ])
-            .status()
-            .context("Failed to chmod entrypoint")?;
-
-        if !chmod_status.success() {
-            return Err(anyhow!("Failed to chmod entrypoint in container"));
+            .status()?;
+        if !cp_status.success() {
+            return Err(anyhow!("Failed to copy recording from container"));
         }
 
-        info!("Executing skillet inside container...");
-        let exec_status = Command::new("podman")
-            .args([
-                "exec",
-                &container_name,
-                "/tmp/test_entrypoint.sh",
-                "skillet",
-                "apply",
-                "--record",
-                "/tmp/ops.yaml",
-            ])
-            .status()
-            .context("Failed to exec skillet")?;
+        let recorded_content = fs::read_to_string(&dest_file).context(format!(
+            "Failed to read existing recording at {}",
+            dest_file.display()
+        ))?;
+        let new_content = fs::read_to_string(temp_path)?;
 
-        if !exec_status.success() {
-            return Err(anyhow!("skillet apply failed inside container"));
-        }
+        let recorded_ops: Vec<ResourceOp> = serde_yml::from_str(&recorded_content)?;
+        let new_ops: Vec<ResourceOp> = serde_yml::from_str(&new_content)?;
 
-        let dest_dir = PathBuf::from("integration_tests/recordings");
-        fs::create_dir_all(&dest_dir)?;
-        let dest_file = dest_dir.join(format!("{}.yaml", hostname));
-
-        if is_record {
-            info!("Copying recording to {}", dest_file.display());
-            let cp_status = Command::new("podman")
-                .args([
-                    "cp",
-                    &format!("{}:/tmp/ops.yaml", container_name),
-                    dest_file
-                        .to_str()
-                        .ok_or_else(|| anyhow!("Destination path is not valid UTF-8"))?,
-                ])
-                .status()?;
-
-            if !cp_status.success() {
-                return Err(anyhow!("Failed to copy recording from container"));
-            }
+        if recorded_ops != new_ops {
+            error!("Recording mismatch!");
+            error!("Expected: {:?}", recorded_ops);
+            error!("Actual:   {:?}", new_ops);
+            return Err(anyhow!(
+                "Integration test failed: Actions do not match recording."
+            ));
         } else {
-            info!("Verifying recording...");
-            let temp_dest = tempfile::Builder::new().suffix(".yaml").tempfile()?;
-            let temp_path = temp_dest
-                .path()
-                .to_str()
-                .ok_or_else(|| anyhow!("Temporary path is not valid UTF-8"))?;
-
-            let cp_status = Command::new("podman")
-                .args([
-                    "cp",
-                    &format!("{}:/tmp/ops.yaml", container_name),
-                    temp_path,
-                ])
-                .status()?;
-            if !cp_status.success() {
-                return Err(anyhow!("Failed to copy recording from container"));
-            }
-
-            let recorded_content = fs::read_to_string(&dest_file).context(format!(
-                "Failed to read existing recording at {}",
-                dest_file.display()
-            ))?;
-            let new_content = fs::read_to_string(temp_path)?;
-
-            let recorded_ops: Vec<ResourceOp> = serde_yaml::from_str(&recorded_content)?;
-            let new_ops: Vec<ResourceOp> = serde_yaml::from_str(&new_content)?;
-
-            if recorded_ops != new_ops {
-                error!("Recording mismatch!");
-                error!("Expected: {:?}", recorded_ops);
-                error!("Actual:   {:?}", new_ops);
-                return Err(anyhow!(
-                    "Integration test failed: Actions do not match recording."
-                ));
-            } else {
-                info!("Integration test passed!");
-            }
+            info!("Integration test passed!");
         }
-
-        Ok(())
-    })();
-
-    info!("Stopping container...");
-    let _ = Command::new("podman")
-        .args(["kill", &container_name])
-        .output();
-
-    result
+    }
+    Ok(())
 }

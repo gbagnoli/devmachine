@@ -18,7 +18,7 @@ pub enum CliCommonError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
     #[error("Serialization error: {0}")]
-    Yaml(#[from] serde_yaml::Error),
+    Yaml(#[from] serde_yml::Error),
 }
 
 #[derive(Parser, Debug)]
@@ -60,7 +60,7 @@ pub fn run_host(hostname: &str) -> Result<(), CliCommonError> {
     }
 }
 
-fn handle_apply(hostname: &str, record_path: Option<PathBuf>) -> Result<(), CliCommonError> {
+pub fn handle_apply(hostname: &str, record_path: Option<PathBuf>) -> Result<(), CliCommonError> {
     info!("Starting Skillet configuration for {}...", hostname);
 
     let system = LinuxSystemResource::new();
@@ -73,7 +73,7 @@ fn handle_apply(hostname: &str, record_path: Option<PathBuf>) -> Result<(), CliC
         apply(&recorder_system, &recorder_files)?;
 
         let ops = recorder_system.get_ops();
-        let yaml = serde_yaml::to_string(&ops)?;
+        let yaml = serde_yml::to_string(&ops)?;
         fs::write(&path, yaml)?;
         info!("Recording saved to {}", path.display());
     } else {
