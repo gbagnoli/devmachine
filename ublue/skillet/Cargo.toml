@@ -1,0 +1,26 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/core",
+    "crates/hardening",
+    "crates/cli",
+    "crates/hosts/beezelbot",
+    "crates/cli-common",
+]
+
+[workspace.dependencies]
+skillet_core = { path = "crates/core" }
+skillet_hardening = { path = "crates/hardening" }
+skillet_cli_common = { path = "crates/cli-common" }
+thiserror = "1.0"
+sha2 = "0.10"
+users = "0.11"
+nix = { version = "0.27", features = ["user", "fs"] }
+clap = { version = "4.4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tempfile = "3.8"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yml = "0.0.12"
+hex = "0.4"
