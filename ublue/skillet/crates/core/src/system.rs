@@ -15,6 +15,9 @@ pub enum SystemError {
 
 pub trait SystemResource {
     fn ensure_group(&self, name: &str) -> Result<bool, SystemError>;
+    fn service_start(&self, name: &str) -> Result<(), SystemError>;
+    fn service_stop(&self, name: &str) -> Result<(), SystemError>;
+    fn service_restart(&self, name: &str) -> Result<(), SystemError>;
 }
 
 pub struct LinuxSystemResource;
@@ -22,6 +25,20 @@ pub struct LinuxSystemResource;
 impl LinuxSystemResource {
     pub fn new() -> Self {
         Self
+    }
+
+    fn run_systemctl(&self, action: &str, name: &str) -> Result<(), SystemError> {
+        info!("Running systemctl {} {}", action, name);
+        let output = Command::new("systemctl").arg(action).arg(name).output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(SystemError::Command(format!(
+                "systemctl {} {} failed: {}",
+                action, name, stderr
+            )));
+        }
+        Ok(())
     }
 }
 
@@ -56,8 +73,19 @@ impl SystemResource for LinuxSystemResource {
         info!("Created group {}", name);
         Ok(true)
     }
-}
 
+    fn service_start(&self, name: &str) -> Result<(), SystemError> {
+        self.run_systemctl("start", name)
+    }
+
+    fn service_stop(&self, name: &str) -> Result<(), SystemError> {
+        self.run_systemctl("stop", name)
+    }
+
+    fn service_restart(&self, name: &str) -> Result<(), SystemError> {
+        self.run_systemctl("restart", name)
+    }
+}
 #[cfg(test)]
 #[path = "system/tests.rs"]
 mod tests;

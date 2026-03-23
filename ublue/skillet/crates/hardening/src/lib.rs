@@ -20,7 +20,7 @@ where
     info!("Applying hardening...");
 
     // 1. Sysctl hardening
-    apply_sysctl_hardening(files)?;
+    apply_sysctl_hardening(system, files)?;
 
     // 2. Include 'os-hardening'
     apply_os_hardening(system)?;
@@ -34,12 +34,21 @@ where
     Ok(())
 }
 
-fn apply_sysctl_hardening<F: FileResource + ?Sized>(files: &F) -> Result<(), HardeningError> {
+fn apply_sysctl_hardening<S, F>(system: &S, files: &F) -> Result<(), HardeningError>
+where
+    S: SystemResource + ?Sized,
+    F: FileResource + ?Sized,
+{
     info!("Applying sysctl hardening...");
     let content = include_bytes!("../files/sysctl.boxy.conf");
     let path = Path::new("/etc/sysctl.d/99-hardening.conf");
 
-    files.ensure_file(path, content, Some(0o644), Some("root"), Some("root"))?;
+    let changed = files.ensure_file(path, content, Some(0o644), Some("root"), Some("root"))?;
+
+    if changed {
+        info!("Sysctl configuration changed, restarting systemd-sysctl...");
+        system.service_restart("systemd-sysctl")?;
+    }
 
     Ok(())
 }

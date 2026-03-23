@@ -15,4 +15,13 @@ pub enum ResourceOp {
     EnsureGroup {
         name: String,
     },
+    ServiceStart {
+        name: String,
+    },
+    ServiceStop {
+        name: String,
+    },
+    ServiceRestart {
+        name: String,
+    },
 }
