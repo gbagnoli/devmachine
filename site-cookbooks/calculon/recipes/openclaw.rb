@@ -1,4 +1,5 @@
 user=node["user"]["login"]
+group=node["user"]["group"]
 uid=node["user"]["uid"]
 gid=node["user"]["gid"]
 domain = node["calculon"]["www"]["openclaw_domain"]
@@ -15,7 +16,7 @@ ipv4 = conf["ipv4"].empty? ? "" : "#{conf["ipv4"]}:"
 directory "/home/#{user}/.openclaw" do
   action :create
   owner user
-  group gid
+  group group
   mode "0700"
 end
 
