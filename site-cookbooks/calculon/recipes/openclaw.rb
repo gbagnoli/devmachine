@@ -35,6 +35,8 @@ podman_container "openclaw-#{user}" do
       Environment=OPENCLAW_GATEWAY_BIND=::
       Environment=NODE_OPTIONS="--dns-result-order=ipv4first"
       Volume=/etc/localtime:/etc/localtime:ro
+      Volume=/home/#{user}/.config/gh:/home/node/.config/gh:ro,Z
+      Volume=/home/#{user}/.git:/home/node/.git:ro,Z
       Volume=/home/#{user}/.openclaw:/home/node/.openclaw:Z
       Volume=/home/#{user}/.ssh:/home/node/.ssh:ro,Z
       Volume=/home/#{user}/workspace:/home/node/workspace:Z
