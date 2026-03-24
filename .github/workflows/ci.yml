@@ -47,5 +47,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run ShellCheck
         run: |
-          find . -name "*.sh" -not -path "./.venv/*" -not -path "./berks-cookbooks/*" | xargs shellcheck -x
+          find . -name "*.sh" -not -path "./.venv/*" -not -path "./berks-cookbooks/*" -exec shellcheck -x {} +
           shellcheck -x run

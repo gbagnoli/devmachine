@@ -1,4 +1,4 @@
-source 'https://supermarket.getchef.com'
+source "https://supermarket.chef.io"
 
 cookbook 'debconf', git: 'https://github.com/ophymx/debconf.git'
 cookbook 'pleaserun', git: 'https://github.com/mjuarez/chef-pleaserun.git'

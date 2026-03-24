@@ -63,7 +63,7 @@ end
 podman_nginx_vhost domain do
   server_name domain
   cloudflare true
-  upstream_address "#{node["calculon"]["network"]["containers"]["ipv4"]["addr"]}"
+  upstream_address node["calculon"]["network"]["containers"]["ipv4"]["addr"]
   upstream_port port
   oauth2_proxy(
     emails: node["calculon"]["openclaw"]["secrets"]["emails"],

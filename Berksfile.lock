@@ -81,7 +81,7 @@ GRAPH
   chef_client_updater (3.13.1)
   cloudflare_ddns (0.1.0)
     podman (>= 0.0.0)
-  datadog (4.22.4)
+  datadog (4.22.5)
     apt (>= 0.0.0)
     yum (>= 3.0)
   debconf (0.0.1)
