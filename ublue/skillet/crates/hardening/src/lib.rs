@@ -23,13 +23,13 @@ where
     apply_sysctl_hardening(system, files)?;
 
     // 2. Include 'os-hardening'
-    apply_os_hardening(system)?;
+    apply_os_hardening(system);
 
     // 3. Include 'ssh-hardening::server'
-    apply_ssh_hardening_server(system)?;
+    apply_ssh_hardening_server(system, files)?;
 
     // 4. Include 'ssh-hardening::client'
-    apply_ssh_hardening_client(system)?;
+    apply_ssh_hardening_client(system, files)?;
 
     Ok(())
 }
@@ -53,22 +53,46 @@ where
     Ok(())
 }
 
-fn apply_os_hardening<S: SystemResource + ?Sized>(_system: &S) -> Result<(), HardeningError> {
+fn apply_os_hardening<S: SystemResource + ?Sized>(_system: &S) {
     info!("(Placeholder) Applying os-hardening");
+}
+
+fn apply_ssh_hardening_server<S, F>(system: &S, files: &F) -> Result<(), HardeningError>
+where
+    S: SystemResource + ?Sized,
+    F: FileResource + ?Sized,
+{
+    info!("Applying ssh-hardening::server");
+    let ssh_dir = Path::new("/etc/ssh");
+    files.ensure_directory(ssh_dir, Some(0o755), Some("root"), Some("root"))?;
+
+    let content = include_bytes!("../files/sshd_config");
+    let path = Path::new("/etc/ssh/sshd_config");
+
+    let changed = files.ensure_file(path, content, Some(0o600), Some("root"), Some("root"))?;
+
+    if changed {
+        info!("SSH server configuration changed, restarting sshd...");
+        system.service_restart("sshd")?;
+    }
+
     Ok(())
 }
 
-fn apply_ssh_hardening_server<S: SystemResource + ?Sized>(
-    _system: &S,
-) -> Result<(), HardeningError> {
-    info!("(Placeholder) Applying ssh-hardening::server");
-    Ok(())
-}
+fn apply_ssh_hardening_client<S, F>(_system: &S, files: &F) -> Result<(), HardeningError>
+where
+    S: SystemResource + ?Sized,
+    F: FileResource + ?Sized,
+{
+    info!("Applying ssh-hardening::client");
+    let ssh_dir = Path::new("/etc/ssh");
+    files.ensure_directory(ssh_dir, Some(0o755), Some("root"), Some("root"))?;
 
-fn apply_ssh_hardening_client<S: SystemResource + ?Sized>(
-    _system: &S,
-) -> Result<(), HardeningError> {
-    info!("(Placeholder) Applying ssh-hardening::client");
+    let content = include_bytes!("../files/ssh_config");
+    let path = Path::new("/etc/ssh/ssh_config");
+
+    files.ensure_file(path, content, Some(0o644), Some("root"), Some("root"))?;
+
     Ok(())
 }
 

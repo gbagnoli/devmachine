@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub enum ResourceOp {
     EnsureFile {
         path: String,
@@ -11,6 +11,12 @@ pub enum ResourceOp {
     },
     DeleteFile {
         path: String,
+    },
+    EnsureDirectory {
+        path: String,
+        mode: Option<String>,
+        owner: Option<String>,
+        group: Option<String>,
     },
     EnsureGroup {
         name: String,
