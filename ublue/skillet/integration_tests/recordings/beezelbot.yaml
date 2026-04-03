@@ -6,3 +6,27 @@
   group: root
 - !ServiceRestart
   name: systemd-sysctl
+- !EnsureDirectory
+  path: /etc/ssh
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureFile
+  path: /etc/ssh/sshd_config
+  content_hash: '1355f199c4b2ed28c09c1cc2c7fc6fa44690f9b77d01412013f08118faa7b42b'
+  mode: '0o600'
+  owner: root
+  group: root
+- !ServiceRestart
+  name: sshd
+- !EnsureDirectory
+  path: /etc/ssh
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureFile
+  path: /etc/ssh/ssh_config
+  content_hash: b1c686c7da8fcea74e83f6a2dbd5552f2fb16a58601f347058b5ba4529e6d602
+  mode: '0o644'
+  owner: root
+  group: root
