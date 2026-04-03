@@ -11,7 +11,7 @@ fn test_mock_system_resource() {
     assert!(system
         .groups
         .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .contains("syslog"));
 
     let changed_again = system.ensure_group("syslog").unwrap();
@@ -27,7 +27,7 @@ fn test_mock_system_services() {
         system
             .services
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .get("test-service")
             .unwrap(),
         "started"
@@ -38,7 +38,7 @@ fn test_mock_system_services() {
         system
             .services
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .get("test-service")
             .unwrap(),
         "restarted"

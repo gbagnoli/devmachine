@@ -26,7 +26,7 @@ impl Default for MockSystem {
 
 impl SystemResource for MockSystem {
     fn ensure_group(&self, name: &str) -> Result<bool, SystemError> {
-        let mut groups = self.groups.lock().unwrap_or_else(|e| e.into_inner());
+        let mut groups = self.groups.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if groups.contains(name) {
             Ok(false)
         } else {
@@ -38,7 +38,7 @@ impl SystemResource for MockSystem {
     fn service_start(&self, name: &str) -> Result<(), SystemError> {
         self.services
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .insert(name.to_string(), "started".to_string());
         Ok(())
     }
@@ -46,7 +46,7 @@ impl SystemResource for MockSystem {
     fn service_stop(&self, name: &str) -> Result<(), SystemError> {
         self.services
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .insert(name.to_string(), "stopped".to_string());
         Ok(())
     }
@@ -54,7 +54,7 @@ impl SystemResource for MockSystem {
     fn service_restart(&self, name: &str) -> Result<(), SystemError> {
         self.services
             .lock()
-            .unwrap_or_else(|e| e.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .insert(name.to_string(), "restarted".to_string());
         Ok(())
     }
@@ -92,8 +92,8 @@ impl FileResource for MockFiles {
         group: Option<&str>,
     ) -> Result<bool, FileError> {
         let path_str = path.display().to_string();
-        let mut files = self.files.lock().unwrap_or_else(|e| e.into_inner());
-        let mut metadata = self.metadata.lock().unwrap_or_else(|e| e.into_inner());
+        let mut files = self.files.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut metadata = self.metadata.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 
         let mut changed = false;
 
@@ -109,8 +109,8 @@ impl FileResource for MockFiles {
 
         let new_meta = (
             mode,
-            owner.map(|s| s.to_string()),
-            group.map(|s| s.to_string()),
+            owner.map(ToString::to_string),
+            group.map(ToString::to_string),
         );
         if let Some(existing_meta) = metadata.get(&path_str) {
             if existing_meta != &new_meta {
@@ -125,10 +125,22 @@ impl FileResource for MockFiles {
         Ok(changed)
     }
 
+    fn ensure_directory(
+        &self,
+        _path: &Path,
+        _mode: Option<u32>,
+        _owner: Option<&str>,
+        _group: Option<&str>,
+    ) -> Result<bool, FileError> {
+        // For mock, we don't really track directories separately for now,
+        // but we could if needed. Just return Ok(false) as if it exists.
+        Ok(false)
+    }
+
     fn delete_file(&self, path: &Path) -> Result<bool, FileError> {
         let path_str = path.display().to_string();
-        let mut files = self.files.lock().unwrap_or_else(|e| e.into_inner());
-        let mut metadata = self.metadata.lock().unwrap_or_else(|e| e.into_inner());
+        let mut files = self.files.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut metadata = self.metadata.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 
         let f_removed = files.remove(&path_str).is_some();
         let m_removed = metadata.remove(&path_str).is_some();

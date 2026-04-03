@@ -40,6 +40,13 @@ pub trait FileResource {
         owner: Option<&str>,
         group: Option<&str>,
     ) -> Result<bool, FileError>;
+    fn ensure_directory(
+        &self,
+        path: &Path,
+        mode: Option<u32>,
+        owner: Option<&str>,
+        group: Option<&str>,
+    ) -> Result<bool, FileError>;
     fn delete_file(&self, path: &Path) -> Result<bool, FileError>;
 }
 
@@ -51,7 +58,6 @@ impl LocalFileResource {
     }
 
     fn check_metadata(
-        &self,
         path: &Path,
         mode: Option<u32>,
         owner: Option<&str>,
@@ -87,7 +93,6 @@ impl LocalFileResource {
     }
 
     fn apply_metadata(
-        &self,
         path: &Path,
         mode: Option<u32>,
         owner: Option<&str>,
@@ -179,10 +184,34 @@ impl FileResource for LocalFileResource {
         }
 
         // 3. Check and apply metadata
-        if path.exists() && self.check_metadata(path, mode, owner, group)? {
-            self.apply_metadata(path, mode, owner, group)?;
+        if path.exists() && Self::check_metadata(path, mode, owner, group)? {
+            Self::apply_metadata(path, mode, owner, group)?;
             changed = true;
             info!("Updated file metadata for {}", path.display());
+        }
+
+        Ok(changed)
+    }
+
+    fn ensure_directory(
+        &self,
+        path: &Path,
+        mode: Option<u32>,
+        owner: Option<&str>,
+        group: Option<&str>,
+    ) -> Result<bool, FileError> {
+        let mut changed = false;
+
+        if !path.exists() {
+            fs::create_dir_all(path).map_err(FileError::Io)?;
+            changed = true;
+            info!("Created directory {}", path.display());
+        }
+
+        if path.exists() && Self::check_metadata(path, mode, owner, group)? {
+            Self::apply_metadata(path, mode, owner, group)?;
+            changed = true;
+            info!("Updated directory metadata for {}", path.display());
         }
 
         Ok(changed)

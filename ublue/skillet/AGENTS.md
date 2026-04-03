@@ -21,7 +21,7 @@ This document defines the architectural mandates and project structure for `skil
 - **Abstractions**: Use Traits (e.g., `FileResource`, `SystemResource`) to allow for mocking in higher-level library tests.
 
 ### 4. Quality Control & Validation
-- **Formatting & Linting**: Always run `cargo fmt` and `cargo clippy` after making changes to ensure code quality and consistency.
+- **Formatting & Linting**: Always run `cargo fmt` and `cargo clippy` after making changes to ensure code quality and consistency. **Clippy MUST be run with `pedantic` lints enabled (configured in `Cargo.toml`).**
 - **Verification**: Always run both:
     - **Unit Tests**: `cargo test` across the workspace.
     - **Integration Tests**: `skillet test run <hostname>` for affected hosts to verify end-to-end correctness in a containerized environment.

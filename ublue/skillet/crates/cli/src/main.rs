@@ -66,7 +66,7 @@ fn main() -> Result<()> {
     match args.command {
         Commands::Apply { record } => {
             skillet_cli_common::handle_apply("(Agent Mode)", record)
-                .map_err(|e| anyhow!("Failed to apply configuration: {}", e))?;
+                .map_err(|e| anyhow!("Failed to apply configuration: {e}"))?;
         }
         Commands::Test { test_command } => handle_test(test_command)?,
     }
@@ -94,7 +94,7 @@ fn run_container_test(hostname: &str, image: &str, is_record: bool) -> Result<()
     build_workspace()?;
 
     let binary_path = locate_binary(hostname)?;
-    let container_name = format!("skillet-test-{}", hostname);
+    let container_name = format!("skillet-test-{hostname}");
 
     setup_container(&container_name, image, &binary_path)?;
 
@@ -126,16 +126,15 @@ fn build_workspace() -> Result<()> {
 }
 
 fn locate_binary(hostname: &str) -> Result<PathBuf> {
-    let host_binary_name = format!("skillet-{}", hostname);
+    let host_binary_name = format!("skillet-{hostname}");
     let target_debug = PathBuf::from("target/debug");
 
     let binary_path = if target_debug.join(&host_binary_name).exists() {
-        info!("Found host-specific binary: {}", host_binary_name);
+        info!("Found host-specific binary: {host_binary_name}");
         target_debug.join(&host_binary_name)
     } else {
         info!(
-            "Using generic skillet binary (host binary {} not found)",
-            host_binary_name
+            "Using generic skillet binary (host binary {host_binary_name} not found)"
         );
         target_debug.join("skillet")
     };
@@ -151,8 +150,7 @@ fn locate_binary(hostname: &str) -> Result<PathBuf> {
 
 fn setup_container(container_name: &str, image: &str, binary_path: &Path) -> Result<()> {
     info!(
-        "Starting container {} from image {}...",
-        container_name, image
+        "Starting container {container_name} from image {image}..."
     );
 
     let _ = Command::new("podman")
@@ -197,7 +195,7 @@ fn prepare_and_run_skillet(container_name: &str) -> Result<()> {
         .args([
             "cp",
             temp_entrypoint_path,
-            &format!("{}:/tmp/test_entrypoint.sh", container_name),
+            &format!("{container_name}:/tmp/test_entrypoint.sh"),
         ])
         .status()
         .context("Failed to copy entrypoint")?;
@@ -245,14 +243,14 @@ fn prepare_and_run_skillet(container_name: &str) -> Result<()> {
 fn verify_or_record(hostname: &str, container_name: &str, is_record: bool) -> Result<()> {
     let dest_dir = PathBuf::from("integration_tests/recordings");
     fs::create_dir_all(&dest_dir)?;
-    let dest_file = dest_dir.join(format!("{}.yaml", hostname));
+    let dest_file = dest_dir.join(format!("{hostname}.yaml"));
 
     if is_record {
         info!("Copying recording to {}", dest_file.display());
         let cp_status = Command::new("podman")
             .args([
                 "cp",
-                &format!("{}:/tmp/ops.yaml", container_name),
+                &format!("{container_name}:/tmp/ops.yaml"),
                 dest_file
                     .to_str()
                     .ok_or_else(|| anyhow!("Destination path is not valid UTF-8"))?,
@@ -273,7 +271,7 @@ fn verify_or_record(hostname: &str, container_name: &str, is_record: bool) -> Re
         let cp_status = Command::new("podman")
             .args([
                 "cp",
-                &format!("{}:/tmp/ops.yaml", container_name),
+                &format!("{container_name}:/tmp/ops.yaml"),
                 temp_path,
             ])
             .status()?;
@@ -290,15 +288,15 @@ fn verify_or_record(hostname: &str, container_name: &str, is_record: bool) -> Re
         let recorded_ops: Vec<ResourceOp> = serde_yml::from_str(&recorded_content)?;
         let new_ops: Vec<ResourceOp> = serde_yml::from_str(&new_content)?;
 
-        if recorded_ops != new_ops {
+        if recorded_ops == new_ops {
+            info!("Integration test passed!");
+        } else {
             error!("Recording mismatch!");
             error!("Expected: {:?}", recorded_ops);
             error!("Actual:   {:?}", new_ops);
             return Err(anyhow!(
                 "Integration test failed: Actions do not match recording."
             ));
-        } else {
-            info!("Integration test passed!");
         }
     }
     Ok(())
