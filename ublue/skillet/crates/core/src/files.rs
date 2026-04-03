@@ -1,5 +1,4 @@
 use nix::unistd::{chown, Gid, Uid};
-use sha2::{Digest, Sha256};
 use std::fs::{self};
 use std::io::{self, Write};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
@@ -68,7 +67,7 @@ impl LocalFileResource {
         let mut changed = false;
 
         if let Some(desired_mode) = mode {
-            if (metadata.permissions().mode() & 0o777) != desired_mode {
+            if (metadata.permissions().mode() & 0o7777) != desired_mode {
                 changed = true;
             }
         }
@@ -156,18 +155,15 @@ impl FileResource for LocalFileResource {
 
         // 2. Check content
         let content_changed = if path.exists() {
-            let existing_content =
-                fs::read(path).map_err(|e| FileError::Read(path.display().to_string(), e))?;
-
-            let mut hasher = Sha256::new();
-            hasher.update(&existing_content);
-            let existing_hash = hasher.finalize();
-
-            let mut new_hasher = Sha256::new();
-            new_hasher.update(content);
-            let new_hash = new_hasher.finalize();
-
-            existing_hash != new_hash
+            let metadata =
+                fs::metadata(path).map_err(|e| FileError::Read(path.display().to_string(), e))?;
+            if metadata.len() == content.len() as u64 {
+                let existing_content =
+                    fs::read(path).map_err(|e| FileError::Read(path.display().to_string(), e))?;
+                existing_content != content
+            } else {
+                true
+            }
         } else {
             true
         };
