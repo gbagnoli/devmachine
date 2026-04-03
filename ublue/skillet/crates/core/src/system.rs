@@ -27,15 +27,14 @@ impl LinuxSystemResource {
         Self
     }
 
-    fn run_systemctl(&self, action: &str, name: &str) -> Result<(), SystemError> {
-        info!("Running systemctl {} {}", action, name);
+    fn run_systemctl(action: &str, name: &str) -> Result<(), SystemError> {
+        info!("Running systemctl {action} {name}");
         let output = Command::new("systemctl").arg(action).arg(name).output()?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(SystemError::Command(format!(
-                "systemctl {} {} failed: {}",
-                action, name, stderr
+                "systemctl {action} {name} failed: {stderr}"
             )));
         }
         Ok(())
@@ -52,13 +51,13 @@ impl SystemResource for LinuxSystemResource {
     fn ensure_group(&self, name: &str) -> Result<bool, SystemError> {
         // 1. Check if group exists using `users` crate
         if get_group_by_name(name).is_some() {
-            debug!("Group {} already exists", name);
+            debug!("Group {name} already exists");
             return Ok(false);
         }
 
         // 2. Create group using `groupadd`
         // Note: Creating groups requires root privileges usually.
-        info!("Creating group {}", name);
+        info!("Creating group {name}");
         let output = Command::new("groupadd")
             .arg(name)
             // .arg("-r") // System group? Maybe make it an option?
@@ -67,23 +66,23 @@ impl SystemResource for LinuxSystemResource {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(SystemError::Command(format!("groupadd failed: {}", stderr)));
+            return Err(SystemError::Command(format!("groupadd failed: {stderr}")));
         }
 
-        info!("Created group {}", name);
+        info!("Created group {name}");
         Ok(true)
     }
 
     fn service_start(&self, name: &str) -> Result<(), SystemError> {
-        self.run_systemctl("start", name)
+        Self::run_systemctl("start", name)
     }
 
     fn service_stop(&self, name: &str) -> Result<(), SystemError> {
-        self.run_systemctl("stop", name)
+        Self::run_systemctl("stop", name)
     }
 
     fn service_restart(&self, name: &str) -> Result<(), SystemError> {
-        self.run_systemctl("restart", name)
+        Self::run_systemctl("restart", name)
     }
 }
 #[cfg(test)]
