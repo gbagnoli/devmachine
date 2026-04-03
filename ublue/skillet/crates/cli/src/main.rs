@@ -127,24 +127,29 @@ fn build_workspace() -> Result<()> {
 
 fn locate_binary(hostname: &str) -> Result<PathBuf> {
     let host_binary_name = format!("skillet-{hostname}");
-    let target_debug = PathBuf::from("target/debug");
+    let binary_path = ["target/release", "target/debug"]
+        .iter()
+        .find_map(|dir| {
+            let p = PathBuf::from(dir).join(&host_binary_name);
+            if p.exists() {
+                Some(p)
+            } else {
+                None
+            }
+        })
+        .or_else(|| {
+            ["target/release", "target/debug"].iter().find_map(|dir| {
+                let p = PathBuf::from(dir).join("skillet");
+                if p.exists() {
+                    Some(p)
+                } else {
+                    None
+                }
+            })
+        })
+        .ok_or_else(|| anyhow!("Binary not found in target/release or target/debug"))?;
 
-    let binary_path = if target_debug.join(&host_binary_name).exists() {
-        info!("Found host-specific binary: {host_binary_name}");
-        target_debug.join(&host_binary_name)
-    } else {
-        info!(
-            "Using generic skillet binary (host binary {host_binary_name} not found)"
-        );
-        target_debug.join("skillet")
-    };
-
-    if !binary_path.exists() {
-        return Err(anyhow!(
-            "Binary not found at {}. Make sure you run this from workspace root.",
-            binary_path.display()
-        ));
-    }
+    info!("Using binary: {}", binary_path.display());
     fs::canonicalize(&binary_path).context("Failed to canonicalize binary path")
 }
 
