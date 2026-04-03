@@ -74,6 +74,9 @@ pub fn handle_apply(hostname: &str, record_path: Option<PathBuf>) -> Result<(), 
 
         let ops = recorder_system.get_ops();
         let yaml = serde_yml::to_string(&ops)?;
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
         fs::write(&path, yaml)?;
         info!("Recording saved to {}", path.display());
     } else {
