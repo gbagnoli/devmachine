@@ -1,4 +1,5 @@
 use nix::unistd::{chown, Gid, Uid};
+use sha2::{Digest, Sha256};
 use std::fs::{self};
 use std::io::{self, Write};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
@@ -28,6 +29,8 @@ pub enum FileError {
     UserNotFound(String),
     #[error("Group {0} not found")]
     GroupNotFound(String),
+    #[error("Path {0} exists but is not a directory")]
+    NotADirectory(String),
 }
 
 pub trait FileResource {
@@ -158,9 +161,19 @@ impl FileResource for LocalFileResource {
             let metadata =
                 fs::metadata(path).map_err(|e| FileError::Read(path.display().to_string(), e))?;
             if metadata.len() == content.len() as u64 {
-                let existing_content =
-                    fs::read(path).map_err(|e| FileError::Read(path.display().to_string(), e))?;
-                existing_content != content
+                let file =
+                    fs::File::open(path).map_err(|e| FileError::Read(path.display().to_string(), e))?;
+                let mut reader = std::io::BufReader::new(file);
+                let mut hasher = Sha256::new();
+                std::io::copy(&mut reader, &mut hasher)
+                    .map_err(|e| FileError::Read(path.display().to_string(), e))?;
+                let existing_hash = hasher.finalize();
+
+                let mut new_hasher = Sha256::new();
+                new_hasher.update(content);
+                let new_hash = new_hasher.finalize();
+
+                existing_hash != new_hash
             } else {
                 true
             }
@@ -198,7 +211,13 @@ impl FileResource for LocalFileResource {
     ) -> Result<bool, FileError> {
         let mut changed = false;
 
-        if !path.exists() {
+        if path.exists() {
+            let metadata =
+                fs::metadata(path).map_err(|e| FileError::Read(path.display().to_string(), e))?;
+            if !metadata.is_dir() {
+                return Err(FileError::NotADirectory(path.display().to_string()));
+            }
+        } else {
             use std::os::unix::fs::DirBuilderExt;
             let mut builder = fs::DirBuilder::new();
             builder.recursive(true);

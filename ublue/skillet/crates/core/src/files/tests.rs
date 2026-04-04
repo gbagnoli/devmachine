@@ -86,6 +86,35 @@ fn test_ensure_file_metadata() {
 }
 
 #[test]
+fn test_ensure_directory_creates_dir() {
+    let dir = tempdir().unwrap();
+    let sub_dir = dir.path().join("subdir");
+    let resource = LocalFileResource::new();
+
+    let changed = resource
+        .ensure_directory(&sub_dir, Some(0o755), None, None)
+        .unwrap();
+    assert!(changed);
+    assert!(sub_dir.exists());
+    assert!(sub_dir.is_dir());
+}
+
+#[test]
+fn test_ensure_directory_fails_if_file() {
+    let dir = tempdir().unwrap();
+    let file_path = dir.path().join("file.txt");
+    fs::write(&file_path, b"not a dir").unwrap();
+    let resource = LocalFileResource::new();
+
+    let result = resource.ensure_directory(&file_path, None, None, None);
+    assert!(result.is_err());
+    match result {
+        Err(FileError::NotADirectory(p)) => assert_eq!(p, file_path.display().to_string()),
+        _ => panic!("Expected NotADirectory error, got {result:?}"),
+    }
+}
+
+#[test]
 fn test_delete_file() {
     let dir = tempdir().unwrap();
     let file_path = dir.path().join("test_delete.txt");
