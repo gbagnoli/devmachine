@@ -15,6 +15,7 @@ tempfile.workspace = true
 hex.workspace = true
 serde.workspace = true
 tracing.workspace = true
+zbus.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

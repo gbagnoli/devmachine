@@ -13,6 +13,8 @@ use tracing_subscriber::FmtSubscriber;
 pub enum CliCommonError {
     #[error("Failed to apply hardening: {0}")]
     Hardening(#[from] skillet_hardening::HardeningError),
+    #[error("System error: {0}")]
+    System(#[from] skillet_core::system::SystemError),
     #[error("Failed to set default tracing subscriber: {0}")]
     SetLogger(#[from] tracing::subscriber::SetGlobalDefaultError),
     #[error("IO error: {0}")]

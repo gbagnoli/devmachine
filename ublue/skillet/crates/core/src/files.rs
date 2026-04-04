@@ -199,7 +199,13 @@ impl FileResource for LocalFileResource {
         let mut changed = false;
 
         if !path.exists() {
-            fs::create_dir_all(path).map_err(FileError::Io)?;
+            use std::os::unix::fs::DirBuilderExt;
+            let mut builder = fs::DirBuilder::new();
+            builder.recursive(true);
+            if let Some(m) = mode {
+                builder.mode(m);
+            }
+            builder.create(path).map_err(FileError::Io)?;
             changed = true;
             info!("Created directory {}", path.display());
         }
