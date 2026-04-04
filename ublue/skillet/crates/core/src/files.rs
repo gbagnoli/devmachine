@@ -1,7 +1,7 @@
 use nix::unistd::{chown, Gid, Uid};
 use sha2::{Digest, Sha256};
 use std::fs::{self};
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
 use tempfile::NamedTempFile;
@@ -172,8 +172,14 @@ impl FileResource for LocalFileResource {
                     .map_err(|e| FileError::Read(path.display().to_string(), e))?;
                 let mut reader = std::io::BufReader::new(file);
                 let mut hasher = Sha256::new();
-                std::io::copy(&mut reader, &mut hasher)
-                    .map_err(|e| FileError::Read(path.display().to_string(), e))?;
+                
+                let mut buffer = [0; 8192];
+                while let Ok(n) = reader.read(&mut buffer) {
+                    if n == 0 {
+                        break;
+                    }
+                    hasher.update(&buffer[..n]);
+                }
                 let existing_hash = hasher.finalize();
 
                 let mut new_hasher = Sha256::new();
