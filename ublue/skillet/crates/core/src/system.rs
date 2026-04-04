@@ -112,6 +112,12 @@ impl SystemResource for LinuxSystemResource {
         let output = Command::new("groupadd").arg(name).output()?;
 
         if !output.status.success() {
+            // Check if group was created by another process in the meantime (exit code 9 for groupadd)
+            if output.status.code() == Some(9) {
+                debug!("Group {name} was created by another process");
+                return Ok(false);
+            }
+
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(SystemError::Command(format!("groupadd failed: {stderr}")));
         }

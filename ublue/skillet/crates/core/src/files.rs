@@ -31,6 +31,8 @@ pub enum FileError {
     GroupNotFound(String),
     #[error("Path {0} exists but is not a directory")]
     NotADirectory(String),
+    #[error("Path {0} exists but is not a regular file")]
+    NotARegularFile(String),
 }
 
 pub trait FileResource {
@@ -158,11 +160,16 @@ impl FileResource for LocalFileResource {
 
         // 2. Check content
         let content_changed = if path.exists() {
-            let metadata =
-                fs::metadata(path).map_err(|e| FileError::Read(path.display().to_string(), e))?;
+            let metadata = fs::symlink_metadata(path)
+                .map_err(|e| FileError::Read(path.display().to_string(), e))?;
+
+            if !metadata.is_file() {
+                return Err(FileError::NotARegularFile(path.display().to_string()));
+            }
+
             if metadata.len() == content.len() as u64 {
-                let file =
-                    fs::File::open(path).map_err(|e| FileError::Read(path.display().to_string(), e))?;
+                let file = fs::File::open(path)
+                    .map_err(|e| FileError::Read(path.display().to_string(), e))?;
                 let mut reader = std::io::BufReader::new(file);
                 let mut hasher = Sha256::new();
                 std::io::copy(&mut reader, &mut hasher)
@@ -212,8 +219,8 @@ impl FileResource for LocalFileResource {
         let mut changed = false;
 
         if path.exists() {
-            let metadata =
-                fs::metadata(path).map_err(|e| FileError::Read(path.display().to_string(), e))?;
+            let metadata = fs::symlink_metadata(path)
+                .map_err(|e| FileError::Read(path.display().to_string(), e))?;
             if !metadata.is_dir() {
                 return Err(FileError::NotADirectory(path.display().to_string()));
             }

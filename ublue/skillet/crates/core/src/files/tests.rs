@@ -86,6 +86,25 @@ fn test_ensure_file_metadata() {
 }
 
 #[test]
+fn test_ensure_file_fails_if_symlink() {
+    let dir = tempdir().unwrap();
+    let target_path = dir.path().join("target.txt");
+    let link_path = dir.path().join("link.txt");
+    fs::write(&target_path, b"target").unwrap();
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&target_path, &link_path).unwrap();
+
+    let resource = LocalFileResource::new();
+    let result = resource.ensure_file(&link_path, b"new content", None, None, None);
+
+    assert!(result.is_err());
+    match result {
+        Err(FileError::NotARegularFile(p)) => assert_eq!(p, link_path.display().to_string()),
+        _ => panic!("Expected NotARegularFile error, got {result:?}"),
+    }
+}
+
+#[test]
 fn test_ensure_directory_creates_dir() {
     let dir = tempdir().unwrap();
     let sub_dir = dir.path().join("subdir");
@@ -110,6 +129,25 @@ fn test_ensure_directory_fails_if_file() {
     assert!(result.is_err());
     match result {
         Err(FileError::NotADirectory(p)) => assert_eq!(p, file_path.display().to_string()),
+        _ => panic!("Expected NotADirectory error, got {result:?}"),
+    }
+}
+
+#[test]
+fn test_ensure_directory_fails_if_symlink() {
+    let dir = tempdir().unwrap();
+    let target_dir = dir.path().join("target_dir");
+    let link_path = dir.path().join("link_dir");
+    fs::create_dir(&target_dir).unwrap();
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&target_dir, &link_path).unwrap();
+
+    let resource = LocalFileResource::new();
+    let result = resource.ensure_directory(&link_path, None, None, None);
+
+    assert!(result.is_err());
+    match result {
+        Err(FileError::NotADirectory(p)) => assert_eq!(p, link_path.display().to_string()),
         _ => panic!("Expected NotADirectory error, got {result:?}"),
     }
 }
