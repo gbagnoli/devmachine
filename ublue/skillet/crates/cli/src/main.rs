@@ -104,12 +104,16 @@ fn run_container_test(hostname: &str, image: &str, is_record: bool) -> Result<()
         Ok(())
     })();
 
-    info!("Stopping container...");
-    let _ = Command::new("podman")
-        .args(["kill", &container_name])
-        .output();
+    stop_container(&container_name);
 
     result
+}
+
+fn stop_container(container_name: &str) {
+    info!("Stopping container {container_name}...");
+    let _ = Command::new("podman")
+        .args(["rm", "-f", container_name])
+        .output();
 }
 
 fn build_workspace() -> Result<()> {
