@@ -123,6 +123,8 @@ impl Default for LinuxSystemResource {
     }
 }
 
+const EXIT_CODE_GROUP_EXISTS: i32 = 9;
+
 impl SystemResource for LinuxSystemResource {
     fn ensure_group(&self, name: &str) -> Result<bool, SystemError> {
         // 1. Check if group exists using `users` crate
@@ -136,8 +138,8 @@ impl SystemResource for LinuxSystemResource {
         let output = Command::new("groupadd").arg(name).output()?;
 
         if !output.status.success() {
-            // Check if group was created by another process in the meantime (exit code 9 for groupadd)
-            if output.status.code() == Some(9) {
+            // Check if group was created by another process in the meantime
+            if output.status.code() == Some(EXIT_CODE_GROUP_EXISTS) {
                 debug!("Group {name} was created by another process");
                 return Ok(false);
             }
