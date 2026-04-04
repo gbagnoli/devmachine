@@ -40,10 +40,13 @@ where
     F: FileResource + ?Sized,
 {
     info!("Applying sysctl hardening...");
-    let content = include_bytes!("../files/sysctl.boxy.conf");
-    let path = Path::new("/etc/sysctl.d/99-hardening.conf");
+    let sysctl_dir = Path::new("/etc/sysctl.d");
+    files.ensure_directory(sysctl_dir, Some(0o755), Some("root"), Some("root"))?;
 
-    let changed = files.ensure_file(path, content, Some(0o644), Some("root"), Some("root"))?;
+    let content = include_bytes!("../files/sysctl.boxy.conf");
+    let path = sysctl_dir.join("99-hardening.conf");
+
+    let changed = files.ensure_file(&path, content, Some(0o644), Some("root"), Some("root"))?;
 
     if changed {
         info!("Sysctl configuration changed, restarting systemd-sysctl...");

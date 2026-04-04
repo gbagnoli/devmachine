@@ -1,7 +1,19 @@
 use std::process::Command;
 use thiserror::Error;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 use users::get_group_by_name;
+use zbus::proxy;
+
+#[proxy(
+    interface = "org.freedesktop.systemd1.Manager",
+    default_service = "org.freedesktop.systemd1",
+    default_path = "/org/freedesktop/systemd1"
+)]
+trait SystemdManager {
+    fn start_unit(&self, name: &str, mode: &str) -> zbus::Result<zbus::zvariant::OwnedObjectPath>;
+    fn stop_unit(&self, name: &str, mode: &str) -> zbus::Result<zbus::zvariant::OwnedObjectPath>;
+    fn restart_unit(&self, name: &str, mode: &str) -> zbus::Result<zbus::zvariant::OwnedObjectPath>;
+}
 
 #[derive(Error, Debug)]
 pub enum SystemError {
@@ -9,6 +21,8 @@ pub enum SystemError {
     GroupCheck(String),
     #[error("Command failed: {0}")]
     Command(String),
+    #[error("DBus error: {0}")]
+    DBus(#[from] zbus::Error),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 }
@@ -20,21 +34,59 @@ pub trait SystemResource {
     fn service_restart(&self, name: &str) -> Result<(), SystemError>;
 }
 
-pub struct LinuxSystemResource;
+pub struct LinuxSystemResource {
+    conn: Option<zbus::blocking::Connection>,
+}
 
 impl LinuxSystemResource {
     pub fn new() -> Self {
-        Self
+        let conn = match zbus::blocking::Connection::system() {
+            Ok(c) => Some(c),
+            Err(e) => {
+                warn!("Failed to connect to system DBus, will fallback to CLI: {e}");
+                None
+            }
+        };
+        Self { conn }
     }
 
-    fn run_systemctl(action: &str, name: &str) -> Result<(), SystemError> {
-        info!("Running systemctl {action} {name}");
-        let output = Command::new("systemctl").arg(action).arg(name).output()?;
+    fn run_systemctl(&self, action: &str, name: &str) -> Result<(), SystemError> {
+        let name_with_suffix = if name.contains('.') {
+            name.to_string()
+        } else {
+            format!("{name}.service")
+        };
+
+        if let Some(conn) = &self.conn {
+            info!("Running systemctl {action} {name_with_suffix} via DBus");
+            let proxy = SystemdManagerProxyBlocking::new(conn)?;
+            let res = match action {
+                "start" => proxy.start_unit(&name_with_suffix, "replace"),
+                "stop" => proxy.stop_unit(&name_with_suffix, "replace"),
+                "restart" => proxy.restart_unit(&name_with_suffix, "replace"),
+                _ => {
+                    return Err(SystemError::Command(format!("Unsupported action: {action}")));
+                }
+            };
+
+            match res {
+                Ok(_) => return Ok(()),
+                Err(e) => {
+                    warn!("DBus call failed, falling back to CLI: {e}");
+                }
+            }
+        }
+
+        info!("Running systemctl {action} {name_with_suffix} via CLI");
+        let output = Command::new("systemctl")
+            .arg(action)
+            .arg(&name_with_suffix)
+            .output()?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(SystemError::Command(format!(
-                "systemctl {action} {name} failed: {stderr}"
+                "systemctl {action} {name_with_suffix} failed: {stderr}"
             )));
         }
         Ok(())
@@ -56,13 +108,8 @@ impl SystemResource for LinuxSystemResource {
         }
 
         // 2. Create group using `groupadd`
-        // Note: Creating groups requires root privileges usually.
         info!("Creating group {name}");
-        let output = Command::new("groupadd")
-            .arg(name)
-            // .arg("-r") // System group? Maybe make it an option?
-            // For now, simple group creation.
-            .output()?;
+        let output = Command::new("groupadd").arg(name).output()?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -74,15 +121,15 @@ impl SystemResource for LinuxSystemResource {
     }
 
     fn service_start(&self, name: &str) -> Result<(), SystemError> {
-        Self::run_systemctl("start", name)
+        self.run_systemctl("start", name)
     }
 
     fn service_stop(&self, name: &str) -> Result<(), SystemError> {
-        Self::run_systemctl("stop", name)
+        self.run_systemctl("stop", name)
     }
 
     fn service_restart(&self, name: &str) -> Result<(), SystemError> {
-        Self::run_systemctl("restart", name)
+        self.run_systemctl("restart", name)
     }
 }
 #[cfg(test)]
