@@ -65,6 +65,7 @@ pub type FileMetadata = (Option<u32>, Option<String>, Option<String>);
 pub struct MockFiles {
     pub files: Arc<Mutex<HashMap<String, Vec<u8>>>>,
     pub metadata: Arc<Mutex<HashMap<String, FileMetadata>>>,
+    pub directories: Arc<Mutex<HashSet<String>>>,
 }
 
 impl MockFiles {
@@ -72,6 +73,7 @@ impl MockFiles {
         Self {
             files: Arc::new(Mutex::new(HashMap::new())),
             metadata: Arc::new(Mutex::new(HashMap::new())),
+            directories: Arc::new(Mutex::new(HashSet::new())),
         }
     }
 }
@@ -127,14 +129,22 @@ impl FileResource for MockFiles {
 
     fn ensure_directory(
         &self,
-        _path: &Path,
+        path: &Path,
         _mode: Option<u32>,
         _owner: Option<&str>,
         _group: Option<&str>,
     ) -> Result<bool, FileError> {
-        // For mock, we don't really track directories separately for now,
-        // but we could if needed. Just return Ok(false) as if it exists.
-        Ok(false)
+        let path_str = path.display().to_string();
+        let mut directories = self
+            .directories
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if directories.contains(&path_str) {
+            Ok(false)
+        } else {
+            directories.insert(path_str);
+            Ok(true)
+        }
     }
 
     fn delete_file(&self, path: &Path) -> Result<bool, FileError> {

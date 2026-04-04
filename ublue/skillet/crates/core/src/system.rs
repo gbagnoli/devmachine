@@ -1,8 +1,36 @@
 use std::process::Command;
+use std::sync::LazyLock;
 use thiserror::Error;
 use tracing::{debug, info, warn};
 use users::get_group_by_name;
 use zbus::proxy;
+
+static SYSTEMD_UNIT_SUFFIXES: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
+    vec![
+        ".service",
+        ".socket",
+        ".device",
+        ".mount",
+        ".automount",
+        ".swap",
+        ".target",
+        ".path",
+        ".timer",
+        ".slice",
+        ".scope",
+    ]
+});
+
+fn ensure_systemd_suffix(name: &str) -> String {
+    if SYSTEMD_UNIT_SUFFIXES
+        .iter()
+        .any(|suffix| name.ends_with(suffix))
+    {
+        name.to_string()
+    } else {
+        format!("{name}.service")
+    }
+}
 
 #[proxy(
     interface = "org.freedesktop.systemd1.Manager",
@@ -51,11 +79,7 @@ impl LinuxSystemResource {
     }
 
     fn run_systemctl(&self, action: &str, name: &str) -> Result<(), SystemError> {
-        let name_with_suffix = if name.contains('.') {
-            name.to_string()
-        } else {
-            format!("{name}.service")
-        };
+        let name_with_suffix = ensure_systemd_suffix(name);
 
         if let Some(conn) = &self.conn {
             info!("Running systemctl {action} {name_with_suffix} via DBus");
