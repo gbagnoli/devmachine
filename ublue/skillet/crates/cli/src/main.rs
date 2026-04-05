@@ -131,31 +131,22 @@ fn build_workspace() -> Result<()> {
 
 fn locate_binary(hostname: &str) -> Result<PathBuf> {
     let host_binary_name = format!("skillet-{hostname}");
-    let dirs = ["target/release", "target/debug"];
-
-    // First, try to find host-specific binary in release, then debug
-    let binary_path = dirs
-        .iter()
-        .find_map(|dir| {
-            let p = PathBuf::from(dir).join(&host_binary_name);
-            if p.exists() {
-                Some(p)
-            } else {
-                None
-            }
-        })
-        // If not found, try generic skillet binary in release, then debug
-        .or_else(|| {
-            dirs.iter().find_map(|dir| {
-                let p = PathBuf::from(dir).join("skillet");
-                if p.exists() {
-                    Some(p)
-                } else {
-                    None
-                }
-            })
-        })
-        .ok_or_else(|| anyhow!("Binary not found in target/release or target/debug"))?;
+    
+    // Ordered search:
+    // 1. host-specific release
+    // 2. host-specific debug
+    // 3. generic skillet release
+    // 4. generic skillet debug
+    
+    let binary_path = [
+        PathBuf::from("target/release").join(&host_binary_name),
+        PathBuf::from("target/debug").join(&host_binary_name),
+        PathBuf::from("target/release").join("skillet"),
+        PathBuf::from("target/debug").join("skillet"),
+    ]
+    .into_iter()
+    .find(|p| p.exists())
+    .ok_or_else(|| anyhow!("No suitable skillet binary found in target/release or target/debug"))?;
 
     info!("Using binary: {}", binary_path.display());
     fs::canonicalize(&binary_path).context("Failed to canonicalize binary path")

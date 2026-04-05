@@ -62,13 +62,12 @@ impl LocalFileResource {
     }
 
     fn check_metadata(
-        path: &Path,
+        _path: &Path,
+        metadata: &fs::Metadata,
         mode: Option<u32>,
         owner: Option<&str>,
         group: Option<&str>,
     ) -> Result<bool, FileError> {
-        let metadata =
-            fs::metadata(path).map_err(|e| FileError::Read(path.display().to_string(), e))?;
         let mut changed = false;
 
         if let Some(desired_mode) = mode {
@@ -98,14 +97,13 @@ impl LocalFileResource {
 
     fn apply_metadata(
         path: &Path,
+        metadata: &fs::Metadata,
         mode: Option<u32>,
         owner: Option<&str>,
         group: Option<&str>,
     ) -> Result<(), FileError> {
         if let Some(desired_mode) = mode {
-            let mut perms = fs::metadata(path)
-                .map_err(|e| FileError::Read(path.display().to_string(), e))?
-                .permissions();
+            let mut perms = metadata.permissions();
             perms.set_mode(desired_mode);
             fs::set_permissions(path, perms)
                 .map_err(|e| FileError::SetPermissions(path.display().to_string(), e))?;
@@ -159,23 +157,22 @@ impl FileResource for LocalFileResource {
         let mut changed = false;
 
         // 2. Check content
-        let content_changed = if path.exists() {
-            let metadata = fs::symlink_metadata(path)
-                .map_err(|e| FileError::Read(path.display().to_string(), e))?;
-
-            if !metadata.is_file() {
+        let mut metadata = fs::symlink_metadata(path).ok();
+        let content_changed = if let Some(meta) = &metadata {
+            if !meta.is_file() {
                 return Err(FileError::NotARegularFile(path.display().to_string()));
             }
 
-            if metadata.len() == content.len() as u64 {
+            if meta.len() == content.len() as u64 {
                 let file = fs::File::open(path)
                     .map_err(|e| FileError::Read(path.display().to_string(), e))?;
                 let mut reader = std::io::BufReader::new(file);
                 let mut hasher = Sha256::new();
-                
+
                 let mut buffer = [0; 8192];
                 loop {
-                    let n = reader.read(&mut buffer)
+                    let n = reader
+                        .read(&mut buffer)
                         .map_err(|e| FileError::Read(path.display().to_string(), e))?;
                     if n == 0 {
                         break;
@@ -183,10 +180,7 @@ impl FileResource for LocalFileResource {
                     hasher.update(&buffer[..n]);
                 }
                 let existing_hash = hasher.finalize();
-
-                let mut new_hasher = Sha256::new();
-                new_hasher.update(content);
-                let new_hash = new_hasher.finalize();
+                let new_hash = Sha256::digest(content);
 
                 existing_hash != new_hash
             } else {
@@ -205,13 +199,19 @@ impl FileResource for LocalFileResource {
                 .map_err(|e| FileError::Persist(path.display().to_string(), e.error))?;
             changed = true;
             info!("Updated file content for {}", path.display());
+            // Fetch metadata for the newly created file
+            metadata = Some(
+                fs::metadata(path).map_err(|e| FileError::Read(path.display().to_string(), e))?,
+            );
         }
 
         // 3. Check and apply metadata
-        if path.exists() && Self::check_metadata(path, mode, owner, group)? {
-            Self::apply_metadata(path, mode, owner, group)?;
-            changed = true;
-            info!("Updated file metadata for {}", path.display());
+        if let Some(meta) = metadata {
+            if Self::check_metadata(path, &meta, mode, owner, group)? {
+                Self::apply_metadata(path, &meta, mode, owner, group)?;
+                changed = true;
+                info!("Updated file metadata for {}", path.display());
+            }
         }
 
         Ok(changed)
@@ -226,10 +226,9 @@ impl FileResource for LocalFileResource {
     ) -> Result<bool, FileError> {
         let mut changed = false;
 
-        if path.exists() {
-            let metadata = fs::symlink_metadata(path)
-                .map_err(|e| FileError::Read(path.display().to_string(), e))?;
-            if !metadata.is_dir() {
+        let mut metadata = fs::symlink_metadata(path).ok();
+        if let Some(meta) = &metadata {
+            if !meta.is_dir() {
                 return Err(FileError::NotADirectory(path.display().to_string()));
             }
         } else {
@@ -242,12 +241,18 @@ impl FileResource for LocalFileResource {
             builder.create(path).map_err(FileError::Io)?;
             changed = true;
             info!("Created directory {}", path.display());
+            // Fetch metadata for the newly created directory
+            metadata = Some(
+                fs::metadata(path).map_err(|e| FileError::Read(path.display().to_string(), e))?,
+            );
         }
 
-        if path.exists() && Self::check_metadata(path, mode, owner, group)? {
-            Self::apply_metadata(path, mode, owner, group)?;
-            changed = true;
-            info!("Updated directory metadata for {}", path.display());
+        if let Some(meta) = metadata {
+            if Self::check_metadata(path, &meta, mode, owner, group)? {
+                Self::apply_metadata(path, &meta, mode, owner, group)?;
+                changed = true;
+                info!("Updated directory metadata for {}", path.display());
+            }
         }
 
         Ok(changed)
