@@ -131,7 +131,10 @@ fn build_workspace() -> Result<()> {
 
 fn locate_binary(hostname: &str) -> Result<PathBuf> {
     let host_binary_name = format!("skillet-{hostname}");
-    let binary_path = ["target/release", "target/debug"]
+    let dirs = ["target/release", "target/debug"];
+
+    // First, try to find host-specific binary in release, then debug
+    let binary_path = dirs
         .iter()
         .find_map(|dir| {
             let p = PathBuf::from(dir).join(&host_binary_name);
@@ -141,8 +144,9 @@ fn locate_binary(hostname: &str) -> Result<PathBuf> {
                 None
             }
         })
+        // If not found, try generic skillet binary in release, then debug
         .or_else(|| {
-            ["target/release", "target/debug"].iter().find_map(|dir| {
+            dirs.iter().find_map(|dir| {
                 let p = PathBuf::from(dir).join("skillet");
                 if p.exists() {
                     Some(p)

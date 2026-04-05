@@ -174,7 +174,9 @@ impl FileResource for LocalFileResource {
                 let mut hasher = Sha256::new();
                 
                 let mut buffer = [0; 8192];
-                while let Ok(n) = reader.read(&mut buffer) {
+                loop {
+                    let n = reader.read(&mut buffer)
+                        .map_err(|e| FileError::Read(path.display().to_string(), e))?;
                     if n == 0 {
                         break;
                     }
