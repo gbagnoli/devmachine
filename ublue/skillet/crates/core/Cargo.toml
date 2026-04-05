@@ -1,0 +1,24 @@
+[package]
+name = "skillet_core"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror.workspace = true
+sha2.workspace = true
+users.workspace = true
+nix.workspace = true
+tempfile.workspace = true
+hex.workspace = true
+serde.workspace = true
+tracing.workspace = true
+zbus.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[features]
+test-utils = []
