@@ -25,6 +25,10 @@ where
     // 2. Include 'os-hardening'
     apply_os_hardening(system);
 
+    // Common setup for SSH
+    let ssh_dir = Path::new("/etc/ssh");
+    files.ensure_directory(ssh_dir, Some(0o755), Some("root"), Some("root"))?;
+
     // 3. Include 'ssh-hardening::server'
     apply_ssh_hardening_server(system, files)?;
 
@@ -66,9 +70,6 @@ where
     F: FileResource + ?Sized,
 {
     info!("Applying ssh-hardening::server");
-    let ssh_dir = Path::new("/etc/ssh");
-    files.ensure_directory(ssh_dir, Some(0o755), Some("root"), Some("root"))?;
-
     let content = include_bytes!("../files/sshd_config");
     let path = Path::new("/etc/ssh/sshd_config");
 
@@ -88,9 +89,6 @@ where
     F: FileResource + ?Sized,
 {
     info!("Applying ssh-hardening::client");
-    let ssh_dir = Path::new("/etc/ssh");
-    files.ensure_directory(ssh_dir, Some(0o755), Some("root"), Some("root"))?;
-
     let content = include_bytes!("../files/ssh_config");
     let path = Path::new("/etc/ssh/ssh_config");
 

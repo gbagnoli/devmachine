@@ -26,6 +26,17 @@ This document defines the architectural mandates and project structure for `skil
     - **Unit Tests**: `cargo test` across the workspace.
     - **Integration Tests**: `skillet test run <hostname>` for affected hosts to verify end-to-end correctness in a containerized environment.
 
+## Testing & Recording Philosophy
+
+Skillet uses a multi-layered testing approach to ensure reliability and idempotency:
+
+1.  **Trait-based Abstraction**: Core resources (`FileResource`, `SystemResource`) are defined as traits. This allows for easy mocking using `MockFiles` and `MockSystem` in unit tests.
+2.  **The Recorder Wrapper**: A `Recorder<T>` wrapper can be applied to any resource implementing these traits. It intercepts all operations (e.g., `EnsureFile`, `ServiceRestart`), records them into a sequence of `ResourceOp` enums, and then passes the call to the underlying implementation.
+3.  **Containerized Integration Tests**:
+    *   **Record Mode**: The tool runs against a fresh container, and the `Recorder` saves the sequence of operations to a YAML file (e.g., `integration_tests/recordings/beezelbot.yaml`).
+    *   **Run Mode**: The tool runs again, and the *actual* sequence of operations is compared against the *recorded* one. Any mismatch (e.g., a missing service restart or an extra file write) causes the test to fail.
+    *   **Idempotency**: By running the tool twice in the same container, we can verify that the second run produces an empty (or minimal) set of operations, confirming idempotency.
+
 ## Project Structure
 
 The project is organized as a Cargo workspace:
@@ -50,9 +61,12 @@ skillet/
     │   │   ├── lib.rs        # Hardening logic using core primitives
     │   │   └── tests.rs      # Unit tests for hardening logic
     │   └── tests/
-    └── cli/            # skillet: The binary executable
-        └── src/
-            └── main.rs       # CLI entry point (uses anyhow, clap)
+    ├── cli/            # skillet: The main binary executable
+    │   └── src/
+    │       └── main.rs       # CLI entry point (uses anyhow, clap)
+    ├── cli-common/     # skillet_cli_common: Shared CLI logic
+    └── hosts/
+        └── beezelbot/  # skillet-beezelbot: Host-specific binary for beezelbot
 ```
 
 ## Module Design

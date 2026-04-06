@@ -41,11 +41,17 @@ enum TestCommands {
         /// Container image to use
         #[arg(long, default_value = "fedora:latest")]
         image: String,
+        /// Build in release mode
+        #[arg(long)]
+        release: bool,
     },
     Run {
         hostname: String,
         #[arg(long, default_value = "fedora:latest")]
         image: String,
+        /// Build in release mode
+        #[arg(long)]
+        release: bool,
     },
 }
 
@@ -75,23 +81,36 @@ fn main() -> Result<()> {
 
 fn handle_test(cmd: TestCommands) -> Result<()> {
     match cmd {
-        TestCommands::Record { hostname, image } => {
+        TestCommands::Record {
+            hostname,
+            image,
+            release,
+        } => {
             info!("Recording integration test for host: {}", hostname);
-            run_container_test(&hostname, &image, true)?;
+            run_container_test(&hostname, &image, true, release)?;
         }
-        TestCommands::Run { hostname, image } => {
+        TestCommands::Run {
+            hostname,
+            image,
+            release,
+        } => {
             info!(
                 "Running integration test verification for host: {}",
                 hostname
             );
-            run_container_test(&hostname, &image, false)?;
+            run_container_test(&hostname, &image, false, release)?;
         }
     }
     Ok(())
 }
 
-fn run_container_test(hostname: &str, image: &str, is_record: bool) -> Result<()> {
-    build_workspace()?;
+fn run_container_test(
+    hostname: &str,
+    image: &str,
+    is_record: bool,
+    release: bool,
+) -> Result<()> {
+    build_workspace(release)?;
 
     let binary_path = locate_binary(hostname)?;
     let container_name = format!("skillet-test-{hostname}");
@@ -116,10 +135,14 @@ fn stop_container(container_name: &str) {
         .output();
 }
 
-fn build_workspace() -> Result<()> {
-    info!("Building skillet workspace...");
+fn build_workspace(release: bool) -> Result<()> {
+    info!("Building skillet workspace (release={})...", release);
+    let mut args = vec!["build"];
+    if release {
+        args.push("--release");
+    }
     let build_status = Command::new("cargo")
-        .args(["build"])
+        .args(args)
         .status()
         .context("Failed to run cargo build")?;
 
@@ -131,13 +154,13 @@ fn build_workspace() -> Result<()> {
 
 fn locate_binary(hostname: &str) -> Result<PathBuf> {
     let host_binary_name = format!("skillet-{hostname}");
-    
+
     // Ordered search:
     // 1. host-specific release
     // 2. host-specific debug
     // 3. generic skillet release
     // 4. generic skillet debug
-    
+
     let binary_path = [
         PathBuf::from("target/release").join(&host_binary_name),
         PathBuf::from("target/debug").join(&host_binary_name),
@@ -146,16 +169,16 @@ fn locate_binary(hostname: &str) -> Result<PathBuf> {
     ]
     .into_iter()
     .find(|p| p.exists())
-    .ok_or_else(|| anyhow!("No suitable skillet binary found in target/release or target/debug"))?;
+    .ok_or_else(|| {
+        anyhow!("No suitable skillet binary found in target/release or target/debug")
+    })?;
 
     info!("Using binary: {}", binary_path.display());
     fs::canonicalize(&binary_path).context("Failed to canonicalize binary path")
 }
 
 fn setup_container(container_name: &str, image: &str, binary_path: &Path) -> Result<()> {
-    info!(
-        "Starting container {container_name} from image {image}..."
-    );
+    info!("Starting container {container_name} from image {image}...");
 
     let _ = Command::new("podman")
         .args(["rm", "-f", container_name])
@@ -273,11 +296,7 @@ fn verify_or_record(hostname: &str, container_name: &str, is_record: bool) -> Re
             .ok_or_else(|| anyhow!("Temporary path is not valid UTF-8"))?;
 
         let cp_status = Command::new("podman")
-            .args([
-                "cp",
-                &format!("{container_name}:/tmp/ops.yaml"),
-                temp_path,
-            ])
+            .args(["cp", &format!("{container_name}:/tmp/ops.yaml"), temp_path])
             .status()?;
         if !cp_status.success() {
             return Err(anyhow!("Failed to copy recording from container"));

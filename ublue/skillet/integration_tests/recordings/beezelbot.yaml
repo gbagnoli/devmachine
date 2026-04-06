@@ -24,11 +24,6 @@
   group: root
 - !ServiceRestart
   name: sshd
-- !EnsureDirectory
-  path: /etc/ssh
-  mode: '0o755'
-  owner: root
-  group: root
 - !EnsureFile
   path: /etc/ssh/ssh_config
   content_hash: b1c686c7da8fcea74e83f6a2dbd5552f2fb16a58601f347058b5ba4529e6d602
