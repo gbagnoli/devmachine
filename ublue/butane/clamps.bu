@@ -6,6 +6,7 @@ ignition:
       - local: includes/passwd.bu
       - local: includes/zram.bu
       - local: includes/brew.bu
+      - local: includes/skillet.bu
 storage:
   disks:
     - # The link to the block device the OS was booted from.

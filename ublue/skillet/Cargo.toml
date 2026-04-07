@@ -5,6 +5,7 @@ members = [
     "crates/hardening",
     "crates/cli",
     "crates/hosts/beezelbot",
+    "crates/hosts/clamps",
     "crates/cli-common",
 ]
 
