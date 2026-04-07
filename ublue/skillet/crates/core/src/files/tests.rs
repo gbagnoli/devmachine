@@ -86,7 +86,7 @@ fn test_ensure_file_metadata() {
 }
 
 #[test]
-fn test_ensure_file_fails_if_symlink() {
+fn test_ensure_file_replaces_symlink() {
     let dir = tempdir().unwrap();
     let target_path = dir.path().join("target.txt");
     let link_path = dir.path().join("link.txt");
@@ -95,13 +95,15 @@ fn test_ensure_file_fails_if_symlink() {
     std::os::unix::fs::symlink(&target_path, &link_path).unwrap();
 
     let resource = LocalFileResource::new();
-    let result = resource.ensure_file(&link_path, b"new content", None, None, None);
+    let content = b"new content";
+    let changed = resource
+        .ensure_file(&link_path, content, None, None, None)
+        .unwrap();
 
-    assert!(result.is_err());
-    match result {
-        Err(FileError::NotARegularFile(p)) => assert_eq!(p, link_path.display().to_string()),
-        _ => panic!("Expected NotARegularFile error, got {result:?}"),
-    }
+    assert!(changed);
+    assert!(link_path.exists());
+    assert!(fs::symlink_metadata(&link_path).unwrap().is_file());
+    assert_eq!(fs::read(&link_path).unwrap(), content);
 }
 
 #[test]
@@ -134,7 +136,7 @@ fn test_ensure_directory_fails_if_file() {
 }
 
 #[test]
-fn test_ensure_directory_fails_if_symlink() {
+fn test_ensure_directory_follows_symlink() {
     let dir = tempdir().unwrap();
     let target_dir = dir.path().join("target_dir");
     let link_path = dir.path().join("link_dir");
@@ -143,13 +145,15 @@ fn test_ensure_directory_fails_if_symlink() {
     std::os::unix::fs::symlink(&target_dir, &link_path).unwrap();
 
     let resource = LocalFileResource::new();
-    let result = resource.ensure_directory(&link_path, None, None, None);
+    let changed = resource
+        .ensure_directory(&link_path, None, None, None)
+        .unwrap();
 
-    assert!(result.is_err());
-    match result {
-        Err(FileError::NotADirectory(p)) => assert_eq!(p, link_path.display().to_string()),
-        _ => panic!("Expected NotADirectory error, got {result:?}"),
-    }
+    // target_dir already exists, and we follow the symlink link_path to it.
+    // So no change should be reported.
+    assert!(!changed);
+    assert!(link_path.exists());
+    assert!(link_path.is_dir());
 }
 
 #[test]
