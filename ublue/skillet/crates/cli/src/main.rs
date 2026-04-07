@@ -130,9 +130,12 @@ fn run_container_test(
 
 fn stop_container(container_name: &str) {
     info!("Stopping container {container_name}...");
-    let _ = Command::new("podman")
+    let status = Command::new("podman")
         .args(["rm", "-f", container_name])
-        .output();
+        .status();
+    if let Err(e) = status {
+        error!("Failed to execute podman to stop container {}: {}", container_name, e);
+    }
 }
 
 fn build_workspace(release: bool) -> Result<()> {
