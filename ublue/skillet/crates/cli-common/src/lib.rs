@@ -79,6 +79,9 @@ pub fn handle_apply(hostname: &str, record_path: Option<PathBuf>) -> Result<(), 
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
         fs::write(&path, yaml)?;
         info!("Recording saved to {}", path.display());
     } else {
