@@ -152,8 +152,35 @@ fn build_workspace(release: bool) -> Result<()> {
     Ok(())
 }
 
+fn find_workspace_root() -> Result<PathBuf> {
+    let mut current = std::env::current_exe()?
+        .parent()
+        .ok_or_else(|| anyhow!("Failed to get executable directory"))?
+        .to_path_buf();
+
+    loop {
+        if current.join("Cargo.toml").exists() {
+            return Ok(current);
+        }
+        if !current.pop() {
+            break;
+        }
+    }
+
+    // Fallback to CWD if not found relative to exe
+    let cwd = std::env::current_dir()?;
+    if cwd.join("Cargo.toml").exists() {
+        return Ok(cwd);
+    }
+
+    Err(anyhow!(
+        "Failed to locate workspace root (looking for Cargo.toml)"
+    ))
+}
+
 fn locate_binary(hostname: &str) -> Result<PathBuf> {
     let host_binary_name = format!("skillet-{hostname}");
+    let root = find_workspace_root()?;
 
     // Ordered search:
     // 1. host-specific release
@@ -162,10 +189,10 @@ fn locate_binary(hostname: &str) -> Result<PathBuf> {
     // 4. generic skillet debug
 
     let binary_path = [
-        PathBuf::from("target/release").join(&host_binary_name),
-        PathBuf::from("target/debug").join(&host_binary_name),
-        PathBuf::from("target/release").join("skillet"),
-        PathBuf::from("target/debug").join("skillet"),
+        root.join("target/release").join(&host_binary_name),
+        root.join("target/debug").join(&host_binary_name),
+        root.join("target/release").join("skillet"),
+        root.join("target/debug").join("skillet"),
     ]
     .into_iter()
     .find(|p| p.exists())
@@ -268,7 +295,8 @@ fn prepare_and_run_skillet(container_name: &str) -> Result<()> {
 }
 
 fn verify_or_record(hostname: &str, container_name: &str, is_record: bool) -> Result<()> {
-    let dest_dir = PathBuf::from("integration_tests/recordings");
+    let root = find_workspace_root()?;
+    let dest_dir = root.join("integration_tests/recordings");
     fs::create_dir_all(&dest_dir)?;
     let dest_file = dest_dir.join(format!("{hostname}.yaml"));
 
