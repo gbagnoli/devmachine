@@ -1,7 +1,7 @@
 use nix::unistd::{chown, Gid, Uid};
 use sha2::{Digest, Sha256};
 use std::fs::{self};
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
 use tempfile::NamedTempFile;
@@ -31,8 +31,6 @@ pub enum FileError {
     GroupNotFound(String),
     #[error("Path {0} exists but is not a directory")]
     NotADirectory(String),
-    #[error("Path {0} exists but is not a regular file")]
-    NotARegularFile(String),
 }
 
 pub trait FileResource {
@@ -159,26 +157,15 @@ impl FileResource for LocalFileResource {
         // 2. Check content
         let mut metadata = fs::symlink_metadata(path).ok();
         let content_changed = if let Some(meta) = &metadata {
+            // Treat non-regular files (like symlinks) as "changed" to trigger replacement
             if !meta.is_file() {
-                return Err(FileError::NotARegularFile(path.display().to_string()));
-            }
-
-            if meta.len() == content.len() as u64 {
-                let file = fs::File::open(path)
+                true
+            } else if meta.len() == content.len() as u64 {
+                let mut file = fs::File::open(path)
                     .map_err(|e| FileError::Read(path.display().to_string(), e))?;
-                let mut reader = std::io::BufReader::new(file);
                 let mut hasher = Sha256::new();
-
-                let mut buffer = [0; 8192];
-                loop {
-                    let n = reader
-                        .read(&mut buffer)
-                        .map_err(|e| FileError::Read(path.display().to_string(), e))?;
-                    if n == 0 {
-                        break;
-                    }
-                    hasher.update(&buffer[..n]);
-                }
+                std::io::copy(&mut file, &mut hasher)
+                    .map_err(|e| FileError::Read(path.display().to_string(), e))?;
                 let existing_hash = hasher.finalize();
                 let new_hash = Sha256::digest(content);
 
@@ -226,7 +213,8 @@ impl FileResource for LocalFileResource {
     ) -> Result<bool, FileError> {
         let mut changed = false;
 
-        let mut metadata = fs::symlink_metadata(path).ok();
+        // Use metadata() instead of symlink_metadata() to follow symlinks to directories
+        let mut metadata = fs::metadata(path).ok();
         if let Some(meta) = &metadata {
             if !meta.is_dir() {
                 return Err(FileError::NotADirectory(path.display().to_string()));
@@ -259,7 +247,8 @@ impl FileResource for LocalFileResource {
     }
 
     fn delete_file(&self, path: &Path) -> Result<bool, FileError> {
-        if path.exists() {
+        // Use symlink_metadata to correctly detect and remove broken symlinks
+        if path.symlink_metadata().is_ok() {
             fs::remove_file(path).map_err(FileError::Io)?;
             info!("Deleted file {}", path.display());
             Ok(true)
