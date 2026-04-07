@@ -23,6 +23,9 @@ struct Args {
 enum Commands {
     /// Apply configuration (Agent Mode)
     Apply {
+        /// Optional: Hostname to apply configuration for
+        #[arg(long)]
+        host: Option<String>,
         /// Optional: Output recorded actions to this file path
         #[arg(long)]
         record: Option<PathBuf>,
@@ -70,8 +73,9 @@ fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     match args.command {
-        Commands::Apply { record } => {
-            skillet_cli_common::handle_apply("(Agent Mode)", record)
+        Commands::Apply { host, record } => {
+            let hostname = host.as_deref().unwrap_or("(Agent Mode)");
+            skillet_cli_common::handle_apply(hostname, record)
                 .map_err(|e| anyhow!("Failed to apply configuration: {e}"))?;
         }
         Commands::Test { test_command } => handle_test(test_command)?,

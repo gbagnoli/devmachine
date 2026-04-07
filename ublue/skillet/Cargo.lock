@@ -957,6 +957,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "skillet-clamps"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "skillet_cli_common",
+]
+
+[[package]]
 name = "skillet_cli_common"
 version = "0.1.0"
 dependencies = [
