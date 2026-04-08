@@ -35,4 +35,7 @@ pub enum ResourceOp {
     ServiceRestart {
         name: String,
     },
+    ServiceReload {
+        name: String,
+    },
 }

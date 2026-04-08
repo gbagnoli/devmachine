@@ -205,7 +205,7 @@ where
 
     if changed {
         info!("Quadlet changed, triggering daemon-reload");
-        system.service_restart("daemon-reload")?;
+        system.service_reload("daemon-reload")?;
     }
 
     Ok(changed)
