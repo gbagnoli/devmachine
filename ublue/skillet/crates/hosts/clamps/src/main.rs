@@ -8,8 +8,8 @@ fn main() -> Result<()> {
             system,
             files,
             skillet_pihole::PiholeUser {
-                uid: 1001,
-                gid: 1001,
+                uid: 40000,
+                gid: 40000,
                 name: "pihole".to_string(),
             },
         )
