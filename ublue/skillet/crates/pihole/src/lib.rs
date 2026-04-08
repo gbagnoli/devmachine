@@ -24,7 +24,13 @@ struct CustomListTemplate {
     custom: HashMap<String, String>,
 }
 
-pub fn apply<S, F>(system: &S, files: &F) -> Result<(), PiholeError>
+pub struct PiholeUser {
+    pub uid: u32,
+    pub gid: u32,
+    pub name: String,
+}
+
+pub fn apply<S, F>(system: &S, files: &F, user_config: PiholeUser) -> Result<(), PiholeError>
 where
     S: SystemResource + ?Sized,
     F: FileResource + ?Sized,
@@ -33,7 +39,10 @@ where
     let root = "/etc/pihole";
     let logs = "/var/log/pihole";
 
-    // 1. Ensure directories
+    // 1. Ensure user
+    system.ensure_user(&user_config.name, Some(user_config.uid), Some(user_config.gid))?;
+
+    // 2. Ensure directories
     files.ensure_directory(Path::new(root), Some(0o755), Some("root"), Some("root"))?;
     files.ensure_directory(
         &Path::new(root).join("conf"),
@@ -49,7 +58,7 @@ where
     )?;
     files.ensure_directory(Path::new(logs), Some(0o755), Some("root"), Some("root"))?;
 
-    // 2. Custom list template
+    // 3. Custom list template
     let mut custom = HashMap::new();
     custom.insert("192.168.1.100".to_string(), "my.custom.domain".to_string());
 
@@ -63,11 +72,11 @@ where
         Some("root"),
     )?;
 
-    // 3. Define container
+    // 4. Define container
     let user = ContainerUser {
-        container_uid: 0, // pihole usually runs as root in container
-        container_gid: 0,
-        host_user: Some(HostUser::Name("root".to_string())),
+        container_uid: 1000,
+        container_gid: 1000,
+        host_user: Some(HostUser::Name(user_config.name)),
     };
 
     let volumes = vec![
