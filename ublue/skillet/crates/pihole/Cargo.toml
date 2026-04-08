@@ -12,3 +12,4 @@ skillet_podman.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 askama.workspace = true
+users.workspace = true

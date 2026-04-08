@@ -30,6 +30,12 @@
   mode: '0o644'
   owner: root
   group: root
+- !EnsureGroup
+  name: pihole
+- !EnsureUser
+  name: pihole
+  uid: 40000
+  gid: 40000
 - !EnsureDirectory
   path: /etc/pihole
   mode: '0o755'
@@ -59,18 +65,18 @@
 - !EnsureDirectory
   path: /etc/pihole/conf
   mode: '0o755'
-  owner: root
-  group: root
+  owner: pihole
+  group: pihole
 - !EnsureDirectory
   path: /etc/pihole/dnsmasq.d
   mode: '0o755'
-  owner: root
-  group: root
+  owner: pihole
+  group: pihole
 - !EnsureDirectory
   path: /var/log/pihole
   mode: '0o755'
-  owner: root
-  group: root
+  owner: pihole
+  group: pihole
 - !EnsureDirectory
   path: /etc/containers/systemd
   mode: '0o755'
@@ -78,7 +84,7 @@
   group: root
 - !EnsureFile
   path: /etc/containers/systemd/pihole.container
-  content_hash: '42061dec5eead432ae4da93ec36e86a525943cf2faea86da52b5d62d476d0e97'
+  content_hash: '4f05daa46a380f678f4a77397b3422355ec21ff8e993aace450cf2360b56857d'
   mode: '0o644'
   owner: root
   group: root
