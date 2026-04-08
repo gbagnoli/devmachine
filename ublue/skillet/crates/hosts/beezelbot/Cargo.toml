@@ -8,4 +8,5 @@ workspace = true
 
 [dependencies]
 skillet_cli_common.workspace = true
+skillet_hardening.workspace = true
 anyhow = "1.0"
