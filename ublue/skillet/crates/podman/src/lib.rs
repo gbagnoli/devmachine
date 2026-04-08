@@ -40,112 +40,54 @@ pub struct Volume {
     pub options: Option<String>,
 }
 
-pub fn container<S, F>(
-    system: &S,
-    files: &F,
-    name: &str,
-    image: &str,
-    user: ContainerUser,
-    create_host_user: bool,
-    volumes: Vec<Volume>,
-    mut extra_config: BTreeMap<String, Vec<String>>,
-) -> Result<bool, PodmanError>
+pub struct PodmanConfig {
+    pub name: String,
+    pub image: String,
+    pub user: ContainerUser,
+    pub create_host_user: bool,
+    pub volumes: Vec<Volume>,
+    pub extra_config: BTreeMap<String, Vec<String>>,
+}
+
+pub fn container<S, F>(system: &S, files: &F, config: PodmanConfig) -> Result<bool, PodmanError>
 where
     S: SystemResource + ?Sized,
     F: FileResource + ?Sized,
 {
+    let name = &config.name;
     info!("Ensuring podman container: {name}");
 
+    let mut extra_config = config.extra_config;
+
     // 1. Resolve and ensure host user
-    let host_uid_gid = if let Some(hu) = user.host_user {
-        let (username, uid) = match hu {
-            HostUser::Name(ref n) => {
-                if create_host_user {
-                    system.ensure_user(n, None, None)?;
-                }
-                let u = get_user_by_name(n).ok_or_else(|| {
-                    PodmanError::UserMapping(format!("User {n} not found on host"))
-                })?;
-                (n.clone(), u.uid())
-            }
-            HostUser::Uid(u) => {
-                let u_info = get_user_by_uid(u).ok_or_else(|| {
-                    PodmanError::UserMapping(format!("UID {u} not found on host"))
-                })?;
-                (u_info.name().to_string_lossy().to_string(), u)
-            }
-        };
-        // For simplicity, assuming gid = uid for now, but should ideally resolve gid too
-        let gid = uid;
-        Some((uid, gid, username))
-    } else {
-        None
-    };
+    let host_info = resolve_host_user(system, &config.user, config.create_host_user)?;
 
     // 2. Calculate mappings
-    if let Some((h_uid, h_gid, _)) = host_uid_gid {
-        let c_uid = user.container_uid;
-        let c_gid = user.container_gid;
-
-        // Formula:
-        // UIDMap=0:100000:C
-        // UIDMap=C:H:1
-        // UIDMap=C+1:100000+C+1:65536-C-1
-
-        let sub_base = 100000;
-        let sub_size = 65536;
-
-        let container_section = extra_config.entry("Container".to_string()).or_default();
-
-        container_section.push(format!("User={c_uid}:{c_gid}"));
-
-        // UIDMap
-        if c_uid > 0 {
-            container_section.push(format!("UIDMap=0:{sub_base}:{c_uid}"));
-        }
-        container_section.push(format!("UIDMap={c_uid}:{h_uid}:1"));
-        let remaining = sub_size - c_uid - 1;
-        if remaining > 0 {
-            container_section.push(format!(
-                "UIDMap={}:{}:{remaining}",
-                c_uid + 1,
-                sub_base + c_uid + 1
-            ));
-        }
-
-        // GIDMap
-        if c_gid > 0 {
-            container_section.push(format!("GIDMap=0:{sub_base}:{c_gid}"));
-        }
-        container_section.push(format!("GIDMap={c_gid}:{h_gid}:1"));
-        let remaining_g = sub_size - c_gid - 1;
-        if remaining_g > 0 {
-            container_section.push(format!(
-                "GIDMap={}:{}:{remaining_g}",
-                c_gid + 1,
-                sub_base + c_gid + 1
-            ));
-        }
+    if let Some((uid_host, gid_host, _)) = &host_info {
+        calculate_user_mappings(&config.user, *uid_host, *gid_host, &mut extra_config);
     }
 
     // 3. Ensure volumes
     let container_section = extra_config.entry("Container".to_string()).or_default();
-    container_section.push(format!("Image={image}"));
+    container_section.push(format!("Image={}", config.image));
 
-    for vol in volumes {
-        let host_path = Path::new(&vol.host_path);
-
-        let (owner, group) = if let Some((_, _, ref name)) = host_uid_gid {
+    for vol in config.volumes {
+        let (owner, group) = if let Some((_, _, ref name)) = host_info {
             (Some(name.as_str()), Some(name.as_str()))
         } else {
             (Some("root"), Some("root"))
         };
 
-        files.ensure_directory(host_path, Some(0o755), owner, group)?;
+        files.ensure_directory(Path::new(&vol.host_path), Some(0o755), owner, group)?;
 
         let mut vol_line = format!("Volume={}:{}", vol.host_path, vol.container_path);
         if let Some(opt) = vol.options {
-            vol_line.push_str(&format!(":{}", opt));
+            use std::fmt::Write;
+            write!(vol_line, ":{opt}").map_err(|e| {
+                FileError::Io(std::io::Error::other(format!(
+                    "Failed to format volume line: {e}"
+                )))
+            })?;
         }
         container_section.push(vol_line);
     }
@@ -155,15 +97,98 @@ where
         lines.sort();
     }
 
-    // 4. Render Quadlet
-    let template = QuadletTemplate {
-        sections: extra_config,
-    };
+    // 4. Render and ensure Quadlet file
+    render_and_ensure_quadlet(system, files, name, extra_config)
+}
+
+fn resolve_host_user<S: SystemResource + ?Sized>(
+    system: &S,
+    user: &ContainerUser,
+    create: bool,
+) -> Result<Option<(u32, u32, String)>, PodmanError> {
+    if let Some(hu) = &user.host_user {
+        let (username, uid) = match hu {
+            HostUser::Name(ref n) => {
+                if create {
+                    system.ensure_user(n, None, None)?;
+                }
+                let u = get_user_by_name(n).ok_or_else(|| {
+                    PodmanError::UserMapping(format!("User {n} not found on host"))
+                })?;
+                (n.clone(), u.uid())
+            }
+            HostUser::Uid(u) => {
+                let u_info = get_user_by_uid(*u).ok_or_else(|| {
+                    PodmanError::UserMapping(format!("UID {u} not found on host"))
+                })?;
+                (u_info.name().to_string_lossy().to_string(), *u)
+            }
+        };
+        // For simplicity, assuming gid = uid for now
+        Ok(Some((uid, uid, username)))
+    } else {
+        Ok(None)
+    }
+}
+
+fn calculate_user_mappings(
+    user: &ContainerUser,
+    uid_host: u32,
+    gid_host: u32,
+    extra_config: &mut BTreeMap<String, Vec<String>>,
+) {
+    let uid_container = user.container_uid;
+    let gid_container = user.container_gid;
+    let sub_base = 100_000;
+    let sub_size = 65_536;
+
+    let container_section = extra_config.entry("Container".to_string()).or_default();
+    container_section.push(format!("User={uid_container}:{gid_container}"));
+
+    // UIDMap
+    if uid_container > 0 {
+        container_section.push(format!("UIDMap=0:{sub_base}:{uid_container}"));
+    }
+    container_section.push(format!("UIDMap={uid_container}:{uid_host}:1"));
+    let rem_u = sub_size - uid_container - 1;
+    if rem_u > 0 {
+        container_section.push(format!(
+            "UIDMap={}:{}:{rem_u}",
+            uid_container + 1,
+            sub_base + uid_container + 1
+        ));
+    }
+
+    // GIDMap
+    if gid_container > 0 {
+        container_section.push(format!("GIDMap=0:{sub_base}:{gid_container}"));
+    }
+    container_section.push(format!("GIDMap={gid_container}:{gid_host}:1"));
+    let rem_g = sub_size - gid_container - 1;
+    if rem_g > 0 {
+        container_section.push(format!(
+            "GIDMap={}:{}:{rem_g}",
+            gid_container + 1,
+            sub_base + gid_container + 1
+        ));
+    }
+}
+
+fn render_and_ensure_quadlet<S, F>(
+    system: &S,
+    files: &F,
+    name: &str,
+    sections: BTreeMap<String, Vec<String>>,
+) -> Result<bool, PodmanError>
+where
+    S: SystemResource + ?Sized,
+    F: FileResource + ?Sized,
+{
+    let template = QuadletTemplate { sections };
     let content = template.render().map_err(|e| {
-        FileError::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("Template rendering failed: {e}"),
-        ))
+        FileError::Io(std::io::Error::other(format!(
+            "Template rendering failed: {e}"
+        )))
     })?;
 
     let quadlet_dir = Path::new("/etc/containers/systemd");
@@ -180,7 +205,7 @@ where
 
     if changed {
         info!("Quadlet changed, triggering daemon-reload");
-        system.service_restart("daemon-reload")?; // Assuming service_restart handles this or we add service_reload
+        system.service_restart("daemon-reload")?;
     }
 
     Ok(changed)

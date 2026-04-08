@@ -145,7 +145,7 @@ where
     ensure_templated_file(
         files,
         &Path::new(root).join("conf/custom.list"),
-        template,
+        &template,
         Some(0o640),
         Some("root"),
         Some("root"),
@@ -196,12 +196,14 @@ where
     skillet_podman::container(
         system,
         files,
-        "pihole",
-        "docker.io/pihole/pihole:latest",
-        user,
-        false,
-        volumes,
-        extra_config,
+        skillet_podman::PodmanConfig {
+            name: "pihole".to_string(),
+            image: "docker.io/pihole/pihole:latest".to_string(),
+            user,
+            create_host_user: false,
+            volumes,
+            extra_config,
+        },
     )?;
 
     Ok(())
