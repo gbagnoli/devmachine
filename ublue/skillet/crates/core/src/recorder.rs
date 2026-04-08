@@ -126,4 +126,11 @@ impl<T: SystemResource> SystemResource for Recorder<T> {
         });
         self.inner.service_restart(name)
     }
+
+    fn service_reload(&self, name: &str) -> Result<(), SystemError> {
+        self.record(ResourceOp::ServiceReload {
+            name: name.to_string(),
+        });
+        self.inner.service_reload(name)
+    }
 }

@@ -41,6 +41,7 @@ trait SystemdManager {
     fn start_unit(&self, name: &str, mode: &str) -> zbus::Result<zbus::zvariant::OwnedObjectPath>;
     fn stop_unit(&self, name: &str, mode: &str) -> zbus::Result<zbus::zvariant::OwnedObjectPath>;
     fn restart_unit(&self, name: &str, mode: &str) -> zbus::Result<zbus::zvariant::OwnedObjectPath>;
+    fn reload_unit(&self, name: &str, mode: &str) -> zbus::Result<zbus::zvariant::OwnedObjectPath>;
 }
 
 #[derive(Error, Debug)]
@@ -66,6 +67,7 @@ pub trait SystemResource {
     fn service_start(&self, name: &str) -> Result<(), SystemError>;
     fn service_stop(&self, name: &str) -> Result<(), SystemError>;
     fn service_restart(&self, name: &str) -> Result<(), SystemError>;
+    fn service_reload(&self, name: &str) -> Result<(), SystemError>;
 }
 
 pub struct LinuxSystemResource {
@@ -217,6 +219,29 @@ impl SystemResource for LinuxSystemResource {
 
     fn service_restart(&self, name: &str) -> Result<(), SystemError> {
         self.run_systemctl("restart", name)
+    }
+
+    fn service_reload(&self, name: &str) -> Result<(), SystemError> {
+        info!("Running systemctl reload {name} via DBus");
+        if let Some(conn) = &self.conn {
+            let proxy = SystemdManagerProxyBlocking::new(conn)?;
+            let name_with_suffix = ensure_systemd_suffix(name);
+            proxy.reload_unit(&name_with_suffix, "replace")?;
+            return Ok(());
+        }
+
+        let output = Command::new("systemctl")
+            .arg("reload")
+            .arg(name)
+            .output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(SystemError::Command(format!(
+                "systemctl reload {name} failed: {stderr}"
+            )));
+        }
+        Ok(())
     }
 }
 #[cfg(test)]

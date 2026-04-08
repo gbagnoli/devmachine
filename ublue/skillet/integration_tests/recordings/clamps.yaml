@@ -82,5 +82,5 @@
   mode: '0o644'
   owner: root
   group: root
-- !ServiceRestart
+- !ServiceReload
   name: daemon-reload

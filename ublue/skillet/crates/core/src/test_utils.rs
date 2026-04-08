@@ -75,6 +75,14 @@ impl SystemResource for MockSystem {
             .insert(name.to_string(), "restarted".to_string());
         Ok(())
     }
+
+    fn service_reload(&self, name: &str) -> Result<(), SystemError> {
+        self.services
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(name.to_string(), "reloaded".to_string());
+        Ok(())
+    }
 }
 
 pub type FileMetadata = (Option<u32>, Option<String>, Option<String>);
