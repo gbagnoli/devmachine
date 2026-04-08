@@ -289,7 +289,7 @@ fn prepare_and_run_skillet(container_name: &str) -> Result<()> {
             "exec",
             container_name,
             "/tmp/test_entrypoint.sh",
-            "skillet",
+            "/usr/bin/skillet",
             "apply",
             "--record",
             "/tmp/ops.yaml",
