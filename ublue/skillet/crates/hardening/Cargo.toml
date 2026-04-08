@@ -8,8 +8,10 @@ workspace = true
 
 [dependencies]
 skillet_core.workspace = true
+skillet_podman.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+askama.workspace = true
 
 [dev-dependencies]
 skillet_core = { workspace = true, features = ["test-utils"] }

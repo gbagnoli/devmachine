@@ -21,6 +21,11 @@ pub enum ResourceOp {
     EnsureGroup {
         name: String,
     },
+    EnsureUser {
+        name: String,
+        uid: Option<u32>,
+        gid: Option<u32>,
+    },
     ServiceStart {
         name: String,
     },

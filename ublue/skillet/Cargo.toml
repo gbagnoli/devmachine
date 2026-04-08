@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/core",
     "crates/hardening",
+    "crates/podman",
     "crates/cli",
     "crates/hosts/beezelbot",
     "crates/hosts/clamps",
@@ -12,6 +13,7 @@ members = [
 [workspace.dependencies]
 skillet_core = { path = "crates/core" }
 skillet_hardening = { path = "crates/hardening" }
+skillet_podman = { path = "crates/podman" }
 skillet_cli_common = { path = "crates/cli-common" }
 thiserror = "1.0"
 sha2 = "0.10"
@@ -26,6 +28,7 @@ serde_json = "1.0"
 serde_yml = "0.0.12"
 hex = "0.4"
 zbus = { version = "4.4", features = ["blocking"] }
+askama = "0.12"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

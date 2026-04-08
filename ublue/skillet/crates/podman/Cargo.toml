@@ -1,0 +1,15 @@
+[package]
+name = "skillet_podman"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+skillet_core.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+serde.workspace = true
+askama.workspace = true
+users.workspace = true
