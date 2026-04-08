@@ -57,7 +57,7 @@ pub enum SystemError {
 }
 
 pub trait SystemResource {
-    fn ensure_group(&self, name: &str) -> Result<bool, SystemError>;
+    fn ensure_group(&self, name: &str, gid: Option<u32>) -> Result<bool, SystemError>;
     fn ensure_user(
         &self,
         name: &str,
@@ -96,6 +96,7 @@ impl LinuxSystemResource {
                 "start" => proxy.start_unit(&name_with_suffix, "replace"),
                 "stop" => proxy.stop_unit(&name_with_suffix, "replace"),
                 "restart" => proxy.restart_unit(&name_with_suffix, "replace"),
+                "reload" => proxy.reload_unit(&name_with_suffix, "replace"),
                 _ => {
                     return Err(SystemError::Command(format!("Unsupported action: {action}")));
                 }
@@ -135,7 +136,7 @@ const EXIT_CODE_GROUP_EXISTS: i32 = 9;
 const EXIT_CODE_USER_EXISTS: i32 = 9;
 
 impl SystemResource for LinuxSystemResource {
-    fn ensure_group(&self, name: &str) -> Result<bool, SystemError> {
+    fn ensure_group(&self, name: &str, gid: Option<u32>) -> Result<bool, SystemError> {
         // 1. Check if group exists using `users` crate
         if get_group_by_name(name).is_some() {
             debug!("Group {name} already exists");
@@ -144,7 +145,12 @@ impl SystemResource for LinuxSystemResource {
 
         // 2. Create group using `groupadd`
         info!("Creating group {name}");
-        let output = Command::new("groupadd").arg(name).output()?;
+        let mut cmd = Command::new("groupadd");
+        if let Some(g) = gid {
+            cmd.arg("-g").arg(g.to_string());
+        }
+        cmd.arg(name);
+        let output = cmd.output()?;
 
         if !output.status.success() {
             // Check if group was created by another process in the meantime (exit code 9 for groupadd)
@@ -168,21 +174,17 @@ impl SystemResource for LinuxSystemResource {
         gid: Option<u32>,
     ) -> Result<bool, SystemError> {
         // 1. Check if user exists using `users` crate
-        if let Some(user) = get_user_by_name(name) {
+        if let Some(_user) = get_user_by_name(name) {
             debug!("User {name} already exists");
-            if let Some(desired_uid) = uid {
-                if user.uid() != desired_uid {
-                    warn!(
-                        "User {name} exists but UID {} does not match desired {}",
-                        user.uid(),
-                        desired_uid
-                    );
-                }
-            }
             return Ok(false);
         }
 
-        // 2. Create user using `useradd`
+        // 2. Ensure group exists
+        if let Some(gid_val) = gid {
+            self.ensure_group(name, Some(gid_val))?;
+        }
+
+        // 3. Create user using `useradd`
         info!("Creating user {name}");
         let mut cmd = Command::new("useradd");
         if let Some(u) = uid {
@@ -222,26 +224,7 @@ impl SystemResource for LinuxSystemResource {
     }
 
     fn service_reload(&self, name: &str) -> Result<(), SystemError> {
-        info!("Running systemctl reload {name} via DBus");
-        if let Some(conn) = &self.conn {
-            let proxy = SystemdManagerProxyBlocking::new(conn)?;
-            let name_with_suffix = ensure_systemd_suffix(name);
-            proxy.reload_unit(&name_with_suffix, "replace")?;
-            return Ok(());
-        }
-
-        let output = Command::new("systemctl")
-            .arg("reload")
-            .arg(name)
-            .output()?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(SystemError::Command(format!(
-                "systemctl reload {name} failed: {stderr}"
-            )));
-        }
-        Ok(())
+        self.run_systemctl("reload", name)
     }
 }
 #[cfg(test)]
