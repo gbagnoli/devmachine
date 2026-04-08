@@ -6,7 +6,7 @@ use crate::test_utils::MockSystem;
 #[cfg(feature = "test-utils")]
 fn test_mock_system_resource() {
     let system = MockSystem::new();
-    let changed = system.ensure_group("syslog").unwrap();
+    let changed = system.ensure_group("syslog", None).unwrap();
     assert!(changed);
     assert!(system
         .groups
@@ -14,7 +14,7 @@ fn test_mock_system_resource() {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .contains("syslog"));
 
-    let changed_again = system.ensure_group("syslog").unwrap();
+    let changed_again = system.ensure_group("syslog", None).unwrap();
     assert!(!changed_again);
 }
 
