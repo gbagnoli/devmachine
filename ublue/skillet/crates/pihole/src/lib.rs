@@ -7,6 +7,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 use thiserror::Error;
 use tracing::info;
+use users::{get_user_by_name, get_user_by_uid};
 
 #[derive(Error, Debug)]
 pub enum PiholeError {
@@ -28,6 +29,7 @@ pub struct PiholeUser {
     pub uid: u32,
     pub gid: u32,
     pub name: String,
+    pub group_name: String,
 }
 
 pub fn apply<S, F>(system: &S, files: &F, user_config: PiholeUser) -> Result<(), PiholeError>
@@ -39,7 +41,8 @@ where
     let root = "/etc/pihole";
     let logs = "/var/log/pihole";
 
-    // 1. Ensure user
+    // 1. Ensure user and group
+    system.ensure_group(&user_config.group_name, Some(user_config.gid))?;
     system.ensure_user(&user_config.name, Some(user_config.uid), Some(user_config.gid))?;
 
     // 2. Ensure directories

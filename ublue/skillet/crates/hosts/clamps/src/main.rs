@@ -11,6 +11,7 @@ fn main() -> Result<()> {
                 uid: 40000,
                 gid: 40000,
                 name: "pihole".to_string(),
+                group_name: "pihole".to_string(),
             },
         )
         .map_err(|e| e.to_string())?;
