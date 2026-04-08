@@ -30,3 +30,57 @@
   mode: '0o644'
   owner: root
   group: root
+- !EnsureDirectory
+  path: /etc/pihole
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureDirectory
+  path: /etc/pihole/conf
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureDirectory
+  path: /etc/pihole/dnsmasq.d
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureDirectory
+  path: /var/log/pihole
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureFile
+  path: /etc/pihole/conf/custom.list
+  content_hash: dbdc31014de7ebb475613c9258d7378edde4bb19fe61da7565cb8056370c8fa5
+  mode: '0o640'
+  owner: root
+  group: root
+- !EnsureDirectory
+  path: /etc/pihole/conf
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureDirectory
+  path: /etc/pihole/dnsmasq.d
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureDirectory
+  path: /var/log/pihole
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureDirectory
+  path: /etc/containers/systemd
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureFile
+  path: /etc/containers/systemd/pihole.container
+  content_hash: '42061dec5eead432ae4da93ec36e86a525943cf2faea86da52b5d62d476d0e97'
+  mode: '0o644'
+  owner: root
+  group: root
+- !ServiceRestart
+  name: daemon-reload

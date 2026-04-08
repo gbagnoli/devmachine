@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 
 pub struct MockSystem {
     pub groups: Arc<Mutex<HashSet<String>>>,
+    pub users: Arc<Mutex<HashSet<String>>>,
     pub services: Arc<Mutex<HashMap<String, String>>>, // name -> state (started, stopped, restarted)
 }
 
@@ -13,6 +14,7 @@ impl MockSystem {
     pub fn new() -> Self {
         Self {
             groups: Arc::new(Mutex::new(HashSet::new())),
+            users: Arc::new(Mutex::new(HashSet::new())),
             services: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -31,6 +33,21 @@ impl SystemResource for MockSystem {
             Ok(false)
         } else {
             groups.insert(name.to_string());
+            Ok(true)
+        }
+    }
+
+    fn ensure_user(
+        &self,
+        name: &str,
+        _uid: Option<u32>,
+        _gid: Option<u32>,
+    ) -> Result<bool, SystemError> {
+        let mut users = self.users.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if users.contains(name) {
+            Ok(false)
+        } else {
+            users.insert(name.to_string());
             Ok(true)
         }
     }

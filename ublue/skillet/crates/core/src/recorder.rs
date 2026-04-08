@@ -92,6 +92,20 @@ impl<T: SystemResource> SystemResource for Recorder<T> {
         self.inner.ensure_group(name)
     }
 
+    fn ensure_user(
+        &self,
+        name: &str,
+        uid: Option<u32>,
+        gid: Option<u32>,
+    ) -> Result<bool, SystemError> {
+        self.record(ResourceOp::EnsureUser {
+            name: name.to_string(),
+            uid,
+            gid,
+        });
+        self.inner.ensure_user(name, uid, gid)
+    }
+
     fn service_start(&self, name: &str) -> Result<(), SystemError> {
         self.record(ResourceOp::ServiceStart {
             name: name.to_string(),
