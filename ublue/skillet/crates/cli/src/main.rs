@@ -283,13 +283,44 @@ fn prepare_and_run_skillet(container_name: &str) -> Result<()> {
         return Err(anyhow!("Failed to chmod entrypoint in container"));
     }
 
+    // Copy skillet binary to container
+    info!("Copying skillet binary to container...");
+    let cp_bin_status = Command::new("podman")
+        .args([
+            "cp",
+            binary_path.to_str().unwrap(),
+            &format!("{container_name}:/tmp/skillet"),
+        ])
+        .status()
+        .context("Failed to copy skillet binary")?;
+
+    if !cp_bin_status.success() {
+        return Err(anyhow!("Failed to copy skillet binary to container"));
+    }
+
+    // Make skillet binary executable
+    let chmod_bin_status = Command::new("podman")
+        .args([
+            "exec",
+            container_name,
+            "chmod",
+            "+x",
+            "/tmp/skillet",
+        ])
+        .status()
+        .context("Failed to chmod skillet binary")?;
+
+    if !chmod_bin_status.success() {
+        return Err(anyhow!("Failed to chmod skillet binary in container"));
+    }
+
     info!("Executing skillet inside container...");
     let exec_status = Command::new("podman")
         .args([
             "exec",
             container_name,
             "/tmp/test_entrypoint.sh",
-            "/usr/bin/skillet",
+            "/tmp/skillet",
             "apply",
             "--record",
             "/tmp/ops.yaml",
