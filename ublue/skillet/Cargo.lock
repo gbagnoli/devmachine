@@ -1058,6 +1058,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "skillet_cli_common",
+ "skillet_hardening",
 ]
 
 [[package]]
@@ -1066,6 +1067,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "skillet_cli_common",
+ "skillet_hardening",
+ "skillet_pihole",
 ]
 
 [[package]]
@@ -1102,10 +1105,19 @@ dependencies = [
 name = "skillet_hardening"
 version = "0.1.0"
 dependencies = [
+ "skillet_core",
+ "tempfile",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "skillet_pihole"
+version = "0.1.0"
+dependencies = [
  "askama",
  "skillet_core",
  "skillet_podman",
- "tempfile",
  "thiserror",
  "tracing",
 ]
