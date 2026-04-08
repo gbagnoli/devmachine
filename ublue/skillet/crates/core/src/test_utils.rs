@@ -27,7 +27,7 @@ impl Default for MockSystem {
 }
 
 impl SystemResource for MockSystem {
-    fn ensure_group(&self, name: &str) -> Result<bool, SystemError> {
+    fn ensure_group(&self, name: &str, _gid: Option<u32>) -> Result<bool, SystemError> {
         let mut groups = self.groups.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if groups.contains(name) {
             Ok(false)

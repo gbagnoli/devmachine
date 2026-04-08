@@ -85,12 +85,13 @@ impl<T: FileResource> FileResource for Recorder<T> {
 }
 
 impl<T: SystemResource> SystemResource for Recorder<T> {
-    fn ensure_group(&self, name: &str) -> Result<bool, SystemError> {
+    fn ensure_group(&self, name: &str, gid: Option<u32>) -> Result<bool, SystemError> {
         self.record(ResourceOp::EnsureGroup {
             name: name.to_string(),
         });
-        self.inner.ensure_group(name)
+        self.inner.ensure_group(name, gid)
     }
+
 
     fn ensure_user(
         &self,
