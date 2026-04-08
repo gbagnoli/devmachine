@@ -13,6 +13,7 @@ members = [
 [workspace.dependencies]
 skillet_core = { path = "crates/core" }
 skillet_hardening = { path = "crates/hardening" }
+skillet_pihole = { path = "crates/pihole" }
 skillet_podman = { path = "crates/podman" }
 skillet_cli_common = { path = "crates/cli-common" }
 thiserror = "1.0"

@@ -1,5 +1,5 @@
 [package]
-name = "skillet_hardening"
+name = "skillet_pihole"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,9 +8,7 @@ workspace = true
 
 [dependencies]
 skillet_core.workspace = true
+skillet_podman.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-
-[dev-dependencies]
-skillet_core = { workspace = true, features = ["test-utils"] }
-tempfile.workspace = true
+askama.workspace = true

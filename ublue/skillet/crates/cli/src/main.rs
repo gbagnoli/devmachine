@@ -75,8 +75,10 @@ fn main() -> Result<()> {
     match args.command {
         Commands::Apply { host, record } => {
             let hostname = host.as_deref().unwrap_or("(Agent Mode)");
-            skillet_cli_common::handle_apply(hostname, record)
-                .map_err(|e| anyhow!("Failed to apply configuration: {e}"))?;
+            skillet_cli_common::handle_apply(hostname, record, |system, files| {
+                skillet_hardening::apply(system, files).map_err(|e| e.to_string())
+            })
+            .map_err(|e| anyhow!("Failed to apply configuration: {e}"))?;
         }
         Commands::Test { test_command } => handle_test(test_command)?,
     }
