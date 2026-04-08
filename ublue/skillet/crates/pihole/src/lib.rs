@@ -7,7 +7,6 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 use thiserror::Error;
 use tracing::info;
-use users::{get_user_by_name, get_user_by_uid};
 
 #[derive(Error, Debug)]
 pub enum PiholeError {
