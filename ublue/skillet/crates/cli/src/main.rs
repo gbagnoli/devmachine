@@ -124,7 +124,7 @@ fn run_container_test(
     setup_container(&container_name, image, &binary_path)?;
 
     let result = (|| -> Result<()> {
-        prepare_and_run_skillet(&container_name)?;
+        prepare_and_run_skillet(&container_name, &binary_path)?;
         verify_or_record(hostname, &container_name, is_record)?;
         Ok(())
     })();
@@ -136,12 +136,9 @@ fn run_container_test(
 
 fn stop_container(container_name: &str) {
     info!("Stopping container {container_name}...");
-    let status = Command::new("podman")
+    let _ = Command::new("podman")
         .args(["rm", "-f", container_name])
-        .status();
-    if let Err(e) = status {
-        error!("Failed to execute podman to stop container {}: {}", container_name, e);
-    }
+        .output();
 }
 
 fn build_workspace(release: bool) -> Result<()> {
@@ -242,7 +239,7 @@ fn setup_container(container_name: &str, image: &str, binary_path: &Path) -> Res
     Ok(())
 }
 
-fn prepare_and_run_skillet(container_name: &str) -> Result<()> {
+fn prepare_and_run_skillet(container_name: &str, binary_path: &Path) -> Result<()> {
     // Prepare entrypoint script
     let entrypoint_content = include_str!("test_entrypoint.sh");
     let mut temp_entrypoint = tempfile::Builder::new().suffix(".sh").tempfile()?;
