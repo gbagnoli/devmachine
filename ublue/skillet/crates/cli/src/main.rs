@@ -47,6 +47,9 @@ enum TestCommands {
         /// Build in release mode
         #[arg(long)]
         release: bool,
+        /// Inspect the container after application (interactive shell)
+        #[arg(long)]
+        inspect: bool,
     },
     Run {
         hostname: String,
@@ -55,6 +58,9 @@ enum TestCommands {
         /// Build in release mode
         #[arg(long)]
         release: bool,
+        /// Inspect the container after application (interactive shell)
+        #[arg(long)]
+        inspect: bool,
     },
 }
 
@@ -91,20 +97,22 @@ fn handle_test(cmd: TestCommands) -> Result<()> {
             hostname,
             image,
             release,
+            inspect,
         } => {
             info!("Recording integration test for host: {}", hostname);
-            run_container_test(&hostname, &image, true, release)?;
+            run_container_test(&hostname, &image, true, release, inspect)?;
         }
         TestCommands::Run {
             hostname,
             image,
             release,
+            inspect,
         } => {
             info!(
                 "Running integration test verification for host: {}",
                 hostname
             );
-            run_container_test(&hostname, &image, false, release)?;
+            run_container_test(&hostname, &image, false, release, inspect)?;
         }
     }
     Ok(())
@@ -115,6 +123,7 @@ fn run_container_test(
     image: &str,
     is_record: bool,
     release: bool,
+    inspect: bool,
 ) -> Result<()> {
     build_workspace(release)?;
 
@@ -129,9 +138,22 @@ fn run_container_test(
         Ok(())
     })();
 
+    if inspect {
+        inspect_container(&container_name)?;
+    }
+
     stop_container(&container_name);
 
     result
+}
+
+fn inspect_container(container_name: &str) -> Result<()> {
+    info!("Starting interactive inspection shell in {container_name}...");
+    let _ = Command::new("podman")
+        .args(["exec", "-it", container_name, "/bin/bash"])
+        .status()
+        .context("Failed to run inspection shell")?;
+    Ok(())
 }
 
 fn stop_container(container_name: &str) {
