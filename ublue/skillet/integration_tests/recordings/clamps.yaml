@@ -30,6 +30,9 @@
   mode: '0o644'
   owner: root
   group: root
+- !EnsurePodmanSecret
+  name: pihole_web_password
+  payload_hash: '08c11e0cf8665e346fb2058d8e896a4a315ad839b0db208cd90fc92112071f79'
 - !EnsureGroup
   name: pihole
 - !EnsureUser
@@ -84,7 +87,7 @@
   group: root
 - !EnsureFile
   path: /etc/containers/systemd/pihole.container
-  content_hash: '4f05daa46a380f678f4a77397b3422355ec21ff8e993aace450cf2360b56857d'
+  content_hash: '8183a070ffaa22adefeb374aa059355890d1a4adf37ec4f863aae3e14d34115c'
   mode: '0o644'
   owner: root
   group: root

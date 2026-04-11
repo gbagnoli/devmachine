@@ -239,6 +239,12 @@ fn setup_container(container_name: &str, image: &str, binary_path: &Path) -> Res
         .args(["rm", "-f", container_name])
         .output();
 
+    // Create a mock credentials directory
+    let root = find_workspace_root()?;
+    let mock_creds_dir = root.join("target/mock_creds");
+    fs::create_dir_all(&mock_creds_dir)?;
+    fs::write(mock_creds_dir.join("test_secret"), "supersecret_payload")?;
+
     let run_status = Command::new("podman")
         .args([
             "run",
@@ -248,6 +254,10 @@ fn setup_container(container_name: &str, image: &str, binary_path: &Path) -> Res
             container_name,
             "-v",
             &format!("{}:/usr/bin/skillet:ro", binary_path.display()),
+            "-v",
+            &format!("{}:/run/credentials:ro", mock_creds_dir.display()),
+            "-e",
+            "CREDENTIALS_DIRECTORY=/run/credentials",
             image,
             "sleep",
             "infinity",
