@@ -31,6 +31,8 @@ pub enum FileError {
     GroupNotFound(String),
     #[error("Path {0} exists but is not a directory")]
     NotADirectory(String),
+    #[error("Path {0} exists but is not a regular file")]
+    NotAFile(String),
     #[error("Metadata mismatch for {0}")]
     Metadata(String),
 }
@@ -68,7 +70,7 @@ impl LocalFileResource {
         group: Option<&str>,
     ) -> Result<bool, FileError> {
         let metadata =
-            fs::symlink_metadata(path).map_err(|e| FileError::Read(path.display().to_string(), e))?;
+            fs::metadata(path).map_err(|e| FileError::Read(path.display().to_string(), e))?;
         let mut changed = false;
 
         if let Some(desired_mode) = mode {
@@ -103,7 +105,7 @@ impl LocalFileResource {
         group: Option<&str>,
     ) -> Result<(), FileError> {
         if let Some(desired_mode) = mode {
-            let mut perms = fs::symlink_metadata(path)
+            let mut perms = fs::metadata(path)
                 .map_err(|e| FileError::Read(path.display().to_string(), e))?
                 .permissions();
             perms.set_mode(desired_mode);
@@ -184,7 +186,8 @@ impl FileResource for LocalFileResource {
                     true
                 }
             } else {
-                // Not a regular file (symlink or dir), definitely changed
+                // Not a regular file (symlink or dir), we will delete and replace
+                self.delete_file(path)?;
                 true
             }
         } else {
@@ -227,10 +230,15 @@ impl FileResource for LocalFileResource {
                 // Path exists, check if it's a directory
                 if !metadata.is_dir() {
                     // If it's a symlink, follow it to see if it points to a directory
-                    let followed_metadata = fs::metadata(path)
-                        .map_err(|e| FileError::Read(path.display().to_string(), e))?;
-                    if !followed_metadata.is_dir() {
-                        return Err(FileError::NotADirectory(path.display().to_string()));
+                    let followed_metadata_res = fs::metadata(path);
+                    match followed_metadata_res {
+                        Ok(fm) if fm.is_dir() => {
+                            // Points to a directory, fine
+                        }
+                        _ => {
+                            // Doesn't exist or not a directory
+                            return Err(FileError::NotADirectory(path.display().to_string()));
+                        }
                     }
                 }
             }
