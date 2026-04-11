@@ -1,8 +1,9 @@
-use std::process::Command;
+use sha2::{Digest, Sha256};
+use std::process::{Command, Stdio};
 use std::sync::LazyLock;
 use thiserror::Error;
 use tracing::{debug, info, warn};
-use users::get_group_by_name;
+use users::{get_group_by_name, get_user_by_name};
 use zbus::proxy;
 
 static SYSTEMD_UNIT_SUFFIXES: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
@@ -138,8 +139,16 @@ const EXIT_CODE_USER_EXISTS: i32 = 9;
 
 impl SystemResource for LinuxSystemResource {
     fn ensure_group(&self, name: &str, gid: Option<u32>) -> Result<bool, SystemError> {
-        if get_group_by_name(name).is_some() {
+        if let Some(grp) = get_group_by_name(name) {
             debug!("Group {name} already exists");
+            if let Some(desired_gid) = gid {
+                if grp.gid() != desired_gid {
+                    warn!(
+                        "Group {name} exists but GID {} does not match desired {desired_gid}",
+                        grp.gid()
+                    );
+                }
+            }
             return Ok(false);
         }
 
@@ -171,8 +180,24 @@ impl SystemResource for LinuxSystemResource {
         uid: Option<u32>,
         gid: Option<u32>,
     ) -> Result<bool, SystemError> {
-        if users::get_user_by_name(name).is_some() {
+        if let Some(user) = get_user_by_name(name) {
             debug!("User {name} already exists");
+            if let Some(desired_uid) = uid {
+                if user.uid() != desired_uid {
+                    warn!(
+                        "User {name} exists but UID {} does not match desired {desired_uid}",
+                        user.uid()
+                    );
+                }
+            }
+            if let Some(desired_gid) = gid {
+                if user.primary_group_id() != desired_gid {
+                    warn!(
+                        "User {name} exists but GID {} does not match desired {desired_gid}",
+                        user.primary_group_id()
+                    );
+                }
+            }
             return Ok(false);
         }
 
@@ -207,19 +232,44 @@ impl SystemResource for LinuxSystemResource {
     }
 
     fn ensure_podman_secret(&self, name: &str, payload: &str) -> Result<bool, SystemError> {
+        let mut hasher = Sha256::new();
+        hasher.update(payload.as_bytes());
+        let hash = hex::encode(hasher.finalize());
+
         let inspect_output = Command::new("podman")
-            .args(["secret", "inspect", name])
+            .args([
+                "secret",
+                "inspect",
+                "--format",
+                "{{ index .Spec.Labels \"skillet.payload_hash\" }}",
+                name,
+            ])
             .output()?;
 
         if inspect_output.status.success() {
-            debug!("Podman secret {name} already exists");
-            return Ok(false);
+            let existing_hash = String::from_utf8_lossy(&inspect_output.stdout).trim().to_string();
+            if existing_hash == hash {
+                debug!("Podman secret {name} already exists with correct hash");
+                return Ok(false);
+            }
+            warn!("Podman secret {name} exists but hash mismatch. Deleting and recreating.");
+            let rm_status = Command::new("podman").args(["secret", "rm", name]).status()?;
+            if !rm_status.success() {
+                return Err(SystemError::Command(format!("Failed to remove old secret {name}")));
+            }
         }
 
         info!("Creating podman secret {name}");
         let mut child = Command::new("podman")
-            .args(["secret", "create", name, "-"])
-            .stdin(std::process::Stdio::piped())
+            .args([
+                "secret",
+                "create",
+                "--label",
+                &format!("skillet.payload_hash={hash}"),
+                name,
+                "-",
+            ])
+            .stdin(Stdio::piped())
             .spawn()?;
 
         if let Some(mut stdin) = child.stdin.take() {

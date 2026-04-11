@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
+use skillet_core::credentials::CredentialManager;
 use skillet_core::resource_op::ResourceOp;
+use skillet_podman::{QuadletSecret, SecretTarget};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -23,6 +25,9 @@ struct Args {
 enum Commands {
     /// Apply configuration (Agent Mode)
     Apply {
+        /// Optional: Hostname to apply configuration for
+        #[arg(long)]
+        host: Option<String>,
         /// Optional: Output recorded actions to this file path
         #[arg(long)]
         record: Option<PathBuf>,
@@ -64,9 +69,57 @@ fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     match args.command {
-        Commands::Apply { record } => {
-            skillet_cli_common::handle_apply("(Agent Mode)", record, |system, files| {
-                skillet_hardening::apply(system, files).map_err(|e| e.to_string())
+        Commands::Apply { host, record } => {
+            let hostname = host.as_deref().unwrap_or("(Agent Mode)");
+            skillet_cli_common::handle_apply(hostname, record, |system, files| {
+                match hostname {
+                    "beezelbot" => {
+                        skillet_hardening::apply(system, files).map_err(|e| e.to_string())?;
+                    }
+                    "clamps" => {
+                        skillet_hardening::apply(system, files).map_err(|e| e.to_string())?;
+
+                        // 1. Ingest secret from systemd
+                        let cred_manager = CredentialManager::new().map_err(|e| e.to_string())?;
+                        let secret_payload = cred_manager
+                            .read_secret("test_secret")
+                            .map_err(|e| e.to_string())?;
+
+                        // 2. Provision to Podman
+                        system
+                            .ensure_podman_secret("pihole_web_password", &secret_payload)
+                            .map_err(|e| e.to_string())?;
+
+                        // 3. Apply pihole with the secret
+                        let secrets = vec![QuadletSecret {
+                            secret_name: "pihole_web_password".to_string(),
+                            target: SecretTarget::File {
+                                target_path: "/etc/pihole/webpassword".to_string(),
+                                mode: Some("0400".to_string()),
+                                uid: Some(40000),
+                                gid: Some(40000),
+                            },
+                        }];
+
+                        skillet_pihole::apply(
+                            system,
+                            files,
+                            skillet_pihole::PiholeUser {
+                                uid: 40000,
+                                gid: 40000,
+                                name: "pihole".to_string(),
+                                group_name: "pihole".to_string(),
+                            },
+                            secrets,
+                        )
+                        .map_err(|e: skillet_pihole::PiholeError| e.to_string())?;
+                    }
+                    _ => {
+                        // Default fallback: just hardening
+                        skillet_hardening::apply(system, files).map_err(|e| e.to_string())?;
+                    }
+                }
+                Ok(())
             })
             .map_err(|e| anyhow!("Failed to apply configuration: {e}"))?;
         }
