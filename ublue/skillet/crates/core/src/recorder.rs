@@ -23,7 +23,10 @@ impl<T> Recorder<T> {
     }
 
     pub fn get_ops(&self) -> Vec<ResourceOp> {
-        self.ops.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
+        self.ops
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
     }
 
     pub fn shared_ops(&self) -> Arc<Mutex<Vec<ResourceOp>>> {
@@ -31,7 +34,10 @@ impl<T> Recorder<T> {
     }
 
     fn record(&self, op: ResourceOp) {
-        self.ops.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(op);
+        self.ops
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(op);
     }
 }
 
@@ -91,7 +97,6 @@ impl<T: SystemResource> SystemResource for Recorder<T> {
         });
         self.inner.ensure_group(name, gid)
     }
-
 
     fn ensure_user(
         &self,

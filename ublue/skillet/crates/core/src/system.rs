@@ -1,9 +1,8 @@
-use std::io::Write as _;
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::sync::LazyLock;
 use thiserror::Error;
 use tracing::{debug, info, warn};
-use users::{get_group_by_name, get_user_by_name};
+use users::get_group_by_name;
 use zbus::proxy;
 
 static SYSTEMD_UNIT_SUFFIXES: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
@@ -139,13 +138,11 @@ const EXIT_CODE_USER_EXISTS: i32 = 9;
 
 impl SystemResource for LinuxSystemResource {
     fn ensure_group(&self, name: &str, gid: Option<u32>) -> Result<bool, SystemError> {
-        // 1. Check if group exists using `users` crate
         if get_group_by_name(name).is_some() {
             debug!("Group {name} already exists");
             return Ok(false);
         }
 
-        // 2. Create group using `groupadd`
         info!("Creating group {name}");
         let mut cmd = Command::new("groupadd");
         if let Some(g) = gid {
@@ -155,7 +152,6 @@ impl SystemResource for LinuxSystemResource {
         let output = cmd.output()?;
 
         if !output.status.success() {
-            // Check if group was created by another process in the meantime (exit code 9 for groupadd)
             if output.status.code() == Some(EXIT_CODE_GROUP_EXISTS) {
                 debug!("Group {name} was created by another process");
                 return Ok(false);
@@ -175,18 +171,15 @@ impl SystemResource for LinuxSystemResource {
         uid: Option<u32>,
         gid: Option<u32>,
     ) -> Result<bool, SystemError> {
-        // 1. Check if user exists using `users` crate
-        if let Some(_user) = get_user_by_name(name) {
+        if users::get_user_by_name(name).is_some() {
             debug!("User {name} already exists");
             return Ok(false);
         }
 
-        // 2. Ensure group exists
         if let Some(gid_val) = gid {
             self.ensure_group(name, Some(gid_val))?;
         }
 
-        // 3. Create user using `useradd`
         info!("Creating user {name}");
         let mut cmd = Command::new("useradd");
         if let Some(u) = uid {
@@ -214,7 +207,6 @@ impl SystemResource for LinuxSystemResource {
     }
 
     fn ensure_podman_secret(&self, name: &str, payload: &str) -> Result<bool, SystemError> {
-        // 1. Check if secret exists
         let inspect_output = Command::new("podman")
             .args(["secret", "inspect", name])
             .output()?;
@@ -224,14 +216,14 @@ impl SystemResource for LinuxSystemResource {
             return Ok(false);
         }
 
-        // 2. Create secret by piping payload to stdin
         info!("Creating podman secret {name}");
         let mut child = Command::new("podman")
             .args(["secret", "create", name, "-"])
-            .stdin(Stdio::piped())
+            .stdin(std::process::Stdio::piped())
             .spawn()?;
 
         if let Some(mut stdin) = child.stdin.take() {
+            use std::io::Write as _;
             stdin.write_all(payload.as_bytes())?;
         }
 
@@ -261,6 +253,7 @@ impl SystemResource for LinuxSystemResource {
         self.run_systemctl("reload", name)
     }
 }
+
 #[cfg(test)]
 #[path = "system/tests.rs"]
 mod tests;
