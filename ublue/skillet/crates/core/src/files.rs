@@ -1,8 +1,8 @@
 use nix::unistd::{chown, Gid, Uid};
 use sha2::{Digest, Sha256};
-use std::fs::{self};
-use std::io::{self, Write};
-use std::os::unix::fs::{MetadataExt, PermissionsExt};
+use std::fs::{self, File};
+use std::io::{self, BufReader, Write};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
 use std::path::Path;
 use tempfile::NamedTempFile;
 use thiserror::Error;
@@ -31,6 +31,8 @@ pub enum FileError {
     GroupNotFound(String),
     #[error("Path {0} exists but is not a directory")]
     NotADirectory(String),
+    #[error("Metadata mismatch for {0}")]
+    Metadata(String),
 }
 
 pub trait FileResource {
@@ -60,12 +62,13 @@ impl LocalFileResource {
     }
 
     fn check_metadata(
-        _path: &Path,
-        metadata: &fs::Metadata,
+        path: &Path,
         mode: Option<u32>,
         owner: Option<&str>,
         group: Option<&str>,
     ) -> Result<bool, FileError> {
+        let metadata =
+            fs::symlink_metadata(path).map_err(|e| FileError::Read(path.display().to_string(), e))?;
         let mut changed = false;
 
         if let Some(desired_mode) = mode {
@@ -95,13 +98,14 @@ impl LocalFileResource {
 
     fn apply_metadata(
         path: &Path,
-        metadata: &fs::Metadata,
         mode: Option<u32>,
         owner: Option<&str>,
         group: Option<&str>,
     ) -> Result<(), FileError> {
         if let Some(desired_mode) = mode {
-            let mut perms = metadata.permissions();
+            let mut perms = fs::symlink_metadata(path)
+                .map_err(|e| FileError::Read(path.display().to_string(), e))?
+                .permissions();
             perms.set_mode(desired_mode);
             fs::set_permissions(path, perms)
                 .map_err(|e| FileError::SetPermissions(path.display().to_string(), e))?;
@@ -125,6 +129,15 @@ impl LocalFileResource {
         }
 
         Ok(())
+    }
+
+    fn get_file_hash(path: &Path) -> Result<Vec<u8>, FileError> {
+        let file = File::open(path).map_err(|e| FileError::Read(path.display().to_string(), e))?;
+        let mut reader = BufReader::new(file);
+        let mut hasher = Sha256::new();
+        io::copy(&mut reader, &mut hasher)
+            .map_err(|e| FileError::Read(path.display().to_string(), e))?;
+        Ok(hasher.finalize().to_vec())
     }
 }
 
@@ -155,22 +168,23 @@ impl FileResource for LocalFileResource {
         let mut changed = false;
 
         // 2. Check content
-        let mut metadata = fs::symlink_metadata(path).ok();
-        let content_changed = if let Some(meta) = &metadata {
-            // Treat non-regular files (like symlinks) as "changed" to trigger replacement
-            if !meta.is_file() {
-                true
-            } else if meta.len() == content.len() as u64 {
-                let mut file = fs::File::open(path)
-                    .map_err(|e| FileError::Read(path.display().to_string(), e))?;
-                let mut hasher = Sha256::new();
-                std::io::copy(&mut file, &mut hasher)
-                    .map_err(|e| FileError::Read(path.display().to_string(), e))?;
-                let existing_hash = hasher.finalize();
-                let new_hash = Sha256::digest(content);
+        let content_changed = if path.exists() {
+            let metadata = fs::symlink_metadata(path)
+                .map_err(|e| FileError::Read(path.display().to_string(), e))?;
 
-                existing_hash != new_hash
+            // If it's a symlink, we replace it with a regular file
+            if metadata.is_file() {
+                if metadata.len() == content.len() as u64 {
+                    let existing_hash = Self::get_file_hash(path)?;
+                    let mut hasher = Sha256::new();
+                    hasher.update(content);
+                    let new_hash = hasher.finalize();
+                    existing_hash != new_hash.as_slice()
+                } else {
+                    true
+                }
             } else {
+                // Not a regular file (symlink or dir), definitely changed
                 true
             }
         } else {
@@ -186,19 +200,13 @@ impl FileResource for LocalFileResource {
                 .map_err(|e| FileError::Persist(path.display().to_string(), e.error))?;
             changed = true;
             info!("Updated file content for {}", path.display());
-            // Fetch metadata for the newly created file
-            metadata = Some(
-                fs::metadata(path).map_err(|e| FileError::Read(path.display().to_string(), e))?,
-            );
         }
 
         // 3. Check and apply metadata
-        if let Some(meta) = metadata {
-            if Self::check_metadata(path, &meta, mode, owner, group)? {
-                Self::apply_metadata(path, &meta, mode, owner, group)?;
-                changed = true;
-                info!("Updated file metadata for {}", path.display());
-            }
+        if path.exists() && Self::check_metadata(path, mode, owner, group)? {
+            Self::apply_metadata(path, mode, owner, group)?;
+            changed = true;
+            info!("Updated file metadata for {}", path.display());
         }
 
         Ok(changed)
@@ -213,14 +221,13 @@ impl FileResource for LocalFileResource {
     ) -> Result<bool, FileError> {
         let mut changed = false;
 
-        // Use metadata() instead of symlink_metadata() to follow symlinks to directories
-        let mut metadata = fs::metadata(path).ok();
-        if let Some(meta) = &metadata {
-            if !meta.is_dir() {
+        if path.exists() {
+            let metadata = fs::metadata(path)
+                .map_err(|e| FileError::Read(path.display().to_string(), e))?;
+            if !metadata.is_dir() {
                 return Err(FileError::NotADirectory(path.display().to_string()));
             }
         } else {
-            use std::os::unix::fs::DirBuilderExt;
             let mut builder = fs::DirBuilder::new();
             builder.recursive(true);
             if let Some(m) = mode {
@@ -229,28 +236,27 @@ impl FileResource for LocalFileResource {
             builder.create(path).map_err(FileError::Io)?;
             changed = true;
             info!("Created directory {}", path.display());
-            // Fetch metadata for the newly created directory
-            metadata = Some(
-                fs::metadata(path).map_err(|e| FileError::Read(path.display().to_string(), e))?,
-            );
         }
 
-        if let Some(meta) = metadata {
-            if Self::check_metadata(path, &meta, mode, owner, group)? {
-                Self::apply_metadata(path, &meta, mode, owner, group)?;
-                changed = true;
-                info!("Updated directory metadata for {}", path.display());
-            }
+        if path.exists() && Self::check_metadata(path, mode, owner, group)? {
+            Self::apply_metadata(path, mode, owner, group)?;
+            changed = true;
+            info!("Updated directory metadata for {}", path.display());
         }
 
         Ok(changed)
     }
 
     fn delete_file(&self, path: &Path) -> Result<bool, FileError> {
-        // Use symlink_metadata to correctly detect and remove broken symlinks
-        if path.symlink_metadata().is_ok() {
-            fs::remove_file(path).map_err(FileError::Io)?;
-            info!("Deleted file {}", path.display());
+        if path.exists() {
+            let metadata = fs::symlink_metadata(path)
+                .map_err(|e| FileError::Read(path.display().to_string(), e))?;
+            if metadata.is_dir() {
+                fs::remove_dir_all(path).map_err(FileError::Io)?;
+            } else {
+                fs::remove_file(path).map_err(FileError::Io)?;
+            }
+            info!("Deleted {}", path.display());
             Ok(true)
         } else {
             Ok(false)
