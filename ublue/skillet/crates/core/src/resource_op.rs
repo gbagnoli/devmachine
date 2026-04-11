@@ -26,6 +26,10 @@ pub enum ResourceOp {
         uid: Option<u32>,
         gid: Option<u32>,
     },
+    EnsurePodmanSecret {
+        name: String,
+        payload_hash: String,
+    },
     ServiceStart {
         name: String,
     },

@@ -1,3 +1,4 @@
+pub mod credentials;
 pub mod files;
 pub mod recorder;
 pub mod resource_op;

@@ -2,7 +2,7 @@ use askama::Template;
 use skillet_core::files::{FileError, FileResource};
 use skillet_core::system::{SystemError, SystemResource};
 use skillet_core::templates::ensure_templated_file;
-use skillet_podman::{self, ContainerUser, HostUser, PodmanError, Volume, PodmanConfig};
+use skillet_podman::{self, ContainerUser, HostUser, PodmanError, Volume, PodmanConfig, QuadletSecret};
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 use thiserror::Error;
@@ -31,7 +31,12 @@ pub struct PiholeUser {
     pub group_name: String,
 }
 
-pub fn apply<S, F>(system: &S, files: &F, user_config: PiholeUser) -> Result<(), PiholeError>
+pub fn apply<S, F>(
+    system: &S,
+    files: &F,
+    user_config: PiholeUser,
+    secrets: Vec<QuadletSecret>,
+) -> Result<(), PiholeError>
 where
     S: SystemResource + ?Sized,
     F: FileResource + ?Sized,
@@ -125,6 +130,7 @@ where
             user,
             create_host_user: false,
             volumes,
+            secrets,
             extra_config,
         },
     )?;

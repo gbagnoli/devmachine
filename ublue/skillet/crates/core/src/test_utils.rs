@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 pub struct MockSystem {
     pub groups: Arc<Mutex<HashSet<String>>>,
     pub users: Arc<Mutex<HashSet<String>>>,
+    pub podman_secrets: Arc<Mutex<HashSet<String>>>,
     pub services: Arc<Mutex<HashMap<String, String>>>, // name -> state (started, stopped, restarted)
 }
 
@@ -15,6 +16,7 @@ impl MockSystem {
         Self {
             groups: Arc::new(Mutex::new(HashSet::new())),
             users: Arc::new(Mutex::new(HashSet::new())),
+            podman_secrets: Arc::new(Mutex::new(HashSet::new())),
             services: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -48,6 +50,16 @@ impl SystemResource for MockSystem {
             Ok(false)
         } else {
             users.insert(name.to_string());
+            Ok(true)
+        }
+    }
+
+    fn ensure_podman_secret(&self, name: &str, _payload: &str) -> Result<bool, SystemError> {
+        let mut secrets = self.podman_secrets.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if secrets.contains(name) {
+            Ok(false)
+        } else {
+            secrets.insert(name.to_string());
             Ok(true)
         }
     }
