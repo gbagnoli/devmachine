@@ -221,21 +221,33 @@ impl FileResource for LocalFileResource {
     ) -> Result<bool, FileError> {
         let mut changed = false;
 
-        if path.exists() {
-            let metadata = fs::metadata(path)
-                .map_err(|e| FileError::Read(path.display().to_string(), e))?;
-            if !metadata.is_dir() {
-                return Err(FileError::NotADirectory(path.display().to_string()));
+        let metadata_res = fs::symlink_metadata(path);
+        match metadata_res {
+            Ok(metadata) => {
+                // Path exists, check if it's a directory
+                if !metadata.is_dir() {
+                    // If it's a symlink, follow it to see if it points to a directory
+                    let followed_metadata = fs::metadata(path)
+                        .map_err(|e| FileError::Read(path.display().to_string(), e))?;
+                    if !followed_metadata.is_dir() {
+                        return Err(FileError::NotADirectory(path.display().to_string()));
+                    }
+                }
             }
-        } else {
-            let mut builder = fs::DirBuilder::new();
-            builder.recursive(true);
-            if let Some(m) = mode {
-                builder.mode(m);
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                // Path does not exist, create it
+                let mut builder = fs::DirBuilder::new();
+                builder.recursive(true);
+                if let Some(m) = mode {
+                    builder.mode(m);
+                }
+                builder.create(path).map_err(FileError::Io)?;
+                changed = true;
+                info!("Created directory {}", path.display());
             }
-            builder.create(path).map_err(FileError::Io)?;
-            changed = true;
-            info!("Created directory {}", path.display());
+            Err(e) => {
+                return Err(FileError::Read(path.display().to_string(), e));
+            }
         }
 
         if path.exists() && Self::check_metadata(path, mode, owner, group)? {
