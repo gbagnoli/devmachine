@@ -1067,8 +1067,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "skillet_cli_common",
+ "skillet_core",
  "skillet_hardening",
  "skillet_pihole",
+ "skillet_podman",
 ]
 
 [[package]]

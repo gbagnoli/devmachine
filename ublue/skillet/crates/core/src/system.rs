@@ -1,4 +1,5 @@
-use std::process::Command;
+use std::io::Write as _;
+use std::process::{Command, Stdio};
 use std::sync::LazyLock;
 use thiserror::Error;
 use tracing::{debug, info, warn};
@@ -64,6 +65,7 @@ pub trait SystemResource {
         uid: Option<u32>,
         gid: Option<u32>,
     ) -> Result<bool, SystemError>;
+    fn ensure_podman_secret(&self, name: &str, payload: &str) -> Result<bool, SystemError>;
     fn service_start(&self, name: &str) -> Result<(), SystemError>;
     fn service_stop(&self, name: &str) -> Result<(), SystemError>;
     fn service_restart(&self, name: &str) -> Result<(), SystemError>;
@@ -208,6 +210,38 @@ impl SystemResource for LinuxSystemResource {
         }
 
         info!("Created user {name}");
+        Ok(true)
+    }
+
+    fn ensure_podman_secret(&self, name: &str, payload: &str) -> Result<bool, SystemError> {
+        // 1. Check if secret exists
+        let inspect_output = Command::new("podman")
+            .args(["secret", "inspect", name])
+            .output()?;
+
+        if inspect_output.status.success() {
+            debug!("Podman secret {name} already exists");
+            return Ok(false);
+        }
+
+        // 2. Create secret by piping payload to stdin
+        info!("Creating podman secret {name}");
+        let mut child = Command::new("podman")
+            .args(["secret", "create", name, "-"])
+            .stdin(Stdio::piped())
+            .spawn()?;
+
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(payload.as_bytes())?;
+        }
+
+        let status = child.wait()?;
+        if !status.success() {
+            return Err(SystemError::Command(format!(
+                "podman secret create {name} failed"
+            )));
+        }
+
         Ok(true)
     }
 

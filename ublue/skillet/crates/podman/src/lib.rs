@@ -2,6 +2,7 @@ use askama::Template;
 use skillet_core::files::{FileError, FileResource};
 use skillet_core::system::{SystemError, SystemResource};
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::path::Path;
 use thiserror::Error;
 use tracing::info;
@@ -40,12 +41,58 @@ pub struct Volume {
     pub options: Option<String>,
 }
 
+pub enum SecretTarget {
+    File {
+        target_path: String,
+        mode: Option<String>,
+        uid: Option<u32>,
+        gid: Option<u32>,
+    },
+    Environment {
+        env_var_name: String,
+    },
+}
+
+pub struct QuadletSecret {
+    pub secret_name: String,
+    pub target: SecretTarget,
+}
+
+impl QuadletSecret {
+    pub fn to_directive(&self) -> String {
+        match &self.target {
+            SecretTarget::File {
+                target_path,
+                mode,
+                uid,
+                gid,
+            } => {
+                let mut s = format!("Secret={},target={}", self.secret_name, target_path);
+                if let Some(m) = mode {
+                    let _ = write!(s, ",mode={m}");
+                }
+                if let Some(u) = uid {
+                    let _ = write!(s, ",uid={u}");
+                }
+                if let Some(g) = gid {
+                    let _ = write!(s, ",gid={g}");
+                }
+                s
+            }
+            SecretTarget::Environment { env_var_name } => {
+                format!("Secret={},type=env,target={}", self.secret_name, env_var_name)
+            }
+        }
+    }
+}
+
 pub struct PodmanConfig {
     pub name: String,
     pub image: String,
     pub user: ContainerUser,
     pub create_host_user: bool,
     pub volumes: Vec<Volume>,
+    pub secrets: Vec<QuadletSecret>,
     pub extra_config: BTreeMap<String, Vec<String>>,
 }
 
@@ -67,7 +114,7 @@ where
         calculate_user_mappings(&config.user, *uid_host, *gid_host, &mut extra_config);
     }
 
-    // 3. Ensure volumes
+    // 3. Ensure volumes and secrets
     let container_section = extra_config.entry("Container".to_string()).or_default();
     container_section.push(format!("Image={}", config.image));
 
@@ -82,14 +129,13 @@ where
 
         let mut vol_line = format!("Volume={}:{}", vol.host_path, vol.container_path);
         if let Some(opt) = vol.options {
-            use std::fmt::Write;
-            write!(vol_line, ":{opt}").map_err(|e| {
-                FileError::Io(std::io::Error::other(format!(
-                    "Failed to format volume line: {e}"
-                )))
-            })?;
+            let _ = write!(vol_line, ":{opt}");
         }
         container_section.push(vol_line);
+    }
+
+    for secret in config.secrets {
+        container_section.push(secret.to_directive());
     }
 
     // Sort lines in each section for deterministic output

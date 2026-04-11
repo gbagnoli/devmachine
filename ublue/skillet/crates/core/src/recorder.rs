@@ -107,6 +107,18 @@ impl<T: SystemResource> SystemResource for Recorder<T> {
         self.inner.ensure_user(name, uid, gid)
     }
 
+    fn ensure_podman_secret(&self, name: &str, payload: &str) -> Result<bool, SystemError> {
+        let mut hasher = Sha256::new();
+        hasher.update(payload.as_bytes());
+        let hash = hex::encode(hasher.finalize());
+
+        self.record(ResourceOp::EnsurePodmanSecret {
+            name: name.to_string(),
+            payload_hash: hash,
+        });
+        self.inner.ensure_podman_secret(name, payload)
+    }
+
     fn service_start(&self, name: &str) -> Result<(), SystemError> {
         self.record(ResourceOp::ServiceStart {
             name: name.to_string(),
