@@ -1,0 +1,95 @@
+- !EnsureDirectory
+  path: /etc/sysctl.d
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureFile
+  path: /etc/sysctl.d/99-hardening.conf
+  content_hash: c71e2f0edb84c44cfb601a2dc3d35df3b46afbbe9d28e02283a12d4b5f55b89d
+  mode: '0o644'
+  owner: root
+  group: root
+- !ServiceRestart
+  name: systemd-sysctl
+- !EnsureDirectory
+  path: /etc/ssh
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureFile
+  path: /etc/ssh/sshd_config
+  content_hash: '1355f199c4b2ed28c09c1cc2c7fc6fa44690f9b77d01412013f08118faa7b42b'
+  mode: '0o600'
+  owner: root
+  group: root
+- !ServiceRestart
+  name: sshd
+- !EnsureFile
+  path: /etc/ssh/ssh_config
+  content_hash: b1c686c7da8fcea74e83f6a2dbd5552f2fb16a58601f347058b5ba4529e6d602
+  mode: '0o644'
+  owner: root
+  group: root
+- !EnsurePodmanSecret
+  name: pihole_web_password
+  payload_hash: '08c11e0cf8665e346fb2058d8e896a4a315ad839b0db208cd90fc92112071f79'
+- !EnsureGroup
+  name: pihole
+- !EnsureUser
+  name: pihole
+  uid: 40000
+  gid: 40000
+- !EnsureDirectory
+  path: /etc/pihole
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureDirectory
+  path: /etc/pihole/conf
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureDirectory
+  path: /etc/pihole/dnsmasq.d
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureDirectory
+  path: /var/log/pihole
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureFile
+  path: /etc/pihole/conf/custom.list
+  content_hash: dbdc31014de7ebb475613c9258d7378edde4bb19fe61da7565cb8056370c8fa5
+  mode: '0o640'
+  owner: root
+  group: root
+- !EnsureDirectory
+  path: /etc/pihole/conf
+  mode: '0o755'
+  owner: pihole
+  group: pihole
+- !EnsureDirectory
+  path: /etc/pihole/dnsmasq.d
+  mode: '0o755'
+  owner: pihole
+  group: pihole
+- !EnsureDirectory
+  path: /var/log/pihole
+  mode: '0o755'
+  owner: pihole
+  group: pihole
+- !EnsureDirectory
+  path: /etc/containers/systemd
+  mode: '0o755'
+  owner: root
+  group: root
+- !EnsureFile
+  path: /etc/containers/systemd/pihole.container
+  content_hash: '8183a070ffaa22adefeb374aa059355890d1a4adf37ec4f863aae3e14d34115c'
+  mode: '0o644'
+  owner: root
+  group: root
+- !ServiceReload
+  name: daemon-reload
