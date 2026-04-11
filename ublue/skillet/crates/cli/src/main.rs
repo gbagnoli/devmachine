@@ -46,11 +46,17 @@ enum TestCommands {
         /// Container image to use
         #[arg(long, default_value = "fedora:latest")]
         image: String,
+        /// Inspect the container after application (interactive shell)
+        #[arg(long)]
+        inspect: bool,
     },
     Run {
         hostname: String,
         #[arg(long, default_value = "fedora:latest")]
         image: String,
+        /// Inspect the container after application (interactive shell)
+        #[arg(long)]
+        inspect: bool,
     },
 }
 
@@ -130,22 +136,35 @@ fn main() -> Result<()> {
 
 fn handle_test(cmd: TestCommands) -> Result<()> {
     match cmd {
-        TestCommands::Record { hostname, image } => {
+        TestCommands::Record {
+            hostname,
+            image,
+            inspect,
+        } => {
             info!("Recording integration test for host: {}", hostname);
-            run_container_test(&hostname, &image, true)?;
+            run_container_test(&hostname, &image, true, inspect)?;
         }
-        TestCommands::Run { hostname, image } => {
+        TestCommands::Run {
+            hostname,
+            image,
+            inspect,
+        } => {
             info!(
                 "Running integration test verification for host: {}",
                 hostname
             );
-            run_container_test(&hostname, &image, false)?;
+            run_container_test(&hostname, &image, false, inspect)?;
         }
     }
     Ok(())
 }
 
-fn run_container_test(hostname: &str, image: &str, is_record: bool) -> Result<()> {
+fn run_container_test(
+    hostname: &str,
+    image: &str,
+    is_record: bool,
+    inspect: bool,
+) -> Result<()> {
     build_workspace()?;
 
     let binary_path = locate_binary(hostname)?;
@@ -158,6 +177,10 @@ fn run_container_test(hostname: &str, image: &str, is_record: bool) -> Result<()
         verify_or_record(hostname, &container_name, is_record)?;
         Ok(())
     })();
+
+    if inspect {
+        inspect_container(&container_name)?;
+    }
 
     info!("Stopping container...");
     let _ = Command::new("podman")
@@ -177,6 +200,15 @@ fn build_workspace() -> Result<()> {
     if !build_status.success() {
         return Err(anyhow!("Build failed"));
     }
+    Ok(())
+}
+
+fn inspect_container(container_name: &str) -> Result<()> {
+    info!("Starting interactive inspection shell in {container_name}...");
+    let _ = Command::new("podman")
+        .args(["exec", "-it", container_name, "/bin/bash"])
+        .status()
+        .context("Failed to run inspection shell")?;
     Ok(())
 }
 
