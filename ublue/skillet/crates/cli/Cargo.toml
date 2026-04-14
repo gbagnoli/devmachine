@@ -20,3 +20,4 @@ serde.workspace = true
 serde_yml.workspace = true
 hex.workspace = true
 tempfile.workspace = true
+users.workspace = true

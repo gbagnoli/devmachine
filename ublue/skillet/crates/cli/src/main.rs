@@ -1,14 +1,16 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
+use skillet_cli_common;
 use skillet_core::credentials::CredentialManager;
 use skillet_core::resource_op::ResourceOp;
-use skillet_podman::{QuadletSecret, SecretTarget};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
+
+mod host_applies;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -78,54 +80,9 @@ fn main() -> Result<()> {
         Commands::Apply { host, record } => {
             let hostname = host.as_deref().unwrap_or("(Agent Mode)");
             skillet_cli_common::handle_apply(hostname, record, |system, files| {
-                match hostname {
-                    "beezelbot" => {
-                        skillet_hardening::apply(system, files).map_err(|e| e.to_string())?;
-                    }
-                    "clamps" => {
-                        skillet_hardening::apply(system, files).map_err(|e| e.to_string())?;
-
-                        // 1. Ingest secret from systemd
-                        let cred_manager = CredentialManager::new().map_err(|e| e.to_string())?;
-                        let secret_payload = cred_manager
-                            .read_secret("test_secret")
-                            .map_err(|e| e.to_string())?;
-
-                        // 2. Provision to Podman
-                        system
-                            .ensure_podman_secret("pihole_web_password", &secret_payload)
-                            .map_err(|e| e.to_string())?;
-
-                        // 3. Apply pihole with the secret
-                        let secrets = vec![QuadletSecret {
-                            secret_name: "pihole_web_password".to_string(),
-                            target: SecretTarget::File {
-                                target_path: "/etc/pihole/webpassword".to_string(),
-                                mode: Some("0400".to_string()),
-                                uid: Some(40000),
-                                gid: Some(40000),
-                            },
-                        }];
-
-                        skillet_pihole::apply(
-                            system,
-                            files,
-                            skillet_pihole::PiholeUser {
-                                uid: 40000,
-                                gid: 40000,
-                                name: "pihole".to_string(),
-                                group_name: "pihole".to_string(),
-                            },
-                            secrets,
-                        )
-                        .map_err(|e: skillet_pihole::PiholeError| e.to_string())?;
-                    }
-                    _ => {
-                        // Default fallback: just hardening
-                        skillet_hardening::apply(system, files).map_err(|e| e.to_string())?;
-                    }
-                }
-                Ok(())
+                // Initialize credential manager once
+                let cred_manager = CredentialManager::new().map_err(|e| e.to_string())?;
+                host_applies::apply_host(hostname, system, files, &cred_manager)
             })
             .map_err(|e| anyhow!("Failed to apply configuration: {e}"))?;
         }
@@ -159,12 +116,7 @@ fn handle_test(cmd: TestCommands) -> Result<()> {
     Ok(())
 }
 
-fn run_container_test(
-    hostname: &str,
-    image: &str,
-    is_record: bool,
-    inspect: bool,
-) -> Result<()> {
+fn run_container_test(hostname: &str, image: &str, is_record: bool, inspect: bool) -> Result<()> {
     build_workspace()?;
 
     let binary_path = locate_binary(hostname)?;
@@ -250,9 +202,7 @@ fn locate_binary(hostname: &str) -> Result<PathBuf> {
     ]
     .into_iter()
     .find(|p| p.exists())
-    .ok_or_else(|| {
-        anyhow!("No suitable skillet binary found in target/release or target/debug")
-    })?;
+    .ok_or_else(|| anyhow!("No suitable skillet binary found in target/release or target/debug"))?;
 
     info!("Using binary: {}", binary_path.display());
     fs::canonicalize(&binary_path).context("Failed to canonicalize binary path")
@@ -366,19 +316,28 @@ fn verify_or_record(hostname: &str, container_name: &str, is_record: bool) -> Re
 
     if is_record {
         info!("Copying recording to {}", dest_file.display());
+        // Use atomic write via temporary file
+        let temp_file = tempfile::Builder::new()
+            .suffix(".yaml")
+            .tempfile_in(&dest_dir)?;
+        let temp_path = temp_file
+            .path()
+            .to_str()
+            .ok_or_else(|| anyhow!("Temporary path is not valid UTF-8"))?;
+
         let cp_status = Command::new("podman")
-            .args([
-                "cp",
-                &format!("{container_name}:/tmp/ops.yaml"),
-                dest_file
-                    .to_str()
-                    .ok_or_else(|| anyhow!("Destination path is not valid UTF-8"))?,
-            ])
+            .args(["cp", &format!("{container_name}:/tmp/ops.yaml"), temp_path])
             .status()?;
 
         if !cp_status.success() {
             return Err(anyhow!("Failed to copy recording from container"));
         }
+
+        // Atomic rename
+        std::fs::rename(temp_path, &dest_file).context(format!(
+            "Failed to rename temporary recording file to {}",
+            dest_file.display()
+        ))?;
     } else {
         info!("Verifying recording...");
         let temp_dest = tempfile::Builder::new().suffix(".yaml").tempfile()?;
