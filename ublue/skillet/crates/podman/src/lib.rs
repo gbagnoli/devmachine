@@ -185,39 +185,59 @@ fn calculate_user_mappings(
 ) {
     let uid_container = user.container_uid;
     let gid_container = user.container_gid;
-    let sub_base = 100_000;
-    let sub_size = 65_536;
+
+    let (sub_uid_base, sub_uid_size) = discover_subid_range("/etc/subuid").unwrap_or((100_000, 65_536));
+    let (sub_gid_base, sub_gid_size) = discover_subid_range("/etc/subgid").unwrap_or((100_000, 65_536));
 
     let container_section = extra_config.entry("Container".to_string()).or_default();
     container_section.push(format!("User={uid_container}:{gid_container}"));
 
     // UIDMap
     if uid_container > 0 {
-        container_section.push(format!("UIDMap=0:{sub_base}:{uid_container}"));
+        container_section.push(format!("UIDMap=0:{sub_uid_base}:{uid_container}"));
     }
     container_section.push(format!("UIDMap={uid_container}:{uid_host}:1"));
-    let rem_u = sub_size - uid_container - 1;
+    let rem_u = sub_uid_size - uid_container - 1;
     if rem_u > 0 {
         container_section.push(format!(
             "UIDMap={}:{}:{rem_u}",
             uid_container + 1,
-            sub_base + uid_container + 1
+            sub_uid_base + uid_container + 1
         ));
     }
 
     // GIDMap
     if gid_container > 0 {
-        container_section.push(format!("GIDMap=0:{sub_base}:{gid_container}"));
+        container_section.push(format!("GIDMap=0:{sub_gid_base}:{gid_container}"));
     }
     container_section.push(format!("GIDMap={gid_container}:{gid_host}:1"));
-    let rem_g = sub_size - gid_container - 1;
+    let rem_g = sub_gid_size - gid_container - 1;
     if rem_g > 0 {
         container_section.push(format!(
             "GIDMap={}:{}:{rem_g}",
             gid_container + 1,
-            sub_base + gid_container + 1
+            sub_gid_base + gid_container + 1
         ));
     }
+}
+
+fn discover_subid_range(path: &str) -> Option<(u32, u32)> {
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
+
+    let user = users::get_current_username()?.to_string_lossy().to_string();
+    let file = File::open(path).ok()?;
+    let reader = BufReader::new(file);
+
+    for line in reader.lines().map_while(Result::ok) {
+        let parts: Vec<&str> = line.split(':').collect();
+        if parts.len() == 3 && parts[0] == user {
+            let start = parts[1].parse().ok()?;
+            let size = parts[2].parse().ok()?;
+            return Some((start, size));
+        }
+    }
+    None
 }
 
 fn render_and_ensure_quadlet<S, F>(

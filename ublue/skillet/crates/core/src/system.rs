@@ -41,8 +41,10 @@ fn ensure_systemd_suffix(name: &str) -> String {
 trait SystemdManager {
     fn start_unit(&self, name: &str, mode: &str) -> zbus::Result<zbus::zvariant::OwnedObjectPath>;
     fn stop_unit(&self, name: &str, mode: &str) -> zbus::Result<zbus::zvariant::OwnedObjectPath>;
-    fn restart_unit(&self, name: &str, mode: &str) -> zbus::Result<zbus::zvariant::OwnedObjectPath>;
+    fn restart_unit(&self, name: &str, mode: &str)
+        -> zbus::Result<zbus::zvariant::OwnedObjectPath>;
     fn reload_unit(&self, name: &str, mode: &str) -> zbus::Result<zbus::zvariant::OwnedObjectPath>;
+    fn reload(&self) -> zbus::Result<()>;
 }
 
 #[derive(Error, Debug)]
@@ -89,6 +91,10 @@ impl LinuxSystemResource {
     }
 
     fn run_systemctl(&self, action: &str, name: &str) -> Result<(), SystemError> {
+        if name == "daemon-reload" && action == "reload" {
+            return self.daemon_reload();
+        }
+
         let name_with_suffix = ensure_systemd_suffix(name);
 
         if let Some(conn) = &self.conn {
@@ -100,7 +106,9 @@ impl LinuxSystemResource {
                 "restart" => proxy.restart_unit(&name_with_suffix, "replace"),
                 "reload" => proxy.reload_unit(&name_with_suffix, "replace"),
                 _ => {
-                    return Err(SystemError::Command(format!("Unsupported action: {action}")));
+                    return Err(SystemError::Command(format!(
+                        "Unsupported action: {action}"
+                    )));
                 }
             };
 
@@ -115,6 +123,7 @@ impl LinuxSystemResource {
         info!("Running systemctl {action} {name_with_suffix} via CLI");
         let output = Command::new("systemctl")
             .arg(action)
+            .arg("--no-block")
             .arg(&name_with_suffix)
             .output()?;
 
@@ -123,6 +132,28 @@ impl LinuxSystemResource {
             return Err(SystemError::Command(format!(
                 "systemctl {action} {name_with_suffix} failed: {stderr}"
             )));
+        }
+        Ok(())
+    }
+
+    fn daemon_reload(&self) -> Result<(), SystemError> {
+        if let Some(conn) = &self.conn {
+            info!("Running systemctl daemon-reload via DBus");
+            let proxy = SystemdManagerProxyBlocking::new(conn)?;
+            match proxy.reload() {
+                Ok(_) => return Ok(()),
+                Err(e) => {
+                    warn!("DBus daemon-reload failed, falling back to CLI: {e}");
+                }
+            }
+        }
+
+        info!("Running systemctl daemon-reload via CLI");
+        let status = Command::new("systemctl").arg("daemon-reload").status()?;
+        if !status.success() {
+            return Err(SystemError::Command(
+                "systemctl daemon-reload failed".to_string(),
+            ));
         }
         Ok(())
     }
@@ -247,15 +278,34 @@ impl SystemResource for LinuxSystemResource {
             .output()?;
 
         if inspect_output.status.success() {
-            let existing_hash = String::from_utf8_lossy(&inspect_output.stdout).trim().to_string();
-            if existing_hash == hash {
-                debug!("Podman secret {name} already exists with correct hash");
-                return Ok(false);
-            }
-            warn!("Podman secret {name} exists but hash mismatch. Deleting and recreating.");
-            let rm_status = Command::new("podman").args(["secret", "rm", name]).status()?;
-            if !rm_status.success() {
-                return Err(SystemError::Command(format!("Failed to remove old secret {name}")));
+            let existing_hash = String::from_utf8_lossy(&inspect_output.stdout)
+                .trim()
+                .to_string();
+            // If the label is missing, the output will be empty
+            if !existing_hash.is_empty() {
+                if existing_hash == hash {
+                    debug!("Podman secret {name} already exists with correct hash");
+                    return Ok(false);
+                }
+                warn!("Podman secret {name} exists but hash mismatch. Deleting and recreating.");
+                let rm_status = Command::new("podman")
+                    .args(["secret", "rm", name])
+                    .status()?;
+                if !rm_status.success() {
+                    return Err(SystemError::Command(format!(
+                        "Failed to remove old secret {name}"
+                    )));
+                }
+            } else {
+                warn!("Podman secret {name} exists but lacks required label. Deleting and recreating.");
+                let rm_status = Command::new("podman")
+                    .args(["secret", "rm", name])
+                    .status()?;
+                if !rm_status.success() {
+                    return Err(SystemError::Command(format!(
+                        "Failed to remove old secret {name}"
+                    )));
+                }
             }
         }
 
