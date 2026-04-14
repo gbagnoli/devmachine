@@ -95,6 +95,14 @@ impl SystemResource for MockSystem {
             .insert(name.to_string(), "reloaded".to_string());
         Ok(())
     }
+
+    fn daemon_reload(&self) -> Result<(), SystemError> {
+        self.services
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert("daemon-reload".to_string(), "reloaded".to_string());
+        Ok(())
+    }
 }
 
 pub type FileMetadata = (Option<u32>, Option<String>, Option<String>);

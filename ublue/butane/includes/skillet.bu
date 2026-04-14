@@ -13,7 +13,7 @@ systemd:
         [Service]
         Type=oneshot
         # Use the generic skillet binary and pass the hostname from /etc/hostname
-        ExecStart=/usr/bin/sh -c "/usr/bin/skillet apply --host $(cat /etc/hostname)"
+        ExecStart=/usr/bin/skillet apply --host-file /etc/hostname
         RemainAfterExit=yes
 
         [Install]

@@ -72,6 +72,7 @@ pub trait SystemResource {
     fn service_stop(&self, name: &str) -> Result<(), SystemError>;
     fn service_restart(&self, name: &str) -> Result<(), SystemError>;
     fn service_reload(&self, name: &str) -> Result<(), SystemError>;
+    fn daemon_reload(&self) -> Result<(), SystemError>;
 }
 
 pub struct LinuxSystemResource {
@@ -91,10 +92,6 @@ impl LinuxSystemResource {
     }
 
     fn run_systemctl(&self, action: &str, name: &str) -> Result<(), SystemError> {
-        if name == "daemon-reload" && action == "reload" {
-            return self.daemon_reload();
-        }
-
         let name_with_suffix = ensure_systemd_suffix(name);
 
         if let Some(conn) = &self.conn {
@@ -174,10 +171,10 @@ impl SystemResource for LinuxSystemResource {
             debug!("Group {name} already exists");
             if let Some(desired_gid) = gid {
                 if grp.gid() != desired_gid {
-                    warn!(
+                    return Err(SystemError::GroupCheck(format!(
                         "Group {name} exists but GID {} does not match desired {desired_gid}",
                         grp.gid()
-                    );
+                    )));
                 }
             }
             return Ok(false);
@@ -215,18 +212,18 @@ impl SystemResource for LinuxSystemResource {
             debug!("User {name} already exists");
             if let Some(desired_uid) = uid {
                 if user.uid() != desired_uid {
-                    warn!(
+                    return Err(SystemError::Command(format!(
                         "User {name} exists but UID {} does not match desired {desired_uid}",
                         user.uid()
-                    );
+                    )));
                 }
             }
             if let Some(desired_gid) = gid {
                 if user.primary_group_id() != desired_gid {
-                    warn!(
+                    return Err(SystemError::Command(format!(
                         "User {name} exists but GID {} does not match desired {desired_gid}",
                         user.primary_group_id()
-                    );
+                    )));
                 }
             }
             return Ok(false);
@@ -351,6 +348,10 @@ impl SystemResource for LinuxSystemResource {
 
     fn service_reload(&self, name: &str) -> Result<(), SystemError> {
         self.run_systemctl("reload", name)
+    }
+
+    fn daemon_reload(&self) -> Result<(), SystemError> {
+        self.daemon_reload()
     }
 }
 

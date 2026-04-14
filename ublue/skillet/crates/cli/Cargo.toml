@@ -21,3 +21,5 @@ serde_yml.workspace = true
 hex.workspace = true
 tempfile.workspace = true
 users.workspace = true
+cargo_metadata = "0.23.1"
+thiserror.workspace = true

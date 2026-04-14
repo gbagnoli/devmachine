@@ -110,8 +110,14 @@ where
     let host_info = resolve_host_user(system, &config.user, config.create_host_user)?;
 
     // 2. Calculate mappings
-    if let Some((uid_host, gid_host, _)) = &host_info {
-        calculate_user_mappings(&config.user, *uid_host, *gid_host, &mut extra_config);
+    if let Some((uid_host, gid_host, username)) = &host_info {
+        calculate_user_mappings(
+            &config.user,
+            *uid_host,
+            *gid_host,
+            username,
+            &mut extra_config,
+        );
     }
 
     // 3. Ensure volumes and secrets
@@ -181,13 +187,16 @@ fn calculate_user_mappings(
     user: &ContainerUser,
     uid_host: u32,
     gid_host: u32,
+    username: &str,
     extra_config: &mut BTreeMap<String, Vec<String>>,
 ) {
     let uid_container = user.container_uid;
     let gid_container = user.container_gid;
 
-    let (sub_uid_base, sub_uid_size) = discover_subid_range("/etc/subuid").unwrap_or((100_000, 65_536));
-    let (sub_gid_base, sub_gid_size) = discover_subid_range("/etc/subgid").unwrap_or((100_000, 65_536));
+    let (sub_uid_base, sub_uid_size) =
+        discover_subid_range("/etc/subuid", username).unwrap_or((100_000, 65_536));
+    let (sub_gid_base, sub_gid_size) =
+        discover_subid_range("/etc/subgid", username).unwrap_or((100_000, 65_536));
 
     let container_section = extra_config.entry("Container".to_string()).or_default();
     container_section.push(format!("User={uid_container}:{gid_container}"));
@@ -221,17 +230,16 @@ fn calculate_user_mappings(
     }
 }
 
-fn discover_subid_range(path: &str) -> Option<(u32, u32)> {
+fn discover_subid_range(path: &str, username: &str) -> Option<(u32, u32)> {
     use std::fs::File;
     use std::io::{BufRead, BufReader};
 
-    let user = users::get_current_username()?.to_string_lossy().to_string();
     let file = File::open(path).ok()?;
     let reader = BufReader::new(file);
 
     for line in reader.lines().map_while(Result::ok) {
         let parts: Vec<&str> = line.split(':').collect();
-        if parts.len() == 3 && parts[0] == user {
+        if parts.len() == 3 && parts[0] == username {
             let start = parts[1].parse().ok()?;
             let size = parts[2].parse().ok()?;
             return Some((start, size));
@@ -271,7 +279,7 @@ where
 
     if changed {
         info!("Quadlet changed, triggering daemon-reload");
-        system.service_reload("daemon-reload")?;
+        system.daemon_reload()?;
     }
 
     Ok(changed)

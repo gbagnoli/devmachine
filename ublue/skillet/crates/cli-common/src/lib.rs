@@ -88,7 +88,17 @@ where
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        fs::write(&path, yaml)?;
+        let mut temp = tempfile::NamedTempFile::new_in(
+            path.parent().unwrap_or_else(|| std::path::Path::new(".")),
+        )?;
+        use std::io::Write as _;
+        temp.write_all(yaml.as_bytes())?;
+        temp.persist(&path).map_err(|e| {
+            CliCommonError::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to persist recording to {}: {}", path.display(), e),
+            ))
+        })?;
         info!("Recording saved to {}", path.display());
     } else {
         apply_fn(&system, &files).map_err(CliCommonError::Config)?;
