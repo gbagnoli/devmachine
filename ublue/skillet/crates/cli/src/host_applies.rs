@@ -1,6 +1,26 @@
-use skillet_core::{credentials::CredentialManager, files::FileResource, system::SystemResource};
+use skillet_core::{
+    credentials::{CredentialError, CredentialManager},
+    files::{FileError, FileResource},
+    system::{SystemError, SystemResource},
+};
+use skillet_hardening;
 use skillet_pihole;
 use skillet_podman::{QuadletSecret, SecretTarget};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum ApplyError {
+    #[error("System error: {0}")]
+    System(#[from] SystemError),
+    #[error("File error: {0}")]
+    File(#[from] FileError),
+    #[error("Credential error: {0}")]
+    Credential(#[from] CredentialError),
+    #[error("Hardening apply error: {0}")]
+    Hardening(String),
+    #[error("Pihole apply error: {0}")]
+    Pihole(#[from] skillet_pihole::PiholeError),
+}
 
 mod user_lookup {
     use skillet_core::system::SystemError;
@@ -29,23 +49,21 @@ pub fn apply_host(
     system: &(impl SystemResource + ?Sized),
     files: &(impl FileResource + ?Sized),
     credentials: &CredentialManager,
-) -> Result<(), String> {
+) -> Result<(), ApplyError> {
     match hostname {
         "beezelbot" => {
-            skillet_hardening::apply(system, files).map_err(|e| e.to_string())?;
+            skillet_hardening::apply(system, files).map_err(|e| ApplyError::Hardening(e.to_string()))?;
         }
         "clamps" => {
-            skillet_hardening::apply(system, files).map_err(|e| e.to_string())?;
+            skillet_hardening::apply(system, files).map_err(|e| ApplyError::Hardening(e.to_string()))?;
 
             // 1. Ingest secret from systemd
             let secret_payload = credentials
-                .read_secret("test_secret")
-                .map_err(|e| e.to_string())?;
+                .read_secret("test_secret")?;
 
             // 2. Provision to Podman
             system
-                .ensure_podman_secret("pihole_web_password", &secret_payload)
-                .map_err(|e| e.to_string())?;
+                .ensure_podman_secret("pihole_web_password", &secret_payload)?;
 
             // Look up pihole user and group IDs
             let (pihole_uid_opt, pihole_gid_opt) = match (
@@ -81,12 +99,11 @@ pub fn apply_host(
                     group_name: "pihole".to_string(),
                 },
                 secrets,
-            )
-            .map_err(|e: skillet_pihole::PiholeError| e.to_string())?;
+            )?;
         }
         _ => {
             // Default fallback: just hardening
-            skillet_hardening::apply(system, files).map_err(|e| e.to_string())?;
+            skillet_hardening::apply(system, files).map_err(|e| ApplyError::Hardening(e.to_string()))?;
         }
     }
     Ok(())

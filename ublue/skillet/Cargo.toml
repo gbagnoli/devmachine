@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/core",
     "crates/hardening",
+    "crates/pihole",
     "crates/podman",
     "crates/cli",
     "crates/hosts/beezelbot",

@@ -1,4 +1,4 @@
-use nix::unistd::{chown, Gid, Uid};
+use nix::unistd::{chown, fchown, Gid, Uid};
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
@@ -96,6 +96,44 @@ impl LocalFileResource {
         }
 
         Ok(changed)
+    }
+
+    fn apply_metadata_to_file(
+        file: &File,
+        mode: Option<u32>,
+        owner: Option<&str>,
+        group: Option<&str>,
+    ) -> Result<(), FileError> {
+        use std::os::unix::io::AsRawFd;
+
+        if let Some(m) = mode {
+            let mut perms = file
+                .metadata()
+                .map_err(|e| FileError::Io(e))?
+                .permissions();
+            perms.set_mode(m);
+            file.set_permissions(perms)
+                .map_err(|e| FileError::Io(e))?;
+        }
+
+        if owner.is_some() || group.is_some() {
+            let uid = owner
+                .map(|u| get_user_by_name(u).ok_or_else(|| FileError::UserNotFound(u.to_string())))
+                .transpose()?
+                .map(|u| Uid::from_raw(u.uid()));
+
+            let gid = group
+                .map(|g| {
+                    get_group_by_name(g).ok_or_else(|| FileError::GroupNotFound(g.to_string()))
+                })
+                .transpose()?
+                .map(|g| Gid::from_raw(g.gid()));
+
+            fchown(file.as_raw_fd(), uid, gid)
+                .map_err(|e| FileError::SetOwnership("temp file".to_string(), e.to_string()))?;
+        }
+
+        Ok(())
     }
 
     fn apply_metadata(
@@ -198,18 +236,20 @@ impl FileResource for LocalFileResource {
             // Write to temp file in same directory (for atomic rename)
             let mut temp_file = NamedTempFile::new_in(parent)?;
             temp_file.write_all(content)?;
+            // Apply metadata to temp file before persist
+            Self::apply_metadata_to_file(temp_file.as_file(), mode, owner, group)?;
             temp_file
                 .persist(path)
                 .map_err(|e| FileError::Persist(path.display().to_string(), e.error))?;
             changed = true;
             info!("Updated file content for {}", path.display());
-        }
-
-        // 3. Check and apply metadata
-        if path.exists() && Self::check_metadata(path, mode, owner, group)? {
-            Self::apply_metadata(path, mode, owner, group)?;
-            changed = true;
-            info!("Updated file metadata for {}", path.display());
+        } else {
+            // Even if content didn't change, we might need to update metadata
+            if path.exists() && Self::check_metadata(path, mode, owner, group)? {
+                Self::apply_metadata(path, mode, owner, group)?;
+                changed = true;
+                info!("Updated file metadata for {}", path.display());
+            }
         }
 
         Ok(changed)
