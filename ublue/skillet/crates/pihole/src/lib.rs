@@ -25,8 +25,8 @@ struct CustomListTemplate {
 }
 
 pub struct PiholeUser {
-    pub uid: u32,
-    pub gid: u32,
+    pub uid: Option<u32>,
+    pub gid: Option<u32>,
     pub name: String,
     pub group_name: String,
 }
@@ -46,8 +46,8 @@ where
     let logs = "/var/log/pihole";
 
     // 1. Ensure user and group
-    system.ensure_group(&user_config.group_name, Some(user_config.gid))?;
-    system.ensure_user(&user_config.name, Some(user_config.uid), Some(user_config.gid))?;
+    system.ensure_group(&user_config.group_name, user_config.gid)?;
+    system.ensure_user(&user_config.name, user_config.uid, user_config.gid)?;
 
     // 2. Ensure directories
     files.ensure_directory(Path::new(root), Some(0o755), Some("root"), Some("root"))?;

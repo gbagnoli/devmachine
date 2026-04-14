@@ -30,6 +30,13 @@ impl CredentialManager {
         let mut content = String::new();
         file.read_to_string(&mut content)
             .map_err(|e| CredentialError::ReadError(name.to_string(), e))?;
-        Ok(content.trim().to_string())
+        // Remove only trailing newline if present, preserving other whitespace
+        if content.ends_with('\n') {
+            content.pop();
+            if content.ends_with('\r') {
+                content.pop();
+            }
+        }
+        Ok(content)
     }
 }
