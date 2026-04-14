@@ -42,4 +42,5 @@ pub enum ResourceOp {
     ServiceReload {
         name: String,
     },
+    DaemonReload,
 }

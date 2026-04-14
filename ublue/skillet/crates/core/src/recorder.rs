@@ -151,4 +151,9 @@ impl<T: SystemResource> SystemResource for Recorder<T> {
         });
         self.inner.service_reload(name)
     }
+
+    fn daemon_reload(&self) -> Result<(), SystemError> {
+        self.record(ResourceOp::DaemonReload);
+        self.inner.daemon_reload()
+    }
 }

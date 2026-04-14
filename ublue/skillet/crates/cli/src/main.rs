@@ -30,6 +30,9 @@ enum Commands {
         /// Optional: Hostname to apply configuration for
         #[arg(long)]
         host: Option<String>,
+        /// Optional: File to read hostname from
+        #[arg(long)]
+        host_file: Option<PathBuf>,
         /// Optional: Output recorded actions to this file path
         #[arg(long)]
         record: Option<PathBuf>,
@@ -77,12 +80,24 @@ fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     match args.command {
-        Commands::Apply { host, record } => {
-            let hostname = host.as_deref().unwrap_or("(Agent Mode)");
-            skillet_cli_common::handle_apply(hostname, record, |system, files| {
+        Commands::Apply {
+            host,
+            host_file,
+            record,
+        } => {
+            let mut hostname = host.unwrap_or_else(|| "(Agent Mode)".to_string());
+            if let Some(p) = host_file {
+                hostname = std::fs::read_to_string(p)
+                    .context("Failed to read host file")?
+                    .trim()
+                    .to_string();
+            }
+
+            skillet_cli_common::handle_apply(&hostname, record, |system, files| {
                 // Initialize credential manager once
                 let cred_manager = CredentialManager::new().map_err(|e| e.to_string())?;
-                host_applies::apply_host(hostname, system, files, &cred_manager)
+                host_applies::apply_host(&hostname, system, files, &cred_manager)
+                    .map_err(|e| e.to_string())
             })
             .map_err(|e| anyhow!("Failed to apply configuration: {e}"))?;
         }
@@ -165,29 +180,8 @@ fn inspect_container(container_name: &str) -> Result<()> {
 }
 
 fn find_workspace_root() -> Result<PathBuf> {
-    let mut current = std::env::current_exe()?
-        .parent()
-        .ok_or_else(|| anyhow!("Failed to get executable directory"))?
-        .to_path_buf();
-
-    loop {
-        if current.join("Cargo.toml").exists() {
-            return Ok(current);
-        }
-        if !current.pop() {
-            break;
-        }
-    }
-
-    // Fallback to CWD if not found relative to exe
-    let cwd = std::env::current_dir()?;
-    if cwd.join("Cargo.toml").exists() {
-        return Ok(cwd);
-    }
-
-    Err(anyhow!(
-        "Failed to locate workspace root (looking for Cargo.toml)"
-    ))
+    let metadata = cargo_metadata::MetadataCommand::new().exec()?;
+    Ok(metadata.workspace_root.into_std_path_buf())
 }
 
 fn locate_binary(hostname: &str) -> Result<PathBuf> {

@@ -34,8 +34,8 @@ fn main() -> Result<()> {
             system,
             files,
             skillet_pihole::PiholeUser {
-                uid: Some(0),
-                gid: Some(0),
+                uid: None,
+                gid: None,
                 name: "pihole".to_string(),
                 group_name: "pihole".to_string(),
             },
