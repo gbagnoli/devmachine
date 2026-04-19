@@ -65,6 +65,8 @@ default["calculon"]["www"]["upstreams"] = {}
 
 # need to be set
 default["calculon"]["gokapi"]["secrets"] = {}
+default["calculon"]["adventurelog"] = {}
+default["calculon"]["adventurelog"]["secrets"] = {}
 
 default["calculon"]["containers"]["storage"]["volume"] = "/var/lib/data/containers"
 default["calculon"]["containers"]["storage"]["driver"] = "btrfs"

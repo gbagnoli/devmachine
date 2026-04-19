@@ -14,6 +14,8 @@ property :password, String, required: true
 property :backup_path, [String, NilClass], callbacks: path_callback
 property :database_path, [String, NilClass], callbacks: path_callback
 property :podman_pod, [String, NilClass]
+property :image, [String, NilClass]
+property :dbenv, String, default: "POSTGRES_DATABASE"
 default_action :create
 
 action :create do
@@ -29,13 +31,19 @@ action :create do
     value new_resource.password
   end
 
+  image = if new_resource.image.nil?
+            "postgres.image"
+          else
+            new_resource.image
+          end
+
   podman_container service_name do
     config(
       Container: [
-        "Image=postgres.image",
+        "Image=#{image}",
         "Exec=-p #{new_resource.port}",
         "Secret=#{password_secret}",
-        "Environment=POSTGRES_DATABASE=#{new_resource.name}",
+        "Environment=#{new_resource.dbenv}=#{new_resource.name}",
         "Environment=POSTGRES_USER=#{new_resource.user}",
         "Environment=POSTGRES_PASSWORD_FILE=#{password_secret_path}",
         "Volume=#{database_path}:/var/lib/postgresql",

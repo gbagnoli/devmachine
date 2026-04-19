@@ -7,7 +7,7 @@ airtrail_port = 3214
 domain = node["calculon"]["airtrail"]["domain"]
 airtrail_base_url = "https://#{domain}"
 airtrail_files = node["calculon"]["storage"]["paths"]["airtrail"]
-backup_path = "#{node["calculon"]["storage"]["paths"]["backups"]}/airtrail"
+backup_path = "#{node["calculon"]["storage"]["paths"]["backups"]}/airtrail/files"
 db_service_unit = "postgresql-airtrail.service"
 
 if pgpasswd.nil?
@@ -20,6 +20,7 @@ calculon_postgresql pgdb do
   user pguser
   password pgpasswd
   podman_pod "web.pod"
+  dbenv "POSTGRES_DATABASE"
 end
 
 podman_image "airtrail" do

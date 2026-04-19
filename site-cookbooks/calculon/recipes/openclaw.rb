@@ -19,6 +19,25 @@ end
 
 port = node["calculon"]["openclaw"]["port"]
 
+extra_config = {".config/gh" => "ro", ".gitconfig" => "ro", ".ssh" => "ro", "workspace" => "rw", ".config/gogcli" => "ro"}.map do |vol, access|
+  local_path="/home/#{user}/#{vol}"
+  remote_path="/home/node/#{vol}"
+  access = access == "rw" ? "" : "ro,"
+  if File.exists?(local_path)
+    "Volume=#{local_path}:#{remote_path}:#{access}Z"
+  end
+end.compact
+
+if File.exists?("home/linuxbrew/.linuxbrew")
+  extra_config << "Volume=/home/linuxbrew:/home/linuxbrew:ro,Z"
+  extra_config << 'Environment=PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"'
+end
+
+gogcli_secret = node["calculon"]["openclaw"]["secrets"]["gog_keyring_password"]
+if !gogcli_secret.nil? && !gogcli_secret.empty?
+  extra_config << "Environment=GOG_KEYRING_PASSWORD=#{gogcli_secret}"
+end
+
 podman_container "openclaw-#{user}" do
   config(
     Container: %W{
@@ -35,13 +54,8 @@ podman_container "openclaw-#{user}" do
       Environment=OPENCLAW_GATEWAY_BIND=::
       Environment=NODE_OPTIONS="--dns-result-order=ipv4first"
       Volume=/etc/localtime:/etc/localtime:ro
-      Volume=/home/#{user}/.config/gh:/home/node/.config/gh:ro,Z
-      Volume=/home/#{user}/.gitconfig:/home/node/.gitconfig:ro,Z
       Volume=/home/#{user}/.openclaw:/home/node/.openclaw:Z
-      Volume=/home/#{user}/.ssh:/home/node/.ssh:ro,Z
-      Volume=/home/#{user}/workspace:/home/node/workspace:Z
-      Volume=/home/linuxbrew:/home/linuxbrew:ro,Z
-    },
+    } + extra_config,
     Service: %w{
       Restart=always
     },

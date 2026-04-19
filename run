@@ -12,12 +12,18 @@ if [ $# -eq 1 ] && [[ "$1" == "system" ]]; then
   hostname="$(hostname -s)"
   secrets="secrets/${hostname}.json"
   chefrepo_secrets="/usr/local/src/chefrepo/secrets/${hostname}.json"
-  set -x
   sudo mkdir -p /usr/local/src/chefrepo
   if  [[ "$secrets" -nt "${chefrepo_secrets}" ]]; then
+    if ! jq -re '""' < "$secrets" &>/dev/null; then
+      echo >&2 "Cannot parse secrets file at $secrets"
+      jq < "$secrets" .
+      exit 5
+    fi
+    echo >&2 "Copying secrets to $chefrepo_secrets"
     sudo cp "$secrets" "$chefrepo_secrets"
     sudo chmod 400 "$chefrepo_secrets"
   fi
+  set -x
   cinc exec berks vendor >/dev/null
   sudo rsync --verbose --delete --exclude "data" --exclude butane --exclude "boostrap" --exclude "local-mode-cache" --exclude ".git" --exclude "nodes" --exclude "secrets" --exclude "ohai/plugins" --exclude ".gnupg" --exclude ".cache" -pthrvz -q  ./ /usr/local/src/chefrepo/
   sudo /usr/local/bin/run-chef
