@@ -41,6 +41,7 @@ podman_container "airtrail" do
       Environment=UPLOAD_LOCATION=/app/uploads
       Environment=PORT=#{airtrail_port}
       Environment=INTEGRATIONS_AERO_DATA_BOX_KEY=#{node["calculon"]["airtrail"]["secrets"]["aerodatabox"]}
+      Environment=INTEGRATIONS_OPEN_AIP_KEY=#{node["calculon"]["airtrail"]["secrets"]["openaip"]}
       Volume=#{airtrail_files}:/app/uploads
       Annotation=run.oci.condition-wait=#{db_service_unit}:healthy
     },
