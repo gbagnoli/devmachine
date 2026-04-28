@@ -23,12 +23,12 @@ extra_config = {".config/gh" => "ro", ".gitconfig" => "ro", ".ssh" => "ro", "wor
   local_path="/home/#{user}/#{vol}"
   remote_path="/home/node/#{vol}"
   access = access == "rw" ? "" : "ro,"
-  if File.exists?(local_path)
+  if File.exist?(local_path)
     "Volume=#{local_path}:#{remote_path}:#{access}Z"
   end
 end.compact
 
-if File.exists?("home/linuxbrew/.linuxbrew")
+if File.exist?("home/linuxbrew/.linuxbrew")
   extra_config << "Volume=/home/linuxbrew:/home/linuxbrew:ro,Z"
   extra_config << 'Environment=PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"'
 end
