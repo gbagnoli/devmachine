@@ -152,9 +152,12 @@ extra_properties = [
   "proxy_send_timeout 300",
   "proxy_connect_timeout 300",
   "send_timeout 300",
+  "proxy_buffer_size 128k",
+  "proxy_buffers 4 256k",
+  "proxy_busy_buffers_size 256k",
 ]
 
-addr6 = "[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]"
+# addr6 = "[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]"
 addr4 = node["calculon"]["network"]["containers"]["ipv4"]["addr"]
 
 podman_nginx_vhost domain do
@@ -172,7 +175,7 @@ podman_nginx_vhost domain do
         "matcher" => "~",
         "upgrade" => "$http_connection",
         "extra_properties" => extra_properties,
-        "upstream" => "http://#{addr6}:#{backend_port}",
+        "upstream" => "http://#{addr4}:#{backend_port}",
         "force_https" => true,
       }
     })
@@ -183,5 +186,9 @@ podman_nginx_vhost domain do
       pass_auth: true
     )
     act_as_upstream 4204
+    default_location_extra_config extra_properties.join(";\n") + ";"
     default_location_force_https true
+    extra_config <<EOH
+large_client_header_buffers 4 32k;
+EOH
 end
