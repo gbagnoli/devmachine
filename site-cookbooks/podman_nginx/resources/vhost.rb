@@ -17,6 +17,7 @@ property :act_as_upstream, [String, Integer, NilClass]
 property :extra_config_as_upstream, [String, NilClass]
 property :upgrade, [true, false], default: true
 property :default_location_extra_config, [String, NilClass]
+property :default_location_force_https, [true, false], default: false
 
 
 action :create do
@@ -78,6 +79,7 @@ action :create do
       extra_config_as_upstream: new_resource.extra_config_as_upstream,
       upgrade: new_resource.upgrade,
       default_location_extra_config: new_resource.default_location_extra_config,
+      default_location_force_https: new_resource.default_location_force_https,
     )
     notifies :reload, "service[nginx]", :immediately
   end
