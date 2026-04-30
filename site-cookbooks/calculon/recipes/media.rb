@@ -2,7 +2,6 @@ chef_gem 'toml-rb' do
   compile_time true
 end
 
-tdarr_root = node["calculon"]["storage"]["paths"]["tdarr"]
 prowlarr_root = node["calculon"]["storage"]["paths"]["prowlarr"]
 putioarr_root = node["calculon"]["storage"]["paths"]["putioarr"]
 radarr_root = node["calculon"]["storage"]["paths"]["radarr"]
@@ -21,7 +20,6 @@ gid = node["calculon"]["data"]["gid"]
   putioarr_root,
   radarr_root,
   sonarr_root,
-  tdarr_root,
   prowlarr_root,
   lidarr_root,
   plex_root,
@@ -34,62 +32,12 @@ gid = node["calculon"]["data"]["gid"]
   end
 end
 
-%w[server configs logs cache cache/series cache/movies].each do |dir|
-  directory "#{tdarr_root}/#{dir}" do
-    owner user
-    group group
-    mode "2755"
-  end
-end
-
 %w[config transcode].each do |dir|
   directory "#{plex_root}/#{dir}" do
     owner user
     group group
     mode "2755"
   end
-end
-
-podman_image "tdarr" do
-  config(
-    Image: ["Image=ghcr.io/haveagitgat/tdarr"],
-  )
-  action :delete
-end
-
-podman_container "tdarr" do
-  config(
-    Container: %W{
-      Image=tdarr.image
-      Pod=web.pod
-      Environment=TZ=#{node["calculon"]["TZ"]}
-      Environment=PUID=#{uid}
-      Environment=PGID=#{gid}
-      Environment=serverPort=8266
-      Environment=webUIPort=8265
-      Environment=internalNode=true
-      Environment=inContainer=true
-      Environment=nodeName=tdarr.calculon.tigc.eu
-      Volume=#{tdarr_root}/server:/app/server
-      Volume=#{tdarr_root}/configs:/app/configs
-      Volume=#{tdarr_root}/logs:/app/logs
-      Volume=#{node["calculon"]["storage"]["paths"]["media"]}/movies/library:/media/movies
-      Volume=#{node["calculon"]["storage"]["paths"]["media"]}/series/library:/media/series
-      Volume=#{tdarr_root}/cache/movies:/var/cache/transcode/movies
-      Volume=#{tdarr_root}/cache/series:/var/cache/transcode/series
-    },
-    Service: %w{
-      Restart=always
-    },
-    Unit: [
-      "Description=Tdarr Media Transcoding",
-      "After=network-online.target",
-    ],
-    Install: [
-      "WantedBy=multi-user.target default.target"
-    ]
-  )
-  action :delete
 end
 
 podman_image "prowlarr" do
@@ -389,15 +337,6 @@ podman_container "plex" do
       "WantedBy=multi-user.target default.target"
     ]
   )
-end
-
-calculon_www_upstream "/tdarr" do
-  upstream_port 8265
-  title "Transcoding"
-  upgrade true
-  category "Tools"
-  upgrade "$http_connection"
-  action :remove
 end
 
 calculon_www_upstream "/radarr" do
