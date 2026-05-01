@@ -1,10 +1,10 @@
 default["podman"]["go"]["version"] = "1.25.6"
 default["podman"]["sources"]["podman"] = {
   url: "https://github.com/containers/podman.git",
-  tag: "v5.7.1",
+  tag: "v5.8.2",
   # btrfs-devel is already installed from downloaded rpm in rocky
   deps:  value_for_platform_family(
-    %w{fedora rhel} => %w{go systemd-devel gpgme-devel libseccomp-devel ostree-devel shadow-utils-subid-devel sqlite-devel},
+    %w{fedora rhel} => %w{go systemd-devel gpgme-devel libseccomp-devel ostree-devel shadow-utils-subid-devel sqlite-devel rpmautospec-rpm-macros},
     "debian"=> %w{}
   ),
   rpms: [{
@@ -15,7 +15,7 @@ default["podman"]["sources"]["podman"] = {
 
 default["podman"]["sources"]["crun"] = {
   url: "https://github.com/containers/crun.git",
-  tag: "1.26",
+  tag: "1.27.1",
   deps:  value_for_platform_family(
     %w{fedora rhel} => %w{make automake autoconf gettext libtool gcc libcap-devel systemd-devel yajl-devel glibc-static libseccomp-devel},
     "debian"=> %w{make git gcc build-essential pkgconf libtool libsystemd-dev libprotobuf-c-dev libcap-dev libseccomp-dev libyajl-dev go-md2man autoconf python3 automake}
@@ -24,7 +24,7 @@ default["podman"]["sources"]["crun"] = {
 
 default["podman"]["sources"]["conmon"] = {
   url: "https://github.com/containers/conmon.git",
-  tag: "v2.1.13",
+  tag: "v2.2.1",
   deps:  value_for_platform_family(
     %w{fedora rhel} => %w{gcc git glib2-devel glibc-devel libseccomp-devel make pkgconfig runc},
     "debian"=> %w{gcc git libc6-dev libglib2.0-dev libseccomp-dev pkg-config make runc}
@@ -39,5 +39,5 @@ default["podman"]["sources"]["catatonit"] = {
     "debian"=> [],
   ),
 }
-default["podman"]["cni-plugins"]["version"] = "v1.9.0"
+default["podman"]["cni-plugins"]["version"] = "v1.9.1"
 default["podman"]["cni-plugins"]["url"]="https://github.com/containernetworking/plugins/releases/download"

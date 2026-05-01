@@ -1,0 +1,158 @@
+#!/bin/bash
+
+# Set strict error handling
+set -ueo pipefail
+
+# Default values
+KEEP_TEMP=false
+INSTALL=true
+PODMAN_DIR="<%= @cache_dir %>/podman"
+LOG_FILE="$PODMAN_DIR/podman_build.log"
+
+# Help function
+show_help() {
+    cat << EOF
+Usage: $(basename "$0") [OPTIONS] [version-tag]
+
+Automated Podman RPM build and installation script.
+Build logs are saved to: $LOG_FILE
+
+Options:
+  -h, --help          Show this help message and exit
+  -k, --keep          Keep temporary Go cache and path directories after build
+  -n, --no-install    Build the RPMs but do not run the dnf install command
+
+Note:
+  The script will abort if the version is "master", "main", or does not match vX.Y.Z
+EOF
+}
+
+# Define cleanup function
+cleanup() {
+    if [ "${TEMP_GOCACHE:-}" ] && [ "${TEMP_GOPATH:-}" ]; then
+        if [ "$KEEP_TEMP" = true ]; then
+            echo "--> Keeping temporary directories as requested:" >&2
+            echo "    GOCACHE: $TEMP_GOCACHE" >&2
+            echo "    GOPATH:  $TEMP_GOPATH" >&2
+        else
+            echo "--> Cleaning up temporary directories..." >&2
+            rm -rf "$TEMP_GOCACHE" "$TEMP_GOPATH"
+        fi
+    fi
+}
+
+# Trap signals
+trap cleanup EXIT INT TERM
+
+# Parse command line options
+PARSED_OPTS=$(getopt -o khn --long keep,help,no-install -- "$@")
+if [ $? -ne 0 ]; then
+    show_help
+    exit 1
+fi
+
+eval set -- "$PARSED_OPTS"
+
+while true; do
+    case "$1" in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -k|--keep)
+            KEEP_TEMP=true
+            shift
+            ;;
+        -n|--no-install)
+            INSTALL=false
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "Internal error!" >&2
+            exit 1
+            ;;
+    esac
+done
+
+if [ "$EUID" -ne 0 ]; then
+    echo "Error: Please run as root (sudo)" >&2
+    exit 1
+fi
+
+if [ ! -d "$PODMAN_DIR" ]; then
+    echo "Error: Directory $PODMAN_DIR does not exist." >&2
+    exit 1
+fi
+
+cd "$PODMAN_DIR"
+
+# Version Discovery
+VERSION=${1:-}
+if [ -z "$VERSION" ]; then
+    echo "--> No version provided. Discovering current checkout..." >&2
+    VERSION=$(git describe --tags --exact-match 2>/dev/null || git rev-parse --abbrev-ref HEAD)
+fi
+
+echo "--> Validating version: $VERSION" >&2
+
+if [[ "$VERSION" == "master" || "$VERSION" == "main" ]]; then
+    echo "Error: Building from '$VERSION' branch is not allowed. Checkout a tag." >&2
+    exit 1
+fi
+
+if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    echo "Error: '$VERSION' is not a valid version tag (expected vX.Y.Z)." >&2
+    exit 1
+fi
+
+RPM_VER="${VERSION#v}"
+TEMP_GOCACHE=$(mktemp -d -t podman-build-cache-XXXXXX)
+TEMP_GOPATH=$(mktemp -d -t podman-build-path-XXXXXX)
+
+echo "--> Created temporary Go cache: $TEMP_GOCACHE" >&2
+echo "--> Created temporary Go path: $TEMP_GOPATH" >&2
+
+echo "--> Cleaning old RPM artifacts..." >&2
+rm -rf rpm/RPMS/*
+
+echo "--> Updating repository and ensuring $VERSION is checked out..." >&2
+git fetch --all --tags
+git checkout "$VERSION"
+
+echo "--> Starting build in clean environment (Logging to $LOG_FILE)..." >&2
+
+# Execute build with logging
+# 2>&1 | tee redirects both stdout/stderr to the log and the screen
+env -i PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+       HOME="/root" \
+       GOCACHE="$TEMP_GOCACHE" \
+       GOPATH="$TEMP_GOPATH" \
+       TERM="${TERM:-xterm}" \
+       /bin/bash --noprofile --norc -ce "
+           cd '$PODMAN_DIR'
+           (make clean && make && make rpm RPMBUILD_FLAGS=\"-D '%autorelease 1' -D '%autochangelog %nop'\") 2>&1 | tee '$LOG_FILE'
+       "
+
+if [ "$INSTALL" = true ]; then
+    echo "--> Installing generated RPMs for version $RPM_VER..." >&2
+    mapfile -t RPMS < <(find "$PODMAN_DIR/rpm/RPMS" -name "*$RPM_VER*.rpm" ! -name "*debugsource*" ! -name "*debuginfo*")
+
+    if [ ${#RPMS[@]} -gt 0 ]; then
+        dnf install --assumeyes --allowerasing "${RPMS[@]}"
+        echo "--> Installation finished successfully." >&2
+    else
+        echo "Warning: No RPMs found matching version $RPM_VER to install." >&2
+    fi
+else
+    echo "--> Skipping installation as requested." >&2
+    echo "--> RPMs are located in: $PODMAN_DIR/rpm/RPMS/" >&2
+fi
+
+echo "--> Cleanup git" >&2
+git checkout rpm/podman.spec
+
+echo "--> Build sequence finished." >&2

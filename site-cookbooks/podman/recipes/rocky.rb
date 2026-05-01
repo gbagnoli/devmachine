@@ -31,15 +31,19 @@ end
 
 include_recipe "podman::sources"
 
-bash "build and install podman" do
+template "/usr/local/bin/build-podman-rpm" do
+  source "build-podman-rpm.sh.erb"
+  mode "0750"
+  owner "root"
+  group "root"
+  variables(
+    cache_dir: Chef::Config[:file_cache_path]
+  )
+end
+
+execute "build and install podman" do
   action :nothing
   cwd "#{Chef::Config[:file_cache_path]}/podman"
-  code <<-EOH
-    make
-    make rpm
-    dnf install --assumeyes rpm/RPMS/*/*.rpm
-    git checkout rpm/podman.spec
-    git rm -r rpm/BUILD rpm/podman-.*.tar.gz
-  EOH
+  command '/usr/local/bin/build-podman-rpm'
   subscribes :run, "git[#{Chef::Config[:file_cache_path]}/podman]", :immediately
 end
