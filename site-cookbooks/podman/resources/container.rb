@@ -6,7 +6,7 @@ property :container_name, [String, NilClass]
 property :config, Hash, required: true
 property :triggers_reload, [true, false], default: true
 property :auto_update, [true, false], default: true
-property :pull, String, default: "missing"
+property :pull, String, default: "never"
 default_action :create
 
 action :create do
@@ -17,6 +17,13 @@ action :create do
 
   unless new_resource.pull.empty?
     new_resource.config[:Container].insert(1, "Pull=#{new_resource.pull}")
+  end
+
+  unless image_name.end_with?(".image")
+    execute "pull_podman_image_for_container_#{container_name}" do
+      not_if "/usr/bin/podman image exists #{image_name}"
+      command "/usr/bin/podman pull #{image_name}"
+    end
   end
 
   podman_systemd_unit "#{new_resource.name}.container" do
@@ -31,6 +38,14 @@ action :delete do
     action :delete
     config new_resource.config
     triggers_reload new_resource.triggers_reload
+  end
+
+  unless image_name.end_with?(".image")
+    execute "rm_podman_image_for_container_#{container_name}" do
+      only_if `/usr/bin/podman image exists #{image_name}`
+      not_if `/usr/bin/podman ps -a --external --filter image=#{image_name} --format "{{.ID}}" | grep -q .`
+      command `/usr/bin/podman image remove #{image_name}`
+    end
   end
 end
 
@@ -49,5 +64,9 @@ action_class do
     else
         new_resource.container_name
     end
+  end
+
+  def image_name
+    new_resource.config[:Container].find { |s| s.start_with?("Image=") }&.delete_prefix("Image=")
   end
 end
