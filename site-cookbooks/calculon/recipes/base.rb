@@ -158,6 +158,7 @@ systemd_unit 'podman-auto-update.timer' do
 end
 
 podman_image "postgres" do
+  action :delete
   config(
     Image: ["Image=docker.io/postgres:18"],
   )

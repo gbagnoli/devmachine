@@ -35,6 +35,7 @@ end
 server_url = "https://#{secrets["domain"]}"
 
 podman_image "gokapi" do
+  action :delete
   config(
     Image: ["Image=docker.io/f0rc3/gokapi"],
   )
@@ -57,7 +58,7 @@ end
 podman_container "gokapi" do
   config(
     Container: %W{
-      Image=gokapi.image
+      Image=docker.io/f0rc3/gokapi
       Pod=web.pod
       User=#{uid}
       Group=#{gid}

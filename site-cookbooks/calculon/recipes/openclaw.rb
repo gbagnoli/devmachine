@@ -5,6 +5,7 @@ gid=node["user"]["gid"]
 domain = node["calculon"]["www"]["openclaw_domain"]
 
 podman_image "openclaw" do
+  action :delete
   config(
     Image: ["Image=ghcr.io/openclaw/openclaw:latest"],
   )
@@ -41,7 +42,7 @@ end
 podman_container "openclaw-#{user}" do
   config(
     Container: %W{
-      Image=openclaw.image
+      Image=ghcr.io/openclaw/openclaw:latest
       UIDMap=0:100000:1000
       UIDMap=1000:#{uid}:1
       UIDMap=1001:101001:64535

@@ -1,6 +1,7 @@
 conf = node["cloudflare_ddns"]
 
 podman_image "cloudflare-ddns" do
+  action :delete
   config(
     Image: ["Image=docker.io/timothyjmiller/cloudflare-ddns:latest"],
   )
@@ -44,7 +45,7 @@ podman_container "cloudflare-ddns" do
   config(lazy do
     {
       Container: %W{
-        Image=cloudflare-ddns.image
+        Image=docker.io/timothyjmiller/cloudflare-ddns:latest
         Environment=PUID=#{node["etc"]["passwd"]["cfddns"]["uid"]}
         Environment=PGID=#{node["etc"]["passwd"]["cfddns"]["gid"]}
         Volume=#{config_file}:/config.json

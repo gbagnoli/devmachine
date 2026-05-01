@@ -36,7 +36,7 @@ action :create do
     config(
       Container: %W{
         Pod=web.pod
-        Image=oauth2_proxy.image
+        Image=quay.io/oauth2-proxy/oauth2-proxy:latest
         Volume=#{emails_file}:#{emails_file}:ro
         Volume=#{config_file}:#{config_file}:ro
         Exec=--config=#{config_file}

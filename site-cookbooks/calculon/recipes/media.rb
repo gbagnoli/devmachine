@@ -41,6 +41,7 @@ end
 end
 
 podman_image "prowlarr" do
+  action :delete
   config(
     Image: ["Image=lscr.io/linuxserver/prowlarr:latest"],
   )
@@ -49,7 +50,7 @@ end
 podman_container "prowlarr" do
   config(
     Container: %W{
-      Image=prowlarr.image
+      Image=lscr.io/linuxserver/prowlarr:latest
       Pod=web.pod
       Environment=TZ=#{node["calculon"]["TZ"]}
       Environment=PUID=#{uid}
@@ -70,6 +71,7 @@ podman_container "prowlarr" do
 end
 
 podman_image "radarr" do
+  action :delete
   config(
     Image: ["Image=lscr.io/linuxserver/radarr:latest"],
   )
@@ -78,7 +80,7 @@ end
 podman_container "radarr" do
   config(
     Container: %W{
-      Image=radarr.image
+      Image=lscr.io/linuxserver/radarr:latest
       Pod=web.pod
       Environment=TZ=#{node["calculon"]["TZ"]}
       Environment=PUID=#{uid}
@@ -100,6 +102,7 @@ podman_container "radarr" do
 end
 
 podman_image "sonarr" do
+  action :delete
   config(
     Image: ["Image=lscr.io/linuxserver/sonarr:latest"],
   )
@@ -108,7 +111,7 @@ end
 podman_container "sonarr" do
   config(
     Container: %W{
-      Image=sonarr.image
+      Image=lscr.io/linuxserver/sonarr:latest
       Pod=web.pod
       Environment=TZ=#{node["calculon"]["TZ"]}
       Environment=PUID=#{uid}
@@ -130,6 +133,8 @@ podman_container "sonarr" do
 end
 
 podman_image "lidarr" do
+  action :delete
+  action :delete
   config(
     Image: ["Image=lscr.io/linuxserver/lidarr:nightly"],
   )
@@ -138,7 +143,7 @@ end
 podman_container "lidarr" do
   config(
     Container: %W{
-      Image=lidarr.image
+      Image=lscr.io/linuxserver/lidarr:nightly
       Pod=web.pod
       Environment=TZ=#{node["calculon"]["TZ"]}
       Environment=PUID=#{uid}
@@ -161,6 +166,7 @@ podman_container "lidarr" do
 end
 
 podman_image "putioarr" do
+  action :delete
   config(
     Image: ["Image=ghcr.io/wouterdebie/putioarr:v0.5.20"],
   )
@@ -227,7 +233,7 @@ end
 podman_container "putioarr" do
   config(
     Container: %W{
-      Image=putioarr.image
+      Image=ghcr.io/wouterdebie/putioarr:v0.5.20
       Pod=web.pod
       Environment=TZ=#{node["calculon"]["TZ"]}
       Environment=PUID=#{uid}
@@ -255,6 +261,7 @@ service "putioarr" do
 end
 
 podman_image "jellyfin" do
+  action :delete
   config(
     Image: ["Image=lscr.io/linuxserver/jellyfin:latest"],
   )
@@ -263,7 +270,7 @@ end
 podman_container "jellyfin" do
   config(
     Container: %W{
-      Image=jellyfin.image
+      Image=lscr.io/linuxserver/jellyfin:latest
       Network=calculon.network
       Environment=TZ=#{node["calculon"]["TZ"]}
       Environment=PUID=#{uid}
@@ -290,6 +297,7 @@ podman_container "jellyfin" do
 end
 
 podman_image "plex" do
+  action :delete
   config(
     Image: ["Image=docker.io/plexinc/pms-docker:latest"],
   )
@@ -312,7 +320,7 @@ end
 podman_container "plex" do
   config(
     Container: %W{
-      Image=plex.image
+      Image=docker.io/plexinc/pms-docker:latest
       Network=calculon.network
       HostName=plex.tigc.eu
       Environment=TZ=#{node["calculon"]["TZ"]}
@@ -330,7 +338,7 @@ podman_container "plex" do
       Restart=always
     },
     Unit: [
-      "Description=jellyfin media server",
+      "Description=Plex media server",
       "After=network-online.target",
     ],
     Install: [

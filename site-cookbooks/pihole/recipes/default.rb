@@ -7,9 +7,10 @@ directory node["pihole"]["paths"]["logs"] do
   mode "0755"
 end
 
+image = "#{node["pihole"]["image"]["repository"]}/pihole/pihole:#{node["pihole"]["image"]["tag"]}"
 podman_image "pihole" do
   config(
-    Image: ["Image=#{node["pihole"]["image"]["repository"]}/pihole/pihole:#{node["pihole"]["image"]["tag"]}"],
+    Image: ["Image=#{image}"]
   )
 end
 
@@ -37,7 +38,7 @@ extra_config = %W{
 podman_container "pihole" do
   config(
     Container: %W{
-      Image=pihole.image
+      Image=#{image}
       Pull=missing
       Volume=#{root}/conf:/etc/pihole
       Volume=#{root}/dnsmasq.d/etc/dnsmasq.d

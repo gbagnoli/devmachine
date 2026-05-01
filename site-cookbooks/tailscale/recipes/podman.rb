@@ -18,6 +18,7 @@ execute "enable UDP offload" do
 end
 
 podman_image "tailscale" do
+  action :delete
   config(
     Image: ["Image=docker.io/tailscale/tailscale"],
   )
@@ -43,7 +44,7 @@ podman_container "tailscale" do
   config(
     Container: %W{
       Network=host
-      Image=tailscale.image
+      Image=docker.io/tailscale/tailscale
       Environment=PORT=#{node["tailscale"]["port"]}
       Environment=TS_STATE_DIR=/var/lib/tailscale
       Environment=TS_USERSPACE=0

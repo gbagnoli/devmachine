@@ -32,7 +32,7 @@ action :create do
   end
 
   image = if new_resource.image.nil?
-            "postgres.image"
+            "docker.io/postgres:18"
           else
             new_resource.image
           end

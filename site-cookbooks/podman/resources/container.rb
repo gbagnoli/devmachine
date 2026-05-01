@@ -6,12 +6,17 @@ property :container_name, [String, NilClass]
 property :config, Hash, required: true
 property :triggers_reload, [true, false], default: true
 property :auto_update, [true, false], default: true
+property :pull, String, default: "missing"
 default_action :create
 
 action :create do
   new_resource.config[:Container].insert(0, "ContainerName=#{container_name}")
   if new_resource.auto_update
     new_resource.config[:Container].insert(1, "AutoUpdate=registry")
+  end
+
+  unless new_resource.pull.empty?
+    new_resource.config[:Container].insert(1, "Pull=#{new_resource.pull}")
   end
 
   podman_systemd_unit "#{new_resource.name}.container" do

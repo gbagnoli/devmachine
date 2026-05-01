@@ -17,6 +17,7 @@ end
 end
 
 podman_image "unifi" do
+  action :delete
   config(
     Image: ["Image=docker.io/jacobalberty/unifi:latest"],
   )
@@ -26,7 +27,7 @@ podman_container "unifi" do
   config(
     Container: %w{
       Network=host
-      Image=unifi.image
+      Image=docker.io/jacobalberty/unifi:latest
       Volume=/srv/unifi:/unifi
       User=unifi
       Environment=TZ=Europe/Madrid

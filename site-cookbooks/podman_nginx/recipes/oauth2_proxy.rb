@@ -9,6 +9,7 @@ end
 include_recipe "podman_nginx::default"
 
 podman_image "oauth2_proxy" do
+  action :delete
   config(
     Image: ["Image=quay.io/oauth2-proxy/oauth2-proxy:latest"]
   )

@@ -40,7 +40,7 @@ end
 podman_container "magiusstaff-syncthing" do
   config(
     Container: %W{
-      Image=syncthing.image
+      Image=docker.io/syncthing/syncthing:latest
       Environment=PUID=#{user_uid}
       Environment=PGID=#{group_gid}
       PublishPort=[#{ipv6}]:8386:8384
@@ -107,7 +107,7 @@ end
 podman_container "magiusstaff-filebrowser" do
   config(
     Container: [
-      "Image=filebrowser.image",
+      "Image=docker.io/filebrowser/filebrowser:latest",
       "Environment=PUID=#{user_uid}",
       "Environment=PGID=#{group_gid}",
       "PublishPort=[#{ipv6}]:8387:8080",

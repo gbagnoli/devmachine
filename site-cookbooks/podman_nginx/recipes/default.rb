@@ -136,6 +136,7 @@ template "#{www}/etc/cloudflare.conf" do
 end
 
 podman_image "nginx" do
+  action :delete
   config(
     Image: ["Image=docker.io/nginx:stable"],
   )
@@ -145,7 +146,7 @@ podman_container "nginx" do
   config(
     Container: %W{
       Pod=web.pod
-      Image=nginx.image
+      Image=docker.io/nginx:stable
       Volume=#{www}/etc/conf.d:#{container_paths["etc"]}/conf.d:ro
       Volume=#{www}/etc/default.d:#{container_paths["etc"]}/default.d:ro
       Volume=#{www}/etc/cloudflare.conf:#{container_paths["etc"]}/cloudflare.conf:ro

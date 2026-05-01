@@ -25,6 +25,7 @@ calculon_firewalld_port "syncthing" do
 end
 
 podman_image "filebrowser" do
+  action :delete
   config(
     Image: ["Image=docker.io/filebrowser/filebrowser:latest"],
   )
@@ -66,7 +67,7 @@ end
 podman_container "filebrowser" do
   config(
     Container: [
-      "Image=filebrowser.image",
+      "Image=docker.io/filebrowser/filebrowser:latest",
       "Environment=PUID=#{node["calculon"]["data"]["uid"]}",
       "Environment=PGID=#{node["calculon"]["data"]["gid"]}",
       "PublishPort=[#{node["calculon"]["network"]["containers"]["ipv6"]["addr"]}]:8385:8080",

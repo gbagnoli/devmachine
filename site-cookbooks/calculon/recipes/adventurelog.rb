@@ -86,20 +86,16 @@ file envfile do
 end
 
 podman_image "adventurelog-server" do
+  action :delete
   config(
     Image: ["Image=ghcr.io/seanmorley15/adventurelog-backend:latest"],
-  )
-end
-podman_image "adventurelog-frontend" do
-  config(
-    Image: ["Image=ghcr.io/seanmorley15/adventurelog-frontend:latest"],
   )
 end
 
 podman_container "adventurelog-server" do
   config(
     Container: %W{
-      Image=adventurelog-server.image
+      Image=ghcr.io/seanmorley15/adventurelog-backend:latest
       Pod=adventurelog.pod
       EnvironmentFile=#{envfile}
       Annotation=run.oci.condition-wait=#{db_service_unit}:healthy
@@ -118,10 +114,18 @@ podman_container "adventurelog-server" do
     ]
   )
 end
+
+podman_image "adventurelog-frontend" do
+  action :delete
+  config(
+    Image: ["Image=ghcr.io/seanmorley15/adventurelog-frontend:latest"],
+  )
+end
+
 podman_container "adventurelog-frontend" do
   config(
     Container: %W{
-      Image=adventurelog-frontend.image
+      Image=ghcr.io/seanmorley15/adventurelog-frontend:latest
       Pod=adventurelog.pod
       EnvironmentFile=#{envfile}
       Volume=/etc/localtime:/etc/localtime:ro

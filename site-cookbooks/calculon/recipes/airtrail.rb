@@ -24,6 +24,7 @@ calculon_postgresql pgdb do
 end
 
 podman_image "airtrail" do
+  action :delete
   config(
     Image: ["Image=docker.io/johly/airtrail:latest"]
   )
@@ -32,7 +33,7 @@ end
 podman_container "airtrail" do
   config(
     Container: %W{
-      Image=airtrail.image
+      Image=docker.io/johly/airtrail:latest
       Pod=web.pod
       User=#{node["calculon"]["data"]["uid"]}
       Environment=HOST=::1
@@ -50,7 +51,7 @@ podman_container "airtrail" do
       Restart=always
     },
     Unit: [
-      "Description=Joplin Server",
+      "Description=Airtrail Server",
       "After=#{db_service_unit}",
       "Requires=#{db_service_unit}",
     ],

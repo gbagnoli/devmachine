@@ -24,6 +24,7 @@ end
 db_service_unit = "postgresql-joplin.service"
 
 podman_image "joplin" do
+  action :delete
   config(
     Image: ["Image=docker.io/joplin/server:latest"],
   )
@@ -49,7 +50,7 @@ end
 podman_container "joplin-server" do
   config(
     Container: %W{
-      Image=joplin.image
+      Image=docker.io/joplin/server:latest
       Pod=web.pod
       Environment=DB_CLIENT=pg
       Environment=POSTGRES_DATABASE=#{pgdb}

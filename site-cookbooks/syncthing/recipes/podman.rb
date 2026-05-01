@@ -1,6 +1,7 @@
 conf = node["syncthing"]["podman"]
 
 podman_image "syncthing" do
+  action :delete
   config(
     Image: ["Image=docker.io/syncthing/syncthing"],
   )
@@ -10,7 +11,7 @@ ipv4_gui = conf["ipv4"]["gui"].empty? ? "" : "#{conf["ipv4"]["gui"]}:"
 ipv4_service = conf["ipv4"]["service"].empty? ? "" : "#{conf["ipv4"]["service"]}:"
 
 container_conf = %W{
-      Image=syncthing.image
+      Image=docker.io/syncthing/syncthing:latest
       PublishPort=[#{conf["ipv6"]["gui"]}]:8384:8384
       PublishPort=#{ipv4_gui}8384:8384
       PublishPort=[#{conf["ipv6"]["service"]}]:22000:22000/tcp
