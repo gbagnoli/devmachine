@@ -31,6 +31,7 @@ if secrets["email"]
     [key, secrets["email"][s].to_s]
   end.to_h
   email_envs["EMAIL_BACKEND"] = "email"
+  email_envs["ACCOUNT_EMAIL_VERIFICATION"] = "mandatory"
 else
   email_envs = {}
 end
@@ -66,6 +67,8 @@ config = {
   "SECRET_KEY" => secrets["secret_key"],
   "GOOGLE_MAPS_API_KEY" => secrets["google_maps_api_key"],
   "DISABLE_REGISTRATION" => "True",
+  "FORCE_SOCIALACCOUNT_LOGIN" => "True",
+  "ENABLE_RATE_LIMITS" => "True",
   # postgresql
   "PGHOST" => "::1",
   "PGPORT" => pgport,
@@ -113,6 +116,11 @@ podman_container "adventurelog-server" do
       "WantedBy=multi-user.target default.target"
     ]
   )
+end
+
+service "adventurelog-server" do
+  action :start
+  subscribes :restart, "file[#{envfile}]"
 end
 
 podman_image "adventurelog-frontend" do
