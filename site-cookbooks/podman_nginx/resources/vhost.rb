@@ -18,7 +18,9 @@ property :extra_config_as_upstream, [String, NilClass]
 property :upgrade, [true, false], default: true
 property :default_location_extra_config, [String, NilClass]
 property :default_location_force_https, [true, false], default: false
-
+# same format as upstream_paths, but for default location
+# only applied if disable_default_location = false
+property :default_location_extra_upstream_paths, Hash, default: {}
 
 action :create do
   server_name = Array(new_resource.server_name).map(&:to_s).sort
@@ -80,6 +82,7 @@ action :create do
       upgrade: new_resource.upgrade,
       default_location_extra_config: new_resource.default_location_extra_config,
       default_location_force_https: new_resource.default_location_force_https,
+      default_location_extra_upstream_paths: new_resource.default_location_extra_upstream_paths,
     )
     notifies :reload, "service[nginx]", :immediately
   end

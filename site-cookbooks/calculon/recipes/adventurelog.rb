@@ -167,14 +167,12 @@ addr4 = node["calculon"]["network"]["containers"]["ipv4"]["addr"]
 podman_nginx_vhost domain do
     server_name domain
     cloudflare true
-    upstream_paths({
-      "/" => {
-        "upgrade" => "$http_connection",
-        "extra_properties" => extra_properties,
-        "upstream" => "http://#{addr4}:#{frontend_port}",
-        "force_https" => true,
-        "matcher" => "",
-      },
+    upgrade true
+    upstream_address addr4
+    upstream_port frontend_port
+    default_location_force_https true
+    default_location_extra_config extra_properties.join(";\n") + ";"
+    default_location_extra_upstream_paths({
       "^/(media|admin|static|accounts)" => {
         "matcher" => "~",
         "upgrade" => "$http_connection",
@@ -183,16 +181,7 @@ podman_nginx_vhost domain do
         "force_https" => true,
       }
     })
-    upgrade true
-    oauth2_proxy(
-      emails: node["calculon"]["www"]["user_emails"],
-      port: 4203,
-      pass_auth: true
-    )
-    act_as_upstream 4204
-    default_location_extra_config extra_properties.join(";\n") + ";"
-    default_location_force_https true
     extra_config <<EOH
-large_client_header_buffers 4 32k;
+  large_client_header_buffers 4 32k;
 EOH
 end
