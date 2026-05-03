@@ -37,11 +37,27 @@ if [ -z "${FORCE-}" ]; then
     fi
 fi
 
-systemctl stop joplin-server
-# Drop and recreate DB as superuser
-podman exec -u postgres "<%= @container %>" dropdb -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>"
-podman exec -u postgres "<%= @container %>" createdb -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>"
+echo >&2 "Stopping server and database"
+systemctl stop <%= @container %>
+echo >&2 "Recreating database"
+rm -rf <%= @database_path %>
+install -d <%= @database_path %> -m 2755 -o <%= @unix_user %> -g <%= @unix_group %>
+systemctl start <%= @container %>
+echo -n >&2 "Waiting for database to come up: "
+for _i in 0 1 2 3 4 5; do
+  echo >&2 "."
+  podman exec -i "<%= @container %>" pg_isready -p <%= @db_port %> -U <%= @db_user %> -d <%= @db %> &> /dev/null && break
+  sleep 10s
+done
 
+if ! podman exec -i "<%= @container %>" pg_isready -p <%= @db_port %> -U <%= @db_user %> -d <%= @db %> &> /dev/null ; then
+  echo >&2 " FAIL"
+  exit 1
+fi
+echo >&2 "OK"
+
+echo >&2 "Reimporting database"
 # Decompress and import
-zstd -d -c "$BACKUP_TO_RESTORE" | podman exec -i "<%= @container %>" psql -p "<%= @db_port %>" -U "<%= @db_user %>" "<%= @db %>"
-systemctl start joplin-server
+zstd -d -c "$BACKUP_TO_RESTORE" | podman exec -i "<%= @container %>" psql -p "<%= @db_port %>" -U "<%= @db_user %>"
+echo >&2 "Starting server"
+systemctl start <%= @app -%>

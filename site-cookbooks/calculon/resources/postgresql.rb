@@ -11,6 +11,7 @@ path_callback = {
 property :port, [String, Integer], required: true
 property :user, String, required: true
 property :password, String, required: true
+property :app, String, required: true
 property :backup_path, [String, NilClass], callbacks: path_callback
 property :database_path, [String, NilClass], callbacks: path_callback
 property :podman_pod, [String, NilClass]
@@ -80,11 +81,15 @@ action :create do
   template "/usr/local/bin/postgresql_restore_#{new_resource.name}" do
     source "postgresql_restore.erb"
     variables(
+      app: new_resource.app,
       container: service_name,
       backup_dir: backup_path,
       db_port: new_resource.port,
       db_user: new_resource.user,
       db: new_resource.name,
+      unix_user: node["calculon"]["data"]["username"],
+      unix_group: node["calculon"]["data"]["group"],
+      database_path: database_path,
     )
     mode '0755'
   end

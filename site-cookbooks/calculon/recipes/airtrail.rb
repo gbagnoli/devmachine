@@ -21,6 +21,7 @@ calculon_postgresql pgdb do
   password pgpasswd
   podman_pod "web.pod"
   dbenv "POSTGRES_DATABASE"
+  app "airtrail"
 end
 
 podman_container "airtrail" do

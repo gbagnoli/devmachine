@@ -19,6 +19,7 @@ calculon_postgresql "joplin" do
   password pgpasswd
   podman_pod "web.pod"
   dbenv "POSTGRES_DATABASE"
+  app "joplin-server"
 end
 
 db_service_unit = "postgresql-joplin.service"

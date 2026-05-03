@@ -91,6 +91,7 @@ calculon_postgresql pgdb do
   image "docker.io/postgis/postgis:16-3.5"
   dbenv "POSTGRES_DB"
   database_image_path "/var/lib/postgresql/data"
+  app "adventurelog-server"
 end
 
 config = {
