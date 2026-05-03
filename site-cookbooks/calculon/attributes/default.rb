@@ -39,6 +39,7 @@ default["calculon"]["storage"]["paths"]["sonarr"] = "/var/lib/data/sonarr"
 default["calculon"]["storage"]["paths"]["sync"] = "/var/lib/data/sync"
 default["calculon"]["storage"]["paths"]["tailscale"] = "/var/lib/data/tailscale"
 default["calculon"]["storage"]["paths"]["tmp"] = "/var/lib/data/tmp"
+default["calculon"]["storage"]["paths"]["wanderer"] = "/var/lib/data/wanderer"
 default["calculon"]["storage"]["paths"]["www"] = "/var/lib/data/www"
 default["calculon"]["storage"]["snapshots_volumes"] = %w{sync magiusstaff/sync}
 default["calculon"]["storage"]["library_dirs"] = {

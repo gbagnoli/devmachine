@@ -9,14 +9,16 @@ path_callback = {
 }
 
 property :path, String, name_property: true, callbacks: path_callback
-property :title, [String, NilClass]
+property :title, String, required: true
 property :category, String, default: "Tools"
 property :upstream_address, String, default: "[::1]"
 property :upstream_port, [String, Integer], required: true
 property :upstream_protocol, String, default: "http", equal_to: %w(http https)
+property :upstream_path, String, default: ""
 property :extra_properties, [Array, NilClass]
 property :upgrade, [String, NilClass, true, false], default: false
 property :matcher, [String, NilClass]
+property :nolink, [true, false], default: false
 default_action :add
 
 action :add do
@@ -27,6 +29,7 @@ action :add do
     "upgrade" => upgrade,
     "matcher" => new_resource.matcher,
     "category" => new_resource.category,
+    "nolink" => new_resource.nolink,
   }
 end
 
@@ -36,7 +39,7 @@ end
 
 action_class do
   def upstream_url
-    "#{new_resource.upstream_protocol}://#{new_resource.upstream_address}:#{new_resource.upstream_port}"
+    "#{new_resource.upstream_protocol}://#{new_resource.upstream_address}:#{new_resource.upstream_port}#{new_resource.upstream_path}"
   end
 
   def upgrade

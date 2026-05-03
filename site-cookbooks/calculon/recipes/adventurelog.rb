@@ -17,6 +17,10 @@ if secrets.empty?
   raise
 end
 domain = node["calculon"]["adventurelog"]["domain"]
+if domain.nil? || domain.empty?
+  Chef::Log.info('calculon: missing domain for adventurelog')
+  raise
+end
 public_url = "https://#{domain}"
 envfile="/etc/containers/systemd/adventurelog-server.env"
 
