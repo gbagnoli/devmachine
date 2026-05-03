@@ -12,6 +12,7 @@ podman_image "pihole" do
   config(
     Image: ["Image=#{image}"]
   )
+  action :delete
 end
 
 unless node["pihole"]["dns"]["custom"].nil?
