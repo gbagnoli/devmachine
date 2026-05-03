@@ -21,6 +21,7 @@ default["calculon"]["storage"]["manage"] = true
 default["calculon"]["storage"]["dev"] = "/dev/sda5"
 
 default["calculon"]["storage"]["paths"]["root"] = "/var/lib/data"
+default["calculon"]["storage"]["paths"]["adventurelog"] = "/var/lib/data/adventurelog"
 default["calculon"]["storage"]["paths"]["airtrail"] = "/var/lib/data/sync/airtrail"
 default["calculon"]["storage"]["paths"]["backups"] = "/var/lib/data/sync/backups"
 default["calculon"]["storage"]["paths"]["databases"] = "/var/lib/data/dbs"

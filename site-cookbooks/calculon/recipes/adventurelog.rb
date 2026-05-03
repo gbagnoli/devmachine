@@ -5,6 +5,12 @@ pgport=6060
 pgdb="adventurelog"
 pguser="adventurelog"
 db_service_unit = "postgresql-#{pgdb}.service"
+adventurelog_data = node["calculon"]["storage"]["paths"]["adventurelog"]
+user = node["calculon"]["data"]["username"]
+group = node["calculon"]["data"]["group"]
+uid = node["calculon"]["data"]["uid"]
+gid = node["calculon"]["data"]["gid"]
+
 secrets=node["calculon"]["adventurelog"]["secrets"]
 if secrets.empty?
   Chef::Log.info('calculon: missing secrets for adventurelog')
@@ -36,6 +42,35 @@ else
   email_envs = {}
 end
 
+calculon_btrfs_volume adventurelog_data do
+  owner user
+  group group
+  mode "2775"
+  setfacl true
+end
+
+[
+  "#{adventurelog_data}/media",
+  "#{adventurelog_data}/nginx"
+].each do |dir|
+  directory dir do
+    owner user
+    group group
+    mode "2755"
+  end
+end
+
+[
+  "#{adventurelog_data}/supervisord.log",
+  "#{adventurelog_data}/scheduler.log"
+].each do |f|
+  file f do
+    owner user
+    group group
+    mode "0644"
+  end
+end
+
 podman_pod "adventurelog" do
   config(
     Pod: %W{
@@ -55,6 +90,7 @@ calculon_postgresql pgdb do
   podman_pod "adventurelog.pod"
   image "docker.io/postgis/postgis:16-3.5"
   dbenv "POSTGRES_DB"
+  database_image_path "/var/lib/postgresql/data"
 end
 
 config = {
@@ -67,7 +103,6 @@ config = {
   "SECRET_KEY" => secrets["secret_key"],
   "GOOGLE_MAPS_API_KEY" => secrets["google_maps_api_key"],
   "DISABLE_REGISTRATION" => "True",
-  "FORCE_SOCIALACCOUNT_LOGIN" => "True",
   "ENABLE_RATE_LIMITS" => "True",
   # postgresql
   "PGHOST" => "::1",
@@ -95,7 +130,17 @@ podman_container "adventurelog-server" do
       Pod=adventurelog.pod
       EnvironmentFile=#{envfile}
       Annotation=run.oci.condition-wait=#{db_service_unit}:healthy
+      User=#{uid}
+      Group=#{gid}
       Volume=/etc/localtime:/etc/localtime:ro
+      Volume=#{adventurelog_data}/media:/code/media
+      Volume=#{adventurelog_data}/supervisord.log:/code/supervisord.log
+      Volume=#{adventurelog_data}/scheduler.log:/code/scheduler.log
+      Volume=#{adventurelog_data}/nginx:/var/lib/nginx
+      Volume=#{adventurelog_data}/nginx:/var/log/nginx
+      Volume=#{adventurelog_data}/nginx:/var/cache/nginx
+      Sysctl=net.ipv4.ip_unprivileged_port_start=80
+      Tmpfs=/run:rw,size=64M,mode=0777
     },
     Service: %w{
       Restart=always
@@ -123,6 +168,8 @@ podman_container "adventurelog-frontend" do
       Pod=adventurelog.pod
       EnvironmentFile=#{envfile}
       Volume=/etc/localtime:/etc/localtime:ro
+      User=#{uid}
+      Group=#{gid}
     },
     Service: %w{
       Restart=always

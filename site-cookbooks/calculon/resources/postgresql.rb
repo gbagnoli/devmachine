@@ -16,6 +16,7 @@ property :database_path, [String, NilClass], callbacks: path_callback
 property :podman_pod, [String, NilClass]
 property :image, [String, NilClass]
 property :dbenv, String, default: "POSTGRES_DATABASE"
+property :database_image_path, String, default: "/var/lib/postgresql"
 default_action :create
 
 action :create do
@@ -46,7 +47,7 @@ action :create do
         "Environment=#{new_resource.dbenv}=#{new_resource.name}",
         "Environment=POSTGRES_USER=#{new_resource.user}",
         "Environment=POSTGRES_PASSWORD_FILE=#{password_secret_path}",
-        "Volume=#{database_path}:/var/lib/postgresql",
+        "Volume=#{database_path}:#{new_resource.database_image_path}",
         "HealthCmd=pg_isready -p #{new_resource.port} -U #{new_resource.user} -d #{new_resource.name}",
         "HealthInterval=5s",
         "HealthRetries=5",
