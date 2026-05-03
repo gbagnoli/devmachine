@@ -24,13 +24,6 @@ calculon_firewalld_port "syncthing" do
   port %w{22000/tcp 22000/udp}
 end
 
-podman_image "filebrowser" do
-  action :delete
-  config(
-    Image: ["Image=docker.io/filebrowser/filebrowser:latest"],
-  )
-end
-
 fbdir = "#{sync}/.filebrowser"
 fbdatabase = "#{fbdir}/database.db"
 fbsettings = "#{fbdir}/settings.json"

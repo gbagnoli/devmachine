@@ -34,13 +34,6 @@ secrets = node["calculon"]["gokapi"]["secrets"].to_h
 end
 server_url = "https://#{secrets["domain"]}"
 
-podman_image "gokapi" do
-  action :delete
-  config(
-    Image: ["Image=docker.io/f0rc3/gokapi"],
-  )
-end
-
 template "#{gokapi_config}/config.json" do
   source "gokapi_config.json.erb"
   variables(

@@ -8,12 +8,6 @@ directory node["pihole"]["paths"]["logs"] do
 end
 
 image = "#{node["pihole"]["image"]["repository"]}/pihole/pihole:#{node["pihole"]["image"]["tag"]}"
-podman_image "pihole" do
-  config(
-    Image: ["Image=#{image}"]
-  )
-  action :delete
-end
 
 unless node["pihole"]["dns"]["custom"].nil?
   template "/etc/pihole/conf/custom.list" do

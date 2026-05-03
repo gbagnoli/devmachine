@@ -88,13 +88,6 @@ file envfile do
   content config.sort.map {|k,v| "#{k.upcase}=#{v}"}.join("\n")
 end
 
-podman_image "adventurelog-server" do
-  action :delete
-  config(
-    Image: ["Image=ghcr.io/seanmorley15/adventurelog-backend:latest"],
-  )
-end
-
 podman_container "adventurelog-server" do
   config(
     Container: %W{
@@ -121,13 +114,6 @@ end
 service "adventurelog-server" do
   action :start
   subscribes :restart, "file[#{envfile}]"
-end
-
-podman_image "adventurelog-frontend" do
-  action :delete
-  config(
-    Image: ["Image=ghcr.io/seanmorley15/adventurelog-frontend:latest"],
-  )
 end
 
 podman_container "adventurelog-frontend" do

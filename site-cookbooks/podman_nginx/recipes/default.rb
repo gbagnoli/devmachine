@@ -135,13 +135,6 @@ template "#{www}/etc/cloudflare.conf" do
   notifies :reload, "service[nginx]", :delayed
 end
 
-podman_image "nginx" do
-  action :delete
-  config(
-    Image: ["Image=docker.io/nginx:stable"],
-  )
-end
-
 podman_container "nginx" do
   config(
     Container: %W{

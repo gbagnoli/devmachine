@@ -1,12 +1,5 @@
 conf = node["cloudflare_ddns"]
 
-podman_image "cloudflare-ddns" do
-  action :delete
-  config(
-    Image: ["Image=docker.io/timothyjmiller/cloudflare-ddns:latest"],
-  )
-end
-
 ohai 'etc' do
   plugin 'etc'
   action :nothing

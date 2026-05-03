@@ -1,12 +1,5 @@
 conf = node["syncthing"]["podman"]
 
-podman_image "syncthing" do
-  action :delete
-  config(
-    Image: ["Image=docker.io/syncthing/syncthing"],
-  )
-end
-
 ipv4_gui = conf["ipv4"]["gui"].empty? ? "" : "#{conf["ipv4"]["gui"]}:"
 ipv4_service = conf["ipv4"]["service"].empty? ? "" : "#{conf["ipv4"]["service"]}:"
 

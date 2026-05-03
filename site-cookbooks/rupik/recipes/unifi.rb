@@ -16,13 +16,6 @@ end
   end
 end
 
-podman_image "unifi" do
-  action :delete
-  config(
-    Image: ["Image=docker.io/jacobalberty/unifi:latest"],
-  )
-end
-
 podman_container "unifi" do
   config(
     Container: %w{

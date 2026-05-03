@@ -23,13 +23,6 @@ end
 
 db_service_unit = "postgresql-joplin.service"
 
-podman_image "joplin" do
-  action :delete
-  config(
-    Image: ["Image=docker.io/joplin/server:latest"],
-  )
-end
-
 mail_config = []
 mconf = node["calculon"]["joplin"]["secrets"]["mail"]
 unless mconf.nil?

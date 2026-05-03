@@ -17,13 +17,6 @@ execute "enable UDP offload" do
   not_if "ethtool -k eth0 | grep -q 'rx-udp-gro-forwarding: on'"
 end
 
-podman_image "tailscale" do
-  action :delete
-  config(
-    Image: ["Image=docker.io/tailscale/tailscale"],
-  )
-end
-
 directory conf["config_dir"] do
   owner conf["user"]
   group conf["group"]

@@ -40,13 +40,6 @@ end
   end
 end
 
-podman_image "prowlarr" do
-  action :delete
-  config(
-    Image: ["Image=lscr.io/linuxserver/prowlarr:latest"],
-  )
-end
-
 podman_container "prowlarr" do
   config(
     Container: %W{
@@ -67,13 +60,6 @@ podman_container "prowlarr" do
     Install: [
       "WantedBy=multi-user.target default.target"
     ]
-  )
-end
-
-podman_image "radarr" do
-  action :delete
-  config(
-    Image: ["Image=lscr.io/linuxserver/radarr:latest"],
   )
 end
 
@@ -101,13 +87,6 @@ podman_container "radarr" do
   )
 end
 
-podman_image "sonarr" do
-  action :delete
-  config(
-    Image: ["Image=lscr.io/linuxserver/sonarr:latest"],
-  )
-end
-
 podman_container "sonarr" do
   config(
     Container: %W{
@@ -129,14 +108,6 @@ podman_container "sonarr" do
     Install: [
       "WantedBy=multi-user.target default.target"
     ]
-  )
-end
-
-podman_image "lidarr" do
-  action :delete
-  action :delete
-  config(
-    Image: ["Image=lscr.io/linuxserver/lidarr:nightly"],
   )
 end
 
@@ -162,13 +133,6 @@ podman_container "lidarr" do
     Install: [
       "WantedBy=multi-user.target default.target"
     ]
-  )
-end
-
-podman_image "putioarr" do
-  action :delete
-  config(
-    Image: ["Image=ghcr.io/wouterdebie/putioarr:v0.5.20"],
   )
 end
 
@@ -260,13 +224,6 @@ service "putioarr" do
   action %i{start}
 end
 
-podman_image "jellyfin" do
-  action :delete
-  config(
-    Image: ["Image=lscr.io/linuxserver/jellyfin:latest"],
-  )
-end
-
 podman_container "jellyfin" do
   config(
     Container: %W{
@@ -293,13 +250,6 @@ podman_container "jellyfin" do
     Install: [
       "WantedBy=multi-user.target default.target"
     ]
-  )
-end
-
-podman_image "plex" do
-  action :delete
-  config(
-    Image: ["Image=docker.io/plexinc/pms-docker:latest"],
   )
 end
 

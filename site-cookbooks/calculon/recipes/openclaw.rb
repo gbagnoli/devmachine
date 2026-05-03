@@ -4,13 +4,6 @@ uid=node["user"]["uid"]
 gid=node["user"]["gid"]
 domain = node["calculon"]["www"]["openclaw_domain"]
 
-podman_image "openclaw" do
-  action :delete
-  config(
-    Image: ["Image=ghcr.io/openclaw/openclaw:latest"],
-  )
-end
-
 directory "/home/#{user}/.openclaw" do
   action :create
   owner user

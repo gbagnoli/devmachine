@@ -23,13 +23,6 @@ calculon_postgresql pgdb do
   dbenv "POSTGRES_DATABASE"
 end
 
-podman_image "airtrail" do
-  action :delete
-  config(
-    Image: ["Image=docker.io/johly/airtrail:latest"]
-  )
-end
-
 podman_container "airtrail" do
   config(
     Container: %W{
