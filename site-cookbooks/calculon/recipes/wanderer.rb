@@ -218,7 +218,7 @@ podman_nginx_vhost domain do
     cloudflare true
     upgrade true
     upstream_address addr4
-    upstream_port web_port
+    upstream_port web_ext_port
     default_location_force_https true
     default_location_extra_config extra_properties.join(";\n") + ";"
     extra_config <<EOH
