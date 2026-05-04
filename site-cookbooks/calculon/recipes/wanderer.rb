@@ -260,7 +260,7 @@ systemd_unit "wanderer-backup-files.service" do
   content <<~EOH
 [Unit]
 Description=Daily Wanderer Files Backup
-After=wanderer.service
+After=#{db_service}
 
 [Service]
 Type=oneshot
