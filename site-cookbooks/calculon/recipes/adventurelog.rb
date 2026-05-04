@@ -231,3 +231,37 @@ podman_nginx_vhost domain do
   large_client_header_buffers 4 32k;
 EOH
 end
+
+backup_path = "#{node["calculon"]["storage"]["paths"]["backups"]}/adventurelog"
+
+systemd_unit "adventurelog-backup-files.service" do
+  content <<~EOH
+[Unit]
+Description=Daily Adventurelog Files Backup
+After=adventurelog-server.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rsync -aAXHv --mkpath --delete #{adventurelog_data}/media/ #{backup_path}/media/
+
+[Install]
+WantedBy=default.target
+  EOH
+  action %i(create enable)
+end
+
+systemd_unit "adventurelog-backup-files.timer" do
+  content <<~EOH
+[Unit]
+Description=Run Adventurelog Files Backup Daily
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=4h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+  EOH
+  action %i(create enable start)
+end
