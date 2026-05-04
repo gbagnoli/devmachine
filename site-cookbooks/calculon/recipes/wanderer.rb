@@ -10,6 +10,7 @@ user = node["calculon"]["data"]["username"]
 group = node["calculon"]["data"]["group"]
 secrets = node["calculon"]["wanderer"]["secrets"]
 domain = node["calculon"]["wanderer"]["domain"]
+backup_path = "#{node["calculon"]["storage"]["paths"]["backups"]}/wanderer"
 if secrets.empty?
   Chef::Log.info('calculon: missing secrets for wanderer')
   raise
@@ -253,4 +254,37 @@ bash "wanderer_create_admin" do
 /usr/bin/podman exec -it #{db_container} /pocketbase superuser upsert "#{secrets["admin_email"]}" "#{secrets["admin_password"]}"|| exit 1
 touch #{wanderer_root}/.superuser_created"
 EOH
+end
+
+systemd_unit "wanderer-backup-files.service" do
+  content <<~EOH
+[Unit]
+Description=Daily Wanderer Files Backup
+After=wanderer.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rsync -aAXHv --mkpath --delete #{wanderer_root}/uploads/ #{backup_path}/uploads/
+ExecStart=/usr/bin/rsync -aAHXv  --mkpath --delete #{wanderer_root}/pocketbase/backups/ #{backup_path}/pocketbase/
+
+[Install]
+WantedBy=default.target
+  EOH
+  action %i(create enable)
+end
+
+systemd_unit "wanderer-backup-files.timer" do
+  content <<~EOH
+[Unit]
+Description=Run Wanderer Files Backup Daily
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=4h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+  EOH
+  action %i(create enable start)
 end
