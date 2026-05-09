@@ -13,6 +13,7 @@ include_recipe "calculon::gokapi"
 include_recipe "calculon::openclaw"
 include_recipe "calculon::adventurelog"
 include_recipe "calculon::wanderer"
+include_recipe "calculon::mybibliotheca"
 
 # create the www vhost with the accumulated hosts
 domain = node["calculon"]["www"]["domain"]
