@@ -3,8 +3,6 @@ web_port = 5054
 
 user = node["calculon"]["data"]["username"]
 group = node["calculon"]["data"]["group"]
-uid = node["calculon"]["data"]["uid"]
-gid = node["calculon"]["data"]["gid"]
 secrets = node["calculon"]["mybibliotheca"]["secrets"]
 domain = node["calculon"]["mybibliotheca"]["domain"]
 backup_path = "#{node["calculon"]["storage"]["paths"]["backups"]}/mybibliotheca"
@@ -36,11 +34,15 @@ calculon_btrfs_volume mybibliotheca_root do
   setfacl true
 end
 
-directory data do
-    owner user
-    group group
-    mode "2755"
+[
+  "data",
+].each do |dir|
+  directory "#{mybibliotheca_root}/#{dir}" do
+      owner user
+      group group
+      mode "2755"
   end
+end
 
 config = {
   "SECRET_KEY" => secrets["secret_key"],
@@ -63,8 +65,6 @@ podman_container container do
       "Image=docker.io/pickles4evaaaa/mybibliotheca:2.1.0",
       "EnvironmentFile=#{envfile}",
       "Volume=#{data}:/app/data",
-      "User=#{uid}",
-      "Group=#{gid}",
       "PublishPort=[::]:#{web_ext_port}:#{web_port}/tcp",
       "PublishPort=#{web_ext_port}:#{web_port}/tcp",
     ],
@@ -90,13 +90,14 @@ calculon_www_link "Books" do
   url public_url
 end
 
-addr6 = node["calculon"]["network"]["containers"]["ipv6"]["addr"]
+addr4 = node["calculon"]["network"]["containers"]["ipv4"]["addr"]
 podman_nginx_vhost domain do
   server_name domain
   cloudflare true
   upgrade true
-  upstream_address addr6
   upstream_port web_ext_port
+  # for some reason ipv6 is not responding
+  upstream_address addr4
   oauth2_proxy(
     emails: node["calculon"]["www"]["user_emails"],
     port: 4300
@@ -110,7 +111,7 @@ Description=Daily Mybibliotheca Files Backup
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/rsync -aAXHv --mkpath --delete #{data} #{backup_path}/
+ExecStart=/usr/bin/rsync -aAXHv --mkpath --delete #{mybibliotheca_root}/ #{backup_path}/
 
 [Install]
 WantedBy=default.target
