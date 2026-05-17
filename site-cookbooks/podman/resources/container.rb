@@ -19,7 +19,7 @@ action :create do
     new_resource.config[:Container].insert(1, "Pull=#{new_resource.pull}")
   end
 
-  unless image_name.end_with?(".image")
+  unless image_name.nil? || image_name.to_s.end_with?(".image")
     execute "pull_podman_image_for_container_#{container_name}" do
       not_if "/usr/bin/podman image exists #{image_name}"
       command "/usr/bin/podman pull #{image_name}"
@@ -40,11 +40,11 @@ action :delete do
     triggers_reload new_resource.triggers_reload
   end
 
-  unless image_name.end_with?(".image")
+  unless image_name.nil? || image_name.to_s.end_with?(".image")
     execute "rm_podman_image_for_container_#{container_name}" do
-      only_if `/usr/bin/podman image exists #{image_name}`
-      not_if `/usr/bin/podman ps -a --external --filter image=#{image_name} --format "{{.ID}}" | grep -q .`
-      command `/usr/bin/podman image remove #{image_name}`
+      not_if "/usr/bin/podman ps -a --external --filter ancestor='#{image_name}' --format '{{.ID}}' | grep -q ."
+      only_if "/usr/bin/podman image exists '#{image_name}'"
+      command "/usr/bin/podman image rm '#{image_name}'"
     end
   end
 end
@@ -67,6 +67,6 @@ action_class do
   end
 
   def image_name
-    new_resource.config[:Container].find { |s| s.start_with?("Image=") }&.delete_prefix("Image=")
+    new_resource.config[:Container].to_a.find { |s| s.start_with?("Image=") }&.delete_prefix("Image=")
   end
 end
