@@ -66,7 +66,12 @@ podman_nginx_vhost domain do
     upstream_port airtrail_port
     oauth2_proxy(
       emails: node["calculon"]["www"]["user_emails"],
-      port: 4200
+      port: 4200,
+      extra_config: {
+        skip_auth_regex: [
+          "^/api/.*"
+        ]
+      }
     )
 end
 
