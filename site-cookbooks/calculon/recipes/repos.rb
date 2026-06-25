@@ -9,7 +9,7 @@ node.default["yum"]["epel-testing"]["enabled"] = true
 node.default["yum"]["epel-testing"]["managed"] = true
 include_recipe "yum-epel"
 
-node.default["yum"]["elrepo"]["enabled"] = true
-include_recipe "yum-elrepo"
-include_recipe "yum-elrepo::extras"
-include_recipe "yum-elrepo::kernel"
+yum_elrepo 'default'
+yum_elrepo_extras 'default'
+yum_elrepo_kernel 'default'
+
