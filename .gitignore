@@ -21,3 +21,5 @@ nodes/*.json
 secrets/*.json
 tests/**/vendor
 vendor/
+.Berksfile.vendored
+

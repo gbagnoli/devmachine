@@ -24,11 +24,12 @@ if [ $# -eq 1 ] && [[ "$1" == "system" ]]; then
     sudo chmod 400 "$chefrepo_secrets"
   fi
   set -x
-  if [ -d berks-cookbooks ] && [ -f Berksfile.lock ] && [ Berksfile.lock -nt berks-cookbooks ]; then
-    echo >&2 "Berksfile.lock is newer than berks-cookbooks directory. Cleaning berks-cookbooks..."
-    rm -rf berks-cookbooks
+  if [ ! -f .Berksfile.vendored ] || [ .Berksfile.vendored -ot Berksfile.lock ]; then
+    cinc exec berks vendor --delete >/dev/null
+    touch .Berksfile.vendored
+  else
+    echo "Vendor is skipped as it's up to date"
   fi
-  cinc exec berks vendor >/dev/null
   sudo rsync --verbose --delete --exclude "data" --exclude butane --exclude "boostrap" --exclude "local-mode-cache" --exclude ".git" --exclude "nodes" --exclude "secrets" --exclude "ohai/plugins" --exclude ".gnupg" --exclude ".cache" -pthrvz -q  ./ /usr/local/src/chefrepo/
   sudo /usr/local/bin/run-chef
 else
