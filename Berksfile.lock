@@ -1,4 +1,5 @@
 DEPENDENCIES
+  apt (~> 7)
   argonone
     path: site-cookbooks/argonone
   boxy
@@ -51,7 +52,7 @@ DEPENDENCIES
     path: site-cookbooks/user
 
 GRAPH
-  apt (8.0.0)
+  apt (7.7.0)
   argonone (0.1.0)
   ark (6.0.33)
     seven_zip (>= 3.1)
