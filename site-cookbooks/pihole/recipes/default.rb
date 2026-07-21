@@ -10,7 +10,7 @@ end
 image = "#{node["pihole"]["image"]["repository"]}/pihole/pihole:#{node["pihole"]["image"]["tag"]}"
 
 unless node["pihole"]["dns"]["custom"].nil?
-  template "/etc/pihole/conf/custom.list" do
+  template "#{root}/conf/custom.list" do
     mode "0640"
     variables(custom: node["pihole"]["dns"]["custom"],
               fqdn: node["pihole"]["dns"]["custom_domain"])

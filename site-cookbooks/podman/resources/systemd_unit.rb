@@ -5,6 +5,7 @@ unified_mode true
 property :config, Hash, required: true
 property :triggers_reload, [true, false], default: true
 property :restart_service, [true, false], default: true
+property :start_service, [true, false], default: true
 property :user, [String, NilClass]
 default_action :create
 
@@ -23,7 +24,7 @@ action :create do
     notifies :restart, service_unit if service? && new_resource.restart_service
   end
 
-  service_unit.run_action(:start) if service?
+  service_unit.run_action(:start) if service? && new_resource.start_service
 end
 
 action :start_service do

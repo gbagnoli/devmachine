@@ -11,7 +11,6 @@ default["pihole"]["image"]["repository"] = "docker.io"
 default["pihole"]["tz"] = "Europe/Madrid"
 # every key value is passed as environment as FTLCONF_<key>=<value>
 # see https://docs.pi-hole.net/docker/configuration
-default["pihole"]["conf"]["dns_upstreams"] = "1.1.1.1;8.8.8.8"
 default["pihole"]["conf"]["webserver_port"] = "8088o,[::]:8088o"
 
 default["pihole"]["container"] = {}

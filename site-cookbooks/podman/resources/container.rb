@@ -6,6 +6,8 @@ property :container_name, [String, NilClass]
 property :config, Hash, required: true
 property :triggers_reload, [true, false], default: true
 property :auto_update, [true, false], default: true
+property :restart_service, [true, false], default: true
+property :start_service, [true, false], default: true
 property :pull, String, default: "never"
 default_action :create
 
@@ -30,6 +32,8 @@ action :create do
     config new_resource.config
     action :create
     triggers_reload new_resource.triggers_reload
+    restart_service new_resource.restart_service
+    start_service new_resource.start_service
   end
 end
 
