@@ -64,3 +64,5 @@ end
 service "pihole" do
   action :start
 end
+
+include_recipe "pihole::nebula_sync"
