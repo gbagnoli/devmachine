@@ -51,7 +51,7 @@ DEPENDENCIES
     path: site-cookbooks/user
 
 GRAPH
-  apt (7.7.0)
+  apt (8.0.0)
   argonone (0.1.0)
   ark (6.0.33)
     seven_zip (>= 3.1)
@@ -85,7 +85,7 @@ GRAPH
     apt (>= 0.0.0)
     yum (>= 3.0)
   debconf (0.0.1)
-  git (13.0.0)
+  git (13.0.1)
     ark (>= 0.0.0)
   gnome (0.1.0)
   hardening (0.1.0)
@@ -145,4 +145,4 @@ GRAPH
   windows (7.0.2)
   yum (8.0.0)
   yum-elrepo (3.0.0)
-  yum-epel (5.0.9)
+  yum-epel (6.0.0)
