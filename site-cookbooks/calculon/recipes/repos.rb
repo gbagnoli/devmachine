@@ -5,9 +5,10 @@ if platform?("rocky")
   end
 end
 
-node.default["yum"]["epel-testing"]["enabled"] = true
-node.default["yum"]["epel-testing"]["managed"] = true
-include_recipe "yum-epel"
+yum_epel "testing" do
+  repositories %w[epel epel-testing]
+  enabled_repositories %w[epel epel-testing]
+end
 
 yum_elrepo 'default'
 yum_elrepo_extras 'default'
