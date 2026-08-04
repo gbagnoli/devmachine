@@ -89,12 +89,16 @@ podman_nginx_vhost secrets["domain"] do
       pass_auth: true,
       extra_config: {
         skip_auth_regex: [
+          "^/api/uploadrequest/chunk/.*",
+          "^/assets/.*",
+          "^/css/.*",
           "^/d.*",
-          "^/js/.*",
-          "^/static/.*",
+          "^/favicon.*",
           "^/downloadFile.*",
+          "^/js/.*",
           "^/publicUpload.*",
-          "^/api/uploadrequest/chunk/.*"
+          "^/site.webmanifest",
+          "^/static/.*",
         ]
       }
     )
