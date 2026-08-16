@@ -1,23 +1,23 @@
-default["podman"]["go"]["version"] = "1.25.6"
+default["podman"]["go"]["version"] = "1.26.6"
 default["podman"]["sources"]["podman"] = {
   url: "https://github.com/containers/podman.git",
-  tag: "v5.8.2",
+  tag: "v6.1.0",
   # btrfs-devel is already installed from downloaded rpm in rocky
   deps:  value_for_platform_family(
     %w{fedora rhel} => %w{go systemd-devel gpgme-devel libseccomp-devel ostree-devel shadow-utils-subid-devel sqlite-devel rpmautospec-rpm-macros},
     "debian"=> %w{}
   ),
   rpms: [{
-    url: "https://kojipkgs.fedoraproject.org//packages/containers-common/1/95.fc39/noarch",
-    rpms: %w{containers-common-1-95.fc39.noarch.rpm containers-common-extra-1-95.fc39.noarch.rpm}
+    url: "https://kojipkgs.fedoraproject.org/packages/containers-common/1/99.fc39/noarch/",
+    rpms: %w{containers-common-1-99.fc39.noarch.rpm containers-common-extra-1-99.fc39.noarch.rpm}
   }]
 }
 
 default["podman"]["sources"]["crun"] = {
   url: "https://github.com/containers/crun.git",
-  tag: "1.27.1",
+  tag: "1.29.1",
   deps:  value_for_platform_family(
-    %w{fedora rhel} => %w{make automake autoconf gettext libtool gcc libcap-devel systemd-devel yajl-devel glibc-static libseccomp-devel},
+    %w{fedora rhel} => %w{make automake autoconf gettext libtool gcc libcap-devel systemd-devel yajl-devel glibc-static libseccomp-devel json-c-devel},
     "debian"=> %w{make git gcc build-essential pkgconf libtool libsystemd-dev libprotobuf-c-dev libcap-dev libseccomp-dev libyajl-dev go-md2man autoconf python3 automake}
   ),
 }
