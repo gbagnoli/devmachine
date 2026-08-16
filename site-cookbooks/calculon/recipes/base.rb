@@ -39,7 +39,7 @@ if platform?("rocky")
 end
 
 package "base" do
-  package_name %w(curl htop iotop iperf btrfs-progs acl)
+  package_name %w(curl htop iotop-c iperf btrfs-progs acl)
 end
 
 data_user = node["calculon"]["data"]["username"]
