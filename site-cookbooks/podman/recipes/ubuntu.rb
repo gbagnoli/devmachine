@@ -31,6 +31,7 @@ if node["lsb"]["release"] == "22.04" || node["lsb"]["release"] == "24.04"
       libsystemd-dev
       libtool
       libyajl-dev
+      netavark
       pkg-config
       pkgconf
       uidmap
@@ -61,7 +62,7 @@ if node["lsb"]["release"] == "22.04" || node["lsb"]["release"] == "24.04"
 
   execute "install go" do
     action :nothing
-    command "tar -C /usr/local -xzf #{Chef::Config[:file_cache_path]}/go.tar.gz"
+    command "rm -rf /usr/local/go && tar -C /usr/local -xzf #{Chef::Config[:file_cache_path]}/go.tar.gz"
   end
 
 
@@ -104,7 +105,9 @@ if node["lsb"]["release"] == "22.04" || node["lsb"]["release"] == "24.04"
     cwd "#{Chef::Config[:file_cache_path]}/podman"
     code <<~EOH
       export PATH="/usr/local/go/bin:$PATH"
+      export PKG_CONFIG_PATH="/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig"
       make BUILDTAGS="seccomp systemd cni"
+      PREFIX=/usr make clean
       PREFIX=/usr make install
     EOH
     subscribes :run, "git[#{Chef::Config[:file_cache_path]}/podman]", :immediately
