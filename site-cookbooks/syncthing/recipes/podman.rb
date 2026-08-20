@@ -9,10 +9,15 @@ container_conf = %W{
       PublishPort=#{ipv4_gui}8384:8384
       PublishPort=[#{conf["ipv6"]["service"]}]:22000:22000/tcp
       PublishPort=[#{conf["ipv6"]["service"]}]:22000:22000/udp
-      PublishPort=#{ipv4_service}22000:22000/tcp
-      PublishPort=#{ipv4_service}22000:22000/udp
       Volume=#{conf["directory"]}:/var/syncthing
 }
+
+if conf["ipv4"]["enabled"]
+  container_conf << %W{
+      PublishPort=#{ipv4_service}22000:22000/tcp
+      PublishPort=#{ipv4_service}22000:22000/udp
+  }
+end
 
 container_conf << "Environment=PUID=#{conf["uid"]}" unless conf["uid"].nil?
 container_conf << "Environment=PGID=#{conf["gid"]}" unless conf["gid"].nil?

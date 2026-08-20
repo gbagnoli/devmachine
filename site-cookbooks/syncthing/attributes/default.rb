@@ -11,4 +11,5 @@ default["syncthing"]["podman"]["ipv6"]["gui"] = "::1"
 default["syncthing"]["podman"]["ipv6"]["service"] = "::"
 default["syncthing"]["podman"]["ipv4"]["gui"] = "127.0.0.1"
 default["syncthing"]["podman"]["ipv4"]["service"] = ""
+default["syncthing"]["podman"]["ipv4"]["enabled"] = false
 default["syncthing"]["podman"]["extra_conf"] = []
