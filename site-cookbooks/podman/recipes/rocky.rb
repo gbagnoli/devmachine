@@ -47,3 +47,20 @@ execute "build and install podman" do
   command '/usr/local/bin/build-podman-rpm'
   subscribes :run, "git[#{Chef::Config[:file_cache_path]}/podman]", :immediately
 end
+
+%w{aardvark-dns netavark}.each do |app|
+  version = node["podman"]["sources"][app]["version"]
+  bash "build and install #{app} RPM" do
+    action :nothing
+    cwd "#{Chef::Config[:file_cache_path]}/#{app}"
+    subscribes :run, "git[#{Chef::Config[:file_cache_path]}/#{app}]", :immediately
+    code <<-EOH
+    rpmdev-setuptree
+    cp rpm/#{app}.spec ~/rpmbuild/SPECS/
+    sed -i 's/^Version: 0$/Version: #{version}/' ~/rpmbuild/SPECS/#{app}.spec
+    spectool -g -R ~/rpmbuild/SPECS/#{app}.spec
+    rpmbuild -ba ~/rpmbuild/SPECS/#{app}.spec
+    dnf install -y ~/rpmbuild/RPMS/*/#{app}-#{version}*.rpm
+    EOH
+  end
+end

@@ -39,5 +39,26 @@ default["podman"]["sources"]["catatonit"] = {
     "debian"=> [],
   ),
 }
+
+default["podman"]["sources"]["aardvark-dns"] = {
+  url: "https://github.com/containers/aardvark-dns.git",
+  tag: "v2.1.0",
+  version: "2.1.0",
+  deps:  value_for_platform_family(
+    %w{fedora rhel} => %w{rust-toolset rpmdevtools protobuf-c protobuf-compiler go-md2man rpm-build},
+    "debian"=> [],
+  ),
+}
+
+default["podman"]["sources"]["netavark"] = {
+  url: "https://github.com/containers/netavark.git",
+  tag: "v2.1.0",
+  version: "2.1.0",
+  deps:  value_for_platform_family(
+    %w{fedora rhel} => %w{rust-toolset rpmdevtools protobuf-c protobuf-compiler go-md2man rpm-build},
+    "debian"=> [],
+  ),
+}
+
 default["podman"]["cni-plugins"]["version"] = "v1.9.1"
 default["podman"]["cni-plugins"]["url"]="https://github.com/containernetworking/plugins/releases/download"
