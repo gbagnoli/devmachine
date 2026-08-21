@@ -21,6 +21,7 @@ default["podman"]["nginx"]["acme"]["renew_days"] = "30"
 default["podman"]["nginx"]["acme"]["lego"]["provider"] = "http"
 default["podman"]["nginx"]["acme"]["lego"]["http_port"] = "4180"
 default["podman"]["nginx"]["acme"]["lego"]["environment"] = nil
+default["podman"]["nginx"]["acme"]["lego"]["version"] = "v4"
 
 default["podman"]["nginx"]["oauth2_proxy"]["secrets"]["client-secret"] = nil
 default["podman"]["nginx"]["oauth2_proxy"]["secrets"]["client-id"] = nil

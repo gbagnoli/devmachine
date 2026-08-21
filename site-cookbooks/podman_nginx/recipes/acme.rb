@@ -8,7 +8,7 @@ end
 
 package "acl"
 
-lego_image = "docker.io/goacme/lego"
+lego_image = "docker.io/goacme/lego:#{conf["lego"]["version"]}"
 podman_image "lego" do
   config(
     Image: ["Image=#{lego_image}"],
