@@ -194,17 +194,18 @@ end
 # and https://github.com/wouterdebie/putioarr/pull/18 merged
 # the binary needs to be built and put in /usr/local/bin/putioarr
 # with proper permissions (755) and owners (root:root) manually.
+# add
+#      Volume=/usr/local/bin/putioarr:/usr/bin/putioarr
 podman_container "putioarr" do
   config(
     Container: %W{
-      Image=ghcr.io/wouterdebie/putioarr:v0.5.20
+      Image=ghcr.io/wouterdebie/putioarr:latest
       Pod=web.pod
       Environment=TZ=#{node["calculon"]["TZ"]}
       Environment=PUID=#{uid}
       Environment=PGID=#{gid}
       Volume=#{putioarr_root}:/config
       Volume=#{node["calculon"]["storage"]["paths"]["downloads"]}:/downloads
-      Volume=/usr/local/bin/putioarr:/usr/bin/putioarr
       ExposeHostPort=9091
     },
     Service: %w{
