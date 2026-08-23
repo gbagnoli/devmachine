@@ -46,7 +46,9 @@ podman_container "magiusstaff-syncthing" do
       PublishPort=[#{ipv6}]:8386:8384
       PublishPort=#{ipv4}:8386:8384
       PublishPort=[::]:22200:22000/tcp
+      PublishPort=[0.0.0.0]:22200:22000/tcp
       PublishPort=[::]:22200:22000/udp
+      PublishPort=[0.0.0.0]:22200:22000/udp
       Volume=#{syncd}:/var/syncthing
       HostName=magiustaff-sync.tigc.eu
       Network=calculon.network

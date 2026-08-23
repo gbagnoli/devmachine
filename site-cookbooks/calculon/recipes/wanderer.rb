@@ -47,7 +47,9 @@ podman_pod "wanderer" do
   config(
     Pod: %W{
       PublishPort=[::]:#{web_ext_port}:#{web_port}/tcp
+      PublishPort=[0.0.0.0]:#{web_ext_port}:#{web_port}/tcp
       PublishPort=[::]:#{pocketbase_ext_port}:#{pocketbase_port}/tcp
+      PublishPort=[0.0.0.0]:#{pocketbase_ext_port}:#{pocketbase_port}/tcp
       Network=calculon.network
     }
   )

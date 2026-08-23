@@ -10,7 +10,7 @@ node.override["syncthing"]["podman"] = {
   },
   "ipv4" => {
     "gui" => node["calculon"]["network"]["containers"]["ipv4"]["addr"],
-    "service" => "",
+    "service" => "0.0.0.0",
   },
   "extra_conf" => %w{
       HostName=sync.tigc.eu

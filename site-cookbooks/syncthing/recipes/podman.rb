@@ -1,24 +1,19 @@
 conf = node["syncthing"]["podman"]
 
-ipv4_gui = conf["ipv4"]["gui"].empty? ? "" : "#{conf["ipv4"]["gui"]}:"
-ipv4_service = conf["ipv4"]["service"].empty? ? "" : "#{conf["ipv4"]["service"]}:"
+ipv4_gui = (conf["ipv4"]["gui"].nil? || conf["ipv4"]["gui"].empty?) ? "0.0.0.0:" : "#{conf["ipv4"]["gui"]}:"
+ipv6_service = (conf["ipv6"]["service"].nil? || conf["ipv6"]["service"].empty?) ? "::" : conf["ipv6"]["service"]
+ipv4_service = (conf["ipv4"]["service"].nil? || conf["ipv4"]["service"].empty?) ? "0.0.0.0" : conf["ipv4"]["service"]
 
 container_conf = %W{
       Image=docker.io/syncthing/syncthing:latest
       PublishPort=[#{conf["ipv6"]["gui"]}]:8384:8384
-      PublishPort=[#{conf["ipv6"]["service"]}]:22000:22000/tcp
-      PublishPort=[#{conf["ipv6"]["service"]}]:22000:22000/udp
+      PublishPort=#{ipv4_gui}8384:8384
+      PublishPort=[#{ipv6_service}]:22000:22000/tcp
+      PublishPort=[#{ipv4_service}]:22000:22000/tcp
+      PublishPort=[#{ipv6_service}]:22000:22000/udp
+      PublishPort=[#{ipv4_service}]:22000:22000/udp
       Volume=#{conf["directory"]}:/var/syncthing
 }
-
-if conf["ipv4"]["enabled"]
-  container_conf << %W{
-      PublishPort=#{ipv4_service}22000:22000/tcp
-      PublishPort=#{ipv4_service}22000:22000/udp
-      PublishPort=#{ipv4_gui}8384:8384
-      PublishPort=#{ipv4_service}22000:22000/udp
-  }
-end
 
 container_conf << "Environment=PUID=#{conf["uid"]}" unless conf["uid"].nil?
 container_conf << "Environment=PGID=#{conf["gid"]}" unless conf["gid"].nil?

@@ -38,8 +38,8 @@ node.override["syncthing"]["podman"] = {
     "service" => "::",
   },
   "ipv4" => {
-    "gui" => "",
-    "service" => "",
+    "gui" => "0.0.0.0",
+    "service" => "0.0.0.0",
   },
 }
 

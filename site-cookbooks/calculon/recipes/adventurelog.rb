@@ -79,7 +79,9 @@ podman_pod "adventurelog" do
   config(
     Pod: %W{
       PublishPort=[::]:#{backend_port}:8000/tcp
+      PublishPort=[0.0.0.0]:#{backend_port}:8000/tcp
       PublishPort=[::]:#{frontend_port}:3000/tcp
+      PublishPort=[0.0.0.0]:#{frontend_port}:3000/tcp
       Network=calculon.network
     }
   )

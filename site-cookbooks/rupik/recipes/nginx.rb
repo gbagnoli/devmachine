@@ -1,8 +1,8 @@
 node.override["podman"]["nginx"]["pod_extra_config"] = %w{
-  PublishPort=0.0.0.0:53:53/tcp
-  PublishPort=0.0.0.0:53:53/udp
   PublishPort=[::]:53:53/tcp
+  PublishPort=[0.0.0.0]:53:53/tcp
   PublishPort=[::]:53:53/udp
+  PublishPort=[0.0.0.0]:53:53/udp
 }
 
 node.override["podman"]["nginx"]["default_vhost"]["template"] = "default_vhost.erb"
