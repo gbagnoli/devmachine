@@ -137,6 +137,7 @@ if node["lsb"]["release"] == "22.04" || node["lsb"]["release"] == "24.04"
     end
   end
 
+  podman_version = node["podman"]["sources"]["podman"]["version"]
   bash "build and install podman" do
     action :nothing
     cwd "#{Chef::Config[:file_cache_path]}/podman"
@@ -147,7 +148,7 @@ if node["lsb"]["release"] == "22.04" || node["lsb"]["release"] == "24.04"
       PREFIX=/usr make clean
       PREFIX=/usr make install
     EOH
-    subscribes :run, "git[#{Chef::Config[:file_cache_path]}/podman]", :immediately
+    not_if "/usr/bin/podman version -f json | jq -e -r '.Client.Version == \"#{podman_version}\"' >/dev/null"
   end
 
   # download the cni-plugins
