@@ -10,12 +10,14 @@ if node["lsb"]["release"] == "22.04" || node["lsb"]["release"] == "24.04"
 
   package "podman_build_deps" do
     package_name %w{
+      aardvark-dns
       autoconf
       automake
       btrfs-progs
       build-essential
       git
       iptables
+      jq
       libassuan-dev
       libbtrfs-dev
       libc6-dev
@@ -34,6 +36,7 @@ if node["lsb"]["release"] == "22.04" || node["lsb"]["release"] == "24.04"
       netavark
       pkg-config
       pkgconf
+      rustup
       uidmap
     }
   end
@@ -53,6 +56,17 @@ if node["lsb"]["release"] == "22.04" || node["lsb"]["release"] == "24.04"
          else
            Chef::Log.fatal("Unsupported arch #{node["kernel"]["machine"]}")
            raise
+  end
+
+  bash "install rust toolchain" do
+    code <<~EOH
+    rustup default stable
+    EOH
+    environment({
+      'RUSTUP_HOME' => "#{Chef::Config[:file_cache_path]}/rustup",
+      'CARGO_HOME' => "#{Chef::Config[:file_cache_path]}/cargo",
+    })
+    not_if "rustup show | grep stable | grep default -q"
   end
 
   remote_file "#{Chef::Config[:file_cache_path]}/go.tar.gz" do
@@ -99,6 +113,29 @@ if node["lsb"]["release"] == "22.04" || node["lsb"]["release"] == "24.04"
   end
 
   include_recipe "podman::sources"
+
+  # lock dependencies so they don't get updated
+  %w{aardvark-dns netavark}.each do |app|
+    execute "apt hold #{app}" do
+      command "apt-mark hold #{app}"
+      not_if "apt-mark showhold #{app} | grep -q #{app}"
+    end
+
+    version = node["podman"]["sources"][app]["version"]
+    bash "build and install #{app}" do
+      environment({
+        'RUSTUP_HOME' => "#{Chef::Config[:file_cache_path]}/rustup",
+        'CARGO_HOME' => "#{Chef::Config[:file_cache_path]}/cargo",
+      })
+      cwd "#{Chef::Config[:file_cache_path]}/#{app}"
+      code <<-EOH
+      rustup run stable make clean
+      rustup run stable make -j$(nproc --all)
+      install -m 0755 bin/#{app} $(dpkg -L #{app} | grep -E '^/usr/lib(64|exec)?/.*/?#{app}$')
+      EOH
+      not_if "BIN=$(dpkg -L #{app} | grep -E '^/usr/lib(64|exec)?/.*/?#{app}$') && \"$BIN\" version | jq -e -r '.version == \"#{version}\"' >/dev/null"
+    end
+  end
 
   bash "build and install podman" do
     action :nothing
