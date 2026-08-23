@@ -72,6 +72,8 @@ podman_pod "web" do
     Pod: pod_extra_conf + %w{
       PublishPort=[::]:80:80/tcp
       PublishPort=[::]:443:443/tcp
+      PublishPort=0.0.0.0:80:80/tcp
+      PublishPort=0.0.0.0:443:443/tcp
     }
   )
 end
