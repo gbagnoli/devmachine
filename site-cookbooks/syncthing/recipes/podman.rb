@@ -6,7 +6,6 @@ ipv4_service = conf["ipv4"]["service"].empty? ? "" : "#{conf["ipv4"]["service"]}
 container_conf = %W{
       Image=docker.io/syncthing/syncthing:latest
       PublishPort=[#{conf["ipv6"]["gui"]}]:8384:8384
-      PublishPort=#{ipv4_gui}8384:8384
       PublishPort=[#{conf["ipv6"]["service"]}]:22000:22000/tcp
       PublishPort=[#{conf["ipv6"]["service"]}]:22000:22000/udp
       Volume=#{conf["directory"]}:/var/syncthing
@@ -15,6 +14,8 @@ container_conf = %W{
 if conf["ipv4"]["enabled"]
   container_conf << %W{
       PublishPort=#{ipv4_service}22000:22000/tcp
+      PublishPort=#{ipv4_service}22000:22000/udp
+      PublishPort=#{ipv4_gui}8384:8384
       PublishPort=#{ipv4_service}22000:22000/udp
   }
 end
