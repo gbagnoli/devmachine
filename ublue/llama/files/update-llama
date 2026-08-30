@@ -1,7 +1,6 @@
 #!/bin/bash
 
 set -ueo pipefail
-[ $UID -ne 0 ] && echo >&2 "Need to be run as root" && exit 1
 
 check_and_restart() {
     local image_name="$1"
@@ -34,23 +33,21 @@ check_and_restart() {
     if [[ "$CURRENT_DIGEST" != "$NEW_DIGEST" ]]; then
         echo >&2 "Image '$image_name' was updated! Restarting $service_name..."
         verb="restart"
-        systemctl is-active --quiet "$service_name" || verb="start"
-        echo "Running systemctl $verb $service_name" >&2
-        systemctl "$verb" "$service_name" || {
+        systemctl --user is-active --quiet "$service_name" || verb="start"
+        echo "Running systemctl --user $verb $service_name" >&2
+        systemctl --user "$verb" "$service_name" || {
             echo "Error: Failed to $verb $service_name."
             return 1
         }
     else
-      systemctl start "$service_name"
+      systemctl --user start "$service_name"
     fi
 }
 
-echo "Stopping openwebui.service and ollama.service" >&2
-systemctl is-active --quiet openwebui.service && systemctl stop openwebui.service
-systemctl is-active --quiet ollama.service && systemctl stop ollama.service
+echo "Stopping llama-server.service (user)" >&2
+systemctl --user is-active --quiet llama-server.service && systemctl --user stop llama-server.service || true
 
-check_and_restart "ghcr.io/open-webui/open-webui:latest" "openwebui.service"
-check_and_restart "docker.io/ollama/ollama:latest" "ollama.service"
+check_and_restart "ghcr.io/ggml-org/llama.cpp:server-cuda" "llama-server.service"
 
 mapfile -t dangling_images < <(podman images --filter "dangling=true" --format "{{.ID}}")
 if [[ ${#dangling_images[@]} -gt 0 ]]; then
@@ -58,13 +55,11 @@ if [[ ${#dangling_images[@]} -gt 0 ]]; then
     podman rmi "${dangling_images[@]}"
 fi
 
-echo >&2 "Pulling ollama models"
-mapfile -t models < <(curl -s http://ubik:11434/api/tags  | jq -r '.models[] | .name')
-for model in "${models[@]}"; do
-    echo "Pulling model: $model" >&2
+# Enable linger so user services run at boot without login
+if command -v loginctl >/dev/null 2>&1; then
+  if ! loginctl show-user "$USER" -p Linger 2>/dev/null | grep -q "Linger=yes"; then
+    loginctl enable-linger "$USER" 2>/dev/null || echo "Hint: run 'loginctl enable-linger $USER' for boot without login" >&2
+  fi
+fi
 
-    # Pull the model
-    if ! podman exec -it ollama ollama pull "$model" >&2; then
-        echo "Error: Failed to pull model: $model" >&2
-    fi
-done
+echo "For caddy to start you need tailscale certs configured in ~/.config/tailscale-certs (ubik.tadpole-drum.ts.net.crt/.key) — out of scope here for now." >&2

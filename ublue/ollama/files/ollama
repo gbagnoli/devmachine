@@ -1,4 +1,0 @@
-#!/bin/bash
-
-set -euo pipefail
-/usr/bin/podman exec -it ollama ollama "$@"

@@ -1,0 +1,127 @@
+#!/bin/bash
+
+set -euo pipefail
+
+script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/utils.sh
+source "$(realpath "$script_dir/../lib/utils.sh")"
+
+usage() {
+  exit_code=0
+  echo -e >&2 "${BB}Usage${BE}: $(basename "$0") [-Ch]"
+  echo -e >&2
+  echo -e >&2 "${BB}Options${BE}"
+  echo -e >&2 "  ${BB}-h${BE}: print this help"
+  echo -e >&2 "  ${BB}-C${BE}: disable colors"
+  [ $# -ge 1 ] && exit_code="$1" && shift
+  [ $# -ge 1 ] && echo -e >&2 "$@"
+  exit "$exit_code"
+}
+
+while getopts "Ch" opt; do
+  case $opt in
+    C) disable_colors ;;
+    h) usage 0;;
+    \?) echo "Invalid option -$OPTARG" >&2; exit 1 ;;
+  esac
+done
+
+exit_if_running_in_distrobox
+
+# Tailscale is required for caddy certs — run its installer first (if present)
+tailscale_install=""
+for cand in "$script_dir/../tailscale/install.sh" "$script_dir/../../tailscale/install.sh"; do
+  if [ -f "$cand" ]; then
+    tailscale_install="$(realpath "$cand")"
+    break
+  fi
+done
+if [ -n "$tailscale_install" ] && [ -f "$tailscale_install" ]; then
+  log "Running tailscale setup ($tailscale_install) — required for caddy"
+  bash "$tailscale_install" || log "Tailscale setup failed (continuing)"
+else
+  log "Tailscale installer not found (looked at ../tailscale/install.sh and ../../tailscale/install.sh) — skipping tailscale setup"
+fi
+
+quadlets=(llama.pod llama-server.container caddy.container hermes.container)
+updated_quadlets=()
+
+quadlets_dir="${XDG_CONFIG_HOME:-$HOME/.config}/containers/systemd"
+
+log "Creating directories"
+mkdir -p "$HOME/.config/containers/systemd"
+mkdir -p "$HOME/.config/caddy"
+mkdir -p "$HOME/.config/caddy/data"
+mkdir -p "$HOME/.config/llama-server"
+mkdir -p "$HOME/.config/hermes"
+mkdir -p "$HOME/.cache/huggingface"
+
+log "Copying quadlets to ${quadlets_dir}/"
+for quadlet in "${quadlets[@]}"; do
+  quadlet_path="$(realpath "$script_dir/files/$quadlet")"
+  [ ! -f "$quadlet_path" ] && log "Cannot find quadlet file for $quadlet at $quadlet_path" && exit 1
+  dst="$quadlets_dir/$quadlet"
+  old_time=$(stat -c %Y "$dst" 2>/dev/null || echo "")
+  install -C -v -m 644 "$quadlet_path" "$dst"
+  new_time=$(stat -c %Y "$dst" 2>/dev/null || echo "")
+  if [ "$old_time" != "$new_time" ]; then
+    updated_quadlets+=("$quadlet")
+  fi
+done
+
+log "Installing Caddyfile and models.ini"
+caddy_src="$(realpath "$script_dir/files/Caddyfile")"
+caddy_dst="$HOME/.config/caddy/Caddyfile"
+[ ! -f "$caddy_src" ] && log "Cannot find Caddyfile at $caddy_src" && exit 1
+old_time=$(stat -c %Y "$caddy_dst" 2>/dev/null || echo "")
+install -Dm644 "$caddy_src" "$caddy_dst"
+new_time=$(stat -c %Y "$caddy_dst" 2>/dev/null || echo "")
+[ "$old_time" != "$new_time" ] && log "Updated $caddy_dst"
+
+models_src="$(realpath "$script_dir/files/models.ini")"
+models_dst="$HOME/.config/llama-server/models.ini"
+[ ! -f "$models_src" ] && log "Cannot find models.ini at $models_src" && exit 1
+old_time=$(stat -c %Y "$models_dst" 2>/dev/null || echo "")
+install -Dm644 "$models_src" "$models_dst"
+new_time=$(stat -c %Y "$models_dst" 2>/dev/null || echo "")
+[ "$old_time" != "$new_time" ] && log "Updated $models_dst"
+
+if [ ${#updated_quadlets[@]} -gt 0 ]; then
+  log "Some quadlets were updated, reloading systemd --user"
+  systemctl --user daemon-reload
+  log "Restarting llama-pod"
+  systemctl --user restart llama-pod.service || {
+    log "Failed to restart llama-pod.service, trying start"
+    systemctl --user start llama-pod.service || true
+  }
+else
+  log "No quadlet changes, ensuring llama-pod is started"
+  systemctl --user start llama-pod.service || true
+fi
+
+# Enable linger so user services run at boot without login
+if command -v loginctl >/dev/null 2>&1; then
+  if ! loginctl show-user "$USER" -p Linger 2>/dev/null | grep -q "Linger=yes"; then
+    log "Enabling linger for $USER (allows user services at boot)"
+    loginctl enable-linger "$USER" || log "Failed to enable linger, run manually: loginctl enable-linger $USER"
+  fi
+else
+  log "loginctl not found, skipping linger check"
+fi
+
+log "Linking update-llama to ~/.local/bin"
+mkdir -p "$HOME/.local/bin"
+script_path="$(realpath "$script_dir/files/update-llama")"
+if [ ! -f "$script_path" ]; then
+  log "Cannot find script at $script_path"
+  exit 1
+fi
+ln -sfv "$script_path" "$HOME/.local/bin/update-llama"
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) log "Add ~/.local/bin to PATH: export PATH=\"\$HOME/.local/bin:\$PATH\"" ;;
+esac
+
+log "Setup complete. For caddy to start you need tailscale certs configured in ~/.config/tailscale-certs (ubik.tadpole-drum.ts.net.crt/.key) — out of scope here for now."
+log "Check status: systemctl --user status llama-pod.service llama-server.service caddy.service hermes.service"

@@ -1,0 +1,21 @@
+[Unit]
+Description=Hermes Agent Service
+After=llama-pod.service
+Requires=llama-pod.service
+
+[Container]
+ContainerName=hermes
+Image=docker.io/nousresearch/hermes-agent:latest
+Exec=gateway run
+Pod=llama.pod
+Volume=%h/.config/hermes:/opt/data:Z
+Environment=API_SERVER_ENABLED=1
+Environment=API_SERVER_HOST=0.0.0.0
+Environment=API_SERVER_CORS_ORIGINS=*
+Secret=hermes_api_server_key,type=env,target=API_SERVER_KEY
+Environment=HERMES_DASHBOARDS=1
+Environment=HERMES_DASHBOARD_HOST=127.0.0.1
+; UserNS=keep-id
+
+[Install]
+WantedBy=default.target

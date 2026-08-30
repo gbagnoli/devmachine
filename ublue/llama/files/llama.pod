@@ -1,0 +1,15 @@
+[Unit]
+Description=Llama pod
+DefaultDependencies=yes
+
+[Pod]
+PodName=llama-pod
+Network=llama-pod-net
+PublishPort=443:443/tcp
+
+[Service]
+TimeoutStartSec=60
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target

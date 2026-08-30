@@ -1,0 +1,43 @@
+[Unit]
+Description=Llama.cpp Server
+DefaultDependencies=yes
+
+[Container]
+Image=ghcr.io/ggml-org/llama.cpp:server-cuda
+ContainerName=llama-server
+Pod=llama.pod
+# Hardware and Security
+Annotation=run.oci.handler=nvidia
+AddDevice=nvidia.com/gpu=all
+GroupAdd=keep-groups
+SecurityLabelDisable=true
+# Environment
+Environment=NVIDIA_VISIBLE_DEVICES=all
+Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+Volume=%h/.cache/huggingface:/root/.cache/huggingface:z
+Volume=%h/.config/llama-server/models.ini:/root/models.ini:ro,z
+# gemma-4-12B Q4_X_XL 128k context
+# Exec= --port 8000 --host 0.0.0.0 -hf unsloth/gemma-4-12B-it-qat-GGUF:UD-Q4_K_XL --spec-type draft-mtp --spec-draft-n-max 4 -ngl 999 -fa on -c 131072 --cache-type-k q8_0 --cache-type-v q8_0 --temp 1.0 --top-p 0.95 --top-k 64 --alias gemma-4-12B --reasoning on --parallel 1
+# https://huggingface.co/empero-ai/Qwen3.8-9B-Distill-GGUF
+# Exec= --port 8000 --host 0.0.0.0 -hf empero-ai/Qwen3.8-9B-Distill-GGUF:Q8_0 -ngl 999 -fa on -c 262144 -n 16384 --cache-type-k q8_0 --cache-type-v q5_0 --temp 0.6 --top-p 0.95 --top-k 20 --reasoning on --alias Qwen3.8-9B
+Exec= --port 8000 --host 0.0.0.0 --models-preset /root/models.ini --models-max 1
+
+
+# Healthcheck: Checks if port 8000 is accepting connections
+# It runs every 30s after an initial 60s warm-up
+HealthCmd=curl -f http://localhost:8000/health || exit 1
+HealthInterval=30s
+HealthStartPeriod=60s
+
+# makes systemd wait until the Healthcheck passes
+# before marking the unit as 'Started'
+Notify=all
+
+[Service]
+# Increase timeout because loading a 25GB model takes time
+TimeoutStartSec=600
+
+[Install]
+# Start on boot
+WantedBy=default.target

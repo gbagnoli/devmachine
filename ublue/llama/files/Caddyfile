@@ -1,0 +1,42 @@
+ubik.tadpole-drum.ts.net {
+    tls /etc/certs/ubik.tadpole-drum.ts.net.crt /etc/certs/ubik.tadpole-drum.ts.net.key
+    # 1. Enable CORS for external developer tools / IDE plugins
+    header {
+      Access-Control-Allow-Origin *
+      Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, DELETE"
+      Access-Control-Allow-Headers "Content-Type, Authorization"
+      defer
+    }
+
+    # 2. Handle HTTP OPTIONS preflight requests smoothly
+    @options {
+      method OPTIONS
+    }
+    respond @options 204
+
+    reverse_proxy http://llama-server:8000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+        header_up X-Forwarded-For {remote}
+        header_up X-Forwarded-Proto https
+        transport http {
+            read_timeout 600s
+            write_timeout 600s
+        }
+    }
+
+    reverse_proxy /hermes http://hermes:9119 {
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+        header_up X-Forwarded-For {remote}
+        header_up X-Forwarded-Proto https
+        transport http {
+            read_timeout 600s
+            write_timeout 600s
+        }
+    }
+
+    log {
+      format console
+    }
+}

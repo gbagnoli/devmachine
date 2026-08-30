@@ -1,0 +1,12 @@
+[Unit]
+Description=Bazzite Tailscale Operator
+Requires=tailscaled.service
+Wants=tailscaled.service
+After=tailscaled.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/bazzite_set_operator.sh
+
+[Install]
+WantedBy=multi-user.target
