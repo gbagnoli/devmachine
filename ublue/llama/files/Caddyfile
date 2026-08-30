@@ -1,5 +1,5 @@
-ubik.tadpole-drum.ts.net {
-    tls /etc/certs/ubik.tadpole-drum.ts.net.crt /etc/certs/ubik.tadpole-drum.ts.net.key
+__FQDN__ {
+    tls /etc/certs/__FQDN__.crt /etc/certs/__FQDN__.key
     # 1. Enable CORS for external developer tools / IDE plugins
     header {
       Access-Control-Allow-Origin *

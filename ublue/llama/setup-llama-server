@@ -79,6 +79,35 @@ install -Dm644 "$caddy_src" "$caddy_dst"
 new_time=$(stat -c %Y "$caddy_dst" 2>/dev/null || echo "")
 [ "$old_time" != "$new_time" ] && log "Updated $caddy_dst"
 
+# Rewrite Caddyfile FQDN with discovered tailscale DNS (do not hardcode FQDN in repo)
+if command -v tailscale >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  MAGIC_DNS="$(tailscale status --json 2>/dev/null | jq -r '.Self.DNSName' 2>/dev/null | sed 's/\.$//')"
+  if [ -z "$MAGIC_DNS" ] || [ "$MAGIC_DNS" = "null" ]; then
+    MAGIC_DNS="$(tailscale status --json 2>/dev/null | jq -r '.DNSName' 2>/dev/null | sed 's/\.$//')"
+  fi
+  if [ -n "$MAGIC_DNS" ] && [ "$MAGIC_DNS" != "null" ]; then
+    log "Discovered tailscale FQDN: $MAGIC_DNS — updating $caddy_dst"
+    # Replace placeholder __FQDN__ (template) — if file already contains a previous FQDN, re-install template first
+    if grep -q "__FQDN__" "$caddy_dst"; then
+      sed -i "s/__FQDN__/$MAGIC_DNS/g" "$caddy_dst" || log "Failed to rewrite Caddyfile FQDN"
+    else
+      # Caddyfile already has a FQDN (from previous install) — ensure it matches discovered one
+      # Extract current FQDN (first line like 'foo.bar.ts.net {') and replace if different
+      CURRENT_FQDN="$(head -n1 "$caddy_dst" | awk '{print $1}')"
+      if [ "$CURRENT_FQDN" != "$MAGIC_DNS" ]; then
+        log "Updating Caddyfile FQDN from $CURRENT_FQDN to $MAGIC_DNS"
+        # Re-install template then replace to avoid partial sed issues
+        install -Dm644 "$caddy_src" "$caddy_dst"
+        sed -i "s/__FQDN__/$MAGIC_DNS/g" "$caddy_dst" || log "Failed to rewrite Caddyfile FQDN"
+      fi
+    fi
+  else
+    log "Could not discover tailscale FQDN (tailscale not connected?) — leaving Caddyfile template with __FQDN__ placeholder at $caddy_dst. Re-run setup after tailscale is up or manually replace __FQDN__."
+  fi
+else
+  log "tailscale or jq not found — skipping FQDN rewrite, Caddyfile left with __FQDN__ placeholder at $caddy_dst"
+fi
+
 models_src="$(realpath "$script_dir/files/models.ini")"
 models_dst="$HOME/.config/llama-server/models.ini"
 [ ! -f "$models_src" ] && log "Cannot find models.ini at $models_src" && exit 1
@@ -123,5 +152,5 @@ case ":$PATH:" in
   *) log "Add ~/.local/bin to PATH: export PATH=\"\$HOME/.local/bin:\$PATH\"" ;;
 esac
 
-log "Setup complete. For caddy to start you need tailscale certs configured in ~/.config/tailscale-certs (ubik.tadpole-drum.ts.net.crt/.key) — out of scope here for now."
-log "Check status: systemctl --user status llama-pod.service llama-server.service caddy.service hermes.service"
+log "Setup complete."
+log "Check status: systemctl --user status llama-pod.service llama-server.service caddy.service hermes.service tailscale-renew-cert.timer"

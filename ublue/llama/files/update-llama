@@ -61,5 +61,3 @@ if command -v loginctl >/dev/null 2>&1; then
     loginctl enable-linger "$USER" 2>/dev/null || echo "Hint: run 'loginctl enable-linger $USER' for boot without login" >&2
   fi
 fi
-
-echo "For caddy to start you need tailscale certs configured in ~/.config/tailscale-certs (ubik.tadpole-drum.ts.net.crt/.key) — out of scope here for now." >&2
