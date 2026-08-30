@@ -152,5 +152,13 @@ case ":$PATH:" in
   *) log "Add ~/.local/bin to PATH: export PATH=\"\$HOME/.local/bin:\$PATH\"" ;;
 esac
 
+log "Installing hermes wrapper to ~/.local/bin/hermes"
+mkdir -p "$HOME/.local/bin"
+cat > "$HOME/.local/bin/hermes" <<'EOS'
+#!/bin/bash
+exec podman exec -it hermes hermes "$@"
+EOS
+chmod +x "$HOME/.local/bin/hermes"
+
 log "Setup complete."
 log "Check status: systemctl --user status llama-pod.service llama-server.service caddy.service hermes.service tailscale-renew-cert.timer"
