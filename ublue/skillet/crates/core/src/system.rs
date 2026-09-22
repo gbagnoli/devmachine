@@ -93,7 +93,7 @@ impl LinuxSystemResource {
         Self { conn }
     }
 
-    /// Run a systemctl action via DBus (preferred) or the CLI (fallback).
+    /// Run a systemctl action via `DBus` (preferred) or the CLI (fallback).
     ///
     /// Actions are blocking: the CLI path no longer passes `--no-block`,
     /// and `start`/`restart` additionally wait until the unit reports
@@ -120,24 +120,24 @@ impl LinuxSystemResource {
                 Ok(_) => {}
                 Err(e) => {
                     warn!("DBus call failed, falling back to CLI: {e}");
-                    self.run_systemctl_cli(action, &name_with_suffix)?;
+                    Self::run_systemctl_cli(action, &name_with_suffix)?;
                 }
             }
         } else {
-            self.run_systemctl_cli(action, &name_with_suffix)?;
+            Self::run_systemctl_cli(action, &name_with_suffix)?;
         }
 
         // DBus only queues the job, so verify the end state for the
         // actions that are supposed to leave the unit running.
         if matches!(action, "start" | "restart") {
-            self.wait_until_active(&name_with_suffix)?;
+            Self::wait_until_active(&name_with_suffix)?;
         }
 
         Ok(())
     }
 
     /// Blocking `systemctl <action>` via the CLI.
-    fn run_systemctl_cli(&self, action: &str, name_with_suffix: &str) -> Result<(), SystemError> {
+    fn run_systemctl_cli(action: &str, name_with_suffix: &str) -> Result<(), SystemError> {
         info!("Running systemctl {action} {name_with_suffix} via CLI");
         let output = Command::new("systemctl")
             .arg(action)
@@ -154,7 +154,7 @@ impl LinuxSystemResource {
     }
 
     /// Poll `systemctl is-active` until the unit is active or we time out.
-    fn wait_until_active(&self, name_with_suffix: &str) -> Result<(), SystemError> {
+    fn wait_until_active(name_with_suffix: &str) -> Result<(), SystemError> {
         const TIMEOUT: Duration = Duration::from_secs(60);
         const POLL_INTERVAL: Duration = Duration::from_millis(500);
 

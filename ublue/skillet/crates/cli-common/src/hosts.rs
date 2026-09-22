@@ -65,7 +65,7 @@ const CLAMPS_CUSTOM_DNS_RECORDS: &[(&str, &str)] = &[("192.168.1.100", "my.custo
 /// Apply the clamps host configuration (hardening + Pi-hole).
 ///
 /// The credential manager is constructed lazily here: hosts that need no
-/// secrets (e.g. beezelbot) never touch CREDENTIALS_DIRECTORY.
+/// secrets (e.g. beezelbot) never touch `CREDENTIALS_DIRECTORY`.
 // pihole uid/gid lookups are intentionally parallel
 #[allow(clippy::similar_names)]
 pub fn apply_clamps(
@@ -130,8 +130,9 @@ pub fn apply_host(
     files: &dyn FileResource,
 ) -> Result<(), ApplyError> {
     match hostname {
-        "beezelbot" => apply_beezelbot(system, files),
         "clamps" => apply_clamps(system, files),
+        // beezelbot and unknown hostnames fall back to the hardening-only
+        // baseline, matching the previous "(Agent Mode)" default behaviour.
         _ => apply_beezelbot(system, files),
     }
 }
