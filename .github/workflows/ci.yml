@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, skillet ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, skillet ]
 
 jobs:
   chef-lint:
@@ -66,6 +66,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+          targets: x86_64-unknown-linux-musl
 
       - name: Rust Cache
         if: steps.filter.outputs.rust == 'true'
@@ -86,5 +87,6 @@ jobs:
         run: |
           cd ublue/skillet
           # Build binary explicitly for the test runner to find it
+          # (default target is x86_64-unknown-linux-musl, see .cargo/config.toml)
           cargo build
-          ./target/debug/skillet test run beezelbot --image fedora:latest
+          ./target/x86_64-unknown-linux-musl/debug/skillet test run beezelbot --image fedora:latest

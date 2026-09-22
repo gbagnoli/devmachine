@@ -188,15 +188,22 @@ fn locate_binary(hostname: &str) -> Result<PathBuf> {
     let host_binary_name = format!("skillet-{hostname}");
     let root = find_workspace_root()?;
 
+    let musl = "x86_64-unknown-linux-musl";
     let binary_path = [
+        root.join(format!("target/{musl}/release")).join(&host_binary_name),
+        root.join(format!("target/{musl}/debug")).join(&host_binary_name),
         root.join("target/release").join(&host_binary_name),
         root.join("target/debug").join(&host_binary_name),
+        root.join(format!("target/{musl}/release")).join("skillet"),
+        root.join(format!("target/{musl}/debug")).join("skillet"),
         root.join("target/release").join("skillet"),
         root.join("target/debug").join("skillet"),
     ]
     .into_iter()
     .find(|p| p.exists())
-    .ok_or_else(|| anyhow!("No suitable skillet binary found in target/release or target/debug"))?;
+    .ok_or_else(|| {
+        anyhow!("No suitable skillet binary found under target/ (checked release, debug, and x86_64-unknown-linux-musl subdirs)")
+    })?;
 
     info!("Using binary: {}", binary_path.display());
     fs::canonicalize(&binary_path).context("Failed to canonicalize binary path")
