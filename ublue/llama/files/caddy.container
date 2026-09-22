@@ -1,16 +1,19 @@
 [Unit]
 Description=Caddy Reverse Proxy
 DefaultDependencies=yes
+After=llama-server.service llama-network.service
+Requires=llama-server.service llama-network.service
+BindsTo=llama-server.service llama-network.service
 
 [Container]
 Image=docker.io/library/caddy:2
 
 ContainerName=caddy
-Pod=llama.pod
 Volume=%h/.config/tailscale-certs:/etc/certs:ro,Z
 Volume=%h/.config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro,Z
 Volume=%h/.config/caddy/data:/data:Z
-; SecurityLabelDisable=true
+PublishPort=443:443/tcp
+Network=llama.network
 
 [Service]
 TimeoutStartSec=60

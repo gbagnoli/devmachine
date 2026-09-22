@@ -44,7 +44,7 @@ else
   log "Tailscale installer not found (looked at ../tailscale/install.sh and ../../tailscale/install.sh) — skipping tailscale setup"
 fi
 
-quadlets=(llama.pod llama-server.container caddy.container hermes.container)
+quadlets=(llama.network llama-server.container caddy.container hermes.container)
 updated_quadlets=()
 
 quadlets_dir="${XDG_CONFIG_HOME:-$HOME/.config}/containers/systemd"
@@ -119,14 +119,17 @@ new_time=$(stat -c %Y "$models_dst" 2>/dev/null || echo "")
 if [ ${#updated_quadlets[@]} -gt 0 ]; then
   log "Some quadlets were updated, reloading systemd --user"
   systemctl --user daemon-reload
-  log "Restarting llama-pod"
-  systemctl --user restart llama-pod.service || {
-    log "Failed to restart llama-pod.service, trying start"
-    systemctl --user start llama-pod.service || true
-  }
+  for quadlet in "${updated_quadlets[@]}"; do
+    if [[ "$quadlet" == *.network ]]; then
+      svc="${quadlet%.network}-network.service"
+    else
+      svc="${quadlet%.*}.service"
+    fi
+    log "Restarting $svc"
+    systemctl --user restart "$svc" || systemctl --user start "$svc" || log "Failed to (re)start $svc"
+  done
 else
-  log "No quadlet changes, ensuring llama-pod is started"
-  systemctl --user start llama-pod.service || true
+  log "No quadlet changes"
 fi
 
 # Enable linger so user services run at boot without login
@@ -161,4 +164,4 @@ EOS
 chmod +x "$HOME/.local/bin/hermes"
 
 log "Setup complete."
-log "Check status: systemctl --user status llama-pod.service llama-server.service caddy.service hermes.service tailscale-renew-cert.timer"
+log "Check status: systemctl --user status llama-network.service llama-server.service caddy.service hermes.service tailscale-renew-cert.timer"

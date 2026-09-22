@@ -1,11 +1,13 @@
 [Unit]
 Description=Llama.cpp Server
 DefaultDependencies=yes
+After=llama-network.service
+Requires=llama-network.service
+BindsTo=llama-network.service
 
 [Container]
 Image=ghcr.io/ggml-org/llama.cpp:server-cuda
 ContainerName=llama-server
-Pod=llama.pod
 # Hardware and Security
 Annotation=run.oci.handler=nvidia
 AddDevice=nvidia.com/gpu=all
@@ -14,7 +16,7 @@ SecurityLabelDisable=true
 # Environment
 Environment=NVIDIA_VISIBLE_DEVICES=all
 Environment=NVIDIA_DRIVER_CAPABILITIES=compute,utility
-
+Network=llama.network
 Volume=%h/.cache/huggingface:/root/.cache/huggingface:z
 Volume=%h/.config/llama-server/models.ini:/root/models.ini:ro,z
 Exec= --port 8000 --host 0.0.0.0 --models-preset /root/models.ini --models-max 1
