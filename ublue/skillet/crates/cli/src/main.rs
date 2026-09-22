@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
-use skillet_core::credentials::CredentialManager;
 use skillet_core::resource_op::ResourceOp;
 use std::fs;
 use std::io::Write;
@@ -91,9 +90,7 @@ fn main() -> Result<()> {
             }
 
             skillet_cli_common::handle_apply(&hostname, record, |system, files| {
-                // Initialize credential manager once
-                let cred_manager = CredentialManager::new().map_err(|e| e.to_string())?;
-                skillet_cli_common::hosts::apply_host(&hostname, system, files, &cred_manager)
+                skillet_cli_common::hosts::apply_host(&hostname, system, files)
                     .map_err(|e| e.to_string())
             })
             .map_err(|e| anyhow!("Failed to apply configuration: {e}"))?;
