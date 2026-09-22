@@ -338,7 +338,7 @@ impl SystemResource for LinuxSystemResource {
                         "Failed to remove old secret {name}"
                     )));
                 }
-                        } else {
+            } else {
                 if existing_hash == hash {
                     debug!("Podman secret {name} already exists with correct hash");
                     return Ok(false);
@@ -352,7 +352,7 @@ impl SystemResource for LinuxSystemResource {
                         "Failed to remove old secret {name}"
                     )));
                 }
-                        }
+            }
         }
 
         info!("Creating podman secret {name}");

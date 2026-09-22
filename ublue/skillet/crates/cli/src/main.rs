@@ -267,7 +267,11 @@ fn setup_container(container_name: &str, image: &str, binary_path: &Path) -> Res
     Ok(())
 }
 
-fn prepare_and_run_skillet(container_name: &str, hostname: &str, host_specific: bool) -> Result<()> {
+fn prepare_and_run_skillet(
+    container_name: &str,
+    hostname: &str,
+    host_specific: bool,
+) -> Result<()> {
     // Prepare entrypoint script
     let entrypoint_content = include_str!("test_entrypoint.sh");
     let mut temp_entrypoint = tempfile::Builder::new().suffix(".sh").tempfile()?;
