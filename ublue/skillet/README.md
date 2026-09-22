@@ -4,6 +4,15 @@ Skillet is a Rust-based tool for idempotent host configuration management. It is
 
 ## Building
 
+Skillet builds fully static musl binaries by default (see `.cargo/config.toml`),
+so each host binary runs on any x86_64 Linux target with no glibc or system
+library dependencies — ideal for dropping onto an immutable host.
+
+One-time setup:
+```bash
+rustup target add x86_64-unknown-linux-musl
+```
+
 ### Development Build
 To build the workspace for development, use the standard cargo command:
 ```bash
@@ -15,6 +24,10 @@ For optimized production builds, use the `--release` flag:
 ```bash
 cargo build --release
 ```
+The per-host binaries land at
+`target/x86_64-unknown-linux-musl/release/skillet-<hostname>`
+(e.g. `skillet-clamps`). Verify with `file`, which should report
+"statically linked".
 
 ## Running
 

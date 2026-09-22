@@ -183,6 +183,9 @@ fn resolve_host_user<S: SystemResource + ?Sized>(
     }
 }
 
+// uid/gid subid ranges are intentionally parallel; the one-letter
+// difference is the whole point
+#[allow(clippy::similar_names)]
 fn calculate_user_mappings(
     user: &ContainerUser,
     uid_host: u32,

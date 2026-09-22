@@ -3,8 +3,6 @@ use skillet_core::{
     files::{FileError, FileResource},
     system::{SystemError, SystemResource},
 };
-use skillet_hardening;
-use skillet_pihole;
 use skillet_podman::{QuadletSecret, SecretTarget};
 use thiserror::Error;
 
@@ -23,27 +21,22 @@ pub enum ApplyError {
 }
 
 mod user_lookup {
-    use skillet_core::system::SystemError;
     use users::{get_group_by_name, get_user_by_name};
 
     /// Look up UID for a username, returns None if user doesn't exist
-    pub fn lookup_uid(username: &str) -> Result<Option<u32>, SystemError> {
-        match get_user_by_name(username) {
-            Some(user) => Ok(Some(user.uid())),
-            None => Ok(None),
-        }
+    pub fn lookup_uid(username: &str) -> Option<u32> {
+        get_user_by_name(username).map(|user| user.uid())
     }
 
     /// Look up GID for a group name, returns None if group doesn't exist
-    pub fn lookup_gid(groupname: &str) -> Result<Option<u32>, SystemError> {
-        match get_group_by_name(groupname) {
-            Some(group) => Ok(Some(group.gid())),
-            None => Ok(None),
-        }
+    pub fn lookup_gid(groupname: &str) -> Option<u32> {
+        get_group_by_name(groupname).map(|group| group.gid())
     }
 }
 
 /// Apply configuration for a specific host
+// pihole uid/gid lookups are intentionally parallel
+#[allow(clippy::similar_names)]
 pub fn apply_host(
     hostname: &str,
     system: &(impl SystemResource + ?Sized),
@@ -65,18 +58,10 @@ pub fn apply_host(
             system
                 .ensure_podman_secret("pihole_web_password", &secret_payload)?;
 
-            // Look up pihole user and group IDs
-            let (pihole_uid_opt, pihole_gid_opt) = match (
-                user_lookup::lookup_uid("pihole"),
-                user_lookup::lookup_gid("pihole"),
-            ) {
-                (Ok(uid), Ok(gid)) => (uid, gid),
-                _ => {
-                    // If user/group doesn't exist yet, we'll create them with dynamic IDs
-                    // For now, use placeholders that will be replaced during ensure_user/group
-                    (None, None)
-                }
-            };
+            // Look up pihole user and group IDs; None if the user/group
+            // doesn't exist yet (ensure_user/group will assign dynamic IDs)
+            let pihole_uid_opt = user_lookup::lookup_uid("pihole");
+            let pihole_gid_opt = user_lookup::lookup_gid("pihole");
 
             // 3. Apply pihole with the secret
             let secrets = vec![QuadletSecret {
