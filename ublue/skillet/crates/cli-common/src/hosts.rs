@@ -50,16 +50,19 @@ pub fn apply_beezelbot(
 }
 
 /// Apply the clamps host configuration (hardening + Pi-hole).
+///
+/// The credential manager is constructed lazily here: hosts that need no
+/// secrets (e.g. beezelbot) never touch CREDENTIALS_DIRECTORY.
 // pihole uid/gid lookups are intentionally parallel
 #[allow(clippy::similar_names)]
 pub fn apply_clamps(
     system: &dyn SystemResource,
     files: &dyn FileResource,
-    credentials: &CredentialManager,
 ) -> Result<(), ApplyError> {
     skillet_hardening::apply(system, files).map_err(|e| ApplyError::Hardening(e.to_string()))?;
 
-    // 1. Ingest secret from systemd
+    // 1. Ingest secret from systemd (lazy: only this host needs secrets)
+    let credentials = CredentialManager::new()?;
     let secret_payload = credentials.read_secret("test_secret")?;
 
     // 2. Provision to Podman
@@ -106,11 +109,10 @@ pub fn apply_host(
     hostname: &str,
     system: &dyn SystemResource,
     files: &dyn FileResource,
-    credentials: &CredentialManager,
 ) -> Result<(), ApplyError> {
     match hostname {
         "beezelbot" => apply_beezelbot(system, files),
-        "clamps" => apply_clamps(system, files, credentials),
+        "clamps" => apply_clamps(system, files),
         _ => apply_beezelbot(system, files),
     }
 }
