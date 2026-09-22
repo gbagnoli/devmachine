@@ -9,8 +9,6 @@ use std::process::Command;
 use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
-mod host_applies;
-
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -95,7 +93,7 @@ fn main() -> Result<()> {
             skillet_cli_common::handle_apply(&hostname, record, |system, files| {
                 // Initialize credential manager once
                 let cred_manager = CredentialManager::new().map_err(|e| e.to_string())?;
-                host_applies::apply_host(&hostname, system, files, &cred_manager)
+                skillet_cli_common::hosts::apply_host(&hostname, system, files, &cred_manager)
                     .map_err(|e| e.to_string())
             })
             .map_err(|e| anyhow!("Failed to apply configuration: {e}"))?;
