@@ -1,6 +1,7 @@
 use sha2::{Digest, Sha256};
 use std::process::{Command, Stdio};
 use std::sync::LazyLock;
+use std::time::{Duration, Instant};
 use thiserror::Error;
 use tracing::{debug, info, warn};
 use users::{get_group_by_name, get_user_by_name};
@@ -92,6 +93,11 @@ impl LinuxSystemResource {
         Self { conn }
     }
 
+    /// Run a systemctl action via DBus (preferred) or the CLI (fallback).
+    ///
+    /// Actions are blocking: the CLI path no longer passes `--no-block`,
+    /// and `start`/`restart` additionally wait until the unit reports
+    /// active, so a failed service can no longer look successful.
     fn run_systemctl(&self, action: &str, name: &str) -> Result<(), SystemError> {
         let name_with_suffix = ensure_systemd_suffix(name);
 
@@ -111,18 +117,31 @@ impl LinuxSystemResource {
             };
 
             match res {
-                Ok(_) => return Ok(()),
+                Ok(_) => {}
                 Err(e) => {
                     warn!("DBus call failed, falling back to CLI: {e}");
+                    self.run_systemctl_cli(action, &name_with_suffix)?;
                 }
             }
+        } else {
+            self.run_systemctl_cli(action, &name_with_suffix)?;
         }
 
+        // DBus only queues the job, so verify the end state for the
+        // actions that are supposed to leave the unit running.
+        if matches!(action, "start" | "restart") {
+            self.wait_until_active(&name_with_suffix)?;
+        }
+
+        Ok(())
+    }
+
+    /// Blocking `systemctl <action>` via the CLI.
+    fn run_systemctl_cli(&self, action: &str, name_with_suffix: &str) -> Result<(), SystemError> {
         info!("Running systemctl {action} {name_with_suffix} via CLI");
         let output = Command::new("systemctl")
             .arg(action)
-            .arg("--no-block")
-            .arg(&name_with_suffix)
+            .arg(name_with_suffix)
             .output()?;
 
         if !output.status.success() {
@@ -132,6 +151,35 @@ impl LinuxSystemResource {
             )));
         }
         Ok(())
+    }
+
+    /// Poll `systemctl is-active` until the unit is active or we time out.
+    fn wait_until_active(&self, name_with_suffix: &str) -> Result<(), SystemError> {
+        const TIMEOUT: Duration = Duration::from_secs(60);
+        const POLL_INTERVAL: Duration = Duration::from_millis(500);
+
+        let deadline = Instant::now() + TIMEOUT;
+        loop {
+            let status = Command::new("systemctl")
+                .arg("is-active")
+                .arg("--quiet")
+                .arg(name_with_suffix)
+                .status()?;
+
+            if status.success() {
+                debug!("Service {name_with_suffix} is active");
+                return Ok(());
+            }
+
+            if Instant::now() >= deadline {
+                return Err(SystemError::Command(format!(
+                    "Service {name_with_suffix} did not become active within {}s of start/restart",
+                    TIMEOUT.as_secs()
+                )));
+            }
+
+            std::thread::sleep(POLL_INTERVAL);
+        }
     }
 
     fn daemon_reload(&self) -> Result<(), SystemError> {
