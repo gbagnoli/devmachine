@@ -89,21 +89,23 @@ where
         host_user: Some(HostUser::Name(user_config.name)),
     };
 
+    // SELinux relabeling (:z, shared) so the container can access these
+    // host paths on enforcing systems such as uCore.
     let volumes = vec![
         Volume {
             host_path: format!("{root}/conf"),
             container_path: "/etc/pihole".to_string(),
-            options: None,
+            options: Some("z".to_string()),
         },
         Volume {
             host_path: format!("{root}/dnsmasq.d"),
             container_path: "/etc/dnsmasq.d".to_string(),
-            options: None,
+            options: Some("z".to_string()),
         },
         Volume {
             host_path: logs.to_string(),
             container_path: "/var/log/pihole".to_string(),
-            options: None,
+            options: Some("z".to_string()),
         },
     ];
 
