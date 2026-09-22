@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
-use skillet_cli_common;
 use skillet_core::credentials::CredentialManager;
 use skillet_core::resource_op::ResourceOp;
 use std::fs;
