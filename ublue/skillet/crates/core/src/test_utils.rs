@@ -96,6 +96,14 @@ impl SystemResource for MockSystem {
         Ok(())
     }
 
+    fn service_enable(&self, name: &str) -> Result<(), SystemError> {
+        self.services
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(name.to_string(), "enabled".to_string());
+        Ok(())
+    }
+
     fn daemon_reload(&self) -> Result<(), SystemError> {
         self.services
             .lock()

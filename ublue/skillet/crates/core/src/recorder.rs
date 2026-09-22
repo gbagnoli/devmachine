@@ -152,6 +152,13 @@ impl<T: SystemResource> SystemResource for Recorder<T> {
         self.inner.service_reload(name)
     }
 
+    fn service_enable(&self, name: &str) -> Result<(), SystemError> {
+        self.record(ResourceOp::ServiceEnable {
+            name: name.to_string(),
+        });
+        self.inner.service_enable(name)
+    }
+
     fn daemon_reload(&self) -> Result<(), SystemError> {
         self.record(ResourceOp::DaemonReload);
         self.inner.daemon_reload()

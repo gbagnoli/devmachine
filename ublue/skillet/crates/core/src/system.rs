@@ -72,6 +72,7 @@ pub trait SystemResource {
     fn service_stop(&self, name: &str) -> Result<(), SystemError>;
     fn service_restart(&self, name: &str) -> Result<(), SystemError>;
     fn service_reload(&self, name: &str) -> Result<(), SystemError>;
+    fn service_enable(&self, name: &str) -> Result<(), SystemError>;
     fn daemon_reload(&self) -> Result<(), SystemError>;
 }
 
@@ -348,6 +349,25 @@ impl SystemResource for LinuxSystemResource {
 
     fn service_reload(&self, name: &str) -> Result<(), SystemError> {
         self.run_systemctl("reload", name)
+    }
+
+    fn service_enable(&self, name: &str) -> Result<(), SystemError> {
+        let name_with_suffix = ensure_systemd_suffix(name);
+        // No DBus fast-path here: `systemctl enable` is idempotent and
+        // cheap, and the CLI keeps this simple.
+        info!("Enabling {name_with_suffix}");
+        let output = Command::new("systemctl")
+            .arg("enable")
+            .arg(&name_with_suffix)
+            .output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(SystemError::Command(format!(
+                "systemctl enable {name_with_suffix} failed: {stderr}"
+            )));
+        }
+        Ok(())
     }
 
     fn daemon_reload(&self) -> Result<(), SystemError> {

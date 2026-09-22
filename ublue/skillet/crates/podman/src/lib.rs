@@ -150,7 +150,18 @@ where
     }
 
     // 4. Render and ensure Quadlet file
-    render_and_ensure_quadlet(system, files, name, extra_config)
+    let wants_enable = extra_config.contains_key("Install");
+    let changed = render_and_ensure_quadlet(system, files, name, extra_config)?;
+
+    // 5. A quadlet shipping an [Install] section is meant to persist across
+    // reboots; ensure it is enabled. `systemctl enable` is idempotent, so
+    // this is safe to run on every apply.
+    if wants_enable {
+        info!("Quadlet has [Install] section, enabling {name}");
+        system.service_enable(name)?;
+    }
+
+    Ok(changed)
 }
 
 fn resolve_host_user<S: SystemResource + ?Sized>(
