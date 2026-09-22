@@ -1,0 +1,12 @@
+# Static musl builds: every host binary is a fully static executable with no
+# glibc or other system library dependencies, so it can be dropped onto any
+# x86_64 Linux target (e.g. an immutable uCore host) and just run.
+#
+# One-time setup: rustup target add x86_64-unknown-linux-musl
+[build]
+target = "x86_64-unknown-linux-musl"
+
+[target.x86_64-unknown-linux-musl]
+# crt-static is already the default for the musl target; spelled out here so
+# the intent (fully static, no dynamic libc) is explicit and auditable.
+rustflags = ["-C", "target-feature=+crt-static"]
