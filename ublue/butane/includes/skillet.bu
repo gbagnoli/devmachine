@@ -14,6 +14,10 @@ systemd:
         Type=oneshot
         # Use the generic skillet binary and pass the hostname from /etc/hostname
         ExecStart=/usr/bin/skillet apply --host-file /etc/hostname
+        # Expose the Pi-hole web password to skillet via $CREDENTIALS_DIRECTORY.
+        # The credential file itself must be provisioned separately (Ignition
+        # storage.files); the service intentionally fails if it is missing.
+        LoadCredential=pihole_web_password:/etc/skillet/credentials/pihole_web_password
         RemainAfterExit=yes
 
         [Install]
