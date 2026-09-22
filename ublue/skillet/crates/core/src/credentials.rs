@@ -6,6 +6,8 @@ use thiserror::Error;
 pub enum CredentialError {
     #[error("CREDENTIALS_DIRECTORY environment variable not set")]
     NoDirectory,
+    #[error("Invalid secret name {0:?}: must be a plain file name")]
+    InvalidName(String),
     #[error("Failed to read secret {0}: {1}")]
     ReadError(String, std::io::Error),
 }
@@ -22,7 +24,17 @@ impl CredentialManager {
         Ok(Self { base_path: path })
     }
 
+    /// Read a secret by name from the credentials directory.
+    ///
+    /// The name must be a plain file name: path separators, parent
+    /// references and absolute paths are rejected so a caller can never
+    /// escape the credentials directory, even if the name ever stops
+    /// being a hardcoded constant.
     pub fn read_secret(&self, name: &str) -> Result<String, CredentialError> {
+        if name.is_empty() || name.contains('/') || name.contains('\\') || name.contains("..") {
+            return Err(CredentialError::InvalidName(name.to_string()));
+        }
+
         let secret_path = self.base_path.join(name);
 
         let mut file = std::fs::File::open(&secret_path)
@@ -36,3 +48,7 @@ impl CredentialManager {
         Ok(content)
     }
 }
+
+#[cfg(test)]
+#[path = "credentials/tests.rs"]
+mod tests;
