@@ -8,6 +8,8 @@ use thiserror::Error;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
+pub mod hosts;
+
 #[derive(Error, Debug)]
 pub enum CliCommonError {
     #[error("Configuration error: {0}")]

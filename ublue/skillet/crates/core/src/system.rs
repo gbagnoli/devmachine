@@ -72,6 +72,7 @@ pub trait SystemResource {
     fn service_stop(&self, name: &str) -> Result<(), SystemError>;
     fn service_restart(&self, name: &str) -> Result<(), SystemError>;
     fn service_reload(&self, name: &str) -> Result<(), SystemError>;
+    fn service_enable(&self, name: &str) -> Result<(), SystemError>;
     fn daemon_reload(&self) -> Result<(), SystemError>;
 }
 
@@ -91,8 +92,23 @@ impl LinuxSystemResource {
         Self { conn }
     }
 
+    /// Run a systemctl action via `DBus` (preferred) or the CLI (fallback).
+    ///
+    /// Actions are blocking: the CLI path never passes `--no-block`, and
+    /// `start`/`restart` additionally pass `--wait` so the call blocks until
+    /// the job completes. The exit status then reflects the job result, so a
+    /// failed service can no longer look successful. This is oneshot-safe:
+    /// unlike polling `is-active`, it does not mistake a successfully exited
+    /// oneshot unit for a failure.
     fn run_systemctl(&self, action: &str, name: &str) -> Result<(), SystemError> {
         let name_with_suffix = ensure_systemd_suffix(name);
+
+        // D-Bus `StartUnit`/`RestartUnit` only queue the job, so they cannot
+        // observe its result. Route start/restart through the CLI with
+        // `--wait` instead.
+        if matches!(action, "start" | "restart") {
+            return Self::run_systemctl_cli(action, &name_with_suffix);
+        }
 
         if let Some(conn) = &self.conn {
             info!("Running systemctl {action} {name_with_suffix} via DBus");
@@ -110,19 +126,31 @@ impl LinuxSystemResource {
             };
 
             match res {
-                Ok(_) => return Ok(()),
+                Ok(_) => {}
                 Err(e) => {
                     warn!("DBus call failed, falling back to CLI: {e}");
+                    Self::run_systemctl_cli(action, &name_with_suffix)?;
                 }
             }
+        } else {
+            Self::run_systemctl_cli(action, &name_with_suffix)?;
         }
 
+        Ok(())
+    }
+
+    /// Blocking `systemctl <action>` via the CLI.
+    ///
+    /// `start`/`restart` pass `--wait`: the call blocks until the job
+    /// completes and the exit status reflects the job result.
+    fn run_systemctl_cli(action: &str, name_with_suffix: &str) -> Result<(), SystemError> {
         info!("Running systemctl {action} {name_with_suffix} via CLI");
-        let output = Command::new("systemctl")
-            .arg(action)
-            .arg("--no-block")
-            .arg(&name_with_suffix)
-            .output()?;
+        let mut cmd = Command::new("systemctl");
+        cmd.arg(action);
+        if matches!(action, "start" | "restart") {
+            cmd.arg("--wait");
+        }
+        let output = cmd.arg(name_with_suffix).output()?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -289,7 +317,7 @@ impl SystemResource for LinuxSystemResource {
                         "Failed to remove old secret {name}"
                     )));
                 }
-                        } else {
+            } else {
                 if existing_hash == hash {
                     debug!("Podman secret {name} already exists with correct hash");
                     return Ok(false);
@@ -303,7 +331,7 @@ impl SystemResource for LinuxSystemResource {
                         "Failed to remove old secret {name}"
                     )));
                 }
-                        }
+            }
         }
 
         info!("Creating podman secret {name}");
@@ -348,6 +376,25 @@ impl SystemResource for LinuxSystemResource {
 
     fn service_reload(&self, name: &str) -> Result<(), SystemError> {
         self.run_systemctl("reload", name)
+    }
+
+    fn service_enable(&self, name: &str) -> Result<(), SystemError> {
+        let name_with_suffix = ensure_systemd_suffix(name);
+        // No DBus fast-path here: `systemctl enable` is idempotent and
+        // cheap, and the CLI keeps this simple.
+        info!("Enabling {name_with_suffix}");
+        let output = Command::new("systemctl")
+            .arg("enable")
+            .arg(&name_with_suffix)
+            .output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(SystemError::Command(format!(
+                "systemctl enable {name_with_suffix} failed: {stderr}"
+            )));
+        }
+        Ok(())
     }
 
     fn daemon_reload(&self) -> Result<(), SystemError> {

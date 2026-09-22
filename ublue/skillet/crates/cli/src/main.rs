@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
-use skillet_core::credentials::CredentialManager;
 use skillet_core::resource_op::ResourceOp;
 use std::fs;
 use std::io::Write;
@@ -8,8 +7,6 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
-
-mod host_applies;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -93,9 +90,7 @@ fn main() -> Result<()> {
             }
 
             skillet_cli_common::handle_apply(&hostname, record, |system, files| {
-                // Initialize credential manager once
-                let cred_manager = CredentialManager::new().map_err(|e| e.to_string())?;
-                host_applies::apply_host(&hostname, system, files, &cred_manager)
+                skillet_cli_common::hosts::apply_host(&hostname, system, files)
                     .map_err(|e| e.to_string())
             })
             .map_err(|e| anyhow!("Failed to apply configuration: {e}"))?;
@@ -136,10 +131,10 @@ fn run_container_test(hostname: &str, image: &str, is_record: bool, inspect: boo
     let binary_path = locate_binary(hostname)?;
     let container_name = format!("skillet-test-{hostname}");
 
-    setup_container(&container_name, image, &binary_path)?;
+    setup_container(&container_name, image, &binary_path.0)?;
 
     let result = (|| -> Result<()> {
-        prepare_and_run_skillet(&container_name)?;
+        prepare_and_run_skillet(&container_name, hostname, binary_path.1)?;
         verify_or_record(hostname, &container_name, is_record)?;
         Ok(())
     })();
@@ -183,29 +178,51 @@ fn find_workspace_root() -> Result<PathBuf> {
     Ok(metadata.workspace_root.into_std_path_buf())
 }
 
-fn locate_binary(hostname: &str) -> Result<PathBuf> {
+fn locate_binary(hostname: &str) -> Result<(PathBuf, bool)> {
     let host_binary_name = format!("skillet-{hostname}");
     let root = find_workspace_root()?;
 
     let musl = "x86_64-unknown-linux-musl";
-    let binary_path = [
-        root.join(format!("target/{musl}/release")).join(&host_binary_name),
-        root.join(format!("target/{musl}/debug")).join(&host_binary_name),
-        root.join("target/release").join(&host_binary_name),
-        root.join("target/debug").join(&host_binary_name),
-        root.join(format!("target/{musl}/release")).join("skillet"),
-        root.join(format!("target/{musl}/debug")).join("skillet"),
-        root.join("target/release").join("skillet"),
-        root.join("target/debug").join("skillet"),
-    ]
-    .into_iter()
-    .find(|p| p.exists())
-    .ok_or_else(|| {
-        anyhow!("No suitable skillet binary found under target/ (checked release, debug, and x86_64-unknown-linux-musl subdirs)")
-    })?;
+    let target_dirs = [
+        format!("target/{musl}/release"),
+        format!("target/{musl}/debug"),
+        "target/release".to_string(),
+        "target/debug".to_string(),
+    ];
 
-    info!("Using binary: {}", binary_path.display());
-    fs::canonicalize(&binary_path).context("Failed to canonicalize binary path")
+    // Prefer the host-specific binary ...
+    for dir in &target_dirs {
+        let path = root.join(dir).join(&host_binary_name);
+        if path.exists() {
+            info!("Using host-specific binary: {}", path.display());
+            return Ok((
+                fs::canonicalize(&path).context("Failed to canonicalize binary path")?,
+                true,
+            ));
+        }
+    }
+
+    // ... but fall back to the generic CLI. The caller must then pass
+    // --host explicitly: without it the generic CLI applies its
+    // "(Agent Mode)" default and the test would silently verify the wrong
+    // host's configuration.
+    for dir in &target_dirs {
+        let path = root.join(dir).join("skillet");
+        if path.exists() {
+            info!(
+                "Using generic binary, will pass --host explicitly: {}",
+                path.display()
+            );
+            return Ok((
+                fs::canonicalize(&path).context("Failed to canonicalize binary path")?,
+                false,
+            ));
+        }
+    }
+
+    Err(anyhow!(
+        "No suitable skillet binary found under target/ (checked release, debug, and x86_64-unknown-linux-musl subdirs)"
+    ))
 }
 
 fn setup_container(container_name: &str, image: &str, binary_path: &Path) -> Result<()> {
@@ -219,7 +236,10 @@ fn setup_container(container_name: &str, image: &str, binary_path: &Path) -> Res
     let root = find_workspace_root()?;
     let mock_creds_dir = root.join("target/mock_creds");
     fs::create_dir_all(&mock_creds_dir)?;
-    fs::write(mock_creds_dir.join("test_secret"), "supersecret_payload")?;
+    fs::write(
+        mock_creds_dir.join(skillet_cli_common::hosts::PIHOLE_WEB_PASSWORD_CREDENTIAL),
+        "supersecret_payload",
+    )?;
 
     let run_status = Command::new("podman")
         .args([
@@ -247,7 +267,11 @@ fn setup_container(container_name: &str, image: &str, binary_path: &Path) -> Res
     Ok(())
 }
 
-fn prepare_and_run_skillet(container_name: &str) -> Result<()> {
+fn prepare_and_run_skillet(
+    container_name: &str,
+    hostname: &str,
+    host_specific: bool,
+) -> Result<()> {
     // Prepare entrypoint script
     let entrypoint_content = include_str!("test_entrypoint.sh");
     let mut temp_entrypoint = tempfile::Builder::new().suffix(".sh").tempfile()?;
@@ -289,16 +313,20 @@ fn prepare_and_run_skillet(container_name: &str) -> Result<()> {
     }
 
     info!("Executing skillet inside container...");
+    // The host-specific binary already knows its host; the generic CLI
+    // needs --host pinned explicitly, otherwise it falls back to
+    // "(Agent Mode)" and the test would exercise the wrong configuration.
+    let mut skillet_args = vec!["apply".to_string()];
+    if !host_specific {
+        skillet_args.push("--host".to_string());
+        skillet_args.push(hostname.to_string());
+    }
+    skillet_args.push("--record".to_string());
+    skillet_args.push("/tmp/ops.yaml".to_string());
+
     let exec_status = Command::new("podman")
-        .args([
-            "exec",
-            container_name,
-            "/tmp/test_entrypoint.sh",
-            "skillet",
-            "apply",
-            "--record",
-            "/tmp/ops.yaml",
-        ])
+        .args(["exec", container_name, "/tmp/test_entrypoint.sh", "skillet"])
+        .args(&skillet_args)
         .status()
         .context("Failed to exec skillet")?;
 
