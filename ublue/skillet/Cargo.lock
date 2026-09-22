@@ -1124,10 +1124,13 @@ dependencies = [
  "serde_yml",
  "skillet_core",
  "skillet_hardening",
+ "skillet_pihole",
+ "skillet_podman",
  "tempfile",
  "thiserror 1.0.69",
  "tracing",
  "tracing-subscriber",
+ "users",
 ]
 
 [[package]]

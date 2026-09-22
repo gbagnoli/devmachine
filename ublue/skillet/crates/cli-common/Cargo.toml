@@ -9,6 +9,9 @@ workspace = true
 [dependencies]
 skillet_core.workspace = true
 skillet_hardening.workspace = true
+skillet_pihole.workspace = true
+skillet_podman.workspace = true
+users.workspace = true
 clap.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
