@@ -138,7 +138,7 @@ impl LinuxSystemResource {
             info!("Running systemctl daemon-reload via DBus");
             let proxy = SystemdManagerProxyBlocking::new(conn)?;
             match proxy.reload() {
-                Ok(_) => return Ok(()),
+                Ok(()) => return Ok(()),
                 Err(e) => {
                     warn!("DBus daemon-reload failed, falling back to CLI: {e}");
                 }
@@ -279,7 +279,17 @@ impl SystemResource for LinuxSystemResource {
                 .trim()
                 .to_string();
             // If the label is missing, the output will be empty
-            if !existing_hash.is_empty() {
+            if existing_hash.is_empty() {
+                warn!("Podman secret {name} exists but lacks required label. Deleting and recreating.");
+                let rm_status = Command::new("podman")
+                    .args(["secret", "rm", name])
+                    .status()?;
+                if !rm_status.success() {
+                    return Err(SystemError::Command(format!(
+                        "Failed to remove old secret {name}"
+                    )));
+                }
+                        } else {
                 if existing_hash == hash {
                     debug!("Podman secret {name} already exists with correct hash");
                     return Ok(false);
@@ -293,17 +303,7 @@ impl SystemResource for LinuxSystemResource {
                         "Failed to remove old secret {name}"
                     )));
                 }
-            } else {
-                warn!("Podman secret {name} exists but lacks required label. Deleting and recreating.");
-                let rm_status = Command::new("podman")
-                    .args(["secret", "rm", name])
-                    .status()?;
-                if !rm_status.success() {
-                    return Err(SystemError::Command(format!(
-                        "Failed to remove old secret {name}"
-                    )));
-                }
-            }
+                        }
         }
 
         info!("Creating podman secret {name}");

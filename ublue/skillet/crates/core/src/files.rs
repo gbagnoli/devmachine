@@ -109,11 +109,11 @@ impl LocalFileResource {
         if let Some(m) = mode {
             let mut perms = file
                 .metadata()
-                .map_err(|e| FileError::Io(e))?
+                .map_err(FileError::Io)?
                 .permissions();
             perms.set_mode(m);
             file.set_permissions(perms)
-                .map_err(|e| FileError::Io(e))?;
+                .map_err(FileError::Io)?;
         }
 
         if owner.is_some() || group.is_some() {
