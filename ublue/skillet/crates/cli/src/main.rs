@@ -214,7 +214,10 @@ fn setup_container(container_name: &str, image: &str, binary_path: &Path) -> Res
     let root = find_workspace_root()?;
     let mock_creds_dir = root.join("target/mock_creds");
     fs::create_dir_all(&mock_creds_dir)?;
-    fs::write(mock_creds_dir.join("test_secret"), "supersecret_payload")?;
+    fs::write(
+        mock_creds_dir.join(skillet_cli_common::hosts::PIHOLE_WEB_PASSWORD_CREDENTIAL),
+        "supersecret_payload",
+    )?;
 
     let run_status = Command::new("podman")
         .args([

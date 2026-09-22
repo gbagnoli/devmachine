@@ -3,7 +3,7 @@ use skillet_core::files::{FileError, FileResource};
 use skillet_core::system::{SystemError, SystemResource};
 use skillet_core::templates::ensure_templated_file;
 use skillet_podman::{self, ContainerUser, HostUser, PodmanError, Volume, PodmanConfig, QuadletSecret};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::path::Path;
 use thiserror::Error;
 use tracing::info;
@@ -21,7 +21,7 @@ pub enum PiholeError {
 #[derive(Template)]
 #[template(path = "pihole/custom.list.j2")]
 struct CustomListTemplate {
-    custom: HashMap<String, String>,
+    custom: BTreeMap<String, String>,
 }
 
 pub struct PiholeUser {
@@ -31,11 +31,15 @@ pub struct PiholeUser {
     pub group_name: String,
 }
 
+/// Host-specific Pi-hole configuration: custom DNS records (`ip -> fqdn`)
+/// rendered into `custom.list`. Kept out of the shared crate so each host
+/// supplies its own LAN topology.
 pub fn apply<S, F>(
     system: &S,
     files: &F,
     user_config: PiholeUser,
     secrets: Vec<QuadletSecret>,
+    custom_records: BTreeMap<String, String>,
 ) -> Result<(), PiholeError>
 where
     S: SystemResource + ?Sized,
@@ -65,11 +69,10 @@ where
     )?;
     files.ensure_directory(Path::new(logs), Some(0o755), Some("root"), Some("root"))?;
 
-    // 3. Custom list template
-    let mut custom = HashMap::new();
-    custom.insert("192.168.1.100".to_string(), "my.custom.domain".to_string());
-
-    let template = CustomListTemplate { custom };
+    // 3. Custom list template (records supplied by the host)
+    let template = CustomListTemplate {
+        custom: custom_records,
+    };
     ensure_templated_file(
         files,
         &Path::new(root).join("conf/custom.list"),

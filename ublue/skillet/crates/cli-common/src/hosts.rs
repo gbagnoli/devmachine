@@ -11,6 +11,7 @@ use skillet_core::{
     system::{SystemError, SystemResource},
 };
 use skillet_podman::{QuadletSecret, SecretTarget};
+use std::collections::BTreeMap;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -27,8 +28,7 @@ pub enum ApplyError {
     Pihole(#[from] skillet_pihole::PiholeError),
 }
 
-mod user_lookup {
-    use users::{get_group_by_name, get_user_by_name};
+mod user_lookup {    use users::{get_group_by_name, get_user_by_name};
 
     /// Look up UID for a username, returns None if user doesn't exist
     pub fn lookup_uid(username: &str) -> Option<u32> {
@@ -49,6 +49,19 @@ pub fn apply_beezelbot(
     skillet_hardening::apply(system, files).map_err(|e| ApplyError::Hardening(e.to_string()))
 }
 
+/// Name of the systemd credential (and podman secret) holding the Pi-hole
+/// web UI password. Wired into `skillet-apply.service` via `LoadCredential=`
+/// in `ublue/butane/includes/skillet.bu`; the credential file itself
+/// (`/etc/skillet/credentials/pihole_web_password`) must be provisioned by
+/// Ignition separately.
+pub const PIHOLE_WEB_PASSWORD_CREDENTIAL: &str = "pihole_web_password";
+
+/// Custom DNS records for the clamps Pi-hole (`ip -> fqdn`).
+// TODO: replace with the real LAN IP and domain before the production
+// cutover; these are still the old placeholder values.
+const CLAMPS_CUSTOM_DNS_RECORDS: &[(&str, &str)] =
+    &[("192.168.1.100", "my.custom.domain")];
+
 /// Apply the clamps host configuration (hardening + Pi-hole).
 ///
 /// The credential manager is constructed lazily here: hosts that need no
@@ -63,10 +76,10 @@ pub fn apply_clamps(
 
     // 1. Ingest secret from systemd (lazy: only this host needs secrets)
     let credentials = CredentialManager::new()?;
-    let secret_payload = credentials.read_secret("test_secret")?;
+    let secret_payload = credentials.read_secret(PIHOLE_WEB_PASSWORD_CREDENTIAL)?;
 
     // 2. Provision to Podman
-    system.ensure_podman_secret("pihole_web_password", &secret_payload)?;
+    system.ensure_podman_secret(PIHOLE_WEB_PASSWORD_CREDENTIAL, &secret_payload)?;
 
     // Look up pihole user and group IDs; None if the user/group
     // doesn't exist yet (ensure_user/group will assign dynamic IDs).
@@ -78,7 +91,7 @@ pub fn apply_clamps(
 
     // 3. Apply pihole with the secret
     let secrets = vec![QuadletSecret {
-        secret_name: "pihole_web_password".to_string(),
+        secret_name: PIHOLE_WEB_PASSWORD_CREDENTIAL.to_string(),
         target: SecretTarget::File {
             target_path: "/etc/pihole/webpassword".to_string(),
             mode: Some("0400".to_string()),
@@ -86,6 +99,11 @@ pub fn apply_clamps(
             gid: pihole_gid,
         },
     }];
+
+    let custom_records: BTreeMap<String, String> = CLAMPS_CUSTOM_DNS_RECORDS
+        .iter()
+        .map(|(ip, fqdn)| ((*ip).to_string(), (*fqdn).to_string()))
+        .collect();
 
     skillet_pihole::apply(
         system,
@@ -97,6 +115,7 @@ pub fn apply_clamps(
             group_name: "pihole".to_string(),
         },
         secrets,
+        custom_records,
     )?;
     Ok(())
 }
