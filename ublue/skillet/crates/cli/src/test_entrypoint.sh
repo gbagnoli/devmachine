@@ -9,8 +9,17 @@ if [ ! -x /usr/bin/systemctl ]; then
     echo "Mocking systemctl..."
     cat <<EOF > /usr/bin/systemctl
 #!/bin/sh
-echo "Mock systemctl: \$@"
-exit 0
+case "\$*" in
+    "is-active"*)
+        # Pretend every unit ends up active so skillet's post-start
+        # verification passes.
+        exit 0
+        ;;
+    *)
+        echo "Mock systemctl: \$@"
+        exit 0
+        ;;
+esac
 EOF
     chmod +x /usr/bin/systemctl
 fi
