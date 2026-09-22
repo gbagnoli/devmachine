@@ -53,8 +53,20 @@ VM_IMAGE_PATH="${IMAGES_DIR}/$VM_IMAGE"
 rm -f "$VM_IMAGE_PATH"
 cp -v "$IMAGE_PATH" "$VM_IMAGE_PATH"
 
+NETWORK_ARGS=(--network user,model=virtio)
+echo >&2 "Using unprivileged user networking"
+
 set -x
-run_on_host qemu-kvm -m 8192 -cpu host \
-  -drive "if=virtio,format=qcow2,file=$(realpath "$VM_IMAGE_PATH")" \
-  -fw_cfg "name=opt/com.coreos/config,file=${IGNITION_CONFIG}" \
-  -nic "user,model=virtio,hostfwd=tcp::2222-:22"
+"$SCRIPT_DIR/virt-install" \
+  --name "$VM_NAME" \
+  --osinfo linux2024 \
+  --memory 8192 \
+  --vcpus 2 \
+  --import \
+  --disk "path=$(realpath "$VM_IMAGE_PATH"),format=qcow2,bus=virtio" \
+  "${NETWORK_ARGS[@]}" \
+  --graphics spice \
+  --video virtio \
+  --console pty,target_type=serial \
+  --noautoconsole \
+  --qemu-commandline="-fw_cfg name=opt/com.coreos/config,file=${IGNITION_CONFIG}"

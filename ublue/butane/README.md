@@ -24,5 +24,8 @@ See `-h` for more
 ```
 
 this will use the above script to transpile the file, then download a coreos
-image and finally boot a KVM machine executing the ignition file.
-It supports being run inside distrobox and will execute KVM on the host.
+image and finally import it into a libvirt VM using `virt-install`, with the
+Ignition file attached at boot. The VM uses unprivileged user networking, so it
+does not require a libvirt bridge network. The VM has a SPICE display and a
+serial console; open it in virt-manager to view the console. It supports being
+run inside distrobox and will execute host commands through `run_on_host`.
