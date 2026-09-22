@@ -72,6 +72,8 @@ pub fn handle_apply<F>(
 where
     F: Fn(&dyn SystemResource, &dyn FileResource) -> Result<(), String>,
 {
+    use std::io::Write as _;
+
     info!("Starting Skillet configuration for {}...", hostname);
 
     let system = LinuxSystemResource::new();
@@ -91,13 +93,13 @@ where
         let mut temp = tempfile::NamedTempFile::new_in(
             path.parent().unwrap_or_else(|| std::path::Path::new(".")),
         )?;
-        use std::io::Write as _;
         temp.write_all(yaml.as_bytes())?;
         temp.persist(&path).map_err(|e| {
-            CliCommonError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to persist recording to {}: {}", path.display(), e),
-            ))
+            CliCommonError::Io(std::io::Error::other(format!(
+                "Failed to persist recording to {}: {}",
+                path.display(),
+                e
+            )))
         })?;
         info!("Recording saved to {}", path.display());
     } else {

@@ -195,6 +195,8 @@ fn calculate_user_mappings(
 
     let (sub_uid_base, sub_uid_size) =
         discover_subid_range("/etc/subuid", username).unwrap_or((100_000, 65_536));
+    // uid/gid subid ranges are intentionally parallel
+    #[allow(clippy::similar_names)]
     let (sub_gid_base, sub_gid_size) =
         discover_subid_range("/etc/subgid", username).unwrap_or((100_000, 65_536));
 
