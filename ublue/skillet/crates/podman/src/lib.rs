@@ -170,7 +170,7 @@ fn resolve_host_user<S: SystemResource + ?Sized>(
     create: bool,
 ) -> Result<Option<(u32, u32, String)>, PodmanError> {
     if let Some(hu) = &user.host_user {
-        let (username, uid) = match hu {
+        let (username, uid, gid) = match hu {
             HostUser::Name(ref n) => {
                 if create {
                     system.ensure_user(n, None, None)?;
@@ -178,17 +178,20 @@ fn resolve_host_user<S: SystemResource + ?Sized>(
                 let u = get_user_by_name(n).ok_or_else(|| {
                     PodmanError::UserMapping(format!("User {n} not found on host"))
                 })?;
-                (n.clone(), u.uid())
+                (n.clone(), u.uid(), u.primary_group_id())
             }
             HostUser::Uid(u) => {
                 let u_info = get_user_by_uid(*u).ok_or_else(|| {
                     PodmanError::UserMapping(format!("UID {u} not found on host"))
                 })?;
-                (u_info.name().to_string_lossy().to_string(), *u)
+                (
+                    u_info.name().to_string_lossy().to_string(),
+                    *u,
+                    u_info.primary_group_id(),
+                )
             }
         };
-        // For simplicity, assuming gid = uid for now
-        Ok(Some((uid, uid, username)))
+        Ok(Some((uid, gid, username)))
     } else {
         Ok(None)
     }
@@ -220,7 +223,10 @@ fn calculate_user_mappings(
         container_section.push(format!("UIDMap=0:{sub_uid_base}:{uid_container}"));
     }
     container_section.push(format!("UIDMap={uid_container}:{uid_host}:1"));
-    let rem_u = sub_uid_size - uid_container - 1;
+    // Remaining subordinate UIDs after the container UID; saturating so a
+    // too-small subuid range degrades to no remainder mapping instead of
+    // panicking on underflow.
+    let rem_u = sub_uid_size.saturating_sub(uid_container).saturating_sub(1);
     if rem_u > 0 {
         container_section.push(format!(
             "UIDMap={}:{}:{rem_u}",
@@ -234,7 +240,8 @@ fn calculate_user_mappings(
         container_section.push(format!("GIDMap=0:{sub_gid_base}:{gid_container}"));
     }
     container_section.push(format!("GIDMap={gid_container}:{gid_host}:1"));
-    let rem_g = sub_gid_size - gid_container - 1;
+    // Same underflow protection as the UID remainder above.
+    let rem_g = sub_gid_size.saturating_sub(gid_container).saturating_sub(1);
     if rem_g > 0 {
         container_section.push(format!(
             "GIDMap={}:{}:{rem_g}",
