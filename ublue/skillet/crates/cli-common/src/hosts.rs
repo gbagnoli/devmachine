@@ -28,7 +28,8 @@ pub enum ApplyError {
     Pihole(#[from] skillet_pihole::PiholeError),
 }
 
-mod user_lookup {    use users::{get_group_by_name, get_user_by_name};
+mod user_lookup {
+    use users::{get_group_by_name, get_user_by_name};
 
     /// Look up UID for a username, returns None if user doesn't exist
     pub fn lookup_uid(username: &str) -> Option<u32> {
@@ -59,8 +60,7 @@ pub const PIHOLE_WEB_PASSWORD_CREDENTIAL: &str = "pihole_web_password";
 /// Custom DNS records for the clamps Pi-hole (`ip -> fqdn`).
 // TODO: replace with the real LAN IP and domain before the production
 // cutover; these are still the old placeholder values.
-const CLAMPS_CUSTOM_DNS_RECORDS: &[(&str, &str)] =
-    &[("192.168.1.100", "my.custom.domain")];
+const CLAMPS_CUSTOM_DNS_RECORDS: &[(&str, &str)] = &[("192.168.1.100", "my.custom.domain")];
 
 /// Apply the clamps host configuration (hardening + Pi-hole).
 ///

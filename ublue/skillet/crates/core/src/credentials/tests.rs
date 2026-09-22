@@ -12,7 +12,10 @@ fn manager_with_secret(name: &str, payload: &str) -> (CredentialManager, tempfil
 #[test]
 fn read_secret_happy_path() {
     let (manager, _dir) = manager_with_secret("pihole_web_password", "s3cret\n");
-    assert_eq!(manager.read_secret("pihole_web_password").unwrap(), "s3cret");
+    assert_eq!(
+        manager.read_secret("pihole_web_password").unwrap(),
+        "s3cret"
+    );
 }
 
 #[test]

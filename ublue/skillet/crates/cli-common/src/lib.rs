@@ -1,5 +1,6 @@
 use clap::Parser;
-use skillet_core::files::{FileResource, LocalFileResource};use skillet_core::recorder::Recorder;
+use skillet_core::files::{FileResource, LocalFileResource};
+use skillet_core::recorder::Recorder;
 use skillet_core::system::{LinuxSystemResource, SystemResource};
 use std::fs;
 use std::path::PathBuf;
