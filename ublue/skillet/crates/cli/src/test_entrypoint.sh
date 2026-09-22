@@ -10,7 +10,7 @@ if [ ! -x /usr/bin/systemctl ]; then
     cat <<EOF > /usr/bin/systemctl
 #!/bin/sh
 # The default branch exits 0 for every invocation, which is what skillet
-# expects from e.g. `systemctl start --wait` (exit status = job result).
+# expects from e.g. 'systemctl start --wait' (exit status = job result).
 echo "Mock systemctl: \$@"
 exit 0
 EOF
