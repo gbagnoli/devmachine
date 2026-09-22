@@ -283,6 +283,10 @@ where
     if changed {
         info!("Quadlet changed, triggering daemon-reload");
         system.daemon_reload()?;
+        // A daemon-reload alone leaves the old container running; restart
+        // so the new definition takes effect immediately.
+        info!("Restarting {name} to pick up the new quadlet definition");
+        system.service_restart(name)?;
     }
 
     Ok(changed)
