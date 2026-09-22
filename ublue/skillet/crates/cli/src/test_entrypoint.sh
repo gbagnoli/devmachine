@@ -9,17 +9,10 @@ if [ ! -x /usr/bin/systemctl ]; then
     echo "Mocking systemctl..."
     cat <<EOF > /usr/bin/systemctl
 #!/bin/sh
-case "\$*" in
-    "is-active"*)
-        # Pretend every unit ends up active so skillet's post-start
-        # verification passes.
-        exit 0
-        ;;
-    *)
-        echo "Mock systemctl: \$@"
-        exit 0
-        ;;
-esac
+# The default branch exits 0 for every invocation, which is what skillet
+# expects from e.g. `systemctl start --wait` (exit status = job result).
+echo "Mock systemctl: \$@"
+exit 0
 EOF
     chmod +x /usr/bin/systemctl
 fi
