@@ -1,0 +1,50 @@
+# Autorebase clamps onto our BlueBuild image on first boot:
+# ghcr.io/gbagnoli/ucore-clamps:latest
+# Same two-step dance as includes/ucore.bu: first the unsigned OCI (which
+# installs the cosign signing policy from the image itself), then the signed
+# OCI. Reboots between steps; marker files in /etc/ucore-clamps-autorebase
+# survive the rebases because /etc persists across deployments.
+variant: fcos
+version: 1.6.0
+storage:
+  directories:
+    - path: /etc/ucore-clamps-autorebase
+      mode: 0754
+systemd:
+  units:
+    - name: ucore-clamps-unsigned-autorebase.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Autorebase clamps to unsigned ucore-clamps OCI and reboot
+        ConditionPathExists=!/etc/ucore-clamps-autorebase/unverified
+        ConditionPathExists=!/etc/ucore-clamps-autorebase/signed
+        After=network-online.target
+        Wants=network-online.target
+        [Service]
+        Type=oneshot
+        StandardOutput=journal+console
+        ExecStart=/usr/bin/rpm-ostree rebase --bypass-driver ostree-unverified-registry:ghcr.io/gbagnoli/ucore-clamps:latest
+        ExecStart=/usr/bin/touch /etc/ucore-clamps-autorebase/unverified
+        ExecStart=/usr/bin/systemctl disable ucore-clamps-unsigned-autorebase.service
+        ExecStart=/usr/bin/systemctl reboot
+        [Install]
+        WantedBy=multi-user.target
+    - name: ucore-clamps-signed-autorebase.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Autorebase clamps to signed ucore-clamps OCI and reboot
+        ConditionPathExists=/etc/ucore-clamps-autorebase/unverified
+        ConditionPathExists=!/etc/ucore-clamps-autorebase/signed
+        After=network-online.target
+        Wants=network-online.target
+        [Service]
+        Type=oneshot
+        StandardOutput=journal+console
+        ExecStart=/usr/bin/rpm-ostree rebase --bypass-driver ostree-image-signed:docker://ghcr.io/gbagnoli/ucore-clamps:latest
+        ExecStart=/usr/bin/touch /etc/ucore-clamps-autorebase/signed
+        ExecStart=/usr/bin/systemctl disable ucore-clamps-signed-autorebase.service
+        ExecStart=/usr/bin/systemctl reboot
+        [Install]
+        WantedBy=multi-user.target
