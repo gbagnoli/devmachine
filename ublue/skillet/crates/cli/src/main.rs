@@ -362,7 +362,16 @@ fn run_container_test(args: &ContainerArgs) -> Result<()> {
         "skillet-test-dummy-secret",
     )?;
     let start = Command::new("podman")
-        .args(["run", "-d", "--rm", "--name", &name, "-v"])
+        .args([
+            "run",
+            "-d",
+            "--rm",
+            "--security-opt",
+            "label=disable",
+            "--name",
+            &name,
+            "-v",
+        ])
         .arg(format!("{}:/usr/bin/skillet:ro", binary.display()))
         .arg("-v")
         .arg(format!("{}:/run/credentials:ro", creds.display()))
@@ -403,10 +412,10 @@ fn run_container_test(args: &ContainerArgs) -> Result<()> {
 }
 
 fn run_twice_and_check(name: &str, inspect: bool) -> Result<()> {
-    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_entrypoint.sh");
+    let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/test_entrypoint.sh");
     for round in ["first", "second"] {
         let status = Command::new("podman")
-            .args(["exec", name, "/bin/sh", "-s", "--", round])
+            .args(["exec", "-i", name, "/bin/sh", "-s", "--", round])
             .stdin(fs::File::open(&entry)?)
             .status()
             .context("running apply in container failed")?;
@@ -449,7 +458,10 @@ fn podman_capture(name: &str, shell: &str) -> Result<String> {
         .args(["exec", name, "/bin/sh", "-c", shell])
         .output()?;
     if !out.status.success() {
-        return Err(anyhow!("failed to inspect apply operation log"));
+        return Err(anyhow!(
+            "failed to inspect apply operation log: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
     }
     String::from_utf8(out.stdout).context("operation log was not UTF-8")
 }

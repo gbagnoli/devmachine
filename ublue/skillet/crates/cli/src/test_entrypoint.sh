@@ -23,7 +23,7 @@ printf '%s\n' "$*" >> /tmp/skillet-test.podman.log
 case "$1 $2" in
   "secret exists") [ -f /tmp/skillet-test-state/secret ] ;;
   "secret inspect")
-    case "$*" in *'{{.ID}}'*) printf 'skillet-test-secret-id\n' ;; *) cat /tmp/skillet-test-state/secret-hash ;; esac ;;
+    case "$*" in *'{{.ID}}'*) printf 'skillet-test-secret-id\n' ;; *) cat /tmp/skillet-test-state/secret-hash ;; esac
     ;;
   "secret create")
     shift 2
