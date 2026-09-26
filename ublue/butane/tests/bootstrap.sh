@@ -5,7 +5,7 @@ source_dir="$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")"
 tmp="$(mktemp -d)"
 trap 'rm -rf -- "$tmp"' EXIT
 mkdir "$tmp/bin"
-yq -r '.storage.files[] | select(.path == "/var/lib/clamps-bootstrap/rebase.sh") | .contents.inline' \
+yq -r '.storage.files[] | select(.path == "/var/usrlocal/bin/clamps-rebase.sh") | .contents.inline' \
   "$source_dir/includes/ucore-clamps.bu" > "$tmp/rebase.sh"
 
 cat > "$tmp/bin/rpm-ostree" <<'MOCK'
