@@ -85,13 +85,13 @@ case "$operation" in
     ensure_native_runtime
     inspect_owned
     ssh_args
-    exec ssh "${args[@]}" core@127.0.0.1 ;;
+    exec ssh "${args[@]}" giacomo@127.0.0.1 ;;
   logs)
     (($# == 0)) || usage
     ensure_native_runtime
     inspect_owned
     ssh_args
-    ssh "${args[@]}" core@127.0.0.1 \
+    ssh "${args[@]}" giacomo@127.0.0.1 \
       'sudo -n rpm-ostree status; sudo -n journalctl -b -u clamps-bootstrap.service -u skillet-apply.service --no-pager -n 200' ;;
   reboot)
     (($# == 0)) || usage

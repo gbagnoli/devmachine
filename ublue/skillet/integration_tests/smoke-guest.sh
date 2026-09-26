@@ -2,7 +2,7 @@
 set -euo pipefail
 
 phase=${1:?phase required}
-binary=/var/lib/skillet/skillet-smoke
+binary=/var/usrlocal/bin/skillet-smoke
 clamps_binary=${2:?clamps binary path required}
 root=/var/lib/skillet-smoke
 service=skillet-smoke-fixture.service

@@ -20,7 +20,6 @@ systemd:
         [Service]
         Type=oneshot
         ExecStart=/var/usrlocal/bin/skillet-clamps apply --phase base
-        RemainAfterExit=yes
 
         [Install]
         WantedBy=multi-user.target
