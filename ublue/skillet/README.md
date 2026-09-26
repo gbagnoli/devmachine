@@ -42,6 +42,30 @@ to converge only the shared host baseline before credentials are available.
 
 ## Disposable VM smoke check
 
+The legacy CI command `skillet test run beezelbot --image fedora:latest` runs
+the host apply twice in a uniquely named, temporary Podman container. It
+builds the selected host binary, checks both applies succeed, and checks the
+second apply does not start or restart a service. `clamps` is also supported.
+This fast sandbox uses mock `systemctl` and `podman` executables, so it checks
+apply behavior and repeat convergence but does not establish real systemd or
+Podman operation. `--inspect` opens the container before cleanup.
+
+For real systemd/Podman and reboot coverage, use `skillet test smoke clamps`.
+Configure its disposable target and artifacts with options or environment
+variables:
+
+```bash
+SKILLET_TEST_TARGET=core@127.0.0.1 \
+SKILLET_TEST_PORT=2201 \
+SKILLET_TEST_IDENTITY=../butane/runs/clamps-test-example/ssh/id_ed25519 \
+SKILLET_TEST_BINARY=target/x86_64-unknown-linux-musl/release/skillet \
+SKILLET_TEST_CLAMPS_BINARY=/var/lib/skillet/skillet-clamps \
+target/x86_64-unknown-linux-musl/release/skillet test smoke clamps
+```
+
+The VM target is always explicit and disposable; the command does not infer a
+VM or fall back to local `cargo test`. The VM fixture controls its own image.
+
 Build both static binaries from this directory:
 
 ```bash
