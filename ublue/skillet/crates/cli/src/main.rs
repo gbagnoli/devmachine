@@ -1,7 +1,11 @@
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use skillet_cli_common::hosts::ApplyPhase;
-use std::{fs, path::PathBuf, process::Command};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
@@ -41,6 +45,33 @@ enum TestCommands {
     Run(ContainerArgs),
     /// Exercise the real-systemd VM scenario using an explicit disposable SSH target
     Smoke(SmokeArgs),
+    /// Create or destroy the default disposable clamps VM
+    Vm {
+        #[command(subcommand)]
+        command: VmCommands,
+    },
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum VmCommands {
+    /// Provision a disposable clamps VM and wait for it to become ready
+    Create(VmCreateArgs),
+    /// Destroy the disposable clamps VM and remove its temporary key and artifacts
+    Destroy(VmDestroyArgs),
+}
+
+#[derive(clap::Args, Debug)]
+struct VmCreateArgs {
+    #[arg(long, default_value = "clamps-test-smoke")]
+    name: String,
+    #[arg(long, default_value_t = 2201)]
+    port: u16,
+}
+
+#[derive(clap::Args, Debug)]
+struct VmDestroyArgs {
+    #[arg(long, default_value = "clamps-test-smoke")]
+    name: String,
 }
 
 #[derive(clap::Args, Debug)]
@@ -57,13 +88,13 @@ struct SmokeArgs {
     /// Host configuration to exercise (currently `clamps`)
     hostname: String,
     /// Explicit disposable SSH target, USER@HOST
-    #[arg(long, env = "SKILLET_TEST_TARGET")]
+    #[arg(long, default_value = "core@127.0.0.1")]
     target: String,
     /// SSH port
-    #[arg(long, default_value_t = 22, env = "SKILLET_TEST_PORT")]
+    #[arg(long, default_value_t = 2201)]
     port: u16,
-    /// SSH private key
-    #[arg(long, env = "SKILLET_TEST_IDENTITY")]
+    /// SSH private key (defaults to the key generated for `test vm create`)
+    #[arg(long)]
     identity: Option<PathBuf>,
 }
 
@@ -105,6 +136,18 @@ fn main() -> Result<()> {
         Commands::Test {
             command: TestCommands::Smoke(args),
         } => run_smoke(&args)?,
+        Commands::Test {
+            command:
+                TestCommands::Vm {
+                    command: VmCommands::Create(args),
+                },
+        } => run_vm_create(&args)?,
+        Commands::Test {
+            command:
+                TestCommands::Vm {
+                    command: VmCommands::Destroy(args),
+                },
+        } => run_vm_destroy(&args)?,
     }
     Ok(())
 }
@@ -116,6 +159,17 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
         ));
     }
     let root = workspace_root()?;
+    let identity = args.identity.clone().unwrap_or_else(|| {
+        root.parent()
+            .unwrap_or(&root)
+            .join("butane/runs/clamps-test-smoke/ssh/id_ed25519")
+    });
+    if !identity.is_file() {
+        return Err(anyhow!(
+            "SSH key not found at {}; create the default VM with `skillet test vm create` or pass --identity",
+            identity.display()
+        ));
+    }
     let binary = std::env::current_exe().context("locating the running Skillet binary failed")?;
     let profile_dir = binary
         .parent()
@@ -159,8 +213,8 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
         .arg(&binary)
         .args(["--clamps-binary"])
         .arg(&host_binary)
-        .args(args.identity.as_ref().map(|_| "--identity"))
-        .args(args.identity.as_deref())
+        .args(["--identity"])
+        .arg(&identity)
         .status()
         .context("starting disposable-VM smoke runner failed")?;
     if !status.success() {
@@ -169,6 +223,82 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+fn run_vm_create(args: &VmCreateArgs) -> Result<()> {
+    if !valid_test_vm_name(&args.name) {
+        return Err(anyhow!(
+            "VM name must start with clamps-test- and contain lowercase letters, digits, or hyphens"
+        ));
+    }
+    if !(2200..=2299).contains(&args.port) {
+        return Err(anyhow!("VM SSH port must be between 2200 and 2299"));
+    }
+    let butane = butane_root()?;
+    let helper = butane.join("bin/clamps-vm");
+    let port = args.port.to_string();
+    run_helper(&helper, &["create", &args.name, &port])?;
+
+    let run_dir = butane.join("runs").join(&args.name);
+    let ready = butane.join("bin/clamps-ready");
+    let run_dir_arg = run_dir
+        .to_str()
+        .ok_or_else(|| anyhow!("VM run path is not valid UTF-8"))?;
+    if let Err(error) = run_helper(&ready, &[run_dir_arg]) {
+        return Err(anyhow!(
+            "VM created but readiness failed; inspect it with `clamps-vm logs {}` or destroy it with `skillet test vm destroy --name {}`: {error}",
+            args.name, args.name
+        ));
+    }
+    info!(
+        "Disposable VM {} is ready at core@127.0.0.1:{}; smoke key: {}",
+        args.name,
+        args.port,
+        run_dir.join("ssh/id_ed25519").display()
+    );
+    Ok(())
+}
+
+fn run_vm_destroy(args: &VmDestroyArgs) -> Result<()> {
+    if !valid_test_vm_name(&args.name) {
+        return Err(anyhow!("VM name must start with clamps-test-"));
+    }
+    let helper = butane_root()?.join("bin/clamps-vm");
+    run_helper(&helper, &["destroy", &args.name])
+}
+
+fn valid_test_vm_name(name: &str) -> bool {
+    name.len() > "clamps-test-".len()
+        && name.starts_with("clamps-test-")
+        && name
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+}
+
+fn run_helper(path: &Path, args: &[&str]) -> Result<()> {
+    let status = Command::new(path)
+        .args(args)
+        .status()
+        .with_context(|| format!("running {} failed", path.display()))?;
+    if !status.success() {
+        return Err(anyhow!("{} failed with status {status}", path.display()));
+    }
+    Ok(())
+}
+
+fn butane_root() -> Result<PathBuf> {
+    let root = workspace_root()?;
+    let butane = root
+        .parent()
+        .ok_or_else(|| anyhow!("Skillet workspace has no parent directory"))?
+        .join("butane");
+    if !butane.join("bin/clamps-vm").is_file() || !butane.join("bin/clamps-ready").is_file() {
+        return Err(anyhow!(
+            "clamps VM helpers not found under {}; check out the sibling butane directory",
+            butane.display()
+        ));
+    }
+    Ok(butane)
 }
 
 fn workspace_root() -> Result<PathBuf> {
