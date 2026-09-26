@@ -5,8 +5,8 @@ source_dir="$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")"
 tmp="$(mktemp -d)"
 trap 'rm -rf -- "$tmp"' EXIT
 mkdir "$tmp/bin"
-yq -r '.storage.files[] | select(.path == "/var/usrlocal/bin/clamps-rebase.sh") | .contents.inline' \
-  "$source_dir/includes/ucore-clamps.bu" > "$tmp/rebase.sh"
+yq -r '.storage.files[] | select(.path == "/var/usrlocal/bin/ucore-rebase.sh") | .contents.inline' \
+  "$source_dir/includes/ucore-bootstrap.bu" > "$tmp/rebase.sh"
 
 cat > "$tmp/bin/rpm-ostree" <<'MOCK'
 #!/usr/bin/env bash
@@ -33,12 +33,15 @@ signed="ostree-image-signed:docker://$image:latest"
 check() {
   local name="$1" status="$2" expected_rebase="$3" expected_reboots="$4"
   local expected_ready="$5" expected_exit="$6" attempts="${7:-}" fail_rebase="${8:-0}"
+  local configured_image="${9:-$image}"
   local case_dir="$tmp/$name" actual_exit=0 actual_rebase actual_reboots actual_ready
   mkdir -p "$case_dir/state"
+  printf '%s\n' "$configured_image" > "$case_dir/image"
   printf '%s\n' "$status" > "$case_dir/status.json"
   if [[ -n "$attempts" ]]; then printf '%s\n' "$attempts" > "$case_dir/state/reboot-attempts"; fi
-  sed -e "s@/var/lib/clamps-bootstrap@$case_dir/state@g" \
-    -e "s@/run/clamps-bootstrap-ready@$case_dir/ready@g" \
+  sed -e "s@/etc/ucore-bootstrap-image@$case_dir/image@g" \
+    -e "s@/var/lib/ucore-bootstrap@$case_dir/state@g" \
+    -e "s@/run/ucore-bootstrap-ready@$case_dir/ready@g" \
     "$tmp/rebase.sh" > "$case_dir/rebase.sh"
   CASE_STATUS="$case_dir/status.json" CASE_REBASE_LOG="$case_dir/rebases" \
     CASE_REBOOT_LOG="$case_dir/reboots" CASE_FAIL_REBASE="$fail_rebase" \
@@ -61,6 +64,9 @@ check() {
 }
 
 check fresh '{"deployments":[{"booted":true,"container-image-reference":""}]}' "$unsigned" 1 0 0
+check bender_fresh '{"deployments":[{"booted":true,"container-image-reference":""}]}' \
+  'ostree-unverified-registry:ghcr.io/gbagnoli/ucore-bender:latest' 1 0 0 '' 0 \
+  'ghcr.io/gbagnoli/ucore-bender'
 check unsigned_with_signed_rollback \
   "{\"deployments\":[{\"booted\":true,\"container-image-reference\":\"$unsigned\"},{\"booted\":false,\"container-image-reference\":\"$signed\"}]}" \
   "$signed" 1 0 0

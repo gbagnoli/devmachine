@@ -1,8 +1,29 @@
 # Clamps VM acceptance log
 
 Status: clean disposable VM create, readiness, and the real Skillet smoke
-scenario passed on 2026-09-26. Bootstrap interruption recovery remains
-unverified.
+scenario passed on 2026-09-26. A subsequent fresh VM reached the signed
+deployment and installed the full user environment. Bootstrap interruption
+recovery remains unverified.
+
+## Shared bootstrap and user environment
+
+- The host-independent `ucore-bootstrap.service` read clamps' image reference
+  from `/etc/ucore-bootstrap-image` and completed both rebases on a fresh VM.
+- `brew-install.service` and `dotfiles-install.service` completed with status
+  0. The `core` Brewfile bundle check passed, and the Brewfile and SSH key
+  symlinks resolve into the dotfiles checkout. Completion markers survive
+  reboot and allow an interrupted installation to retry.
+- The first readiness run failed only because its symlink check compared a
+  resolved `/var/home` path with an unresolved `/home` path. After correcting
+  the comparison, `test-vm clamps-test-smoke ready` passed on that same VM.
+- `test-vm clamps-test-smoke reboot` followed by `test-vm clamps-test-smoke ready` passed; the
+  temporary SSH key and completion markers survived the reboot.
+- The VM interface is now `test-vm <HOST-test-NAME> <command>`. The
+  Skillet wrapper accepts a host for `test vm create` and `test vm destroy`.
+  Other hosts still need their own Butane configuration and host artifact.
+- A second fresh VM, `clamps-test-generic` on port 2202, was created with the
+  generalized command and passed signed-boot and full user-environment
+  readiness.
 
 ## Passing clean run
 
@@ -12,7 +33,7 @@ unverified.
 - `runs/clamps-test-smoke/final-status.json` records the booted origin as
   `ostree-image-signed:docker://ghcr.io/gbagnoli/ucore-clamps:latest`; the
   previous deployment is the unsigned clamps image.
-- `clamps-ready` verified the generated SSH key, guest binary SHA, successful
+- The readiness helper verified the generated SSH key, guest binary SHA, successful
   repeated base apply, enforcing SELinux, NetworkManager's resolver, working
   DNS, and masked `systemd-resolved`.
 - Ignition keys survived under `~/.ssh/authorized_keys.d/ignition`. Skillet's
@@ -51,7 +72,7 @@ unverified.
   that large QEMU `fw_cfg` configs can take an unreasonable time to read
   ([release notes](https://coreos.github.io/ignition/release-notes/)). The VM
   launcher now omits that binary from the VM-only Ignition config and
-  `clamps-ready` transfers it over SSH after first boot. The clean create
+  the readiness helper transfers it over SSH after first boot. The clean create
   recorded above validated this change.
 
 ## Static checks
@@ -61,8 +82,8 @@ unverified.
 - Full strict Butane compilation passed on 2026-09-26 with an earlier staged
   source and rebuilt host artifact. Local output:
   `/tmp/clamps-commit-validation-93upz2et/ignition/clamps.ign`.
-- `bash tests/bootstrap.sh` passes seven mocked deployment-state cases:
-  fresh boot, unsigned boot with signed rollback, signed pending, signed
+- `bash tests/bootstrap.sh` passes eight mocked deployment-state cases:
+  fresh clamps and bender boots, unsigned boot with signed rollback, signed pending, signed
   booted (tag and digest), reboot retry limit, and rebase failure.
   These are regression checks, not a replacement for actual VM boots.
 - Review corrected duplicate `:latest` matching, rollback selection as a
@@ -83,7 +104,7 @@ unverified.
 | Resolver continuity | Partial | Final boot passed; each intermediate boot not checked |
 | Artifact delivery | Pass | Guest SHA matched `skillet.sha256` |
 | Automatic apply | Pass | Boot unit completed with status 0 |
-| Repeat apply | Pass | `clamps-ready` reran the base unit with `systemctl --wait` |
+| Repeat apply | Pass | `test-vm clamps-test-smoke ready` reran the base unit with `systemctl --wait` |
 | Reboot | Pass | Smoke reboot preserved data and container state |
 | Interruption | Not run | Interrupt an isolated bootstrap, then recover |
 | Repeatability | Not run | Second fresh VM after first passes |

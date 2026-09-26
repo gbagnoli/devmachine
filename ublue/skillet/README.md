@@ -57,7 +57,9 @@ cargo run --release -p skillet -- test vm create
 ```
 
 This provisions `clamps-test-smoke` on `giacomo@127.0.0.1:2201`, creates its SSH
-key, and waits for the guest to pass `clamps-ready`. Then run the smoke scenario:
+key, and waits for the guest to pass `test-vm clamps-test-smoke ready`. The same command
+accepts another host when its `HOST.bu` and `skillet-HOST` are available.
+Then run the clamps smoke scenario:
 
 ```bash
 cargo run --release -p skillet -- test smoke clamps

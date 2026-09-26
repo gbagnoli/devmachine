@@ -6,40 +6,61 @@ See [ACCEPTANCE.md](ACCEPTANCE.md) for the checks performed and remaining work.
 `clamps.bu` is a VM configuration. It resizes and reformats partition 4 on
 `/dev/vda`, the virtio disk attached by this launcher. Do not use it as a
 physical-disk install file. The host needs native libvirt on `qemu:///session`,
-`virt-install`, `passt`, Podman, `yq`, `ssh-keygen`, and KVM.
+`virt-install`, `passt`, Podman, `yq`, `rg`, `ssh-keygen`, and KVM.
 
-From this directory, the simple clean install command is:
-
-```bash
-./bin/coreos-install clamps.bu
-```
-
-It refuses an existing `clamps` domain or `runs/clamps` directory. For
-independent disposable runs, use a unique name and loopback SSH port:
+From this directory, create and check the default disposable clamps VM with:
 
 ```bash
-./bin/coreos-install --name clamps-test-example --ssh-port 2201 clamps.bu
-./bin/clamps-ready runs/clamps-test-example
+./bin/test-vm clamps-test-smoke create
+./bin/test-vm clamps-test-smoke ready
 ```
 
-The launcher builds the current static `skillet-clamps` host binary, or accepts
-`--artifact PATH` to use a specific binary. It records its SHA256 in
+For another disposable run, choose a unique test name and loopback SSH port:
+
+```bash
+./bin/test-vm clamps-test-example create 2202
+./bin/test-vm clamps-test-example ready
+```
+
+The command form is `./bin/test-vm <vm_name> <command>`. The VM name must be
+`HOST-test-SUFFIX`: `HOST` selects `HOST.bu` and `skillet-HOST`, while `SUFFIX`
+distinguishes disposable runs. The suffix may contain lowercase letters,
+digits, and hyphens. Use these commands after creation:
+
+```bash
+./bin/test-vm clamps-test-smoke status   # domain and attached disks
+./bin/test-vm clamps-test-smoke logs     # bootstrap and Skillet journals
+./bin/test-vm clamps-test-smoke ssh      # interactive guest shell
+./bin/test-vm clamps-test-smoke reboot  # reboot the guest
+./bin/test-vm clamps-test-smoke ready   # rerun readiness after a reboot or repair
+./bin/test-vm clamps-test-smoke destroy # delete the VM, disk, test key, and run artifacts
+```
+
+`cargo run --release -p skillet -- test vm create` runs both `create` and
+`ready` for clamps. `cargo run --release -p skillet -- test vm destroy`
+removes it. Add a host argument for another host once its `HOST.bu` and
+`skillet-HOST` crate exist, for example `test vm create HOST`.
+
+The helper calls `coreos-install`, which builds the current static
+`skillet-clamps` host binary. The lower-level launcher accepts `--artifact PATH`
+to use a specific binary. It records its SHA256 in
 `runs/NAME/skillet.sha256`. To keep the QEMU `fw_cfg` Ignition payload small,
-the VM config omits this multi-megabyte binary; `clamps-ready` transfers it
+the VM config omits this multi-megabyte binary; `test-vm ready` transfers it
 over SSH after first boot and installs it at `/var/usrlocal/bin/skillet-clamps`.
-The bootstrap script also lives in `/var/usrlocal/bin`: Fedora CoreOS labels
+The shared uCore bootstrap script also lives in `/var/usrlocal/bin`: Fedora CoreOS labels
 that persistent directory `bin_t`, allowing systemd to execute these files
 with SELinux enforcing.
 Generated Ignition, SSH key, VM disk and logs stay under `runs/NAME`, which Git
 ignores. The test key is private and only its public half enters Ignition.
-The VM staging step skips the dotfiles installer because it replaces
-`authorized_keys` and would remove the temporary test key after the rebase.
+Homebrew and the `core` dotfiles profile install after the signed clamps boot.
+The dotfiles installer links `authorized_keys`; the SSH configuration also
+reads Ignition's key file, so the generated VM key remains usable.
 `--image PATH` selects a specific FCOS qcow2;
 the default is `images/coreos.qcow2` when present. The VM uses passt with an
 inbound forward bound to `127.0.0.1`.
 
-`bin/clamps-vm` starts a separate native user libvirt daemon with
-`XDG_RUNTIME_DIR=/run/user/UID/clamps-native-libvirt`. This keeps the native
+`bin/test-vm` starts a separate native user libvirt daemon with
+`XDG_RUNTIME_DIR=/run/user/UID/skillet-test-libvirt`. This keeps the native
 daemon in the same filesystem view as generated artifacts when Flatpak
 virt-manager has its own session daemon. For manual virsh inspection of a
 helper-created VM, set that environment variable on each virsh invocation.
@@ -52,38 +73,41 @@ ssh -i runs/NAME/ssh/id_ed25519 -p PORT \
 ```
 
 The VM staging step grants `giacomo` passwordless sudo. The guest starts
-`clamps-bootstrap.service`, which rebases first to the unsigned clamps image
+`ucore-bootstrap.service`, which reads the host image from
+`/etc/ucore-bootstrap-image` and rebases first to the unsigned clamps image
 and then to the signed image. It checks the *booted* rpm-ostree deployment on
 every boot. It never starts the base apply until the signed deployment boots.
 A failed rebase stops without rebooting; an already pending deployment gets at
 most two reboot attempts. The base unit runs
 `/var/usrlocal/bin/skillet-clamps apply --phase base` with no app credentials.
 
-`./bin/clamps-ready runs/NAME` waits up to 45 minutes, checks the expected
+`./bin/test-vm NAME ready` waits up to 45 minutes, checks the expected
 domain/disk, noninteractive SSH and sudo, signed booted deployment, successful
-Skillet unit, guest artifact SHA, enforcing SELinux, DNS and masked resolved.
+Skillet unit, guest artifact SHA, enforcing SELinux, DNS, masked resolved,
+Homebrew, dotfiles links, and the complete `core` Brewfile bundle.
 It writes `domain.txt`, `disks.txt`, `final-status.json`, `final-boot-id`,
-`guest-skillet.sha256`, and `readiness.log` into the run directory. On timeout,
-it writes `failure.log` with the current deployment and relevant journals.
-For manual diagnostics:
+`guest-skillet.sha256`, `readiness.log`, and `user-environment.log` into the run
+directory. On timeout, it writes `failure.log` or
+`user-environment-failure.log` with relevant journals.
+For manual diagnostics, use `test-vm NAME status` and `test-vm NAME logs`.
+The equivalent guest SSH command is:
 
 ```bash
-virsh -c qemu:///session dominfo NAME
-virsh -c qemu:///session domblklist NAME
 ssh -i runs/NAME/ssh/id_ed25519 -p PORT giacomo@127.0.0.1 \
-  'sudo rpm-ostree status; sudo journalctl -b -u clamps-bootstrap.service -u skillet-apply.service'
+  'sudo rpm-ostree status; sudo journalctl -b -u ucore-bootstrap.service -u skillet-apply.service'
 ```
 
-`bin/clamps-vm` is a constrained source-tree helper for test domains named
-`clamps-test-*` under the ignored `butane/runs` directory. It offers
-`create|status|ssh|logs|reboot|destroy`; `destroy` checks the recorded domain
-UUID and disk before removing test-owned resources. Its source-tree path is
+`bin/test-vm` is a constrained source-tree helper for test domains named
+`HOST-test-*` under the ignored `butane/runs` directory. `create` infers
+`HOST.bu`, builds `skillet-HOST`, and uses port 2201 by default. Other commands check the
+recorded host, domain UUID, and disk before acting. `destroy` removes only
+the selected test-owned resources. Its source-tree path is
 mutable, so an enduring elevated approval requires reviewed, frozen helper
 code and executable dependencies installed outside writable roots.
 
 The VM and its disk remain available after readiness checks. Cleanup is
 explicit: inspect the domain and disk, then call
-`./bin/clamps-vm destroy clamps-test-example` for a helper-created run. For a
+`./bin/test-vm clamps-test-example destroy` for a helper-created run. For a
 plain launcher run, shut down and undefine the named test domain with virsh,
 then remove only its recorded `runs/NAME` directory after checking `domblklist`.
 

@@ -10,6 +10,7 @@ ignition:
       - local: includes/resolver.bu
       - local: includes/brew.bu
       - local: includes/skillet.bu
+      - local: includes/ucore-bootstrap.bu
       - local: includes/ucore-clamps.bu
 storage:
   disks:

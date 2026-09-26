@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if (($# != 1)) || [[ ! -f "$1/run.conf" ]]; then
+  echo "Usage: $0 RUN_DIR" >&2
+  exit 2
+fi
+run_dir="$(realpath "$1")"
+config_value() { sed -n "s/^$1=//p" "$run_dir/run.conf" | head -n 1; }
+vm="$(config_value vm)"
+host="$(config_value host)"
+uri="$(config_value uri)"
+ssh_port="$(config_value ssh_port)"
+runtime_dir="$(config_value runtime_dir)"
+[[ "$host" =~ ^[a-z][a-z0-9-]*$ && "$vm" == "$host"-test-* ]] || { echo "Invalid host VM manifest" >&2; exit 1; }
+vm_virsh() {
+  if [[ -n "$runtime_dir" ]]; then
+    env XDG_RUNTIME_DIR="$runtime_dir" virsh -c "$uri" "$@"
+  else
+    virsh -c "$uri" "$@"
+  fi
+}
+known_hosts="$run_dir/ssh/known_hosts"
+ssh_args=(-i "$run_dir/ssh/id_ed25519" -p "$ssh_port" -o BatchMode=yes
+  -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$known_hosts")
+scp_args=(-i "$run_dir/ssh/id_ed25519" -P "$ssh_port" -o BatchMode=yes
+  -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$known_hosts")
+# shellcheck disable=SC2029
+ssh_guest() { ssh "${ssh_args[@]}" giacomo@127.0.0.1 "$@"; }
+
+if ! vm_virsh dominfo "$vm" > "$run_dir/domain.txt"; then
+  echo "Domain $vm unavailable on $uri" >&2
+  exit 1
+fi
+vm_virsh domblklist "$vm" > "$run_dir/disks.txt"
+if ! rg -Fq "$run_dir/$vm.qcow2" "$run_dir/disks.txt"; then
+  echo "Domain $vm does not use expected disk $run_dir/$vm.qcow2" >&2
+  exit 1
+fi
+
+artifact="$run_dir/source/files/skillet-$host"
+[[ -x "$artifact" ]] || { echo "Missing host artifact: $artifact" >&2; exit 1; }
+deadline=$((SECONDS + 2700))
+next_report=$((SECONDS + 60))
+echo "Waiting for SSH on giacomo@127.0.0.1:$ssh_port before delivering Skillet..."
+while ((SECONDS < deadline)); do
+  if ssh_guest 'sudo -n true' &>/dev/null; then
+    break
+  fi
+  if ((SECONDS >= next_report)); then
+    echo "Still waiting for guest SSH; elapsed $((2700 - (deadline - SECONDS))) seconds"
+    next_report=$((SECONDS + 60))
+  fi
+  sleep 5
+done
+if ((SECONDS >= deadline)); then
+  echo "Timed out waiting for guest SSH; inspect the VM serial console and $run_dir/domain.txt" >&2
+  exit 1
+fi
+scp -O "${scp_args[@]}" "$artifact" "giacomo@127.0.0.1:/var/tmp/skillet-$host"
+ssh_guest "sudo -n install -m 0755 /var/tmp/skillet-$host /var/usrlocal/bin/skillet-$host && rm -f /var/tmp/skillet-$host"
+echo "Installed Skillet artifact; waiting for the signed $host deployment..."
+
+deadline=$((SECONDS + 2700))
+next_report=$((SECONDS + 60))
+while ((SECONDS < deadline)); do
+  if ssh_guest 'sudo -n test -e /run/ucore-bootstrap-ready' &>/dev/null; then
+    break
+  fi
+  if ssh_guest 'sudo -n systemctl is-failed --quiet ucore-bootstrap.service' &>/dev/null; then
+    ssh_guest 'sudo -n rpm-ostree status; sudo -n journalctl -b -u ucore-bootstrap.service -u skillet-apply.service --no-pager -n 200' > "$run_dir/failure.log" 2>&1 || true
+    echo "$host bootstrap failed; diagnostics: $run_dir/failure.log" >&2
+    exit 1
+  fi
+  if ((SECONDS >= next_report)); then
+    echo "Still waiting for signed deployment; elapsed $((2700 - (deadline - SECONDS))) seconds"
+    next_report=$((SECONDS + 60))
+  fi
+  sleep 10
+done
+if ((SECONDS >= deadline)); then
+  echo "Timed out waiting for signed $host boot" >&2
+  ssh_guest 'sudo -n rpm-ostree status; sudo -n journalctl -b -u ucore-bootstrap.service -u skillet-apply.service --no-pager -n 200' > "$run_dir/failure.log" 2>&1 || true
+  echo "Diagnostics: $run_dir/failure.log" >&2
+  exit 1
+fi
+if ! ssh_guest 'sudo -n systemctl reset-failed skillet-apply.service && sudo -n systemctl --wait restart skillet-apply.service'; then
+  ssh_guest 'sudo -n rpm-ostree status; sudo -n journalctl -b -u ucore-bootstrap.service -u skillet-apply.service --no-pager -n 200' > "$run_dir/failure.log" 2>&1 || true
+  echo "Skillet base apply failed; diagnostics: $run_dir/failure.log" >&2
+  exit 1
+fi
+echo "Waiting for Homebrew and the core dotfiles profile..."
+if ! ssh_guest 'sudo -n systemctl reset-failed brew-install.service dotfiles-install.service && sudo -n systemctl --wait start brew-install.service && sudo -n systemctl --wait start dotfiles-install.service'; then
+  ssh_guest 'sudo -n journalctl -b -u brew-install.service -u dotfiles-install.service --no-pager -n 200' > "$run_dir/user-environment-failure.log" 2>&1 || true
+  echo "User environment install failed; diagnostics: $run_dir/user-environment-failure.log" >&2
+  exit 1
+fi
+
+ssh_guest 'sudo -n rpm-ostree status --json' > "$run_dir/final-status.json"
+ssh_guest 'cat /proc/sys/kernel/random/boot_id' > "$run_dir/final-boot-id"
+ssh_guest "sha256sum /var/usrlocal/bin/skillet-$host" > "$run_dir/guest-skillet.sha256"
+ssh_guest 'getenforce; readlink -f /etc/resolv.conf; cat /etc/resolv.conf; getent hosts ghcr.io; sudo -n systemctl is-enabled systemd-resolved.service; sudo -n systemctl status --no-pager skillet-apply.service' > "$run_dir/readiness.log" 2>&1 || true
+ssh_guest 'systemctl show brew-install.service dotfiles-install.service -p Id -p Result -p ExecMainStatus; readlink -f /home/giacomo/.config/Brewfile; readlink -f /home/giacomo/.ssh/authorized_keys; /home/linuxbrew/.linuxbrew/bin/brew --version' > "$run_dir/user-environment.log" 2>&1 || true
+expected="$(cut -d ' ' -f 1 "$run_dir/skillet.sha256")"
+actual="$(cut -d ' ' -f 1 "$run_dir/guest-skillet.sha256")"
+[[ "$expected" == "$actual" ]] || { echo "Guest Skillet SHA mismatch" >&2; exit 1; }
+if ! jq -e --arg image "ostree-image-signed:docker://ghcr.io/gbagnoli/ucore-$host" \
+  '.deployments[] | select(.booted) | .["container-image-reference"] | . == ($image + ":latest") or (startswith($image + "@sha256:") and (split("@sha256:")[1] | test("^[0-9a-f]{64}$")))' \
+  "$run_dir/final-status.json" >/dev/null; then
+  echo "Booted deployment is not the expected signed $host origin" >&2
+  exit 1
+fi
+# The substitutions run on the guest.
+# shellcheck disable=SC2016
+ssh_guest 'test "$(systemctl show -p Result --value skillet-apply.service)" = success && test "$(systemctl show -p ExecMainStatus --value skillet-apply.service)" = 0 && test "$(getenforce)" = Enforcing && test "$(readlink -f /etc/resolv.conf)" = /run/NetworkManager/resolv.conf && getent hosts ghcr.io >/dev/null'
+if [[ "$host" == clamps ]]; then
+  # The substitution runs on the guest.
+  # shellcheck disable=SC2016
+  ssh_guest 'test "$(systemctl is-enabled systemd-resolved.service)" = masked'
+fi
+# The substitutions run on the guest.
+# shellcheck disable=SC2016
+ssh_guest 'test -e /var/lib/ucore-bootstrap/brew-installed && test -e /var/lib/ucore-bootstrap/dotfiles-installed && test "$(readlink -f /home/giacomo/.config/Brewfile)" = "$(readlink -f /home/giacomo/.local/src/dotfiles/brew/Brewfile.core)" && test "$(readlink -f /home/giacomo/.ssh/authorized_keys)" = "$(readlink -f /home/giacomo/.local/src/dotfiles/ssh/authorized_keys)" && /home/linuxbrew/.linuxbrew/bin/brew bundle check --file /home/giacomo/.local/src/dotfiles/brew/Brewfile.core'
+echo "Ready: $vm on $uri; SSH: ssh -i $run_dir/ssh/id_ed25519 -p $ssh_port -o UserKnownHostsFile=$known_hosts giacomo@127.0.0.1"
