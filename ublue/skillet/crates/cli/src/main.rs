@@ -65,16 +65,6 @@ struct SmokeArgs {
     /// SSH private key
     #[arg(long, env = "SKILLET_TEST_IDENTITY")]
     identity: Option<PathBuf>,
-    /// Local generic Skillet binary to upload
-    #[arg(long, env = "SKILLET_TEST_BINARY")]
-    binary: PathBuf,
-    /// Host-specific clamps binary already installed in the VM
-    #[arg(long, env = "SKILLET_TEST_CLAMPS_BINARY")]
-    clamps_binary: PathBuf,
-    /// Retained for compatibility with the former container runner. The VM
-    /// smoke fixture selects its own image and does not use this value.
-    #[arg(long, default_value = "fedora:latest")]
-    image: String,
 }
 
 fn main() -> Result<()> {
@@ -125,11 +115,39 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
             "the VM smoke scenario currently supports only hostname `clamps`"
         ));
     }
-    if args.image != "fedora:latest" {
-        return Err(anyhow!("--image is retained for command compatibility; the VM smoke scenario controls its fixture image and does not accept a container image"));
+    let root = workspace_root()?;
+    let binary = std::env::current_exe().context("locating the running Skillet binary failed")?;
+    let profile_dir = binary
+        .parent()
+        .ok_or_else(|| anyhow!("Skillet binary has no parent directory"))?;
+    let profile = profile_dir.file_name().and_then(|name| name.to_str());
+    let package = format!("skillet-{}", args.hostname);
+    let mut build = Command::new("cargo");
+    build
+        .current_dir(&root)
+        .args(["build", "--package", &package]);
+    if profile == Some("release") {
+        build.arg("--release");
     }
-    let script =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../integration_tests/smoke-ssh.sh");
+    let status = build
+        .status()
+        .context("building the clamps host binary failed")?;
+    if !status.success() {
+        return Err(anyhow!("building the clamps host binary failed"));
+    }
+    let host_binary = [
+        profile_dir.join(&package),
+        root.join("target/x86_64-unknown-linux-musl")
+            .join(profile.unwrap_or("debug"))
+            .join(&package),
+        root.join("target")
+            .join(profile.unwrap_or("debug"))
+            .join(&package),
+    ]
+    .into_iter()
+    .find(|candidate| candidate.is_file())
+    .ok_or_else(|| anyhow!("built host binary {package} was not found"))?;
+    let script = root.join("integration_tests/smoke-ssh.sh");
     if !script.is_file() {
         return Err(anyhow!("smoke runner not found at {}", script.display()));
     }
@@ -138,9 +156,9 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
         .args(["--target", &args.target, "--disposable-target", "--port"])
         .arg(args.port.to_string())
         .args(["--binary"])
-        .arg(&args.binary)
+        .arg(&binary)
         .args(["--clamps-binary"])
-        .arg(&args.clamps_binary)
+        .arg(&host_binary)
         .args(args.identity.as_ref().map(|_| "--identity"))
         .args(args.identity.as_deref())
         .status()
@@ -324,7 +342,7 @@ mod tests {
     }
 
     #[test]
-    fn test_smoke_accepts_explicit_target() {
+    fn test_smoke_autoselects_binaries_from_hostname() {
         let parsed = Args::try_parse_from([
             "skillet",
             "test",
@@ -332,10 +350,6 @@ mod tests {
             "clamps",
             "--target",
             "core@192.0.2.5",
-            "--binary",
-            "target/skillet",
-            "--clamps-binary",
-            "/var/lib/skillet/skillet-clamps",
         ]);
         assert!(parsed.is_ok());
     }
