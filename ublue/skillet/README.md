@@ -51,22 +51,24 @@ apply behavior and repeat convergence but does not establish real systemd or
 Podman operation. `--inspect` opens the container before cleanup.
 
 For real systemd/Podman and reboot coverage, use `skillet test smoke clamps`.
-Configure its disposable target and artifacts with options or environment
-variables:
+It takes the generic binary from the running executable and builds the
+matching `skillet-clamps` binary automatically. Only the disposable target
+and optional SSH settings need configuration:
 
 ```bash
 SKILLET_TEST_TARGET=core@127.0.0.1 \
 SKILLET_TEST_PORT=2201 \
 SKILLET_TEST_IDENTITY=../butane/runs/clamps-test-example/ssh/id_ed25519 \
-SKILLET_TEST_BINARY=target/x86_64-unknown-linux-musl/release/skillet \
-SKILLET_TEST_CLAMPS_BINARY=/var/lib/skillet/skillet-clamps \
 target/x86_64-unknown-linux-musl/release/skillet test smoke clamps
 ```
 
 The VM target is always explicit and disposable; the command does not infer a
-VM or fall back to local `cargo test`. The VM fixture controls its own image.
+VM or fall back to local `cargo test`. It requires the Skillet workspace and
+Cargo so it can build the host binary alongside the running executable. The
+VM fixture controls its own image.
 
-Build both static binaries from this directory:
+Build both static binaries from this directory if you want to install the host
+binary separately:
 
 ```bash
 cargo build --release -p skillet-clamps -p skillet
@@ -74,19 +76,7 @@ sha256sum target/x86_64-unknown-linux-musl/release/skillet-clamps
 ```
 
 The host artifact is `target/x86_64-unknown-linux-musl/release/skillet-clamps`.
-The current artifact SHA256 is
-`55bf7584ce405dcf2c20956c182f4dbfe04bfbb20a9b649e48ab97877d9e8856`.
 Supply that artifact to the guest, then invoke `skillet-clamps apply --phase base`.
-The generic binary is used only by the disposable fixture smoke check:
-
-```bash
-integration_tests/smoke-ssh.sh \
-  --target core@127.0.0.1 --disposable-target \
-  --port 2201 \
-  --identity ../butane/runs/clamps-test-example/ssh/id_ed25519 \
-  --binary target/x86_64-unknown-linux-musl/release/skillet \
-  --clamps-binary /var/lib/skillet/skillet-clamps
-```
 
 The target and disposable opt-in are mandatory. The script checks baseline/full
 separation, container startup and idempotency, configuration and dummy secret
