@@ -24,18 +24,15 @@ This document defines the architectural mandates and project structure for `skil
 - **Formatting & Linting**: Always run `cargo fmt` and `cargo clippy` after making changes to ensure code quality and consistency. **Clippy MUST be run with `pedantic` lints enabled (configured in `Cargo.toml`).**
 - **Verification**: Always run both:
     - **Unit Tests**: `cargo test` across the workspace.
-    - **Integration Tests**: `skillet test run <hostname>` for affected hosts to verify end-to-end correctness in a containerized environment.
+    - **Runtime Smoke**: Run `integration_tests/smoke-ssh.sh` against an explicitly named disposable VM with real systemd and Podman for affected container resources. Record the guest state snapshots and failure diagnostics.
 
-## Testing & Recording Philosophy
+## Testing Philosophy
 
 Skillet uses a multi-layered testing approach to ensure reliability and idempotency:
 
 1.  **Trait-based Abstraction**: Core resources (`FileResource`, `SystemResource`) are defined as traits. This allows for easy mocking using `MockFiles` and `MockSystem` in unit tests.
-2.  **The Recorder Wrapper**: A `Recorder<T>` wrapper can be applied to any resource implementing these traits. It intercepts all operations (e.g., `EnsureFile`, `ServiceRestart`), records them into a sequence of `ResourceOp` enums, and then passes the call to the underlying implementation.
-3.  **Containerized Integration Tests**:
-    *   **Record Mode**: The tool runs against a fresh container, and the `Recorder` saves the sequence of operations to a YAML file (e.g., `integration_tests/recordings/beezelbot.yaml`).
-    *   **Run Mode**: The tool runs again, and the *actual* sequence of operations is compared against the *recorded* one. Any mismatch (e.g., a missing service restart or an extra file write) causes the test to fail.
-    *   **Idempotency**: By running the tool twice in the same container, we can verify that the second run produces an empty (or minimal) set of operations, confirming idempotency.
+2.  **Diagnostic Recorder**: `apply --record PATH` can capture attempted resource operations for investigation. Recording equality is not an acceptance check.
+3.  **Real Runtime Smoke**: The disposable VM check exercises generated Quadlets, systemd startup, Podman secrets, configuration changes, repeated apply, failure recovery and reboot persistence. It compares managed bytes and metadata plus container identity and observed application state.
 
 ## Project Structure
 

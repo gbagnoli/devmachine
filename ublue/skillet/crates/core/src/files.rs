@@ -38,6 +38,7 @@ pub enum FileError {
 }
 
 pub trait FileResource {
+    fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError>;
     fn ensure_file(
         &self,
         path: &Path,
@@ -107,13 +108,9 @@ impl LocalFileResource {
         use std::os::unix::io::AsRawFd;
 
         if let Some(m) = mode {
-            let mut perms = file
-                .metadata()
-                .map_err(FileError::Io)?
-                .permissions();
+            let mut perms = file.metadata().map_err(FileError::Io)?.permissions();
             perms.set_mode(m);
-            file.set_permissions(perms)
-                .map_err(FileError::Io)?;
+            file.set_permissions(perms).map_err(FileError::Io)?;
         }
 
         if owner.is_some() || group.is_some() {
@@ -188,6 +185,13 @@ impl Default for LocalFileResource {
 }
 
 impl FileResource for LocalFileResource {
+    fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
+        match fs::read(path) {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(FileError::Read(path.display().to_string(), error)),
+        }
+    }
     fn ensure_file(
         &self,
         path: &Path,

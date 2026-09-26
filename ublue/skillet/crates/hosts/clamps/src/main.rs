@@ -2,8 +2,8 @@ use anyhow::Result;
 use skillet_cli_common::{hosts, run_host};
 
 fn main() -> Result<()> {
-    run_host("clamps", |system, files| {
-        hosts::apply_clamps(system, files).map_err(|e| e.to_string())
+    run_host("clamps", |phase, system, files| {
+        hosts::apply_host_phase("clamps", phase, system, files).map_err(|e| e.to_string())
     })?;
     Ok(())
 }

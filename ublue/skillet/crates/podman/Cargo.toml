@@ -13,3 +13,8 @@ tracing.workspace = true
 serde.workspace = true
 askama.workspace = true
 users.workspace = true
+sha2.workspace = true
+hex.workspace = true
+
+[dev-dependencies]
+skillet_core = { workspace = true, features = ["test-utils"] }

@@ -9,6 +9,7 @@ use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 pub mod hosts;
+use hosts::ApplyPhase;
 
 #[derive(Error, Debug)]
 pub enum CliCommonError {
@@ -39,6 +40,8 @@ pub struct HostArgs {
 pub enum HostCommands {
     /// Apply configuration
     Apply {
+        #[arg(long, value_enum, default_value_t = ApplyPhase::Full)]
+        phase: ApplyPhase,
         /// Optional: Output recorded actions to this file path
         #[arg(long)]
         record: Option<PathBuf>,
@@ -47,7 +50,7 @@ pub enum HostCommands {
 
 pub fn run_host<F>(hostname: &str, apply_fn: F) -> Result<(), CliCommonError>
 where
-    F: Fn(&dyn SystemResource, &dyn FileResource) -> Result<(), String>,
+    F: Fn(ApplyPhase, &dyn SystemResource, &dyn FileResource) -> Result<(), String>,
 {
     let args = HostArgs::parse();
 
@@ -62,7 +65,9 @@ where
     tracing::subscriber::set_global_default(subscriber)?;
 
     match args.command {
-        HostCommands::Apply { record } => handle_apply(hostname, record, apply_fn),
+        HostCommands::Apply { record, phase } => handle_apply(hostname, record, |system, files| {
+            apply_fn(phase, system, files)
+        }),
     }
 }
 

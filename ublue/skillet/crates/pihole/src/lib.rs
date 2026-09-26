@@ -1,8 +1,9 @@
 use askama::Template;
 use skillet_core::files::{FileError, FileResource};
 use skillet_core::system::{SystemError, SystemResource};
-use skillet_core::templates::ensure_templated_file;
-use skillet_podman::{self, ContainerUser, HostUser, PodmanError, Volume, PodmanConfig, QuadletSecret};
+use skillet_podman::{
+    self, ContainerUser, HostUser, PodmanConfig, PodmanError, QuadletSecret, Volume,
+};
 use std::collections::BTreeMap;
 use std::path::Path;
 use thiserror::Error;
@@ -73,10 +74,14 @@ where
     let template = CustomListTemplate {
         custom: custom_records,
     };
-    ensure_templated_file(
-        files,
+    let custom_list = template.render().map_err(|error| {
+        FileError::Io(std::io::Error::other(format!(
+            "Template rendering failed: {error}"
+        )))
+    })?;
+    files.ensure_file(
         &Path::new(root).join("conf/custom.list"),
-        &template,
+        custom_list.as_bytes(),
         Some(0o640),
         Some("root"),
         Some("root"),
@@ -110,10 +115,7 @@ where
     ];
 
     let mut extra_config = BTreeMap::new();
-    extra_config.insert(
-        "Service".to_string(),
-        vec!["Restart=always".to_string()],
-    );
+    extra_config.insert("Service".to_string(), vec!["Restart=always".to_string()]);
     extra_config.insert(
         "Unit".to_string(),
         vec![
@@ -136,6 +138,7 @@ where
             create_host_user: false,
             volumes,
             secrets,
+            config_revisions: vec![custom_list.into_bytes()],
             extra_config,
         },
     )?;

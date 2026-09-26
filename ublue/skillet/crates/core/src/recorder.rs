@@ -42,6 +42,9 @@ impl<T> Recorder<T> {
 }
 
 impl<T: FileResource> FileResource for Recorder<T> {
+    fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
+        self.inner.read_file(path)
+    }
     fn ensure_file(
         &self,
         path: &Path,
@@ -91,6 +94,13 @@ impl<T: FileResource> FileResource for Recorder<T> {
 }
 
 impl<T: SystemResource> SystemResource for Recorder<T> {
+    fn podman_secret_id(&self, name: &str) -> Result<String, SystemError> {
+        self.inner.podman_secret_id(name)
+    }
+
+    fn service_is_active(&self, name: &str) -> Result<bool, SystemError> {
+        self.inner.service_is_active(name)
+    }
     fn ensure_group(&self, name: &str, gid: Option<u32>) -> Result<bool, SystemError> {
         self.record(ResourceOp::EnsureGroup {
             name: name.to_string(),

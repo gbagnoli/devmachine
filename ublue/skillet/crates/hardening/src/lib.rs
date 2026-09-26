@@ -1,3 +1,4 @@
+use sha2::{Digest, Sha256};
 use skillet_core::files::{FileError, FileResource};
 use skillet_core::system::{SystemError, SystemResource};
 use std::path::Path;
@@ -38,6 +39,40 @@ where
     Ok(())
 }
 
+fn converge_service_file<S, F>(
+    system: &S,
+    files: &F,
+    path: &Path,
+    content: &[u8],
+    mode: u32,
+    service: &str,
+    ensure_active: bool,
+) -> Result<(), HardeningError>
+where
+    S: SystemResource + ?Sized,
+    F: FileResource + ?Sized,
+{
+    let state_dir = Path::new("/var/lib/skillet/hardening");
+    files.ensure_directory(state_dir, Some(0o755), Some("root"), Some("root"))?;
+    let applied_path = state_dir.join(format!("{service}.applied"));
+    let revision = hex::encode(Sha256::digest(content));
+    let pending = files.read_file(&applied_path)?.as_deref() != Some(revision.as_bytes());
+    let changed = files.ensure_file(path, content, Some(mode), Some("root"), Some("root"))?;
+    if changed || pending {
+        system.service_restart(service)?;
+        files.ensure_file(
+            &applied_path,
+            revision.as_bytes(),
+            Some(0o644),
+            Some("root"),
+            Some("root"),
+        )?;
+    } else if ensure_active && !system.service_is_active(service)? {
+        system.service_start(service)?;
+    }
+    Ok(())
+}
+
 fn apply_sysctl_hardening<S, F>(system: &S, files: &F) -> Result<(), HardeningError>
 where
     S: SystemResource + ?Sized,
@@ -50,12 +85,15 @@ where
     let content = include_bytes!("../files/sysctl.boxy.conf");
     let path = sysctl_dir.join("99-hardening.conf");
 
-    let changed = files.ensure_file(&path, content, Some(0o644), Some("root"), Some("root"))?;
-
-    if changed {
-        info!("Sysctl configuration changed, restarting systemd-sysctl...");
-        system.service_restart("systemd-sysctl")?;
-    }
+    converge_service_file(
+        system,
+        files,
+        &path,
+        content,
+        0o644,
+        "systemd-sysctl",
+        false,
+    )?;
 
     Ok(())
 }
@@ -73,12 +111,7 @@ where
     let content = include_bytes!("../files/sshd_config");
     let path = Path::new("/etc/ssh/sshd_config");
 
-    let changed = files.ensure_file(path, content, Some(0o600), Some("root"), Some("root"))?;
-
-    if changed {
-        info!("SSH server configuration changed, restarting sshd...");
-        system.service_restart("sshd")?;
-    }
+    converge_service_file(system, files, path, content, 0o600, "sshd", true)?;
 
     Ok(())
 }
