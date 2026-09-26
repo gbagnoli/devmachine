@@ -61,7 +61,14 @@ snapshot() {
 
 case "$phase" in
   before-reboot)
-    [[ ! -e "$root/data/sentinel" ]] || fail "fixture data exists; use a fresh disposable VM"
+    # The smoke fixture is namespaced and the target was explicitly opted in
+    # as disposable. Reset only this fixture so `test smoke` can be rerun on
+    # the same VM after inspecting a previous run.
+    systemctl stop "$service" >/dev/null 2>&1 || true
+    systemctl disable "$service" >/dev/null 2>&1 || true
+    podman rm -f "$container" >/dev/null 2>&1 || true
+    rm -rf "$root" /etc/skillet-smoke /etc/containers/systemd/skillet-smoke-fixture.container
+    systemctl daemon-reload
     mkdir -p "$root/desired" "$root/data"
     touch "$root/allow-start"
     printf 'revision-one\n' > "$root/desired/config"
