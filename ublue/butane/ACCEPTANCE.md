@@ -25,6 +25,16 @@ install.
   a successful guest boot. The helper now selects a separate native libvirt
   runtime to avoid mixing native and Flatpak daemon filesystem views; that
   approach still requires end-to-end validation.
+- `runs/clamps-test-smoke` created a running VM, but SSH on port 2201 never
+  became available. The serial console showed Ignition still reading the
+  2.5 MiB `fw_cfg` payload after about 30 host minutes; the dominant
+  embedded entry was the 4.9 MiB `skillet-clamps` binary. Ignition documents
+  that large QEMU `fw_cfg` configs can take an unreasonable time to read
+  ([release notes](https://coreos.github.io/ignition/release-notes/)). The VM
+  launcher now omits that binary from the VM-only Ignition config and
+  `clamps-ready` transfers it over SSH after first boot. This fix still needs
+  validation on a newly created VM; the existing `clamps-test-smoke` domain
+  uses the old Ignition and must be destroyed and recreated first.
 
 ## Static checks
 

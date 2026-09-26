@@ -21,6 +21,8 @@ vm_virsh() {
 known_hosts="$run_dir/ssh/known_hosts"
 ssh_args=(-i "$run_dir/ssh/id_ed25519" -p "$ssh_port" -o BatchMode=yes
   -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$known_hosts")
+scp_args=(-i "$run_dir/ssh/id_ed25519" -P "$ssh_port" -o BatchMode=yes
+  -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$known_hosts")
 # shellcheck disable=SC2029
 ssh_guest() { ssh "${ssh_args[@]}" core@127.0.0.1 "$@"; }
 
@@ -34,17 +36,50 @@ if ! rg -Fq "$run_dir/$vm.qcow2" "$run_dir/disks.txt"; then
   exit 1
 fi
 
+artifact="$run_dir/source/files/skillet-clamps"
+[[ -x "$artifact" ]] || { echo "Missing host artifact: $artifact" >&2; exit 1; }
 deadline=$((SECONDS + 2700))
+next_report=$((SECONDS + 60))
+echo "Waiting for SSH on core@127.0.0.1:$ssh_port before delivering Skillet..."
 while ((SECONDS < deadline)); do
-  if ssh_guest 'sudo -n test -e /run/clamps-bootstrap-ready && sudo -n systemctl is-active --quiet skillet-apply.service' &>/dev/null; then
+  if ssh_guest 'sudo -n true' &>/dev/null; then
     break
   fi
-  sleep 15
+  if ((SECONDS >= next_report)); then
+    echo "Still waiting for guest SSH; elapsed $((2700 - (deadline - SECONDS))) seconds"
+    next_report=$((SECONDS + 60))
+  fi
+  sleep 5
 done
 if ((SECONDS >= deadline)); then
-  echo "Timed out waiting for signed clamps boot and Skillet base apply" >&2
+  echo "Timed out waiting for guest SSH; inspect the VM serial console and $run_dir/domain.txt" >&2
+  exit 1
+fi
+scp "${scp_args[@]}" "$artifact" "core@127.0.0.1:/var/tmp/skillet-clamps"
+ssh_guest 'sudo -n install -m 0755 /var/tmp/skillet-clamps /var/lib/skillet/skillet-clamps && rm -f /var/tmp/skillet-clamps'
+echo "Installed Skillet artifact; waiting for the signed clamps deployment..."
+
+deadline=$((SECONDS + 2700))
+next_report=$((SECONDS + 60))
+while ((SECONDS < deadline)); do
+  if ssh_guest 'sudo -n test -e /run/clamps-bootstrap-ready' &>/dev/null; then
+    break
+  fi
+  if ((SECONDS >= next_report)); then
+    echo "Still waiting for signed deployment; elapsed $((2700 - (deadline - SECONDS))) seconds"
+    next_report=$((SECONDS + 60))
+  fi
+  sleep 10
+done
+if ((SECONDS >= deadline)); then
+  echo "Timed out waiting for signed clamps boot" >&2
   ssh_guest 'sudo -n rpm-ostree status; sudo -n journalctl -b -u clamps-bootstrap.service -u skillet-apply.service --no-pager -n 200' > "$run_dir/failure.log" 2>&1 || true
   echo "Diagnostics: $run_dir/failure.log" >&2
+  exit 1
+fi
+if ! ssh_guest 'sudo -n systemctl reset-failed skillet-apply.service && sudo -n systemctl --wait restart skillet-apply.service'; then
+  ssh_guest 'sudo -n rpm-ostree status; sudo -n journalctl -b -u clamps-bootstrap.service -u skillet-apply.service --no-pager -n 200' > "$run_dir/failure.log" 2>&1 || true
+  echo "Skillet base apply failed; diagnostics: $run_dir/failure.log" >&2
   exit 1
 fi
 

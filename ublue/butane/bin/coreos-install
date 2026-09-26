@@ -93,6 +93,11 @@ cp "$input" "$output_dir/source/clamps.bu"
 cp "$butane_dir"/includes/*.bu "$output_dir/source/includes/"
 cp "$artifact" "$output_dir/source/files/skillet-clamps"
 chmod 755 "$output_dir/source/files/skillet-clamps"
+# Keep the multi-megabyte static binary out of QEMU fw_cfg. Ignition reads
+# fw_cfg very slowly for large configs; clamps-ready installs this artifact
+# over SSH after the guest has completed its first Ignition boot.
+yq -i 'del(.storage.files[] | select(.path == "/var/lib/skillet/skillet-clamps"))' \
+  "$output_dir/source/includes/skillet.bu"
 ssh-keygen -q -t ed25519 -N '' -f "$output_dir/ssh/id_ed25519"
 chmod 600 "$output_dir/ssh/id_ed25519"
 public_key="$(cat "$output_dir/ssh/id_ed25519.pub")"
@@ -104,6 +109,10 @@ VM_INCLUDE='includes/vm-access.bu' yq -i \
   "$output_dir/source/clamps.bu"
 
 ignition="$("$script_dir/butane" -s -o "$output_dir/ignition" "$output_dir/source/clamps.bu" clamps.ign)"
+ignition_bytes="$(stat -c '%s' "$ignition")"
+if ((ignition_bytes > 1048576)); then
+  echo "Warning: Ignition config is ${ignition_bytes} bytes; large QEMU fw_cfg configs can take a long time to read" >&2
+fi
 cp --reflink=auto "$image" "$output_dir/$vm_name.qcow2"
 sha256sum "$output_dir/source/files/skillet-clamps" > "$output_dir/skillet.sha256"
 sha256sum "$image" > "$output_dir/fcos-image.sha256"
