@@ -1,11 +1,8 @@
 variant: fcos
 version: 1.6.0
 storage:
-  directories:
-    - path: /var/lib/skillet
-      mode: 0755
   files:
-    - path: /var/lib/skillet/skillet-clamps
+    - path: /var/usrlocal/bin/skillet-clamps
       mode: 0755
       contents:
         local: files/skillet-clamps
@@ -22,7 +19,7 @@ systemd:
 
         [Service]
         Type=oneshot
-        ExecStart=/var/lib/skillet/skillet-clamps apply --phase base
+        ExecStart=/var/usrlocal/bin/skillet-clamps apply --phase base
         RemainAfterExit=yes
 
         [Install]

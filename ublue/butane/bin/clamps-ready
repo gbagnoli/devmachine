@@ -56,7 +56,7 @@ if ((SECONDS >= deadline)); then
   exit 1
 fi
 scp "${scp_args[@]}" "$artifact" "core@127.0.0.1:/var/tmp/skillet-clamps"
-ssh_guest 'sudo -n install -m 0755 /var/tmp/skillet-clamps /var/lib/skillet/skillet-clamps && rm -f /var/tmp/skillet-clamps'
+ssh_guest 'sudo -n install -m 0755 /var/tmp/skillet-clamps /var/usrlocal/bin/skillet-clamps && rm -f /var/tmp/skillet-clamps'
 echo "Installed Skillet artifact; waiting for the signed clamps deployment..."
 
 deadline=$((SECONDS + 2700))
@@ -64,6 +64,11 @@ next_report=$((SECONDS + 60))
 while ((SECONDS < deadline)); do
   if ssh_guest 'sudo -n test -e /run/clamps-bootstrap-ready' &>/dev/null; then
     break
+  fi
+  if ssh_guest 'sudo -n systemctl is-failed --quiet clamps-bootstrap.service' &>/dev/null; then
+    ssh_guest 'sudo -n rpm-ostree status; sudo -n journalctl -b -u clamps-bootstrap.service -u skillet-apply.service --no-pager -n 200' > "$run_dir/failure.log" 2>&1 || true
+    echo "Clamps bootstrap failed; diagnostics: $run_dir/failure.log" >&2
+    exit 1
   fi
   if ((SECONDS >= next_report)); then
     echo "Still waiting for signed deployment; elapsed $((2700 - (deadline - SECONDS))) seconds"
@@ -85,7 +90,7 @@ fi
 
 ssh_guest 'sudo -n rpm-ostree status --json' > "$run_dir/final-status.json"
 ssh_guest 'cat /proc/sys/kernel/random/boot_id' > "$run_dir/final-boot-id"
-ssh_guest 'sha256sum /var/lib/skillet/skillet-clamps' > "$run_dir/guest-skillet.sha256"
+ssh_guest 'sha256sum /var/usrlocal/bin/skillet-clamps' > "$run_dir/guest-skillet.sha256"
 ssh_guest 'getenforce; readlink -f /etc/resolv.conf; cat /etc/resolv.conf; getent hosts ghcr.io; sudo -n systemctl is-enabled systemd-resolved.service; sudo -n systemctl status --no-pager skillet-apply.service' > "$run_dir/readiness.log" 2>&1 || true
 expected="$(cut -d ' ' -f 1 "$run_dir/skillet.sha256")"
 actual="$(cut -d ' ' -f 1 "$run_dir/guest-skillet.sha256")"

@@ -7,7 +7,7 @@ storage:
     - path: /var/lib/clamps-bootstrap
       mode: 0755
   files:
-    - path: /var/lib/clamps-bootstrap/rebase.sh
+    - path: /var/usrlocal/bin/clamps-rebase.sh
       mode: 0755
       contents:
         inline: |
@@ -63,7 +63,7 @@ systemd:
 
         [Service]
         Type=oneshot
-        ExecStart=/var/lib/clamps-bootstrap/rebase.sh
+        ExecStart=/var/usrlocal/bin/clamps-rebase.sh
         RemainAfterExit=yes
         TimeoutStartSec=45min
 

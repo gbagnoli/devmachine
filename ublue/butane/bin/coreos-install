@@ -96,7 +96,7 @@ chmod 755 "$output_dir/source/files/skillet-clamps"
 # Keep the multi-megabyte static binary out of QEMU fw_cfg. Ignition reads
 # fw_cfg very slowly for large configs; clamps-ready installs this artifact
 # over SSH after the guest has completed its first Ignition boot.
-yq -i 'del(.storage.files[] | select(.path == "/var/lib/skillet/skillet-clamps"))' \
+yq -i 'del(.storage.files[] | select(.path == "/var/usrlocal/bin/skillet-clamps"))' \
   "$output_dir/source/includes/skillet.bu"
 ssh-keygen -q -t ed25519 -N '' -f "$output_dir/ssh/id_ed25519"
 chmod 600 "$output_dir/ssh/id_ed25519"

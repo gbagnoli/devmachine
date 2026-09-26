@@ -26,7 +26,10 @@ The launcher builds the current static `skillet-clamps` host binary, or accepts
 `--artifact PATH` to use a specific binary. It records its SHA256 in
 `runs/NAME/skillet.sha256`. To keep the QEMU `fw_cfg` Ignition payload small,
 the VM config omits this multi-megabyte binary; `clamps-ready` transfers it
-over SSH after first boot and installs it at `/var/lib/skillet/skillet-clamps`.
+over SSH after first boot and installs it at `/var/usrlocal/bin/skillet-clamps`.
+The bootstrap script also lives in `/var/usrlocal/bin`: Fedora CoreOS labels
+that persistent directory `bin_t`, allowing systemd to execute these files
+with SELinux enforcing.
 Generated Ignition, SSH key, VM disk and logs stay under `runs/NAME`, which Git
 ignores. The test key is private and only its public half enters Ignition.
 `--image PATH` selects a specific FCOS qcow2;
@@ -52,7 +55,7 @@ and then to the signed image. It checks the *booted* rpm-ostree deployment on
 every boot. It never starts the base apply until the signed deployment boots.
 A failed rebase stops without rebooting; an already pending deployment gets at
 most two reboot attempts. The base unit runs
-`/var/lib/skillet/skillet-clamps apply --phase base` with no app credentials.
+`/var/usrlocal/bin/skillet-clamps apply --phase base` with no app credentials.
 
 `./bin/clamps-ready runs/NAME` waits up to 45 minutes, checks the expected
 domain/disk, noninteractive SSH and sudo, signed booted deployment, successful
