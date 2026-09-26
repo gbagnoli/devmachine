@@ -53,12 +53,14 @@ Podman operation. `--inspect` opens the container before cleanup.
 For real systemd/Podman and reboot coverage, create a disposable VM first:
 
 ```bash
-cargo run --release -p skillet -- test vm create
+cargo run --release -p skillet -- test vm create clamps smoke
 ```
 
 This provisions `clamps-test-smoke` on `giacomo@127.0.0.1:2201`, creates its SSH
-key, and waits for the guest to pass `test-vm clamps-test-smoke ready`. The same command
+key, and waits for the guest to pass `test-vm clamps ready smoke`. The same command
 accepts another host when its `HOST.bu` and `skillet-HOST` are available.
+Use `cargo run --release -p skillet -- test vm list` to see host availability
+and recorded instances, or add a host to list only its instances.
 Then run the clamps smoke scenario:
 
 ```bash
@@ -75,7 +77,7 @@ files, so you can inspect a run and rerun it on the same disposable VM.
 When finished, remove the disposable VM, disk, SSH key, and run artifacts:
 
 ```bash
-cargo run --release -p skillet -- test vm destroy
+cargo run --release -p skillet -- test vm destroy clamps smoke
 ```
 
 The VM helpers require the host setup documented in `../butane/README.md`.

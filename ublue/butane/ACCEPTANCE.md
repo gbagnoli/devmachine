@@ -15,11 +15,15 @@ recovery remains unverified.
   reboot and allow an interrupted installation to retry.
 - The first readiness run failed only because its symlink check compared a
   resolved `/var/home` path with an unresolved `/home` path. After correcting
-  the comparison, `test-vm clamps-test-smoke ready` passed on that same VM.
-- `test-vm clamps-test-smoke reboot` followed by `test-vm clamps-test-smoke ready` passed; the
+  the comparison, `test-vm clamps ready smoke` passed on that same VM.
+- `test-vm clamps reboot smoke` followed by `test-vm clamps ready smoke` passed; the
   temporary SSH key and completion markers survived the reboot.
-- The VM interface is now `test-vm <HOST-test-NAME> <command>`. The
-  Skillet wrapper accepts a host for `test vm create` and `test vm destroy`.
+- The VM interface is now `test-vm <host> <command> <instance>`, with `list`
+  also accepting a host or listing all hosts. The Skillet wrapper accepts
+  host and instance for `test vm create` and `test vm destroy`.
+  `test-vm clamps status smoke` confirmed the retained domain. `test-vm list`
+  showed clamps as available, smoke as running, a prior incomplete run as
+  invalid, and beezelbot as unavailable because its Butane file is absent.
   Other hosts still need their own Butane configuration and host artifact.
 - A second fresh VM, `clamps-test-generic` on port 2202, was created with the
   generalized command and passed signed-boot and full user-environment
@@ -104,7 +108,7 @@ recovery remains unverified.
 | Resolver continuity | Partial | Final boot passed; each intermediate boot not checked |
 | Artifact delivery | Pass | Guest SHA matched `skillet.sha256` |
 | Automatic apply | Pass | Boot unit completed with status 0 |
-| Repeat apply | Pass | `test-vm clamps-test-smoke ready` reran the base unit with `systemctl --wait` |
+| Repeat apply | Pass | `test-vm clamps ready smoke` reran the base unit with `systemctl --wait` |
 | Reboot | Pass | Smoke reboot preserved data and container state |
 | Interruption | Not run | Interrupt an isolated bootstrap, then recover |
 | Repeatability | Not run | Second fresh VM after first passes |

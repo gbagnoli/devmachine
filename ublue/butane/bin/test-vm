@@ -21,21 +21,89 @@ ensure_native_runtime() {
   fi
 }
 usage() {
-  echo "Usage: $0 HOST-test-NAME create|ready|status|ssh|logs|reboot|destroy [SSH_PORT for create]" >&2
+  echo "Usage: $0 [HOST] list | $0 HOST create|ready|status|ssh|logs|reboot|destroy INSTANCE [--port PORT for create]" >&2
   exit 2
 }
+config_value() { sed -n "s/^$1=//p" "$run_dir/run.conf" | head -n 1; }
+host_exists() {
+  [[ -f "$script_dir/../$1.bu" || -f "$script_dir/../../skillet/crates/hosts/$1/Cargo.toml" ]]
+}
+host_available() {
+  [[ -f "$script_dir/../$1.bu" && -f "$script_dir/../../skillet/crates/hosts/$1/Cargo.toml" ]]
+}
+list_host() {
+  local listed_host="$1" availability=unavailable found=false listed_run listed_name listed_instance listed_state listed_port listed_runtime recorded_uuid actual_uuid
+  if host_available "$listed_host"; then availability=available; fi
+  for listed_run in "$root"/"$listed_host"-test-*/run.conf; do
+    [[ -f "$listed_run" ]] || continue
+    found=true
+    run_dir="$(dirname "$listed_run")"
+    listed_name="$(basename "$run_dir")"
+    listed_instance="${listed_name#"$listed_host"-test-}"
+    listed_state=invalid
+    listed_port=-
+    if [[ ! -L "$run_dir" && ! -L "$listed_run" && "$(config_value vm)" == "$listed_name" && "$(config_value host)" == "$listed_host" && "$(config_value uri)" == "$uri" ]]; then
+      listed_port="$(config_value ssh_port)"
+      listed_runtime="$(config_value runtime_dir)"
+      if [[ "$listed_port" =~ ^22[0-9][0-9]$ && "$listed_runtime" == /run/user/"$(id -u)"/* && -f "$run_dir/domain.uuid" ]]; then
+        recorded_uuid="$(cat "$run_dir/domain.uuid")"
+        if [[ "$recorded_uuid" =~ ^[0-9a-f-]{36}$ ]] && actual_uuid="$(env XDG_RUNTIME_DIR="$listed_runtime" /usr/bin/virsh -c "$uri" domuuid "$listed_name" 2>/dev/null)"; then
+          if [[ "$actual_uuid" == "$recorded_uuid" ]]; then
+            listed_state="$(env XDG_RUNTIME_DIR="$listed_runtime" /usr/bin/virsh -c "$uri" domstate "$listed_name" 2>/dev/null)" || listed_state=unknown
+          else
+            listed_state=mismatch
+          fi
+        else
+          listed_state=missing
+        fi
+      fi
+    fi
+    printf '%-12s %-12s %-16s %-12s %s\n' "$listed_host" "$availability" "$listed_instance" "$listed_state" "$listed_port"
+  done
+  if [[ "$found" == false ]]; then
+    printf '%-12s %-12s %-16s %-12s %s\n' "$listed_host" "$availability" - none -
+  fi
+}
+list_header() { printf '%-12s %-12s %-16s %-12s %s\n' HOST TEMPLATE INSTANCE STATE PORT; }
+
+if (($# == 1)) && [[ "$1" == list ]]; then
+  [[ ! -L "$root" ]] || { echo "Symlinked artifact root refused" >&2; exit 1; }
+  mapfile -t hosts < <(
+    {
+      for candidate in "$script_dir"/../*.bu; do
+        if [[ -f "$candidate" ]]; then basename "$candidate" .bu; fi
+      done
+      for candidate in "$script_dir"/../../skillet/crates/hosts/*/Cargo.toml; do
+        if [[ -f "$candidate" ]]; then basename "$(dirname "$candidate")"; fi
+      done
+    } | sort -u
+  )
+  list_header
+  for candidate in "${hosts[@]}"; do list_host "$candidate"; done
+  exit 0
+fi
 (($# >= 2)) || usage
-selector="$1"
+host="$1"
 operation="$2"
 shift 2
-host="${selector%%-test-*}"
-[[ "$host" =~ ^[a-z][a-z0-9-]*$ ]] || usage
-name="$selector"
-[[ "$name" =~ ^[a-z][a-z0-9-]*-test-[a-z0-9-]+$ ]] || usage
+if [[ ! "$host" =~ ^[a-z][a-z0-9-]*$ ]] || ! host_exists "$host"; then
+  echo "Unknown host: $host" >&2
+  exit 2
+fi
+if [[ "$operation" == list ]]; then
+  (($# == 0)) || usage
+  [[ ! -L "$root" ]] || { echo "Symlinked artifact root refused" >&2; exit 1; }
+  list_header
+  list_host "$host"
+  exit 0
+fi
+(($# >= 1)) || usage
+instance="$1"
+shift
+[[ "$instance" =~ ^[a-z0-9][a-z0-9-]*$ ]] || usage
+name="$host-test-$instance"
 run_dir="$root/$name"
 [[ ! -L "$root" && ! -L "$run_dir" ]] || { echo "Symlinked artifact path refused" >&2; exit 1; }
-
-config_value() { sed -n "s/^$1=//p" "$run_dir/run.conf" | head -n 1; }
 inspect_owned() {
   [[ -d "$run_dir" && -f "$run_dir/run.conf" && -f "$run_dir/domain.uuid" ]] || {
     echo "Missing owned run manifest for $name" >&2; exit 1;
@@ -66,11 +134,16 @@ ssh_args() {
 }
 case "$operation" in
   create)
-    (($# <= 1)) || usage
-    port="${1:-2201}"
+    if (($# == 0)); then
+      port=2201
+    elif (($# == 2)) && [[ "$1" == --port ]]; then
+      port="$2"
+    else
+      usage
+    fi
     [[ "$port" =~ ^22[0-9][0-9]$ ]] || { echo "Use a port from 2200 to 2299" >&2; exit 2; }
     [[ ! -e "$run_dir" && ! -L "$run_dir" ]] || { echo "Run path already exists" >&2; exit 1; }
-    [[ -f "$script_dir/../$host.bu" ]] || { echo "Missing host Butane file: $host.bu" >&2; exit 1; }
+    host_available "$host" || { echo "Host $host needs both $host.bu and a skillet-$host crate" >&2; exit 1; }
     ensure_native_runtime
     if vm_virsh dominfo "$name" &>/dev/null; then
       echo "Domain already exists" >&2; exit 1

@@ -58,24 +58,27 @@ enum VmCommands {
     Create(VmCreateArgs),
     /// Destroy a disposable host VM and remove its temporary key and artifacts
     Destroy(VmDestroyArgs),
+    /// List available host templates and their recorded disposable VMs
+    List(VmListArgs),
 }
 
 #[derive(clap::Args, Debug)]
 struct VmCreateArgs {
-    #[arg(default_value = "clamps")]
     hostname: String,
-    #[arg(long)]
-    name: Option<String>,
+    instance: String,
     #[arg(long, default_value_t = 2201)]
     port: u16,
 }
 
 #[derive(clap::Args, Debug)]
 struct VmDestroyArgs {
-    #[arg(default_value = "clamps")]
     hostname: String,
-    #[arg(long)]
-    name: Option<String>,
+    instance: String,
+}
+
+#[derive(clap::Args, Debug)]
+struct VmListArgs {
+    hostname: Option<String>,
 }
 
 #[derive(clap::Args, Debug)]
@@ -152,6 +155,12 @@ fn main() -> Result<()> {
                     command: VmCommands::Destroy(args),
                 },
         } => run_vm_destroy(&args)?,
+        Commands::Test {
+            command:
+                TestCommands::Vm {
+                    command: VmCommands::List(args),
+                },
+        } => run_vm_list(&args)?,
     }
     Ok(())
 }
@@ -170,7 +179,7 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
     });
     if !identity.is_file() {
         return Err(anyhow!(
-            "SSH key not found at {}; create the default VM with `skillet test vm create` or pass --identity",
+            "SSH key not found at {}; create the default VM with `skillet test vm create clamps smoke` or pass --identity",
             identity.display()
         ));
     }
@@ -200,20 +209,23 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
 }
 
 fn run_vm_create(args: &VmCreateArgs) -> Result<()> {
-    let name = vm_name(&args.hostname, args.name.as_deref())?;
+    let name = vm_name(&args.hostname, &args.instance)?;
     if !(2200..=2299).contains(&args.port) {
         return Err(anyhow!("VM SSH port must be between 2200 and 2299"));
     }
     let butane = butane_root()?;
     let helper = butane.join("bin/test-vm");
     let port = args.port.to_string();
-    run_helper(&helper, &[&name, "create", &port])?;
+    run_helper(
+        &helper,
+        &[&args.hostname, "create", &args.instance, "--port", &port],
+    )?;
 
     let run_dir = butane.join("runs").join(&name);
-    if let Err(error) = run_helper(&helper, &[&name, "ready"]) {
+    if let Err(error) = run_helper(&helper, &[&args.hostname, "ready", &args.instance]) {
         return Err(anyhow!(
-            "VM created but readiness failed; inspect it with `test-vm {} logs` or destroy it with `skillet test vm destroy {} --name {}`: {error}",
-            name, args.hostname, name
+            "VM created but readiness failed; inspect it with `test-vm {} logs {}` or destroy it with `skillet test vm destroy {} {}`: {error}",
+            args.hostname, args.instance, args.hostname, args.instance
         ));
     }
     info!(
@@ -226,12 +238,21 @@ fn run_vm_create(args: &VmCreateArgs) -> Result<()> {
 }
 
 fn run_vm_destroy(args: &VmDestroyArgs) -> Result<()> {
-    let name = vm_name(&args.hostname, args.name.as_deref())?;
+    vm_name(&args.hostname, &args.instance)?;
     let helper = butane_root()?.join("bin/test-vm");
-    run_helper(&helper, &[&name, "destroy"])
+    run_helper(&helper, &[&args.hostname, "destroy", &args.instance])
 }
 
-fn vm_name(hostname: &str, name: Option<&str>) -> Result<String> {
+fn run_vm_list(args: &VmListArgs) -> Result<()> {
+    let helper = butane_root()?.join("bin/test-vm");
+    if let Some(hostname) = &args.hostname {
+        run_helper(&helper, &[hostname, "list"])
+    } else {
+        run_helper(&helper, &["list"])
+    }
+}
+
+fn vm_name(hostname: &str, instance: &str) -> Result<String> {
     let valid = |value: &str| {
         !value.is_empty()
             && value.starts_with(|character: char| character.is_ascii_lowercase())
@@ -242,12 +263,17 @@ fn vm_name(hostname: &str, name: Option<&str>) -> Result<String> {
     if !valid(hostname) {
         return Err(anyhow!("invalid VM host name: {hostname}"));
     }
-    let name = name.map_or_else(|| format!("{hostname}-test-smoke"), str::to_owned);
-    let suffix = name.strip_prefix(&format!("{hostname}-test-"));
-    if !suffix.is_some_and(valid) {
-        return Err(anyhow!("VM name must begin with {hostname}-test-"));
+    if !instance
+        .bytes()
+        .next()
+        .is_some_and(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+        || !instance
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+    {
+        return Err(anyhow!("invalid VM instance: {instance}"));
     }
-    Ok(name)
+    Ok(format!("{hostname}-test-{instance}"))
 }
 
 fn run_helper(path: &Path, args: &[&str]) -> Result<()> {
