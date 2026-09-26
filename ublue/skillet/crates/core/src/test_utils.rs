@@ -1,13 +1,20 @@
 use crate::files::{FileError, FileResource};
 use crate::system::{SystemError, SystemResource};
+use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 pub struct MockSystem {
     pub groups: Arc<Mutex<HashSet<String>>>,
     pub users: Arc<Mutex<HashSet<String>>>,
     pub podman_secrets: Arc<Mutex<HashSet<String>>>,
+    pub secret_ids: Arc<Mutex<HashMap<String, String>>>,
+    pub fail_restart_once: Arc<AtomicBool>,
+    pub fail_reload_once: Arc<AtomicBool>,
+    pub restart_count: Arc<AtomicUsize>,
+    pub start_count: Arc<AtomicUsize>,
     pub services: Arc<Mutex<HashMap<String, String>>>, // name -> state (started, stopped, restarted)
 }
 
@@ -17,6 +24,11 @@ impl MockSystem {
             groups: Arc::new(Mutex::new(HashSet::new())),
             users: Arc::new(Mutex::new(HashSet::new())),
             podman_secrets: Arc::new(Mutex::new(HashSet::new())),
+            secret_ids: Arc::new(Mutex::new(HashMap::new())),
+            fail_restart_once: Arc::new(AtomicBool::new(false)),
+            fail_reload_once: Arc::new(AtomicBool::new(false)),
+            restart_count: Arc::new(AtomicUsize::new(0)),
+            start_count: Arc::new(AtomicUsize::new(0)),
             services: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -29,8 +41,30 @@ impl Default for MockSystem {
 }
 
 impl SystemResource for MockSystem {
+    fn podman_secret_id(&self, name: &str) -> Result<String, SystemError> {
+        self.secret_ids
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(name)
+            .cloned()
+            .ok_or_else(|| SystemError::Command(format!("secret {name} missing")))
+    }
+
+    fn service_is_active(&self, name: &str) -> Result<bool, SystemError> {
+        Ok(matches!(
+            self.services
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .get(name)
+                .map(String::as_str),
+            Some("started" | "restarted")
+        ))
+    }
     fn ensure_group(&self, name: &str, _gid: Option<u32>) -> Result<bool, SystemError> {
-        let mut groups = self.groups.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut groups = self
+            .groups
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if groups.contains(name) {
             Ok(false)
         } else {
@@ -45,7 +79,10 @@ impl SystemResource for MockSystem {
         _uid: Option<u32>,
         _gid: Option<u32>,
     ) -> Result<bool, SystemError> {
-        let mut users = self.users.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut users = self
+            .users
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if users.contains(name) {
             Ok(false)
         } else {
@@ -54,17 +91,27 @@ impl SystemResource for MockSystem {
         }
     }
 
-    fn ensure_podman_secret(&self, name: &str, _payload: &str) -> Result<bool, SystemError> {
-        let mut secrets = self.podman_secrets.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        if secrets.contains(name) {
+    fn ensure_podman_secret(&self, name: &str, payload: &str) -> Result<bool, SystemError> {
+        let mut secrets = self
+            .podman_secrets
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        secrets.insert(name.to_string());
+        let id = hex::encode(Sha256::digest(payload.as_bytes()));
+        let mut ids = self
+            .secret_ids
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if ids.get(name) == Some(&id) {
             Ok(false)
         } else {
-            secrets.insert(name.to_string());
+            ids.insert(name.to_string(), id);
             Ok(true)
         }
     }
 
     fn service_start(&self, name: &str) -> Result<(), SystemError> {
+        self.start_count.fetch_add(1, Ordering::SeqCst);
         self.services
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -81,6 +128,10 @@ impl SystemResource for MockSystem {
     }
 
     fn service_restart(&self, name: &str) -> Result<(), SystemError> {
+        self.restart_count.fetch_add(1, Ordering::SeqCst);
+        if self.fail_restart_once.swap(false, Ordering::SeqCst) {
+            return Err(SystemError::Command("injected restart failure".to_string()));
+        }
         self.services
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -105,6 +156,9 @@ impl SystemResource for MockSystem {
     }
 
     fn daemon_reload(&self) -> Result<(), SystemError> {
+        if self.fail_reload_once.swap(false, Ordering::SeqCst) {
+            return Err(SystemError::Command("injected reload failure".to_string()));
+        }
         self.services
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -138,6 +192,14 @@ impl Default for MockFiles {
 }
 
 impl FileResource for MockFiles {
+    fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
+        Ok(self
+            .files
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(&path.display().to_string())
+            .cloned())
+    }
     fn ensure_file(
         &self,
         path: &Path,
@@ -147,8 +209,14 @@ impl FileResource for MockFiles {
         group: Option<&str>,
     ) -> Result<bool, FileError> {
         let path_str = path.display().to_string();
-        let mut files = self.files.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        let mut metadata = self.metadata.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut files = self
+            .files
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut metadata = self
+            .metadata
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         let mut changed = false;
 
@@ -202,8 +270,14 @@ impl FileResource for MockFiles {
 
     fn delete_file(&self, path: &Path) -> Result<bool, FileError> {
         let path_str = path.display().to_string();
-        let mut files = self.files.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        let mut metadata = self.metadata.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut files = self
+            .files
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut metadata = self
+            .metadata
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
 
         let f_removed = files.remove(&path_str).is_some();
         let m_removed = metadata.remove(&path_str).is_some();

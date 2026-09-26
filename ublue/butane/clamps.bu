@@ -1,10 +1,13 @@
 variant: fcos
 version: 1.6.0
+# VM-only layout: coreos-install attaches the FCOS disk as virtio /dev/vda.
+# A physical installer must use an explicitly selected hardware disk instead.
 ignition:
   config:
     merge:
       - local: includes/passwd.bu
       - local: includes/zram.bu
+      - local: includes/resolver.bu
       - local: includes/brew.bu
       - local: includes/skillet.bu
       - local: includes/ucore-clamps.bu

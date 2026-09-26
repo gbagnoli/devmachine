@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if (($# != 1)) || [[ ! -f "$1/run.conf" ]]; then
+  echo "Usage: $0 RUN_DIR" >&2
+  exit 2
+fi
+run_dir="$(realpath "$1")"
+config_value() { sed -n "s/^$1=//p" "$run_dir/run.conf" | head -n 1; }
+vm="$(config_value vm)"
+uri="$(config_value uri)"
+ssh_port="$(config_value ssh_port)"
+runtime_dir="$(config_value runtime_dir)"
+vm_virsh() {
+  if [[ -n "$runtime_dir" ]]; then
+    env XDG_RUNTIME_DIR="$runtime_dir" virsh -c "$uri" "$@"
+  else
+    virsh -c "$uri" "$@"
+  fi
+}
+known_hosts="$run_dir/ssh/known_hosts"
+ssh_args=(-i "$run_dir/ssh/id_ed25519" -p "$ssh_port" -o BatchMode=yes
+  -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$known_hosts")
+# shellcheck disable=SC2029
+ssh_guest() { ssh "${ssh_args[@]}" core@127.0.0.1 "$@"; }
+
+if ! vm_virsh dominfo "$vm" > "$run_dir/domain.txt"; then
+  echo "Domain $vm unavailable on $uri" >&2
+  exit 1
+fi
+vm_virsh domblklist "$vm" > "$run_dir/disks.txt"
+if ! rg -Fq "$run_dir/$vm.qcow2" "$run_dir/disks.txt"; then
+  echo "Domain $vm does not use expected disk $run_dir/$vm.qcow2" >&2
+  exit 1
+fi
+
+deadline=$((SECONDS + 2700))
+while ((SECONDS < deadline)); do
+  if ssh_guest 'sudo -n test -e /run/clamps-bootstrap-ready && sudo -n systemctl is-active --quiet skillet-apply.service' &>/dev/null; then
+    break
+  fi
+  sleep 15
+done
+if ((SECONDS >= deadline)); then
+  echo "Timed out waiting for signed clamps boot and Skillet base apply" >&2
+  ssh_guest 'sudo -n rpm-ostree status; sudo -n journalctl -b -u clamps-bootstrap.service -u skillet-apply.service --no-pager -n 200' > "$run_dir/failure.log" 2>&1 || true
+  echo "Diagnostics: $run_dir/failure.log" >&2
+  exit 1
+fi
+
+ssh_guest 'sudo -n rpm-ostree status --json' > "$run_dir/final-status.json"
+ssh_guest 'cat /proc/sys/kernel/random/boot_id' > "$run_dir/final-boot-id"
+ssh_guest 'sha256sum /var/lib/skillet/skillet-clamps' > "$run_dir/guest-skillet.sha256"
+ssh_guest 'getenforce; readlink -f /etc/resolv.conf; cat /etc/resolv.conf; getent hosts ghcr.io; sudo -n systemctl is-enabled systemd-resolved.service; sudo -n systemctl status --no-pager skillet-apply.service' > "$run_dir/readiness.log" 2>&1 || true
+expected="$(cut -d ' ' -f 1 "$run_dir/skillet.sha256")"
+actual="$(cut -d ' ' -f 1 "$run_dir/guest-skillet.sha256")"
+[[ "$expected" == "$actual" ]] || { echo "Guest Skillet SHA mismatch" >&2; exit 1; }
+if ! jq -e \
+  '.deployments[] | select(.booted) | .["container-image-reference"] | test("^ostree-image-signed:docker://ghcr\\.io/gbagnoli/ucore-clamps(:latest|@sha256:[0-9a-f]{64})$")' \
+  "$run_dir/final-status.json" >/dev/null; then
+  echo "Booted deployment is not the expected signed clamps origin" >&2
+  exit 1
+fi
+# The substitutions run on the guest.
+# shellcheck disable=SC2016
+ssh_guest 'sudo -n systemctl is-active --quiet skillet-apply.service && test "$(getenforce)" = Enforcing && test "$(readlink -f /etc/resolv.conf)" = /run/NetworkManager/resolv.conf && getent hosts ghcr.io >/dev/null && test "$(systemctl is-enabled systemd-resolved.service)" = masked'
+echo "Ready: $vm on $uri; SSH: ssh -i $run_dir/ssh/id_ed25519 -p $ssh_port -o UserKnownHostsFile=$known_hosts core@127.0.0.1"

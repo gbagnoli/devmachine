@@ -1,0 +1,17 @@
+# NetworkManager owns host DNS from active connection DHCP. The explicit link
+# prevents a resolved stub symlink surviving into the resolved-masked image.
+variant: fcos
+version: 1.6.0
+storage:
+  links:
+    - path: /etc/resolv.conf
+      target: ../run/NetworkManager/resolv.conf
+      overwrite: true
+  files:
+    - path: /etc/NetworkManager/conf.d/90-clamps-dns.conf
+      mode: 0644
+      contents:
+        inline: |
+          [main]
+          dns=default
+          rc-manager=symlink

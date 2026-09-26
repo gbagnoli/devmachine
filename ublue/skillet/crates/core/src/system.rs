@@ -68,6 +68,8 @@ pub trait SystemResource {
         gid: Option<u32>,
     ) -> Result<bool, SystemError>;
     fn ensure_podman_secret(&self, name: &str, payload: &str) -> Result<bool, SystemError>;
+    fn podman_secret_id(&self, name: &str) -> Result<String, SystemError>;
+    fn service_is_active(&self, name: &str) -> Result<bool, SystemError>;
     fn service_start(&self, name: &str) -> Result<(), SystemError>;
     fn service_stop(&self, name: &str) -> Result<(), SystemError>;
     fn service_restart(&self, name: &str) -> Result<(), SystemError>;
@@ -94,18 +96,12 @@ impl LinuxSystemResource {
 
     /// Run a systemctl action via `DBus` (preferred) or the CLI (fallback).
     ///
-    /// Actions are blocking: the CLI path never passes `--no-block`, and
-    /// `start`/`restart` additionally pass `--wait` so the call blocks until
-    /// the job completes. The exit status then reflects the job result, so a
-    /// failed service can no longer look successful. This is oneshot-safe:
-    /// unlike polling `is-active`, it does not mistake a successfully exited
-    /// oneshot unit for a failure.
+    /// CLI start/restart wait for the startup job to complete by default.
+    /// `--wait` would additionally wait for service termination.
     fn run_systemctl(&self, action: &str, name: &str) -> Result<(), SystemError> {
         let name_with_suffix = ensure_systemd_suffix(name);
 
-        // D-Bus `StartUnit`/`RestartUnit` only queue the job, so they cannot
-        // observe its result. Route start/restart through the CLI with
-        // `--wait` instead.
+        // D-Bus only queues the job; use the CLI to observe its result.
         if matches!(action, "start" | "restart") {
             return Self::run_systemctl_cli(action, &name_with_suffix);
         }
@@ -141,15 +137,11 @@ impl LinuxSystemResource {
 
     /// Blocking `systemctl <action>` via the CLI.
     ///
-    /// `start`/`restart` pass `--wait`: the call blocks until the job
-    /// completes and the exit status reflects the job result.
+    /// The default call blocks until the startup job completes.
     fn run_systemctl_cli(action: &str, name_with_suffix: &str) -> Result<(), SystemError> {
         info!("Running systemctl {action} {name_with_suffix} via CLI");
         let mut cmd = Command::new("systemctl");
         cmd.arg(action);
-        if matches!(action, "start" | "restart") {
-            cmd.arg("--wait");
-        }
         let output = cmd.arg(name_with_suffix).output()?;
 
         if !output.status.success() {
@@ -292,53 +284,50 @@ impl SystemResource for LinuxSystemResource {
         hasher.update(payload.as_bytes());
         let hash = hex::encode(hasher.finalize());
 
-        let inspect_output = Command::new("podman")
-            .args([
-                "secret",
-                "inspect",
-                "--format",
-                "{{ index .Spec.Labels \"skillet.payload_hash\" }}",
-                name,
-            ])
+        let exists = Command::new("podman")
+            .args(["secret", "exists", name])
             .output()?;
-
-        if inspect_output.status.success() {
-            let existing_hash = String::from_utf8_lossy(&inspect_output.stdout)
-                .trim()
-                .to_string();
-            // If the label is missing, the output will be empty
-            if existing_hash.is_empty() {
-                warn!("Podman secret {name} exists but lacks required label. Deleting and recreating.");
-                let rm_status = Command::new("podman")
-                    .args(["secret", "rm", name])
-                    .status()?;
-                if !rm_status.success() {
-                    return Err(SystemError::Command(format!(
-                        "Failed to remove old secret {name}"
-                    )));
-                }
-            } else {
-                if existing_hash == hash {
-                    debug!("Podman secret {name} already exists with correct hash");
-                    return Ok(false);
-                }
-                warn!("Podman secret {name} exists but hash mismatch. Deleting and recreating.");
-                let rm_status = Command::new("podman")
-                    .args(["secret", "rm", name])
-                    .status()?;
-                if !rm_status.success() {
-                    return Err(SystemError::Command(format!(
-                        "Failed to remove old secret {name}"
-                    )));
-                }
+        let present = match exists.status.code() {
+            Some(0) => true,
+            Some(1) => false,
+            _ => {
+                return Err(SystemError::Command(format!(
+                    "podman secret exists {name} failed: {}",
+                    String::from_utf8_lossy(&exists.stderr)
+                )))
             }
+        };
+        if present {
+            let inspect_output = Command::new("podman")
+                .args([
+                    "secret",
+                    "inspect",
+                    "--format",
+                    "{{ index .Spec.Labels \"skillet.payload_hash\" }}",
+                    name,
+                ])
+                .output()?;
+
+            if !inspect_output.status.success() {
+                return Err(SystemError::Command(format!(
+                    "podman secret inspect {name} failed: {}",
+                    String::from_utf8_lossy(&inspect_output.stderr)
+                )));
+            }
+            let existing_hash = String::from_utf8_lossy(&inspect_output.stdout);
+            if existing_hash.trim() == hash {
+                debug!("Podman secret {name} already exists with correct hash");
+                return Ok(false);
+            }
+            warn!("Podman secret {name} needs replacement");
         }
 
-        info!("Creating podman secret {name}");
+        info!("Creating or replacing podman secret {name}");
         let mut child = Command::new("podman")
             .args([
                 "secret",
                 "create",
+                "--replace",
                 "--label",
                 &format!("skillet.payload_hash={hash}"),
                 name,
@@ -360,6 +349,40 @@ impl SystemResource for LinuxSystemResource {
         }
 
         Ok(true)
+    }
+
+    fn podman_secret_id(&self, name: &str) -> Result<String, SystemError> {
+        let output = Command::new("podman")
+            .args(["secret", "inspect", "--format", "{{.ID}}", name])
+            .output()?;
+        if !output.status.success() {
+            return Err(SystemError::Command(format!(
+                "podman secret inspect {name} failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            )));
+        }
+        let id = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if id.is_empty() {
+            return Err(SystemError::Command(format!(
+                "podman secret inspect {name} returned an empty ID"
+            )));
+        }
+        Ok(id)
+    }
+
+    fn service_is_active(&self, name: &str) -> Result<bool, SystemError> {
+        let name = ensure_systemd_suffix(name);
+        let output = Command::new("systemctl")
+            .args(["is-active", "--quiet", &name])
+            .output()?;
+        match output.status.code() {
+            Some(0) => Ok(true),
+            Some(3) => Ok(false),
+            _ => Err(SystemError::Command(format!(
+                "systemctl is-active {name} failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ))),
+        }
     }
 
     fn service_start(&self, name: &str) -> Result<(), SystemError> {

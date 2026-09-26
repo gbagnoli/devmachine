@@ -14,6 +14,12 @@ use skillet_podman::{QuadletSecret, SecretTarget};
 use std::collections::BTreeMap;
 use thiserror::Error;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
+pub enum ApplyPhase {
+    Base,
+    Full,
+}
+
 #[derive(Error, Debug)]
 pub enum ApplyError {
     #[error("System error: {0}")]
@@ -26,6 +32,10 @@ pub enum ApplyError {
     Hardening(String),
     #[error("Pihole apply error: {0}")]
     Pihole(#[from] skillet_pihole::PiholeError),
+    #[error("Podman error: {0}")]
+    Podman(#[from] skillet_podman::PodmanError),
+    #[error("Fixture input error: {0}")]
+    FixtureInput(String),
 }
 
 mod user_lookup {
@@ -50,11 +60,14 @@ pub fn apply_beezelbot(
     skillet_hardening::apply(system, files).map_err(|e| ApplyError::Hardening(e.to_string()))
 }
 
+/// Shared host baseline used by both CLI entry points.
+pub fn apply_base(system: &dyn SystemResource, files: &dyn FileResource) -> Result<(), ApplyError> {
+    skillet_hardening::apply(system, files).map_err(|e| ApplyError::Hardening(e.to_string()))
+}
+
 /// Name of the systemd credential (and podman secret) holding the Pi-hole
-/// web UI password. Wired into `skillet-apply.service` via `LoadCredential=`
-/// in `ublue/butane/includes/skillet.bu`; the credential file itself
-/// (`/etc/skillet/credentials/pihole_web_password`) must be provisioned by
-/// Ignition separately.
+/// web UI password. Full `clamps` apply reads it from the systemd credential
+/// directory supplied to that invocation.
 pub const PIHOLE_WEB_PASSWORD_CREDENTIAL: &str = "pihole_web_password";
 
 /// Custom DNS records for the clamps Pi-hole (`ip -> fqdn`).
@@ -72,7 +85,7 @@ pub fn apply_clamps(
     system: &dyn SystemResource,
     files: &dyn FileResource,
 ) -> Result<(), ApplyError> {
-    skillet_hardening::apply(system, files).map_err(|e| ApplyError::Hardening(e.to_string()))?;
+    apply_base(system, files)?;
 
     // 1. Ingest secret from systemd (lazy: only this host needs secrets)
     let credentials = CredentialManager::new()?;
@@ -131,8 +144,24 @@ pub fn apply_host(
 ) -> Result<(), ApplyError> {
     match hostname {
         "clamps" => apply_clamps(system, files),
+        "skillet-smoke" => fixture::apply(system, files),
         // beezelbot and unknown hostnames fall back to the hardening-only
         // baseline, matching the previous "(Agent Mode)" default behaviour.
         _ => apply_beezelbot(system, files),
+    }
+}
+
+#[path = "hosts/fixture.rs"]
+mod fixture;
+
+pub fn apply_host_phase(
+    hostname: &str,
+    phase: ApplyPhase,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+) -> Result<(), ApplyError> {
+    match phase {
+        ApplyPhase::Base => apply_base(system, files),
+        ApplyPhase::Full => apply_host(hostname, system, files),
     }
 }

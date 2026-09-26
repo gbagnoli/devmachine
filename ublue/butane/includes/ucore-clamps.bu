@@ -1,50 +1,71 @@
-# Autorebase clamps onto our BlueBuild image on first boot:
-# ghcr.io/gbagnoli/ucore-clamps:latest
-# Same two-step dance as includes/ucore.bu: first the unsigned OCI (which
-# installs the cosign signing policy from the image itself), then the signed
-# OCI. Reboots between steps; marker files in /etc/ucore-clamps-autorebase
-# survive the rebases because /etc persists across deployments.
+# The script follows the booted rpm-ostree deployment, not a marker recording
+# that a rebase command was requested. A failed rebase stops until the next boot.
 variant: fcos
 version: 1.6.0
 storage:
   directories:
-    - path: /etc/ucore-clamps-autorebase
-      mode: 0754
+    - path: /var/lib/clamps-bootstrap
+      mode: 0755
+  files:
+    - path: /var/lib/clamps-bootstrap/rebase.sh
+      mode: 0755
+      contents:
+        inline: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          image=ghcr.io/gbagnoli/ucore-clamps
+          unsigned="ostree-unverified-registry:$image:latest"
+          signed="ostree-image-signed:docker://$image:latest"
+          status="$(rpm-ostree status --json)"
+          booted="$(jq -r '.deployments[] | select(.booted) | .["container-image-reference"] // ""' <<< "$status")"
+          pending="$(jq -r '.deployments[0] | select(.booted == false) | .["container-image-reference"] // ""' <<< "$status")"
+          matches_image() {
+            local reference="$1" scheme="$2"
+            [[ "$reference" == "$scheme$image:latest" || "$reference" == "$scheme$image@sha256:"* ]]
+          }
+          if matches_image "$booted" 'ostree-image-signed:docker://'; then
+            rm -f /var/lib/clamps-bootstrap/reboot-attempts
+            touch /run/clamps-bootstrap-ready
+            echo "Booted signed clamps deployment: $booted"
+            exit 0
+          fi
+          if matches_image "$booted" 'ostree-unverified-registry:'; then
+            target="$signed"
+            target_scheme='ostree-image-signed:docker://'
+          else
+            target="$unsigned"
+            target_scheme='ostree-unverified-registry:'
+          fi
+          attempts_file=/var/lib/clamps-bootstrap/reboot-attempts
+          if ! matches_image "$pending" "$target_scheme"; then
+            rpm-ostree rebase --bypass-driver "$target"
+            echo 1 > "$attempts_file"
+          else
+            echo "Target already pending: $target"
+            attempts="$(cat "$attempts_file" 2>/dev/null || echo 0)"
+            if ((attempts >= 2)); then
+              echo "Pending deployment failed to boot after two attempts: $target" >&2
+              exit 1
+            fi
+            echo "$((attempts + 1))" > "$attempts_file"
+          fi
+          echo "Rebooting to $target"
+          systemctl reboot --no-block
 systemd:
   units:
-    - name: ucore-clamps-unsigned-autorebase.service
+    - name: clamps-bootstrap.service
       enabled: true
       contents: |
         [Unit]
-        Description=Autorebase clamps to unsigned ucore-clamps OCI and reboot
-        ConditionPathExists=!/etc/ucore-clamps-autorebase/unverified
-        ConditionPathExists=!/etc/ucore-clamps-autorebase/signed
+        Description=Boot through the signed clamps image
         After=network-online.target
         Wants=network-online.target
+
         [Service]
         Type=oneshot
-        StandardOutput=journal+console
-        ExecStart=/usr/bin/rpm-ostree rebase --bypass-driver ostree-unverified-registry:ghcr.io/gbagnoli/ucore-clamps:latest
-        ExecStart=/usr/bin/touch /etc/ucore-clamps-autorebase/unverified
-        ExecStart=/usr/bin/systemctl disable ucore-clamps-unsigned-autorebase.service
-        ExecStart=/usr/bin/systemctl reboot
-        [Install]
-        WantedBy=multi-user.target
-    - name: ucore-clamps-signed-autorebase.service
-      enabled: true
-      contents: |
-        [Unit]
-        Description=Autorebase clamps to signed ucore-clamps OCI and reboot
-        ConditionPathExists=/etc/ucore-clamps-autorebase/unverified
-        ConditionPathExists=!/etc/ucore-clamps-autorebase/signed
-        After=network-online.target
-        Wants=network-online.target
-        [Service]
-        Type=oneshot
-        StandardOutput=journal+console
-        ExecStart=/usr/bin/rpm-ostree rebase --bypass-driver ostree-image-signed:docker://ghcr.io/gbagnoli/ucore-clamps:latest
-        ExecStart=/usr/bin/touch /etc/ucore-clamps-autorebase/signed
-        ExecStart=/usr/bin/systemctl disable ucore-clamps-signed-autorebase.service
-        ExecStart=/usr/bin/systemctl reboot
+        ExecStart=/var/lib/clamps-bootstrap/rebase.sh
+        RemainAfterExit=yes
+        TimeoutStartSec=45min
+
         [Install]
         WantedBy=multi-user.target

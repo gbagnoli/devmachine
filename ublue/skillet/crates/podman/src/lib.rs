@@ -1,4 +1,5 @@
 use askama::Template;
+use sha2::{Digest, Sha256};
 use skillet_core::files::{FileError, FileResource};
 use skillet_core::system::{SystemError, SystemResource};
 use std::collections::BTreeMap;
@@ -80,7 +81,10 @@ impl QuadletSecret {
                 s
             }
             SecretTarget::Environment { env_var_name } => {
-                format!("Secret={},type=env,target={}", self.secret_name, env_var_name)
+                format!(
+                    "Secret={},type=env,target={}",
+                    self.secret_name, env_var_name
+                )
             }
         }
     }
@@ -93,6 +97,8 @@ pub struct PodmanConfig {
     pub create_host_user: bool,
     pub volumes: Vec<Volume>,
     pub secrets: Vec<QuadletSecret>,
+    /// Content consumed at container startup outside the Quadlet definition.
+    pub config_revisions: Vec<Vec<u8>>,
     pub extra_config: BTreeMap<String, Vec<String>>,
 }
 
@@ -125,13 +131,9 @@ where
     container_section.push(format!("Image={}", config.image));
 
     for vol in config.volumes {
-        let (owner, group) = if let Some((_, _, ref name)) = host_info {
-            (Some(name.as_str()), Some(name.as_str()))
-        } else {
-            (Some("root"), Some("root"))
-        };
-
-        files.ensure_directory(Path::new(&vol.host_path), Some(0o755), owner, group)?;
+        // The application owns volume metadata. Ensure only existence here so
+        // repeated applies cannot alternate ownership with its resource.
+        files.ensure_directory(Path::new(&vol.host_path), None, None, None)?;
 
         let mut vol_line = format!("Volume={}:{}", vol.host_path, vol.container_path);
         if let Some(opt) = vol.options {
@@ -140,6 +142,11 @@ where
         container_section.push(vol_line);
     }
 
+    let secret_ids = config
+        .secrets
+        .iter()
+        .map(|secret| system.podman_secret_id(&secret.secret_name))
+        .collect::<Result<Vec<_>, _>>()?;
     for secret in config.secrets {
         container_section.push(secret.to_directive());
     }
@@ -150,16 +157,14 @@ where
     }
 
     // 4. Render and ensure Quadlet file
-    let wants_enable = extra_config.contains_key("Install");
-    let changed = render_and_ensure_quadlet(system, files, name, extra_config)?;
-
-    // 5. A quadlet shipping an [Install] section is meant to persist across
-    // reboots; ensure it is enabled. `systemctl enable` is idempotent, so
-    // this is safe to run on every apply.
-    if wants_enable {
-        info!("Quadlet has [Install] section, enabling {name}");
-        system.service_enable(name)?;
-    }
+    let changed = render_and_ensure_quadlet(
+        system,
+        files,
+        name,
+        extra_config,
+        &secret_ids,
+        &config.config_revisions,
+    )?;
 
     Ok(changed)
 }
@@ -274,6 +279,8 @@ fn render_and_ensure_quadlet<S, F>(
     files: &F,
     name: &str,
     sections: BTreeMap<String, Vec<String>>,
+    secret_ids: &[String],
+    config_revisions: &[Vec<u8>],
 ) -> Result<bool, PodmanError>
 where
     S: SystemResource + ?Sized,
@@ -285,6 +292,23 @@ where
             "Template rendering failed: {e}"
         )))
     })?;
+
+    let mut hasher = Sha256::new();
+    hasher.update(content.as_bytes());
+    for revision in config_revisions {
+        hasher.update((revision.len() as u64).to_le_bytes());
+        hasher.update(revision);
+    }
+    for id in secret_ids {
+        hasher.update([0]);
+        hasher.update(id.as_bytes());
+    }
+    let revision = hex::encode(hasher.finalize());
+    let state_dir = Path::new("/var/lib/skillet/containers");
+    files.ensure_directory(state_dir, Some(0o755), Some("root"), Some("root"))?;
+    let applied_path = state_dir.join(format!("{name}.applied"));
+    let applied = files.read_file(&applied_path)?;
+    let pending = applied.as_deref() != Some(revision.as_bytes());
 
     let quadlet_dir = Path::new("/etc/containers/systemd");
     files.ensure_directory(quadlet_dir, Some(0o755), Some("root"), Some("root"))?;
@@ -298,14 +322,26 @@ where
         Some("root"),
     )?;
 
-    if changed {
-        info!("Quadlet changed, triggering daemon-reload");
+    if changed || pending {
+        info!("Quadlet activation pending, triggering daemon-reload");
         system.daemon_reload()?;
-        // A daemon-reload alone leaves the old container running; restart
-        // so the new definition takes effect immediately.
-        info!("Restarting {name} to pick up the new quadlet definition");
+        info!("Restarting {name} to consume the desired definition and secrets");
         system.service_restart(name)?;
+        files.ensure_file(
+            &applied_path,
+            revision.as_bytes(),
+            Some(0o644),
+            Some("root"),
+            Some("root"),
+        )?;
+    } else if !system.service_is_active(name)? {
+        info!("Starting inactive {name}");
+        system.service_start(name)?;
     }
 
     Ok(changed)
 }
+
+#[cfg(test)]
+#[path = "tests.rs"]
+mod tests;

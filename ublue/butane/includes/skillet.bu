@@ -1,23 +1,28 @@
 variant: fcos
 version: 1.6.0
+storage:
+  directories:
+    - path: /var/lib/skillet
+      mode: 0755
+  files:
+    - path: /var/lib/skillet/skillet-clamps
+      mode: 0755
+      contents:
+        local: files/skillet-clamps
 systemd:
   units:
     - name: skillet-apply.service
       enabled: true
       contents: |
         [Unit]
-        Description=Apply Skillet configuration
-        After=network-online.target
-        Wants=network-online.target
+        Description=Apply Skillet clamps base configuration
+        Requires=clamps-bootstrap.service
+        After=clamps-bootstrap.service
+        ConditionPathExists=/run/clamps-bootstrap-ready
 
         [Service]
         Type=oneshot
-        # Use the generic skillet binary and pass the hostname from /etc/hostname
-        ExecStart=/usr/bin/skillet apply --host-file /etc/hostname
-        # Expose the Pi-hole web password to skillet via $CREDENTIALS_DIRECTORY.
-        # The credential file itself must be provisioned separately (Ignition
-        # storage.files); the service intentionally fails if it is missing.
-        LoadCredential=pihole_web_password:/etc/skillet/credentials/pihole_web_password
+        ExecStart=/var/lib/skillet/skillet-clamps apply --phase base
         RemainAfterExit=yes
 
         [Install]
