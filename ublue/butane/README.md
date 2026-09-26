@@ -23,11 +23,13 @@ independent disposable runs, use a unique name and loopback SSH port:
 ```
 
 The launcher builds the current static `skillet-clamps` host binary, or accepts
-`--artifact PATH` to use a specific binary. It records its SHA256 in `runs/NAME/skillet.sha256`, copies
-the binary into the generated Ignition, and delivers it at
-`/var/lib/skillet/skillet-clamps`. Generated Ignition, SSH key, VM disk and logs
-stay under `runs/NAME`, which Git ignores. The test key is private and only its
-public half enters Ignition. `--image PATH` selects a specific FCOS qcow2;
+`--artifact PATH` to use a specific binary. It records its SHA256 in
+`runs/NAME/skillet.sha256`. To keep the QEMU `fw_cfg` Ignition payload small,
+the VM config omits this multi-megabyte binary; `clamps-ready` transfers it
+over SSH after first boot and installs it at `/var/lib/skillet/skillet-clamps`.
+Generated Ignition, SSH key, VM disk and logs stay under `runs/NAME`, which Git
+ignores. The test key is private and only its public half enters Ignition.
+`--image PATH` selects a specific FCOS qcow2;
 the default is `images/coreos.qcow2` when present. The VM uses passt with an
 inbound forward bound to `127.0.0.1`.
 
