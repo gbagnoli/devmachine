@@ -101,12 +101,20 @@ yq -i 'del(.storage.files[] | select(.path == "/var/usrlocal/bin/skillet-clamps"
 ssh-keygen -q -t ed25519 -N '' -f "$output_dir/ssh/id_ed25519"
 chmod 600 "$output_dir/ssh/id_ed25519"
 public_key="$(cat "$output_dir/ssh/id_ed25519.pub")"
-PUBLIC_KEY="$public_key" yq -n \
-  '{"variant":"fcos","version":"1.6.0","passwd":{"users":[{"name":"core","ssh_authorized_keys":[strenv(PUBLIC_KEY)]}]}}' \
-  > "$output_dir/source/includes/vm-access.bu"
-VM_INCLUDE='includes/vm-access.bu' yq -i \
-  '.ignition.config.merge += [{"local":strenv(VM_INCLUDE)}]' \
-  "$output_dir/source/clamps.bu"
+# The existing giacomo account survives the FCOS-to-uCore rebase. Inject the
+# disposable key into that same account and skip its interactive password
+# expiry service only in this staged VM copy.
+PUBLIC_KEY="$public_key" yq -i \
+  '(.passwd.users[] | select(.name == "giacomo") | .ssh_authorized_keys) += [strenv(PUBLIC_KEY)] |
+   del(.systemd.units[] | select(.name == "force-pw-change.service")) |
+   del(.storage.files[] | select(.path == "/usr/local/bin/force_pw_change.sh")) |
+   .storage.files += [{"path":"/etc/sudoers.d/90-skillet-vm","mode":288,"contents":{"inline":"giacomo ALL=(ALL) NOPASSWD: ALL\n"}}]' \
+  "$output_dir/source/includes/passwd.bu"
+# The dotfiles installer replaces authorized_keys with its own symlink and
+# drops the disposable key during the rebase. Keep the host source unchanged;
+# skip that installer in this VM's staged Butane source.
+yq -i 'del(.systemd.units[] | select(.name == "dotfiles-install.service"))' \
+  "$output_dir/source/includes/brew.bu"
 
 ignition="$("$script_dir/butane" -s -o "$output_dir/ignition" "$output_dir/source/clamps.bu" clamps.ign)"
 ignition_bytes="$(stat -c '%s' "$ignition")"

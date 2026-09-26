@@ -56,7 +56,7 @@ For real systemd/Podman and reboot coverage, create a disposable VM first:
 cargo run --release -p skillet -- test vm create
 ```
 
-This provisions `clamps-test-smoke` on `core@127.0.0.1:2201`, creates its SSH
+This provisions `clamps-test-smoke` on `giacomo@127.0.0.1:2201`, creates its SSH
 key, and waits for the guest to pass `clamps-ready`. Then run the smoke scenario:
 
 ```bash
@@ -66,7 +66,7 @@ cargo run --release -p skillet -- test smoke clamps
 The smoke command defaults to that target, port, and generated key. Override
 them with `--target`, `--port`, and `--identity` when using a separately
 provisioned VM. It takes the generic binary from the running executable and
-builds the matching `skillet-clamps` binary automatically. Repeated smoke runs
+uses the `skillet-clamps` binary installed by VM creation. Repeated smoke runs
 reset only the namespaced `/var/lib/skillet-smoke` fixture and its managed
 files, so you can inspect a run and rerun it on the same disposable VM.
 

@@ -24,7 +24,7 @@ ssh_args=(-i "$run_dir/ssh/id_ed25519" -p "$ssh_port" -o BatchMode=yes
 scp_args=(-i "$run_dir/ssh/id_ed25519" -P "$ssh_port" -o BatchMode=yes
   -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$known_hosts")
 # shellcheck disable=SC2029
-ssh_guest() { ssh "${ssh_args[@]}" core@127.0.0.1 "$@"; }
+ssh_guest() { ssh "${ssh_args[@]}" giacomo@127.0.0.1 "$@"; }
 
 if ! vm_virsh dominfo "$vm" > "$run_dir/domain.txt"; then
   echo "Domain $vm unavailable on $uri" >&2
@@ -40,7 +40,7 @@ artifact="$run_dir/source/files/skillet-clamps"
 [[ -x "$artifact" ]] || { echo "Missing host artifact: $artifact" >&2; exit 1; }
 deadline=$((SECONDS + 2700))
 next_report=$((SECONDS + 60))
-echo "Waiting for SSH on core@127.0.0.1:$ssh_port before delivering Skillet..."
+echo "Waiting for SSH on giacomo@127.0.0.1:$ssh_port before delivering Skillet..."
 while ((SECONDS < deadline)); do
   if ssh_guest 'sudo -n true' &>/dev/null; then
     break
@@ -55,7 +55,7 @@ if ((SECONDS >= deadline)); then
   echo "Timed out waiting for guest SSH; inspect the VM serial console and $run_dir/domain.txt" >&2
   exit 1
 fi
-scp "${scp_args[@]}" "$artifact" "core@127.0.0.1:/var/tmp/skillet-clamps"
+scp -O "${scp_args[@]}" "$artifact" "giacomo@127.0.0.1:/var/tmp/skillet-clamps"
 ssh_guest 'sudo -n install -m 0755 /var/tmp/skillet-clamps /var/usrlocal/bin/skillet-clamps && rm -f /var/tmp/skillet-clamps'
 echo "Installed Skillet artifact; waiting for the signed clamps deployment..."
 
@@ -103,5 +103,5 @@ if ! jq -e \
 fi
 # The substitutions run on the guest.
 # shellcheck disable=SC2016
-ssh_guest 'sudo -n systemctl is-active --quiet skillet-apply.service && test "$(getenforce)" = Enforcing && test "$(readlink -f /etc/resolv.conf)" = /run/NetworkManager/resolv.conf && getent hosts ghcr.io >/dev/null && test "$(systemctl is-enabled systemd-resolved.service)" = masked'
-echo "Ready: $vm on $uri; SSH: ssh -i $run_dir/ssh/id_ed25519 -p $ssh_port -o UserKnownHostsFile=$known_hosts core@127.0.0.1"
+ssh_guest 'test "$(systemctl show -p Result --value skillet-apply.service)" = success && test "$(systemctl show -p ExecMainStatus --value skillet-apply.service)" = 0 && test "$(getenforce)" = Enforcing && test "$(readlink -f /etc/resolv.conf)" = /run/NetworkManager/resolv.conf && getent hosts ghcr.io >/dev/null && test "$(systemctl is-enabled systemd-resolved.service)" = masked'
+echo "Ready: $vm on $uri; SSH: ssh -i $run_dir/ssh/id_ed25519 -p $ssh_port -o UserKnownHostsFile=$known_hosts giacomo@127.0.0.1"

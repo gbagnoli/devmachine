@@ -78,6 +78,7 @@ MaxStartups 10:30:100
 
 # Enable public key authentication
 PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys .ssh/authorized_keys.d/ignition
 
 
 # Never use host-based authentication. It can be exploited.

@@ -88,7 +88,7 @@ struct SmokeArgs {
     /// Host configuration to exercise (currently `clamps`)
     hostname: String,
     /// Explicit disposable SSH target, USER@HOST
-    #[arg(long, default_value = "core@127.0.0.1")]
+    #[arg(long, default_value = "giacomo@127.0.0.1")]
     target: String,
     /// SSH port
     #[arg(long, default_value_t = 2201)]
@@ -171,36 +171,6 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
         ));
     }
     let binary = std::env::current_exe().context("locating the running Skillet binary failed")?;
-    let profile_dir = binary
-        .parent()
-        .ok_or_else(|| anyhow!("Skillet binary has no parent directory"))?;
-    let profile = profile_dir.file_name().and_then(|name| name.to_str());
-    let package = format!("skillet-{}", args.hostname);
-    let mut build = Command::new("cargo");
-    build
-        .current_dir(&root)
-        .args(["build", "--package", &package]);
-    if profile == Some("release") {
-        build.arg("--release");
-    }
-    let status = build
-        .status()
-        .context("building the clamps host binary failed")?;
-    if !status.success() {
-        return Err(anyhow!("building the clamps host binary failed"));
-    }
-    let host_binary = [
-        profile_dir.join(&package),
-        root.join("target/x86_64-unknown-linux-musl")
-            .join(profile.unwrap_or("debug"))
-            .join(&package),
-        root.join("target")
-            .join(profile.unwrap_or("debug"))
-            .join(&package),
-    ]
-    .into_iter()
-    .find(|candidate| candidate.is_file())
-    .ok_or_else(|| anyhow!("built host binary {package} was not found"))?;
     let script = root.join("integration_tests/smoke-ssh.sh");
     if !script.is_file() {
         return Err(anyhow!("smoke runner not found at {}", script.display()));
@@ -212,7 +182,7 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
         .args(["--binary"])
         .arg(&binary)
         .args(["--clamps-binary"])
-        .arg(&host_binary)
+        .arg("/var/usrlocal/bin/skillet-clamps")
         .args(["--identity"])
         .arg(&identity)
         .status()
@@ -251,7 +221,7 @@ fn run_vm_create(args: &VmCreateArgs) -> Result<()> {
         ));
     }
     info!(
-        "Disposable VM {} is ready at core@127.0.0.1:{}; smoke key: {}",
+        "Disposable VM {} is ready at giacomo@127.0.0.1:{}; smoke key: {}",
         args.name,
         args.port,
         run_dir.join("ssh/id_ed25519").display()
@@ -472,7 +442,7 @@ mod tests {
     }
 
     #[test]
-    fn test_smoke_autoselects_binaries_from_hostname() {
+    fn test_smoke_parses_without_binary_arguments() {
         let parsed = Args::try_parse_from([
             "skillet",
             "test",

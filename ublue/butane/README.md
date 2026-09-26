@@ -1,7 +1,7 @@
 # Clamps VM bootstrap
 
-Implementation checkpoint: source validation passes; a complete VM boot and
-runtime acceptance are still pending. See [ACCEPTANCE.md](ACCEPTANCE.md).
+A clean disposable VM create passed signed boot and readiness on 2026-09-26.
+See [ACCEPTANCE.md](ACCEPTANCE.md) for the checks performed and remaining work.
 
 `clamps.bu` is a VM configuration. It resizes and reformats partition 4 on
 `/dev/vda`, the virtio disk attached by this launcher. Do not use it as a
@@ -32,6 +32,8 @@ that persistent directory `bin_t`, allowing systemd to execute these files
 with SELinux enforcing.
 Generated Ignition, SSH key, VM disk and logs stay under `runs/NAME`, which Git
 ignores. The test key is private and only its public half enters Ignition.
+The VM staging step skips the dotfiles installer because it replaces
+`authorized_keys` and would remove the temporary test key after the rebase.
 `--image PATH` selects a specific FCOS qcow2;
 the default is `images/coreos.qcow2` when present. The VM uses passt with an
 inbound forward bound to `127.0.0.1`.
@@ -46,10 +48,10 @@ Connect with:
 
 ```bash
 ssh -i runs/NAME/ssh/id_ed25519 -p PORT \
-  -o UserKnownHostsFile=runs/NAME/ssh/known_hosts core@127.0.0.1
+  -o UserKnownHostsFile=runs/NAME/ssh/known_hosts giacomo@127.0.0.1
 ```
 
-The `core` account has passwordless sudo on FCOS. The guest starts
+The VM staging step grants `giacomo` passwordless sudo. The guest starts
 `clamps-bootstrap.service`, which rebases first to the unsigned clamps image
 and then to the signed image. It checks the *booted* rpm-ostree deployment on
 every boot. It never starts the base apply until the signed deployment boots.
@@ -68,7 +70,7 @@ For manual diagnostics:
 ```bash
 virsh -c qemu:///session dominfo NAME
 virsh -c qemu:///session domblklist NAME
-ssh -i runs/NAME/ssh/id_ed25519 -p PORT core@127.0.0.1 \
+ssh -i runs/NAME/ssh/id_ed25519 -p PORT giacomo@127.0.0.1 \
   'sudo rpm-ostree status; sudo journalctl -b -u clamps-bootstrap.service -u skillet-apply.service'
 ```
 

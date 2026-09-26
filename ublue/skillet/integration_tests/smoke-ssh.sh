@@ -53,9 +53,9 @@ if [[ -n $identity ]]; then
   ssh_opts+=(-i "$identity" -o IdentitiesOnly=yes -o UserKnownHostsFile="$known_hosts")
   scp_opts+=(-i "$identity" -o IdentitiesOnly=yes -o UserKnownHostsFile="$known_hosts")
 fi
-scp "${scp_opts[@]}" "$binary" "$target:/var/tmp/skillet-smoke"
-scp "${scp_opts[@]}" "$script_dir/smoke-guest.sh" "$target:/var/tmp/skillet-smoke-guest.sh"
-ssh "${ssh_opts[@]}" "$target" 'sudo install -m 0755 /var/tmp/skillet-smoke /var/lib/skillet/skillet-smoke'
+scp -O "${scp_opts[@]}" "$binary" "$target:/var/tmp/skillet-smoke"
+scp -O "${scp_opts[@]}" "$script_dir/smoke-guest.sh" "$target:/var/tmp/skillet-smoke-guest.sh"
+ssh "${ssh_opts[@]}" "$target" 'sudo install -m 0755 /var/tmp/skillet-smoke /var/usrlocal/bin/skillet-smoke'
 boot_before=$(ssh "${ssh_opts[@]}" "$target" 'cat /proc/sys/kernel/random/boot_id')
 # The remote path is validated above and intentionally expanded on the client.
 # shellcheck disable=SC2029

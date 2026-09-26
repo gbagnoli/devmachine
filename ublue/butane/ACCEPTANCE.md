@@ -1,8 +1,27 @@
 # Clamps VM acceptance log
 
-Status: integration incomplete, reviewed 2026-09-26. The current source has not yet
-completed a fresh VM boot. Nothing below is claimed as a passing end-to-end
-install.
+Status: clean disposable VM create, readiness, and the real Skillet smoke
+scenario passed on 2026-09-26. Bootstrap interruption recovery remains
+unverified.
+
+## Passing clean run
+
+- `cargo run --release -p skillet -- test vm create` created
+  `clamps-test-smoke` from a fresh FCOS qcow2 and returned success without
+  manual guest repair. The VM remains available for smoke runs.
+- `runs/clamps-test-smoke/final-status.json` records the booted origin as
+  `ostree-image-signed:docker://ghcr.io/gbagnoli/ucore-clamps:latest`; the
+  previous deployment is the unsigned clamps image.
+- `clamps-ready` verified the generated SSH key, guest binary SHA, successful
+  repeated base apply, enforcing SELinux, NetworkManager's resolver, working
+  DNS, and masked `systemd-resolved`.
+- Ignition keys survived under `~/.ssh/authorized_keys.d/ignition`. Skillet's
+  SSH config now includes that path. The image repo has the matching change,
+  which will take effect after its next image build.
+- `cargo run --release -p skillet -- test smoke clamps` passed the real
+  Podman/systemd fixture, repeated apply, config and secret changes, injected
+  startup failures, and post-reboot persistence. Snapshots and journals remain
+  under `/var/lib/skillet-smoke` in the disposable VM.
 
 ## Preflight and failed attempts
 
@@ -16,7 +35,7 @@ install.
 - `clamps-agent2-0925-03` produced the same QEMU error with artifacts under
   `/tmp`. No domain remained after either failed virt-install. The current
   source adds the Ignition file as a read-only libvirt-managed raw attachment;
-  this change still needs a fresh VM attempt. Per-VM confinement was not
+  a later clean VM create passed. Per-VM confinement was not
   disabled and host security policy was not changed.
 - Failed generated artifacts remain in ignored `runs/` and `/tmp` paths for
   diagnosis. They contain private test SSH keys and should not be committed.
@@ -24,7 +43,7 @@ install.
   but no recorded domain UUID or acceptance results. This is not evidence of
   a successful guest boot. The helper now selects a separate native libvirt
   runtime to avoid mixing native and Flatpak daemon filesystem views; that
-  approach still requires end-to-end validation.
+  approach passed the clean create recorded above.
 - `runs/clamps-test-smoke` created a running VM, but SSH on port 2201 never
   became available. The serial console showed Ignition still reading the
   2.5 MiB `fw_cfg` payload after about 30 host minutes; the dominant
@@ -32,15 +51,14 @@ install.
   that large QEMU `fw_cfg` configs can take an unreasonable time to read
   ([release notes](https://coreos.github.io/ignition/release-notes/)). The VM
   launcher now omits that binary from the VM-only Ignition config and
-  `clamps-ready` transfers it over SSH after first boot. This fix still needs
-  validation on a newly created VM; the existing `clamps-test-smoke` domain
-  uses the old Ignition and must be destroyed and recreated first.
+  `clamps-ready` transfers it over SSH after first boot. The clean create
+  recorded above validated this change.
 
 ## Static checks
 
 - ShellCheck passes for the four launcher/readiness scripts, bootstrap
   regression script and both Skillet smoke scripts.
-- Full strict Butane compilation passed on 2026-09-26 with the final staged
+- Full strict Butane compilation passed on 2026-09-26 with an earlier staged
   source and rebuilt host artifact. Local output:
   `/tmp/clamps-commit-validation-93upz2et/ignition/clamps.ign`.
 - `bash tests/bootstrap.sh` passes seven mocked deployment-state cases:
@@ -52,27 +70,25 @@ install.
   launcher now rebuilds; `--artifact` remains an explicit override.
 - Skillet review passed formatting, 25 workspace tests, configured pedantic
   Clippy with warnings denied, and the offline static release build.
-- Latest Skillet handoff artifact: `skillet-clamps` SHA256
-  `55bf7584ce405dcf2c20956c182f4dbfe04bfbb20a9b649e48ab97877d9e8856`.
-  No VM has consumed this final artifact yet.
+- Current VM Skillet artifact SHA256:
+  `6cdb80f03221c0fb9521f7ff9a58ee33844fb7262651ff47793b9a9f70ec7784`.
 
 ## Exit criteria
 
 | Criterion | Result | Evidence / next command |
 | --- | --- | --- |
-| Clean install | Fail | QEMU fw_cfg EACCES on attempts 02/03; retry with current source |
-| Access | Not run | `bin/clamps-ready RUN_DIR` after guest boot |
-| Rebase sequence | Not run | Guest `rpm-ostree status --json` and bootstrap journals |
-| Resolver continuity | Not run | `bin/clamps-ready` DNS/link checks on each boot |
-| Artifact delivery | Not run | Guest SHA versus `skillet.sha256` |
-| Automatic apply | Not run | `systemctl status skillet-apply.service` |
-| Repeat apply | Not run | Two base applies with state/service timestamps |
-| Reboot | Not run | Ordinary VM reboot and repeated readiness checks |
+| Clean install | Pass | Clean `test vm create` returned success |
+| Access | Pass | Generated key authenticated after signed boot |
+| Rebase sequence | Pass | Booted signed and previous unsigned clamps deployments |
+| Resolver continuity | Partial | Final boot passed; each intermediate boot not checked |
+| Artifact delivery | Pass | Guest SHA matched `skillet.sha256` |
+| Automatic apply | Pass | Boot unit completed with status 0 |
+| Repeat apply | Pass | `clamps-ready` reran the base unit with `systemctl --wait` |
+| Reboot | Pass | Smoke reboot preserved data and container state |
 | Interruption | Not run | Interrupt an isolated bootstrap, then recover |
 | Repeatability | Not run | Second fresh VM after first passes |
-| Real Skillet scenario | Not run | `skillet/integration_tests/smoke-ssh.sh` with VM identity |
+| Real Skillet scenario | Pass | `skillet test smoke clamps` returned success |
 
-No successful VM is established by the saved evidence. Next, create a new
-`clamps-test-*` domain and retain a passing guest for acceptance. The mutable
+The passing VM is retained for further inspection. The mutable
 source-tree helper has not been installed as a frozen, persistently approved
 host tool; it still uses normal command approvals.
