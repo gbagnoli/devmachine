@@ -45,7 +45,7 @@ enum TestCommands {
     Run(ContainerArgs),
     /// Exercise the real-systemd VM scenario using an explicit disposable SSH target
     Smoke(SmokeArgs),
-    /// Create or destroy the default disposable clamps VM
+    /// Create or destroy a disposable host VM
     Vm {
         #[command(subcommand)]
         command: VmCommands,
@@ -54,24 +54,28 @@ enum TestCommands {
 
 #[derive(clap::Subcommand, Debug)]
 enum VmCommands {
-    /// Provision a disposable clamps VM and wait for it to become ready
+    /// Provision a disposable host VM and wait for it to become ready
     Create(VmCreateArgs),
-    /// Destroy the disposable clamps VM and remove its temporary key and artifacts
+    /// Destroy a disposable host VM and remove its temporary key and artifacts
     Destroy(VmDestroyArgs),
 }
 
 #[derive(clap::Args, Debug)]
 struct VmCreateArgs {
-    #[arg(long, default_value = "clamps-test-smoke")]
-    name: String,
+    #[arg(default_value = "clamps")]
+    hostname: String,
+    #[arg(long)]
+    name: Option<String>,
     #[arg(long, default_value_t = 2201)]
     port: u16,
 }
 
 #[derive(clap::Args, Debug)]
 struct VmDestroyArgs {
-    #[arg(long, default_value = "clamps-test-smoke")]
-    name: String,
+    #[arg(default_value = "clamps")]
+    hostname: String,
+    #[arg(long)]
+    name: Option<String>,
 }
 
 #[derive(clap::Args, Debug)]
@@ -196,33 +200,25 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
 }
 
 fn run_vm_create(args: &VmCreateArgs) -> Result<()> {
-    if !valid_test_vm_name(&args.name) {
-        return Err(anyhow!(
-            "VM name must start with clamps-test- and contain lowercase letters, digits, or hyphens"
-        ));
-    }
+    let name = vm_name(&args.hostname, args.name.as_deref())?;
     if !(2200..=2299).contains(&args.port) {
         return Err(anyhow!("VM SSH port must be between 2200 and 2299"));
     }
     let butane = butane_root()?;
-    let helper = butane.join("bin/clamps-vm");
+    let helper = butane.join("bin/test-vm");
     let port = args.port.to_string();
-    run_helper(&helper, &["create", &args.name, &port])?;
+    run_helper(&helper, &[&name, "create", &port])?;
 
-    let run_dir = butane.join("runs").join(&args.name);
-    let ready = butane.join("bin/clamps-ready");
-    let run_dir_arg = run_dir
-        .to_str()
-        .ok_or_else(|| anyhow!("VM run path is not valid UTF-8"))?;
-    if let Err(error) = run_helper(&ready, &[run_dir_arg]) {
+    let run_dir = butane.join("runs").join(&name);
+    if let Err(error) = run_helper(&helper, &[&name, "ready"]) {
         return Err(anyhow!(
-            "VM created but readiness failed; inspect it with `clamps-vm logs {}` or destroy it with `skillet test vm destroy --name {}`: {error}",
-            args.name, args.name
+            "VM created but readiness failed; inspect it with `test-vm {} logs` or destroy it with `skillet test vm destroy {} --name {}`: {error}",
+            name, args.hostname, name
         ));
     }
     info!(
         "Disposable VM {} is ready at giacomo@127.0.0.1:{}; smoke key: {}",
-        args.name,
+        name,
         args.port,
         run_dir.join("ssh/id_ed25519").display()
     );
@@ -230,19 +226,28 @@ fn run_vm_create(args: &VmCreateArgs) -> Result<()> {
 }
 
 fn run_vm_destroy(args: &VmDestroyArgs) -> Result<()> {
-    if !valid_test_vm_name(&args.name) {
-        return Err(anyhow!("VM name must start with clamps-test-"));
-    }
-    let helper = butane_root()?.join("bin/clamps-vm");
-    run_helper(&helper, &["destroy", &args.name])
+    let name = vm_name(&args.hostname, args.name.as_deref())?;
+    let helper = butane_root()?.join("bin/test-vm");
+    run_helper(&helper, &[&name, "destroy"])
 }
 
-fn valid_test_vm_name(name: &str) -> bool {
-    name.len() > "clamps-test-".len()
-        && name.starts_with("clamps-test-")
-        && name
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+fn vm_name(hostname: &str, name: Option<&str>) -> Result<String> {
+    let valid = |value: &str| {
+        !value.is_empty()
+            && value.starts_with(|character: char| character.is_ascii_lowercase())
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+    };
+    if !valid(hostname) {
+        return Err(anyhow!("invalid VM host name: {hostname}"));
+    }
+    let name = name.map_or_else(|| format!("{hostname}-test-smoke"), str::to_owned);
+    let suffix = name.strip_prefix(&format!("{hostname}-test-"));
+    if !suffix.is_some_and(valid) {
+        return Err(anyhow!("VM name must begin with {hostname}-test-"));
+    }
+    Ok(name)
 }
 
 fn run_helper(path: &Path, args: &[&str]) -> Result<()> {
@@ -262,9 +267,9 @@ fn butane_root() -> Result<PathBuf> {
         .parent()
         .ok_or_else(|| anyhow!("Skillet workspace has no parent directory"))?
         .join("butane");
-    if !butane.join("bin/clamps-vm").is_file() || !butane.join("bin/clamps-ready").is_file() {
+    if !butane.join("bin/test-vm").is_file() || !butane.join("bin/test-vm-ready").is_file() {
         return Err(anyhow!(
-            "clamps VM helpers not found under {}; check out the sibling butane directory",
+            "test VM helpers not found under {}; check out the sibling butane directory",
             butane.display()
         ));
     }

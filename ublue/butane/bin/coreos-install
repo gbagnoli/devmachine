@@ -9,20 +9,20 @@ usage() {
   cat <<USAGE
 Usage: $0 [--name NAME] [--output-dir DIR] [--ssh-port PORT] [--artifact FILE] [--image FILE] [--libvirt-uri URI] CONFIG.bu
 
-Default VM: clamps. Generated keys, Ignition, logs and disk are kept in
+Default VM name is taken from CONFIG.bu. Generated keys, Ignition, logs and disk are kept in
 butane/runs/NAME. Existing domains and output directories are refused.
 USAGE
 }
 
-vm_name=clamps
+vm_name=
 output_dir=
 ssh_port=2222
 artifact=
 image=
 libvirt_uri=qemu:///session
 vm_command() {
-  if [[ -n "${CLAMPS_LIBVIRT_RUNTIME_DIR:-}" ]]; then
-    env XDG_RUNTIME_DIR="$CLAMPS_LIBVIRT_RUNTIME_DIR" "$@"
+  if [[ -n "${TEST_VM_LIBVIRT_RUNTIME_DIR:-}" ]]; then
+    env XDG_RUNTIME_DIR="$TEST_VM_LIBVIRT_RUNTIME_DIR" "$@"
   else
     "$@"
   fi
@@ -48,12 +48,14 @@ while (($#)); do
 done
 (($# == 1)) && [[ "$1" == *.bu && -f "$1" ]] || { usage >&2; exit 2; }
 input="$(realpath "$1")"
+host="$(basename "$input" .bu)"
+[[ "$host" =~ ^[a-z][a-z0-9-]*$ && "$input" == "$butane_dir/$host.bu" ]] || { echo "Use a host Butane file from $butane_dir" >&2; exit 2; }
+vm_name="${vm_name:-$host}"
 [[ "$vm_name" =~ ^[a-zA-Z][a-zA-Z0-9_-]*$ ]] || { echo "Invalid VM name" >&2; exit 2; }
 if [[ ! "$ssh_port" =~ ^[0-9]+$ ]] || ((ssh_port < 1024 || ssh_port > 65535)); then
   echo "Invalid SSH port" >&2
   exit 2
 fi
-[[ "$input" == "$butane_dir/clamps.bu" ]] || { echo "This VM launcher currently supports clamps.bu only" >&2; exit 2; }
 output_dir="$(realpath -m "${output_dir:-$butane_dir/runs/$vm_name}")"
 vm_command virsh -c "$libvirt_uri" uri >/dev/null || { echo "Cannot access libvirt URI $libvirt_uri" >&2; exit 1; }
 command -v passt >/dev/null || { echo "passt is required for loopback SSH forwarding" >&2; exit 1; }
@@ -66,8 +68,8 @@ if [[ -e "$output_dir" || -L "$output_dir" ]]; then
   exit 1
 fi
 if [[ -z "$artifact" ]]; then
-  artifact="$repo_dir/skillet/target/x86_64-unknown-linux-musl/release/skillet-clamps"
-  (cd "$repo_dir/skillet" && cargo build --release --target x86_64-unknown-linux-musl -p skillet-clamps)
+  artifact="$repo_dir/skillet/target/x86_64-unknown-linux-musl/release/skillet-$host"
+  (cd "$repo_dir/skillet" && cargo build --release --target x86_64-unknown-linux-musl -p "skillet-$host")
 fi
 [[ -f "$artifact" ]] || { echo "Missing Skillet artifact: $artifact" >&2; exit 1; }
 artifact="$(realpath "$artifact")"
@@ -89,15 +91,17 @@ image="$(realpath "$image")"
 mkdir -p "$(dirname "$output_dir")"
 mkdir "$output_dir"
 mkdir -p "$output_dir/source/includes" "$output_dir/source/files" "$output_dir/ssh" "$output_dir/ignition"
-cp "$input" "$output_dir/source/clamps.bu"
+cp "$input" "$output_dir/source/$host.bu"
 cp "$butane_dir"/includes/*.bu "$output_dir/source/includes/"
-cp "$artifact" "$output_dir/source/files/skillet-clamps"
-chmod 755 "$output_dir/source/files/skillet-clamps"
+cp "$artifact" "$output_dir/source/files/skillet-$host"
+chmod 755 "$output_dir/source/files/skillet-$host"
 # Keep the multi-megabyte static binary out of QEMU fw_cfg. Ignition reads
-# fw_cfg very slowly for large configs; clamps-ready installs this artifact
+# fw_cfg very slowly for large configs; test-vm-ready installs this artifact
 # over SSH after the guest has completed its first Ignition boot.
-yq -i 'del(.storage.files[] | select(.path == "/var/usrlocal/bin/skillet-clamps"))' \
-  "$output_dir/source/includes/skillet.bu"
+mapfile -t skillet_includes < <(rg -l -F "/var/usrlocal/bin/skillet-$host" "$output_dir/source/includes" --glob '*.bu')
+((${#skillet_includes[@]} == 1)) || { echo "Expected one Butane include with skillet-$host" >&2; exit 1; }
+HOST="$host" yq -i 'del(.storage.files[] | select(.path == "/var/usrlocal/bin/skillet-" + strenv(HOST)))' \
+  "${skillet_includes[0]}"
 ssh-keygen -q -t ed25519 -N '' -f "$output_dir/ssh/id_ed25519"
 chmod 600 "$output_dir/ssh/id_ed25519"
 public_key="$(cat "$output_dir/ssh/id_ed25519.pub")"
@@ -110,22 +114,16 @@ PUBLIC_KEY="$public_key" yq -i \
    del(.storage.files[] | select(.path == "/usr/local/bin/force_pw_change.sh")) |
    .storage.files += [{"path":"/etc/sudoers.d/90-skillet-vm","mode":288,"contents":{"inline":"giacomo ALL=(ALL) NOPASSWD: ALL\n"}}]' \
   "$output_dir/source/includes/passwd.bu"
-# The dotfiles installer replaces authorized_keys with its own symlink and
-# drops the disposable key during the rebase. Keep the host source unchanged;
-# skip that installer in this VM's staged Butane source.
-yq -i 'del(.systemd.units[] | select(.name == "dotfiles-install.service"))' \
-  "$output_dir/source/includes/brew.bu"
-
-ignition="$("$script_dir/butane" -s -o "$output_dir/ignition" "$output_dir/source/clamps.bu" clamps.ign)"
+ignition="$("$script_dir/butane" -s -o "$output_dir/ignition" "$output_dir/source/$host.bu" "$host.ign")"
 ignition_bytes="$(stat -c '%s' "$ignition")"
 if ((ignition_bytes > 1048576)); then
   echo "Warning: Ignition config is ${ignition_bytes} bytes; large QEMU fw_cfg configs can take a long time to read" >&2
 fi
 cp --reflink=auto "$image" "$output_dir/$vm_name.qcow2"
-sha256sum "$output_dir/source/files/skillet-clamps" > "$output_dir/skillet.sha256"
+sha256sum "$output_dir/source/files/skillet-$host" > "$output_dir/skillet.sha256"
 sha256sum "$image" > "$output_dir/fcos-image.sha256"
-printf 'vm=%s\nuri=%s\nssh_port=%s\nimage=%s\nartifact=%s\nruntime_dir=%s\nsource_commit=%s\n' \
-  "$vm_name" "$libvirt_uri" "$ssh_port" "$image" "$artifact" "${CLAMPS_LIBVIRT_RUNTIME_DIR:-}" \
+printf 'vm=%s\nhost=%s\nuri=%s\nssh_port=%s\nimage=%s\nartifact=%s\nruntime_dir=%s\nsource_commit=%s\n' \
+  "$vm_name" "$host" "$libvirt_uri" "$ssh_port" "$image" "$artifact" "${TEST_VM_LIBVIRT_RUNTIME_DIR:-}" \
   "$(git -C "$repo_dir" rev-parse HEAD)" > "$output_dir/run.conf"
 {
   virt-install --version

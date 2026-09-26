@@ -6,7 +6,7 @@ set -euo pipefail
 script_dir="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 root="$(realpath -m "$script_dir/../runs")"
 uri=qemu:///session
-runtime_dir="/run/user/$(id -u)/clamps-native-libvirt"
+runtime_dir="/run/user/$(id -u)/skillet-test-libvirt"
 vm_virsh() { env XDG_RUNTIME_DIR="$runtime_dir" /usr/bin/virsh -c "$uri" "$@"; }
 ensure_native_runtime() {
   [[ ! -L "$runtime_dir" ]] || { echo "Symlinked libvirt runtime refused" >&2; exit 1; }
@@ -21,14 +21,17 @@ ensure_native_runtime() {
   fi
 }
 usage() {
-  echo "Usage: $0 create|status|ssh|logs|reboot|destroy clamps-test-NAME [SSH_PORT for create]" >&2
+  echo "Usage: $0 HOST-test-NAME create|ready|status|ssh|logs|reboot|destroy [SSH_PORT for create]" >&2
   exit 2
 }
 (($# >= 2)) || usage
-operation="$1"
-name="$2"
+selector="$1"
+operation="$2"
 shift 2
-[[ "$name" =~ ^clamps-test-[a-z0-9-]+$ ]] || usage
+host="${selector%%-test-*}"
+[[ "$host" =~ ^[a-z][a-z0-9-]*$ ]] || usage
+name="$selector"
+[[ "$name" =~ ^[a-z][a-z0-9-]*-test-[a-z0-9-]+$ ]] || usage
 run_dir="$root/$name"
 [[ ! -L "$root" && ! -L "$run_dir" ]] || { echo "Symlinked artifact path refused" >&2; exit 1; }
 
@@ -38,14 +41,16 @@ inspect_owned() {
     echo "Missing owned run manifest for $name" >&2; exit 1;
   }
   [[ "$(realpath -e "$run_dir")" == "$run_dir" ]] || { echo "Artifact path escapes root" >&2; exit 1; }
-  [[ "$(config_value vm)" == "$name" && "$(config_value uri)" == "$uri" ]] || {
+  [[ "$(config_value vm)" == "$name" && "$(config_value host)" == "$host" && "$(config_value uri)" == "$uri" ]] || {
     echo "Run manifest does not match requested domain" >&2; exit 1;
   }
+  runtime_dir="$(config_value runtime_dir)"
+  [[ "$runtime_dir" == /run/user/"$(id -u)"/* ]] || { echo "Invalid recorded libvirt runtime" >&2; exit 1; }
   actual_uuid="$(vm_virsh domuuid "$name")"
   [[ "$actual_uuid" == "$(cat "$run_dir/domain.uuid")" ]] || { echo "Domain UUID mismatch" >&2; exit 1; }
   disk="$run_dir/$name.qcow2"
   [[ -f "$disk" && ! -L "$disk" ]] || { echo "Expected test disk is missing or symlinked" >&2; exit 1; }
-  ignition="$run_dir/ignition/clamps.ign"
+  ignition="$run_dir/ignition/$host.ign"
   [[ -f "$ignition" && ! -L "$ignition" ]] || { echo "Expected Ignition file is missing or symlinked" >&2; exit 1; }
   mapfile -t disks < <(vm_virsh domblklist "$name" --details | awk '$2 == "disk" {print $4}')
   [[ "${#disks[@]}" -eq 2 && "${disks[0]}" == "$disk" && "${disks[1]}" == "$ignition" ]] || {
@@ -61,19 +66,25 @@ ssh_args() {
 }
 case "$operation" in
   create)
-    (($# == 1)) || usage
-    port="$1"
+    (($# <= 1)) || usage
+    port="${1:-2201}"
     [[ "$port" =~ ^22[0-9][0-9]$ ]] || { echo "Use a port from 2200 to 2299" >&2; exit 2; }
     [[ ! -e "$run_dir" && ! -L "$run_dir" ]] || { echo "Run path already exists" >&2; exit 1; }
+    [[ -f "$script_dir/../$host.bu" ]] || { echo "Missing host Butane file: $host.bu" >&2; exit 1; }
     ensure_native_runtime
     if vm_virsh dominfo "$name" &>/dev/null; then
       echo "Domain already exists" >&2; exit 1
     fi
     mkdir -p "$root"
-    CLAMPS_LIBVIRT_RUNTIME_DIR="$runtime_dir" "$script_dir/coreos-install" --name "$name" --output-dir "$run_dir" \
-      --ssh-port "$port" --libvirt-uri "$uri" "$script_dir/../clamps.bu"
+    TEST_VM_LIBVIRT_RUNTIME_DIR="$runtime_dir" "$script_dir/coreos-install" --name "$name" --output-dir "$run_dir" \
+      --ssh-port "$port" --libvirt-uri "$uri" "$script_dir/../$host.bu"
     vm_virsh domuuid "$name" > "$run_dir/domain.uuid"
     echo "Run: $run_dir" ;;
+  ready)
+    (($# == 0)) || usage
+    ensure_native_runtime
+    inspect_owned
+    "$script_dir/test-vm-ready" "$run_dir" ;;
   status)
     (($# == 0)) || usage
     ensure_native_runtime
@@ -92,7 +103,7 @@ case "$operation" in
     inspect_owned
     ssh_args
     ssh "${args[@]}" giacomo@127.0.0.1 \
-      'sudo -n rpm-ostree status; sudo -n journalctl -b -u clamps-bootstrap.service -u skillet-apply.service --no-pager -n 200' ;;
+      'sudo -n rpm-ostree status; sudo -n journalctl -b -u ucore-bootstrap.service -u skillet-apply.service --no-pager -n 200' ;;
   reboot)
     (($# == 0)) || usage
     ensure_native_runtime
@@ -106,7 +117,7 @@ case "$operation" in
       vm_virsh destroy "$name"
     fi
     vm_virsh undefine "$name"
-    [[ "$(realpath -e "$run_dir")" == "$run_dir" && "$run_dir" == "$root"/clamps-test-* ]] || exit 1
+    [[ "$(realpath -e "$run_dir")" == "$run_dir" && "$run_dir" == "$root"/"$host"-test-* ]] || exit 1
     rm -rf -- "$run_dir" ;;
   *) usage ;;
 esac

@@ -13,9 +13,9 @@ systemd:
       contents: |
         [Unit]
         Description=Apply Skillet clamps base configuration
-        Requires=clamps-bootstrap.service
-        After=clamps-bootstrap.service
-        ConditionPathExists=/run/clamps-bootstrap-ready
+        Requires=ucore-bootstrap.service
+        After=ucore-bootstrap.service
+        ConditionPathExists=/run/ucore-bootstrap-ready
 
         [Service]
         Type=oneshot
