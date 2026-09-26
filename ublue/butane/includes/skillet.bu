@@ -1,0 +1,25 @@
+variant: fcos
+version: 1.6.0
+storage:
+  files:
+    - path: /var/usrlocal/bin/skillet-clamps
+      mode: 0755
+      contents:
+        local: files/skillet-clamps
+systemd:
+  units:
+    - name: skillet-apply.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Apply Skillet clamps base configuration
+        Requires=ucore-bootstrap.service
+        After=ucore-bootstrap.service
+        ConditionPathExists=/run/ucore-bootstrap-ready
+
+        [Service]
+        Type=oneshot
+        ExecStart=/var/usrlocal/bin/skillet-clamps apply --phase base
+
+        [Install]
+        WantedBy=multi-user.target

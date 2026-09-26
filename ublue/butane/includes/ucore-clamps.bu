@@ -1,0 +1,10 @@
+# Clamps supplies its image name to the shared uCore bootstrap service.
+variant: fcos
+version: 1.6.0
+storage:
+  files:
+    - path: /etc/ucore-bootstrap-image
+      mode: 0644
+      contents:
+        inline: |
+          ghcr.io/gbagnoli/ucore-clamps

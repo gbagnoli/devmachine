@@ -1,0 +1,196 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# This source-tree helper is reviewable, but must be installed read-only outside
+# agent-writable roots before any enduring command-prefix approval is safe.
+script_dir="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+root="$(realpath -m "$script_dir/../runs")"
+uri=qemu:///session
+runtime_dir="/run/user/$(id -u)/skillet-test-libvirt"
+vm_virsh() { env XDG_RUNTIME_DIR="$runtime_dir" /usr/bin/virsh -c "$uri" "$@"; }
+ensure_native_runtime() {
+  [[ ! -L "$runtime_dir" ]] || { echo "Symlinked libvirt runtime refused" >&2; exit 1; }
+  if [[ ! -d "$runtime_dir" ]]; then
+    mkdir -m 0700 "$runtime_dir"
+  fi
+  if [[ ! -S "$runtime_dir/libvirt/virtqemud-sock" ]]; then
+    env XDG_RUNTIME_DIR="$runtime_dir" /usr/bin/virtqemud --daemon --timeout 0
+  fi
+  if [[ ! -S "$runtime_dir/libvirt/virtstoraged-sock" ]]; then
+    env XDG_RUNTIME_DIR="$runtime_dir" /usr/bin/virtstoraged --daemon --timeout 0
+  fi
+}
+usage() {
+  echo "Usage: $0 [HOST] list | $0 HOST create|ready|status|ssh|logs|reboot|destroy INSTANCE [--port PORT for create]" >&2
+  exit 2
+}
+config_value() { sed -n "s/^$1=//p" "$run_dir/run.conf" | head -n 1; }
+host_exists() {
+  [[ -f "$script_dir/../$1.bu" || -f "$script_dir/../../skillet/crates/hosts/$1/Cargo.toml" ]]
+}
+host_available() {
+  [[ -f "$script_dir/../$1.bu" && -f "$script_dir/../../skillet/crates/hosts/$1/Cargo.toml" ]]
+}
+list_host() {
+  local listed_host="$1" availability=unavailable found=false listed_run listed_name listed_instance listed_state listed_port listed_runtime recorded_uuid actual_uuid
+  if host_available "$listed_host"; then availability=available; fi
+  for listed_run in "$root"/"$listed_host"-test-*/run.conf; do
+    [[ -f "$listed_run" ]] || continue
+    found=true
+    run_dir="$(dirname "$listed_run")"
+    listed_name="$(basename "$run_dir")"
+    listed_instance="${listed_name#"$listed_host"-test-}"
+    listed_state=invalid
+    listed_port=-
+    if [[ ! -L "$run_dir" && ! -L "$listed_run" && "$(config_value vm)" == "$listed_name" && "$(config_value host)" == "$listed_host" && "$(config_value uri)" == "$uri" ]]; then
+      listed_port="$(config_value ssh_port)"
+      listed_runtime="$(config_value runtime_dir)"
+      if [[ "$listed_port" =~ ^22[0-9][0-9]$ && "$listed_runtime" == /run/user/"$(id -u)"/* && -f "$run_dir/domain.uuid" ]]; then
+        recorded_uuid="$(cat "$run_dir/domain.uuid")"
+        if [[ "$recorded_uuid" =~ ^[0-9a-f-]{36}$ ]] && actual_uuid="$(env XDG_RUNTIME_DIR="$listed_runtime" /usr/bin/virsh -c "$uri" domuuid "$listed_name" 2>/dev/null)"; then
+          if [[ "$actual_uuid" == "$recorded_uuid" ]]; then
+            listed_state="$(env XDG_RUNTIME_DIR="$listed_runtime" /usr/bin/virsh -c "$uri" domstate "$listed_name" 2>/dev/null)" || listed_state=unknown
+          else
+            listed_state=mismatch
+          fi
+        else
+          listed_state=missing
+        fi
+      fi
+    fi
+    printf '%-12s %-12s %-16s %-12s %s\n' "$listed_host" "$availability" "$listed_instance" "$listed_state" "$listed_port"
+  done
+  if [[ "$found" == false ]]; then
+    printf '%-12s %-12s %-16s %-12s %s\n' "$listed_host" "$availability" - none -
+  fi
+}
+list_header() { printf '%-12s %-12s %-16s %-12s %s\n' HOST TEMPLATE INSTANCE STATE PORT; }
+
+if (($# == 1)) && [[ "$1" == list ]]; then
+  [[ ! -L "$root" ]] || { echo "Symlinked artifact root refused" >&2; exit 1; }
+  mapfile -t hosts < <(
+    {
+      for candidate in "$script_dir"/../*.bu; do
+        if [[ -f "$candidate" ]]; then basename "$candidate" .bu; fi
+      done
+      for candidate in "$script_dir"/../../skillet/crates/hosts/*/Cargo.toml; do
+        if [[ -f "$candidate" ]]; then basename "$(dirname "$candidate")"; fi
+      done
+    } | sort -u
+  )
+  list_header
+  for candidate in "${hosts[@]}"; do list_host "$candidate"; done
+  exit 0
+fi
+(($# >= 2)) || usage
+host="$1"
+operation="$2"
+shift 2
+if [[ ! "$host" =~ ^[a-z][a-z0-9-]*$ ]] || ! host_exists "$host"; then
+  echo "Unknown host: $host" >&2
+  exit 2
+fi
+if [[ "$operation" == list ]]; then
+  (($# == 0)) || usage
+  [[ ! -L "$root" ]] || { echo "Symlinked artifact root refused" >&2; exit 1; }
+  list_header
+  list_host "$host"
+  exit 0
+fi
+(($# >= 1)) || usage
+instance="$1"
+shift
+[[ "$instance" =~ ^[a-z0-9][a-z0-9-]*$ ]] || usage
+name="$host-test-$instance"
+run_dir="$root/$name"
+[[ ! -L "$root" && ! -L "$run_dir" ]] || { echo "Symlinked artifact path refused" >&2; exit 1; }
+inspect_owned() {
+  [[ -d "$run_dir" && -f "$run_dir/run.conf" && -f "$run_dir/domain.uuid" ]] || {
+    echo "Missing owned run manifest for $name" >&2; exit 1;
+  }
+  [[ "$(realpath -e "$run_dir")" == "$run_dir" ]] || { echo "Artifact path escapes root" >&2; exit 1; }
+  [[ "$(config_value vm)" == "$name" && "$(config_value host)" == "$host" && "$(config_value uri)" == "$uri" ]] || {
+    echo "Run manifest does not match requested domain" >&2; exit 1;
+  }
+  runtime_dir="$(config_value runtime_dir)"
+  [[ "$runtime_dir" == /run/user/"$(id -u)"/* ]] || { echo "Invalid recorded libvirt runtime" >&2; exit 1; }
+  actual_uuid="$(vm_virsh domuuid "$name")"
+  [[ "$actual_uuid" == "$(cat "$run_dir/domain.uuid")" ]] || { echo "Domain UUID mismatch" >&2; exit 1; }
+  disk="$run_dir/$name.qcow2"
+  [[ -f "$disk" && ! -L "$disk" ]] || { echo "Expected test disk is missing or symlinked" >&2; exit 1; }
+  ignition="$run_dir/ignition/$host.ign"
+  [[ -f "$ignition" && ! -L "$ignition" ]] || { echo "Expected Ignition file is missing or symlinked" >&2; exit 1; }
+  mapfile -t disks < <(vm_virsh domblklist "$name" --details | awk '$2 == "disk" {print $4}')
+  [[ "${#disks[@]}" -eq 2 && "${disks[0]}" == "$disk" && "${disks[1]}" == "$ignition" ]] || {
+    echo "Domain disks do not match test artifacts" >&2; exit 1;
+  }
+  port="$(config_value ssh_port)"
+  [[ "$port" =~ ^22[0-9][0-9]$ ]] || { echo "Invalid recorded port" >&2; exit 1; }
+}
+ssh_args() {
+  args=(-i "$run_dir/ssh/id_ed25519" -p "$port" -o BatchMode=yes
+    -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new
+    -o UserKnownHostsFile="$run_dir/ssh/known_hosts")
+}
+case "$operation" in
+  create)
+    if (($# == 0)); then
+      port=2201
+    elif (($# == 2)) && [[ "$1" == --port ]]; then
+      port="$2"
+    else
+      usage
+    fi
+    [[ "$port" =~ ^22[0-9][0-9]$ ]] || { echo "Use a port from 2200 to 2299" >&2; exit 2; }
+    [[ ! -e "$run_dir" && ! -L "$run_dir" ]] || { echo "Run path already exists" >&2; exit 1; }
+    host_available "$host" || { echo "Host $host needs both $host.bu and a skillet-$host crate" >&2; exit 1; }
+    ensure_native_runtime
+    if vm_virsh dominfo "$name" &>/dev/null; then
+      echo "Domain already exists" >&2; exit 1
+    fi
+    mkdir -p "$root"
+    TEST_VM_LIBVIRT_RUNTIME_DIR="$runtime_dir" "$script_dir/coreos-install" --name "$name" --output-dir "$run_dir" \
+      --ssh-port "$port" --libvirt-uri "$uri" "$script_dir/../$host.bu"
+    vm_virsh domuuid "$name" > "$run_dir/domain.uuid"
+    echo "Run: $run_dir" ;;
+  ready)
+    (($# == 0)) || usage
+    ensure_native_runtime
+    inspect_owned
+    "$script_dir/test-vm-ready" "$run_dir" ;;
+  status)
+    (($# == 0)) || usage
+    ensure_native_runtime
+    inspect_owned
+    vm_virsh dominfo "$name"
+    vm_virsh domblklist "$name" ;;
+  ssh)
+    (($# == 0)) || usage
+    ensure_native_runtime
+    inspect_owned
+    ssh_args
+    exec ssh "${args[@]}" giacomo@127.0.0.1 ;;
+  logs)
+    (($# == 0)) || usage
+    ensure_native_runtime
+    inspect_owned
+    ssh_args
+    ssh "${args[@]}" giacomo@127.0.0.1 \
+      'sudo -n rpm-ostree status; sudo -n journalctl -b -u ucore-bootstrap.service -u skillet-apply.service --no-pager -n 200' ;;
+  reboot)
+    (($# == 0)) || usage
+    ensure_native_runtime
+    inspect_owned
+    vm_virsh reboot "$name" ;;
+  destroy)
+    (($# == 0)) || usage
+    ensure_native_runtime
+    inspect_owned
+    if [[ "$(vm_virsh domstate "$name")" != 'shut off' ]]; then
+      vm_virsh destroy "$name"
+    fi
+    vm_virsh undefine "$name"
+    [[ "$(realpath -e "$run_dir")" == "$run_dir" && "$run_dir" == "$root"/"$host"-test-* ]] || exit 1
+    rm -rf -- "$run_dir" ;;
+  *) usage ;;
+esac

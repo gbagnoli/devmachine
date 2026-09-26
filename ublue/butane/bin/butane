@@ -1,108 +1,62 @@
-#!/bin/bash
-
+#!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-OUTPUTDIR="$(realpath "$SCRIPT_DIR/../ignition")"
-INPUT=""
-RAW=false
-STDOUT=true
-
-pushd "$SCRIPT_DIR/.." &>/dev/null
-
 usage() {
-  echo "$(realpath --relative-to="$SCRIPT_DIR" "$0") [-hrs] [-o OUTPUT_DIR] <config.bu> [config.ign]"
-  echo
-  echo "By default, ignition file is pretty printed to stdout"
-
-  echo "Options:"
-  echo "-h : show this help"
-  echo "-r : do not prettyfy stdout"
-  echo "-s : save to file"
-  echo "-o : output directory for ignition files. Defaults to $OUTPUTDIR"
+  echo "Usage: $0 [-s] [-o OUTPUT_DIR] CONFIG.bu [CONFIG.ign]" >&2
 }
 
-run() {
-  podman run --interactive --rm --security-opt label=disable \
-         --volume "${PWD}:/pwd" --workdir /pwd quay.io/coreos/butane:release \
-         --pretty --strict --files-dir "$(basename "$OUTPUTDIR")" "$1"
-  return $?
-}
-
-while getopts "rsho:" opt; do
-  case $opt in
-    o)
-      OUTPUTDIR="$OPTARG"
-      ;;
-    r)
-      RAW=true
-      ;;
-    s)
-      STDOUT=false
-      ;;
-    h)
-      usage
-      exit 0
-      ;;
-    \?)
-      echo "Invalid option: -$OPTARG" >&2
-      usage
-      exit 1
-      ;;
-    :)
-      echo "Option -$OPTARG requires an argument." >&2
-      exit 1
-      ;;
+save=false
+output_dir="$(realpath -m "$(dirname "${BASH_SOURCE[0]}")/../ignition")"
+while getopts ':hso:' option; do
+  case "$option" in
+    h) usage; exit 0 ;;
+    s) save=true ;;
+    o) output_dir="$(realpath -m "$OPTARG")" ;;
+    *) usage; exit 2 ;;
   esac
 done
+shift $((OPTIND - 1))
+[[ $# -ge 1 && $# -le 2 && "$1" == *.bu && -f "$1" ]] || { usage; exit 2; }
 
-if [ $# -lt $OPTIND ]; then
-  echo "Missing input script" >&2
-  usage
-  exit 1
+input="$(realpath "$1")"
+output_name="${2:-$(basename "${input%.bu}.ign")}"
+[[ "$output_name" != */* && "$output_name" == *.ign ]] || { echo "Output must be a .ign filename" >&2; exit 2; }
+mkdir -p "$output_dir"
+work_dir="$(mktemp -d "$output_dir/.butane.XXXXXXXX")"
+trap 'rm -rf -- "$work_dir"' EXIT
+
+# Local merge sources are compiled first. Their Ignition paths stay relative to
+# --files-dir, which is this isolated workspace rather than the source tree.
+mapfile -t fragments < <(yq -r '.ignition.config.merge[].local' "$input")
+for fragment in "${fragments[@]}"; do
+  [[ "$fragment" == *.bu && "$fragment" != /* && "$fragment" != *..* ]] || {
+    echo "Unsupported merge source: $fragment" >&2; exit 2;
+  }
+  mkdir -p "$work_dir/$(dirname "$fragment")"
+  cp "$(dirname "$input")/$fragment" "$work_dir/$fragment"
+done
+cp "$input" "$work_dir/input.bu"
+if [[ -d "$(dirname "$input")/files" ]]; then
+  cp -a "$(dirname "$input")/files" "$work_dir/files"
 fi
 
-INPUT="$(eval echo \$$OPTIND)"
-OUTPUT="${INPUT/.bu/.ign}"
+run_butane() {
+  podman run --interactive --rm --security-opt label=disable \
+    --volume "$work_dir:/work" --workdir /work quay.io/coreos/butane:release \
+    --pretty --strict --files-dir /work "$1"
+}
 
-if [ $# -gt $OPTIND ]; then
-  IDX=$(( OPTIND + 1 ))
-  OUTPUT="$(eval echo \$$IDX)"
-fi
-OUTPUT="$(realpath "${OUTPUTDIR}/${OUTPUT}")"
-
-# first. We need to transpile every (sigh) include
-for fragment in $(yq '.ignition.config.merge[] | select (.local == "*.bu") | .local' "$INPUT"); do
-  fragment_name="${fragment%.bu}"
-  mkdir -p "$(dirname "$OUTPUTDIR/${fragment_name}")"
-  fragment_out="$(realpath "${OUTPUTDIR}/${fragment_name}.ign")"
-  echo >&2 "Compiling fragment ${fragment}"
-  run "${fragment}" > "${fragment_out}"
+for fragment in "${fragments[@]}"; do
+  compiled="${fragment%.bu}.ign"
+  run_butane "$fragment" > "$work_dir/$compiled"
+  FRAGMENT="$fragment" COMPILED="$compiled" yq -i \
+    '(.ignition.config.merge[] | select(.local == strenv(FRAGMENT)) | .local) = strenv(COMPILED)' \
+    "$work_dir/input.bu"
 done
 
-temp_input=$(mktemp --tmpdir="$OUTPUTDIR" )
-cp "$INPUT" "$temp_input"
-# shellcheck disable=SC2046
-sed -i $(yq '.ignition.config.merge[] | select(.local == "*.bu") | .local | "-e s;" + . + ";" + sub(".bu", ".ign") + ";"' "$INPUT" | tr '\n' ' ') "$temp_input"
-
-trap 'rm $temp_input' EXIT
-new_input="ignition/$(basename "$temp_input")"
-
-if $STDOUT; then
-  if $RAW; then
-    run "$new_input"
-    exit $?
-  fi
-  run "$new_input" | jq .
-  exit $?
+if "$save"; then
+  run_butane input.bu > "$output_dir/$output_name"
+  echo "$output_dir/$output_name"
+else
+  run_butane input.bu
 fi
-
-# ok we are not printing to stdot
-if [ "$OUTPUT" -ef "$INPUT" ];then
-  echo >&2 "output $OUTPUT and input $INPUT are the same file"
-  exit 1
-fi
-
-echo "Saving to $OUTPUT" >&2
-run "$new_input" > "$OUTPUT"
-exit $?
