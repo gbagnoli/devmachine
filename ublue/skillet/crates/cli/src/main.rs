@@ -9,6 +9,8 @@ use std::{
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
+mod secret_delivery;
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -20,6 +22,11 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Commands {
+    /// Deliver an existing `KeePassXC` secret to a provisioned host
+    Secret {
+        #[command(subcommand)]
+        command: SecretCommands,
+    },
     /// Apply host configuration
     Apply {
         #[arg(long, value_enum, default_value_t = ApplyPhase::Full)]
@@ -37,6 +44,32 @@ enum Commands {
         #[command(subcommand)]
         command: TestCommands,
     },
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum SecretCommands {
+    /// Deliver the clamps Pi-hole web password
+    Deliver(SecretDeliverArgs),
+}
+
+#[derive(clap::Args, Debug)]
+struct SecretDeliverArgs {
+    #[arg(value_parser = ["clamps"])]
+    hostname: String,
+    #[arg(value_parser = ["pihole"])]
+    service: String,
+    #[arg(long)]
+    database: Option<PathBuf>,
+    #[arg(long)]
+    key_file: Option<PathBuf>,
+    #[arg(long)]
+    target: String,
+    #[arg(long, default_value_t = 22)]
+    port: u16,
+    #[arg(long)]
+    identity: PathBuf,
+    #[arg(long)]
+    known_hosts: PathBuf,
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -60,6 +93,10 @@ enum VmCommands {
     Destroy(VmDestroyArgs),
     /// List available host templates and their recorded disposable VMs
     List(VmListArgs),
+    /// Deliver a generated dummy Pi-hole password and run full apply
+    Provision(VmProvisionArgs),
+    /// Install the current host binary on a retained disposable VM
+    Update(VmDestroyArgs),
 }
 
 #[derive(clap::Args, Debug)]
@@ -74,6 +111,15 @@ struct VmCreateArgs {
 struct VmDestroyArgs {
     hostname: String,
     instance: String,
+}
+
+#[derive(clap::Args, Debug)]
+struct VmProvisionArgs {
+    hostname: String,
+    instance: String,
+    /// Replace the disposable password and restart its consumer
+    #[arg(long)]
+    rotate: bool,
 }
 
 #[derive(clap::Args, Debug)]
@@ -118,6 +164,11 @@ fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     match args.command {
+        Commands::Secret {
+            command: SecretCommands::Deliver(args),
+        } => {
+            secret_delivery::deliver_from_vault(&args)?;
+        }
         Commands::Apply {
             phase,
             host,
@@ -161,6 +212,18 @@ fn main() -> Result<()> {
                     command: VmCommands::List(args),
                 },
         } => run_vm_list(&args)?,
+        Commands::Test {
+            command:
+                TestCommands::Vm {
+                    command: VmCommands::Provision(args),
+                },
+        } => secret_delivery::provision_vm(&args)?,
+        Commands::Test {
+            command:
+                TestCommands::Vm {
+                    command: VmCommands::Update(args),
+                },
+        } => run_vm_update(&args)?,
     }
     Ok(())
 }
@@ -241,6 +304,22 @@ fn run_vm_destroy(args: &VmDestroyArgs) -> Result<()> {
     vm_name(&args.hostname, &args.instance)?;
     let helper = butane_root()?.join("bin/test-vm");
     run_helper(&helper, &[&args.hostname, "destroy", &args.instance])
+}
+
+fn run_vm_update(args: &VmDestroyArgs) -> Result<()> {
+    vm_name(&args.hostname, &args.instance)?;
+    let root = workspace_root()?;
+    let package = format!("skillet-{}", args.hostname);
+    let status = Command::new("cargo")
+        .current_dir(&root)
+        .args(["build", "--release", "-p", &package])
+        .status()
+        .context("building host binary for VM update")?;
+    if !status.success() {
+        return Err(anyhow!("building {package} failed"));
+    }
+    let helper = butane_root()?.join("bin/test-vm");
+    run_helper(&helper, &[&args.hostname, "update", &args.instance])
 }
 
 fn run_vm_list(args: &VmListArgs) -> Result<()> {

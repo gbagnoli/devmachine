@@ -258,7 +258,7 @@ impl SystemResource for LinuxSystemResource {
         if let Some(u) = uid {
             cmd.arg("-u").arg(u.to_string());
         }
-        if let Some(g) = gid {
+        if let Some(g) = gid.or_else(|| get_group_by_name(name).map(|group| group.gid())) {
             cmd.arg("-g").arg(g.to_string());
         }
         cmd.arg(name);
@@ -266,7 +266,9 @@ impl SystemResource for LinuxSystemResource {
         let output = cmd.output()?;
 
         if !output.status.success() {
-            if output.status.code() == Some(EXIT_CODE_USER_EXISTS) {
+            if output.status.code() == Some(EXIT_CODE_USER_EXISTS)
+                && get_user_by_name(name).is_some()
+            {
                 debug!("User {name} was created by another process");
                 return Ok(false);
             }

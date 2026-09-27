@@ -12,3 +12,9 @@ clap.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 anyhow = "1.0"
+keepass.workspace = true
+rpassword.workspace = true
+hex.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

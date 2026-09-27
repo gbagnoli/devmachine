@@ -1,9 +1,7 @@
 use askama::Template;
 use skillet_core::files::{FileError, FileResource};
 use skillet_core::system::{SystemError, SystemResource};
-use skillet_podman::{
-    self, ContainerUser, HostUser, PodmanConfig, PodmanError, QuadletSecret, Volume,
-};
+use skillet_podman::{self, ContainerUser, PodmanConfig, PodmanError, QuadletSecret, Volume};
 use std::collections::BTreeMap;
 use std::path::Path;
 use thiserror::Error;
@@ -38,7 +36,7 @@ pub struct PiholeUser {
 pub fn apply<S, F>(
     system: &S,
     files: &F,
-    user_config: PiholeUser,
+    user_config: &PiholeUser,
     secrets: Vec<QuadletSecret>,
     custom_records: BTreeMap<String, String>,
 ) -> Result<(), PiholeError>
@@ -89,9 +87,9 @@ where
 
     // 4. Define container
     let user = ContainerUser {
-        container_uid: 1000,
-        container_gid: 1000,
-        host_user: Some(HostUser::Name(user_config.name)),
+        container_uid: 0,
+        container_gid: 0,
+        host_user: None,
     };
 
     // SELinux relabeling (:z, shared) so the container can access these
@@ -116,6 +114,10 @@ where
 
     let mut extra_config = BTreeMap::new();
     extra_config.insert("Service".to_string(), vec!["Restart=always".to_string()]);
+    extra_config.insert(
+        "Container".to_string(),
+        vec!["Environment=WEBPASSWORD_FILE=/run/secrets/pihole_web_password".to_string()],
+    );
     extra_config.insert(
         "Unit".to_string(),
         vec![

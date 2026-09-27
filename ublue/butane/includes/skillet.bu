@@ -23,3 +23,19 @@ systemd:
 
         [Install]
         WantedBy=multi-user.target
+    - name: skillet-full-apply.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Apply Skillet clamps application configuration
+        Requires=skillet-apply.service
+        After=skillet-apply.service
+        ConditionPathExists=/etc/credstore.encrypted/skillet/pihole_web_password.cred
+
+        [Service]
+        Type=oneshot
+        LoadCredentialEncrypted=pihole_web_password:/etc/credstore.encrypted/skillet/pihole_web_password.cred
+        ExecStart=/var/usrlocal/bin/skillet-clamps apply --phase full
+
+        [Install]
+        WantedBy=multi-user.target

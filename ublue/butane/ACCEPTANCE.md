@@ -117,3 +117,32 @@ recovery remains unverified.
 The passing VM is retained for further inspection. The mutable
 source-tree helper has not been installed as a frozen, persistently approved
 host tool; it still uses normal command approvals.
+
+## Pi-hole credential slice, 2026-09-27
+
+- Fresh `clamps-test-pihole` VM on port 2202 passed `test vm create clamps
+  pihole`, including unsigned/signed image rebases and base readiness. Its
+  ignored `runs/clamps-test-pihole/` directory retains build and VM evidence.
+- `test vm provision clamps pihole` delivered a generated dummy password via
+  SSH stdin. The guest installed mode 0600, root-owned encrypted credential
+  and loaded it through `skillet-full-apply.service`. A comparison of decrypted
+  credential bytes with the live container's `/run/secrets/pihole_web_password`
+  passed without printing the value.
+- First full apply exposed a pre-existing `useradd` same-name group bug and a
+  non-root Pi-hole startup failure. Both were fixed. `test vm update clamps
+  pihole` deployed the current host binary while retaining the creation
+  snapshot. Pi-hole then stayed active.
+- Repeat provision kept container ID
+  `de3716fc0a698771f792a1c909cec4f5486bbbe15f5fb74292da5a4b94c05e8c`.
+  Explicit `--rotate` changed it to
+  `dc4a8970644a44684b0d00b0f7dbf0d9bd242848b3a3ab2ff7b46bff94c55e87`,
+  and the mounted secret matched the new credential. A reboot brought Pi-hole
+  back active with the encrypted file intact.
+- `skillet test smoke clamps --port 2202 --identity
+  ../butane/runs/clamps-test-pihole/ssh/id_ed25519` passed its real-systemd
+  fixture, including its own reboot. Evidence is under
+  `/var/lib/skillet-smoke/` on the retained VM.
+- Final workspace checks passed: 32 Rust tests, pedantic Clippy with warnings
+  denied, `shellcheck` and `bash -n` for `bin/test-vm`, and `git diff --check`.
+- Post-delivery OS rebase, interruption recovery, production TPM binding,
+  Cloudflare token migration, and Pi-hole DNS/web behavior were not checked.
