@@ -5,7 +5,11 @@ include_recipe "calculon::zram"
 include_recipe "calculon::nginx"
 include_recipe "calculon::tailscale"
 include_recipe "calculon::media"
+# this also includes base and syncthing
+# TODO: check if we can move the include here for clarity, and remove
+# the dual inclusion of base
 include_recipe "calculon::magiusstaff"
+include_recipe "calculon::syncthing_user"
 include_recipe "calculon::distrobox"
 include_recipe "calculon::joplin"
 include_recipe "calculon::airtrail"
