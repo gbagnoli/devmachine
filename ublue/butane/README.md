@@ -4,6 +4,9 @@ A clean disposable VM create passed signed boot and readiness on 2026-09-26.
 The Flatpak backend on Bazzite passed create, status, and readiness on 2026-09-27.
 See [ACCEPTANCE.md](ACCEPTANCE.md) for the checks performed and remaining work.
 
+Design decisions: [disposable VM lifecycle](../design/smoke-vms.md) and
+[secret storage and delivery](../design/secrets.md).
+
 `clamps.bu` is a VM configuration. It resizes and reformats partition 4 on
 `/dev/vda`, the virtio disk attached by this launcher. Do not use it as a
 physical-disk install file. The host needs Podman, `yq`, `rg`, `ssh-keygen`,
@@ -16,9 +19,8 @@ when native libvirt is absent. The `bin/virsh` and `bin/virt-install` wrappers
 run those tools in the Flatpak sandbox. The helper starts separate Flatpak
 libvirt daemons under `/run/user/UID/skvm`, grants them access to `butane/`,
 and uses QEMU user networking to forward the selected localhost SSH port.
-The helper records the selected backend in `runs/NAME/run.conf` so later
-commands use the same VM runtime. Check that `/dev/kvm` is accessible on the
-host. The helper does not install host software.
+The selected backend is recorded in `runs/NAME/run.conf`. Check that `/dev/kvm`
+is accessible on the host. The helper does not install host software.
 
 From this directory, create and check the default disposable clamps VM with:
 
@@ -65,17 +67,13 @@ cargo run --release -p skillet -- test vm destroy clamps smoke
 The helper calls `coreos-install`, which builds the current static
 `skillet-clamps` host binary. The lower-level launcher accepts `--artifact PATH`
 to use a specific binary. It records its SHA256 in
-`runs/NAME/skillet.sha256`. To keep the QEMU `fw_cfg` Ignition payload small,
-the VM config omits this multi-megabyte binary; `test-vm ready` transfers it
+`runs/NAME/skillet.sha256`. `test-vm ready` transfers the binary
 over SSH after first boot and installs it at `/var/usrlocal/bin/skillet-clamps`.
-The shared uCore bootstrap script also lives in `/var/usrlocal/bin`: Fedora CoreOS labels
-that persistent directory `bin_t`, allowing systemd to execute these files
-with SELinux enforcing.
+The shared uCore bootstrap script also lives in `/var/usrlocal/bin`.
 Generated Ignition, SSH key, VM disk and logs stay under `runs/NAME`, which Git
 ignores. The test key is private and only its public half enters Ignition.
 Homebrew and the `core` dotfiles profile install after the signed clamps boot.
-The dotfiles installer links `authorized_keys`; the SSH configuration also
-reads Ignition's key file, so the generated VM key remains usable.
+The dotfiles installer links `authorized_keys`; SSH also reads Ignition's key file.
 `--image PATH` selects a specific FCOS qcow2;
 the default is `images/coreos.qcow2` when present. Both VM backends forward
 the SSH port on `127.0.0.1`; native libvirt uses passt and Flatpak uses QEMU
@@ -124,13 +122,9 @@ ssh -i runs/NAME/ssh/id_ed25519 -p PORT giacomo@127.0.0.1 \
   'sudo rpm-ostree status; sudo journalctl -b -u ucore-bootstrap.service -u skillet-apply.service'
 ```
 
-`bin/test-vm` is a constrained source-tree helper that stores its runs under
-the ignored `butane/runs` directory. `create` infers
-`HOST.bu`, builds `skillet-HOST`, and uses port 2201 by default. Other commands check the
-recorded host, domain UUID, and disk before acting. `destroy` removes only
-the selected test-owned resources. Its source-tree path is
-mutable, so an enduring elevated approval requires reviewed, frozen helper
-code and executable dependencies installed outside writable roots.
+`create` selects `HOST.bu`, builds `skillet-HOST`, and uses port 2201 by default.
+Other commands check the recorded host, domain UUID, and disk before acting.
+`destroy` removes only the selected test-owned resources.
 
 The VM and its disk remain available after readiness checks. Cleanup is
 explicit: inspect the domain and disk, then call

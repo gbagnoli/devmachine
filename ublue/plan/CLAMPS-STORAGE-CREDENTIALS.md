@@ -1,10 +1,14 @@
 # Milestone 3 discussion: storage and credentials
 
-Status: draft, 2026-09-25. Parent-owned planning document while agents implement milestones 1 and 2. User prefers boxy's single Btrfs filesystem with separate OS/data subvolumes. Mount path, final disk and credential policy remain open.
+Status: remaining work, 2026-09-27. Base provisioning is implemented. Storage
+mount path and final disk remain open; credential decisions are recorded in
+[the secret design](../design/secrets.md).
 
 ## Split into two small steps
 
-3A establishes a persistent application-data mount and proves it behaves correctly. 3B delivers one dummy Pi-hole password end to end and proves recovery and rotation. Pi-hole itself is introduced in milestone 4.
+3A establishes the application-data mount. 3B delivers a disposable Pi-hole
+password and proves recovery and rotation. Start with 3B on the existing VM;
+settle storage before migrating production Pi-hole state.
 
 ## 3A: application storage
 
@@ -49,22 +53,27 @@ Snapshots, Syncthing data transfer and final disk cutover are later milestones. 
 
 ## 3B: one credential end to end
 
-Retain the intended SOPS/age -> bootstrap delivery -> encrypted systemd credential -> Skillet -> Podman -> container sequence, with explicit decisions at its boundaries.
+Implement the [KeePassXC and delivery decision](../design/secrets.md):
 
-Decisions to take after storage:
+- Read exact KDBX entries in workstation Rust code. Use a disposable test database
+  to verify lookup, unlock failure and recovery on another workstation.
+- Migrate the existing Cloudflare token creator from the desktop keyring to
+  `skillet/cloudflare/token-creator` through KeePassXC; never print its value.
+- Start delivery with the existing `pihole_web_password` credential. Production
+  reads `skillet/hosts/clamps/pihole/web-password`; smoke uses a generated dummy
+  value, never the production entry.
+- Deliver through SSH stdin after base readiness. Encrypt on the guest and
+  atomically install `/etc/credstore.encrypted/skillet/pihole_web_password.cred`.
+  Wire the full-apply service's `LoadCredentialEncrypted=` and Podman consumer.
+- Preserve secret bytes according to an explicit input format; do not trim
+  meaningful whitespace implicitly. Validate encrypted output before replacement.
+- Use host-key encryption for VM acceptance. Confirm production TPM support,
+  rebase compatibility, and disk protection for Podman's separate secret copy.
+- Rotation must recreate consumers; unchanged credentials must not restart them.
+  A new workstation or missing vault entry must never regenerate production values.
 
-1. Is a restricted, temporary plaintext-bearing Ignition artifact acceptable during provisioning, or must plaintext never be persisted on the workstation? This changes the transport/build workflow.
-2. Must production credentials require the TPM? How will reinstall, TPM failure and recovery work? VM testing must use a documented test policy or vTPM and must not silently weaken the production policy.
-3. Is Podman's protected default file store sufficient with the chosen disk protection, or is encrypted secret storage required there too? Systemd credential encryption alone does not protect a second stored copy.
-
-Proposed implementation size:
-
-- Start with the existing named `pihole_web_password` credential; defer a general JSON secret bundle unless multiple credentials justify it.
-- Use a dummy value in VM acceptance. Add only one encrypted source entry, one safe transport path, one bootstrap encryption service and one consuming fixture.
-- Preserve secret bytes according to an explicit input format; do not trim meaningful whitespace implicitly.
-- Encrypt to a temporary output, validate it, then atomically install it. Make cleanup/retry safe across interruption at every stage. Deleting a temporary file is cleanup, not a claim of guaranteed physical erasure.
-- Keep the encrypted source recoverable independently of the target TPM. Document the age-key backup/recovery process without storing private keys in the repository.
-- Rotation must deliver the replacement credential and recreate its consumers. Repeated application of an unchanged credential must not restart them.
+Cloudflare per-VM issuance and cleanup follow in the live ACME milestone, using
+the [VM lifecycle decision](../design/smoke-vms.md).
 
 Exit criteria for 3B:
 
@@ -75,4 +84,7 @@ Exit criteria for 3B:
 5. A rotation reaches the running fixture; a subsequent apply causes no further recreation.
 6. Missing, corrupt or undecryptable credentials produce a clear failure and follow a documented recovery procedure. They never fall back to an empty/default production password.
 
-Advance to real Pi-hole only after both steps pass. The shared-filesystem/subvolume direction is selected; its remaining details and credential choices remain pending discussion.
+The first Pi-hole VM apply follows credential delivery; storage acceptance is
+required before production-state migration. Shared Btrfs subvolumes and KeePassXC
+are selected; physical disk, mount path, graphroot and production TPM details
+still need resolution.

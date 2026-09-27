@@ -1,12 +1,14 @@
 # Skillet
 
-Skillet is a Rust-based tool for idempotent host configuration management. It is designed to be highly modular, with core primitives in `skillet_core`, hardening modules in `skillet_hardening`, and host-specific binaries built on top of these.
+Skillet is a Rust tool for idempotent host configuration management.
+
+Design decisions: [secret storage and delivery](../design/secrets.md) and
+[disposable VM lifecycle](../design/smoke-vms.md).
 
 ## Building
 
-Skillet builds fully static musl binaries by default (see `.cargo/config.toml`),
-so each host binary runs on any x86_64 Linux target with no glibc or system
-library dependencies — ideal for dropping onto an immutable host.
+Skillet builds fully static x86_64 musl binaries by default
+(see `.cargo/config.toml`).
 
 One-time setup:
 ```bash
@@ -34,6 +36,7 @@ The per-host binaries land at
 The tool provides an `apply` command to execute configuration. `apply` defaults
 to the full host and requires its application credentials. Use `--phase base`
 to converge only the shared host baseline before credentials are available.
+
 - **Agent Mode**: Run generically on a host:
   ```bash
   ./target/x86_64-unknown-linux-musl/debug/skillet apply --host clamps --phase base
@@ -46,9 +49,8 @@ The legacy CI command `skillet test run beezelbot --image fedora:latest` runs
 the host apply twice in a uniquely named, temporary Podman container. It
 builds the selected host binary, checks both applies succeed, and checks the
 second apply does not start or restart a service. `clamps` is also supported.
-This fast sandbox uses mock `systemctl` and `podman` executables, so it checks
-apply behavior and repeat convergence but does not establish real systemd or
-Podman operation. `--inspect` opens the container before cleanup.
+This sandbox uses mock `systemctl` and `podman` executables.
+`--inspect` opens the container before cleanup.
 
 For real systemd/Podman and reboot coverage, create a disposable VM first:
 
@@ -72,7 +74,7 @@ them with `--target`, `--port`, and `--identity` when using a separately
 provisioned VM. It takes the generic binary from the running executable and
 uses the `skillet-clamps` binary installed by VM creation. Repeated smoke runs
 reset only the namespaced `/var/lib/skillet-smoke` fixture and its managed
-files, so you can inspect a run and rerun it on the same disposable VM.
+files. The VM remains available for inspection and reruns.
 
 When finished, remove the disposable VM, disk, SSH key, and run artifacts:
 
@@ -80,10 +82,9 @@ When finished, remove the disposable VM, disk, SSH key, and run artifacts:
 cargo run --release -p skillet -- test vm destroy clamps smoke
 ```
 
-The VM helpers require the host setup documented in `../butane/README.md`.
-The VM fixture controls its own image. Smoke still requires the Skillet
-workspace and Cargo so it can build the host binary alongside the running
-executable.
+The VM helpers require the host setup documented in the
+[Butane README](../butane/README.md). Smoke requires the Skillet workspace and
+Cargo. The VM fixture controls its own image.
 
 Build both static binaries from this directory if you want to install the host
 binary separately:
@@ -99,13 +100,26 @@ Supply that artifact to the guest, then invoke `skillet-clamps apply --phase bas
 The smoke scenario checks baseline/full separation, container startup and
 idempotency, configuration and dummy secret rotation, failed startup recovery,
 interrupted activation, and reboot persistence. It writes state snapshots and
-failure output under `/var/lib/skillet-smoke/` in the guest. It resets only its
-own fixture files before each run, so repeated runs on the same disposable VM
-are supported. The guest needs passwordless sudo for the SSH user and access to
+failure output under `/var/lib/skillet-smoke/` in the guest.
+The guest needs passwordless sudo for the SSH user and access to
 pull `docker.io/library/alpine:3.20`. When `--identity` is supplied, SSH stores
 that VM's host key beside the private key.
 
-## Architectural Mandates
+## Secret setup (delivery planned)
+
+Manage durable secrets in your Syncthing-synced KeePassXC database. Use group
+paths and entry titles from the [secret design](../design/secrets.md), storing
+each value in its Password field. Direct KDBX reading and host delivery are not
+implemented yet.
+
+For Cloudflare token issuance, select **Create additional tokens** in the
+Cloudflare dashboard, with **User > API Tokens > Edit** and no extra
+permissions. Save it as `skillet/cloudflare/token-creator`. If already stored
+in the desktop keyring, move that value into KeePassXC and verify the saved
+entry before removing the old copy. The current smoke command does not use it.
+
+## Development checks
+
 - **Error Handling**: Use `thiserror` in library crates; `anyhow` is reserved for CLI binaries. No `unwrap()` or `expect()` in library code.
 - **Idempotency**: All modules must ensure system state idempotently.
 - **System Interactions**: Prioritize Rust crates (e.g., `zbus`, `users`) over shelling out to system commands.
