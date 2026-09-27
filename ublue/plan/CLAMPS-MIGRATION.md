@@ -15,11 +15,12 @@ bootstrap, user environment, exact KeePassXC reads, and encrypted Pi-hole
 credential delivery. A dummy-credential Pi-hole container runs in the VM;
 service networking, live ACME, and production storage remain open.
 
-Next: Pi-hole storage and isolated service networking, following the
+Next: implement Pi-hole storage and isolated service networking, following the
 [secret design](../design/secrets.md), [VM lifecycle](../design/smoke-vms.md), and
+[storage design](../design/storage.md) and
 [storage/credential plan](CLAMPS-STORAGE-CREDENTIALS.md). The selected storage
-direction is boxy's shared Btrfs filesystem with OS/data subvolumes; mount path
-and final physical disk remain open.
+direction is a shared Btrfs filesystem with `/var/lib/data` as the data mount;
+the final physical disk remains open.
 
 ## Boundaries
 
@@ -43,10 +44,12 @@ and final physical disk remain open.
 
 Resolve only the decisions needed for Pi-hole first.
 
-- Decide the test and final `/srv` layout, mount identity, and Pi-hole persistence path. Chef currently uses `/srv/pihole`; Skillet currently uses `/etc/pihole`.
+- Implement the decided `/var/lib/data` mount and Pi-hole persistence path.
+  Chef currently uses `/srv/pihole`; Skillet currently uses `/etc/pihole`.
 - Put formatting/partition creation in the installation path. Skillet must not format existing data during convergence.
 - Make applications depend on their real data mount so a missing disk cannot silently produce an empty replacement data directory on the OS filesystem.
-- Add directory/subvolume/ownership support as required. Defer container graphroot relocation unless chosen explicitly.
+- Add directory/subvolume/ownership support and place system Podman's graphroot
+  under `/var/lib/data` on fresh installs, as decided in the storage design.
 - Extend the implemented direct KeePassXC read and SSH delivery to other named credentials as services need them. Disposable Pi-hole passwords are generated in VM tests.
 - Verify interruption recovery after credential delivery and credential survival across an additional OS rebase. Host-key encryption, atomic replacement, rotation, repeat apply and reboot passed in the VM. Confirm production TPM binding against actual hardware.
 - Account for Podman's on-disk secret copy in the production disk-protection decision.
@@ -95,7 +98,8 @@ Done when: all retained capabilities and data work on clamps, routine convergenc
 
 ## Decisions deferred until needed
 
-- Storage: stock-SSD test layout, final disk arrangement, Pi-hole path, container graphroot.
+- Storage: stock-SSD test layout, final disk arrangement, mount-failure
+  acceptance, and graphroot relocation.
 - Credentials: production TPM/rebase policy and protection of Podman's on-disk copy; portable storage and delivery are decided in the secret design.
 - Services: actual DNS records, domains/routes, Tailscale enrollment, Nebula Sync, Datadog and legacy networking.
 - Cutover: address/identity transitions, outage window and rollback duration.
