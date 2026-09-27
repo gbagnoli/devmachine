@@ -1,8 +1,9 @@
 # Milestone 3 discussion: storage and credentials
 
-Status: remaining work, 2026-09-27. Base provisioning is implemented. Storage
-mount path and final disk remain open; credential decisions are recorded in
-[the secret design](../design/secrets.md).
+Status: remaining work, 2026-09-27. Base provisioning is implemented. The
+storage mount path and subvolume layout are decided in
+[the storage design](../design/storage.md); final physical disk remains open.
+Credential decisions are recorded in [the secret design](../design/secrets.md).
 
 3B progress: exact KDBX lookup, an XDG data-home vault default, encrypted SSH
 delivery, a full-apply unit, and Pi-hole secret file wiring are implemented.
@@ -20,7 +21,10 @@ settle storage before migrating production Pi-hole state.
 
 ## 3A: application storage
 
-Agreed direction: one Btrfs filesystem sharing space between OS and data, with separate subvolumes, following boxy's approach. The particular data mount path is not important to the user. Final disk selection remains open; the Samsung remains in rupik until cutover.
+Decided: one Btrfs filesystem sharing space between OS and data, with a `data`
+subvolume mounted at `/var/lib/data` and child `pihole` and `containers`
+subvolumes. See [storage design](../design/storage.md). Final disk selection
+remains open; the Samsung remains in rupik until cutover.
 
 Read-only SSH inspection of boxy confirmed:
 
@@ -39,12 +43,18 @@ User-reported existing fleet differences: calculon mounts a separate Btrfs files
 
 After that choice, establish whether the Samsung's existing filesystem/subvolume structure should be preserved or its data restored into a new layout. Use a read-only inventory of disk identifiers, filesystem types, sizes, subvolumes and used space when access is available. Do not infer these from Chef's `/dev/sda3` default.
 
-Proposed defaults for discussion:
+Implementation decisions and checks:
 
-- Keep OS/data subvolumes on the shared filesystem while respecting uCore's deployment layout. Do not assume boxy's ordinary `/os` root mount can be copied literally into an ostree installation; prove the installation/rebase mechanism in the VM.
-- Proposed canonical data mount: `/var/lib/data`, matching boxy and calculon. An alternative remains `/srv`; settle the path before implementation.
-- Place Pi-hole under `<data-root>/pihole`, preserving its configuration layout during migration rather than requiring its old absolute host path.
-- Proposed system Podman graphroot: `<data-root>/containers/system`, following boxy. Confirm the storage driver and SELinux labeling on uCore before committing it. Configure before the first application container; never switch the driver of an existing populated store implicitly. Add rootless storage only if clamps actually needs it.
+- Keep uCore's composefs root and Btrfs `/sysroot` and `/var` layout. The
+  existing VM uses `/dev/vda4` for the writable backing filesystem; prove the
+  new `data` mount across reboot and rebase.
+- Mount the `data` subvolume at `/var/lib/data`. Place Pi-hole under
+  `/var/lib/data/pihole`, with its container `/etc/pihole` at `pihole/etc`.
+- Put system Podman's graphroot at `/var/lib/data/containers/system` on a fresh
+  installation. The VM currently uses overlay at `/var/lib/containers/storage`;
+  keep that driver and verify SELinux labeling after relocation. Existing
+  populated stores require an explicit migration or fresh VM, never an
+  implicit path or driver switch.
 - Use stable disk/filesystem identifiers. Ignition handles installation-time formatting only for explicitly selected new/test storage. Skillet converges mounts, directories, permissions and eventual subvolumes without formatting populated disks.
 - Make the data subvolume mount a prerequisite for directory creation, container storage use and application startup. A failed data mount should leave SSH available where the OS can still boot, with dependent applications stopped and the failure visible. Loss of the shared physical disk also loses the OS; subvolumes do not provide device independence.
 - Model the selected layout on one disposable VM disk. Test a failed/unavailable data subvolume mount rather than removing the shared OS disk.
@@ -92,7 +102,6 @@ Exit criteria for 3B:
 5. A rotation reaches the running fixture; a subsequent apply causes no further recreation.
 6. Missing, corrupt or undecryptable credentials produce a clear failure and follow a documented recovery procedure. They never fall back to an empty/default production password.
 
-The first Pi-hole VM apply follows credential delivery; storage acceptance is
-required before production-state migration. Shared Btrfs subvolumes and KeePassXC
-are selected; physical disk, mount path, graphroot and production TPM details
-still need resolution.
+The first Pi-hole VM apply followed credential delivery. Storage acceptance is
+required before production-state migration. Physical disk and production TPM
+details still need resolution.
