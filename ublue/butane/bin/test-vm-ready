@@ -12,9 +12,13 @@ host="$(config_value host)"
 uri="$(config_value uri)"
 ssh_port="$(config_value ssh_port)"
 runtime_dir="$(config_value runtime_dir)"
+backend="$(config_value backend)"
+[[ -n "$backend" ]] || backend=native
 [[ "$host" =~ ^[a-z][a-z0-9-]*$ && "$vm" == "$host"-test-* ]] || { echo "Invalid host VM manifest" >&2; exit 1; }
 vm_virsh() {
-  if [[ -n "$runtime_dir" ]]; then
+  if [[ "$backend" == flatpak ]]; then
+    TEST_VM_LIBVIRT_RUNTIME_DIR="$runtime_dir" virsh -c "$uri" "$@"
+  elif [[ -n "$runtime_dir" ]]; then
     env XDG_RUNTIME_DIR="$runtime_dir" virsh -c "$uri" "$@"
   else
     virsh -c "$uri" "$@"

@@ -1,6 +1,5 @@
-#!/bin/bash
-
+#!/usr/bin/env bash
 set -euo pipefail
 
 script_dir="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-exec "$script_dir/flatpak-virt" virt-install "$@"
+exec "$script_dir/flatpak-virt" virsh "$@"
