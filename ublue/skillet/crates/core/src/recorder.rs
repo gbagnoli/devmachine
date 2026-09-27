@@ -42,6 +42,23 @@ impl<T> Recorder<T> {
 }
 
 impl<T: FileResource> FileResource for Recorder<T> {
+    fn require_btrfs_subvolume_mount(
+        &self,
+        path: &Path,
+        backing_mount: &Path,
+        subvolume_root: &str,
+    ) -> Result<(), FileError> {
+        self.inner
+            .require_btrfs_subvolume_mount(path, backing_mount, subvolume_root)
+    }
+
+    fn ensure_btrfs_subvolume(&self, path: &Path) -> Result<bool, FileError> {
+        self.record(ResourceOp::EnsureBtrfsSubvolume {
+            path: path.display().to_string(),
+        });
+        self.inner.ensure_btrfs_subvolume(path)
+    }
+
     fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
         self.inner.read_file(path)
     }

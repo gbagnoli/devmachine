@@ -4,6 +4,39 @@ use std::os::unix::fs::PermissionsExt;
 use tempfile::tempdir;
 
 #[test]
+fn data_mount_requires_the_expected_btrfs_subvolume() {
+    let mountinfo = "1 0 0:31 /ostree/deploy/fedora-coreos/var /var rw - btrfs /dev/vda4 rw\n\
+                     2 1 0:31 /data /var/lib/data rw - btrfs /dev/vda4 rw\n";
+    let data = Path::new("/var/lib/data");
+    let backing = Path::new("/var");
+
+    assert!(require_btrfs_mount_in(mountinfo, data, backing, "/data").is_ok());
+    assert!(matches!(
+        require_btrfs_mount_in(mountinfo, data, backing, "/other"),
+        Err(FileError::WrongMount(_))
+    ));
+    assert!(matches!(
+        require_btrfs_mount_in(mountinfo, Path::new("/missing"), backing, "/data"),
+        Err(FileError::MountMissing(_))
+    ));
+}
+
+#[test]
+fn data_mount_rejects_an_unrelated_filesystem() {
+    let mountinfo = "1 0 0:31 /ostree/deploy/fedora-coreos/var /var rw - btrfs /dev/vda4 rw\n\
+                     2 1 0:44 /data /var/lib/data rw - btrfs /dev/vdb1 rw\n";
+    assert!(matches!(
+        require_btrfs_mount_in(
+            mountinfo,
+            Path::new("/var/lib/data"),
+            Path::new("/var"),
+            "/data"
+        ),
+        Err(FileError::WrongMount(_))
+    ));
+}
+
+#[test]
 fn test_ensure_file_creates_file() {
     let dir = tempdir().unwrap();
     let file_path = dir.path().join("test.txt");

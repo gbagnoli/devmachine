@@ -57,12 +57,27 @@ pub fn apply_beezelbot(
     system: &dyn SystemResource,
     files: &dyn FileResource,
 ) -> Result<(), ApplyError> {
-    skillet_hardening::apply(system, files).map_err(|e| ApplyError::Hardening(e.to_string()))
+    apply_full_base(system, files)
 }
 
 /// Shared host baseline used by both CLI entry points.
 pub fn apply_base(system: &dyn SystemResource, files: &dyn FileResource) -> Result<(), ApplyError> {
     skillet_hardening::apply(system, files).map_err(|e| ApplyError::Hardening(e.to_string()))
+}
+
+/// Shared full-apply baseline. Base apply runs before the signed image is
+/// ready, while full apply requires the persistent data mount.
+pub fn apply_full_base(
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+) -> Result<(), ApplyError> {
+    apply_base(system, files)?;
+    files.require_btrfs_subvolume_mount(
+        std::path::Path::new("/var/lib/data"),
+        std::path::Path::new("/var"),
+        "/data",
+    )?;
+    Ok(())
 }
 
 /// Name of the systemd credential (and podman secret) holding the Pi-hole
@@ -85,7 +100,8 @@ pub fn apply_clamps(
     system: &dyn SystemResource,
     files: &dyn FileResource,
 ) -> Result<(), ApplyError> {
-    apply_base(system, files)?;
+    // Check before Podman can create a graphroot on the fallback /var tree.
+    apply_full_base(system, files)?;
 
     // 1. Ingest secret from systemd (lazy: only this host needs secrets)
     let credentials = CredentialManager::new()?;

@@ -161,3 +161,30 @@ host tool; it still uses normal command approvals.
   persistence. Guest evidence remains under `/var/lib/skillet-smoke/`.
 - This run used no KeePassXC vault or Cloudflare token. It did not check
   storage mounts, Pi-hole DNS/web behavior, or post-delivery OS rebase.
+
+## Shared Btrfs data storage, 2026-09-27
+
+- Fresh `clamps-test-storage` VM on port 2203 booted from Butane with the
+  shared `data-storage.bu` include. After the signed uCore bootstrap,
+  `/var/lib/data` mounted as Btrfs `/data` on the same filesystem as `/var`.
+  `skillet-data-prepare.service` created the `containers` subvolume and
+  restored the rootful graphroot SELinux label. Podman reported graphroot
+  `/var/lib/data/containers/system`, runroot `/run/containers/storage`, and
+  driver `overlay`.
+- Dummy-credential provisioning created the `pihole` child subvolume and
+  started Pi-hole with bind paths under `/var/lib/data/pihole/{etc,dnsmasq.d,log}`.
+  Repeated full apply retained the subvolume and running container. After
+  Pi-hole changed ownership of its own files, two further applies made no
+  metadata changes or container replacement.
+- A sentinel in the Pi-hole data tree survived VM reboot. Temporarily masking
+  `var-lib-data.mount` caused full apply to fail without creating fallback
+  Pi-hole or container paths. A wrong tmpfs mount was rejected by both the
+  shared preparation script and Skillet before either wrote to it. Restoring
+  the real mount and running normal convergence recovered Pi-hole and retained
+  the sentinel. The temporary mount override was removed.
+- The real Podman/systemd `test smoke clamps` scenario passed against this VM,
+  including its reboot and recovery cases, after deployment of the final
+  shared full-apply guard. Workspace tests, pedantic Clippy, ShellCheck for
+  both storage scripts, and `git diff --check` passed. These checks did not include a
+  post-provision OS rebase or the physical stock SSD. Other host templates do
+  not yet merge the shared include because they do not yet exist.
