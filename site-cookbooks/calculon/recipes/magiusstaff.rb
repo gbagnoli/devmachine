@@ -37,18 +37,21 @@ calculon_btrfs_volume syncd do
   setfacl true
 end
 
+port = 8386
+external_port = 22_201
+
 podman_container "magiusstaff-syncthing" do
   config(
     Container: %W{
       Image=docker.io/syncthing/syncthing:latest
       Environment=PUID=#{user_uid}
       Environment=PGID=#{group_gid}
-      PublishPort=[#{ipv6}]:8386:8384
-      PublishPort=#{ipv4}:8386:8384
-      PublishPort=[::]:22200:22000/tcp
-      PublishPort=[0.0.0.0]:22200:22000/tcp
-      PublishPort=[::]:22200:22000/udp
-      PublishPort=[0.0.0.0]:22200:22000/udp
+      PublishPort=[#{ipv6}]:#{port}:8384
+      PublishPort=#{ipv4}:#{port}:8384
+      PublishPort=[::]:#{external_port}:22000/tcp
+      PublishPort=[0.0.0.0]:#{external_port}:22000/tcp
+      PublishPort=[::]:#{external_port}:22000/udp
+      PublishPort=[0.0.0.0]:#{external_port}:22000/udp
       Volume=#{syncd}:/var/syncthing
       HostName=magiustaff-sync.tigc.eu
       Network=calculon.network
@@ -68,7 +71,7 @@ podman_container "magiusstaff-syncthing" do
 end
 
 calculon_firewalld_port "magiusstaff-syncthing" do
-  port %w{22200/tcp 22200/udp}
+  port(%W{#{external_port}/tcp #{external_port}/udp})
 end
 
 fbdir = "#{syncd}/.filebrowser"
