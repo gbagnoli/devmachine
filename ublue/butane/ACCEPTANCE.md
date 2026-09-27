@@ -146,3 +146,18 @@ host tool; it still uses normal command approvals.
   denied, `shellcheck` and `bash -n` for `bin/test-vm`, and `git diff --check`.
 - Post-delivery OS rebase, interruption recovery, production TPM binding,
   Cloudflare token migration, and Pi-hole DNS/web behavior were not checked.
+
+## Fresh default smoke VM, 2026-09-27
+
+- The retained `clamps-test-smoke` VM predated `skillet-full-apply.service`:
+  readiness passed, but `test vm provision clamps smoke` failed because that
+  unit was absent. The owned disposable domain and run directory were removed.
+- `test vm create clamps smoke` then built a fresh VM from current Butane and
+  passed signed-image readiness and the user-environment checks. The run
+  artifacts remain in the ignored `runs/clamps-test-smoke/` directory.
+- `test vm provision clamps smoke` delivered a generated dummy credential and
+  completed full apply. `test smoke clamps` passed all real-systemd/Podman
+  fixture cases, including repeat apply, recovery, secret rotation, and reboot
+  persistence. Guest evidence remains under `/var/lib/skillet-smoke/`.
+- This run used no KeePassXC vault or Cloudflare token. It did not check
+  storage mounts, Pi-hole DNS/web behavior, or post-delivery OS rebase.
