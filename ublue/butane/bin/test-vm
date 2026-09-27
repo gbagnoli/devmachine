@@ -7,7 +7,71 @@ script_dir="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 root="$(realpath -m "$script_dir/../runs")"
 uri=qemu:///session
 runtime_dir="/run/user/$(id -u)/skillet-test-libvirt"
-vm_virsh() { env XDG_RUNTIME_DIR="$runtime_dir" /usr/bin/virsh -c "$uri" "$@"; }
+backend=
+vm_virsh() {
+  if [[ "$backend" == flatpak ]]; then
+    "$script_dir/virsh" -c "$uri" "$@"
+  else
+    env XDG_RUNTIME_DIR="$runtime_dir" /usr/bin/virsh -c "$uri" "$@"
+  fi
+}
+select_backend() {
+  if [[ -x /usr/bin/virsh && -x /usr/bin/virtqemud && -x /usr/bin/virtstoraged ]]; then
+    backend=native
+  elif flatpak info org.virt_manager.virt-manager >/dev/null 2>&1 &&
+       flatpak info org.virt_manager.virt_manager.Extension.Qemu >/dev/null 2>&1; then
+    backend=flatpak
+    runtime_dir="/run/user/$(id -u)/skvm"
+    export TEST_VM_LIBVIRT_RUNTIME_DIR="$runtime_dir"
+    export PATH="$script_dir:$PATH"
+  else
+    echo 'Neither native libvirt nor Flatpak virt-manager is available.' >&2
+    exit 1
+  fi
+}
+runtime_from_manifest() {
+  backend="$(config_value backend)"
+  runtime_dir="$(config_value runtime_dir)"
+  if [[ -z "$backend" && "$runtime_dir" == /run/user/"$(id -u)"/* ]]; then
+    backend=native
+  fi
+  [[ "$backend" == native || "$backend" == flatpak ]] || { echo 'Invalid VM backend in manifest' >&2; exit 1; }
+  if [[ "$backend" == flatpak ]]; then
+    export TEST_VM_LIBVIRT_RUNTIME_DIR="$runtime_dir"
+    export PATH="$script_dir:$PATH"
+  fi
+}
+ensure_runtime() {
+  if [[ "$backend" == native ]]; then
+    ensure_native_runtime
+  else
+    flatpak info org.virt_manager.virt-manager >/dev/null 2>&1 &&
+      flatpak info org.virt_manager.virt_manager.Extension.Qemu >/dev/null 2>&1 || {
+      echo 'Flatpak virt-manager or its QEMU extension is unavailable' >&2; exit 1;
+    }
+    [[ "$runtime_dir" == "/run/user/$(id -u)/skvm" && ! -L "$runtime_dir" ]] || {
+      echo 'Invalid Flatpak libvirt runtime path' >&2; exit 1;
+    }
+    mkdir -p -m 0700 "$runtime_dir"
+    if [[ ! -f "$runtime_dir/flatpak.pid" ]] || ! kill -0 "$(cat "$runtime_dir/flatpak.pid")" 2>/dev/null; then
+      setsid "$script_dir/flatpak-virt" sh -c \
+        'virtlogd --timeout 0 & virtstoraged --timeout 0 & virtqemud --timeout 0 & wait' \
+        > "$runtime_dir/flatpak.log" 2>&1 < /dev/null &
+      echo "$!" > "$runtime_dir/flatpak.pid"
+    fi
+    for ((attempt=0; attempt<20; attempt++)); do
+      if [[ -S "$runtime_dir/libvirt/virtqemud-sock" && -S "$runtime_dir/libvirt/virtstoraged-sock" ]]; then
+        break
+      fi
+      sleep 1
+    done
+    [[ -S "$runtime_dir/libvirt/virtqemud-sock" && -S "$runtime_dir/libvirt/virtstoraged-sock" ]] || {
+      echo 'Flatpak libvirt daemons did not start' >&2
+      tail -30 "$runtime_dir/flatpak.log" >&2
+      exit 1
+    }
+  fi
+}
 ensure_native_runtime() {
   [[ ! -L "$runtime_dir" ]] || { echo "Symlinked libvirt runtime refused" >&2; exit 1; }
   if [[ ! -d "$runtime_dir" ]]; then
@@ -32,7 +96,8 @@ host_available() {
   [[ -f "$script_dir/../$1.bu" && -f "$script_dir/../../skillet/crates/hosts/$1/Cargo.toml" ]]
 }
 list_host() {
-  local listed_host="$1" availability=unavailable found=false listed_run listed_name listed_instance listed_state listed_port listed_runtime recorded_uuid actual_uuid
+  local listed_host="$1" availability=unavailable found=false listed_run listed_name listed_instance listed_state listed_port listed_runtime listed_backend recorded_uuid actual_uuid
+  local -a listed_virsh
   if host_available "$listed_host"; then availability=available; fi
   for listed_run in "$root"/"$listed_host"-test-*/run.conf; do
     [[ -f "$listed_run" ]] || continue
@@ -45,11 +110,18 @@ list_host() {
     if [[ ! -L "$run_dir" && ! -L "$listed_run" && "$(config_value vm)" == "$listed_name" && "$(config_value host)" == "$listed_host" && "$(config_value uri)" == "$uri" ]]; then
       listed_port="$(config_value ssh_port)"
       listed_runtime="$(config_value runtime_dir)"
-      if [[ "$listed_port" =~ ^22[0-9][0-9]$ && "$listed_runtime" == /run/user/"$(id -u)"/* && -f "$run_dir/domain.uuid" ]]; then
+      listed_backend="$(config_value backend)"
+      [[ -n "$listed_backend" ]] || listed_backend=native
+      if [[ "$listed_port" =~ ^22[0-9][0-9]$ && -f "$run_dir/domain.uuid" && ( ( "$listed_backend" == flatpak && "$listed_runtime" == "/run/user/$(id -u)/skvm" ) || ( "$listed_backend" == native && "$listed_runtime" == /run/user/"$(id -u)"/* ) ) ]]; then
         recorded_uuid="$(cat "$run_dir/domain.uuid")"
-        if [[ "$recorded_uuid" =~ ^[0-9a-f-]{36}$ ]] && actual_uuid="$(env XDG_RUNTIME_DIR="$listed_runtime" /usr/bin/virsh -c "$uri" domuuid "$listed_name" 2>/dev/null)"; then
+        if [[ "$listed_backend" == flatpak ]]; then
+          listed_virsh=(env TEST_VM_LIBVIRT_RUNTIME_DIR="$listed_runtime" "$script_dir/virsh")
+        else
+          listed_virsh=(env XDG_RUNTIME_DIR="$listed_runtime" /usr/bin/virsh)
+        fi
+        if [[ "$recorded_uuid" =~ ^[0-9a-f-]{36}$ ]] && actual_uuid="$("${listed_virsh[@]}" -c "$uri" domuuid "$listed_name" 2>/dev/null)"; then
           if [[ "$actual_uuid" == "$recorded_uuid" ]]; then
-            listed_state="$(env XDG_RUNTIME_DIR="$listed_runtime" /usr/bin/virsh -c "$uri" domstate "$listed_name" 2>/dev/null)" || listed_state=unknown
+            listed_state="$("${listed_virsh[@]}" -c "$uri" domstate "$listed_name" 2>/dev/null)" || listed_state=unknown
           else
             listed_state=mismatch
           fi
@@ -112,8 +184,13 @@ inspect_owned() {
   [[ "$(config_value vm)" == "$name" && "$(config_value host)" == "$host" && "$(config_value uri)" == "$uri" ]] || {
     echo "Run manifest does not match requested domain" >&2; exit 1;
   }
-  runtime_dir="$(config_value runtime_dir)"
-  [[ "$runtime_dir" == /run/user/"$(id -u)"/* ]] || { echo "Invalid recorded libvirt runtime" >&2; exit 1; }
+  runtime_from_manifest
+  if [[ "$backend" == native ]]; then
+    [[ "$runtime_dir" == /run/user/"$(id -u)"/* ]] || { echo "Invalid recorded libvirt runtime" >&2; exit 1; }
+  else
+    [[ "$runtime_dir" == "/run/user/$(id -u)/skvm" ]] || { echo "Invalid Flatpak runtime" >&2; exit 1; }
+  fi
+  ensure_runtime
   actual_uuid="$(vm_virsh domuuid "$name")"
   [[ "$actual_uuid" == "$(cat "$run_dir/domain.uuid")" ]] || { echo "Domain UUID mismatch" >&2; exit 1; }
   disk="$run_dir/$name.qcow2"
@@ -144,47 +221,51 @@ case "$operation" in
     [[ "$port" =~ ^22[0-9][0-9]$ ]] || { echo "Use a port from 2200 to 2299" >&2; exit 2; }
     [[ ! -e "$run_dir" && ! -L "$run_dir" ]] || { echo "Run path already exists" >&2; exit 1; }
     host_available "$host" || { echo "Host $host needs both $host.bu and a skillet-$host crate" >&2; exit 1; }
-    ensure_native_runtime
+    select_backend
+    if [[ "$backend" == native ]]; then
+      for executable in virt-install qemu-system-x86_64 passt; do
+        command -v "$executable" >/dev/null || { echo "Missing native VM tool: $executable" >&2; exit 1; }
+      done
+    fi
+    if [[ ! -e /dev/kvm ]]; then
+      echo '/dev/kvm is unavailable; enable hardware virtualization and KVM before creating a VM.' >&2
+      exit 1
+    fi
+    ensure_runtime
     if vm_virsh dominfo "$name" &>/dev/null; then
       echo "Domain already exists" >&2; exit 1
     fi
     mkdir -p "$root"
-    TEST_VM_LIBVIRT_RUNTIME_DIR="$runtime_dir" "$script_dir/coreos-install" --name "$name" --output-dir "$run_dir" \
+    TEST_VM_BACKEND="$backend" TEST_VM_LIBVIRT_RUNTIME_DIR="$runtime_dir" "$script_dir/coreos-install" --name "$name" --output-dir "$run_dir" \
       --ssh-port "$port" --libvirt-uri "$uri" "$script_dir/../$host.bu"
     vm_virsh domuuid "$name" > "$run_dir/domain.uuid"
     echo "Run: $run_dir" ;;
   ready)
     (($# == 0)) || usage
-    ensure_native_runtime
     inspect_owned
     "$script_dir/test-vm-ready" "$run_dir" ;;
   status)
     (($# == 0)) || usage
-    ensure_native_runtime
     inspect_owned
     vm_virsh dominfo "$name"
     vm_virsh domblklist "$name" ;;
   ssh)
     (($# == 0)) || usage
-    ensure_native_runtime
     inspect_owned
     ssh_args
     exec ssh "${args[@]}" giacomo@127.0.0.1 ;;
   logs)
     (($# == 0)) || usage
-    ensure_native_runtime
     inspect_owned
     ssh_args
     ssh "${args[@]}" giacomo@127.0.0.1 \
       'sudo -n rpm-ostree status; sudo -n journalctl -b -u ucore-bootstrap.service -u skillet-apply.service --no-pager -n 200' ;;
   reboot)
     (($# == 0)) || usage
-    ensure_native_runtime
     inspect_owned
     vm_virsh reboot "$name" ;;
   destroy)
     (($# == 0)) || usage
-    ensure_native_runtime
     inspect_owned
     if [[ "$(vm_virsh domstate "$name")" != 'shut off' ]]; then
       vm_virsh destroy "$name"

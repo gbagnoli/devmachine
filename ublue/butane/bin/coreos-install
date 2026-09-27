@@ -21,7 +21,7 @@ artifact=
 image=
 libvirt_uri=qemu:///session
 vm_command() {
-  if [[ -n "${TEST_VM_LIBVIRT_RUNTIME_DIR:-}" ]]; then
+  if [[ -n "${TEST_VM_LIBVIRT_RUNTIME_DIR:-}" && "${TEST_VM_BACKEND:-native}" == native ]]; then
     env XDG_RUNTIME_DIR="$TEST_VM_LIBVIRT_RUNTIME_DIR" "$@"
   else
     "$@"
@@ -122,8 +122,8 @@ fi
 cp --reflink=auto "$image" "$output_dir/$vm_name.qcow2"
 sha256sum "$output_dir/source/files/skillet-$host" > "$output_dir/skillet.sha256"
 sha256sum "$image" > "$output_dir/fcos-image.sha256"
-printf 'vm=%s\nhost=%s\nuri=%s\nssh_port=%s\nimage=%s\nartifact=%s\nruntime_dir=%s\nsource_commit=%s\n' \
-  "$vm_name" "$host" "$libvirt_uri" "$ssh_port" "$image" "$artifact" "${TEST_VM_LIBVIRT_RUNTIME_DIR:-}" \
+printf 'vm=%s\nhost=%s\nuri=%s\nssh_port=%s\nimage=%s\nartifact=%s\nruntime_dir=%s\nbackend=%s\nsource_commit=%s\n' \
+  "$vm_name" "$host" "$libvirt_uri" "$ssh_port" "$image" "$artifact" "${TEST_VM_LIBVIRT_RUNTIME_DIR:-}" "${TEST_VM_BACKEND:-native}" \
   "$(git -C "$repo_dir" rev-parse HEAD)" > "$output_dir/run.conf"
 {
   virt-install --version
@@ -132,7 +132,13 @@ printf 'vm=%s\nhost=%s\nuri=%s\nssh_port=%s\nimage=%s\nartifact=%s\nruntime_dir=
   yq --version
 } > "$output_dir/tool-versions.txt"
 
-network="passt,model=virtio,portForward0.proto=tcp,portForward0.address=127.0.0.1,portForward0.range0.start=$ssh_port,portForward0.range0.to=22"
+if [[ "${TEST_VM_BACKEND:-native}" == flatpak ]]; then
+  network=none
+  qemu_commandline="-fw_cfg name=opt/com.coreos/config,file=$ignition -netdev user,id=skilletnet,hostfwd=tcp:127.0.0.1:$ssh_port-:22 -device virtio-net-pci,netdev=skilletnet,bus=pcie.0,addr=0x1d"
+else
+  network="passt,model=virtio,portForward0.proto=tcp,portForward0.address=127.0.0.1,portForward0.range0.start=$ssh_port,portForward0.range0.to=22"
+  qemu_commandline="-fw_cfg name=opt/com.coreos/config,file=$ignition"
+fi
 echo "Creating $vm_name on $libvirt_uri, disk $output_dir/$vm_name.qcow2, SSH 127.0.0.1:$ssh_port" >&2
 vm_command virt-install --connect "$libvirt_uri" --name "$vm_name" \
   --osinfo linux2024 --memory 8192 --vcpus 2 --import \
@@ -140,4 +146,4 @@ vm_command virt-install --connect "$libvirt_uri" --name "$vm_name" \
   --disk "path=$ignition,format=raw,bus=virtio,readonly=on" \
   --network "$network" --graphics none \
   --console pty,target_type=serial --noautoconsole \
-  --qemu-commandline="-fw_cfg name=opt/com.coreos/config,file=$ignition"
+  --qemu-commandline="$qemu_commandline"

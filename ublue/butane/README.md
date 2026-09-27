@@ -1,12 +1,24 @@
 # Clamps VM bootstrap
 
 A clean disposable VM create passed signed boot and readiness on 2026-09-26.
+The Flatpak backend on Bazzite passed create, status, and readiness on 2026-09-27.
 See [ACCEPTANCE.md](ACCEPTANCE.md) for the checks performed and remaining work.
 
 `clamps.bu` is a VM configuration. It resizes and reformats partition 4 on
 `/dev/vda`, the virtio disk attached by this launcher. Do not use it as a
-physical-disk install file. The host needs native libvirt on `qemu:///session`,
-`virt-install`, `passt`, Podman, `yq`, `rg`, `ssh-keygen`, and KVM.
+physical-disk install file. The host needs Podman, `yq`, `rg`, `ssh-keygen`,
+and KVM. Native libvirt additionally needs `passt`; the Flatpak backend uses
+QEMU user networking. VM commands can come from native libvirt and
+`virt-install`, or an existing Flatpak virt-manager with its QEMU extension.
+
+On Bazzite, the helper uses the existing Flatpak virt-manager installation
+when native libvirt is absent. The `bin/virsh` and `bin/virt-install` wrappers
+run those tools in the Flatpak sandbox. The helper starts separate Flatpak
+libvirt daemons under `/run/user/UID/skvm`, grants them access to `butane/`,
+and uses QEMU user networking to forward the selected localhost SSH port.
+The helper records the selected backend in `runs/NAME/run.conf` so later
+commands use the same VM runtime. Check that `/dev/kvm` is accessible on the
+host. The helper does not install host software.
 
 From this directory, create and check the default disposable clamps VM with:
 
@@ -65,14 +77,19 @@ Homebrew and the `core` dotfiles profile install after the signed clamps boot.
 The dotfiles installer links `authorized_keys`; the SSH configuration also
 reads Ignition's key file, so the generated VM key remains usable.
 `--image PATH` selects a specific FCOS qcow2;
-the default is `images/coreos.qcow2` when present. The VM uses passt with an
-inbound forward bound to `127.0.0.1`.
+the default is `images/coreos.qcow2` when present. Both VM backends forward
+the SSH port on `127.0.0.1`; native libvirt uses passt and Flatpak uses QEMU
+user networking.
 
-`bin/test-vm` starts a separate native user libvirt daemon with
-`XDG_RUNTIME_DIR=/run/user/UID/skillet-test-libvirt`. This keeps the native
-daemon in the same filesystem view as generated artifacts when Flatpak
-virt-manager has its own session daemon. For manual virsh inspection of a
-helper-created VM, set that environment variable on each virsh invocation.
+When native libvirt is available, `bin/test-vm` starts a separate user daemon
+with `XDG_RUNTIME_DIR=/run/user/UID/skillet-test-libvirt`. For manual virsh
+inspection of a native helper-created VM, set that variable on each call.
+For Flatpak runs, use the same isolated runtime when invoking `virsh` by hand:
+
+```bash
+TEST_VM_LIBVIRT_RUNTIME_DIR="/run/user/$(id -u)/skvm" \
+  ./bin/virsh -c qemu:///session list --all
+```
 
 Connect with:
 
