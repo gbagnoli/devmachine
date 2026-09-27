@@ -13,6 +13,10 @@ physical-disk install file. The host needs Podman, `yq`, `rg`, `ssh-keygen`,
 and KVM. Native libvirt additionally needs `passt`; the Flatpak backend uses
 QEMU user networking. VM commands can come from native libvirt and
 `virt-install`, or an existing Flatpak virt-manager with its QEMU extension.
+The shared [data storage design](../design/storage.md) is implemented by
+`includes/data-storage.bu`. On a fresh VM it mounts the Btrfs `data` subvolume
+at `/var/lib/data` and sets rootful Podman's graphroot there. Recreate a
+disposable VM made before this include to check the install-time layout.
 
 On Bazzite, the helper uses the existing Flatpak virt-manager installation
 when native libvirt is absent. The `bin/virsh` and `bin/virt-install` wrappers

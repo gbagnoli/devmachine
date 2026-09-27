@@ -18,6 +18,9 @@ pub enum ResourceOp {
         owner: Option<String>,
         group: Option<String>,
     },
+    EnsureBtrfsSubvolume {
+        path: String,
+    },
     EnsureGroup {
         name: String,
     },

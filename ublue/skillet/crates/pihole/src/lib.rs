@@ -45,8 +45,12 @@ where
     F: FileResource + ?Sized,
 {
     info!("Applying pihole configuration...");
-    let root = "/etc/pihole";
-    let logs = "/var/log/pihole";
+    let root = "/var/lib/data/pihole";
+    let etc = "/var/lib/data/pihole/etc";
+    let logs = "/var/lib/data/pihole/log";
+
+    files.require_btrfs_subvolume_mount(Path::new("/var/lib/data"), Path::new("/var"), "/data")?;
+    files.ensure_btrfs_subvolume(Path::new(root))?;
 
     // 1. Ensure user and group
     system.ensure_group(&user_config.group_name, user_config.gid)?;
@@ -54,19 +58,9 @@ where
 
     // 2. Ensure directories
     files.ensure_directory(Path::new(root), Some(0o755), Some("root"), Some("root"))?;
-    files.ensure_directory(
-        &Path::new(root).join("conf"),
-        Some(0o755),
-        Some("root"),
-        Some("root"),
-    )?;
-    files.ensure_directory(
-        &Path::new(root).join("dnsmasq.d"),
-        Some(0o755),
-        Some("root"),
-        Some("root"),
-    )?;
-    files.ensure_directory(Path::new(logs), Some(0o755), Some("root"), Some("root"))?;
+    files.ensure_directory(Path::new(etc), Some(0o755), None, None)?;
+    files.ensure_directory(&Path::new(root).join("dnsmasq.d"), Some(0o755), None, None)?;
+    files.ensure_directory(Path::new(logs), Some(0o755), None, None)?;
 
     // 3. Custom list template (records supplied by the host)
     let template = CustomListTemplate {
@@ -78,11 +72,11 @@ where
         )))
     })?;
     files.ensure_file(
-        &Path::new(root).join("conf/custom.list"),
+        &Path::new(etc).join("custom.list"),
         custom_list.as_bytes(),
         Some(0o640),
-        Some("root"),
-        Some("root"),
+        None,
+        None,
     )?;
 
     // 4. Define container
@@ -96,7 +90,7 @@ where
     // host paths on enforcing systems such as uCore.
     let volumes = vec![
         Volume {
-            host_path: format!("{root}/conf"),
+            host_path: etc.to_string(),
             container_path: "/etc/pihole".to_string(),
             options: Some("z".to_string()),
         },
@@ -123,6 +117,11 @@ where
         vec![
             "Description=Pi. Hole".to_string(),
             "After=network-online.target".to_string(),
+            "Requires=skillet-data-prepare.service".to_string(),
+            "After=skillet-data-prepare.service".to_string(),
+            "BindsTo=var-lib-data.mount".to_string(),
+            "After=var-lib-data.mount".to_string(),
+            "AssertPathIsMountPoint=/var/lib/data".to_string(),
         ],
     );
     extra_config.insert(

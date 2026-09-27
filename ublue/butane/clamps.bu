@@ -8,6 +8,7 @@ ignition:
       - local: includes/passwd.bu
       - local: includes/zram.bu
       - local: includes/resolver.bu
+      - local: includes/data-storage.bu
       - local: includes/brew.bu
       - local: includes/skillet.bu
       - local: includes/ucore-bootstrap.bu

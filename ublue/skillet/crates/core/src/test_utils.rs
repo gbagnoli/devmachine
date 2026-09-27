@@ -192,6 +192,19 @@ impl Default for MockFiles {
 }
 
 impl FileResource for MockFiles {
+    fn require_btrfs_subvolume_mount(
+        &self,
+        _path: &Path,
+        _backing_mount: &Path,
+        _subvolume_root: &str,
+    ) -> Result<(), FileError> {
+        Ok(())
+    }
+
+    fn ensure_btrfs_subvolume(&self, path: &Path) -> Result<bool, FileError> {
+        self.ensure_directory(path, None, None, None)
+    }
+
     fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
         Ok(self
             .files

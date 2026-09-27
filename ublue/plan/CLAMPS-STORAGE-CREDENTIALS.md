@@ -4,6 +4,11 @@ Status: remaining work, 2026-09-27. Base provisioning is implemented. The
 storage mount path and subvolume layout are decided in
 [the storage design](../design/storage.md); final physical disk remains open.
 Credential decisions are recorded in [the secret design](../design/secrets.md).
+Shared Butane storage setup, rootful Podman graphroot configuration, Skillet
+mount guards and Pi-hole path changes passed fresh-VM, reboot, repeat-apply,
+and mount-failure checks; see [the acceptance record](../butane/ACCEPTANCE.md).
+The include is host independent and must be merged by each future host's
+Butane template.
 
 3B progress: exact KDBX lookup, an XDG data-home vault default, encrypted SSH
 delivery, a full-apply unit, and Pi-hole secret file wiring are implemented.
@@ -50,13 +55,20 @@ Implementation decisions and checks:
   new `data` mount across reboot and rebase.
 - Mount the `data` subvolume at `/var/lib/data`. Place Pi-hole under
   `/var/lib/data/pihole`, with its container `/etc/pihole` at `pihole/etc`.
-- Put system Podman's graphroot at `/var/lib/data/containers/system` on a fresh
-  installation. The VM currently uses overlay at `/var/lib/containers/storage`;
-  keep that driver and verify SELinux labeling after relocation. Existing
-  populated stores require an explicit migration or fresh VM, never an
-  implicit path or driver switch.
-- Use stable disk/filesystem identifiers. Ignition handles installation-time formatting only for explicitly selected new/test storage. Skillet converges mounts, directories, permissions and eventual subvolumes without formatting populated disks.
-- Make the data subvolume mount a prerequisite for directory creation, container storage use and application startup. A failed data mount should leave SSH available where the OS can still boot, with dependent applications stopped and the failure visible. Loss of the shared physical disk also loses the OS; subvolumes do not provide device independence.
+- The shared Butane include sets system Podman's graphroot to
+  `/var/lib/data/containers/system` on a fresh installation and keeps overlay.
+  Verify SELinux labeling and the effective graphroot on a fresh VM. Existing
+  populated stores require an explicit migration or fresh VM.
+- Use stable disk/filesystem identifiers. Ignition handles installation-time
+  formatting only for selected new/test storage; the shared Butane units create
+  and mount `data`. Skillet verifies the mount and converges application
+  directories, permissions and subvolumes without formatting populated disks.
+- Make the data subvolume mount a prerequisite for Skillet, managed container
+  services and auto-update. A failed data mount should leave SSH available
+  where the OS can still boot, with dependent applications stopped and the
+  failure visible. Manually invoked Podman is outside these unit dependencies.
+  Loss of the shared physical disk also loses the OS; subvolumes do not provide
+  device independence.
 - Model the selected layout on one disposable VM disk. Test a failed/unavailable data subvolume mount rather than removing the shared OS disk.
 
 Exit criteria for 3A:
@@ -66,6 +78,12 @@ Exit criteria for 3A:
 3. An unavailable or wrong data subvolume mount prevents dependent application startup and prevents writes into a fallback OS directory.
 4. Restoring the correct subvolume mount permits recovery through normal convergence without formatting or data loss.
 5. Repeated apply changes neither mount configuration nor directory metadata unnecessarily.
+
+Fresh-VM graphroot, Pi-hole bind paths, SELinux label, reboot, repeated apply,
+unavailable mount, wrong mount and recovery passed on `clamps-test-storage`.
+The sentinel survived reboot and both mount-failure recoveries. Criterion 2
+remains partial until an OS rebase preserves the sentinel. Final disk selection
+and a stock-SSD install are also open.
 
 Snapshots, Syncthing data transfer and final disk cutover are later milestones. Do not introduce all service subvolumes before their requirements are known.
 

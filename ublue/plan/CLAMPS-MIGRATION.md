@@ -12,14 +12,16 @@ Provision clamps with uCore + Skillet and migrate the required behavior and pers
 Implemented: base/full apply separation, activation recovery, fixture smoke
 checks, temporary VM SSH keys, binary delivery, resolver configuration, signed
 bootstrap, user environment, exact KeePassXC reads, and encrypted Pi-hole
-credential delivery. A dummy-credential Pi-hole container runs in the VM;
-service networking, live ACME, and production storage remain open.
+credential delivery, and the shared Btrfs data layout. A dummy-credential
+Pi-hole container runs in the VM with data and Podman storage under
+`/var/lib/data`; service networking, live ACME, final disk selection, and
+post-provision rebase checks remain open.
 
-Next: implement Pi-hole storage and isolated service networking, following the
+Next: implement isolated Pi-hole service networking, following the
 [secret design](../design/secrets.md), [VM lifecycle](../design/smoke-vms.md), and
 [storage design](../design/storage.md) and
-[storage/credential plan](CLAMPS-STORAGE-CREDENTIALS.md). The selected storage
-direction is a shared Btrfs filesystem with `/var/lib/data` as the data mount;
+[storage/credential plan](CLAMPS-STORAGE-CREDENTIALS.md). The implemented VM
+layout uses a shared Btrfs filesystem with `/var/lib/data` as the data mount;
 the final physical disk remains open.
 
 ## Boundaries
@@ -44,12 +46,14 @@ the final physical disk remains open.
 
 Resolve only the decisions needed for Pi-hole first.
 
-- Implement the decided `/var/lib/data` mount and Pi-hole persistence path.
-  Chef currently uses `/srv/pihole`; Skillet currently uses `/etc/pihole`.
+- The shared `/var/lib/data` mount and Pi-hole persistence path are implemented
+  and accepted on a disposable VM. Chef used `/srv/pihole` on rupik.
 - Put formatting/partition creation in the installation path. Skillet must not format existing data during convergence.
-- Make applications depend on their real data mount so a missing disk cannot silently produce an empty replacement data directory on the OS filesystem.
-- Add directory/subvolume/ownership support and place system Podman's graphroot
-  under `/var/lib/data` on fresh installs, as decided in the storage design.
+- Skillet and the managed Pi-hole service now depend on the real data mount;
+  the missing and wrong-mount VM checks passed.
+- Directory/subvolume/mount checks and system Podman's graphroot under
+  `/var/lib/data` passed fresh-VM acceptance. Merge the shared Butane storage
+  include when adding each future host template.
 - Extend the implemented direct KeePassXC read and SSH delivery to other named credentials as services need them. Disposable Pi-hole passwords are generated in VM tests.
 - Verify interruption recovery after credential delivery and credential survival across an additional OS rebase. Host-key encryption, atomic replacement, rotation, repeat apply and reboot passed in the VM. Confirm production TPM binding against actual hardware.
 - Account for Podman's on-disk secret copy in the production disk-protection decision.
@@ -98,8 +102,9 @@ Done when: all retained capabilities and data work on clamps, routine convergenc
 
 ## Decisions deferred until needed
 
-- Storage: stock-SSD test layout, final disk arrangement, mount-failure
-  acceptance, and graphroot relocation.
+- Storage: stock-SSD test layout, final disk arrangement, and post-provision
+  OS rebase acceptance. The disposable VM mount-failure and graphroot checks
+  passed.
 - Credentials: production TPM/rebase policy and protection of Podman's on-disk copy; portable storage and delivery are decided in the secret design.
 - Services: actual DNS records, domains/routes, Tailscale enrollment, Nebula Sync, Datadog and legacy networking.
 - Cutover: address/identity transitions, outage window and rollback duration.

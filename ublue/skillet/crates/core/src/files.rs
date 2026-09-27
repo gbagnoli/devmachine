@@ -4,6 +4,7 @@ use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
 use std::path::Path;
+use std::process::Command;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 use tracing::info;
@@ -35,6 +36,14 @@ pub enum FileError {
     NotAFile(String),
     #[error("Metadata mismatch for {0}")]
     Metadata(String),
+    #[error("Required data mount is absent: {0}")]
+    MountMissing(String),
+    #[error("Unexpected filesystem or subvolume at {0}")]
+    WrongMount(String),
+    #[error("Path {0} exists but is not a Btrfs subvolume")]
+    NotASubvolume(String),
+    #[error("Btrfs operation failed for {0}: {1}")]
+    Btrfs(String, String),
 }
 
 pub trait FileResource {
@@ -55,6 +64,13 @@ pub trait FileResource {
         group: Option<&str>,
     ) -> Result<bool, FileError>;
     fn delete_file(&self, path: &Path) -> Result<bool, FileError>;
+    fn require_btrfs_subvolume_mount(
+        &self,
+        path: &Path,
+        backing_mount: &Path,
+        subvolume_root: &str,
+    ) -> Result<(), FileError>;
+    fn ensure_btrfs_subvolume(&self, path: &Path) -> Result<bool, FileError>;
 }
 
 pub struct LocalFileResource;
@@ -185,6 +201,49 @@ impl Default for LocalFileResource {
 }
 
 impl FileResource for LocalFileResource {
+    fn require_btrfs_subvolume_mount(
+        &self,
+        path: &Path,
+        backing_mount: &Path,
+        subvolume_root: &str,
+    ) -> Result<(), FileError> {
+        let mountinfo = fs::read_to_string("/proc/self/mountinfo")?;
+        require_btrfs_mount_in(&mountinfo, path, backing_mount, subvolume_root)
+    }
+
+    fn ensure_btrfs_subvolume(&self, path: &Path) -> Result<bool, FileError> {
+        let path_text = path.display().to_string();
+        if Command::new("btrfs")
+            .args(["subvolume", "show"])
+            .arg(path)
+            .output()?
+            .status
+            .success()
+        {
+            return Ok(false);
+        }
+        if path.exists() {
+            return Err(FileError::NotASubvolume(path_text));
+        }
+        let parent = path
+            .parent()
+            .ok_or_else(|| FileError::InvalidPath(path_text.clone()))?;
+        if !parent.is_dir() {
+            return Err(FileError::ParentMissing(path_text));
+        }
+        let output = Command::new("btrfs")
+            .args(["subvolume", "create"])
+            .arg(path)
+            .output()?;
+        if !output.status.success() {
+            return Err(FileError::Btrfs(
+                path_text,
+                String::from_utf8_lossy(&output.stderr).trim().to_string(),
+            ));
+        }
+        Ok(true)
+    }
+
     fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
         match fs::read(path) {
             Ok(bytes) => Ok(Some(bytes)),
@@ -325,6 +384,45 @@ impl FileResource for LocalFileResource {
         } else {
             Ok(false)
         }
+    }
+}
+
+fn mount_entry<'a>(mountinfo: &'a str, path: &str) -> Option<(&'a str, &'a str, &'a str)> {
+    mountinfo.lines().find_map(|line| {
+        let (left, right) = line.split_once(" - ")?;
+        let mut fields = left.split_whitespace();
+        let device = fields.nth(2)?;
+        let root = fields.next()?;
+        let mountpoint = fields.next()?;
+        let filesystem = right.split_whitespace().next()?;
+        (mountpoint == path).then_some((device, root, filesystem))
+    })
+}
+
+fn require_btrfs_mount_in(
+    mountinfo: &str,
+    path: &Path,
+    backing_mount: &Path,
+    subvolume_root: &str,
+) -> Result<(), FileError> {
+    let path_text = path
+        .to_str()
+        .ok_or_else(|| FileError::InvalidPath(path.display().to_string()))?;
+    let backing_text = backing_mount
+        .to_str()
+        .ok_or_else(|| FileError::InvalidPath(backing_mount.display().to_string()))?;
+    let (device, root, filesystem) = mount_entry(mountinfo, path_text)
+        .ok_or_else(|| FileError::MountMissing(path_text.to_string()))?;
+    let backing = mount_entry(mountinfo, backing_text);
+    if filesystem == "btrfs"
+        && root == subvolume_root
+        && backing.is_some_and(|(backing_device, _, backing_fs)| {
+            backing_device == device && backing_fs == "btrfs"
+        })
+    {
+        Ok(())
+    } else {
+        Err(FileError::WrongMount(path_text.to_string()))
     }
 }
 
