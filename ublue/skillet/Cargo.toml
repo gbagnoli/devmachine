@@ -31,6 +31,8 @@ serde_yml = "0.0.12"
 hex = "0.4"
 zbus = { version = "4.4", features = ["blocking"] }
 askama = "0.12"
+keepass = { version = "0.13.25", features = ["save_kdbx4"] }
+rpassword = "7.5"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

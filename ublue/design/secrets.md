@@ -1,23 +1,25 @@
 # Secret storage and delivery
 
 Decision: use KeePassXC for durable secrets and read its KDBX database directly
-from workstation Skillet through a Rust library. Delivery is planned; the host
-credential reader and Podman secret convergence already exist.
+from workstation Skillet through a Rust library. Exact lookup and Pi-hole
+delivery are implemented; Cloudflare token issuance remains planned.
 
 ## Portable storage
 
 KeePassXC is already the user's password manager, and Syncthing already moves
 the encrypted database between machines. Reusing that database avoids a custom
-vault format, export mechanism, or second authoritative store. Its location is
-a workstation setting pointing to the existing synced `.kdbx` file.
+vault format, export mechanism, or second authoritative store. Skillet defaults
+to `$XDG_DATA_HOME/skillet/secrets.kdbx` (or
+`$HOME/.local/share/skillet/secrets.kdbx`); a symlink may point at the existing
+synced vault. Vault-dependent commands fail if that path is absent, with an
+explicit `--database` override. Disposable VM provisioning needs no vault.
 KeePassXC owns edits and conflict resolution; Skillet reads it in memory.
 Backups include the encrypted database, with recovery passwords and any key
 files retained separately. Syncthing replication alone is not versioned backup.
 
-The desktop keyring may remember the database unlock password, accessed through
-Rust's Secret Service support. A new workstation can unlock the copied database
-without the old workstation's keyring. The existing `cloudflare-token-creator`
-keyring item needs a one-time migration into KeePassXC.
+The workstation currently prompts for the database password on its terminal.
+A new workstation can unlock the copied database without the old one's keyring.
+The existing `cloudflare-token-creator` keyring item still needs migration.
 
 Vault paths are group paths plus an entry title; values use the Password field.
 The prefix is consistently singular, `skillet`:
@@ -43,7 +45,8 @@ mode `0600` files at `/etc/credstore.encrypted/skillet/<credential>.cred`.
 Keeping delivery after bootstrap avoids plaintext in Ignition and run artifacts.
 Secret values never enter command arguments or diagnostics.
 
-Use host-key encryption for disposable VMs; production can use TPM2 binding
+Use host-key encryption for disposable VMs; current production delivery also
+uses host-key encryption. Production can use TPM2 binding
 after confirming hardware support and rebase behavior. Host-key encryption is
 recoverable by someone with the guest disk and its key; these files are runtime
 copies, while KeePassXC supplies portable recovery.
@@ -67,7 +70,7 @@ unique test names prevent accidental record collisions, not API access to
 other records. Keep the literal zone outside this public repository. The
 creator remains on the workstation.
 
-VM secrets use the same SSH, systemd, and Podman delivery path. Keep token IDs,
+VM Pi-hole secrets use the same SSH, systemd, and Podman delivery path. Keep token IDs,
 expiry, and owned record IDs in run metadata, without token values. Existing
 VM credentials survive re-apply and reboot. Expired tokens require explicit
 renewal; cleanup and recovery belong to the [VM lifecycle](smoke-vms.md).

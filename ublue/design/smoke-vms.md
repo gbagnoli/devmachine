@@ -4,7 +4,7 @@ Decision: keep VM creation, readiness, repeatable smoke checks, and destruction
 separate. A retained VM supports inspection and repeated convergence checks;
 a fresh VM establishes that bootstrap is reproducible. The existing fixture
 tests real systemd/Podman convergence. Application and live ACME scenarios,
-secret delivery, and external token cleanup are planned.
+external token cleanup are planned. Pi-hole credential delivery is implemented.
 
 ## Identity and ownership
 
@@ -33,9 +33,13 @@ the test artifacts and uses QEMU user networking.
    user environment. Persistent bootstrap state tolerates reboots. Executable
    staging uses `/var/usrlocal/bin`, whose FCOS labeling permits execution.
    Ignition's authorized-key file remains configured alongside dotfiles keys.
-3. **Provision applications (planned):** deliver disposable credentials using
-   the [shared secret mechanism](secrets.md), then perform full apply. VM
-   passwords and tokens remain independent of production credentials.
+   `ready` uses the artifact captured at creation. Explicit `update` builds
+   and installs current host code on a retained VM, recording the deployed hash
+   separately while preserving the original creation snapshot.
+3. **Provision applications:** `test vm provision` delivers a generated Pi-hole
+   credential using the [shared secret mechanism](secrets.md), then performs
+   full apply. Repeated provisioning reuses the installed credential; `--rotate`
+   replaces it. Live ACME token delivery remains planned.
 4. **Smoke:** run assertions against the retained VM. Check repeat apply,
    configuration/secret changes, interruption recovery, and reboot persistence.
    The container sandbox uses mocked systemctl/Podman; only VM checks establish

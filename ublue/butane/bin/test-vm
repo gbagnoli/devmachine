@@ -45,6 +45,7 @@ ensure_runtime() {
   if [[ "$backend" == native ]]; then
     ensure_native_runtime
   else
+    # shellcheck disable=SC2015
     flatpak info org.virt_manager.virt-manager >/dev/null 2>&1 &&
       flatpak info org.virt_manager.virt_manager.Extension.Qemu >/dev/null 2>&1 || {
       echo 'Flatpak virt-manager or its QEMU extension is unavailable' >&2; exit 1;
@@ -52,6 +53,7 @@ ensure_runtime() {
     [[ "$runtime_dir" == "/run/user/$(id -u)/skvm" && ! -L "$runtime_dir" ]] || {
       echo 'Invalid Flatpak libvirt runtime path' >&2; exit 1;
     }
+    # shellcheck disable=SC2174
     mkdir -p -m 0700 "$runtime_dir"
     if [[ ! -f "$runtime_dir/flatpak.pid" ]] || ! kill -0 "$(cat "$runtime_dir/flatpak.pid")" 2>/dev/null; then
       setsid "$script_dir/flatpak-virt" sh -c \
@@ -85,7 +87,7 @@ ensure_native_runtime() {
   fi
 }
 usage() {
-  echo "Usage: $0 [HOST] list | $0 HOST create|ready|status|ssh|logs|reboot|destroy INSTANCE [--port PORT for create]" >&2
+  echo "Usage: $0 [HOST] list | $0 HOST create|ready|update|status|ssh|logs|reboot|destroy INSTANCE [--port PORT for create]" >&2
   exit 2
 }
 config_value() { sed -n "s/^$1=//p" "$run_dir/run.conf" | head -n 1; }
@@ -244,6 +246,20 @@ case "$operation" in
     (($# == 0)) || usage
     inspect_owned
     "$script_dir/test-vm-ready" "$run_dir" ;;
+  update)
+    (($# == 0)) || usage
+    inspect_owned
+    artifact="$(realpath -e "$script_dir/../../skillet/target/x86_64-unknown-linux-musl/release/skillet-$host")"
+    [[ -f "$artifact" && ! -L "$artifact" ]] || { echo "Build skillet-$host first" >&2; exit 1; }
+    ssh_args
+    scp -O -i "$run_dir/ssh/id_ed25519" -P "$port" -o BatchMode=yes \
+      -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$run_dir/ssh/known_hosts" \
+      "$artifact" giacomo@127.0.0.1:/var/tmp/skillet-update
+    # shellcheck disable=SC2029
+    ssh "${args[@]}" giacomo@127.0.0.1 \
+      "sudo -n install -m 0755 /var/tmp/skillet-update /var/usrlocal/bin/skillet-$host && rm -f /var/tmp/skillet-update"
+    sha256sum "$artifact" > "$run_dir/deployed-skillet.sha256"
+    echo "Updated skillet-$host in $name" ;;
   status)
     (($# == 0)) || usage
     inspect_owned

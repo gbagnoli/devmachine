@@ -106,10 +106,10 @@ pub fn apply_clamps(
     let secrets = vec![QuadletSecret {
         secret_name: PIHOLE_WEB_PASSWORD_CREDENTIAL.to_string(),
         target: SecretTarget::File {
-            target_path: "/etc/pihole/webpassword".to_string(),
+            target_path: "/run/secrets/pihole_web_password".to_string(),
             mode: Some("0400".to_string()),
-            uid: pihole_uid,
-            gid: pihole_gid,
+            uid: None,
+            gid: None,
         },
     }];
 
@@ -121,7 +121,7 @@ pub fn apply_clamps(
     skillet_pihole::apply(
         system,
         files,
-        skillet_pihole::PiholeUser {
+        &skillet_pihole::PiholeUser {
             uid: pihole_uid,
             gid: pihole_gid,
             name: "pihole".to_string(),

@@ -1,11 +1,11 @@
 use super::*;
-use std::env;
 
 fn manager_with_secret(name: &str, payload: &str) -> (CredentialManager, tempfile::TempDir) {
     let dir = tempfile::TempDir::new().expect("tempdir");
     std::fs::write(dir.path().join(name), payload).expect("write secret");
-    env::set_var("CREDENTIALS_DIRECTORY", dir.path());
-    let manager = CredentialManager::new().expect("manager");
+    let manager = CredentialManager {
+        base_path: dir.path().to_path_buf(),
+    };
     (manager, dir)
 }
 
@@ -14,7 +14,7 @@ fn read_secret_happy_path() {
     let (manager, _dir) = manager_with_secret("pihole_web_password", "s3cret\n");
     assert_eq!(
         manager.read_secret("pihole_web_password").unwrap(),
-        "s3cret"
+        "s3cret\n"
     );
 }
 

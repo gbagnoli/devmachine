@@ -75,6 +75,10 @@ provisioned VM. It takes the generic binary from the running executable and
 uses the `skillet-clamps` binary installed by VM creation. Repeated smoke runs
 reset only the namespaced `/var/lib/skillet-smoke` fixture and its managed
 files. The VM remains available for inspection and reruns.
+After editing host code, use
+`cargo run --release -p skillet -- test vm update clamps smoke` to rebuild and
+install the current binary. `ready` reinstalls the artifact captured when the
+VM was created.
 
 When finished, remove the disposable VM, disk, SSH key, and run artifacts:
 
@@ -105,12 +109,59 @@ The guest needs passwordless sudo for the SSH user and access to
 pull `docker.io/library/alpine:3.20`. When `--identity` is supplied, SSH stores
 that VM's host key beside the private key.
 
-## Secret setup (delivery planned)
+## Secret setup and delivery
 
 Manage durable secrets in your Syncthing-synced KeePassXC database. Use group
 paths and entry titles from the [secret design](../design/secrets.md), storing
-each value in its Password field. Direct KDBX reading and host delivery are not
-implemented yet.
+each value in its Password field. The workstation prompts for the database
+password on its terminal; it does not write decrypted values to a file.
+Skillet looks for `$XDG_DATA_HOME/skillet/secrets.kdbx`, falling back to
+`$HOME/.local/share/skillet/secrets.kdbx`. Point that location at your
+Syncthing-synced database, for example:
+
+```bash
+mkdir -p "${XDG_DATA_HOME:-$HOME/.local/share}/skillet"
+ln -s /path/to/your/synced-vault.kdbx \
+  "${XDG_DATA_HOME:-$HOME/.local/share}/skillet/secrets.kdbx"
+```
+
+The vault-dependent command reports the missing path before asking for its
+password. `--database PATH` overrides the default when needed. Disposable VM
+provisioning generates its own test value and does not require a vault.
+
+After creating and preparing a disposable clamps VM, deliver its generated
+test password and run the full host apply:
+
+```bash
+cargo run --release -p skillet -- test vm provision clamps smoke
+```
+
+The password stays encrypted on the VM. Repeat this command after a reboot to
+reuse it; use `--rotate` to replace it explicitly. A fresh VM starts with a
+new password. The command requires the `skillet-full-apply.service` supplied
+by current Butane, so recreate older test VMs made before that unit existed.
+If an existing VM credential is corrupt, use `--rotate` to replace only that
+disposable value.
+
+For a production clamps host, create the exact KeePassXC entry
+`skillet/hosts/clamps/pihole/web-password`, then deliver it over an SSH
+connection whose host key you have already recorded:
+
+```bash
+cargo run --release -p skillet -- secret deliver clamps pihole \
+  --target giacomo@clamps --identity /path/to/ssh-key \
+  --known-hosts /path/to/known_hosts
+```
+
+Add `--key-file /path/to/keyfile` if the database uses one. The value is
+encrypted on the host and loaded by `skillet-full-apply.service`; later
+`systemctl start --wait skillet-full-apply.service` reuses it. If full apply
+reports a missing or undecryptable credential, check the host's encrypted
+credential file and redeliver the KeePassXC entry. Do not create a new
+production password merely because a workstation lacks the vault. Redeliver
+the same entry after moving to a new workstation; use a deliberate vault edit
+and redelivery for rotation. The production TPM binding decision remains in
+the [secret design](../design/secrets.md).
 
 For Cloudflare token issuance, select **Create additional tokens** in the
 Cloudflare dashboard, with **User > API Tokens > Edit** and no extra

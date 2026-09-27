@@ -11,10 +11,11 @@ Provision clamps with uCore + Skillet and migrate the required behavior and pers
 
 Implemented: base/full apply separation, activation recovery, fixture smoke
 checks, temporary VM SSH keys, binary delivery, resolver configuration, signed
-bootstrap, and user environment. Pi-hole remains partial. KeePassXC reading,
-secret delivery, live ACME, and production storage are not implemented.
+bootstrap, user environment, exact KeePassXC reads, and encrypted Pi-hole
+credential delivery. A dummy-credential Pi-hole container runs in the VM;
+service networking, live ACME, and production storage remain open.
 
-Next: generic secret delivery and Pi-hole, following the
+Next: Pi-hole storage and isolated service networking, following the
 [secret design](../design/secrets.md), [VM lifecycle](../design/smoke-vms.md), and
 [storage/credential plan](CLAMPS-STORAGE-CREDENTIALS.md). The selected storage
 direction is boxy's shared Btrfs filesystem with OS/data subvolumes; mount path
@@ -46,8 +47,8 @@ Resolve only the decisions needed for Pi-hole first.
 - Put formatting/partition creation in the installation path. Skillet must not format existing data during convergence.
 - Make applications depend on their real data mount so a missing disk cannot silently produce an empty replacement data directory on the OS filesystem.
 - Add directory/subvolume/ownership support as required. Defer container graphroot relocation unless chosen explicitly.
-- Implement direct KeePassXC reads and SSH delivery of named systemd credentials according to the secret design. Use generated disposable passwords in VM tests.
-- Verify host-key encryption in VMs, atomic delivery, interruption recovery and rotation. Confirm production TPM binding against actual hardware and rebase behavior.
+- Extend the implemented direct KeePassXC read and SSH delivery to other named credentials as services need them. Disposable Pi-hole passwords are generated in VM tests.
+- Verify interruption recovery after credential delivery and credential survival across an additional OS rebase. Host-key encryption, atomic replacement, rotation, repeat apply and reboot passed in the VM. Confirm production TPM binding against actual hardware.
 - Account for Podman's on-disk secret copy in the production disk-protection decision.
 
 Done when: Pi-hole's storage and password can be provisioned, recovered after interruption, and rotated without leaking values into repository files, command arguments or logs. Reboot/rebase recovery works. The persistent-data mount failure case is exercised.
@@ -56,7 +57,7 @@ Done when: Pi-hole's storage and password can be provisioned, recovered after in
 
 - Add the dual-stack network resource, explicit container attachment and auto-update configuration.
 - Decide whether to retain the Chef web pod or publish Pi-hole ports independently. Keep its admin endpoint compatible with the planned Caddy proxy.
-- Correct Pi-hole password-file consumption, container identity/permissions, SELinux labels, DNS publication, upstreams, web port and custom-record format for the selected image version.
+- Pi-hole password-file consumption and startup identity/permissions passed on the VM. Verify SELinux labels, DNS publication, upstreams, web port and custom-record format for the selected image version.
 - Replace placeholder DNS records with supplied configuration. Support multiple names per address.
 - Keep host bootstrap DNS independent of Pi-hole availability. Verify IPv4/IPv6 TCP and UDP DNS, web authentication, persistence, rotation, repeated apply and reboot.
 - Decide whether Nebula Sync is required and which instance is authoritative before enabling it.

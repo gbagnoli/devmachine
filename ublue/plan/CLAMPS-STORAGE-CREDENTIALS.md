@@ -4,6 +4,14 @@ Status: remaining work, 2026-09-27. Base provisioning is implemented. Storage
 mount path and final disk remain open; credential decisions are recorded in
 [the secret design](../design/secrets.md).
 
+3B progress: exact KDBX lookup, an XDG data-home vault default, encrypted SSH
+delivery, a full-apply unit, and Pi-hole secret file wiring are implemented.
+Workspace checks, dummy credential delivery, repeated apply, rotation, reboot,
+and VM smoke passed;
+see [the acceptance record](../butane/ACCEPTANCE.md). Cloudflare creator
+migration, TPM assessment, interrupted delivery recovery, and an OS rebase
+after delivery remain open.
+
 ## Split into two small steps
 
 3A establishes the application-data mount. 3B delivers a disposable Pi-hole

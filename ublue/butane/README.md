@@ -50,6 +50,7 @@ hyphens. The helper records `clamps` plus `smoke` as the internal domain
 ./bin/test-vm clamps ssh smoke     # interactive guest shell
 ./bin/test-vm clamps reboot smoke  # reboot the guest
 ./bin/test-vm clamps ready smoke   # rerun readiness after a reboot or repair
+./bin/test-vm clamps update smoke  # install the latest built host binary
 ./bin/test-vm clamps destroy smoke # delete the VM, disk, test key, and run artifacts
 ```
 
@@ -61,6 +62,7 @@ create and ready:
 ```bash
 cargo run --release -p skillet -- test vm create clamps smoke
 cargo run --release -p skillet -- test vm list clamps
+cargo run --release -p skillet -- test vm provision clamps smoke
 cargo run --release -p skillet -- test vm destroy clamps smoke
 ```
 
@@ -69,6 +71,11 @@ The helper calls `coreos-install`, which builds the current static
 to use a specific binary. It records its SHA256 in
 `runs/NAME/skillet.sha256`. `test-vm ready` transfers the binary
 over SSH after first boot and installs it at `/var/usrlocal/bin/skillet-clamps`.
+`ready` uses that captured binary on every run. After editing Skillet, use
+`cargo run --release -p skillet -- test vm update clamps smoke` to rebuild and
+install the current binary on a retained VM. `provision` delivers a disposable
+Pi-hole password and runs the credential-loaded full apply; `--rotate` replaces
+that disposable password.
 The shared uCore bootstrap script also lives in `/var/usrlocal/bin`.
 Generated Ignition, SSH key, VM disk and logs stay under `runs/NAME`, which Git
 ignores. The test key is private and only its public half enters Ignition.
