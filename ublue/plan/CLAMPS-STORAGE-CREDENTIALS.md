@@ -16,13 +16,16 @@ delivery through the host Rust binary, a full-apply unit, and Pi-hole secret
 file wiring are implemented.
 Workspace checks, dummy credential delivery, repeated apply, rotation, reboot,
 and VM smoke passed;
-see [the acceptance record](../butane/ACCEPTANCE.md). Cloudflare creator
-migration, TPM assessment, interrupted delivery recovery, and an OS rebase
-after delivery remain open. The first smoke exposed that the workstation denied
-expiry on keys stored directly in the user keyring. Skillet now uses a named
-session keyring, retained across CLI invocations through a link from the user
-keyring; the permission and cross-invocation behavior were verified with a
-dummy key on 2026-09-28.
+see [the acceptance record](../butane/ACCEPTANCE.md). The first smoke exposed
+that the workstation denied expiry on keys
+stored directly in the user keyring. Skillet now uses a named session keyring,
+retained across CLI invocations through a link from the user keyring; its
+permission and cross-invocation behavior were verified with a dummy key on
+2026-09-28. Credential persistence passed an updated signed image deployment
+and explicit digest-pinned rebase. Recovery after atomic credential install and
+full-apply failure passed; a disconnect during streaming or encryption remains
+untested. Production TPM assessment and Cloudflare creator migration remain
+open.
 
 ## Split into two small steps
 
