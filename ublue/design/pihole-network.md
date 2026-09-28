@@ -10,7 +10,15 @@ rupik. Keep its web listener on port 8088 inside the bridge; Caddy will proxy
 to `http://pihole:8088` without publishing the admin port on the host. Pi-hole
 uses `dns_listeningMode=ALL` for bridge-network clients. Mark its fully
 qualified registry image for Quadlet auto-update; the OS image already enables
-the auto-update timer.
+the auto-update timer. The planned private UI route and tailnet DNS dependency
+are described in the [private UI design](private-ui-access.md).
+
+The planned second Pi-hole on beelzebot beside clamps is a separate DNS
+instance on the same power and internet connection. A possible third on remote
+bender adds site diversity. All instances offered to the same clients must
+serve consistent local records and filtering policy; the synchronization
+mechanism and LAN client resolver settings remain to be decided before those
+hosts are deployed.
 
 Pi-hole's host port 53 conflicts with Netavark's default Aardvark DNS listener.
 Skillet moves Aardvark to port 54 through Podman's rootful `dns_bind_port`,

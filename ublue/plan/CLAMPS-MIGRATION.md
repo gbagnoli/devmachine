@@ -17,11 +17,14 @@ Pi-hole container runs in the VM with data and Podman storage under
 `/var/lib/data`; service networking, live ACME, final disk selection, and
 post-provision rebase checks remain open.
 
-Next: validate isolated Pi-hole service networking on the disposable VM, following the
-[secret design](../design/secrets.md), [VM lifecycle](../design/smoke-vms.md), and
-[storage design](../design/storage.md), [Pi-hole network design](../design/pihole-network.md), and
-[storage/credential plan](CLAMPS-STORAGE-CREDENTIALS.md). The implemented VM
-layout uses a shared Btrfs filesystem with `/var/lib/data` as the data mount;
+Next: btrbk is the next service in the sequence when work resumes. Syncthing
+passed the named disposable-VM service and repeat-apply checks. Pi-hole
+LAN-client access and final custom DNS records remain open; production DNS
+stays on rupik. See the [Syncthing design](../design/syncthing.md), [Pi-hole
+network design](../design/pihole-network.md), [storage design](../design/storage.md),
+[secret design](../design/secrets.md), [VM lifecycle](../design/smoke-vms.md),
+and [storage/credential plan](CLAMPS-STORAGE-CREDENTIALS.md). The implemented
+VM layout uses a shared Btrfs filesystem with `/var/lib/data` as the data mount;
 the final physical disk remains open.
 
 ## Boundaries
@@ -80,15 +83,22 @@ Each row is a separate implementation and validation step. Adjust order for depe
 
 | Order | Capability | Behavior and state to preserve |
 | --- | --- | --- |
-| 1 | Syncthing | Data, device identity, folder configuration, UID/GID, required ports |
+| 1 | Syncthing (implemented; disposable VM service and repeat-apply checks passed) | Data, device identity, folder configuration, UID/GID, required ports |
 | 2 | btrbk | Real Btrfs subvolumes, hourly snapshots, Chef retention policy, restore exercise; local snapshots are not an independent backup |
 | 3 | UniFi | Controller data or supported backup restore, version compatibility, adoption and ownership |
 | 4 | Tailscale | Authentication/identity policy, exit-node approval, forwarding, persistent state, DNS policy and hardware interface settings |
-| 5 | Caddy evaluation + OAuth2 proxy + ACME | Port required nginx domains/routes and access rules; validate Cloudflare DNS-01 with staging, per-VM tokens, certificate persistence and cleanup |
+| 5 | Private UI access with Caddy + ACME | Implement the [private UI design](../design/private-ui-access.md): host-specific names, hosted Tailscale split DNS with consistent reachable Pi-hole resolvers, tailnet-only access, Syncthing GUI isolation, and DNS recovery; validate Cloudflare DNS-01 with staging, per-VM tokens, certificate persistence and cleanup. Add public OAuth2 proxying only for an explicitly required public UI. |
 | 6 | Cloudflare DDNS | Required records and token delivery; reconcile the legacy updater before enabling competing writers |
 | 7 | Monitoring and remaining host baseline | Explicit keep/drop decision for Datadog; required hardening, users, SSH/sudo, ET and WOL behavior |
 
 For each service: inspect effective Chef inputs, settle its open decisions, add only needed Skillet support, migrate a copy of state, validate functionality and repeat convergence. Account for ARM-to-x86 application/image and data compatibility. Avoid activating duplicate production identities or DNS writers during testing.
+
+Syncthing validation used an empty disposable data subvolume, creating a VM-only
+device identity. `syncthing` resolved to both bridge addresses, its UI returned
+HTTP 200 by container name, all Chef-published dual-stack ports were present,
+and a repeated full apply preserved its container ID and config hash. Testing
+connectivity with a real peer and migrating rupik's identity/data remain
+cutover tasks; never run both copies of the production device identity at once.
 
 Legacy NAT rules and the separate updater live in a recipe that is not included by rupik's default recipe. Confirm whether they are active or still required before porting them. Argon One support is Pi-specific and excluded.
 
