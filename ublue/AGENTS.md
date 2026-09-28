@@ -22,3 +22,17 @@
 - Remove completed or superseded plans after preserving any unfinished work
   in an active plan. Retain implementation evidence in the relevant acceptance
   record; do not label unverified checks as passed.
+
+## Local validation before commit
+
+- Before committing, run the CI checks that apply to the changed paths locally
+  and resolve failures first. For Skillet changes, run `cargo fmt --check`,
+  `cargo clippy -- -D warnings`, `cargo test`, and the CI integration command
+  from `.github/workflows/ci.yml`. For shell changes, run the workflow's
+  ShellCheck commands; for Python or Chef changes, run the corresponding
+  Ruff/Mypy or Cookstyle commands.
+- For changes to container behavior, also run the affected host's real-runtime
+  smoke test against a named disposable VM as required by `skillet/AGENTS.md`.
+- If a required check cannot run because a tool, runtime, or external service
+  is unavailable, record the exact reason and report the check as unverified;
+  do not describe it as passing or commit as though it passed.

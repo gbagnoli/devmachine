@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 round=$1
+phase=$2
 mock=/tmp/skillet-test-mocks
 state=/tmp/skillet-test-state
 mkdir -p "$mock" "$state"
@@ -43,4 +44,4 @@ MOCK
 fi
 export PATH="$mock:$PATH"
 if [ "$round" = second ]; then printf '\nSECOND\n' >> /tmp/skillet-test.systemctl.log; fi
-/usr/bin/skillet apply
+/usr/bin/skillet apply --phase "$phase"
