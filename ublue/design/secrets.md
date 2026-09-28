@@ -22,11 +22,15 @@ and resolve any Syncthing conflict copies before retrying.
 Backups include the encrypted database, with recovery passwords and any key
 files retained separately. Syncthing replication alone is not versioned backup.
 
-The workstation prompts for the database password once and caches it in its
-Linux user keyring for three hours (10,800 seconds), without refreshing the
-expiry on reads. If the kernel denies expiry, Skillet removes the new key and
-continues without a cache. `skillet secret lock` removes a cached key early.
-A new workstation can unlock the copied database without the old one's keyring.
+The workstation prompts for the database password once and caches it in a
+named Linux session keyring for three hours (10,800 seconds), without
+refreshing the expiry on reads. Skillet creates and joins this keyring itself,
+and links it from the per-user keyring so it survives separate CLI invocations.
+The password key remains in the session keyring, where the process has the
+permissions needed to set its expiry. If the kernel denies expiry, Skillet
+removes the new key and continues without a cache. `skillet secret lock`
+removes a cached key early. A new workstation can unlock the copied database
+without the old one's keyring.
 The existing `cloudflare-token-creator` keyring item still needs migration.
 
 Vault paths are group paths plus an entry title; values use the Password field.

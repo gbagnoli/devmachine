@@ -18,9 +18,11 @@ Workspace checks, dummy credential delivery, repeated apply, rotation, reboot,
 and VM smoke passed;
 see [the acceptance record](../butane/ACCEPTANCE.md). Cloudflare creator
 migration, TPM assessment, interrupted delivery recovery, and an OS rebase
-after delivery remain open. This workstation denied kernel key timeouts during
-the 2026-09-28 smoke, so the three-hour cache still needs verification from a
-normal user terminal; Skillet safely continued uncached.
+after delivery remain open. The first smoke exposed that the workstation denied
+expiry on keys stored directly in the user keyring. Skillet now uses a named
+session keyring, retained across CLI invocations through a link from the user
+keyring; the permission and cross-invocation behavior were verified with a
+dummy key on 2026-09-28.
 
 ## Split into two small steps
 

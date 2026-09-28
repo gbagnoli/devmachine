@@ -211,3 +211,8 @@ host tool; it still uses normal command approvals.
   continued without caching the dummy unlock; the user keyring was empty after
   the run. The three-hour kernel expiry path remains unverified here. No
   production vault, production host, or physical disk was used.
+- Follow-up: `keyctl timeout` succeeded for a dummy key stored in a named
+  session keyring. Linking that keyring from the user keyring kept the same
+  named ring and dummy key available to a later process. Skillet now uses that
+  arrangement for the three-hour cache; the KeePass-backed end-to-end flow has
+  not yet been repeated with this implementation.
