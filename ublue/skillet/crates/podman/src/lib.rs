@@ -17,6 +17,10 @@ pub enum PodmanError {
     File(#[from] FileError),
     #[error("User mapping error: {0}")]
     UserMapping(String),
+    #[error("Invalid Podman network unit name: {0}")]
+    InvalidNetworkName(String),
+    #[error("Network configuration changed for {0}; stop its consumers, remove the Podman network and its applied marker, then apply again")]
+    NetworkConfigChanged(String),
 }
 
 #[derive(Template)]
@@ -93,6 +97,7 @@ impl QuadletSecret {
 pub struct PodmanConfig {
     pub name: String,
     pub image: String,
+    pub networks: Vec<PodmanNetwork>,
     pub user: ContainerUser,
     pub create_host_user: bool,
     pub volumes: Vec<Volume>,
@@ -100,6 +105,15 @@ pub struct PodmanConfig {
     /// Content consumed at container startup outside the Quadlet definition.
     pub config_revisions: Vec<Vec<u8>>,
     pub extra_config: BTreeMap<String, Vec<String>>,
+}
+
+/// A Quadlet-managed Podman network shared by containers needing
+/// container-to-container traffic or DNS service discovery.
+pub struct PodmanNetwork {
+    /// The `.network` Quadlet unit name, without its extension.
+    pub unit_name: String,
+    /// Options written to the unit's `[Network]` section.
+    pub options: Vec<String>,
 }
 
 pub fn container<S, F>(system: &S, files: &F, config: PodmanConfig) -> Result<bool, PodmanError>
@@ -111,6 +125,55 @@ where
     info!("Ensuring podman container: {name}");
 
     let mut extra_config = config.extra_config;
+    let config_revisions = config.config_revisions;
+    let mut network_states = Vec::new();
+
+    // Pi-hole publishes port 53 on the host. Keep Netavark's bridge DNS
+    // listener off that port while retaining its container-name DNS service.
+    // This is a global Podman setting, so only manage it when using a
+    // DNS-enabled user-defined network.
+    if !config.networks.is_empty() {
+        let config_dir = Path::new("/etc/containers/containers.conf.d");
+        files.ensure_directory(config_dir, Some(0o755), Some("root"), Some("root"))?;
+        files.ensure_file(
+            &config_dir.join("90-skillet-aardvark.conf"),
+            b"[network]\ndns_bind_port=54\n",
+            Some(0o644),
+            Some("root"),
+            Some("root"),
+        )?;
+    }
+
+    // A container's reference to the network Quadlet creates the systemd
+    // dependency that starts the network before the container.
+    for network in &config.networks {
+        let network_content = render_network(network)?;
+        let marker_path =
+            Path::new("/var/lib/skillet/networks").join(format!("{}.applied", network.unit_name));
+        if let Some(applied) = files.read_file(&marker_path)? {
+            if applied != network_content.as_bytes() {
+                return Err(PodmanError::NetworkConfigChanged(network.unit_name.clone()));
+            }
+        }
+
+        let quadlet_dir = Path::new("/etc/containers/systemd");
+        files.ensure_directory(quadlet_dir, Some(0o755), Some("root"), Some("root"))?;
+        let network_unit_changed = files.ensure_file(
+            &quadlet_dir.join(format!("{}.network", network.unit_name)),
+            network_content.as_bytes(),
+            Some(0o644),
+            Some("root"),
+            Some("root"),
+        )?;
+        if network_unit_changed {
+            system.daemon_reload()?;
+        }
+        network_states.push((marker_path, network_content.into_bytes()));
+        extra_config
+            .entry("Container".to_string())
+            .or_default()
+            .push(format!("Network={}.network", network.unit_name));
+    }
 
     // 1. Resolve and ensure host user
     let host_info = resolve_host_user(system, &config.user, config.create_host_user)?;
@@ -163,10 +226,49 @@ where
         name,
         extra_config,
         &secret_ids,
-        &config.config_revisions,
+        &config_revisions,
     )?;
 
+    if !network_states.is_empty() {
+        let state_dir = Path::new("/var/lib/skillet/networks");
+        files.ensure_directory(state_dir, Some(0o755), Some("root"), Some("root"))?;
+        for (marker_path, content) in network_states {
+            files.ensure_file(
+                &marker_path,
+                &content,
+                Some(0o644),
+                Some("root"),
+                Some("root"),
+            )?;
+        }
+    }
+
     Ok(changed)
+}
+
+fn render_network(network: &PodmanNetwork) -> Result<String, PodmanError> {
+    let valid_name = !network.unit_name.is_empty()
+        && network
+            .unit_name
+            .chars()
+            .next()
+            .is_some_and(|character| character.is_ascii_alphanumeric())
+        && network
+            .unit_name
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || "_.-".contains(character));
+    if !valid_name {
+        return Err(PodmanError::InvalidNetworkName(network.unit_name.clone()));
+    }
+
+    let mut options = network.options.clone();
+    options.sort();
+    let mut content = String::from("[Network]\n");
+    for option in options {
+        content.push_str(&option);
+        content.push('\n');
+    }
+    Ok(content)
 }
 
 fn resolve_host_user<S: SystemResource + ?Sized>(

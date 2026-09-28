@@ -17,9 +17,9 @@ Pi-hole container runs in the VM with data and Podman storage under
 `/var/lib/data`; service networking, live ACME, final disk selection, and
 post-provision rebase checks remain open.
 
-Next: implement isolated Pi-hole service networking, following the
+Next: validate isolated Pi-hole service networking on the disposable VM, following the
 [secret design](../design/secrets.md), [VM lifecycle](../design/smoke-vms.md), and
-[storage design](../design/storage.md) and
+[storage design](../design/storage.md), [Pi-hole network design](../design/pihole-network.md), and
 [storage/credential plan](CLAMPS-STORAGE-CREDENTIALS.md). The implemented VM
 layout uses a shared Btrfs filesystem with `/var/lib/data` as the data mount;
 the final physical disk remains open.
@@ -63,14 +63,16 @@ Done when: Pi-hole's storage and password can be provisioned, recovered after in
 
 ## Milestone 4: working Pi-hole on an isolated test address
 
-- Add the dual-stack network resource, explicit container attachment and auto-update configuration.
-- Decide whether to retain the Chef web pod or publish Pi-hole ports independently. Keep its admin endpoint compatible with the planned Caddy proxy.
-- Pi-hole password-file consumption and startup identity/permissions passed on the VM. Verify SELinux labels, DNS publication, upstreams, web port and custom-record format for the selected image version.
+- Implemented the reusable Quadlet network resource. Pi-hole now has a dual-stack bridge, network DNS enabled, container name `pihole`, and registry auto-update; see the [network design](../design/pihole-network.md).
+- VM apply found Aardvark DNS colliding with Pi-hole's host port 53. Skillet now configures rootful Aardvark DNS to listen on port 54. On the named uCore VM, Pi-hole starts, Aardvark resolves its dual-stack container addresses from another container, an HTTP request reaches `http://pihole:8088/admin/`, and Pi-hole answers DNS over UDP and TCP through host IPv4 and IPv6 addresses. `ss` confirms host publication on IPv4 and IPv6 for both transports.
+- Replace the Chef web pod with separate containers on the shared bridge. Caddy can resolve `pihole` and proxy to port 8088 without static container IPs or a host-published admin port.
+- The Chef DNS listener behavior is represented as wildcard IPv4/IPv6 TCP/UDP port 53 publication. Verify the test VM's host firewall and actual client reachability before considering this item accepted.
+- Pi-hole password-file consumption and startup identity/permissions passed on the VM. Verify custom-record format for the selected image version and DNS reachability from a LAN client through the host firewall.
 - Replace placeholder DNS records with supplied configuration. Support multiple names per address.
 - Keep host bootstrap DNS independent of Pi-hole availability. Verify IPv4/IPv6 TCP and UDP DNS, web authentication, persistence, rotation, repeated apply and reboot.
 - Decide whether Nebula Sync is required and which instance is authoritative before enabling it.
 
-Done when: clients can use the isolated clamps instance and all required Pi-hole configuration survives restarts. Production DNS remains on rupik.
+Done when: clients can use the isolated clamps instance and all required Pi-hole configuration survives restarts. Production DNS remains on rupik. Network Quadlet unit tests pass, and the VM has confirmed service-name web access and host-port DNS publication; remaining network and persistence checks are listed above.
 
 ## Milestone 5: migrate one remaining service at a time
 
