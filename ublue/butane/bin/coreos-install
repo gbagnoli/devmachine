@@ -74,17 +74,17 @@ fi
 [[ -f "$artifact" ]] || { echo "Missing Skillet artifact: $artifact" >&2; exit 1; }
 artifact="$(realpath "$artifact")"
 if [[ -z "$image" ]]; then
-  image="$butane_dir/images/coreos.qcow2"
-  if [[ ! -f "$image" ]]; then
+  mapfile -t images < <(find "$butane_dir/images" -maxdepth 1 -name 'fedora-coreos-*-qemu.x86_64.qcow2' -type f 2>/dev/null | sort)
+  if ((${#images[@]} == 0)); then
     mkdir -p "$butane_dir/images"
     podman run --pull=always --rm --security-opt label=disable \
       -v "$butane_dir/images:/data" -w /data \
       quay.io/coreos/coreos-installer:release \
       download -s stable -p qemu -f qcow2.xz --decompress
     mapfile -t images < <(find "$butane_dir/images" -maxdepth 1 -name 'fedora-coreos-*-qemu.x86_64.qcow2' -type f | sort)
-    ((${#images[@]} == 1)) || { echo "Specify --image: found ${#images[@]} candidate FCOS images" >&2; exit 1; }
-    image="${images[0]}"
   fi
+  ((${#images[@]} == 1)) || { echo "Specify --image: found ${#images[@]} candidate FCOS images" >&2; exit 1; }
+  image="${images[0]}"
 fi
 [[ -f "$image" ]] || { echo "Missing FCOS image: $image" >&2; exit 1; }
 image="$(realpath "$image")"
@@ -126,7 +126,11 @@ printf 'vm=%s\nhost=%s\nuri=%s\nssh_port=%s\nimage=%s\nartifact=%s\nruntime_dir=
   "$vm_name" "$host" "$libvirt_uri" "$ssh_port" "$image" "$artifact" "${TEST_VM_LIBVIRT_RUNTIME_DIR:-}" "${TEST_VM_BACKEND:-native}" \
   "$(git -C "$repo_dir" rev-parse HEAD)" > "$output_dir/run.conf"
 {
-  virt-install --version
+  if [[ "${TEST_VM_BACKEND:-native}" == flatpak ]]; then
+    virt-install --version
+  else
+    echo 'Native VM launcher: virsh XML'
+  fi
   vm_command virsh --version
   podman --version
   yq --version
@@ -140,10 +144,62 @@ else
   qemu_commandline="-fw_cfg name=opt/com.coreos/config,file=$ignition"
 fi
 echo "Creating $vm_name on $libvirt_uri, disk $output_dir/$vm_name.qcow2, SSH 127.0.0.1:$ssh_port" >&2
-vm_command virt-install --connect "$libvirt_uri" --name "$vm_name" \
-  --osinfo linux2024 --memory 8192 --vcpus 2 --import \
-  --disk "path=$output_dir/$vm_name.qcow2,format=qcow2,bus=virtio" \
-  --disk "path=$ignition,format=raw,bus=virtio,readonly=on" \
-  --network "$network" --graphics none \
-  --console pty,target_type=serial --noautoconsole \
-  --qemu-commandline="$qemu_commandline"
+if [[ "${TEST_VM_BACKEND:-native}" == flatpak ]]; then
+  vm_command virt-install --connect "$libvirt_uri" --name "$vm_name" \
+    --osinfo linux2024 --memory 8192 --vcpus 2 --import \
+    --disk "path=$output_dir/$vm_name.qcow2,format=qcow2,bus=virtio" \
+    --disk "path=$ignition,format=raw,bus=virtio,readonly=on" \
+    --network "$network" --graphics none \
+    --console pty,target_type=serial --noautoconsole \
+    --qemu-commandline="$qemu_commandline"
+else
+  [[ "${TEST_VM_BACKEND:-native}" == native ]] || { echo 'Flatpak backend needs virt-install' >&2; exit 1; }
+  emulator="$(vm_command virsh -c "$libvirt_uri" capabilities |
+    xmllint --xpath "string((//guest[os_type='hvm']/arch[@name='x86_64']/emulator)[1])" -)"
+  [[ -n "$emulator" && -x "$emulator" ]] || { echo 'No usable x86_64 libvirt emulator' >&2; exit 1; }
+  python3 - "$vm_name" "$emulator" "$output_dir/$vm_name.qcow2" "$ignition" "$ssh_port" > "$output_dir/domain.xml" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+
+name, emulator, disk, ignition, port = sys.argv[1:]
+domain = ET.Element('domain', type='kvm')
+ET.SubElement(domain, 'name').text = name
+ET.SubElement(domain, 'memory', unit='MiB').text = '8192'
+ET.SubElement(domain, 'vcpu').text = '2'
+os = ET.SubElement(domain, 'os')
+ET.SubElement(os, 'type', arch='x86_64', machine='q35').text = 'hvm'
+ET.SubElement(os, 'boot', dev='hd')
+features = ET.SubElement(domain, 'features')
+ET.SubElement(features, 'acpi')
+ET.SubElement(features, 'apic')
+ET.SubElement(domain, 'cpu', mode='host-passthrough')
+sysinfo = ET.SubElement(domain, 'sysinfo', type='fwcfg')
+ET.SubElement(sysinfo, 'entry', name='opt/com.coreos/config', file=ignition)
+devices = ET.SubElement(domain, 'devices')
+ET.SubElement(devices, 'emulator').text = emulator
+for source, fmt, target, readonly in ((disk, 'qcow2', 'vda', False), (ignition, 'raw', 'vdb', True)):
+    device = ET.SubElement(devices, 'disk', type='file', device='disk')
+    ET.SubElement(device, 'driver', name='qemu', type=fmt)
+    ET.SubElement(device, 'source', file=source)
+    ET.SubElement(device, 'target', dev=target, bus='virtio')
+    if readonly:
+        ET.SubElement(device, 'readonly')
+interface = ET.SubElement(devices, 'interface', type='user')
+ET.SubElement(interface, 'backend', type='passt')
+forward = ET.SubElement(interface, 'portForward', proto='tcp', address='127.0.0.1')
+ET.SubElement(forward, 'range', start=port, to='22')
+ET.SubElement(interface, 'model', type='virtio')
+serial = ET.SubElement(devices, 'serial', type='pty')
+ET.SubElement(serial, 'target', port='0')
+console = ET.SubElement(devices, 'console', type='pty')
+ET.SubElement(console, 'target', type='serial', port='0')
+ET.indent(domain)
+ET.ElementTree(domain).write(sys.stdout, encoding='unicode', xml_declaration=True)
+PY
+  virt-xml-validate "$output_dir/domain.xml"
+  vm_command virsh -c "$libvirt_uri" define "$output_dir/domain.xml"
+  if ! vm_command virsh -c "$libvirt_uri" start "$vm_name"; then
+    vm_command virsh -c "$libvirt_uri" undefine "$vm_name"
+    exit 1
+  fi
+fi
