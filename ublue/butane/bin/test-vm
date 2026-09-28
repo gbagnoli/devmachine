@@ -16,8 +16,11 @@ vm_virsh() {
   fi
 }
 select_backend() {
-  if [[ -x /usr/bin/virsh && -x /usr/bin/virtqemud && -x /usr/bin/virtstoraged ]]; then
+  if command -v virsh >/dev/null && command -v virtqemud >/dev/null && command -v virtstoraged >/dev/null; then
     backend=native
+    if /usr/bin/virsh -c "$uri" uri >/dev/null 2>&1; then
+      runtime_dir="/run/user/$(id -u)"
+    fi
   elif flatpak info org.virt_manager.virt-manager >/dev/null 2>&1 &&
        flatpak info org.virt_manager.virt_manager.Extension.Qemu >/dev/null 2>&1; then
     backend=flatpak
@@ -45,16 +48,14 @@ ensure_runtime() {
   if [[ "$backend" == native ]]; then
     ensure_native_runtime
   else
-    # shellcheck disable=SC2015
-    flatpak info org.virt_manager.virt-manager >/dev/null 2>&1 &&
-      flatpak info org.virt_manager.virt_manager.Extension.Qemu >/dev/null 2>&1 || {
-      echo 'Flatpak virt-manager or its QEMU extension is unavailable' >&2; exit 1;
-    }
+    if ! flatpak info org.virt_manager.virt-manager >/dev/null 2>&1 ||
+       ! flatpak info org.virt_manager.virt_manager.Extension.Qemu >/dev/null 2>&1; then
+      echo 'Flatpak virt-manager or its QEMU extension is unavailable' >&2; exit 1
+    fi
     [[ "$runtime_dir" == "/run/user/$(id -u)/skvm" && ! -L "$runtime_dir" ]] || {
       echo 'Invalid Flatpak libvirt runtime path' >&2; exit 1;
     }
-    # shellcheck disable=SC2174
-    mkdir -p -m 0700 "$runtime_dir"
+    install -d -m 0700 "$runtime_dir"
     if [[ ! -f "$runtime_dir/flatpak.pid" ]] || ! kill -0 "$(cat "$runtime_dir/flatpak.pid")" 2>/dev/null; then
       setsid "$script_dir/flatpak-virt" sh -c \
         'virtlogd --timeout 0 & virtstoraged --timeout 0 & virtqemud --timeout 0 & wait' \
@@ -75,6 +76,12 @@ ensure_runtime() {
   fi
 }
 ensure_native_runtime() {
+  if [[ "$runtime_dir" == "/run/user/$(id -u)" ]]; then
+    /usr/bin/virsh -c "$uri" uri >/dev/null || {
+      echo "Cannot access the native user libvirt session at $uri" >&2; exit 1;
+    }
+    return
+  fi
   [[ ! -L "$runtime_dir" ]] || { echo "Symlinked libvirt runtime refused" >&2; exit 1; }
   if [[ ! -d "$runtime_dir" ]]; then
     mkdir -m 0700 "$runtime_dir"
@@ -114,7 +121,7 @@ list_host() {
       listed_runtime="$(config_value runtime_dir)"
       listed_backend="$(config_value backend)"
       [[ -n "$listed_backend" ]] || listed_backend=native
-      if [[ "$listed_port" =~ ^22[0-9][0-9]$ && -f "$run_dir/domain.uuid" && ( ( "$listed_backend" == flatpak && "$listed_runtime" == "/run/user/$(id -u)/skvm" ) || ( "$listed_backend" == native && "$listed_runtime" == /run/user/"$(id -u)"/* ) ) ]]; then
+      if [[ "$listed_port" =~ ^22[0-9][0-9]$ && -f "$run_dir/domain.uuid" && ( ( "$listed_backend" == flatpak && "$listed_runtime" == "/run/user/$(id -u)/skvm" ) || ( "$listed_backend" == native && ( "$listed_runtime" == "/run/user/$(id -u)" || "$listed_runtime" == /run/user/"$(id -u)"/* ) ) ) ]]; then
         recorded_uuid="$(cat "$run_dir/domain.uuid")"
         if [[ "$listed_backend" == flatpak ]]; then
           listed_virsh=(env TEST_VM_LIBVIRT_RUNTIME_DIR="$listed_runtime" "$script_dir/virsh")
@@ -188,7 +195,7 @@ inspect_owned() {
   }
   runtime_from_manifest
   if [[ "$backend" == native ]]; then
-    [[ "$runtime_dir" == /run/user/"$(id -u)"/* ]] || { echo "Invalid recorded libvirt runtime" >&2; exit 1; }
+    [[ "$runtime_dir" == "/run/user/$(id -u)" || "$runtime_dir" == /run/user/"$(id -u)"/* ]] || { echo "Invalid recorded libvirt runtime" >&2; exit 1; }
   else
     [[ "$runtime_dir" == "/run/user/$(id -u)/skvm" ]] || { echo "Invalid Flatpak runtime" >&2; exit 1; }
   fi
@@ -225,9 +232,11 @@ case "$operation" in
     host_available "$host" || { echo "Host $host needs both $host.bu and a skillet-$host crate" >&2; exit 1; }
     select_backend
     if [[ "$backend" == native ]]; then
-      for executable in virt-install qemu-system-x86_64 passt; do
-        command -v "$executable" >/dev/null || { echo "Missing native VM tool: $executable" >&2; exit 1; }
-      done
+      command -v passt >/dev/null || { echo 'Missing native VM tool: passt' >&2; exit 1; }
+      if ! command -v python3 >/dev/null || ! command -v xmllint >/dev/null ||
+         ! command -v virt-xml-validate >/dev/null; then
+        echo 'Native VM creation needs python3, xmllint and virt-xml-validate' >&2; exit 1
+      fi
     fi
     if [[ ! -e /dev/kvm ]]; then
       echo '/dev/kvm is unavailable; enable hardware virtualization and KVM before creating a VM.' >&2

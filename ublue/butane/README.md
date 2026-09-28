@@ -10,9 +10,10 @@ Design decisions: [disposable VM lifecycle](../design/smoke-vms.md) and
 `clamps.bu` is a VM configuration. It resizes and reformats partition 4 on
 `/dev/vda`, the virtio disk attached by this launcher. Do not use it as a
 physical-disk install file. The host needs Podman, `yq`, `rg`, `ssh-keygen`,
-and KVM. Native libvirt additionally needs `passt`; the Flatpak backend uses
-QEMU user networking. VM commands can come from native libvirt and
-`virt-install`, or an existing Flatpak virt-manager with its QEMU extension.
+and KVM. Native libvirt additionally needs `virsh`, `virtqemud`,
+`virtstoraged`, `passt`, Python 3, `xmllint`, and `virt-xml-validate`; the helper
+defines native VMs with `virsh`. The Flatpak backend uses QEMU user networking
+and an existing virt-manager with its QEMU extension.
 The shared [data storage design](../design/storage.md) is implemented by
 `includes/data-storage.bu`. On a fresh VM it mounts the Btrfs `data` subvolume
 at `/var/lib/data` and sets rootful Podman's graphroot there. Recreate a
@@ -24,7 +25,16 @@ run those tools in the Flatpak sandbox. The helper starts separate Flatpak
 libvirt daemons under `/run/user/UID/skvm`, grants them access to `butane/`,
 and uses QEMU user networking to forward the selected localhost SSH port.
 The selected backend is recorded in `runs/NAME/run.conf`. Check that `/dev/kvm`
-is accessible on the host. The helper does not install host software.
+is accessible on the host. Native libvirt uses the existing `qemu:///session`
+connection when available, so those VMs appear in virt-manager's user session.
+The helper does not install host software.
+
+On Rocky Linux, if QEMU startup reports `cannot limit core file size ... to
+18446744073709551615`, set `max_core = 0` in
+`${XDG_CONFIG_HOME:-$HOME/.config}/libvirt/qemu.conf` and restart the idle user
+`virtqemud` daemon. This account had a zero core-dump hard limit; the user
+session's `qemu.conf` now contains that setting. `virt-install` is optional for
+the native backend.
 
 From this directory, create and check the default disposable clamps VM with:
 
