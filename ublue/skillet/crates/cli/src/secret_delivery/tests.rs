@@ -1,4 +1,6 @@
-use super::{database_path_from, lookup, read_vault, read_vm_port};
+use super::{
+    create_entry, database_path_from, lookup, open_vault, read_vm_port, save_vault, OpenVault,
+};
 use keepass::Database;
 use keepass::DatabaseKey;
 
@@ -19,10 +21,16 @@ fn exact_vault_path_preserves_whitespace() {
     entry.set_protected("Password", " value\n");
     assert_eq!(
         lookup(&db, "skillet/hosts/clamps/pihole/web-password").unwrap(),
-        " value\n"
+        Some(" value\n".to_string())
     );
-    assert!(lookup(&db, "skillet/hosts/clamps/pihole/other").is_err());
-    assert!(lookup(&db, "skillet/hosts/other/pihole/web-password").is_err());
+    assert_eq!(
+        lookup(&db, "skillet/hosts/clamps/pihole/other").unwrap(),
+        None
+    );
+    assert_eq!(
+        lookup(&db, "skillet/hosts/other/pihole/web-password").unwrap(),
+        None
+    );
 }
 
 #[test]
@@ -60,7 +68,10 @@ fn disposable_database_opens_with_correct_password_only() {
         DatabaseKey::new().with_password("fixture unlock"),
     )
     .unwrap();
-    assert_eq!(lookup(&reopened, "skillet/fixture").unwrap(), "dummy only");
+    assert_eq!(
+        lookup(&reopened, "skillet/fixture").unwrap(),
+        Some("dummy only".to_string())
+    );
 }
 
 #[test]
@@ -82,7 +93,47 @@ fn vault_path_uses_xdg_data_home_with_home_fallback() {
 fn missing_vault_fails_before_password_prompt() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("secrets.kdbx");
-    let error = read_vault(&path, None, "skillet/fixture").unwrap_err();
+    let error = open_vault(&path, None).err().unwrap();
     assert!(error.to_string().contains("missing or unreadable"));
     assert!(error.to_string().contains("secrets.kdbx"));
+}
+
+#[test]
+fn creates_and_reopens_encrypted_entry_through_symlink_target() {
+    let dir = tempfile::tempdir().unwrap();
+    let database_path = dir.path().join("synced.kdbx");
+    let link_path = dir.path().join("secrets.kdbx");
+    let db = Database::new();
+    let password = "fixture unlock";
+    let mut original = Vec::new();
+    db.save(&mut original, DatabaseKey::new().with_password(password))
+        .unwrap();
+    std::fs::write(&database_path, &original).unwrap();
+    std::os::unix::fs::symlink(&database_path, &link_path).unwrap();
+    let path = std::fs::canonicalize(&link_path).unwrap();
+    let mut vault = OpenVault {
+        path,
+        original,
+        database: db,
+        password: password.to_string(),
+    };
+    let entry_path = "skillet/hosts/clamps/pihole/web-password";
+    create_entry(&mut vault.database, entry_path, "generated test value").unwrap();
+    save_vault(&vault, None, entry_path, "generated test value").unwrap();
+    assert!(link_path.is_symlink());
+    let changed = std::fs::read(&database_path).unwrap();
+    let reopened = Database::open(
+        &mut changed.as_slice(),
+        DatabaseKey::new().with_password(password),
+    )
+    .unwrap();
+    assert_eq!(
+        lookup(&reopened, entry_path).unwrap(),
+        Some("generated test value".to_string())
+    );
+    assert!(std::fs::read_dir(dir.path()).unwrap().any(|entry| entry
+        .unwrap()
+        .file_name()
+        .to_string_lossy()
+        .ends_with(".bak")));
 }

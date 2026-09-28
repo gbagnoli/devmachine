@@ -4,21 +4,13 @@ use keepass::{Database, DatabaseKey};
 use std::{
     fs,
     io::{Read as _, Write as _},
-    path::Path,
+    os::unix::fs::OpenOptionsExt as _,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
-const INSTALL: &str = r#"set -euo pipefail
-umask 077
-dir=/etc/credstore.encrypted/skillet
-install -d -m 0700 "$dir"
-tmp=$(mktemp "$dir/.pihole_web_password.XXXXXX")
-trap "rm -f -- $tmp" EXIT
-systemd-creds encrypt --with-key=host --name=pihole_web_password - - > "$tmp"
-systemd-creds decrypt --name=pihole_web_password "$tmp" - >/dev/null
-chmod 0600 "$tmp"
-mv -f -- "$tmp" "$dir/pihole_web_password.cred"
-systemctl start --wait skillet-full-apply.service"#;
+mod vault_cache;
 
 pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
     let path = format!("skillet/hosts/{}/pihole/web-password", args.hostname);
@@ -26,12 +18,48 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
         Some(path) => path.clone(),
         None => default_database_path()?,
     };
-    let secret = read_vault(&database, args.key_file.as_deref(), &path)?;
     if !args.identity.is_file() || !args.known_hosts.is_file() {
         return Err(anyhow!(
             "SSH identity and recorded known-hosts file must exist"
         ));
     }
+    let mut vault = open_vault(&database, args.key_file.as_deref())?;
+    let secret = if let Some(secret) = lookup(&vault.database, &path)? {
+        if fs::read(&vault.path).context("rechecking vault before delivery")? != vault.original {
+            return Err(anyhow!(
+                "KeePassXC database changed while Skillet was running; reopen it and retry"
+            ));
+        }
+        secret
+    } else {
+        if remote_credential_state(args)? != RemoteCredentialState::Absent {
+            return Err(anyhow!(
+                "host already has a Pi-hole credential; restore the missing KeePassXC entry instead of creating a replacement"
+            ));
+        }
+        let secret = random_password()?;
+        create_entry(&mut vault.database, &path, &secret)?;
+        save_vault(&vault, args.key_file.as_deref(), &path, &secret)?;
+        secret
+    };
+    let mut command = ssh_command(args);
+    install(&mut command, &secret)
+}
+
+pub(super) fn lock_vault(path: Option<&Path>) -> Result<()> {
+    let path = match path {
+        Some(path) => path.to_path_buf(),
+        None => default_database_path()?,
+    };
+    // A symlink at the default XDG location points to the same cache entry as
+    // an explicit path to its target.
+    let canonical = canonical_database(&path)?;
+    vault_cache::clear(&canonical)?;
+    println!("Vault unlock removed from the kernel keyring");
+    Ok(())
+}
+
+fn ssh_command(args: &SecretDeliverArgs) -> Command {
     let mut command = Command::new("ssh");
     command
         .args([
@@ -52,7 +80,30 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
         .arg("-p")
         .arg(args.port.to_string())
         .arg(&args.target);
-    install(&mut command, &secret)
+    command
+}
+
+#[derive(PartialEq, Eq)]
+enum RemoteCredentialState {
+    Present,
+    Absent,
+}
+
+fn remote_credential_state(args: &SecretDeliverArgs) -> Result<RemoteCredentialState> {
+    let output = ssh_command(args)
+        .arg("sudo -n /var/usrlocal/bin/skillet-clamps credential state pihole_web_password")
+        .output()
+        .context("checking host state before generating a production credential")?;
+    if !output.status.success() {
+        return Err(anyhow!(
+            "SSH host credential state check failed; no production credential was generated"
+        ));
+    }
+    match output.stdout.as_slice() {
+        b"present\n" => Ok(RemoteCredentialState::Present),
+        b"absent\n" => Ok(RemoteCredentialState::Absent),
+        _ => Err(anyhow!("host returned an unrecognized credential state")),
+    }
 }
 
 fn default_database_path() -> Result<std::path::PathBuf> {
@@ -188,28 +239,65 @@ fn read_vm_port(manifest: &Path) -> Result<u16> {
     Ok(port)
 }
 
-fn read_vault(path: &Path, key_file: Option<&Path>, entry_path: &str) -> Result<String> {
-    // Check file availability before prompting for the unlock password.
-    let mut database_file = fs::File::open(path).with_context(|| format!(
-        "KeePassXC database is missing or unreadable at {}; place the synced vault there or pass --database",
-        path.display()
-    ))?;
-    let mut key_file = key_file
-        .map(fs::File::open)
-        .transpose()
-        .context("KeePassXC key file is missing or unreadable")?;
-    let password = rpassword::prompt_password("KeePassXC database password: ")
-        .context("reading database password from terminal")?;
-    let mut key = DatabaseKey::new().with_password(&password);
-    if let Some(file) = key_file.as_mut() {
-        key = key.with_keyfile(file)?;
-    }
-    let database = Database::open(&mut database_file, key)
-        .context("opening KeePassXC database; check password and key file")?;
-    lookup(&database, entry_path)
+struct OpenVault {
+    path: PathBuf,
+    original: Vec<u8>,
+    database: Database,
+    password: String,
 }
 
-fn lookup(database: &Database, path: &str) -> Result<String> {
+fn canonical_database(path: &Path) -> Result<PathBuf> {
+    fs::canonicalize(path).with_context(|| format!(
+        "KeePassXC database is missing or unreadable at {}; place the synced vault there or pass --database",
+        path.display()
+    ))
+}
+
+fn database_key(password: &str, key_file: Option<&Path>) -> Result<DatabaseKey> {
+    let mut key = DatabaseKey::new().with_password(password);
+    if let Some(path) = key_file {
+        let mut file =
+            fs::File::open(path).context("KeePassXC key file is missing or unreadable")?;
+        key = key.with_keyfile(&mut file)?;
+    }
+    Ok(key)
+}
+
+fn open_with_password(bytes: &[u8], password: &str, key_file: Option<&Path>) -> Result<Database> {
+    let mut reader = bytes;
+    Database::open(&mut reader, database_key(password, key_file)?)
+        .context("opening KeePassXC database; check password and key file")
+}
+
+fn open_vault(path: &Path, key_file: Option<&Path>) -> Result<OpenVault> {
+    // Resolve the symlink before any eventual atomic replacement, so the
+    // Syncthing-managed target is changed instead of replacing the symlink.
+    let path = canonical_database(path)?;
+    let original = fs::read(&path).context("reading KeePassXC database")?;
+    if let Some(cached) = vault_cache::read(&path)? {
+        if let Ok(database) = open_with_password(&original, &cached, key_file) {
+            return Ok(OpenVault {
+                path,
+                original,
+                database,
+                password: cached,
+            });
+        }
+        vault_cache::clear(&path)?;
+    }
+    let password = rpassword::prompt_password("KeePassXC database password: ")
+        .context("reading database password from terminal")?;
+    let database = open_with_password(&original, &password, key_file)?;
+    vault_cache::store(&path, &password)?;
+    Ok(OpenVault {
+        path,
+        original,
+        database,
+        password,
+    })
+}
+
+fn lookup(database: &Database, path: &str) -> Result<Option<String>> {
     let parts: Vec<_> = path.split('/').collect();
     if parts.len() < 2 || parts.iter().any(|part| part.is_empty()) {
         return Err(anyhow!("invalid KeePassXC entry path"));
@@ -230,10 +318,12 @@ fn lookup(database: &Database, path: &str) -> Result<String> {
         .filter_map(|id| database.entry(id))
         .filter(|entry| entry.get_title() == parts.last().copied())
         .collect::<Vec<_>>();
-    if matches.len() != 1 {
-        return Err(anyhow!("KeePassXC entry {path} must exist exactly once"));
+    if matches.len() > 1 {
+        return Err(anyhow!("KeePassXC entry {path} is ambiguous"));
     }
-    let entry = matches.remove(0);
+    let Some(entry) = matches.pop() else {
+        return Ok(None);
+    };
     let secret = entry
         .get_password()
         .ok_or_else(|| anyhow!("KeePassXC entry {path} has no Password field"))?;
@@ -242,18 +332,137 @@ fn lookup(database: &Database, path: &str) -> Result<String> {
             "KeePassXC entry {path} has an empty Password field"
         ));
     }
-    Ok(secret.to_owned())
+    Ok(Some(secret.to_owned()))
+}
+
+fn random_password() -> Result<String> {
+    let mut bytes = [0_u8; 32];
+    fs::File::open("/dev/urandom")?.read_exact(&mut bytes)?;
+    Ok(hex::encode(bytes))
+}
+
+fn create_entry(database: &mut Database, path: &str, password: &str) -> Result<()> {
+    let parts: Vec<_> = path.split('/').collect();
+    if parts.len() < 2 || parts.iter().any(|part| part.is_empty()) {
+        return Err(anyhow!("invalid KeePassXC entry path"));
+    }
+    let mut parent_id = database.root().id();
+    for name in &parts[..parts.len() - 1] {
+        let parent = database
+            .group(parent_id)
+            .ok_or_else(|| anyhow!("vault group disappeared"))?;
+        let matching = parent
+            .group_ids()
+            .filter(|id| database.group(*id).is_some_and(|group| group.name == *name))
+            .collect::<Vec<_>>();
+        parent_id = match matching.as_slice() {
+            [id] => *id,
+            [] => {
+                let mut parent = database
+                    .group_mut(parent_id)
+                    .ok_or_else(|| anyhow!("vault group disappeared"))?;
+                let mut group = parent.add_group();
+                (*name).clone_into(&mut group.name);
+                group.id()
+            }
+            _ => return Err(anyhow!("KeePassXC group {name} is ambiguous")),
+        };
+    }
+    if lookup(database, path)?.is_some() {
+        return Err(anyhow!("KeePassXC entry {path} already exists"));
+    }
+    let mut parent = database
+        .group_mut(parent_id)
+        .ok_or_else(|| anyhow!("vault group disappeared"))?;
+    let mut entry = parent.add_entry();
+    entry.set_unprotected("Title", parts[parts.len() - 1]);
+    entry.set_protected("Password", password);
+    Ok(())
+}
+
+fn save_vault(
+    vault: &OpenVault,
+    key_file: Option<&Path>,
+    entry_path: &str,
+    secret: &str,
+) -> Result<()> {
+    let parent = vault
+        .path
+        .parent()
+        .ok_or_else(|| anyhow!("vault has no parent directory"))?;
+    let lock_path = parent.join(".skillet-vault.lock");
+    let lock = fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(false)
+        .mode(0o600)
+        .open(lock_path)
+        .context("opening vault write lock")?;
+    lock.lock().context("locking vault for update")?;
+    if fs::read(&vault.path).context("rechecking vault before write")? != vault.original {
+        return Err(anyhow!(
+            "KeePassXC database changed while Skillet was running; reopen it and retry"
+        ));
+    }
+    let mut candidate =
+        tempfile::NamedTempFile::new_in(parent).context("creating encrypted vault update")?;
+    vault
+        .database
+        .save(
+            candidate.as_file_mut(),
+            database_key(&vault.password, key_file)?,
+        )
+        .context("saving KeePassXC database")?;
+    candidate.as_file_mut().flush()?;
+    candidate
+        .as_file()
+        .set_permissions(fs::metadata(&vault.path)?.permissions())?;
+    candidate.as_file().sync_all()?;
+    let candidate_bytes = fs::read(candidate.path())?;
+    let reopened = open_with_password(&candidate_bytes, &vault.password, key_file)?;
+    if lookup(&reopened, entry_path)?.as_deref() != Some(secret) {
+        return Err(anyhow!(
+            "saved vault did not retain the generated credential"
+        ));
+    }
+    // Retain a separate encrypted copy of the previous valid vault before
+    // replacing it. KeePassXC/Syncthing can then recover from a bad write.
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+    let backup_name = format!(
+        "{}.skillet-{stamp}.bak",
+        vault
+            .path
+            .file_name()
+            .ok_or_else(|| anyhow!("vault has no filename"))?
+            .to_string_lossy()
+    );
+    let mut backup = tempfile::NamedTempFile::new_in(parent).context("creating vault backup")?;
+    backup.write_all(&vault.original)?;
+    backup
+        .as_file()
+        .set_permissions(fs::metadata(&vault.path)?.permissions())?;
+    backup.as_file().sync_all()?;
+    backup
+        .persist_noclobber(parent.join(backup_name))
+        .context("preserving previous encrypted vault")?;
+    if fs::read(&vault.path).context("rechecking vault before replacement")? != vault.original {
+        return Err(anyhow!(
+            "KeePassXC database changed during save; generated value was not installed"
+        ));
+    }
+    candidate
+        .persist(&vault.path)
+        .context("atomically replacing KeePassXC database")?;
+    fs::File::open(parent)?.sync_all()?;
+    Ok(())
 }
 
 fn install(command: &mut Command, secret: &str) -> Result<()> {
     if secret.is_empty() {
         return Err(anyhow!("refusing to deliver an empty credential"));
     }
-    // The script is constant and contains no user input. Secret bytes travel
-    // only over stdin, never through command arguments or diagnostics.
-    let remote = format!("sudo -n bash -c '{INSTALL}'");
     let mut child = command
-        .arg(remote)
+        .arg("sudo -n /var/usrlocal/bin/skillet-clamps credential install pihole_web_password skillet-full-apply.service")
         .stdin(Stdio::piped())
         .spawn()
         .context("opening SSH credential delivery")?;

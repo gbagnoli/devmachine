@@ -10,13 +10,17 @@ and mount-failure checks; see [the acceptance record](../butane/ACCEPTANCE.md).
 The include is host independent and must be merged by each future host's
 Butane template.
 
-3B progress: exact KDBX lookup, an XDG data-home vault default, encrypted SSH
-delivery, a full-apply unit, and Pi-hole secret file wiring are implemented.
+3B progress: exact KDBX lookup and safe use-or-create for a fresh host, an XDG
+data-home vault default, a three-hour kernel unlock cache, encrypted SSH
+delivery through the host Rust binary, a full-apply unit, and Pi-hole secret
+file wiring are implemented.
 Workspace checks, dummy credential delivery, repeated apply, rotation, reboot,
 and VM smoke passed;
 see [the acceptance record](../butane/ACCEPTANCE.md). Cloudflare creator
 migration, TPM assessment, interrupted delivery recovery, and an OS rebase
-after delivery remain open.
+after delivery remain open. This workstation denied kernel key timeouts during
+the 2026-09-28 smoke, so the three-hour cache still needs verification from a
+normal user terminal; Skillet safely continued uncached.
 
 ## Split into two small steps
 
@@ -106,7 +110,9 @@ Implement the [KeePassXC and delivery decision](../design/secrets.md):
 - Use host-key encryption for VM acceptance. Confirm production TPM support,
   rebase compatibility, and disk protection for Podman's separate secret copy.
 - Rotation must recreate consumers; unchanged credentials must not restart them.
-  A new workstation or missing vault entry must never regenerate production values.
+  A missing vault entry may create a production value only after the existing
+  vault is unlocked and the host confirms neither an encrypted credential nor
+  a Podman secret exists. A new workstation with a missing vault cannot create one.
 
 Cloudflare per-VM issuance and cleanup follow in the live ACME milestone, using
 the [VM lifecycle decision](../design/smoke-vms.md).
