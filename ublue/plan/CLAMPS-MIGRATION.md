@@ -56,7 +56,7 @@ Resolve only the decisions needed for Pi-hole first.
   `/var/lib/data` passed fresh-VM acceptance. Merge the shared Butane storage
   include when adding each future host template.
 - Extend the implemented direct KeePassXC read and SSH delivery to other named credentials as services need them. Disposable Pi-hole passwords are generated in VM tests.
-- Verify interruption recovery after credential delivery and credential survival across an additional OS rebase. Host-key encryption, atomic replacement, rotation, repeat apply and reboot passed in the VM. Confirm production TPM binding against actual hardware.
+- A signed image update and explicit digest-pinned rebase preserved the encrypted credential; post-rebase readiness and full apply passed. Recovery after atomic credential installation followed by failed full-apply activation also passed. A transport interruption during streaming/encryption and production TPM binding remain open. Atomic replacement, rotation, repeated apply and reboot passed in the VM.
 - Account for Podman's on-disk secret copy in the production disk-protection decision.
 
 Done when: Pi-hole's storage and password can be provisioned, recovered after interruption, and rotated without leaking values into repository files, command arguments or logs. Reboot/rebase recovery works. The persistent-data mount failure case is exercised.

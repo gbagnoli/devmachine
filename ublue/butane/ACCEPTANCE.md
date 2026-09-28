@@ -216,3 +216,29 @@ host tool; it still uses normal command approvals.
   named ring and dummy key available to a later process. Skillet now uses that
   arrangement for the three-hour cache; the KeePass-backed end-to-end flow has
   not yet been repeated with this implementation.
+
+## Post-delivery OS update/rebase and credential recovery, 2026-09-28
+
+- On `clamps-test-credential-e2e`, the signed `latest` ref had a newer image
+  available (digest `5d11f1003ffa1cb2a528c2e6943fa505dad86c2d3e5bf87b5330978111f3e0d2`).
+  `rpm-ostree upgrade` staged it, and `test-vm clamps ready credential-e2e`
+  passed after reboot. The encrypted Pi-hole credential remained present and
+  decryptable; full apply returned success, the Podman secret was present, and
+  Pi-hole was active.
+- An explicit signed rebase to that same image digest also staged and booted.
+  Readiness passed again; credential decryption and full apply succeeded, and
+  Pi-hole returned active. A same-tag rebase had been a no-op because the refs
+  were equal, so the newer signed image was staged first.
+- To exercise delivery recovery, a runtime-only systemd drop-in temporarily
+  forced `skillet-full-apply.service` to fail. Skillet `test vm provision
+  clamps credential-e2e --rotate` returned the expected activation error after
+  atomically installing a new encrypted credential. `systemd-creds decrypt`
+  validated it; the existing Podman secret and running Pi-hole were retained.
+  After removing the drop-in, normal `test vm provision clamps credential-e2e`
+  reused the installed credential, full apply succeeded, the Podman secret ID
+  changed, and Pi-hole remained active. The runtime drop-in was removed and
+  systemd reloaded.
+- This tests recovery after guest-side atomic credential installation when
+  activation fails. A disconnect during the input stream or encryption is
+  still untested. The software-only VM also reports that its systemd host key
+  is not on encrypted media; production TPM binding remains open.
