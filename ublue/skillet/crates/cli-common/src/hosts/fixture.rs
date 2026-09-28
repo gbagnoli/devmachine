@@ -77,6 +77,7 @@ pub(super) fn apply(
         PodmanConfig {
             name: "skillet-smoke-fixture".to_string(),
             image: "docker.io/library/alpine:3.20".to_string(),
+            networks: Vec::new(),
             user: ContainerUser {
                 container_uid: 0,
                 container_gid: 0,

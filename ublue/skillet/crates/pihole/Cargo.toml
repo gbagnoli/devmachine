@@ -12,4 +12,7 @@ skillet_podman.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 askama.workspace = true
+
+[dev-dependencies]
+skillet_core = { path = "../core", features = ["test-utils"] }
 users.workspace = true

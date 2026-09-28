@@ -11,6 +11,7 @@ fn fixture() -> PodmanConfig {
     PodmanConfig {
         name: "unit-fixture".to_string(),
         image: "example.invalid/fixture:1".to_string(),
+        networks: Vec::new(),
         user: ContainerUser {
             container_uid: 0,
             container_gid: 0,
@@ -30,6 +31,90 @@ fn fixture() -> PodmanConfig {
         config_revisions: Vec::new(),
         extra_config,
     }
+}
+
+fn clamps_network() -> PodmanNetwork {
+    PodmanNetwork {
+        unit_name: "clamps".to_string(),
+        options: vec![
+            "NetworkName=clamps".to_string(),
+            "IPv6=true".to_string(),
+            "DisableDNS=false".to_string(),
+            "Driver=bridge".to_string(),
+        ],
+    }
+}
+
+#[test]
+fn shared_network_quadlet_is_written_and_attached_idempotently() {
+    let system = MockSystem::new();
+    let files = MockFiles::new();
+    system.ensure_podman_secret("dummy", "first").unwrap();
+
+    let mut config = fixture();
+    config.networks.push(clamps_network());
+    container(&system, &files, config).unwrap();
+
+    let managed_files = files.files.lock().unwrap();
+    let dns_config = managed_files
+        .get("/etc/containers/containers.conf.d/90-skillet-aardvark.conf")
+        .unwrap();
+    assert_eq!(dns_config, b"[network]\ndns_bind_port=54\n");
+    let network = managed_files
+        .get("/etc/containers/systemd/clamps.network")
+        .unwrap();
+    let network = String::from_utf8_lossy(network);
+    assert!(network.contains("DisableDNS=false"));
+    assert!(network.contains("Driver=bridge"));
+    assert!(network.contains("IPv6=true"));
+    assert!(network.contains("NetworkName=clamps"));
+
+    let quadlet = managed_files
+        .get("/etc/containers/systemd/unit-fixture.container")
+        .unwrap();
+    assert!(String::from_utf8_lossy(quadlet).contains("Network=clamps.network"));
+    drop(managed_files);
+
+    let mut repeated = fixture();
+    repeated.networks.push(clamps_network());
+    container(&system, &files, repeated).unwrap();
+    assert_eq!(system.restart_count.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn changing_a_created_network_fails_before_replacing_its_quadlet() {
+    let system = MockSystem::new();
+    let files = MockFiles::new();
+    system.ensure_podman_secret("dummy", "first").unwrap();
+
+    let mut initial = fixture();
+    initial.networks.push(clamps_network());
+    container(&system, &files, initial).unwrap();
+
+    let original = files
+        .files
+        .lock()
+        .unwrap()
+        .get("/etc/containers/systemd/clamps.network")
+        .cloned()
+        .unwrap();
+    let mut changed = clamps_network();
+    changed.options.push("Internal=true".to_string());
+    let mut config = fixture();
+    config.networks.push(changed);
+    assert!(matches!(
+        container(&system, &files, config),
+        Err(PodmanError::NetworkConfigChanged(name)) if name == "clamps"
+    ));
+    assert_eq!(
+        files
+            .files
+            .lock()
+            .unwrap()
+            .get("/etc/containers/systemd/clamps.network"),
+        Some(&original)
+    );
+    assert_eq!(system.restart_count.load(Ordering::SeqCst), 1);
 }
 
 #[test]

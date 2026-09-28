@@ -1,7 +1,9 @@
 use askama::Template;
 use skillet_core::files::{FileError, FileResource};
 use skillet_core::system::{SystemError, SystemResource};
-use skillet_podman::{self, ContainerUser, PodmanConfig, PodmanError, QuadletSecret, Volume};
+use skillet_podman::{
+    self, ContainerUser, PodmanConfig, PodmanError, PodmanNetwork, QuadletSecret, Volume,
+};
 use std::collections::BTreeMap;
 use std::path::Path;
 use thiserror::Error;
@@ -39,6 +41,7 @@ pub fn apply<S, F>(
     user_config: &PiholeUser,
     secrets: Vec<QuadletSecret>,
     custom_records: BTreeMap<String, String>,
+    network: PodmanNetwork,
 ) -> Result<(), PiholeError>
 where
     S: SystemResource + ?Sized,
@@ -110,7 +113,18 @@ where
     extra_config.insert("Service".to_string(), vec!["Restart=always".to_string()]);
     extra_config.insert(
         "Container".to_string(),
-        vec!["Environment=WEBPASSWORD_FILE=/run/secrets/pihole_web_password".to_string()],
+        vec![
+            "AutoUpdate=registry".to_string(),
+            "ContainerName=pihole".to_string(),
+            "Environment=FTLCONF_dns_listeningMode=ALL".to_string(),
+            "Environment=FTLCONF_webserver_port=8088o,[::]:8088o".to_string(),
+            "Environment=TZ=Europe/Madrid".to_string(),
+            "Environment=WEBPASSWORD_FILE=/run/secrets/pihole_web_password".to_string(),
+            "PublishPort=[::]:53:53/tcp".to_string(),
+            "PublishPort=[::]:53:53/udp".to_string(),
+            "PublishPort=0.0.0.0:53:53/tcp".to_string(),
+            "PublishPort=0.0.0.0:53:53/udp".to_string(),
+        ],
     );
     extra_config.insert(
         "Unit".to_string(),
@@ -135,6 +149,7 @@ where
         PodmanConfig {
             name: "pihole".to_string(),
             image: "docker.io/pihole/pihole:latest".to_string(),
+            networks: vec![network],
             user,
             create_host_user: false,
             volumes,
@@ -146,3 +161,7 @@ where
 
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "tests.rs"]
+mod tests;

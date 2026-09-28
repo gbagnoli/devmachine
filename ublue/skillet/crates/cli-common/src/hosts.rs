@@ -10,7 +10,7 @@ use skillet_core::{
     files::{FileError, FileResource},
     system::{SystemError, SystemResource},
 };
-use skillet_podman::{QuadletSecret, SecretTarget};
+use skillet_podman::{PodmanNetwork, QuadletSecret, SecretTarget};
 use std::collections::BTreeMap;
 use thiserror::Error;
 
@@ -90,6 +90,22 @@ pub const PIHOLE_WEB_PASSWORD_CREDENTIAL: &str = "pihole_web_password";
 // cutover; these are still the old placeholder values.
 const CLAMPS_CUSTOM_DNS_RECORDS: &[(&str, &str)] = &[("192.168.1.100", "my.custom.domain")];
 
+fn clamps_service_network() -> PodmanNetwork {
+    PodmanNetwork {
+        unit_name: "clamps".to_string(),
+        options: vec![
+            "DisableDNS=false".to_string(),
+            "Driver=bridge".to_string(),
+            "Gateway=172.26.26.1".to_string(),
+            "Gateway=fd59:4e23:2950:11f5::1".to_string(),
+            "IPv6=true".to_string(),
+            "NetworkName=clamps".to_string(),
+            "Subnet=172.26.26.0/24".to_string(),
+            "Subnet=fd59:4e23:2950:11f5::/64".to_string(),
+        ],
+    }
+}
+
 /// Apply the clamps host configuration (hardening + Pi-hole).
 ///
 /// The credential manager is constructed lazily here: hosts that need no
@@ -145,6 +161,7 @@ pub fn apply_clamps(
         },
         secrets,
         custom_records,
+        clamps_service_network(),
     )?;
     Ok(())
 }
