@@ -32,6 +32,8 @@ pub enum ApplyError {
     Hardening(String),
     #[error("Pihole apply error: {0}")]
     Pihole(#[from] skillet_pihole::PiholeError),
+    #[error("Syncthing apply error: {0}")]
+    Syncthing(#[from] skillet_syncthing::SyncthingError),
     #[error("Podman error: {0}")]
     Podman(#[from] skillet_podman::PodmanError),
     #[error("Fixture input error: {0}")]
@@ -162,6 +164,19 @@ pub fn apply_clamps(
         secrets,
         custom_records,
         clamps_service_network(),
+    )?;
+
+    skillet_syncthing::apply(
+        system,
+        files,
+        skillet_syncthing::SyncthingConfig {
+            data_path: "/var/lib/data/syncthing".to_string(),
+            data_owner: "giacomo".to_string(),
+            data_group: "giacomo".to_string(),
+            uid: 1000,
+            gid: 1000,
+            network: clamps_service_network(),
+        },
     )?;
     Ok(())
 }

@@ -9,8 +9,8 @@ subvolume must not be copied from boxy. The physical disk for clamps is still
 undecided.
 
 `/var/lib/data` is the host's canonical service-state root. Create child
-subvolumes only for independently managed data: initially `pihole` and
-`containers`. Pi-hole's container `/etc/pihole` maps to
+subvolumes only for independently managed data: initially `pihole`,
+`syncthing`, and `containers`. Pi-hole's container `/etc/pihole` maps to
 `/var/lib/data/pihole/etc`; any retained dnsmasq configuration and logs live
 under that Pi-hole tree. Rootful Podman's graphroot is
 `/var/lib/data/containers/system` on fresh installs, with runroot under
