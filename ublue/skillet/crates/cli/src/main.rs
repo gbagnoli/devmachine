@@ -82,7 +82,7 @@ struct SecretDeliverArgs {
 
 #[derive(clap::Subcommand, Debug)]
 enum TestCommands {
-    /// Apply configuration twice in a fresh disposable Podman container
+    /// Apply a selected configuration phase twice in a disposable Podman container
     Run(ContainerArgs),
     /// Exercise the real-systemd VM scenario using an explicit disposable SSH target
     Smoke(SmokeArgs),
@@ -138,6 +138,9 @@ struct VmListArgs {
 #[derive(clap::Args, Debug)]
 struct ContainerArgs {
     hostname: String,
+    /// Configuration phase (defaults to base because full apply may require host mounts)
+    #[arg(long, value_enum, default_value = "base")]
+    phase: ApplyPhase,
     #[arg(long, default_value = "fedora:latest")]
     image: String,
     #[arg(long)]
@@ -486,7 +489,7 @@ fn run_container_test(args: &ContainerArgs) -> Result<()> {
             .context("cleaning test credentials after Podman start failure failed")?;
         return Err(anyhow!("Podman failed to start {name}"));
     }
-    let result = run_twice_and_check(&name, args.inspect);
+    let result = run_twice_and_check(&name, args.phase, args.inspect);
     let cleanup = Command::new("podman")
         .args(["rm", "-f", &name])
         .status()
@@ -501,11 +504,15 @@ fn run_container_test(args: &ContainerArgs) -> Result<()> {
     Ok(())
 }
 
-fn run_twice_and_check(name: &str, inspect: bool) -> Result<()> {
+fn run_twice_and_check(name: &str, phase: ApplyPhase, inspect: bool) -> Result<()> {
     let entry = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/test_entrypoint.sh");
+    let phase = match phase {
+        ApplyPhase::Base => "base",
+        ApplyPhase::Full => "full",
+    };
     for round in ["first", "second"] {
         let status = Command::new("podman")
-            .args(["exec", "-i", name, "/bin/sh", "-s", "--", round])
+            .args(["exec", "-i", name, "/bin/sh", "-s", "--", round, phase])
             .stdin(fs::File::open(&entry)?)
             .status()
             .context("running apply in container failed")?;
@@ -562,12 +569,14 @@ mod tests {
     use clap::Parser;
 
     #[test]
-    fn test_run_accepts_legacy_command() {
+    fn test_run_accepts_explicit_base_phase() {
         let parsed = Args::try_parse_from([
             "skillet",
             "test",
             "run",
             "beezelbot",
+            "--phase",
+            "base",
             "--image",
             "fedora:latest",
         ]);

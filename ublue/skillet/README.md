@@ -45,11 +45,13 @@ to converge only the shared host baseline before credentials are available.
 
 ## Disposable VM smoke check
 
-The legacy CI command `skillet test run beezelbot --image fedora:latest` runs
-the host apply twice in a uniquely named, temporary Podman container. It
-builds the selected host binary, checks both applies succeed, and checks the
-second apply does not start or restart a service. `clamps` is also supported.
-This sandbox uses mock `systemctl` and `podman` executables.
+The CI command `skillet test run beezelbot --phase base --image fedora:latest`
+runs the selected apply phase twice in a uniquely named, temporary Podman
+container. It builds the selected host binary, checks both applies succeed,
+and checks the second apply does not start or restart a service. `clamps` is
+also supported. This sandbox uses mock `systemctl` and `podman` executables.
+The phase defaults to `base`, since full apply may require a host's persistent
+data mount and runtime credentials.
 `--inspect` opens the container before cleanup.
 
 For real systemd/Podman and reboot coverage, create a disposable VM first:
