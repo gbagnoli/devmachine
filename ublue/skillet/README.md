@@ -114,7 +114,11 @@ that VM's host key beside the private key.
 Manage durable secrets in your Syncthing-synced KeePassXC database. Use group
 paths and entry titles from the [secret design](../design/secrets.md), storing
 each value in its Password field. The workstation prompts for the database
-password on its terminal; it does not write decrypted values to a file.
+password on its terminal and keeps the unlock in the Linux kernel keyring for
+three hours. It does not write decrypted values to a file. Run
+`cargo run --release -p skillet -- secret lock` to clear the cache early.
+If the kernel denies key expiry, Skillet reports that it could not cache the
+unlock and asks for the password on the next command.
 Skillet looks for `$XDG_DATA_HOME/skillet/secrets.kdbx`, falling back to
 `$HOME/.local/share/skillet/secrets.kdbx`. Point that location at your
 Syncthing-synced database, for example:
@@ -143,9 +147,8 @@ by current Butane, so recreate older test VMs made before that unit existed.
 If an existing VM credential is corrupt, use `--rotate` to replace only that
 disposable value.
 
-For a production clamps host, create the exact KeePassXC entry
-`skillet/hosts/clamps/pihole/web-password`, then deliver it over an SSH
-connection whose host key you have already recorded:
+For a production clamps host, deliver over an SSH connection whose host key
+you have already recorded:
 
 ```bash
 cargo run --release -p skillet -- secret deliver clamps pihole \
@@ -154,14 +157,19 @@ cargo run --release -p skillet -- secret deliver clamps pihole \
 ```
 
 Add `--key-file /path/to/keyfile` if the database uses one. The value is
-encrypted on the host and loaded by `skillet-full-apply.service`; later
+encrypted by the installed `skillet-clamps credential install` command on the
+host and loaded by `skillet-full-apply.service`; later
 `systemctl start --wait skillet-full-apply.service` reuses it. If full apply
 reports a missing or undecryptable credential, check the host's encrypted
-credential file and redeliver the KeePassXC entry. Do not create a new
-production password merely because a workstation lacks the vault. Redeliver
-the same entry after moving to a new workstation; use a deliberate vault edit
-and redelivery for rotation. The production TPM binding decision remains in
-the [secret design](../design/secrets.md).
+credential file and redeliver the KeePassXC entry. If the entry is absent in
+an existing vault and the host has no encrypted credential, Skillet creates
+`skillet/hosts/clamps/pihole/web-password` and delivers it. Keep KeePassXC
+closed during creation and resolve Syncthing conflict copies before retrying.
+If the host already has an encrypted credential or Podman secret, restore the
+original vault entry.
+Redeliver the same entry after moving to a new workstation; use a deliberate
+vault edit and redelivery for rotation. The production TPM binding decision
+remains in the [secret design](../design/secrets.md).
 
 For Cloudflare token issuance, select **Create additional tokens** in the
 Cloudflare dashboard, with **User > API Tokens > Edit** and no extra

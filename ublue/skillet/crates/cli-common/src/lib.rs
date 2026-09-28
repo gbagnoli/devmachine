@@ -8,6 +8,7 @@ use thiserror::Error;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
+mod credential;
 pub mod hosts;
 use hosts::ApplyPhase;
 
@@ -23,6 +24,8 @@ pub enum CliCommonError {
     Io(#[from] std::io::Error),
     #[error("Serialization error: {0}")]
     Yaml(#[from] serde_yml::Error),
+    #[error("Credential error: {0}")]
+    Credential(#[from] credential::CredentialError),
 }
 
 #[derive(Parser, Debug)]
@@ -46,6 +49,19 @@ pub enum HostCommands {
         #[arg(long)]
         record: Option<PathBuf>,
     },
+    /// Inspect or install an encrypted host credential
+    Credential {
+        #[command(subcommand)]
+        command: CredentialCommands,
+    },
+}
+
+#[derive(clap::Subcommand, Debug)]
+pub enum CredentialCommands {
+    /// Print `present` if a host credential or Podman secret exists, otherwise `absent`
+    State { name: String },
+    /// Encrypt stdin for this host, install it, and start the consuming unit
+    Install { name: String, unit: String },
 }
 
 pub fn run_host<F>(hostname: &str, apply_fn: F) -> Result<(), CliCommonError>
@@ -68,6 +84,15 @@ where
         HostCommands::Apply { record, phase } => handle_apply(hostname, record, |system, files| {
             apply_fn(phase, system, files)
         }),
+        HostCommands::Credential { command } => {
+            match command {
+                CredentialCommands::State { name } => {
+                    println!("{}", credential::state(&name)?);
+                }
+                CredentialCommands::Install { name, unit } => credential::install(&name, &unit)?,
+            }
+            Ok(())
+        }
     }
 }
 

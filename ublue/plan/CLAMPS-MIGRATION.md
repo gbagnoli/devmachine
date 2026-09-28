@@ -28,7 +28,8 @@ the final physical disk remains open.
 
 - Image: packages, static OS files, baseline unit enablement/masking. Preserve common-before-host image builds.
 - Ignition: installation layout, initial access and bootstrap configuration.
-- Workstation Skillet: KeePassXC reads and secret delivery over SSH after base readiness.
+- Workstation Skillet: KeePassXC reads and guarded entry creation, a three-hour
+  kernel unlock cache, and secret delivery over SSH after base readiness.
 - Skillet: continuing convergence of host values, application configuration, secrets, storage resources and containers.
 - Public repositories and images must exclude secret values, including secrets compiled into host binaries. Decide which topology values also require private delivery.
 - Keep the production Samsung SSD and functioning DNS on rupik until cutover. Test on the stock clamps SSD or disposable VM disks.

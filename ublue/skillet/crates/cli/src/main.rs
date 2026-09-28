@@ -22,7 +22,7 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Commands {
-    /// Deliver an existing `KeePassXC` secret to a provisioned host
+    /// Manage host secrets backed by `KeePassXC`
     Secret {
         #[command(subcommand)]
         command: SecretCommands,
@@ -48,8 +48,16 @@ enum Commands {
 
 #[derive(clap::Subcommand, Debug)]
 enum SecretCommands {
-    /// Deliver the clamps Pi-hole web password
+    /// Use or create the clamps Pi-hole web password and deliver it
     Deliver(SecretDeliverArgs),
+    /// Remove the cached vault password from the kernel keyring
+    Lock(SecretLockArgs),
+}
+
+#[derive(clap::Args, Debug)]
+struct SecretLockArgs {
+    #[arg(long)]
+    database: Option<PathBuf>,
 }
 
 #[derive(clap::Args, Debug)]
@@ -169,6 +177,9 @@ fn main() -> Result<()> {
         } => {
             secret_delivery::deliver_from_vault(&args)?;
         }
+        Commands::Secret {
+            command: SecretCommands::Lock(args),
+        } => secret_delivery::lock_vault(args.database.as_deref())?,
         Commands::Apply {
             phase,
             host,

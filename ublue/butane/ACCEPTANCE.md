@@ -188,3 +188,26 @@ host tool; it still uses normal command approvals.
   both storage scripts, and `git diff --check` passed. These checks did not include a
   post-provision OS rebase or the physical stock SSD. Other host templates do
   not yet merge the shared include because they do not yet exist.
+
+## KeePass use-or-create smoke, 2026-09-28
+
+- Fresh `clamps-test-credential-e2e` VM on port 2202 passed current Butane
+  readiness, including signed uCore boot and the user environment. The updated
+  Rust host command installed a generated dummy Pi-hole credential; full apply
+  completed and Pi-hole became active. The guest credential is root-owned and
+  mode 0600.
+- `skillet test smoke clamps --port 2202 --identity
+  ../butane/runs/clamps-test-credential-e2e/ssh/id_ed25519` passed all fixture
+  cases and reboot persistence. Guest snapshots remain under
+  `/var/lib/skillet-smoke/` on the retained VM.
+- An empty disposable KDBX could not replace the VM's existing credential.
+  After removing only that VM's dummy credential and Podman secret, the same
+  vault created `skillet/hosts/clamps/pihole/web-password` and delivered it.
+  A repeat delivery reopened the saved entry and completed full apply. The
+  encrypted vault backup was retained, the host reported `present`, Pi-hole
+  was active, and full apply reported `Result=success` and `ExecMainStatus=0`.
+- On this workstation, both Skillet and `keyctl timeout` received permission
+  denied when setting expiry on a new user key. Skillet unlinked that key and
+  continued without caching the dummy unlock; the user keyring was empty after
+  the run. The three-hour kernel expiry path remains unverified here. No
+  production vault, production host, or physical disk was used.
