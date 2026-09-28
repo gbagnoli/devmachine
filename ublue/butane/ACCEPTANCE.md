@@ -242,3 +242,20 @@ host tool; it still uses normal command approvals.
   activation fails. A disconnect during the input stream or encryption is
   still untested. The software-only VM also reports that its systemd host key
   is not on encrypted media; production TPM binding remains open.
+
+## Syncthing service, 2026-09-28
+
+- On the named disposable `clamps-test-credential-e2e` VM, a full apply created
+  `/var/lib/data/syncthing` as a Btrfs subvolume and started the separate
+  `syncthing` Quadlet container on the shared clamps network. Container-name
+  DNS resolved both bridge addresses, and `http://syncthing:8384` returned
+  HTTP 200 from another container.
+- The VM showed the Chef-equivalent host publications for GUI port 8384 and
+  transfer port 22000 on IPv4 and IPv6. A repeated full apply preserved the
+  container ID and configuration hash. Its empty data tree generated a VM-only
+  device identity; no production Syncthing identity was copied or run.
+- These are the previous session's runtime results. On the current workstation,
+  `test-vm clamps list` reports this domain as `missing`, so no fresh VM
+  rerun was made before committing. Real peer connectivity and production
+  state transfer remain cutover work. The GUI publication must be removed or
+  locally restricted before tailnet access can serve as its sole gate.
