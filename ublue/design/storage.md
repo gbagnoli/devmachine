@@ -38,9 +38,11 @@ mounted data subvolume and fail when it is absent, preventing their writes to
 a fallback directory. A manually invoked Podman command does not have this
 unit dependency and must only run after validating the mount.
 Btrfs snapshots do not include nested subvolume contents, so backup policy
-must list service subvolumes explicitly. The `containers` subvolume can then
-be omitted from service-data snapshots. A shared filesystem shares free space
-and physical failure; snapshots are not independent backups.
+must list service subvolumes explicitly. Snapshot source subvolumes are leaf
+subvolumes: nested subvolumes inside them are unsupported. Syncthing follows
+this rule by design. The `containers` subvolume can then be omitted from
+service-data snapshots. A shared filesystem shares free space and physical
+failure; snapshots are not independent backups.
 
 The clamps VM passed fresh provisioning, mount, SELinux, reboot, repeat apply,
 and unavailable/wrong-mount recovery. A post-provision OS rebase and the

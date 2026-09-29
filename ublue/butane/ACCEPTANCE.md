@@ -307,5 +307,6 @@ host tool; it still uses normal command approvals.
   exercised against the shared storage configuration (see the shared Btrfs
   data storage section above); btrbk unit tests also reject a wrong mount
   before writing managed state. The disposable VM used an empty Syncthing
-  subvolume; real production folders and nested subvolumes still need a
-  pre-cutover inventory.
+  subvolume. The user confirms Syncthing data is designed without nested
+  subvolumes; the btrbk design treats selected sources as leaf subvolumes and
+  does not support nested subvolumes.
