@@ -1550,12 +1550,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "skillet_btrbk"
+version = "0.1.0"
+dependencies = [
+ "skillet_core",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "skillet_cli_common"
 version = "0.1.0"
 dependencies = [
  "clap",
  "serde",
  "serde_yml",
+ "skillet_btrbk",
  "skillet_core",
  "skillet_hardening",
  "skillet_pihole",

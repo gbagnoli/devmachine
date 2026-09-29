@@ -5,6 +5,7 @@ members = [
     "crates/hardening",
     "crates/pihole",
     "crates/syncthing",
+    "crates/btrbk",
     "crates/podman",
     "crates/cli",
     "crates/hosts/beezelbot",
@@ -17,6 +18,7 @@ skillet_core = { path = "crates/core" }
 skillet_hardening = { path = "crates/hardening" }
 skillet_pihole = { path = "crates/pihole" }
 skillet_syncthing = { path = "crates/syncthing" }
+skillet_btrbk = { path = "crates/btrbk" }
 skillet_podman = { path = "crates/podman" }
 skillet_cli_common = { path = "crates/cli-common" }
 thiserror = "1.0"

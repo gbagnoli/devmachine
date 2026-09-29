@@ -34,6 +34,8 @@ pub enum ApplyError {
     Pihole(#[from] skillet_pihole::PiholeError),
     #[error("Syncthing apply error: {0}")]
     Syncthing(#[from] skillet_syncthing::SyncthingError),
+    #[error("Btrbk apply error: {0}")]
+    Btrbk(#[from] skillet_btrbk::BtrbkError),
     #[error("Podman error: {0}")]
     Podman(#[from] skillet_podman::PodmanError),
     #[error("Fixture input error: {0}")]
@@ -176,6 +178,13 @@ pub fn apply_clamps(
             uid: 1000,
             gid: 1000,
             network: clamps_service_network(),
+        },
+    )?;
+    skillet_btrbk::apply(
+        system,
+        files,
+        &skillet_btrbk::BtrbkConfig {
+            snapshot_subvolumes: vec![std::path::PathBuf::from("syncthing")],
         },
     )?;
     Ok(())

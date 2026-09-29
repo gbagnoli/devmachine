@@ -148,10 +148,13 @@ impl SystemResource for MockSystem {
     }
 
     fn service_enable(&self, name: &str) -> Result<(), SystemError> {
-        self.services
+        let mut services = self
+            .services
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(name.to_string(), "enabled".to_string());
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        services
+            .entry(name.to_string())
+            .or_insert_with(|| "enabled".to_string());
         Ok(())
     }
 
@@ -173,6 +176,7 @@ pub struct MockFiles {
     pub files: Arc<Mutex<HashMap<String, Vec<u8>>>>,
     pub metadata: Arc<Mutex<HashMap<String, FileMetadata>>>,
     pub directories: Arc<Mutex<HashSet<String>>>,
+    pub fail_btrfs_mount_check: Arc<AtomicBool>,
 }
 
 impl MockFiles {
@@ -181,6 +185,7 @@ impl MockFiles {
             files: Arc::new(Mutex::new(HashMap::new())),
             metadata: Arc::new(Mutex::new(HashMap::new())),
             directories: Arc::new(Mutex::new(HashSet::new())),
+            fail_btrfs_mount_check: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -194,10 +199,18 @@ impl Default for MockFiles {
 impl FileResource for MockFiles {
     fn require_btrfs_subvolume_mount(
         &self,
-        _path: &Path,
+        path: &Path,
         _backing_mount: &Path,
         _subvolume_root: &str,
     ) -> Result<(), FileError> {
+        if self.fail_btrfs_mount_check.load(Ordering::SeqCst) {
+            Err(FileError::WrongMount(path.display().to_string()))
+        } else {
+            Ok(())
+        }
+    }
+
+    fn require_btrfs_subvolume(&self, _path: &Path) -> Result<(), FileError> {
         Ok(())
     }
 

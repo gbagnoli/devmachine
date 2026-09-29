@@ -11,6 +11,7 @@ skillet_core.workspace = true
 skillet_hardening.workspace = true
 skillet_pihole.workspace = true
 skillet_syncthing.workspace = true
+skillet_btrbk.workspace = true
 skillet_podman.workspace = true
 users.workspace = true
 clap.workspace = true

@@ -96,8 +96,7 @@ impl LinuxSystemResource {
 
     /// Run a systemctl action via `DBus` (preferred) or the CLI (fallback).
     ///
-    /// CLI start/restart wait for the startup job to complete by default.
-    /// `--wait` would additionally wait for service termination.
+    /// Start/restart operations wait for systemd to finish the requested job.
     fn run_systemctl(&self, action: &str, name: &str) -> Result<(), SystemError> {
         let name_with_suffix = ensure_systemd_suffix(name);
 
@@ -141,6 +140,9 @@ impl LinuxSystemResource {
     fn run_systemctl_cli(action: &str, name_with_suffix: &str) -> Result<(), SystemError> {
         info!("Running systemctl {action} {name_with_suffix} via CLI");
         let mut cmd = Command::new("systemctl");
+        if matches!(action, "start" | "restart") {
+            cmd.arg("--wait");
+        }
         cmd.arg(action);
         let output = cmd.arg(name_with_suffix).output()?;
 
