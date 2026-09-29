@@ -70,6 +70,7 @@ pub trait FileResource {
         backing_mount: &Path,
         subvolume_root: &str,
     ) -> Result<(), FileError>;
+    fn require_btrfs_subvolume(&self, path: &Path) -> Result<(), FileError>;
     fn ensure_btrfs_subvolume(&self, path: &Path) -> Result<bool, FileError>;
 }
 
@@ -209,6 +210,18 @@ impl FileResource for LocalFileResource {
     ) -> Result<(), FileError> {
         let mountinfo = fs::read_to_string("/proc/self/mountinfo")?;
         require_btrfs_mount_in(&mountinfo, path, backing_mount, subvolume_root)
+    }
+
+    fn require_btrfs_subvolume(&self, path: &Path) -> Result<(), FileError> {
+        let output = Command::new("btrfs")
+            .args(["subvolume", "show"])
+            .arg(path)
+            .output()?;
+        if output.status.success() {
+            Ok(())
+        } else {
+            Err(FileError::NotASubvolume(path.display().to_string()))
+        }
     }
 
     fn ensure_btrfs_subvolume(&self, path: &Path) -> Result<bool, FileError> {

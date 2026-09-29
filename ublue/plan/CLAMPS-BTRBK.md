@@ -1,7 +1,9 @@
 # Next milestone: btrbk snapshots on clamps
 
-Status: ready to implement after the Syncthing slice. Scope is local snapshot
-parity for rupik; remote backup and Pi-hole snapshot policy are separate work.
+Status: implementation in progress. The Skillet module, clamps opt-in, and
+shared image package/timer policy are implemented; real-VM verification
+remains. Scope is local snapshot parity for rupik; remote backup and Pi-hole
+snapshot policy are separate work.
 The [snapshot design](../design/btrbk.md) records the chosen scope and why.
 
 ## Starting point
@@ -19,27 +21,26 @@ The [snapshot design](../design/btrbk.md) records the chosen scope and why.
 
 ## Implementation sequence
 
-1. In `ucore-images`, add `btrbk` to the shared OS recipe
-   `recipes/ucore-common.yml` if absent from the base. Build the common image
-   before the host images as their CI requires. Do not install packages at
-   runtime or copy Chef's source-build recipe.
-2. Add a reusable Skillet btrbk module. Guard the verified `/var/lib/data`
-   mount before creating anything. Ensure `/var/lib/data/snapshots/syncthing`
-   exists, and manage `/etc/btrbk/btrbk.conf` idempotently. Configure
-   `volume /var/lib/data`, `snapshot_dir snapshots/syncthing`, and
-   `subvolume syncthing`, with rupik's timestamp and retention values. Do not snapshot
-   `containers` or the parent `data` subvolume. Keep Pi-hole out of this first
-   slice because rupik did not snapshot it.
-3. Enable exactly one hourly systemd timer, using the packaged unit if its
-   schedule matches. Otherwise manage a unit/drop-in with an hourly schedule.
+1. Done in `ucore-images`: add `btrbk` to the shared OS recipe
+   `recipes/ucore-common.yml` and mask its packaged daily timer. Build the
+   common image before the host images as their CI requires. Do not install
+   packages at runtime or copy Chef's source-build recipe.
+2. Done in Skillet: add a reusable btrbk module and make hosts opt in with
+   explicit paths relative to `/var/lib/data`. Clamps passes only `syncthing`;
+   no host implicitly snapshots the root data subvolume or Podman containers.
+   The module requires the expected data mount and an existing source
+   subvolume, then manages retention/config and its timer idempotently.
+3. Implemented: mask the package's daily timer in the shared image and manage
+   one hourly Skillet systemd timer. The service runs the shared data mount
+   validation before btrbk, and is bound to the mount.
    The service must verify the actual `/data` Btrfs mount on every run, using
    the same checks as `butane/includes/data-storage.bu`; a mountpoint assertion
    alone does not reject a wrong filesystem. Do not enable a second packaged
    timer or create a cron job. Apply the shared module from clamps' host
    convergence only after Syncthing storage exists.
-4. Add isolated module tests for rendered config, repeat apply, and missing or
-   wrong data mount. Keep tests in a separate `tests.rs`; use Rust resources
-   rather than embedded shell.
+4. Done: isolated unit tests cover caller-selected rendering, source path
+   safety, opt-out, repeat apply, and fail-closed behavior for a wrong data
+   mount.
 5. Rebuild/rebase a named disposable clamps VM onto the image with btrbk,
    provision dummy credentials, and validate the real systemd timer and Btrfs
    subvolume. Use `ublue/butane/bin/test-vm` and its README; the previous VM
@@ -47,8 +48,9 @@ The [snapshot design](../design/btrbk.md) records the chosen scope and why.
 
 ## Exit criteria
 
-- Workspace format, pedantic Clippy, unit tests, and the CI container command
-  pass. The named VM smoke runs with real systemd and Podman.
+- Shared `ucore-images` recipe contains btrbk. Workspace format, pedantic
+  Clippy, unit tests, and the CI container command pass. The named VM smoke runs
+  with real systemd and Podman.
 - `btrbk -n -v run` targets only the intended Syncthing subvolume; a real run
   creates a read-only snapshot under the intended directory. Repeated Skillet
   apply preserves the config, timer, and existing snapshots. The timer remains
