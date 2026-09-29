@@ -88,13 +88,13 @@ if ((SECONDS >= deadline)); then
   echo "Diagnostics: $run_dir/failure.log" >&2
   exit 1
 fi
-if ! ssh_guest 'sudo -n systemctl reset-failed skillet-apply.service && sudo -n systemctl --wait restart skillet-apply.service'; then
+if ! ssh_guest 'sudo -n systemctl reset-failed skillet-apply.service && sudo -n systemctl restart skillet-apply.service'; then
   ssh_guest 'sudo -n rpm-ostree status; sudo -n journalctl -b -u ucore-bootstrap.service -u skillet-apply.service --no-pager -n 200' > "$run_dir/failure.log" 2>&1 || true
   echo "Skillet base apply failed; diagnostics: $run_dir/failure.log" >&2
   exit 1
 fi
 echo "Waiting for Homebrew and the core dotfiles profile..."
-if ! ssh_guest 'sudo -n systemctl reset-failed brew-install.service dotfiles-install.service && sudo -n systemctl --wait start brew-install.service && sudo -n systemctl --wait start dotfiles-install.service'; then
+if ! ssh_guest 'sudo -n systemctl reset-failed brew-install.service dotfiles-install.service && sudo -n systemctl start brew-install.service && sudo -n systemctl start dotfiles-install.service'; then
   ssh_guest 'sudo -n journalctl -b -u brew-install.service -u dotfiles-install.service --no-pager -n 200' > "$run_dir/user-environment-failure.log" 2>&1 || true
   echo "User environment install failed; diagnostics: $run_dir/user-environment-failure.log" >&2
   exit 1

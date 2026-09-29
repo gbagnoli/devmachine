@@ -259,3 +259,53 @@ host tool; it still uses normal command approvals.
   rerun was made before committing. Real peer connectivity and production
   state transfer remain cutover work. The GUI publication must be removed or
   locally restricted before tailnet access can serve as its sole gate.
+
+## Btrbk image and VM attempt, 2026-09-29
+
+- Image workflow [run 36552978960](https://github.com/gbagnoli/ucore-images/actions/runs/36552978960)
+  succeeded for `ucore-common` and all three host images. The published clamps
+  image digest is
+  `sha256:e6c0cd35641199ddb5e2d9ca0f281dc1d640126ae5b2a04fa87c65163cedfd7c`.
+- The user created `clamps-test-smoke` with `./butane/bin/test-vm clamps
+  create smoke`. The guest booted the expected signed image and confirmed
+  `btrbk-0.32.7-1.fc44.noarch` is present, `btrbk.timer` is masked, and
+  `/var/lib/data` is Btrfs subvolume `/data` on the expected UUID.
+- The first readiness attempt hung during baseline convergence. Guest
+  `systemd-sysctl.service` is `Type=oneshot`, `RemainAfterExit=yes`; passing
+  `--wait` made systemctl wait for this persistent unit to stop. The rule was
+  corrected: ordinary `systemctl start` and `restart` wait for the requested
+  job. Skillet, credential delivery, the VM readiness helper, and its usage
+  example now omit `--wait`. Rebuilt clamps completed base apply successfully.
+
+## Btrbk snapshot verification, 2026-09-29
+
+- Dummy-credential provisioning completed full apply. Pi-hole and Syncthing
+  started, the `/var/lib/data/syncthing` Btrfs subvolume was present, and
+  `/etc/btrbk/btrbk.conf` contained only that source with the Chef-equivalent
+  hourly retention (`6h`, `24h 31d 6m`). `skillet-btrbk.timer` was active and
+  enabled while the packaged daily `btrbk.timer` remained masked.
+- `btrbk -n -v run` showed only `/var/lib/data/syncthing` as its source and
+  `/var/lib/data/snapshots/syncthing/syncthing.<timestamp>` as its target.
+  A real run created read-only snapshot `syncthing.20260929T1402`. A disposable
+  sentinel was changed in the live tree, then restored from that snapshot into
+  `/var/tmp/skillet-btrbk-restore`; byte comparison passed. The temporary
+  restore subvolume and sentinel were deleted, while the btrbk snapshot was
+  retained.
+- Repeated full apply preserved the btrbk config and timer hashes and retained
+  the existing snapshots. The timer fired at 14:00:30 and created
+  `syncthing.20260929T1400`. After a VM reboot, Pi-hole, Syncthing, and
+  `skillet-btrbk.timer` were active; the timer remained enabled, the package
+  timer remained masked, both snapshots remained, and the next hourly run was
+  scheduled for 15:00 CEST.
+- `cargo run --release -p skillet -- test smoke clamps` passed the real-runtime
+  systemd/Podman fixture checks through reboot. Local validation passed:
+  formatting, 45 workspace tests, pedantic Clippy with warnings denied, the
+  CI-style container command, `bash -n` and ShellCheck for `test-vm-ready`,
+  and `git diff --check`. The CI-style command ran from `/tmp` because the
+  checked-out workspace mount is read-only to shell commands.
+- Fail-closed behavior for missing and wrong `/var/lib/data` mounts was already
+  exercised against the shared storage configuration (see the shared Btrfs
+  data storage section above); btrbk unit tests also reject a wrong mount
+  before writing managed state. The disposable VM used an empty Syncthing
+  subvolume; real production folders and nested subvolumes still need a
+  pre-cutover inventory.

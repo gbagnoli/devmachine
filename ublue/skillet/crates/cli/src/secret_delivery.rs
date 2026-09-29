@@ -210,7 +210,7 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
                 .arg(port.to_string())
                 .args([
                     "giacomo@127.0.0.1",
-                    "sudo -n systemctl start --wait skillet-full-apply.service",
+                    "sudo -n systemctl start skillet-full-apply.service",
                 ])
                 .status()
                 .context("running full apply")?;

@@ -15,6 +15,9 @@ This document defines the architectural mandates and project structure for `skil
 - All resources (files, users, groups, etc.) must be **idempotent**.
 - Before performing an action, check the current state (e.g., compare SHA256 hashes for files, check existence for users).
 - Actions should only be taken if the system state does not match the desired state.
+- Use the normal blocking `systemctl start` or `restart` command and inspect its
+  result. Do not pass `--wait`: it waits for a started unit to stop and can hang
+  on long-running services or `RemainAfterExit=yes` oneshot units.
 
 ### 3. Testing Strategy
 - **Unit Tests**: Place unit tests in a `tests` submodule within each module's directory (e.g., `src/files/tests.rs`).

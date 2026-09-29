@@ -86,11 +86,9 @@ pub fn install(name: &str, unit: &str) -> Result<(), CredentialError> {
     }
     encrypted.persist(path).map_err(|error| error.error)?;
     fs::File::open(&directory)?.sync_all()?;
-    let status = Command::new("systemctl")
-        .args(["start", "--wait", unit])
-        .status()?;
+    let status = Command::new("systemctl").args(["start", unit]).status()?;
     if !status.success() {
-        return Err(CredentialError::Command("systemctl start --wait"));
+        return Err(CredentialError::Command("systemctl start"));
     }
     Ok(())
 }

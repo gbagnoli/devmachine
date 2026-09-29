@@ -161,7 +161,7 @@ cargo run --release -p skillet -- secret deliver clamps pihole \
 Add `--key-file /path/to/keyfile` if the database uses one. The value is
 encrypted by the installed `skillet-clamps credential install` command on the
 host and loaded by `skillet-full-apply.service`; later
-`systemctl start --wait skillet-full-apply.service` reuses it. If full apply
+`systemctl start skillet-full-apply.service` reuses it. If full apply
 reports a missing or undecryptable credential, check the host's encrypted
 credential file and redeliver the KeePassXC entry. If the entry is absent in
 an existing vault and the host has no encrypted credential, Skillet creates
