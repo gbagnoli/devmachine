@@ -179,6 +179,63 @@ permissions. Save it as `skillet/cloudflare/token-creator`. If already stored
 in the desktop keyring, move that value into KeePassXC and verify the saved
 entry before removing the old copy. The current smoke command does not use it.
 
+### Tailscale setup for Skillet
+
+Skillet will run the official `tailscale/tailscale` container with
+`Network=host`, matching the current Chef configuration on rupik, calculon,
+and boxy. This gives Tailscale a normal host interface for host-level routing
+and port forwarding. Persist its state under `/var/lib/data/tailscale`. Do not
+put the OAuth client secret or a reusable auth key on the host. See the
+[private UI design](../design/private-ui-access.md) for the network decision.
+
+1. In the Tailscale admin console, open **Access controls** and ensure the
+   policy defines separate tags for production servers and smoke VMs, such as
+   `tag:skillet-server` and `tag:skillet-smoke`. Give each tag only the access
+   that role needs. Make a provisioning tag the owner of those tags, following
+   the existing `tagOwners` policy pattern; do not give smoke VMs production
+   server permissions.
+2. Open **Trust credentials** and create an **OAuth** credential for Skillet.
+   Grant **Keys > Auth Keys: Write** (`auth_keys`) and restrict it to the
+   provisioning tag from step 1. This lets Skillet mint a tagged enrollment
+   key per target. Keys should be one-use, preauthorized, and non-ephemeral so
+   a retained smoke VM stays registered through shutdowns. Until automated
+   device cleanup is implemented, remove a destroyed VM from **Machines** in
+   the admin console; revoking its auth key does not remove an enrolled device.
+   Automated cleanup will require a separately reviewed `devices:core` scope.
+3. Copy the OAuth **Client ID** and **Client secret** from the creation page.
+   In KeePassXC create two entries, putting each value in its **Password**
+   field:
+
+   | Group path | Entry title | Password value |
+   | --- | --- | --- |
+   | `skillet/tailscale` | `provisioner-client-id` | OAuth Client ID |
+   | `skillet/tailscale` | `provisioner-client-secret` | OAuth Client secret |
+
+   The ID is not secret, but storing both this way lets Skillet use its
+   Password-field lookup for the complete credential. The client secret can
+   mint new auth keys, so treat it as the workstation-side master credential.
+   Never put it in a VM, Quadlet, environment file, or repository. Close
+   KeePassXC before Skillet edits the database.
+4. In the Tailscale admin console, open **DNS** and leave **Override DNS
+   servers** off. Under **Nameservers**, choose **Add nameserver > Custom**.
+   Add the numeric Tailscale IPv4 address of each Pi-hole that is reachable
+   over Tailscale, enable **Restrict to search domain**, and enter the private
+   UI zone. Add a resolver only after it is reachable and serves the same
+   records as the others. Clients may query resolvers in any order.
+5. Configure production and smoke-test UI zones outside this public repository.
+   Use a restricted nameserver for each zone only when its Pi-hole resolver has
+   the matching local records. Once clamps and its Pi-hole are enrolled, add
+   identical production records to every configured Pi-hole, using the form
+   `<service>.<host>.<production-private-zone>` and resolving to that host's
+   Tailscale address. Keep smoke-test records under a separate zone and point
+   them at the disposable VM's Tailscale address. Caddy obtains trusted
+   certificates through Cloudflare DNS-01; UI A/AAAA records do not need to be
+   public.
+
+The Tailscale vault entries and split DNS are not consumed/configured by
+Skillet yet. This guide prepares the tailnet and vault for that milestone;
+Skillet support and disposable-VM validation remain required.
+
 ## Development checks
 
 - **Error Handling**: Use `thiserror` in library crates; `anyhow` is reserved for CLI binaries. No `unwrap()` or `expect()` in library code.

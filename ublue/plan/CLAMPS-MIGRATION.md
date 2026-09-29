@@ -17,15 +17,20 @@ Pi-hole container runs in the VM with data and Podman storage under
 `/var/lib/data`; service networking, live ACME, final disk selection, and
 post-provision rebase checks remain open.
 
-Next: implement the [btrbk milestone](CLAMPS-BTRBK.md). Syncthing
-passed the named disposable-VM service and repeat-apply checks. Pi-hole
-LAN-client access and final custom DNS records remain open; production DNS
-stays on rupik. See the [Syncthing design](../design/syncthing.md), [Pi-hole
-network design](../design/pihole-network.md), [storage design](../design/storage.md),
-[secret design](../design/secrets.md), [VM lifecycle](../design/smoke-vms.md),
-and [storage/credential plan](CLAMPS-STORAGE-CREDENTIALS.md). The implemented
-VM layout uses a shared Btrfs filesystem with `/var/lib/data` as the data mount;
-the final physical disk remains open.
+Next: port Tailscale to clamps, deciding its enrollment/authentication and
+tailnet DNS inputs before provisioning. Then implement Caddy with Cloudflare
+DNS-01 staging for private Pi-hole and Syncthing UIs. The private-UI design
+requires a tailnet-only listener and consistent split-DNS answers from the
+Pi-hole resolvers, so certificate issuance alone is not the acceptance target.
+Pi-hole LAN-client reachability and final custom DNS records also remain open;
+production DNS stays on rupik. Syncthing passed the named disposable-VM service
+and repeat-apply checks, and the [btrbk milestone](CLAMPS-BTRBK.md) is complete.
+See the [private UI design](../design/private-ui-access.md), [Syncthing
+design](../design/syncthing.md), [Pi-hole network design](../design/pihole-network.md),
+[storage design](../design/storage.md), [secret design](../design/secrets.md),
+[VM lifecycle](../design/smoke-vms.md), and
+[storage/credential plan](CLAMPS-STORAGE-CREDENTIALS.md). The final physical
+disk remains open.
 
 ## Boundaries
 
@@ -84,9 +89,9 @@ Each row is a separate implementation and validation step. Adjust order for depe
 | Order | Capability | Behavior and state to preserve |
 | --- | --- | --- |
 | 1 | Syncthing (implemented; disposable VM service and repeat-apply checks passed) | Data, device identity, folder configuration, UID/GID, required ports |
-| 2 | btrbk | Follow the [btrbk milestone](CLAMPS-BTRBK.md): real Btrfs subvolume, hourly snapshots, Chef retention policy, and restore exercise. Local snapshots are not an independent backup. |
+| 2 | btrbk (implemented and verified) | Follow the [btrbk milestone](CLAMPS-BTRBK.md): real Btrfs subvolume, hourly snapshots, Chef retention policy, and restore exercise. Local snapshots are not an independent backup. |
 | 3 | UniFi | Controller data or supported backup restore, version compatibility, adoption and ownership |
-| 4 | Tailscale | Authentication/identity policy, exit-node approval, forwarding, persistent state, DNS policy and hardware interface settings |
+| 4 | Tailscale (next) | Authentication/identity policy, exit-node approval, forwarding, persistent state, DNS policy and hardware interface settings. This is a prerequisite for accepting tailnet-only Caddy UI access. |
 | 5 | Private UI access with Caddy + ACME | Implement the [private UI design](../design/private-ui-access.md): host-specific names, hosted Tailscale split DNS with consistent reachable Pi-hole resolvers, tailnet-only access, Syncthing GUI isolation, and DNS recovery; validate Cloudflare DNS-01 with staging, per-VM tokens, certificate persistence and cleanup. Add public OAuth2 proxying only for an explicitly required public UI. |
 | 6 | Cloudflare DDNS | Required records and token delivery; reconcile the legacy updater before enabling competing writers |
 | 7 | Monitoring and remaining host baseline | Explicit keep/drop decision for Datadog; required hardening, users, SSH/sudo, ET and WOL behavior |

@@ -41,9 +41,13 @@ The prefix is consistently singular, `skillet`:
 | `skillet/hosts/clamps/pihole/web-password` | `pihole_web_password` |
 | `skillet/hosts/clamps/cloudflare/acme-token` | `cloudflare_acme_token` |
 | `skillet/cloudflare/token-creator` | Workstation only |
+| `skillet/tailscale/provisioner-client-id` | Workstation only; OAuth Client ID |
+| `skillet/tailscale/provisioner-client-secret` | Workstation only; OAuth Client secret |
 
 Host entries follow `skillet/hosts/<host>/<service>/<key>`; shared credentials
-follow `skillet/<service>/<key>`. Exact lookups reject ambiguous entries and
+follow `skillet/<service>/<key>`. The Tailscale OAuth client is a workstation
+master credential used to mint one-use host enrollment keys; it is never
+delivered to a host. Exact lookups reject ambiguous entries and
 entries with empty Password fields. A missing Pi-hole entry is generated only
 after Skillet successfully opens the existing vault and confirms over SSH that
 the host has neither an encrypted Pi-hole credential nor a Podman secret. If
@@ -82,10 +86,11 @@ credential encryption does not encrypt that copy.
 Smoke VMs get generated test passwords, never production host entries. Live
 ACME testing reads `skillet/cloudflare/token-creator` locally and creates one
 short-lived Cloudflare token per VM, with Zone Read and DNS Edit restricted to
-the separately managed smoke-test zone. That permission covers the whole zone;
+the separately managed smoke-test zone. The permission covers the whole zone;
 unique test names prevent accidental record collisions, not API access to
-other records. Keep the literal zone outside this public repository. The
-creator remains on the workstation.
+other records. Production UI records use a separate private zone. Keep literal
+zone names and records outside this public repository. The token creator
+remains on the workstation.
 
 VM Pi-hole secrets use the same SSH, systemd, and Podman delivery path. Keep token IDs,
 expiry, and owned record IDs in run metadata, without token values. Existing

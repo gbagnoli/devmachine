@@ -8,10 +8,22 @@ Syncthing are the first targets. Their UIs are reachable only through the
 tailnet; neither needs a public listener or an OAuth2 proxy. Keep Pi-hole's LAN
 DNS listener and Syncthing's peer-transfer ports separate from their UIs.
 
-Use names under a domain we control, rather than `*.ts.net`, so the UI URLs and
-Caddy routes survive a move between hosted Tailscale and Headscale. Caddy gets
-publicly trusted certificates through Cloudflare DNS-01 using the existing
-secret-delivery design. DNS-01 does not require publicly reachable UI endpoints.
+Run Tailscale in its Podman container with `Network=host`, matching the
+existing Chef configuration on rupik, calculon, and boxy. This gives the host
+a normal Tailscale interface for host-level routing and port forwarding.
+Persist its state under `/var/lib/data/tailscale`. Use separate tagged
+identities and access rules for production servers and smoke VMs. The
+workstation uses a narrowly scoped OAuth client to mint one-use enrollment
+keys; only those short-lived keys are delivered to a host, never the OAuth
+client secret.
+
+Use a privately managed production zone rather than `*.ts.net`, so the UI URLs
+and Caddy routes survive a move between hosted Tailscale and Headscale. Keep a
+separate privately managed zone for disposable smoke-test names and
+certificates. Store the literal zones and records outside this public
+repository. Caddy gets publicly trusted certificates through Cloudflare
+DNS-01 using the existing secret-delivery design. DNS-01 does not require
+publicly reachable UI endpoints.
 
 Hosted Tailscale MagicDNS cannot store arbitrary records. Configure split DNS
 for the private UI zone, forwarding to the fleet's Pi-hole resolvers. Each
@@ -54,10 +66,10 @@ extra DNS records but not Tailscale Services.
 
 ## Status and references
 
-This is the planned access design; Caddy, tailnet DNS, resolver redundancy, and
-UI isolation have not yet been implemented or accepted on clamps. The current
-Pi-hole UI is private to the container bridge; Syncthing's GUI is still
-published on the host.
+This is the planned access design; Skillet-managed Tailscale, Caddy, tailnet
+DNS, resolver redundancy, and UI isolation have not yet been implemented or
+accepted on clamps. The current Pi-hole UI is private to the container bridge;
+Syncthing's GUI is still published on the host.
 
 References: [Tailscale DNS](https://tailscale.com/docs/reference/dns-in-tailscale/),
 [Headscale DNS](https://headscale.net/stable/ref/dns/),
