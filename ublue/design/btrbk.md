@@ -9,6 +9,12 @@ under `/var/lib/data/snapshots/syncthing`. The module rejects absolute paths,
 traversal, and the data root, and requires each selected source to be an existing
 Btrfs subvolume. It never defaults to snapshotting the parent or `containers`.
 
+Selected snapshot sources must be leaf subvolumes. Nested subvolumes inside a
+selected source are unsupported: Btrfs snapshots do not include their contents.
+Syncthing's data layout is designed without nested subvolumes, and this is an
+invariant of the current policy rather than a recursively discovered source
+list. A future need for nested subvolumes requires an explicit design change.
+
 Keep rupik's hourly schedule and retention (`6h` minimum; `24h 31d 6m`). The
 service reruns the shared data preparation validation before calling btrbk, so
 it fails closed if the intended `/data` Btrfs mount is absent or wrong. Pi-hole
@@ -21,7 +27,6 @@ snapshots share the source disk's failure domain and are not an independent
 backup. Verify recovery by restoring a disposable snapshot to a separate path
 before relying on the schedule.
 
-Status: Skillet module and clamps opt-in are implemented, and btrbk is in the
-shared image recipe with its packaged daily timer masked. Real-VM
-snapshot/restore verification remains. See the [implementation
-milestone](../plan/CLAMPS-BTRBK.md) and [shared storage design](storage.md).
+Status: implementation and real-VM snapshot/restore verification are complete.
+See the [implementation milestone](../plan/CLAMPS-BTRBK.md) and
+[shared storage design](storage.md).

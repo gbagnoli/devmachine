@@ -62,8 +62,8 @@ The [snapshot design](../design/btrbk.md) records the chosen scope and why.
   `butane/ACCEPTANCE.md` under shared Btrfs data storage.
 
 Local snapshots share the source disk's failure domain; this milestone does not
-claim independent backup. Before cutover, inspect whether any real Syncthing
-folders are nested Btrfs subvolumes and list each such source explicitly.
+claim independent backup. Nested subvolumes inside a selected snapshot source
+are unsupported by design; Syncthing data sources must remain leaf subvolumes.
 
 ## Current verification
 
