@@ -258,7 +258,11 @@ case "$operation" in
   update)
     (($# == 0)) || usage
     inspect_owned
-    artifact="$(realpath -e "$script_dir/../../skillet/target/x86_64-unknown-linux-musl/release/skillet-$host")"
+    artifact_target_dir="${CARGO_TARGET_DIR:-$script_dir/../../skillet/target}"
+    if [[ "$artifact_target_dir" != /* ]]; then
+      artifact_target_dir="$script_dir/../../skillet/$artifact_target_dir"
+    fi
+    artifact="$(realpath -e "$artifact_target_dir/x86_64-unknown-linux-musl/release/skillet-$host")"
     [[ -f "$artifact" && ! -L "$artifact" ]] || { echo "Build skillet-$host first" >&2; exit 1; }
     ssh_args
     scp -O -i "$run_dir/ssh/id_ed25519" -P "$port" -o BatchMode=yes \

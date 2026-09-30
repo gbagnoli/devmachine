@@ -10,7 +10,9 @@ use skillet_core::{
     files::{FileError, FileResource},
     system::{SystemError, SystemResource},
 };
-use skillet_podman::{PodmanNetwork, QuadletSecret, SecretTarget};
+use skillet_podman::{
+    ContainerUser, PodmanConfig, PodmanNetwork, QuadletSecret, SecretTarget, Volume,
+};
 use std::collections::BTreeMap;
 use thiserror::Error;
 
@@ -88,6 +90,9 @@ pub fn apply_full_base(
 /// web UI password. Full `clamps` apply reads it from the systemd credential
 /// directory supplied to that invocation.
 pub const PIHOLE_WEB_PASSWORD_CREDENTIAL: &str = "pihole_web_password";
+/// Name of the systemd credential (and Podman secret) holding the one-use
+/// Tailscale enrollment key used when the node has not joined yet.
+pub const TAILSCALE_AUTH_KEY_CREDENTIAL: &str = "tailscale_auth_key";
 
 /// Custom DNS records for the clamps Pi-hole (`ip -> fqdn`).
 // TODO: replace with the real LAN IP and domain before the production
@@ -110,6 +115,55 @@ fn clamps_service_network() -> PodmanNetwork {
     }
 }
 
+fn clamps_tailscale_config(hostname: &str, auth_key: String) -> PodmanConfig {
+    let extra_config = BTreeMap::from([
+        (
+            "Container".to_string(),
+            vec![
+                "ContainerName=tailscale".to_string(),
+                "AddCapability=NET_ADMIN".to_string(),
+                "AddCapability=NET_RAW".to_string(),
+                "AddDevice=/dev/net/tun:/dev/net/tun".to_string(),
+                "AutoUpdate=registry".to_string(),
+                "Environment=TS_ACCEPT_DNS=false".to_string(),
+                "Environment=TS_AUTH_ONCE=true".to_string(),
+                format!("Environment=TS_HOSTNAME={hostname}"),
+                "Environment=TS_STATE_DIR=/var/lib/tailscale".to_string(),
+                "Environment=TS_USERSPACE=false".to_string(),
+                "Network=host".to_string(),
+            ],
+        ),
+        (
+            "Unit".to_string(),
+            vec!["After=network-online.target".to_string()],
+        ),
+    ]);
+    PodmanConfig {
+        name: "tailscale".to_string(),
+        image: "docker.io/tailscale/tailscale:stable".to_string(),
+        networks: Vec::new(),
+        user: ContainerUser {
+            container_uid: 0,
+            container_gid: 0,
+            host_user: None,
+        },
+        create_host_user: false,
+        volumes: vec![Volume {
+            host_path: "/var/lib/data/tailscale".to_string(),
+            container_path: "/var/lib/tailscale".to_string(),
+            options: Some("Z".to_string()),
+        }],
+        secrets: vec![QuadletSecret {
+            secret_name: TAILSCALE_AUTH_KEY_CREDENTIAL.to_string(),
+            target: SecretTarget::Environment {
+                env_var_name: "TS_AUTHKEY".to_string(),
+            },
+        }],
+        config_revisions: vec![auth_key.into_bytes()],
+        extra_config,
+    }
+}
+
 /// Apply the clamps host configuration (hardening + Pi-hole).
 ///
 /// The credential manager is constructed lazily here: hosts that need no
@@ -123,14 +177,43 @@ pub fn apply_clamps(
     // Check before Podman can create a graphroot on the fallback /var tree.
     apply_full_base(system, files)?;
 
-    // 1. Ingest secret from systemd (lazy: only this host needs secrets)
+    // 1. Ingest secrets from systemd (lazily: only clamps needs these values)
     let credentials = CredentialManager::new()?;
     let secret_payload = credentials.read_secret(PIHOLE_WEB_PASSWORD_CREDENTIAL)?;
+    let tailscale_auth_key = credentials.read_secret(TAILSCALE_AUTH_KEY_CREDENTIAL)?;
 
-    // 2. Provision to Podman
+    // 2. Provision the Podman secrets
     system.ensure_podman_secret(PIHOLE_WEB_PASSWORD_CREDENTIAL, &secret_payload)?;
+    system.ensure_podman_secret(TAILSCALE_AUTH_KEY_CREDENTIAL, &tailscale_auth_key)?;
 
-    // Look up pihole user and group IDs; None if the user/group
+    let hostname = files
+        .read_file(std::path::Path::new("/etc/hostname"))?
+        .map(|contents| {
+            String::from_utf8(contents).map_err(|error| ApplyError::FixtureInput(error.to_string()))
+        })
+        .transpose()?
+        .unwrap_or_else(|| "clamps".to_string());
+    let hostname = hostname.trim();
+    if hostname.is_empty()
+        || hostname.len() > 63
+        || !hostname
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+    {
+        return Err(ApplyError::FixtureInput(
+            "invalid hostname in /etc/hostname for Tailscale".to_string(),
+        ));
+    }
+
+    // Tailscale uses host networking so its interface and routes belong to
+    // the OS. The one-use auth key bootstraps login; state persists separately.
+    skillet_podman::container(
+        system,
+        files,
+        clamps_tailscale_config(hostname, tailscale_auth_key),
+    )?;
+
+    // 3. Look up pihole user and group IDs; None if the user/group
     // doesn't exist yet (ensure_user/group will assign dynamic IDs).
     // Passing the looked-up IDs through (rather than None) keeps the
     // secret file ownership and the user record consistent when the
@@ -138,7 +221,7 @@ pub fn apply_clamps(
     let pihole_uid = user_lookup::lookup_uid("pihole");
     let pihole_gid = user_lookup::lookup_gid("pihole");
 
-    // 3. Apply pihole with the secret
+    // 4. Apply pihole with the secret
     let secrets = vec![QuadletSecret {
         secret_name: PIHOLE_WEB_PASSWORD_CREDENTIAL.to_string(),
         target: SecretTarget::File {
@@ -210,6 +293,10 @@ pub fn apply_host(
 
 #[path = "hosts/fixture.rs"]
 mod fixture;
+
+#[cfg(test)]
+#[path = "hosts_tests.rs"]
+mod tests;
 
 pub fn apply_host_phase(
     hostname: &str,

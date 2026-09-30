@@ -10,6 +10,7 @@ use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 mod secret_delivery;
+mod tailscale;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -48,7 +49,7 @@ enum Commands {
 
 #[derive(clap::Subcommand, Debug)]
 enum SecretCommands {
-    /// Use or create the clamps Pi-hole web password and deliver it
+    /// Deliver a clamps Pi-hole credential or enroll its Tailscale client
     Deliver(SecretDeliverArgs),
     /// Remove the cached vault password from the kernel keyring
     Lock(SecretLockArgs),
@@ -64,7 +65,7 @@ struct SecretLockArgs {
 struct SecretDeliverArgs {
     #[arg(value_parser = ["clamps"])]
     hostname: String,
-    #[arg(value_parser = ["pihole"])]
+    #[arg(value_parser = ["pihole", "tailscale"])]
     service: String,
     #[arg(long)]
     database: Option<PathBuf>,
@@ -101,7 +102,7 @@ enum VmCommands {
     Destroy(VmDestroyArgs),
     /// List available host templates and their recorded disposable VMs
     List(VmListArgs),
-    /// Deliver a generated dummy Pi-hole password and run full apply
+    /// Provision Pi-hole and enroll the disposable VM in Tailscale
     Provision(VmProvisionArgs),
     /// Install the current host binary on a retained disposable VM
     Update(VmDestroyArgs),
@@ -119,12 +120,20 @@ struct VmCreateArgs {
 struct VmDestroyArgs {
     hostname: String,
     instance: String,
+    #[arg(long)]
+    database: Option<PathBuf>,
+    #[arg(long)]
+    key_file: Option<PathBuf>,
 }
 
 #[derive(clap::Args, Debug)]
 struct VmProvisionArgs {
     hostname: String,
     instance: String,
+    #[arg(long)]
+    database: Option<PathBuf>,
+    #[arg(long)]
+    key_file: Option<PathBuf>,
     /// Replace the disposable password and restart its consumer
     #[arg(long)]
     rotate: bool,
@@ -317,6 +326,8 @@ fn run_vm_create(args: &VmCreateArgs) -> Result<()> {
 fn run_vm_destroy(args: &VmDestroyArgs) -> Result<()> {
     vm_name(&args.hostname, &args.instance)?;
     let helper = butane_root()?.join("bin/test-vm");
+    run_helper(&helper, &[&args.hostname, "status", &args.instance])?;
+    secret_delivery::remove_vm_from_tailscale(args)?;
     run_helper(&helper, &[&args.hostname, "destroy", &args.instance])
 }
 
@@ -453,6 +464,10 @@ fn run_container_test(args: &ContainerArgs) -> Result<()> {
     fs::write(
         creds.join("pihole_web_password"),
         "skillet-test-dummy-secret",
+    )?;
+    fs::write(
+        creds.join("tailscale_auth_key"),
+        "skillet-test-dummy-auth-key",
     )?;
     let start = Command::new("podman")
         .args([
