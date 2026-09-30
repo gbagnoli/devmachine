@@ -144,8 +144,10 @@ cargo run --release -p skillet -- test vm provision clamps smoke
 
 The password stays encrypted on the VM. Repeat this command after a reboot to
 reuse it; use `--rotate` to replace it explicitly. A fresh VM starts with a
-new password. The command requires the `skillet-full-apply.service` supplied
-by current Butane, so recreate older test VMs made before that unit existed.
+new password. Provisioning also requires the current Butane
+`skillet-full-apply.service` to load both the Pi-hole and Tailscale credentials.
+Skillet checks this before unlocking the vault and tells you to recreate older
+test VMs that lack the Tailscale credential load.
 If an existing VM credential is corrupt, use `--rotate` to replace only that
 disposable value.
 
@@ -181,27 +183,25 @@ entry before removing the old copy. The current smoke command does not use it.
 
 ### Tailscale setup for Skillet
 
-Skillet will run the official `tailscale/tailscale` container with
-`Network=host`, matching the current Chef configuration on rupik, calculon,
-and boxy. This gives Tailscale a normal host interface for host-level routing
-and port forwarding. Persist its state under `/var/lib/data/tailscale`. Do not
-put the OAuth client secret or a reusable auth key on the host. See the
-[private UI design](../design/private-ui-access.md) for the network decision.
+Clamps runs `tailscale/tailscale` as a host-network container, matching Chef
+on rupik, calculon, and boxy. Its state persists under
+`/var/lib/data/tailscale`. Skillet reads the workstation OAuth client from
+KeePassXC, mints a one-use enrollment key, and sends only that key to the host
+as an encrypted systemd credential and Podman secret. Smoke VM destruction
+removes the matching `tag:skillet-smoke` device before deleting the VM. This
+requires `curl` on the workstation. See the
+[private UI design](../design/private-ui-access.md).
 
 1. In the Tailscale admin console, open **Access controls** and ensure the
-   policy defines separate tags for production servers and smoke VMs, such as
-   `tag:skillet-server` and `tag:skillet-smoke`. Give each tag only the access
-   that role needs. Make a provisioning tag the owner of those tags, following
-   the existing `tagOwners` policy pattern; do not give smoke VMs production
-   server permissions.
-2. Open **Trust credentials** and create an **OAuth** credential for Skillet.
-   Grant **Keys > Auth Keys: Write** (`auth_keys`) and restrict it to the
-   provisioning tag from step 1. This lets Skillet mint a tagged enrollment
-   key per target. Keys should be one-use, preauthorized, and non-ephemeral so
-   a retained smoke VM stays registered through shutdowns. Until automated
-   device cleanup is implemented, remove a destroyed VM from **Machines** in
-   the admin console; revoking its auth key does not remove an enrolled device.
-   Automated cleanup will require a separately reviewed `devices:core` scope.
+   policy defines `tag:skillet-provisioner`, `tag:skillet-server`, and
+   `tag:skillet-smoke`. Set `tagOwners` so the provisioner tag owns the server
+   and smoke tags. Give smoke devices only smoke access.
+2. In **Trust credentials**, create an OAuth client restricted to
+   `tag:skillet-provisioner`, with both **Keys > Auth Keys: Write** (`auth_keys`)
+   and **Devices > Core: Read/Write** (`devices:core`) scopes. The first mints
+   enrollment keys; the second lets Skillet find and remove its tagged smoke
+   device. Do not grant DNS-management scopes. Keys are one-use, preauthorized,
+   non-ephemeral, and expire after one hour if unused.
 3. Copy the OAuth **Client ID** and **Client secret** from the creation page.
    In KeePassXC create two entries, putting each value in its **Password**
    field:
@@ -216,25 +216,35 @@ put the OAuth client secret or a reusable auth key on the host. See the
    mint new auth keys, so treat it as the workstation-side master credential.
    Never put it in a VM, Quadlet, environment file, or repository. Close
    KeePassXC before Skillet edits the database.
-4. In the Tailscale admin console, open **DNS** and leave **Override DNS
-   servers** off. Under **Nameservers**, choose **Add nameserver > Custom**.
-   Add the numeric Tailscale IPv4 address of each Pi-hole that is reachable
-   over Tailscale, enable **Restrict to search domain**, and enter the private
-   UI zone. Add a resolver only after it is reachable and serves the same
-   records as the others. Clients may query resolvers in any order.
-5. Configure production and smoke-test UI zones outside this public repository.
-   Use a restricted nameserver for each zone only when its Pi-hole resolver has
-   the matching local records. Once clamps and its Pi-hole are enrolled, add
-   identical production records to every configured Pi-hole, using the form
-   `<service>.<host>.<production-private-zone>` and resolving to that host's
-   Tailscale address. Keep smoke-test records under a separate zone and point
-   them at the disposable VM's Tailscale address. Caddy obtains trusted
-   certificates through Cloudflare DNS-01; UI A/AAAA records do not need to be
-   public.
+4. In each existing Cloudflare zone, create DNS-only (grey cloud) A/AAAA UI
+   records pointing to the enrolled host's Tailscale address. Use the
+   production zone for production hosts and the smoke-test zone for disposable
+   VMs. No delegated subzone or Tailscale split DNS configuration is required.
+   Test lookup using a tailnet client's normal resolver. Caddy obtains its own
+   certificate through Cloudflare DNS-01.
+5. For a disposable VM, run `cargo run --release -p skillet -- test vm provision clamps smoke`.
+   Skillet prompts to unlock KeePassXC when its three-hour kernel cache is
+   empty, enrolls the VM, then provisions Pi-hole. Repeat the command to reuse
+   the Tailscale identity and Pi-hole credential. Dispose of the VM with
+   `cargo run --release -p skillet -- test vm destroy clamps smoke`. If
+   Tailscale cleanup fails, destruction stops and the VM metadata remains for
+   retry. Keep the OAuth client available for cleanup.
+6. For production, deliver the Pi-hole credential first, then Tailscale:
 
-The Tailscale vault entries and split DNS are not consumed/configured by
-Skillet yet. This guide prepares the tailnet and vault for that milestone;
-Skillet support and disposable-VM validation remain required.
+   ```bash
+   cargo run --release -p skillet -- secret deliver clamps tailscale \
+     --target giacomo@clamps --identity /path/to/ssh-key \
+     --known-hosts /path/to/known_hosts
+   ```
+
+   This mints a production-tagged key; full apply then configures both
+   services. Preserve the encrypted KeePassXC entries so another workstation
+   can reprovision credentials.
+
+Cloudflare DNS record automation and Caddy remain future work. Keep the
+Cloudflare token creator on the workstation; Tailscale enrollment needs no
+Cloudflare or Tailscale DNS permissions. See the
+[VM lifecycle](../design/smoke-vms.md).
 
 ## Development checks
 

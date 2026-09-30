@@ -2,8 +2,8 @@
 
 Decision: use KeePassXC for durable secrets and read and write its KDBX database
 directly from workstation Skillet through a Rust library. Pi-hole delivery uses
-an existing entry or creates one for a fresh host; Cloudflare token issuance
-remains planned.
+an existing entry or creates one for a fresh host. Tailscale OAuth credentials
+stay on the workstation and mint short-lived, one-use enrollment keys.
 
 ## Portable storage
 
@@ -83,14 +83,29 @@ credential encryption does not encrypt that copy.
 
 ## Disposable credentials
 
-Smoke VMs get generated test passwords, never production host entries. Live
-ACME testing reads `skillet/cloudflare/token-creator` locally and creates one
-short-lived Cloudflare token per VM, with Zone Read and DNS Edit restricted to
-the separately managed smoke-test zone. The permission covers the whole zone;
-unique test names prevent accidental record collisions, not API access to
-other records. Production UI records use a separate private zone. Keep literal
-zone names and records outside this public repository. The token creator
-remains on the workstation.
+Smoke VMs get generated test passwords, never production host entries. Tailscale
+enrollment reads `skillet/tailscale/provisioner-client-id` and
+`skillet/tailscale/provisioner-client-secret` locally, then mints a one-use,
+preauthorized, non-ephemeral key tagged for that smoke VM. The key expires in
+one hour if unused and is delivered through the same SSH, systemd, and Podman
+secret path as other credentials. The workstation verifies the VM's tailnet
+addresses and saves its device ID and addresses in mode-0600 run metadata. On
+destroy, Skillet uses `devices:core` to find and remove only the device with the
+recorded name, smoke tag, and identity. If enrollment or deletion is
+interrupted, pending metadata remains so cleanup can be retried. Production
+uses the server tag and the same one-use-key path.
+
+Live UI/ACME testing will read `skillet/cloudflare/token-creator` locally and mint
+one short-lived Cloudflare token per VM, with Zone Read and DNS Edit restricted
+to the existing smoke-test zone. Once a VM joins the tailnet, the workstation
+will create DNS-only A/AAAA records pointing at its tailnet address; the VM
+token also supports Caddy's DNS-01 challenge. DNS Edit covers the whole zone;
+unique test names prevent collisions, not access to other records. Production
+UI records belong in the existing production zone and use a separate scoped
+credential. Keep literal zone names and records outside this public repository.
+The token creator remains on the workstation. Cloudflare token issuance and
+record management are planned; current smoke provisioning only enrolls
+Tailscale and provisions Pi-hole.
 
 VM Pi-hole secrets use the same SSH, systemd, and Podman delivery path. Keep token IDs,
 expiry, and owned record IDs in run metadata, without token values. Existing

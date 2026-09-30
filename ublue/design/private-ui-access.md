@@ -17,30 +17,33 @@ workstation uses a narrowly scoped OAuth client to mint one-use enrollment
 keys; only those short-lived keys are delivered to a host, never the OAuth
 client secret.
 
-Use a privately managed production zone rather than `*.ts.net`, so the UI URLs
-and Caddy routes survive a move between hosted Tailscale and Headscale. Keep a
-separate privately managed zone for disposable smoke-test names and
-certificates. Store the literal zones and records outside this public
-repository. Caddy gets publicly trusted certificates through Cloudflare
-DNS-01 using the existing secret-delivery design. DNS-01 does not require
-publicly reachable UI endpoints.
+Use host-specific names in existing Cloudflare-managed production and smoke-test
+zones rather than `*.ts.net`, so UI URLs and Caddy routes can survive a move
+between hosted Tailscale and Headscale. Publish DNS-only A/AAAA records pointing
+to each host's tailnet address. Do not enable Cloudflare proxying. Keep literal
+zones and records outside this public repository; public DNS still exposes the
+names and addresses. Some resolvers block public answers containing tailnet
+addresses as DNS rebinding, so check resolution from real clients before
+cutover. Caddy gets publicly trusted certificates through Cloudflare DNS-01;
+the UIs need no public route. Cloudflare's certificate is not used for DNS-only
+records: Caddy serves the certificate.
 
-Hosted Tailscale MagicDNS cannot store arbitrary records. Configure split DNS
-for the private UI zone, forwarding to the fleet's Pi-hole resolvers. Each
-resolver must return the same host-specific UI records, pointing to the
-relevant host's tailnet address. Headscale can instead supply the same names
-through its `dns.extra_records`. Moving control planes requires updating the
-tailnet addresses and DNS configuration, but not application URLs or Caddy
-routes.
+Do not configure Tailscale split DNS for the UI names. A VM can enroll before
+its DNS record exists. After enrollment, the workstation reads its tailnet
+address and creates a DNS-only record with a short-lived token scoped to the
+smoke-test zone. VM destruction deletes only its recorded DNS records and
+revokes that token. Production records use a separately scoped credential;
+update them if a host's tailnet address changes. Tailscale enrollment needs no
+DNS-management OAuth scope. Keep the Cloudflare token creator on the workstation.
 
 Plan a second Pi-hole on beelzebot beside clamps. They cover individual host
 failure but share power and internet failure. A third Pi-hole on bender,
 the calculon replacement in the other country, would add a separate site.
-Advertise multiple resolvers for the hosted Tailscale split DNS zone only after
-their records and reachability agree; clients may query them in any order, so
-none is a fixed primary. A healthy resolver can resolve an offline host's name
-but cannot make its UI available. Give each Pi-hole UI its own host-specific
-name; do not promise a floating service name without health-aware routing.
+These Pi-hole instances provide redundant client DNS service, independent of
+UI name publication in Cloudflare. A healthy resolver can resolve an offline
+host's name but cannot make its UI available. Give each Pi-hole UI its own
+host-specific name; do not promise a floating service name without health-aware
+routing.
 
 Restrict Caddy's UI listener to tailnet traffic and grant access only to the
 intended user identities. Tailnet access authorizes the connection; it does not
@@ -50,29 +53,29 @@ whether a second login is useful. In particular, Syncthing's current wildcard
 host publication of GUI port 8384 must be removed or limited to a safe local
 proxy path before relying on tailnet access alone.
 
-Pi-hole is a dependency for resolving private UI names under hosted Tailscale;
-multiple independent resolvers reduce that dependency. Retain access to each
-host by its tailnet device name or address, and SSH access for DNS recovery;
-these must not depend on Pi-hole. Do not expose an unauthenticated UI as the
-recovery path.
+Retain access to each host by its tailnet device name or address, and SSH
+access for DNS recovery. Do not expose an unauthenticated UI as the recovery
+path.
 
 ## Why
 
 Separate hostnames avoid applications' subpath problems. Tailnet identity and
-grants keep admin UIs private without maintaining a public OAuth2 proxy. Caddy
-and our own domain names work with either control plane: Tailscale Services
-currently requires Tailscale's hosted control plane, while Headscale offers
-extra DNS records but not Tailscale Services.
+grants keep admin UIs private without maintaining a public OAuth2 proxy.
+Cloudflare DNS-only records remove the Pi-hole and tailnet DNS configuration
+dependency from UI name resolution, while keeping our own names across control
+planes. The names and tailnet IPs are public DNS data.
 
 ## Status and references
 
-This is the planned access design; Skillet-managed Tailscale, Caddy, tailnet
-DNS, resolver redundancy, and UI isolation have not yet been implemented or
-accepted on clamps. The current Pi-hole UI is private to the container bridge;
+Skillet now configures the host-network Tailscale container and manages tagged
+enrollment for clamps smoke VMs, including device removal during VM disposal.
+This has passed workspace checks but still needs live tailnet acceptance. Caddy,
+Cloudflare UI records, and UI isolation have not been implemented or accepted
+on clamps. The current Pi-hole UI is private to the container bridge;
 Syncthing's GUI is still published on the host.
 
 References: [Tailscale DNS](https://tailscale.com/docs/reference/dns-in-tailscale/),
-[Headscale DNS](https://headscale.net/stable/ref/dns/),
-[Headscale Services feature gap](https://github.com/juanfont/headscale/issues/2845),
+[Cloudflare DNS-only records](https://developers.cloudflare.com/dns/proxy-status/),
+[DNS rebinding](https://tailscale.com/docs/reference/faq/dns-rebinding/),
 [Let's Encrypt DNS-01](https://letsencrypt.org/docs/challenge-types/),
 [Caddy DNS challenge](https://caddyserver.com/docs/caddyfile/directives/tls).
