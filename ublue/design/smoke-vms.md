@@ -3,8 +3,9 @@
 Decision: keep VM creation, readiness, repeatable smoke checks, and destruction
 separate. A retained VM supports inspection and repeated convergence checks;
 a fresh VM establishes that bootstrap is reproducible. The existing fixture
-tests real systemd/Podman convergence. Application and live ACME scenarios,
-external token cleanup are planned. Pi-hole credential delivery is implemented.
+tests real systemd/Podman convergence. Pi-hole credential delivery and
+Tailscale enrollment/device cleanup are implemented. Cloudflare DNS and live
+ACME scenarios remain planned.
 
 ## Identity and ownership
 
@@ -36,28 +37,34 @@ the test artifacts and uses QEMU user networking.
    `ready` uses the artifact captured at creation. Explicit `update` builds
    and installs current host code on a retained VM, recording the deployed hash
    separately while preserving the original creation snapshot.
-3. **Provision applications:** `test vm provision` delivers a generated Pi-hole
-   credential using the [shared secret mechanism](secrets.md), then performs
-   full apply. Repeated provisioning reuses the installed credential; `--rotate`
-   replaces it. Live ACME token delivery remains planned.
+3. **Provision applications:** `test vm provision` unlocks the workstation
+   KeePassXC database, reads the Tailscale OAuth client, mints a one-use smoke
+   tagged key, and delivers it through the [shared secret mechanism](secrets.md).
+   It waits for the VM to join and records its device identity before delivering
+   a generated Pi-hole credential and running full apply. Repeated provisioning
+   reuses the Tailscale identity and installed Pi-hole credential; `--rotate`
+   replaces the latter.
 4. **Smoke:** run assertions against the retained VM. Check repeat apply,
    configuration/secret changes, interruption recovery, and reboot persistence.
    The container sandbox uses mocked systemctl/Podman; only VM checks establish
    real runtime behavior. Failures retain the VM and diagnostics for repair.
-5. **Destroy:** validate ownership, stop the VM, revoke its external tokens and
-   remove only its recorded test DNS records, then remove the domain, disk,
-   SSH key, and artifacts. External cleanup is planned; current destroy only
-   handles local resources. Failed cleanup retains metadata for a retry, even
-   if the domain is already gone. Token expiry limits abandoned credentials;
-   it does not remove abandoned DNS records.
+5. **Destroy:** validate ownership, remove only the recorded smoke-tagged
+   Tailscale device, then remove the domain, disk, SSH key, and artifacts.
+   Failed Tailscale cleanup prevents local destruction and retains metadata for
+   retry, even if the domain is already gone. Cloudflare records and tokens are
+   not yet part of the lifecycle.
 
 ## Live ACME boundary
 
 Routine smoke checks need no Cloudflare access. The optional live scenario
-uses Let's Encrypt staging and a unique hostname under the separately managed
-smoke-test DNS zone, preserving its other records. Keep the literal zone
-outside this public repository. DNS-01 needs no publicly reachable VM. Staging certificates are untrusted;
-the test verifies their expected identity using explicit staging trust.
+enrolls the VM in Tailscale, obtains its tailnet IP, and creates a DNS-only
+A/AAAA record under the existing smoke-test Cloudflare zone using a per-VM
+token minted by the workstation token creator. It uses Let's Encrypt staging
+and a unique hostname, preserving the zone's other records. Keep the literal
+zone outside this public repository. DNS-01 needs no publicly reachable VM.
+Staging certificates are untrusted; the test verifies their expected identity
+using explicit staging trust. Test name resolution through a client's actual
+resolver because some resolvers block public answers containing tailnet IPs.
 Normal reruns reuse credentials and certificate state; fresh issuance is an
 explicit scenario. Production DNS cutover is separate from VM acceptance.
 
