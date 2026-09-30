@@ -22,9 +22,10 @@ MOCK
 set -eu
 printf '%s\n' "$*" >> /tmp/skillet-test.podman.log
 case "$1 $2" in
-  "secret exists") [ -f /tmp/skillet-test-state/secret ] ;;
+  "secret exists") name=$3; [ -f "/tmp/skillet-test-state/secret-$name" ] ;;
   "secret inspect")
-    case "$*" in *'{{.ID}}'*) printf 'skillet-test-secret-id\n' ;; *) cat /tmp/skillet-test-state/secret-hash ;; esac
+    for name do :; done
+    case "$*" in *'{{.ID}}'*) printf 'skillet-test-%s-id\n' "$name" ;; *) cat "/tmp/skillet-test-state/secret-hash-$name" ;; esac
     ;;
   "secret create")
     shift 2
@@ -33,9 +34,9 @@ case "$1 $2" in
       case "$1" in --replace) shift ;; --label) hash=${2#skillet.payload_hash=}; shift 2 ;; *) break ;; esac
     done
     name=$1
-    cat > /tmp/skillet-test-state/secret-payload
-    printf '%s\n' "$hash" > /tmp/skillet-test-state/secret-hash
-    touch /tmp/skillet-test-state/secret
+    cat > "/tmp/skillet-test-state/secret-payload-$name"
+    printf '%s\n' "$hash" > "/tmp/skillet-test-state/secret-hash-$name"
+    touch "/tmp/skillet-test-state/secret-$name"
     ;;
   *) exit 2 ;;
 esac

@@ -1,5 +1,6 @@
 use super::{
-    create_entry, database_path_from, lookup, open_vault, read_vm_port, save_vault, OpenVault,
+    create_entry, database_path_from, lookup, open_vault, parse_tailscale_addresses, read_vm_port,
+    save_vault, validate_tailscale_unit_config, OpenVault,
 };
 use keepass::Database;
 use keepass::DatabaseKey;
@@ -41,6 +42,25 @@ fn vm_port_requires_manifest_range() {
     assert_eq!(read_vm_port(&file).unwrap(), 2201);
     std::fs::write(&file, "ssh_port=22\n").unwrap();
     assert!(read_vm_port(&file).is_err());
+}
+
+#[test]
+fn tailscale_status_returns_only_running_valid_ip_addresses() {
+    let output = br#"{"BackendState":"Running","Self":{"TailscaleIPs":["100.64.0.5","fd7a:115c:a1e0::5","bad"]}}"#;
+    let addresses = parse_tailscale_addresses(output).unwrap();
+    assert_eq!(addresses.len(), 2);
+    let offline = br#"{"BackendState":"NeedsLogin","Self":{"TailscaleIPs":[]}}"#;
+    assert!(parse_tailscale_addresses(offline).unwrap().is_empty());
+}
+
+#[test]
+fn rejects_vm_without_tailscale_systemd_credential() {
+    let old_unit = "LoadCredentialEncrypted=pihole_web_password:/etc/credstore.encrypted/skillet/pihole_web_password.cred";
+    let error = validate_tailscale_unit_config(old_unit).unwrap_err();
+    assert!(error.to_string().contains("recreate the smoke VM"));
+
+    let current_unit = "LoadCredentialEncrypted=tailscale_auth_key:/etc/credstore.encrypted/skillet/tailscale_auth_key.cred";
+    assert!(validate_tailscale_unit_config(current_unit).is_ok());
 }
 
 #[test]

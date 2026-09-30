@@ -1,10 +1,10 @@
-use super::{butane_root, vm_name, SecretDeliverArgs, VmProvisionArgs};
+use super::{butane_root, tailscale, vm_name, SecretDeliverArgs, VmDestroyArgs, VmProvisionArgs};
 use anyhow::{anyhow, Context, Result};
 use keepass::{Database, DatabaseKey};
 use std::{
     fs,
     io::{Read as _, Write as _},
-    os::unix::fs::OpenOptionsExt as _,
+    os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     time::{SystemTime, UNIX_EPOCH},
@@ -13,7 +13,9 @@ use std::{
 mod vault_cache;
 
 pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
-    let path = format!("skillet/hosts/{}/pihole/web-password", args.hostname);
+    if args.hostname != "clamps" {
+        return Err(anyhow!("secret delivery currently supports clamps only"));
+    }
     let database = match &args.database {
         Some(path) => path.clone(),
         None => default_database_path()?,
@@ -24,26 +26,38 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
         ));
     }
     let mut vault = open_vault(&database, args.key_file.as_deref())?;
-    let secret = if let Some(secret) = lookup(&vault.database, &path)? {
-        if fs::read(&vault.path).context("rechecking vault before delivery")? != vault.original {
-            return Err(anyhow!(
-                "KeePassXC database changed while Skillet was running; reopen it and retry"
-            ));
+    match args.service.as_str() {
+        "pihole" => {
+            let path = format!("skillet/hosts/{}/pihole/web-password", args.hostname);
+            let secret = if let Some(secret) = lookup(&vault.database, &path)? {
+                ensure_vault_unchanged(&vault)?;
+                secret
+            } else {
+                if remote_credential_state(args)? != RemoteCredentialState::Absent {
+                    return Err(anyhow!(
+                        "host already has a Pi-hole credential; restore the missing KeePassXC entry instead of creating a replacement"
+                    ));
+                }
+                let secret = random_password()?;
+                create_entry(&mut vault.database, &path, &secret)?;
+                save_vault(&vault, args.key_file.as_deref(), &path, &secret)?;
+                secret
+            };
+            let mut command = ssh_command(args);
+            install(&mut command, "pihole_web_password", &secret)
         }
-        secret
-    } else {
-        if remote_credential_state(args)? != RemoteCredentialState::Absent {
-            return Err(anyhow!(
-                "host already has a Pi-hole credential; restore the missing KeePassXC entry instead of creating a replacement"
-            ));
+        "tailscale" => {
+            let credentials = tailscale_credentials(&vault)?;
+            let auth_key = tailscale::create_auth_key(
+                &credentials,
+                tailscale::SERVER_TAG,
+                "Skillet clamps production host",
+            )?;
+            let mut command = ssh_command(args);
+            install(&mut command, "tailscale_auth_key", &auth_key.key)
         }
-        let secret = random_password()?;
-        create_entry(&mut vault.database, &path, &secret)?;
-        save_vault(&vault, args.key_file.as_deref(), &path, &secret)?;
-        secret
-    };
-    let mut command = ssh_command(args);
-    install(&mut command, &secret)
+        _ => Err(anyhow!("unsupported secret service {}", args.service)),
+    }
 }
 
 pub(super) fn lock_vault(path: Option<&Path>) -> Result<()> {
@@ -57,6 +71,30 @@ pub(super) fn lock_vault(path: Option<&Path>) -> Result<()> {
     vault_cache::clear(&canonical)?;
     println!("Vault unlock removed from the kernel keyring");
     Ok(())
+}
+
+fn ensure_vault_unchanged(vault: &OpenVault) -> Result<()> {
+    if fs::read(&vault.path).context("rechecking vault before delivery")? != vault.original {
+        return Err(anyhow!(
+            "KeePassXC database changed while Skillet was running; reopen it and retry"
+        ));
+    }
+    Ok(())
+}
+
+fn tailscale_credentials(vault: &OpenVault) -> Result<tailscale::OAuthCredentials> {
+    let client_id = lookup(&vault.database, "skillet/tailscale/provisioner-client-id")?
+        .ok_or_else(|| {
+            anyhow!("KeePassXC entry skillet/tailscale/provisioner-client-id is missing")
+        })?;
+    let client_secret = lookup(
+        &vault.database,
+        "skillet/tailscale/provisioner-client-secret",
+    )?
+    .ok_or_else(|| {
+        anyhow!("KeePassXC entry skillet/tailscale/provisioner-client-secret is missing")
+    })?;
+    tailscale::OAuthCredentials::new(client_id, client_secret)
 }
 
 fn ssh_command(args: &SecretDeliverArgs) -> Command {
@@ -144,32 +182,103 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     if !status.success() {
         return Err(anyhow!("VM ownership or status validation failed"));
     }
-    let run_dir = butane.join("runs").join(name);
+    let run_dir = butane.join("runs").join(&name);
     let identity = run_dir.join("ssh/id_ed25519");
     let known_hosts = run_dir.join("ssh/known_hosts");
     let port = read_vm_port(&run_dir.join("run.conf"))?;
-    let mut command = Command::new("ssh");
-    command
-        .args([
-            "-T",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "IdentitiesOnly=yes",
-            "-o",
-            "StrictHostKeyChecking=yes",
-            "-o",
-        ])
-        .arg(format!("UserKnownHostsFile={}", known_hosts.display()))
-        .arg("-i")
-        .arg(&identity)
-        .arg("-p")
-        .arg(port.to_string())
-        .arg("giacomo@127.0.0.1");
-    if !args.rotate {
-        // An existing encrypted credential is reusable after reboot or on a
-        // different workstation. Missing or corrupt files fail in full apply.
-        let check = Command::new("ssh")
+    let mut ssh = VmSsh::new(&identity, &known_hosts, port);
+    validate_vm_tailscale_delivery(&mut ssh)?;
+    let vault_path = match &args.database {
+        Some(path) => path.clone(),
+        None => default_database_path()?,
+    };
+    let vault = open_vault(&vault_path, args.key_file.as_deref())?;
+    let credentials = tailscale_credentials(&vault)?;
+    let expected_hostname = name.as_str();
+
+    write_pending_tailscale(&run_dir, expected_hostname)?;
+    let mut addresses = vm_tailscale_addresses(&mut ssh).unwrap_or_default();
+    if addresses.is_empty() {
+        let auth_key = tailscale::create_auth_key(
+            &credentials,
+            tailscale::SMOKE_TAG,
+            &format!("Skillet disposable VM {expected_hostname}"),
+        )?;
+        ssh.install("tailscale_auth_key", &auth_key.key)?;
+    }
+
+    let pihole_credential = "/etc/credstore.encrypted/skillet/pihole_web_password.cred";
+    let has_pihole_credential = vm_credential_present(&mut ssh, pihole_credential)?;
+    if args.rotate || !has_pihole_credential {
+        let secret = random_password()?;
+        ssh.install("pihole_web_password", &secret)?;
+    } else {
+        ssh.run("sudo -n systemctl start skillet-full-apply.service")?;
+    }
+
+    addresses = wait_for_vm_tailscale(&mut ssh)?;
+    let record = tailscale::find_device(
+        &credentials,
+        expected_hostname,
+        tailscale::SMOKE_TAG,
+        &addresses,
+    )?;
+    save_vm_tailscale_record(&run_dir, &record)?;
+    remove_pending_tailscale(&run_dir)?;
+    println!("Tailscale connected VM {expected_hostname}");
+    Ok(())
+}
+
+pub(super) fn remove_vm_from_tailscale(args: &VmDestroyArgs) -> Result<()> {
+    if args.hostname != "clamps" {
+        return Ok(());
+    }
+    let name = vm_name(&args.hostname, &args.instance)?;
+    let butane = butane_root()?;
+    let run_dir = butane.join("runs").join(&name);
+    let pending = run_dir.join("tailscale-pending");
+    let record_path = run_dir.join("tailscale.json");
+    if !pending.exists() && !record_path.exists() {
+        return Ok(());
+    }
+    let expected = if record_path.exists() {
+        Some(read_vm_tailscale_record(&record_path)?)
+    } else {
+        None
+    };
+    let vault_path = match &args.database {
+        Some(path) => path.clone(),
+        None => default_database_path()?,
+    };
+    let vault = open_vault(&vault_path, args.key_file.as_deref())?;
+    let credentials = tailscale_credentials(&vault)?;
+    if tailscale::remove_device_for_hostname(
+        &credentials,
+        &name,
+        tailscale::SMOKE_TAG,
+        expected.as_ref(),
+    )?
+    .is_some()
+    {
+        println!("Removed Tailscale device for {name}");
+    }
+    remove_pending_tailscale(&run_dir)?;
+    if record_path.exists() {
+        fs::remove_file(record_path).context("removing Tailscale VM metadata")?;
+    }
+    Ok(())
+}
+
+struct VmSsh<'a> {
+    identity: &'a Path,
+    known_hosts: &'a Path,
+    port: u16,
+}
+
+impl VmSsh<'_> {
+    fn command(&self, remote: &str) -> Command {
+        let mut command = Command::new("ssh");
+        command
             .args([
                 "-T",
                 "-o",
@@ -179,51 +288,169 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
                 "-o",
                 "StrictHostKeyChecking=yes",
                 "-o",
+                "ConnectTimeout=10",
+                "-o",
             ])
-            .arg(format!("UserKnownHostsFile={}", known_hosts.display()))
+            .arg(format!("UserKnownHostsFile={}", self.known_hosts.display()))
             .arg("-i")
-            .arg(&identity)
+            .arg(self.identity)
             .arg("-p")
-            .arg(port.to_string())
-            .args([
-                "giacomo@127.0.0.1",
-                "sudo -n test -s /etc/credstore.encrypted/skillet/pihole_web_password.cred",
-            ])
-            .status()
-            .context("checking VM credential")?;
-        if check.success() {
-            let apply = Command::new("ssh")
-                .args([
-                    "-T",
-                    "-o",
-                    "BatchMode=yes",
-                    "-o",
-                    "IdentitiesOnly=yes",
-                    "-o",
-                    "StrictHostKeyChecking=yes",
-                    "-o",
-                ])
-                .arg(format!("UserKnownHostsFile={}", known_hosts.display()))
-                .arg("-i")
-                .arg(&identity)
-                .arg("-p")
-                .arg(port.to_string())
-                .args([
-                    "giacomo@127.0.0.1",
-                    "sudo -n systemctl start skillet-full-apply.service",
-                ])
-                .status()
-                .context("running full apply")?;
-            if !apply.success() {
-                return Err(anyhow!("full apply failed"));
-            }
-            return Ok(());
+            .arg(self.port.to_string())
+            .arg("giacomo@127.0.0.1")
+            .arg(remote);
+        command
+    }
+
+    fn run(&mut self, remote: &str) -> Result<()> {
+        let output = self
+            .command(remote)
+            .output()
+            .context("running command over VM SSH")?;
+        if !output.status.success() {
+            return Err(anyhow!("VM command failed with status {}", output.status));
+        }
+        Ok(())
+    }
+
+    fn output(&mut self, remote: &str) -> Result<std::process::Output> {
+        self.command(remote)
+            .output()
+            .context("running command over VM SSH")
+    }
+
+    fn install(&mut self, name: &str, secret: &str) -> Result<()> {
+        if secret.is_empty() {
+            return Err(anyhow!("refusing to deliver an empty credential"));
+        }
+        let mut child = self
+            .command(&format!(
+                "sudo -n /var/usrlocal/bin/skillet-clamps credential install {name} skillet-full-apply.service"
+            ))
+            .stdin(Stdio::piped())
+            .spawn()
+            .context("opening VM credential delivery")?;
+        child
+            .stdin
+            .take()
+            .ok_or_else(|| anyhow!("VM SSH stdin unavailable"))?
+            .write_all(secret.as_bytes())
+            .context("sending credential to VM over SSH")?;
+        let status = child.wait().context("waiting for VM credential delivery")?;
+        if !status.success() {
+            return Err(anyhow!(
+                "VM credential delivery or full apply failed: {status}"
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl<'a> VmSsh<'a> {
+    fn new(identity: &'a Path, known_hosts: &'a Path, port: u16) -> Self {
+        Self {
+            identity,
+            known_hosts,
+            port,
         }
     }
-    let mut bytes = [0_u8; 32];
-    fs::File::open("/dev/urandom")?.read_exact(&mut bytes)?;
-    let secret = hex::encode(bytes);
-    install(&mut command, &secret)
+}
+
+fn vm_credential_present(ssh: &mut VmSsh<'_>, path: &str) -> Result<bool> {
+    let output = ssh.output(&format!("sudo -n test -s {path}"))?;
+    match output.status.code() {
+        Some(0) => Ok(true),
+        Some(1) => Ok(false),
+        _ => Err(anyhow!("could not inspect VM credential state")),
+    }
+}
+
+fn vm_tailscale_addresses(ssh: &mut VmSsh<'_>) -> Result<std::collections::BTreeSet<String>> {
+    let output = ssh.output("sudo -n podman exec tailscale tailscale status --json")?;
+    if !output.status.success() {
+        return Ok(std::collections::BTreeSet::new());
+    }
+    parse_tailscale_addresses(&output.stdout)
+}
+
+fn parse_tailscale_addresses(output: &[u8]) -> Result<std::collections::BTreeSet<String>> {
+    let status: serde_json::Value =
+        serde_json::from_slice(output).context("decoding Tailscale status returned by the VM")?;
+    if status
+        .get("BackendState")
+        .and_then(serde_json::Value::as_str)
+        != Some("Running")
+    {
+        return Ok(std::collections::BTreeSet::new());
+    }
+    let addresses = status
+        .get("Self")
+        .and_then(|value| value.get("TailscaleIPs"))
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| anyhow!("Tailscale status has no self addresses"))?
+        .iter()
+        .filter_map(serde_json::Value::as_str)
+        .filter(|address| address.parse::<std::net::IpAddr>().is_ok())
+        .map(ToOwned::to_owned)
+        .collect::<std::collections::BTreeSet<_>>();
+    Ok(addresses)
+}
+
+fn wait_for_vm_tailscale(ssh: &mut VmSsh<'_>) -> Result<std::collections::BTreeSet<String>> {
+    for _ in 0..60 {
+        if let Ok(addresses) = vm_tailscale_addresses(ssh) {
+            if !addresses.is_empty() {
+                return Ok(addresses);
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_secs(2));
+    }
+    Err(anyhow!("Tailscale did not connect on the VM within 120 seconds; inspect tailscale.service and its journal"))
+}
+
+fn write_pending_tailscale(run_dir: &Path, hostname: &str) -> Result<()> {
+    let path = run_dir.join("tailscale-pending");
+    if path.exists() || path.is_symlink() {
+        return Ok(());
+    }
+    let mut file = tempfile::NamedTempFile::new_in(run_dir)?;
+    file.as_file_mut().write_all(hostname.as_bytes())?;
+    file.as_file()
+        .set_permissions(fs::Permissions::from_mode(0o600))?;
+    file.as_file().sync_all()?;
+    file.persist_noclobber(path)
+        .context("recording pending Tailscale cleanup")?;
+    Ok(())
+}
+
+fn save_vm_tailscale_record(run_dir: &Path, record: &tailscale::DeviceRecord) -> Result<()> {
+    let path = run_dir.join("tailscale.json");
+    if path.is_symlink() {
+        return Err(anyhow!("refusing symlinked Tailscale VM metadata"));
+    }
+    let mut file = tempfile::NamedTempFile::new_in(run_dir)?;
+    serde_json::to_writer(file.as_file_mut(), record)?;
+    file.as_file()
+        .set_permissions(fs::Permissions::from_mode(0o600))?;
+    file.as_file().sync_all()?;
+    file.persist(&path)
+        .context("saving Tailscale VM identity")?;
+    Ok(())
+}
+
+fn read_vm_tailscale_record(path: &Path) -> Result<tailscale::DeviceRecord> {
+    let metadata = fs::symlink_metadata(path)?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Err(anyhow!("Tailscale VM metadata is not a regular file"));
+    }
+    serde_json::from_slice(&fs::read(path)?).context("reading Tailscale VM metadata")
+}
+
+fn remove_pending_tailscale(run_dir: &Path) -> Result<()> {
+    let pending = run_dir.join("tailscale-pending");
+    if pending.exists() {
+        fs::remove_file(pending).context("removing pending Tailscale metadata")?;
+    }
+    Ok(())
 }
 
 fn read_vm_port(manifest: &Path) -> Result<u16> {
@@ -237,6 +464,30 @@ fn read_vm_port(manifest: &Path) -> Result<u16> {
         return Err(anyhow!("VM SSH port is outside the test range"));
     }
     Ok(port)
+}
+
+fn validate_vm_tailscale_delivery(ssh: &mut VmSsh<'_>) -> Result<()> {
+    let output = ssh
+        .output("sudo -n systemctl cat skillet-full-apply.service")
+        .context("checking the VM's full-apply credential configuration")?;
+    if !output.status.success() {
+        return Err(anyhow!(
+            "could not read skillet-full-apply.service from the VM"
+        ));
+    }
+    validate_tailscale_unit_config(&String::from_utf8_lossy(&output.stdout))
+}
+
+fn validate_tailscale_unit_config(contents: &str) -> Result<()> {
+    if !contents.lines().any(|line| {
+        line.trim()
+            == "LoadCredentialEncrypted=tailscale_auth_key:/etc/credstore.encrypted/skillet/tailscale_auth_key.cred"
+    }) {
+        return Err(anyhow!(
+            "this VM was created from an older Butane config that does not pass the Tailscale credential to full apply; recreate the smoke VM with the current config, then retry provisioning"
+        ));
+    }
+    Ok(())
 }
 
 struct OpenVault {
@@ -457,12 +708,12 @@ fn save_vault(
     Ok(())
 }
 
-fn install(command: &mut Command, secret: &str) -> Result<()> {
+fn install(command: &mut Command, credential: &str, secret: &str) -> Result<()> {
     if secret.is_empty() {
         return Err(anyhow!("refusing to deliver an empty credential"));
     }
     let mut child = command
-        .arg("sudo -n /var/usrlocal/bin/skillet-clamps credential install pihole_web_password skillet-full-apply.service")
+        .arg(format!("sudo -n /var/usrlocal/bin/skillet-clamps credential install {credential} skillet-full-apply.service"))
         .stdin(Stdio::piped())
         .spawn()
         .context("opening SSH credential delivery")?;

@@ -68,7 +68,11 @@ if [[ -e "$output_dir" || -L "$output_dir" ]]; then
   exit 1
 fi
 if [[ -z "$artifact" ]]; then
-  artifact="$repo_dir/skillet/target/x86_64-unknown-linux-musl/release/skillet-$host"
+  artifact_target_dir="${CARGO_TARGET_DIR:-$repo_dir/skillet/target}"
+  if [[ "$artifact_target_dir" != /* ]]; then
+    artifact_target_dir="$repo_dir/skillet/$artifact_target_dir"
+  fi
+  artifact="$artifact_target_dir/x86_64-unknown-linux-musl/release/skillet-$host"
   (cd "$repo_dir/skillet" && cargo build --release --target x86_64-unknown-linux-musl -p "skillet-$host")
 fi
 [[ -f "$artifact" ]] || { echo "Missing Skillet artifact: $artifact" >&2; exit 1; }
@@ -95,6 +99,11 @@ cp "$input" "$output_dir/source/$host.bu"
 cp "$butane_dir"/includes/*.bu "$output_dir/source/includes/"
 cp "$artifact" "$output_dir/source/files/skillet-$host"
 chmod 755 "$output_dir/source/files/skillet-$host"
+# Give each test VM its own hostname so Tailscale device cleanup can verify
+# the exact node belonging to this run, even when several VMs share a host OS.
+TEST_VM_HOSTNAME="$vm_name" yq -i \
+  '(.storage.files[] | select(.path == "/etc/hostname").contents.inline) = strenv(TEST_VM_HOSTNAME)' \
+  "$output_dir/source/$host.bu"
 # Keep the multi-megabyte static binary out of QEMU fw_cfg. Ignition reads
 # fw_cfg very slowly for large configs; test-vm-ready installs this artifact
 # over SSH after the guest has completed its first Ignition boot.
