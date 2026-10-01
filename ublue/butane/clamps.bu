@@ -11,6 +11,7 @@ ignition:
       - local: includes/data-storage.bu
       - local: includes/brew.bu
       - local: includes/skillet.bu
+      - local: includes/skillet-clamps.bu
       - local: includes/ucore-bootstrap.bu
       - local: includes/ucore-clamps.bu
 storage:
@@ -34,6 +35,10 @@ storage:
     - path: /etc/localtime
       target: ../usr/share/zoneinfo/Europe/Madrid
   files:
+    - path: /etc/skillet/host
+      mode: 0644
+      contents:
+        inline: clamps
     - path: /etc/hostname
       mode: 0644
       contents:

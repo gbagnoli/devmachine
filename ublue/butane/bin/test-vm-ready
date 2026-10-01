@@ -44,6 +44,8 @@ fi
 
 artifact="$run_dir/source/files/skillet-$host"
 [[ -x "$artifact" ]] || { echo "Missing host artifact: $artifact" >&2; exit 1; }
+generic_artifact="$run_dir/source/files/skillet"
+[[ -x "$generic_artifact" ]] || { echo "Missing generic artifact: $generic_artifact" >&2; exit 1; }
 deadline=$((SECONDS + 2700))
 next_report=$((SECONDS + 60))
 echo "Waiting for SSH on giacomo@127.0.0.1:$ssh_port before delivering Skillet..."
@@ -62,7 +64,8 @@ if ((SECONDS >= deadline)); then
   exit 1
 fi
 scp -O "${scp_args[@]}" "$artifact" "giacomo@127.0.0.1:/var/tmp/skillet-$host"
-ssh_guest "sudo -n install -m 0755 /var/tmp/skillet-$host /var/usrlocal/bin/skillet-$host && rm -f /var/tmp/skillet-$host"
+scp -O "${scp_args[@]}" "$generic_artifact" giacomo@127.0.0.1:/var/tmp/skillet
+ssh_guest "sudo -n install -m 0755 /var/tmp/skillet-$host /var/usrlocal/bin/skillet-$host && sudo -n install -m 0755 /var/tmp/skillet /var/usrlocal/bin/skillet && rm -f /var/tmp/skillet-$host /var/tmp/skillet"
 echo "Installed Skillet artifact; waiting for the signed $host deployment..."
 
 deadline=$((SECONDS + 2700))
@@ -103,11 +106,15 @@ fi
 ssh_guest 'sudo -n rpm-ostree status --json' > "$run_dir/final-status.json"
 ssh_guest 'cat /proc/sys/kernel/random/boot_id' > "$run_dir/final-boot-id"
 ssh_guest "sha256sum /var/usrlocal/bin/skillet-$host" > "$run_dir/guest-skillet.sha256"
+ssh_guest 'sha256sum /var/usrlocal/bin/skillet' > "$run_dir/guest-skillet-generic.sha256"
 ssh_guest 'getenforce; readlink -f /etc/resolv.conf; cat /etc/resolv.conf; getent hosts ghcr.io; sudo -n systemctl is-enabled systemd-resolved.service; sudo -n systemctl status --no-pager skillet-apply.service' > "$run_dir/readiness.log" 2>&1 || true
 ssh_guest 'systemctl show brew-install.service dotfiles-install.service -p Id -p Result -p ExecMainStatus; readlink -f /home/giacomo/.config/Brewfile; readlink -f /home/giacomo/.ssh/authorized_keys; /home/linuxbrew/.linuxbrew/bin/brew --version' > "$run_dir/user-environment.log" 2>&1 || true
 expected="$(cut -d ' ' -f 1 "$run_dir/skillet.sha256")"
 actual="$(cut -d ' ' -f 1 "$run_dir/guest-skillet.sha256")"
 [[ "$expected" == "$actual" ]] || { echo "Guest Skillet SHA mismatch" >&2; exit 1; }
+expected_generic="$(cut -d ' ' -f 1 "$run_dir/skillet-generic.sha256")"
+actual_generic="$(cut -d ' ' -f 1 "$run_dir/guest-skillet-generic.sha256")"
+[[ "$expected_generic" == "$actual_generic" ]] || { echo "Guest generic Skillet SHA mismatch" >&2; exit 1; }
 if ! jq -e --arg image "ostree-image-signed:docker://ghcr.io/gbagnoli/ucore-$host" \
   '.deployments[] | select(.booted) | .["container-image-reference"] | . == ($image + ":latest") or (startswith($image + "@sha256:") and (split("@sha256:")[1] | test("^[0-9a-f]{64}$")))' \
   "$run_dir/final-status.json" >/dev/null; then
@@ -117,6 +124,8 @@ fi
 # The substitutions run on the guest.
 # shellcheck disable=SC2016
 ssh_guest 'test "$(systemctl show -p Result --value skillet-apply.service)" = success && test "$(systemctl show -p ExecMainStatus --value skillet-apply.service)" = 0 && test "$(getenforce)" = Enforcing && test "$(readlink -f /etc/resolv.conf)" = /run/NetworkManager/resolv.conf && getent hosts ghcr.io >/dev/null'
+# shellcheck disable=SC2016
+ssh_guest 'test "$(cat /etc/skillet/host)" = clamps && systemctl cat skillet-apply.service | grep -Fq "ExecStart=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase base"'
 if [[ "$host" == clamps ]]; then
   # The substitution runs on the guest.
   # shellcheck disable=SC2016

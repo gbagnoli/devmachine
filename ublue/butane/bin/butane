@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+butane_dir="$(realpath "$script_dir/..")"
+repo_dir="$(realpath "$butane_dir/..")"
+
 usage() {
   echo "Usage: $0 [-s] [-o OUTPUT_DIR] CONFIG.bu [CONFIG.ign]" >&2
 }
 
 save=false
-output_dir="$(realpath -m "$(dirname "${BASH_SOURCE[0]}")/../ignition")"
+output_dir="$(realpath -m "$butane_dir/ignition")"
 while getopts ':hso:' option; do
   case "$option" in
     h) usage; exit 0 ;;
@@ -38,6 +42,24 @@ done
 cp "$input" "$work_dir/input.bu"
 if [[ -d "$(dirname "$input")/files" ]]; then
   cp -a "$(dirname "$input")/files" "$work_dir/files"
+fi
+
+# Host configs include the generic CLI and a host-specific credential CLI.
+# coreos-install stages freshly built artifacts for VM-only Ignition; physical
+# host compilation builds them here when callers have not staged binaries.
+if rg -q -F 'includes/skillet.bu' "$input"; then
+  host="$(basename "$input" .bu)"
+  generic_artifact="$work_dir/files/skillet"
+  host_artifact="$work_dir/files/skillet-$host"
+  if [[ ! -x "$generic_artifact" || ! -x "$host_artifact" ]]; then
+    artifact_target_dir="${CARGO_TARGET_DIR:-$repo_dir/skillet/target}"
+    if [[ "$artifact_target_dir" != /* ]]; then artifact_target_dir="$repo_dir/skillet/$artifact_target_dir"; fi
+    (cd "$repo_dir/skillet" && cargo build --release --target x86_64-unknown-linux-musl -p skillet -p "skillet-$host")
+    mkdir -p "$work_dir/files"
+    cp "$artifact_target_dir/x86_64-unknown-linux-musl/release/skillet" "$generic_artifact"
+    cp "$artifact_target_dir/x86_64-unknown-linux-musl/release/skillet-$host" "$host_artifact"
+    chmod 0755 "$generic_artifact" "$host_artifact"
+  fi
 fi
 
 run_butane() {

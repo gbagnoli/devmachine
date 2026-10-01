@@ -1,36 +1,117 @@
-use super::CaddySites;
+use super::{CaddySites, UiEnvironment, UiService};
+
+fn syncthing_only() -> Vec<UiService> {
+    vec![UiService {
+        name: "syncthing".to_string(),
+        upstream: "syncthing".to_string(),
+        port: 8384,
+    }]
+}
 
 #[test]
-fn rejects_invalid_duplicate_and_unknown_site_configuration() {
-    for payload in [
-        r#"{"pihole":"pihole.example.invalid\n}","syncthing":"sync.example.invalid"}"#,
-        r#"{"pihole":"https://pihole.example.invalid","syncthing":"sync.example.invalid"}"#,
-        r#"{"pihole":"same.example.invalid","syncthing":"same.example.invalid"}"#,
-        r#"{"pihole":"pihole.example.invalid","syncthing":"sync.example.invalid","unknown":true}"#,
+fn derives_a_single_non_clamps_service_hostname_for_either_environment() {
+    let services = syncthing_only();
+    for (domain, staging) in [
+        ("test.example.invalid", true),
+        ("prod.example.invalid", false),
     ] {
-        assert!(CaddySites::parse(payload).is_err());
+        let sites = CaddySites::from_host(
+            "beezelbot",
+            &UiEnvironment {
+                ui_domain: domain.to_string(),
+                acme_staging: staging,
+            },
+            &services,
+        )
+        .unwrap();
+        assert_eq!(sites.services.len(), 1);
+        assert_eq!(
+            sites.services[0].hostname,
+            format!("syncthing.beezelbot.{domain}")
+        );
+        assert_eq!(sites.acme_staging, staging);
     }
 }
 
 #[test]
-fn staging_routes_use_bridge_dns_and_restrict_both_address_families() {
-    let sites = CaddySites::parse(
-        r#"{"pihole":"pihole.example.invalid","syncthing":"sync.example.invalid","acme_staging":true}"#,
+fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
+    let services = vec![
+        UiService {
+            name: "pihole".to_string(),
+            upstream: "pihole".to_string(),
+            port: 8088,
+        },
+        syncthing_only().remove(0),
+    ];
+    let sites = CaddySites::from_host(
+        "clamps",
+        &UiEnvironment {
+            ui_domain: "private.example.invalid".to_string(),
+            acme_staging: true,
+        },
+        &services,
     )
     .unwrap();
-    let config = sites.render();
-    assert!(config.contains("https://acme-staging-v02.api.letsencrypt.org/directory"));
-    assert!(config.contains("acme_dns cloudflare {env.CF_API_TOKEN}"));
-    assert!(config.contains("reverse_proxy pihole:8088"));
-    assert!(config.contains("reverse_proxy syncthing:8384"));
-    assert_eq!(config.matches("respond @outside_tailnet 403").count(), 2);
+    let rendered = sites.render();
+    assert!(rendered.contains("pihole.clamps.private.example.invalid"));
+    assert!(rendered.contains("syncthing.clamps.private.example.invalid"));
+    assert!(rendered.contains("reverse_proxy pihole:8088"));
+    assert!(rendered.contains("reverse_proxy syncthing:8384"));
+    assert_eq!(rendered.matches("respond @outside_tailnet 403").count(), 2);
+    assert!(rendered.contains("https://acme-staging-v02.api.letsencrypt.org/directory"));
+}
+
+#[test]
+fn guest_payload_must_match_the_callers_declared_services() {
+    let services = syncthing_only();
+    let expected = CaddySites::from_host(
+        "beezelbot",
+        &UiEnvironment {
+            ui_domain: "test.example.invalid".to_string(),
+            acme_staging: true,
+        },
+        &services,
+    )
+    .unwrap();
+    let payload = serde_json::to_string(&expected).unwrap();
     assert_eq!(
-        config.matches("100.64.0.0/10 fd7a:115c:a1e0::/48").count(),
-        2
+        CaddySites::parse(&payload, "beezelbot", &services).unwrap(),
+        expected
     );
-    let production = CaddySites::parse(
-        r#"{"pihole":"pihole.example.invalid","syncthing":"sync.example.invalid"}"#,
+    assert!(CaddySites::parse(&payload, "clamps", &services).is_err());
+    assert!(CaddySites::parse(&payload, "beezelbot", &[]).is_err());
+}
+
+#[test]
+fn rejects_domain_injection_duplicates_and_empty_service_sets() {
+    for domain in [
+        "https://example.invalid",
+        "example.invalid/path",
+        "example.invalid:443",
+        "bad..invalid",
+        "bad\n.invalid",
+    ] {
+        assert!(super::validate_domain(domain).is_err());
+    }
+    let duplicate = vec![syncthing_only()[0].clone(), syncthing_only()[0].clone()];
+    assert!(CaddySites::from_host(
+        "host",
+        &UiEnvironment {
+            ui_domain: "example.invalid".to_string(),
+            acme_staging: false
+        },
+        &duplicate
     )
-    .unwrap();
-    assert!(!production.render().contains("acme_ca"));
+    .is_err());
+    assert!(CaddySites::from_host(
+        "host",
+        &UiEnvironment {
+            ui_domain: "example.invalid".to_string(),
+            acme_staging: false
+        },
+        &[]
+    )
+    .is_err());
+    assert!(super::validate_domain_in_zone("ui.other.invalid", "example.invalid").is_err());
+    assert!(super::validate_domain_in_zone("ui.example.invalid", "example.invalid").is_ok());
 }

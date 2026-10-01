@@ -1,4 +1,4 @@
-use super::{clamps_tailscale_config, TAILSCALE_AUTH_KEY_CREDENTIAL};
+use super::{clamps_tailscale_config, ui_config_for_host, TAILSCALE_AUTH_KEY_CREDENTIAL};
 use skillet_podman::SecretTarget;
 
 #[test]
@@ -27,4 +27,24 @@ fn clamps_tailscale_uses_host_network_and_persistent_state() {
                 SecretTarget::Environment { env_var_name } if env_var_name == "TS_AUTHKEY"
             )
     }));
+}
+
+#[test]
+fn host_ui_declarations_include_only_the_services_each_host_runs() {
+    let clamps = ui_config_for_host("clamps").expect("clamps UI declaration");
+    assert_eq!(
+        clamps
+            .services
+            .iter()
+            .map(|service| service.name.as_str())
+            .collect::<Vec<_>>(),
+        ["pihole", "syncthing"]
+    );
+    assert_eq!(clamps.network.unit_name, "clamps");
+
+    let beezelbot = ui_config_for_host("beezelbot").expect("beezelbot UI declaration");
+    assert_eq!(beezelbot.services.len(), 1);
+    assert_eq!(beezelbot.services[0].name, "syncthing");
+    assert_eq!(beezelbot.network.unit_name, "beezelbot");
+    assert!(ui_config_for_host("unknown-host").is_none());
 }

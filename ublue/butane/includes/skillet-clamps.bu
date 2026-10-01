@@ -1,0 +1,31 @@
+variant: fcos
+version: 1.6.0
+storage:
+  files:
+    - path: /var/usrlocal/bin/skillet-clamps
+      mode: 0755
+      contents:
+        local: files/skillet-clamps
+systemd:
+  units:
+    - name: skillet-full-apply.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Apply clamps application configuration
+        Requires=skillet-apply.service
+        After=skillet-apply.service
+        Requires=skillet-data-prepare.service
+        After=skillet-data-prepare.service
+        AssertPathIsMountPoint=/var/lib/data
+        ConditionPathExists=/etc/credstore.encrypted/skillet/pihole_web_password.cred
+        ConditionPathExists=/etc/credstore.encrypted/skillet/tailscale_auth_key.cred
+
+        [Service]
+        Type=oneshot
+        LoadCredentialEncrypted=pihole_web_password:/etc/credstore.encrypted/skillet/pihole_web_password.cred
+        LoadCredentialEncrypted=tailscale_auth_key:/etc/credstore.encrypted/skillet/tailscale_auth_key.cred
+        ExecStart=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase full
+
+        [Install]
+        WantedBy=multi-user.target
