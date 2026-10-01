@@ -46,7 +46,7 @@ pub fn state(name: &str) -> Result<&'static str, CredentialError> {
     }
 }
 
-pub fn install(name: &str, unit: &str) -> Result<(), CredentialError> {
+pub fn install(name: &str, unit: &str, start_unit: bool) -> Result<(), CredentialError> {
     let path = credential_path(name)?;
     if !unit.ends_with(".service")
         || !unit
@@ -86,9 +86,11 @@ pub fn install(name: &str, unit: &str) -> Result<(), CredentialError> {
     }
     encrypted.persist(path).map_err(|error| error.error)?;
     fs::File::open(&directory)?.sync_all()?;
-    let status = Command::new("systemctl").args(["start", unit]).status()?;
-    if !status.success() {
-        return Err(CredentialError::Command("systemctl start"));
+    if start_unit {
+        let status = Command::new("systemctl").args(["start", unit]).status()?;
+        if !status.success() {
+            return Err(CredentialError::Command("systemctl start"));
+        }
     }
     Ok(())
 }
