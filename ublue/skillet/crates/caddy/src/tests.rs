@@ -1,4 +1,10 @@
 use super::{CaddySites, UiEnvironment, UiService};
+use skillet_core::{
+    system::SystemResource,
+    test_utils::{MockFiles, MockSystem},
+};
+use skillet_podman::PodmanNetwork;
+use std::sync::atomic::Ordering;
 
 fn syncthing_only() -> Vec<UiService> {
     vec![UiService {
@@ -6,6 +12,58 @@ fn syncthing_only() -> Vec<UiService> {
         upstream: "syncthing".to_string(),
         port: 8384,
     }]
+}
+
+fn test_network() -> PodmanNetwork {
+    PodmanNetwork {
+        unit_name: "beezelbot".to_string(),
+        options: vec![
+            "NetworkName=beezelbot".to_string(),
+            "Driver=bridge".to_string(),
+        ],
+    }
+}
+
+#[test]
+fn applying_unchanged_caddy_sites_preserves_the_container() {
+    let system = MockSystem::new();
+    let files = MockFiles::new();
+    system
+        .ensure_podman_secret("cloudflare_acme_token", "dummy-token")
+        .unwrap();
+    let sites = CaddySites::from_host(
+        "beezelbot",
+        &UiEnvironment {
+            ui_domain: "test.example.invalid".to_string(),
+            acme_staging: true,
+        },
+        &syncthing_only(),
+    )
+    .unwrap();
+    super::apply(&system, &files, &sites, test_network()).unwrap();
+    let initial_restart_count = system.restart_count.load(Ordering::SeqCst);
+    let initial_config = files
+        .files
+        .lock()
+        .unwrap()
+        .get("/etc/containers/systemd/caddy.container")
+        .cloned()
+        .unwrap();
+
+    super::apply(&system, &files, &sites, test_network()).unwrap();
+
+    assert_eq!(
+        system.restart_count.load(Ordering::SeqCst),
+        initial_restart_count
+    );
+    assert_eq!(
+        files
+            .files
+            .lock()
+            .unwrap()
+            .get("/etc/containers/systemd/caddy.container"),
+        Some(&initial_config)
+    );
 }
 
 #[test]
