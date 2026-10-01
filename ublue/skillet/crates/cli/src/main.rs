@@ -65,7 +65,7 @@ struct SecretLockArgs {
 struct SecretDeliverArgs {
     #[arg(value_parser = ["clamps"])]
     hostname: String,
-    #[arg(value_parser = ["pihole", "tailscale"])]
+    #[arg(value_parser = ["pihole", "tailscale", "caddy"])]
     service: String,
     #[arg(long)]
     database: Option<PathBuf>,
@@ -524,6 +524,7 @@ fn run_twice_and_check(name: &str, phase: ApplyPhase, inspect: bool) -> Result<(
     let phase = match phase {
         ApplyPhase::Base => "base",
         ApplyPhase::Full => "full",
+        ApplyPhase::Caddy => "caddy",
     };
     for round in ["first", "second"] {
         let status = Command::new("podman")

@@ -56,6 +56,52 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
             let mut command = ssh_command(args);
             install(&mut command, "tailscale_auth_key", &auth_key.key)
         }
+        "caddy" => {
+            let pihole = lookup(
+                &vault.database,
+                &format!("skillet/hosts/{}/caddy/pihole-hostname", args.hostname),
+            )?
+            .ok_or_else(|| anyhow!("KeePassXC Pi-hole Caddy hostname entry is missing"))?;
+            let syncthing = lookup(
+                &vault.database,
+                &format!("skillet/hosts/{}/caddy/syncthing-hostname", args.hostname),
+            )?
+            .ok_or_else(|| anyhow!("KeePassXC Syncthing Caddy hostname entry is missing"))?;
+            let token = lookup(
+                &vault.database,
+                &format!("skillet/hosts/{}/cloudflare/acme-token", args.hostname),
+            )?
+            .ok_or_else(|| anyhow!("KeePassXC Cloudflare ACME token entry is missing"))?;
+            ensure_vault_unchanged(&vault)?;
+            let sites = serde_json::json!({
+                "pihole": pihole.trim(),
+                "syncthing": syncthing.trim(),
+                "acme_staging": false,
+            })
+            .to_string();
+            let mut command = ssh_command(args);
+            install_deferred_for_unit(
+                &mut command,
+                "caddy_sites",
+                "skillet-caddy-apply.service",
+                &sites,
+            )?;
+            let mut command = ssh_command(args);
+            install_deferred_for_unit(
+                &mut command,
+                "cloudflare_acme_token",
+                "skillet-caddy-apply.service",
+                &token,
+            )?;
+            let status = ssh_command(args)
+                .arg("sudo -n systemctl start skillet-caddy-apply.service")
+                .status()
+                .context("starting Caddy apply after both credentials were delivered")?;
+            if !status.success() {
+                return Err(anyhow!("Caddy apply failed with status {status}"));
+            }
+            Ok(())
+        }
         _ => Err(anyhow!("unsupported secret service {}", args.service)),
     }
 }
@@ -709,11 +755,44 @@ fn save_vault(
 }
 
 fn install(command: &mut Command, credential: &str, secret: &str) -> Result<()> {
+    install_for_unit(command, credential, "skillet-full-apply.service", secret)
+}
+
+fn install_for_unit(
+    command: &mut Command,
+    credential: &str,
+    unit: &str,
+    secret: &str,
+) -> Result<()> {
+    install_for_unit_inner(command, credential, unit, secret, false)
+}
+
+fn install_deferred_for_unit(
+    command: &mut Command,
+    credential: &str,
+    unit: &str,
+    secret: &str,
+) -> Result<()> {
+    install_for_unit_inner(command, credential, unit, secret, true)
+}
+
+fn install_for_unit_inner(
+    command: &mut Command,
+    credential: &str,
+    unit: &str,
+    secret: &str,
+    defer_start: bool,
+) -> Result<()> {
     if secret.is_empty() {
         return Err(anyhow!("refusing to deliver an empty credential"));
     }
+    let mut remote =
+        format!("sudo -n /var/usrlocal/bin/skillet-clamps credential install {credential} {unit}");
+    if defer_start {
+        remote.push_str(" --no-start");
+    }
     let mut child = command
-        .arg(format!("sudo -n /var/usrlocal/bin/skillet-clamps credential install {credential} skillet-full-apply.service"))
+        .arg(remote)
         .stdin(Stdio::piped())
         .spawn()
         .context("opening SSH credential delivery")?;

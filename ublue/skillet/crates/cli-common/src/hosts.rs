@@ -20,6 +20,7 @@ use thiserror::Error;
 pub enum ApplyPhase {
     Base,
     Full,
+    Caddy,
 }
 
 #[derive(Error, Debug)]
@@ -38,6 +39,8 @@ pub enum ApplyError {
     Syncthing(#[from] skillet_syncthing::SyncthingError),
     #[error("Btrbk apply error: {0}")]
     Btrbk(#[from] skillet_btrbk::BtrbkError),
+    #[error("Caddy apply error: {0}")]
+    Caddy(#[from] skillet_caddy::CaddyError),
     #[error("Podman error: {0}")]
     Podman(#[from] skillet_podman::PodmanError),
     #[error("Fixture input error: {0}")]
@@ -93,6 +96,10 @@ pub const PIHOLE_WEB_PASSWORD_CREDENTIAL: &str = "pihole_web_password";
 /// Name of the systemd credential (and Podman secret) holding the one-use
 /// Tailscale enrollment key used when the node has not joined yet.
 pub const TAILSCALE_AUTH_KEY_CREDENTIAL: &str = "tailscale_auth_key";
+/// Credential containing private Caddy hostnames and the ACME environment.
+pub const CADDY_SITES_CREDENTIAL: &str = "caddy_sites";
+/// Cloudflare token used only by Caddy's DNS-01 challenge provider.
+pub const CLOUDFLARE_ACME_TOKEN_CREDENTIAL: &str = "cloudflare_acme_token";
 
 /// Custom DNS records for the clamps Pi-hole (`ip -> fqdn`).
 // TODO: replace with the real LAN IP and domain before the production
@@ -307,5 +314,30 @@ pub fn apply_host_phase(
     match phase {
         ApplyPhase::Base => apply_base(system, files),
         ApplyPhase::Full => apply_host(hostname, system, files),
+        ApplyPhase::Caddy => apply_caddy_host(hostname, system, files),
     }
+}
+
+fn apply_caddy_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+) -> Result<(), ApplyError> {
+    if hostname != "clamps" {
+        return Err(ApplyError::FixtureInput(
+            "Caddy UI configuration is currently defined only for clamps".to_string(),
+        ));
+    }
+    files.require_btrfs_subvolume_mount(
+        std::path::Path::new("/var/lib/data"),
+        std::path::Path::new("/var"),
+        "/data",
+    )?;
+    let credentials = CredentialManager::new()?;
+    let sites =
+        skillet_caddy::CaddySites::parse(&credentials.read_secret(CADDY_SITES_CREDENTIAL)?)?;
+    let token = credentials.read_secret(CLOUDFLARE_ACME_TOKEN_CREDENTIAL)?;
+    system.ensure_podman_secret(CLOUDFLARE_ACME_TOKEN_CREDENTIAL, &token)?;
+    skillet_caddy::apply(system, files, &sites, clamps_service_network())?;
+    Ok(())
 }
