@@ -311,27 +311,43 @@ host tool; it still uses normal command approvals.
   subvolumes; the btrbk design treats selected sources as leaf subvolumes and
   does not support nested subvolumes.
 
-## Private UI preparation, 2026-10-01
+## Generic private UI slice, 2026-10-01
 
-- Earlier in this session, a fresh clamps smoke VM completed Ignition,
-  unsigned then signed uCore rebase, user environment setup, application
-  provisioning, and Tailscale enrollment. `skillet test smoke clamps` passed
-  the real-runtime fixture checks, including interrupted activation and reboot.
-- Pi-hole, Syncthing, and Tailscale were active. Container DNS resolved Pi-hole
-  from Syncthing; both web interfaces returned HTML through the shared bridge.
-  Pi-hole published TCP/UDP port 53 on both address families. Syncthing did
-  not publish its GUI port 8384 on the host. Repeated full apply preserved
-  the Pi-hole and Syncthing container IDs.
-- The selected Caddy image was pulled and `caddy list-modules` confirmed
-  `dns.providers.cloudflare`. The dedicated apply unit skipped activation
-  without its two encrypted credentials. Caddy certificate issuance, DNS
-  record lifecycle, proxy access restrictions, and renewal were **not tested**.
-  The generic UI plan tracks the missing shared delivery and live acceptance.
-- Before committing, local formatting, pedantic Clippy, workspace tests, and
-  the CI command `skillet test run beezelbot --phase base --image fedora:latest`
-  were run. The first test run caught stale Syncthing GUI publication assertions;
-  they now assert GUI isolation while retaining transfer-port checks. Caddy
-  tests cover rejected input, staging selection, bridge upstreams, and both
-  tailnet address families. These tests do not establish live ACME acceptance.
-- The prior VM is no longer present when listing runs before this commit;
-  no new live Caddy acceptance is claimed from the local checks.
+- `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, `cargo
+  build`, and the CI command `skillet test run beezelbot --phase base --image
+  fedora:latest` passed. New tests cover a non-clamps Syncthing-only declaration
+  in production and test, derived names, multi-service rendering, zone suffix
+  validation, rejection of invalid/duplicate services, and receiver-side
+  payload matching. A repeated Caddy apply test confirms unchanged generated
+  config does not restart the proxy container. Existing container tests still
+  pass.
+- Fresh `clamps-test-generic-ui` completed Ignition, signed uCore rebase,
+  base apply, Homebrew, and dotfiles installation using the pre-correction
+  static host-binary unit. A `%H` experiment failed because systemd expands it
+  to the full VM hostname, which is distinct from the host profile. The shared
+  unit now invokes the generic CLI with `/etc/skillet/host`; clamps writes the
+  stable profile `clamps`, and its credential-gated full-apply unit is in a
+  clamps-specific include.
+- On the existing `clamps-test-generic-ui` disposable VM, installed the current
+  generic and clamps binaries, wrote the stable host profile, and used a
+  temporary systemd drop-in to run the base unit through the generic
+  `--host-file` invocation. The unit reported success while the VM hostname
+  remained `clamps-test-generic-ui`. The real `skillet test smoke clamps
+  --port 2202 --identity <run-dir>/ssh/id_ed25519` passed through reboot. This
+  verifies the generic runtime path; a fresh VM from the updated Ignition and
+  binary-staging flow is still pending. The prior guest evidence remains in its
+  ignored run directory.
+- Strict Butane compilation passed for the updated clamps config and both
+  shared and clamps-specific unit fragments. Running the normal wrapper built
+  and staged both current static binaries; decoded merged Ignition confirmed
+  `/etc/skillet/host=clamps`, generic `skillet` commands for base/full/Caddy,
+  and the host binary at `/var/usrlocal/bin/skillet-clamps`.
+  `bash -n`, ShellCheck, and `git diff --check` also passed for the changed
+  launchers. The exact CI integration command passed in a writable temporary
+  checkout after the workspace mount rejected Cargo output; that run used the
+  default CI test image and reported repeat apply with no extra service starts.
+- The earlier Caddy gate check had no credentials and confirmed only that the
+  unit remained skipped. No domain/token was delivered;
+  Caddy startup, ACME issuance, HTTPS proxy access, renewal, and DNS lifecycle
+  remain unverified. `beezelbot` has no Butane template, so its real-runtime
+  service behavior remains unverified.

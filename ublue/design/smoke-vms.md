@@ -4,8 +4,9 @@ Decision: keep VM creation, readiness, repeatable smoke checks, and destruction
 separate. A retained VM supports inspection and repeated convergence checks;
 a fresh VM establishes that bootstrap is reproducible. The existing fixture
 tests real systemd/Podman convergence. Pi-hole credential delivery and
-Tailscale enrollment/device cleanup are implemented. Cloudflare DNS and live
-ACME scenarios remain planned.
+Tailscale enrollment/device cleanup are implemented. Generic manual Caddy
+delivery is available for declared host UIs; Cloudflare DNS lifecycle, automatic
+smoke provisioning, and live ACME scenarios remain planned.
 
 ## Identity and ownership
 
@@ -25,17 +26,18 @@ the test artifacts and uses QEMU user networking.
 
 ## States and recovery
 
-1. **Create:** build the host binary, allocate the run directory and SSH key,
+1. **Create:** build the generic CLI and host binary, allocate the run directory and SSH key,
    and provision a fresh VM disk. Ignition contains the public SSH key and
    base configuration. Large binaries travel over SSH because embedding them
    in QEMU `fw_cfg` previously caused long boot delays.
-2. **Ready:** wait for SSH, deliver the binary, complete unsigned then signed
+2. **Ready:** wait for SSH, deliver both binaries, complete unsigned then signed
    rebase, and check the booted deployment, base apply, resolver, SELinux, and
    user environment. Persistent bootstrap state tolerates reboots. Executable
    staging uses `/var/usrlocal/bin`, whose FCOS labeling permits execution.
    Ignition's authorized-key file remains configured alongside dotfiles keys.
-   `ready` uses the artifact captured at creation. Explicit `update` builds
-   and installs current host code on a retained VM, recording the deployed hash
+   `/etc/skillet/host` keeps host profile identity independent from a VM's
+   hostname. `ready` uses the artifacts captured at creation. Explicit `update`
+   builds and installs current shared and host code on a retained VM, recording deployed hashes
    separately while preserving the original creation snapshot.
 3. **Provision applications:** `test vm provision` unlocks the workstation
    KeePassXC database, reads the Tailscale OAuth client, mints a one-use smoke
