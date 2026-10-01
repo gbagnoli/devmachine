@@ -1,11 +1,10 @@
 # Secret storage and delivery
 
-Planned UI generalization: select a base domain and Cloudflare zone from
-environment entries in KeePassXC, derive service names from the host caller's
-declarations, and share delivery across persistent and disposable targets.
-The [generic UI plan](../plan/GENERIC-PRIVATE-UIS.md) defines the proposed vault
-paths and migration. Existing per-service hostname entries and clamps-only
-Caddy delivery below describe current code, not the intended shared interface.
+UI provisioning reads a base domain and Cloudflare zone from the selected
+environment in KeePassXC, derives service names from the host's declarations,
+and uses shared credential delivery. Cloudflare token issuance, DNS lifecycle,
+and automatic smoke VM wiring remain planned in the
+[generic UI plan](../plan/GENERIC-PRIVATE-UIS.md).
 
 Decision: use KeePassXC for durable secrets and read and write its KDBX database
 directly from workstation Skillet through a Rust library. Pi-hole delivery uses
@@ -46,9 +45,10 @@ The prefix is consistently singular, `skillet`:
 | Vault entry | Host credential and Podman secret name |
 | --- | --- |
 | `skillet/hosts/clamps/pihole/web-password` | `pihole_web_password` |
-| `skillet/hosts/clamps/caddy/pihole-hostname` | Included in encrypted `caddy_sites` config |
-| `skillet/hosts/clamps/caddy/syncthing-hostname` | Included in encrypted `caddy_sites` config |
-| `skillet/hosts/clamps/cloudflare/acme-token` | `cloudflare_acme_token` |
+| `skillet/environments/<environment>/ui/domain` | Base for derived Caddy hostnames |
+| `skillet/environments/<environment>/cloudflare/zone` | Zone containing the UI domain |
+| `skillet/environments/<environment>/hosts/<host>/cloudflare/acme-token` | `cloudflare_acme_token` |
+| `skillet/hosts/clamps/cloudflare/acme-token` | Legacy production token fallback |
 | `skillet/cloudflare/token-creator` | Workstation only |
 | `skillet/tailscale/provisioner-client-id` | Workstation only; OAuth Client ID |
 | `skillet/tailscale/provisioner-client-secret` | Workstation only; OAuth Client secret |
@@ -81,16 +81,19 @@ after confirming hardware support and rebase behavior. Host-key encryption is
 recoverable by someone with the guest disk and its key; these files are runtime
 copies, while KeePassXC supplies portable recovery.
 
-The full-apply systemd unit loads each file with `LoadCredentialEncrypted=`.
+The host-specific full-apply systemd unit loads its files with
+`LoadCredentialEncrypted=`.
 Skillet reads `$CREDENTIALS_DIRECTORY/<credential>` and sends the value through
 stdin to `podman secret create`. Quadlets reference secret names with `Secret=`:
 Pi-hole receives a file under `/run/secrets/` through `WEBPASSWORD_FILE`; Caddy
 receives `cloudflare_acme_token` through `type=env,target=CF_API_TOKEN`.
-The `caddy_sites` credential contains the two private UI hostnames and the
-ACME staging flag. The generated Caddyfile is persisted under `/etc/skillet`
-and contains no token. A dedicated systemd apply unit runs only after both
-Caddy credentials are installed. Rotation recreates the affected container to
-consume the new secret.
+The versioned `caddy_sites` credential contains host identity, selected UI
+domain, staging policy, and the declared service/upstream list. The receiving
+host checks it against its local declaration. The generated Caddyfile is
+persisted under `/etc/skillet` and contains no token. A dedicated systemd apply
+unit runs only after both Caddy credentials are installed. Old payloads are
+rejected; redeliver after updating the environment entries. Production token
+lookup temporarily falls back to the existing per-host token path.
 Podman's default secret storage persists a copy on the guest disk; systemd's
 credential encryption does not encrypt that copy.
 
@@ -118,9 +121,9 @@ UI records belong in the existing production zone and use a separate scoped
 credential. Keep literal zone names and records outside this public repository.
 The token creator remains on the workstation. Cloudflare token issuance and
 record management are planned; current smoke provisioning only enrolls
-Tailscale and provisions Pi-hole. Production Caddy credentials can be delivered
-with `secret deliver clamps caddy`; smoke-specific staging and delivery are
-not yet wired into VM provisioning.
+Tailscale and provisions Pi-hole. Caddy can be delivered manually to a host
+with `secret deliver <host> caddy --environment <production|test>`; smoke VM
+provisioning does not invoke this path automatically yet.
 
 VM Pi-hole secrets use the same SSH, systemd, and Podman delivery path. Keep token IDs,
 expiry, and owned record IDs in run metadata, without token values. Existing

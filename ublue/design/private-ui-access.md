@@ -67,17 +67,21 @@ planes. The names and tailnet IPs are public DNS data.
 
 ## Status and references
 
-Planned generalization: host callers declare their UI services, and a shared
-provisioner derives `<service>.<host>.<ui-domain>` from an environment's domain
-in KeePassXC. Production and test select different configuration and credential
-lifetimes; Caddy and delivery share one implementation. This supersedes the
-current per-service hostname entries and clamps-only restrictions when
-implemented. See the [implementation plan](../plan/GENERIC-PRIVATE-UIS.md).
+Host UI service declarations now drive a shared versioned Caddy payload.
+Provisioning derives `<service>.<host>.<ui-domain>` from the selected
+environment's KeePassXC domain. Caddy validates the payload against the host's
+declaration and renders each route through bridge DNS with tailnet source
+restrictions. Shared Butane units call the generic `skillet` CLI and read the
+stable host profile from `/etc/skillet/host`; VM hostnames remain independent.
+Host-specific apply units and credential gates live in host-specific Butane
+includes. Manual delivery accepts production or test environments.
+Cloudflare token/DNS lifecycle and automatic VM provisioning remain planned;
+see the [implementation plan](../plan/GENERIC-PRIVATE-UIS.md).
 
 Skillet configures host-network Tailscale and manages tagged enrollment and
 removal for clamps smoke VMs; live smoke enrollment and cleanup were accepted
-on 2026-09-30. Caddy now has a Quadlet configuration for Pi-hole
-and Syncthing using bridge DNS, persistent certificate storage, Cloudflare
+on 2026-09-30. Caddy now has a generic Quadlet configuration for the UI
+services declared by the host, using bridge DNS, persistent certificate storage, Cloudflare
 DNS-01, and source-address restrictions for Tailscale's IPv4 and IPv6 ranges.
 Its hostname and token credentials are separate from normal full apply.
 Syncthing no longer publishes its GUI port on the host. Caddy, ACME staging,

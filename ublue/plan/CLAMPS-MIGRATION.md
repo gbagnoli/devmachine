@@ -17,9 +17,9 @@ Pi-hole container runs in the VM with data and Podman storage under
 `/var/lib/data`; service networking, live ACME, final disk selection, and
 post-provision rebase checks remain open.
 
-Next: implement [generic private UI provisioning](GENERIC-PRIVATE-UIS.md),
-using host-declared services and environment domains from KeePassXC, then
-validate Cloudflare DNS-01 staging for private Pi-hole and Syncthing UIs.
+Next: implement Cloudflare token/DNS lifecycle and automatic smoke VM delivery
+from [generic private UI provisioning](GENERIC-PRIVATE-UIS.md), then validate
+DNS-01 staging for private Pi-hole and Syncthing UIs.
 The private-UI design requires a tailnet-only
 listener and DNS-only Cloudflare records pointing to tailnet addresses, so
 certificate issuance alone is not the acceptance target.

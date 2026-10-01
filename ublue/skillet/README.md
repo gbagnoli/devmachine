@@ -74,7 +74,9 @@ cargo run --release -p skillet -- test smoke clamps
 The smoke command defaults to that target, port, and generated key. Override
 them with `--target`, `--port`, and `--identity` when using a separately
 provisioned VM. It takes the generic binary from the running executable and
-uses the `skillet-clamps` binary installed by VM creation. Repeated smoke runs
+uses the `skillet-clamps` binary installed by VM creation. Shared systemd
+apply units use the generic binary and the stable host profile in
+`/etc/skillet/host`. Repeated smoke runs
 reset only the namespaced `/var/lib/skillet-smoke` fixture and its managed
 files. The VM remains available for inspection and reruns.
 After editing host code, use
@@ -96,12 +98,13 @@ Build both static binaries from this directory if you want to install the host
 binary separately:
 
 ```bash
-cargo build --release -p skillet-clamps -p skillet
-sha256sum target/x86_64-unknown-linux-musl/release/skillet-clamps
+cargo build --release --target x86_64-unknown-linux-musl -p skillet -p skillet-clamps
+sha256sum target/x86_64-unknown-linux-musl/release/skillet{,-clamps}
 ```
 
-The host artifact is `target/x86_64-unknown-linux-musl/release/skillet-clamps`.
-Supply that artifact to the guest, then invoke `skillet-clamps apply --phase base`.
+The generic artifact is `target/x86_64-unknown-linux-musl/release/skillet`;
+the host artifact is `target/x86_64-unknown-linux-musl/release/skillet-clamps`.
+The host artifact handles host-specific credential commands.
 
 The smoke scenario checks baseline/full separation, container startup and
 idempotency, configuration and dummy secret rotation, failed startup recovery,
@@ -183,18 +186,21 @@ entry before removing the old copy. The current smoke command does not use it.
 
 ### Caddy UI credentials
 
-Caddy proxies the Pi-hole and Syncthing UIs on port 443 and rejects clients
-outside the Tailscale IPv4 and IPv6 ranges. Its credentials are independent of
-normal full apply. In KeePassXC, store each value in the Password field:
+Caddy proxies each host-declared UI on port 443 and rejects clients outside
+the Tailscale IPv4 and IPv6 ranges. Its credentials are independent of normal
+full apply. In KeePassXC, store each value in the Password field:
 
 | Group path | Entry title | Value |
 | --- | --- | --- |
-| `skillet/hosts/clamps/caddy` | `pihole-hostname` | Private Pi-hole UI hostname |
-| `skillet/hosts/clamps/caddy` | `syncthing-hostname` | Private Syncthing UI hostname |
-| `skillet/hosts/clamps/cloudflare` | `acme-token` | Cloudflare API token with Zone Read and DNS Edit, scoped to the production zone |
+| `skillet/environments/production/ui` | `domain` | Base domain for derived host UI names |
+| `skillet/environments/production/cloudflare` | `zone` | Cloudflare zone containing the UI domain |
+| `skillet/environments/production/hosts/<host>/cloudflare` | `acme-token` | Existing token with Zone Read and DNS Edit |
+| `skillet/environments/test/ui` | `domain` | Test base domain |
+| `skillet/environments/test/cloudflare` | `zone` | Cloudflare zone containing the test UI domain |
+| `skillet/environments/test/hosts/<host>/cloudflare` | `acme-token` | Test token with Zone Read and DNS Edit |
 
-Create DNS-only A/AAAA records for those names pointing to the clamps Tailscale
-addresses. Then deliver the credentials over a host-key-verified SSH session:
+Create DNS-only A/AAAA records for derived names pointing to that host's
+Tailscale addresses. Then deliver the credentials over a host-key-verified SSH session:
 
 ```bash
 cargo run --release -p skillet -- secret deliver clamps caddy \
@@ -202,11 +208,16 @@ cargo run --release -p skillet -- secret deliver clamps caddy \
   --known-hosts /path/to/known_hosts
 ```
 
-Skillet keeps the hostname configuration private in the KeePassXC database and
-encrypted host credential. The Cloudflare token becomes a Podman secret used
+Skillet derives each name as `<service>.<host>.<ui-domain>` from that host's
+declared UI services and keeps the versioned configuration in an encrypted
+host credential. The Cloudflare token becomes a Podman secret used
 only by Caddy's DNS-01 provider. The command installs both encrypted host
-credentials before starting its dedicated apply service. The smoke VM staging
-path and automatic DNS/token lifecycle are still being implemented.
+credentials before starting its dedicated apply service. For a test VM, select
+`--environment test`; this uses the staging ACME directory. Automatic VM token
+creation, DNS record lifecycle, and credential delivery during `vm provision`
+remain future work. Existing per-service hostname entries are no longer read;
+redeliver using the environment entries. Production token lookup temporarily
+supports the previous `skillet/hosts/<host>/cloudflare/acme-token` path.
 
 ### Tailscale setup for Skillet
 

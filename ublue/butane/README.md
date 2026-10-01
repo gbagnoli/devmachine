@@ -18,6 +18,13 @@ The shared [data storage design](../design/storage.md) is implemented by
 `includes/data-storage.bu`. On a fresh VM it mounts the Btrfs `data` subvolume
 at `/var/lib/data` and sets rootful Podman's graphroot there. Recreate a
 disposable VM made before this include to check the install-time layout.
+`bin/butane` builds and stages the generic `skillet` CLI and the host-specific
+`skillet-HOST` credential CLI when the input includes `includes/skillet.bu` and
+the binaries were not explicitly staged under `files/`. Set `CARGO_TARGET_DIR`
+to redirect Cargo output. The generated Ignition therefore contains both
+executables for a normal host install. The VM launcher removes the two large
+file entries from its temporary Ignition copy and delivers those same binaries
+over SSH after the first boot.
 
 On Bazzite, the helper uses the existing Flatpak virt-manager installation
 when native libvirt is absent. The `bin/virsh` and `bin/virt-install` wrappers
@@ -80,14 +87,18 @@ cargo run --release -p skillet -- test vm provision clamps smoke
 cargo run --release -p skillet -- test vm destroy clamps smoke
 ```
 
-The helper calls `coreos-install`, which builds the current static
-`skillet-clamps` host binary. The lower-level launcher accepts `--artifact PATH`
-to use a specific binary. It records its SHA256 in
-`runs/NAME/skillet.sha256`. `test-vm ready` transfers the binary
-over SSH after first boot and installs it at `/var/usrlocal/bin/skillet-clamps`.
-`ready` uses that captured binary on every run. After editing Skillet, use
-`cargo run --release -p skillet -- test vm update clamps smoke` to rebuild and
-install the current binary on a retained VM. `provision` delivers a disposable
+The helper calls `coreos-install`, which builds the generic `skillet` CLI and
+the `skillet-clamps` host binary. The lower-level launcher accepts `--artifact PATH`
+to use a specific host binary; the generic CLI is built from the workspace.
+Both artifact hashes are recorded in `runs/NAME/`. `test-vm ready` transfers
+both binaries over SSH after first boot and installs them at
+`/var/usrlocal/bin/skillet` and `/var/usrlocal/bin/skillet-clamps`. `ready`
+uses those captured binaries on every run. The shared base unit reads the
+stable host profile from `/etc/skillet/host`, so a test VM hostname can differ
+from its host profile. After editing Skillet, build both binaries with
+`cargo build --release --target x86_64-unknown-linux-musl -p skillet -p skillet-clamps`
+and use `cargo run --release -p skillet -- test vm update clamps smoke` to
+install them on a retained VM. `provision` delivers a disposable
 Pi-hole password and runs the credential-loaded full apply; `--rotate` replaces
 that disposable password.
 The shared uCore bootstrap script also lives in `/var/usrlocal/bin`.
@@ -123,15 +134,17 @@ The VM staging step grants `giacomo` passwordless sudo. The guest starts
 and then to the signed image. It checks the *booted* rpm-ostree deployment on
 every boot. It never starts the base apply until the signed deployment boots.
 A failed rebase stops without rebooting; an already pending deployment gets at
-most two reboot attempts. The base unit runs
-`/var/usrlocal/bin/skillet-clamps apply --phase base` with no app credentials.
+most two reboot attempts. The shared base unit runs
+`/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase base`
+with no app credentials. Clamps adds a separate full-apply unit gated on its
+Pi-hole and Tailscale credentials.
 
 `./bin/test-vm HOST ready INSTANCE` waits up to 45 minutes, checks the expected
 domain/disk, noninteractive SSH and sudo, signed booted deployment, successful
 Skillet unit, guest artifact SHA, enforcing SELinux, DNS, masked resolved,
 Homebrew, dotfiles links, and the complete `core` Brewfile bundle.
 It writes `domain.txt`, `disks.txt`, `final-status.json`, `final-boot-id`,
-`guest-skillet.sha256`, `readiness.log`, and `user-environment.log` into the run
+`guest-skillet*.sha256`, `readiness.log`, and `user-environment.log` into the run
 directory. On timeout, it writes `failure.log` or
 `user-environment-failure.log` with relevant journals.
 For manual diagnostics, use `test-vm HOST status INSTANCE` and

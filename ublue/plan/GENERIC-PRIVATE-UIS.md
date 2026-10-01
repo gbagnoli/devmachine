@@ -1,7 +1,6 @@
 # Generic private UI provisioning
 
-Status: ready to implement, 2026-10-01. Planning only; existing Caddy code is
-uncommitted and still restricts delivery and apply to clamps.
+Status: steps 1 and 2 implemented locally, 2026-10-01. Steps 3 and 4 remain.
 
 ## Goal and fixed decisions
 
@@ -26,7 +25,7 @@ the Password field, following the existing exact-lookup convention:
 | Entry | Purpose |
 | --- | --- |
 | `skillet/environments/<environment>/ui/domain` | Base UI domain |
-| `skillet/environments/<environment>/cloudflare/zone-id` | Authorized existing zone |
+| `skillet/environments/<environment>/cloudflare/zone` | DNS name of the authorized existing zone |
 | `skillet/environments/<environment>/hosts/<host>/cloudflare/acme-token` | Durable token for a persistent host |
 | `skillet/cloudflare/token-creator` | Workstation-only token issuer |
 
@@ -56,14 +55,16 @@ ownership, with no disposable token value persisted in run metadata.
 
 ## Implement in this order
 
-### 1. Shared host UI declarations and environment configuration
+### 1. Shared host UI declarations and environment configuration (implemented)
 
 Introduce a typed UI declaration containing a stable service name and its
 bridge upstream (container DNS name and port). Each host caller supplies its
 enabled services and Podman network through one reusable host definition.
 Use that same declaration for Caddy and workstation DNS planning; do not
 maintain two lists that can drift. Clamps declares Syncthing and Pi-hole;
-other hosts can declare Syncthing without acquiring a Pi-hole dependency.
+beezelbot declares Syncthing only and now applies that service on its own
+bridge network. Future hosts can declare services without acquiring a Pi-hole
+dependency.
 Declaring future services must not require editing Caddy's renderer.
 
 Add a validated environment configuration and one hostname derivation helper.
@@ -77,7 +78,7 @@ Exit: a non-clamps host with only Syncthing derives exactly one route; the
 same host definition works with either environment. Use reserved example
 domains in tests. Missing config fails with the entry path, without values.
 
-### 2. Generic Caddy configuration and delivery
+### 2. Generic Caddy configuration and delivery (implemented)
 
 Replace `CaddySites { pihole, syncthing, ... }` with a versioned service-list
 payload and explicit issuer policy. Keep the host credential name `caddy_sites`
@@ -87,7 +88,13 @@ the shared declaration; validate the payload again on the receiving host.
 Remove the clamps guard in Caddy apply. Pass the caller's network and services
 into shared apply. Remove hardcoded `/var/usrlocal/bin/skillet-clamps` from
 the delivery helpers; resolve the target binary from the validated host
-definition. Remove the CLI's clamps-only delivery parser/guard, but reject
+definition. Shared Butane units invoke the generic `skillet` CLI with the
+stable host profile in `/etc/skillet/host`; they must not derive host identity
+from the VM hostname or bake a host binary name into shared configuration.
+Host-specific apply units and credential gates belong in host-specific Butane
+includes. The host include also stages the host credential CLI; the shared
+Butane compiler builds and stages both static binaries when they are not
+provided. Remove the CLI's clamps-only delivery parser/guard, but reject
 unsupported hosts and undeclared services before unlocking/mutating resources.
 Do not pretend unfinished host templates are ready for VM provisioning.
 
@@ -98,13 +105,15 @@ Caddyfiles. Use normal blocking systemctl starts, without `--wait`.
 
 CLI target: `skillet secret deliver <host> caddy --environment production`
 with the existing SSH and vault options. The shared delivery function accepts
-host definition, environment config, credentials, and transport; VM provisioning
-calls this same function with its recorded transport and test environment.
+host definition, environment config, credentials, and transport. VM provisioning
+does not call it yet; wiring it with its recorded transport and test environment
+is step 4.
 
 Exit: rerunning unchanged delivery preserves container identity. A host with
-Syncthing only has no Pi-hole route. Existing old `caddy_sites` credentials
-receive a documented explicit redelivery/migration path; do not silently
-interpret the old payload as the new schema.
+Syncthing only has no Pi-hole route. Existing old `caddy_sites` payloads and
+per-service hostname entries require explicit redelivery; old payloads are
+rejected rather than silently reinterpreted. Production token lookup temporarily
+falls back to the existing per-host token path.
 
 ### 3. Shared Cloudflare token and DNS reconciliation
 
