@@ -17,9 +17,10 @@ Pi-hole container runs in the VM with data and Podman storage under
 `/var/lib/data`; service networking, live ACME, final disk selection, and
 post-provision rebase checks remain open.
 
-Next: validate live Tailscale enrollment and cleanup on the clamps smoke VM,
-then implement Caddy with Cloudflare DNS-01 staging for private
-Pi-hole and Syncthing UIs. The private-UI design requires a tailnet-only
+Next: implement [generic private UI provisioning](GENERIC-PRIVATE-UIS.md),
+using host-declared services and environment domains from KeePassXC, then
+validate Cloudflare DNS-01 staging for private Pi-hole and Syncthing UIs.
+The private-UI design requires a tailnet-only
 listener and DNS-only Cloudflare records pointing to tailnet addresses, so
 certificate issuance alone is not the acceptance target.
 Pi-hole LAN-client reachability and final custom DNS records also remain open;
@@ -91,8 +92,8 @@ Each row is a separate implementation and validation step. Adjust order for depe
 | 1 | Syncthing (implemented; disposable VM service and repeat-apply checks passed) | Data, device identity, folder configuration, UID/GID, required ports |
 | 2 | btrbk (implemented and verified) | Follow the [btrbk milestone](CLAMPS-BTRBK.md): real Btrfs subvolume, hourly snapshots, Chef retention policy, and restore exercise. Local snapshots are not an independent backup. |
 | 3 | UniFi | Controller data or supported backup restore, version compatibility, adoption and ownership |
-| 4 | Tailscale (implemented; live VM acceptance next) | Host-network container, persistent state, KeePassXC OAuth client, one-use tagged key delivery, and smoke device cleanup are implemented. Validate OAuth scopes, tailnet enrollment, removal, re-provisioning, and forwarding. UI names use Cloudflare DNS-only records; Tailscale DNS management is not required. This is a prerequisite for accepting tailnet-only Caddy UI access. |
-| 5 | Private UI access with Caddy + ACME | Implement the [private UI design](../design/private-ui-access.md): host-specific names, DNS-only Cloudflare A/AAAA records pointing to tailnet addresses, tailnet-only access, Syncthing GUI isolation, and DNS recovery. Mint per-VM zone-scoped tokens from the workstation creator; after enrollment, create test records and check client resolution, including DNS rebinding filtering. Validate DNS-01 with staging, certificate persistence, record/token cleanup, repeated runs and interruption recovery. Add public OAuth2 proxying only for an explicitly required public UI. |
+| 4 | Tailscale (implemented; smoke enrollment and cleanup accepted 2026-09-30) | Host-network container, persistent state, KeePassXC OAuth client, one-use tagged key delivery, and smoke device cleanup are implemented. Production forwarding remains to validate. UI names use Cloudflare DNS-only records; Tailscale DNS management is not required. |
+| 5 | Private UI access with Caddy + ACME (implementation started) | Caddy's credential-gated Quadlet config proxies the Pi-hole and Syncthing UIs by bridge DNS name; Syncthing's host-published GUI port is removed. Next wire smoke-specific KeePassXC values, mint per-VM zone-scoped tokens and manage DNS-only A/AAAA records through the workstation Cloudflare token creator. Validate tailnet-only access, ACME staging, certificate persistence/renewal, record/token cleanup, repeated runs and interruption recovery. |
 | 6 | Cloudflare DDNS | Required records and token delivery; reconcile the legacy updater before enabling competing writers |
 | 7 | Monitoring and remaining host baseline | Explicit keep/drop decision for Datadog; required hardening, users, SSH/sudo, ET and WOL behavior |
 

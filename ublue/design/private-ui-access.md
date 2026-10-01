@@ -67,12 +67,22 @@ planes. The names and tailnet IPs are public DNS data.
 
 ## Status and references
 
-Skillet now configures the host-network Tailscale container and manages tagged
-enrollment for clamps smoke VMs, including device removal during VM disposal.
-This has passed workspace checks but still needs live tailnet acceptance. Caddy,
-Cloudflare UI records, and UI isolation have not been implemented or accepted
-on clamps. The current Pi-hole UI is private to the container bridge;
-Syncthing's GUI is still published on the host.
+Planned generalization: host callers declare their UI services, and a shared
+provisioner derives `<service>.<host>.<ui-domain>` from an environment's domain
+in KeePassXC. Production and test select different configuration and credential
+lifetimes; Caddy and delivery share one implementation. This supersedes the
+current per-service hostname entries and clamps-only restrictions when
+implemented. See the [implementation plan](../plan/GENERIC-PRIVATE-UIS.md).
+
+Skillet configures host-network Tailscale and manages tagged enrollment and
+removal for clamps smoke VMs; live smoke enrollment and cleanup were accepted
+on 2026-09-30. Caddy now has a Quadlet configuration for Pi-hole
+and Syncthing using bridge DNS, persistent certificate storage, Cloudflare
+DNS-01, and source-address restrictions for Tailscale's IPv4 and IPv6 ranges.
+Its hostname and token credentials are separate from normal full apply.
+Syncthing no longer publishes its GUI port on the host. Caddy, ACME staging,
+DNS record lifecycle, client reachability, certificate renewal, and interrupted
+recovery still need live VM acceptance.
 
 References: [Tailscale DNS](https://tailscale.com/docs/reference/dns-in-tailscale/),
 [Cloudflare DNS-only records](https://developers.cloudflare.com/dns/proxy-status/),
