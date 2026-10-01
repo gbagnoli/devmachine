@@ -18,6 +18,8 @@ vm_name=
 output_dir=
 ssh_port=2222
 artifact=
+generic_artifact=
+custom_artifact=false
 image=
 libvirt_uri=qemu:///session
 vm_command() {
@@ -35,7 +37,7 @@ while (($#)); do
         --name) vm_name="$2" ;;
         --output-dir) output_dir="$2" ;;
         --ssh-port) ssh_port="$2" ;;
-        --artifact) artifact="$2" ;;
+        --artifact) artifact="$2"; custom_artifact=true ;;
         --image) image="$2" ;;
         --libvirt-uri) libvirt_uri="$2" ;;
       esac
@@ -73,10 +75,21 @@ if [[ -z "$artifact" ]]; then
     artifact_target_dir="$repo_dir/skillet/$artifact_target_dir"
   fi
   artifact="$artifact_target_dir/x86_64-unknown-linux-musl/release/skillet-$host"
-  (cd "$repo_dir/skillet" && cargo build --release --target x86_64-unknown-linux-musl -p "skillet-$host")
+  generic_artifact="$artifact_target_dir/x86_64-unknown-linux-musl/release/skillet"
+  (cd "$repo_dir/skillet" && cargo build --release --target x86_64-unknown-linux-musl -p skillet -p "skillet-$host")
 fi
 [[ -f "$artifact" ]] || { echo "Missing Skillet artifact: $artifact" >&2; exit 1; }
 artifact="$(realpath "$artifact")"
+if [[ -z "$generic_artifact" ]]; then
+  artifact_target_dir="${CARGO_TARGET_DIR:-$repo_dir/skillet/target}"
+  if [[ "$artifact_target_dir" != /* ]]; then artifact_target_dir="$repo_dir/skillet/$artifact_target_dir"; fi
+  generic_artifact="$artifact_target_dir/x86_64-unknown-linux-musl/release/skillet"
+fi
+if [[ "$custom_artifact" == true || ! -f "$generic_artifact" ]]; then
+  (cd "$repo_dir/skillet" && cargo build --release --target x86_64-unknown-linux-musl -p skillet)
+fi
+[[ -f "$generic_artifact" ]] || { echo "Missing generic Skillet artifact: $generic_artifact" >&2; exit 1; }
+generic_artifact="$(realpath "$generic_artifact")"
 if [[ -z "$image" ]]; then
   mapfile -t images < <(find "$butane_dir/images" -maxdepth 1 -name 'fedora-coreos-*-qemu.x86_64.qcow2' -type f 2>/dev/null | sort)
   if ((${#images[@]} == 0)); then
@@ -99,6 +112,8 @@ cp "$input" "$output_dir/source/$host.bu"
 cp "$butane_dir"/includes/*.bu "$output_dir/source/includes/"
 cp "$artifact" "$output_dir/source/files/skillet-$host"
 chmod 755 "$output_dir/source/files/skillet-$host"
+cp "$generic_artifact" "$output_dir/source/files/skillet"
+chmod 755 "$output_dir/source/files/skillet"
 # Give each test VM its own hostname so Tailscale device cleanup can verify
 # the exact node belonging to this run, even when several VMs share a host OS.
 TEST_VM_HOSTNAME="$vm_name" yq -i \
@@ -107,10 +122,14 @@ TEST_VM_HOSTNAME="$vm_name" yq -i \
 # Keep the multi-megabyte static binary out of QEMU fw_cfg. Ignition reads
 # fw_cfg very slowly for large configs; test-vm-ready installs this artifact
 # over SSH after the guest has completed its first Ignition boot.
-mapfile -t skillet_includes < <(rg -l -F "/var/usrlocal/bin/skillet-$host" "$output_dir/source/includes" --glob '*.bu')
-((${#skillet_includes[@]} == 1)) || { echo "Expected one Butane include with skillet-$host" >&2; exit 1; }
+skillet_include="$output_dir/source/includes/skillet.bu"
+[[ -f "$skillet_include" ]] || { echo "Missing shared Skillet Butane include" >&2; exit 1; }
+yq -i 'del(.storage.files[] | select(.path == "/var/usrlocal/bin/skillet"))' \
+  "$skillet_include"
+skillet_host_include="$output_dir/source/includes/skillet-$host.bu"
+[[ -f "$skillet_host_include" ]] || { echo "Missing host Skillet Butane include: $skillet_host_include" >&2; exit 1; }
 HOST="$host" yq -i 'del(.storage.files[] | select(.path == "/var/usrlocal/bin/skillet-" + strenv(HOST)))' \
-  "${skillet_includes[0]}"
+  "$skillet_host_include"
 ssh-keygen -q -t ed25519 -N '' -f "$output_dir/ssh/id_ed25519"
 chmod 600 "$output_dir/ssh/id_ed25519"
 public_key="$(cat "$output_dir/ssh/id_ed25519.pub")"
@@ -130,6 +149,7 @@ if ((ignition_bytes > 1048576)); then
 fi
 cp --reflink=auto "$image" "$output_dir/$vm_name.qcow2"
 sha256sum "$output_dir/source/files/skillet-$host" > "$output_dir/skillet.sha256"
+sha256sum "$output_dir/source/files/skillet" > "$output_dir/skillet-generic.sha256"
 sha256sum "$image" > "$output_dir/fcos-image.sha256"
 printf 'vm=%s\nhost=%s\nuri=%s\nssh_port=%s\nimage=%s\nartifact=%s\nruntime_dir=%s\nbackend=%s\nsource_commit=%s\n' \
   "$vm_name" "$host" "$libvirt_uri" "$ssh_port" "$image" "$artifact" "${TEST_VM_LIBVIRT_RUNTIME_DIR:-}" "${TEST_VM_BACKEND:-native}" \

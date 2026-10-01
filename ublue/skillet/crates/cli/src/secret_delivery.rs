@@ -1,4 +1,7 @@
-use super::{butane_root, tailscale, vm_name, SecretDeliverArgs, VmDestroyArgs, VmProvisionArgs};
+use super::{
+    butane_root, tailscale, vm_name, SecretDeliverArgs, UiEnvironmentName, VmDestroyArgs,
+    VmProvisionArgs,
+};
 use anyhow::{anyhow, Context, Result};
 use keepass::{Database, DatabaseKey};
 use std::{
@@ -13,9 +16,14 @@ use std::{
 mod vault_cache;
 
 pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
-    if args.hostname != "clamps" {
-        return Err(anyhow!("secret delivery currently supports clamps only"));
-    }
+    let ui_config = if args.service == "caddy" {
+        Some(
+            skillet_cli_common::hosts::ui_config_for_host(&args.hostname)
+                .ok_or_else(|| anyhow!("host {} has no declared UI services", args.hostname))?,
+        )
+    } else {
+        None
+    };
     let database = match &args.database {
         Some(path) => path.clone(),
         None => default_database_path()?,
@@ -28,6 +36,19 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
     let mut vault = open_vault(&database, args.key_file.as_deref())?;
     match args.service.as_str() {
         "pihole" => {
+            let declared = skillet_cli_common::hosts::ui_config_for_host(&args.hostname)
+                .is_some_and(|config| {
+                    config
+                        .services
+                        .iter()
+                        .any(|service| service.name == "pihole")
+                });
+            if !declared {
+                return Err(anyhow!(
+                    "host {} does not declare a Pi-hole UI",
+                    args.hostname
+                ));
+            }
             let path = format!("skillet/hosts/{}/pihole/web-password", args.hostname);
             let secret = if let Some(secret) = lookup(&vault.database, &path)? {
                 ensure_vault_unchanged(&vault)?;
@@ -44,9 +65,15 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
                 secret
             };
             let mut command = ssh_command(args);
-            install(&mut command, "pihole_web_password", &secret)
+            install(&mut command, &args.hostname, "pihole_web_password", &secret)
         }
         "tailscale" => {
+            if args.hostname != "clamps" {
+                return Err(anyhow!(
+                    "host {} does not declare Tailscale credential delivery",
+                    args.hostname
+                ));
+            }
             let credentials = tailscale_credentials(&vault)?;
             let auth_key = tailscale::create_auth_key(
                 &credentials,
@@ -54,56 +81,78 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
                 "Skillet clamps production host",
             )?;
             let mut command = ssh_command(args);
-            install(&mut command, "tailscale_auth_key", &auth_key.key)
-        }
-        "caddy" => {
-            let pihole = lookup(
-                &vault.database,
-                &format!("skillet/hosts/{}/caddy/pihole-hostname", args.hostname),
-            )?
-            .ok_or_else(|| anyhow!("KeePassXC Pi-hole Caddy hostname entry is missing"))?;
-            let syncthing = lookup(
-                &vault.database,
-                &format!("skillet/hosts/{}/caddy/syncthing-hostname", args.hostname),
-            )?
-            .ok_or_else(|| anyhow!("KeePassXC Syncthing Caddy hostname entry is missing"))?;
-            let token = lookup(
-                &vault.database,
-                &format!("skillet/hosts/{}/cloudflare/acme-token", args.hostname),
-            )?
-            .ok_or_else(|| anyhow!("KeePassXC Cloudflare ACME token entry is missing"))?;
-            ensure_vault_unchanged(&vault)?;
-            let sites = serde_json::json!({
-                "pihole": pihole.trim(),
-                "syncthing": syncthing.trim(),
-                "acme_staging": false,
-            })
-            .to_string();
-            let mut command = ssh_command(args);
-            install_deferred_for_unit(
+            install(
                 &mut command,
-                "caddy_sites",
-                "skillet-caddy-apply.service",
-                &sites,
-            )?;
-            let mut command = ssh_command(args);
-            install_deferred_for_unit(
-                &mut command,
-                "cloudflare_acme_token",
-                "skillet-caddy-apply.service",
-                &token,
-            )?;
-            let status = ssh_command(args)
-                .arg("sudo -n systemctl start skillet-caddy-apply.service")
-                .status()
-                .context("starting Caddy apply after both credentials were delivered")?;
-            if !status.success() {
-                return Err(anyhow!("Caddy apply failed with status {status}"));
-            }
-            Ok(())
+                &args.hostname,
+                "tailscale_auth_key",
+                &auth_key.key,
+            )
         }
+        "caddy" => deliver_caddy_from_vault(args, &mut vault, ui_config.as_ref()),
         _ => Err(anyhow!("unsupported secret service {}", args.service)),
     }
+}
+
+fn deliver_caddy_from_vault(
+    args: &SecretDeliverArgs,
+    vault: &mut OpenVault,
+    ui_config: Option<&skillet_cli_common::hosts::HostUiConfig>,
+) -> Result<()> {
+    let ui_config = ui_config.ok_or_else(|| anyhow!("missing host UI declaration"))?;
+    let environment = args.environment.as_str();
+    let domain_path = format!("skillet/environments/{environment}/ui/domain");
+    let domain = lookup(&vault.database, &domain_path)?
+        .ok_or_else(|| anyhow!("KeePassXC UI domain entry is missing: {domain_path}"))?;
+    let zone_path = format!("skillet/environments/{environment}/cloudflare/zone");
+    let zone = lookup(&vault.database, &zone_path)?
+        .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
+    let domain = domain.trim();
+    let zone = zone.trim();
+    skillet_caddy::validate_domain_in_zone(domain, zone)
+        .context("validating KeePassXC UI domain against its Cloudflare zone")?;
+    let token_path = format!(
+        "skillet/environments/{environment}/hosts/{}/cloudflare/acme-token",
+        args.hostname
+    );
+    let mut token = lookup(&vault.database, &token_path)?;
+    if token.is_none() && args.environment == UiEnvironmentName::Production {
+        token = lookup(
+            &vault.database,
+            &format!("skillet/hosts/{}/cloudflare/acme-token", args.hostname),
+        )?;
+    }
+    let token = token
+        .ok_or_else(|| anyhow!("KeePassXC Cloudflare ACME token entry is missing: {token_path}"))?;
+    let sites = skillet_caddy::CaddySites::from_host(
+        &args.hostname,
+        &skillet_caddy::UiEnvironment {
+            ui_domain: domain.to_string(),
+            acme_staging: args.environment.acme_staging(),
+        },
+        &ui_config.services,
+    )?;
+    ensure_vault_unchanged(vault)?;
+    let sites = serde_json::to_string(&sites)?;
+    for (credential, value) in [
+        ("caddy_sites", sites.as_str()),
+        ("cloudflare_acme_token", token.as_str()),
+    ] {
+        install_deferred_for_unit(
+            &mut ssh_command(args),
+            &args.hostname,
+            credential,
+            "skillet-caddy-apply.service",
+            value,
+        )?;
+    }
+    let status = ssh_command(args)
+        .arg("sudo -n systemctl start skillet-caddy-apply.service")
+        .status()
+        .context("starting Caddy apply after both credentials were delivered")?;
+    if !status.success() {
+        return Err(anyhow!("Caddy apply failed with status {status}"));
+    }
+    Ok(())
 }
 
 pub(super) fn lock_vault(path: Option<&Path>) -> Result<()> {
@@ -754,30 +803,39 @@ fn save_vault(
     Ok(())
 }
 
-fn install(command: &mut Command, credential: &str, secret: &str) -> Result<()> {
-    install_for_unit(command, credential, "skillet-full-apply.service", secret)
+fn install(command: &mut Command, host: &str, credential: &str, secret: &str) -> Result<()> {
+    install_for_unit(
+        command,
+        host,
+        credential,
+        "skillet-full-apply.service",
+        secret,
+    )
 }
 
 fn install_for_unit(
     command: &mut Command,
+    host: &str,
     credential: &str,
     unit: &str,
     secret: &str,
 ) -> Result<()> {
-    install_for_unit_inner(command, credential, unit, secret, false)
+    install_for_unit_inner(command, host, credential, unit, secret, false)
 }
 
 fn install_deferred_for_unit(
     command: &mut Command,
+    host: &str,
     credential: &str,
     unit: &str,
     secret: &str,
 ) -> Result<()> {
-    install_for_unit_inner(command, credential, unit, secret, true)
+    install_for_unit_inner(command, host, credential, unit, secret, true)
 }
 
 fn install_for_unit_inner(
     command: &mut Command,
+    host: &str,
     credential: &str,
     unit: &str,
     secret: &str,
@@ -786,8 +844,14 @@ fn install_for_unit_inner(
     if secret.is_empty() {
         return Err(anyhow!("refusing to deliver an empty credential"));
     }
-    let mut remote =
-        format!("sudo -n /var/usrlocal/bin/skillet-clamps credential install {credential} {unit}");
+    if !host
+        .bytes()
+        .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+    {
+        return Err(anyhow!("invalid host identifier"));
+    }
+    let binary = format!("/var/usrlocal/bin/skillet-{host}");
+    let mut remote = format!("sudo -n {binary} credential install {credential} {unit}");
     if defer_start {
         remote.push_str(" --no-start");
     }

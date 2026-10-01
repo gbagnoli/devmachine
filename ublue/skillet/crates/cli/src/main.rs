@@ -49,7 +49,7 @@ enum Commands {
 
 #[derive(clap::Subcommand, Debug)]
 enum SecretCommands {
-    /// Deliver a clamps Pi-hole credential or enroll its Tailscale client
+    /// Deliver credentials for a configured host service
     Deliver(SecretDeliverArgs),
     /// Remove the cached vault password from the kernel keyring
     Lock(SecretLockArgs),
@@ -63,7 +63,6 @@ struct SecretLockArgs {
 
 #[derive(clap::Args, Debug)]
 struct SecretDeliverArgs {
-    #[arg(value_parser = ["clamps"])]
     hostname: String,
     #[arg(value_parser = ["pihole", "tailscale", "caddy"])]
     service: String,
@@ -71,6 +70,9 @@ struct SecretDeliverArgs {
     database: Option<PathBuf>,
     #[arg(long)]
     key_file: Option<PathBuf>,
+    /// `KeePassXC` environment to use for private UI configuration
+    #[arg(long, value_enum, default_value_t = UiEnvironmentName::Production)]
+    environment: UiEnvironmentName,
     #[arg(long)]
     target: String,
     #[arg(long, default_value_t = 22)]
@@ -79,6 +81,25 @@ struct SecretDeliverArgs {
     identity: PathBuf,
     #[arg(long)]
     known_hosts: PathBuf,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
+enum UiEnvironmentName {
+    Production,
+    Test,
+}
+
+impl UiEnvironmentName {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Production => "production",
+            Self::Test => "test",
+        }
+    }
+
+    fn acme_staging(self) -> bool {
+        matches!(self, Self::Test)
+    }
 }
 
 #[derive(clap::Subcommand, Debug)]

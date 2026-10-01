@@ -263,16 +263,21 @@ case "$operation" in
       artifact_target_dir="$script_dir/../../skillet/$artifact_target_dir"
     fi
     artifact="$(realpath -e "$artifact_target_dir/x86_64-unknown-linux-musl/release/skillet-$host")"
-    [[ -f "$artifact" && ! -L "$artifact" ]] || { echo "Build skillet-$host first" >&2; exit 1; }
+    generic_artifact="$(realpath -e "$artifact_target_dir/x86_64-unknown-linux-musl/release/skillet")"
+    [[ -f "$artifact" && ! -L "$artifact" && -f "$generic_artifact" && ! -L "$generic_artifact" ]] || { echo "Build skillet and skillet-$host first" >&2; exit 1; }
     ssh_args
     scp -O -i "$run_dir/ssh/id_ed25519" -P "$port" -o BatchMode=yes \
       -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$run_dir/ssh/known_hosts" \
       "$artifact" giacomo@127.0.0.1:/var/tmp/skillet-update
+    scp -O -i "$run_dir/ssh/id_ed25519" -P "$port" -o BatchMode=yes \
+      -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$run_dir/ssh/known_hosts" \
+      "$generic_artifact" giacomo@127.0.0.1:/var/tmp/skillet-generic-update
     # shellcheck disable=SC2029
     ssh "${args[@]}" giacomo@127.0.0.1 \
-      "sudo -n install -m 0755 /var/tmp/skillet-update /var/usrlocal/bin/skillet-$host && rm -f /var/tmp/skillet-update"
+      "sudo -n install -m 0755 /var/tmp/skillet-update /var/usrlocal/bin/skillet-$host && sudo -n install -m 0755 /var/tmp/skillet-generic-update /var/usrlocal/bin/skillet && rm -f /var/tmp/skillet-update /var/tmp/skillet-generic-update"
     sha256sum "$artifact" > "$run_dir/deployed-skillet.sha256"
-    echo "Updated skillet-$host in $name" ;;
+    sha256sum "$generic_artifact" > "$run_dir/deployed-skillet-generic.sha256"
+    echo "Updated skillet and skillet-$host in $name" ;;
   status)
     (($# == 0)) || usage
     inspect_owned

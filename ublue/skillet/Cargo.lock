@@ -1524,6 +1524,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "skillet_caddy",
  "skillet_cli_common",
  "tempfile",
  "tracing",

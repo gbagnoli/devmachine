@@ -61,12 +61,13 @@ mod user_lookup {
     }
 }
 
-/// Apply the beezelbot host configuration (hardening baseline).
+/// Apply the beezelbot host configuration (hardening + Syncthing).
 pub fn apply_beezelbot(
     system: &dyn SystemResource,
     files: &dyn FileResource,
 ) -> Result<(), ApplyError> {
-    apply_full_base(system, files)
+    apply_full_base(system, files)?;
+    apply_syncthing(system, files, host_service_network("beezelbot"))
 }
 
 /// Shared host baseline used by both CLI entry points.
@@ -101,21 +102,58 @@ pub const CADDY_SITES_CREDENTIAL: &str = "caddy_sites";
 /// Cloudflare token used only by Caddy's DNS-01 challenge provider.
 pub const CLOUDFLARE_ACME_TOKEN_CREDENTIAL: &str = "cloudflare_acme_token";
 
+/// UI services declared by a host. This is the canonical input used by Caddy
+/// both on the workstation (to build delivery payloads) and on the host (to
+/// validate and apply them).
+pub struct HostUiConfig {
+    pub network: PodmanNetwork,
+    pub services: Vec<skillet_caddy::UiService>,
+}
+
+pub fn ui_config_for_host(hostname: &str) -> Option<HostUiConfig> {
+    match hostname {
+        "clamps" => Some(HostUiConfig {
+            network: host_service_network("clamps"),
+            services: vec![
+                skillet_caddy::UiService {
+                    name: "pihole".to_string(),
+                    upstream: "pihole".to_string(),
+                    port: 8088,
+                },
+                skillet_caddy::UiService {
+                    name: "syncthing".to_string(),
+                    upstream: "syncthing".to_string(),
+                    port: 8384,
+                },
+            ],
+        }),
+        "beezelbot" => Some(HostUiConfig {
+            network: host_service_network("beezelbot"),
+            services: vec![skillet_caddy::UiService {
+                name: "syncthing".to_string(),
+                upstream: "syncthing".to_string(),
+                port: 8384,
+            }],
+        }),
+        _ => None,
+    }
+}
+
 /// Custom DNS records for the clamps Pi-hole (`ip -> fqdn`).
 // TODO: replace with the real LAN IP and domain before the production
 // cutover; these are still the old placeholder values.
 const CLAMPS_CUSTOM_DNS_RECORDS: &[(&str, &str)] = &[("192.168.1.100", "my.custom.domain")];
 
-fn clamps_service_network() -> PodmanNetwork {
+fn host_service_network(host: &str) -> PodmanNetwork {
     PodmanNetwork {
-        unit_name: "clamps".to_string(),
+        unit_name: host.to_string(),
         options: vec![
             "DisableDNS=false".to_string(),
             "Driver=bridge".to_string(),
             "Gateway=172.26.26.1".to_string(),
             "Gateway=fd59:4e23:2950:11f5::1".to_string(),
             "IPv6=true".to_string(),
-            "NetworkName=clamps".to_string(),
+            format!("NetworkName={host}"),
             "Subnet=172.26.26.0/24".to_string(),
             "Subnet=fd59:4e23:2950:11f5::/64".to_string(),
         ],
@@ -255,9 +293,25 @@ pub fn apply_clamps(
         },
         secrets,
         custom_records,
-        clamps_service_network(),
+        host_service_network("clamps"),
     )?;
 
+    apply_syncthing(system, files, host_service_network("clamps"))?;
+    skillet_btrbk::apply(
+        system,
+        files,
+        &skillet_btrbk::BtrbkConfig {
+            snapshot_subvolumes: vec![std::path::PathBuf::from("syncthing")],
+        },
+    )?;
+    Ok(())
+}
+
+fn apply_syncthing(
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    network: PodmanNetwork,
+) -> Result<(), ApplyError> {
     skillet_syncthing::apply(
         system,
         files,
@@ -267,14 +321,7 @@ pub fn apply_clamps(
             data_group: "giacomo".to_string(),
             uid: 1000,
             gid: 1000,
-            network: clamps_service_network(),
-        },
-    )?;
-    skillet_btrbk::apply(
-        system,
-        files,
-        &skillet_btrbk::BtrbkConfig {
-            snapshot_subvolumes: vec![std::path::PathBuf::from("syncthing")],
+            network,
         },
     )?;
     Ok(())
@@ -292,9 +339,8 @@ pub fn apply_host(
     match hostname {
         "clamps" => apply_clamps(system, files),
         "skillet-smoke" => fixture::apply(system, files),
-        // beezelbot and unknown hostnames fall back to the hardening-only
-        // baseline, matching the previous "(Agent Mode)" default behaviour.
-        _ => apply_beezelbot(system, files),
+        "beezelbot" => apply_beezelbot(system, files),
+        _ => apply_full_base(system, files),
     }
 }
 
@@ -323,21 +369,22 @@ fn apply_caddy_host(
     system: &dyn SystemResource,
     files: &dyn FileResource,
 ) -> Result<(), ApplyError> {
-    if hostname != "clamps" {
-        return Err(ApplyError::FixtureInput(
-            "Caddy UI configuration is currently defined only for clamps".to_string(),
-        ));
-    }
+    let ui_config = ui_config_for_host(hostname).ok_or_else(|| {
+        ApplyError::FixtureInput(format!("host {hostname} declares no UI services"))
+    })?;
     files.require_btrfs_subvolume_mount(
         std::path::Path::new("/var/lib/data"),
         std::path::Path::new("/var"),
         "/data",
     )?;
     let credentials = CredentialManager::new()?;
-    let sites =
-        skillet_caddy::CaddySites::parse(&credentials.read_secret(CADDY_SITES_CREDENTIAL)?)?;
+    let sites = skillet_caddy::CaddySites::parse(
+        &credentials.read_secret(CADDY_SITES_CREDENTIAL)?,
+        hostname,
+        &ui_config.services,
+    )?;
     let token = credentials.read_secret(CLOUDFLARE_ACME_TOKEN_CREDENTIAL)?;
     system.ensure_podman_secret(CLOUDFLARE_ACME_TOKEN_CREDENTIAL, &token)?;
-    skillet_caddy::apply(system, files, &sites, clamps_service_network())?;
+    skillet_caddy::apply(system, files, &sites, ui_config.network)?;
     Ok(())
 }
