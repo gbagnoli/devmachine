@@ -44,3 +44,24 @@ systemd:
 
         [Install]
         WantedBy=multi-user.target
+    - name: skillet-caddy-apply.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Apply Skillet Caddy private UI configuration
+        Requires=skillet-full-apply.service
+        After=skillet-full-apply.service
+        Requires=skillet-data-prepare.service
+        After=skillet-data-prepare.service
+        AssertPathIsMountPoint=/var/lib/data
+        ConditionPathExists=/etc/credstore.encrypted/skillet/caddy_sites.cred
+        ConditionPathExists=/etc/credstore.encrypted/skillet/cloudflare_acme_token.cred
+
+        [Service]
+        Type=oneshot
+        LoadCredentialEncrypted=caddy_sites:/etc/credstore.encrypted/skillet/caddy_sites.cred
+        LoadCredentialEncrypted=cloudflare_acme_token:/etc/credstore.encrypted/skillet/cloudflare_acme_token.cred
+        ExecStart=/var/usrlocal/bin/skillet-clamps apply --phase caddy
+
+        [Install]
+        WantedBy=multi-user.target

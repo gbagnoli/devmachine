@@ -181,6 +181,33 @@ permissions. Save it as `skillet/cloudflare/token-creator`. If already stored
 in the desktop keyring, move that value into KeePassXC and verify the saved
 entry before removing the old copy. The current smoke command does not use it.
 
+### Caddy UI credentials
+
+Caddy proxies the Pi-hole and Syncthing UIs on port 443 and rejects clients
+outside the Tailscale IPv4 and IPv6 ranges. Its credentials are independent of
+normal full apply. In KeePassXC, store each value in the Password field:
+
+| Group path | Entry title | Value |
+| --- | --- | --- |
+| `skillet/hosts/clamps/caddy` | `pihole-hostname` | Private Pi-hole UI hostname |
+| `skillet/hosts/clamps/caddy` | `syncthing-hostname` | Private Syncthing UI hostname |
+| `skillet/hosts/clamps/cloudflare` | `acme-token` | Cloudflare API token with Zone Read and DNS Edit, scoped to the production zone |
+
+Create DNS-only A/AAAA records for those names pointing to the clamps Tailscale
+addresses. Then deliver the credentials over a host-key-verified SSH session:
+
+```bash
+cargo run --release -p skillet -- secret deliver clamps caddy \
+  --target giacomo@clamps --identity /path/to/ssh-key \
+  --known-hosts /path/to/known_hosts
+```
+
+Skillet keeps the hostname configuration private in the KeePassXC database and
+encrypted host credential. The Cloudflare token becomes a Podman secret used
+only by Caddy's DNS-01 provider. The command installs both encrypted host
+credentials before starting its dedicated apply service. The smoke VM staging
+path and automatic DNS/token lifecycle are still being implemented.
+
 ### Tailscale setup for Skillet
 
 Clamps runs `tailscale/tailscale` as a host-network container, matching Chef
@@ -241,9 +268,9 @@ requires `curl` on the workstation. See the
    services. Preserve the encrypted KeePassXC entries so another workstation
    can reprovision credentials.
 
-Cloudflare DNS record automation and Caddy remain future work. Keep the
-Cloudflare token creator on the workstation; Tailscale enrollment needs no
-Cloudflare or Tailscale DNS permissions. See the
+Cloudflare DNS record automation and smoke-specific Caddy staging remain future
+work. Keep the Cloudflare token creator on the workstation; Tailscale
+enrollment needs no Cloudflare or Tailscale DNS permissions. See the
 [VM lifecycle](../design/smoke-vms.md).
 
 ## Development checks

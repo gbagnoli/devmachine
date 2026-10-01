@@ -12,6 +12,7 @@ skillet_hardening.workspace = true
 skillet_pihole.workspace = true
 skillet_syncthing.workspace = true
 skillet_btrbk.workspace = true
+skillet_caddy.workspace = true
 skillet_podman.workspace = true
 users.workspace = true
 clap.workspace = true
@@ -20,6 +21,7 @@ tracing-subscriber.workspace = true
 thiserror.workspace = true
 serde.workspace = true
 serde_yml.workspace = true
+serde_json.workspace = true
 tempfile.workspace = true
 
 [dev-dependencies]

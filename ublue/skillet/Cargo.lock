@@ -1560,13 +1560,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "skillet_caddy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "skillet_core",
+ "skillet_podman",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "skillet_cli_common"
 version = "0.1.0"
 dependencies = [
  "clap",
  "serde",
+ "serde_json",
  "serde_yml",
  "skillet_btrbk",
+ "skillet_caddy",
  "skillet_core",
  "skillet_hardening",
  "skillet_pihole",
