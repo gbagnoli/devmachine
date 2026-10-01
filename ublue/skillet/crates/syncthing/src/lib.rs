@@ -56,8 +56,6 @@ where
             "ContainerName=syncthing".to_string(),
             format!("Environment=PGID={}", config.gid),
             format!("Environment=PUID={}", config.uid),
-            "PublishPort=[::]:8384:8384/tcp".to_string(),
-            "PublishPort=0.0.0.0:8384:8384/tcp".to_string(),
             "PublishPort=[::]:22000:22000/tcp".to_string(),
             "PublishPort=0.0.0.0:22000:22000/tcp".to_string(),
             "PublishPort=[::]:22000:22000/udp".to_string(),

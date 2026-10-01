@@ -39,8 +39,6 @@ fn syncthing_uses_persistent_data_and_shared_dns_network() {
         "Environment=PGID=1000",
         "Environment=PUID=1000",
         "Network=clamps.network",
-        "PublishPort=[::]:8384:8384/tcp",
-        "PublishPort=0.0.0.0:8384:8384/tcp",
         "PublishPort=[::]:22000:22000/tcp",
         "PublishPort=0.0.0.0:22000:22000/tcp",
         "PublishPort=[::]:22000:22000/udp",
@@ -49,4 +47,10 @@ fn syncthing_uses_persistent_data_and_shared_dns_network() {
     ] {
         assert!(quadlet.contains(directive), "missing directive {directive}");
     }
+    assert!(
+        !quadlet
+            .lines()
+            .any(|line| line.starts_with("PublishPort=") && line.contains("8384")),
+        "the GUI must only be reachable through the private reverse proxy"
+    );
 }
