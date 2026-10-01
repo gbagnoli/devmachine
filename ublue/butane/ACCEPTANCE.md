@@ -310,3 +310,28 @@ host tool; it still uses normal command approvals.
   subvolume. The user confirms Syncthing data is designed without nested
   subvolumes; the btrbk design treats selected sources as leaf subvolumes and
   does not support nested subvolumes.
+
+## Private UI preparation, 2026-10-01
+
+- Earlier in this session, a fresh clamps smoke VM completed Ignition,
+  unsigned then signed uCore rebase, user environment setup, application
+  provisioning, and Tailscale enrollment. `skillet test smoke clamps` passed
+  the real-runtime fixture checks, including interrupted activation and reboot.
+- Pi-hole, Syncthing, and Tailscale were active. Container DNS resolved Pi-hole
+  from Syncthing; both web interfaces returned HTML through the shared bridge.
+  Pi-hole published TCP/UDP port 53 on both address families. Syncthing did
+  not publish its GUI port 8384 on the host. Repeated full apply preserved
+  the Pi-hole and Syncthing container IDs.
+- The selected Caddy image was pulled and `caddy list-modules` confirmed
+  `dns.providers.cloudflare`. The dedicated apply unit skipped activation
+  without its two encrypted credentials. Caddy certificate issuance, DNS
+  record lifecycle, proxy access restrictions, and renewal were **not tested**.
+  The generic UI plan tracks the missing shared delivery and live acceptance.
+- Before committing, local formatting, pedantic Clippy, workspace tests, and
+  the CI command `skillet test run beezelbot --phase base --image fedora:latest`
+  were run. The first test run caught stale Syncthing GUI publication assertions;
+  they now assert GUI isolation while retaining transfer-port checks. Caddy
+  tests cover rejected input, staging selection, bridge upstreams, and both
+  tailnet address families. These tests do not establish live ACME acceptance.
+- The prior VM is no longer present when listing runs before this commit;
+  no new live Caddy acceptance is claimed from the local checks.

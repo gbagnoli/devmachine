@@ -1,5 +1,12 @@
 # Secret storage and delivery
 
+Planned UI generalization: select a base domain and Cloudflare zone from
+environment entries in KeePassXC, derive service names from the host caller's
+declarations, and share delivery across persistent and disposable targets.
+The [generic UI plan](../plan/GENERIC-PRIVATE-UIS.md) defines the proposed vault
+paths and migration. Existing per-service hostname entries and clamps-only
+Caddy delivery below describe current code, not the intended shared interface.
+
 Decision: use KeePassXC for durable secrets and read and write its KDBX database
 directly from workstation Skillet through a Rust library. Pi-hole delivery uses
 an existing entry or creates one for a fresh host. Tailscale OAuth credentials
@@ -39,6 +46,8 @@ The prefix is consistently singular, `skillet`:
 | Vault entry | Host credential and Podman secret name |
 | --- | --- |
 | `skillet/hosts/clamps/pihole/web-password` | `pihole_web_password` |
+| `skillet/hosts/clamps/caddy/pihole-hostname` | Included in encrypted `caddy_sites` config |
+| `skillet/hosts/clamps/caddy/syncthing-hostname` | Included in encrypted `caddy_sites` config |
 | `skillet/hosts/clamps/cloudflare/acme-token` | `cloudflare_acme_token` |
 | `skillet/cloudflare/token-creator` | Workstation only |
 | `skillet/tailscale/provisioner-client-id` | Workstation only; OAuth Client ID |
@@ -77,7 +86,11 @@ Skillet reads `$CREDENTIALS_DIRECTORY/<credential>` and sends the value through
 stdin to `podman secret create`. Quadlets reference secret names with `Secret=`:
 Pi-hole receives a file under `/run/secrets/` through `WEBPASSWORD_FILE`; Caddy
 receives `cloudflare_acme_token` through `type=env,target=CF_API_TOKEN`.
-Rotation recreates the affected container to consume the new secret.
+The `caddy_sites` credential contains the two private UI hostnames and the
+ACME staging flag. The generated Caddyfile is persisted under `/etc/skillet`
+and contains no token. A dedicated systemd apply unit runs only after both
+Caddy credentials are installed. Rotation recreates the affected container to
+consume the new secret.
 Podman's default secret storage persists a copy on the guest disk; systemd's
 credential encryption does not encrypt that copy.
 
@@ -105,7 +118,9 @@ UI records belong in the existing production zone and use a separate scoped
 credential. Keep literal zone names and records outside this public repository.
 The token creator remains on the workstation. Cloudflare token issuance and
 record management are planned; current smoke provisioning only enrolls
-Tailscale and provisions Pi-hole.
+Tailscale and provisions Pi-hole. Production Caddy credentials can be delivered
+with `secret deliver clamps caddy`; smoke-specific staging and delivery are
+not yet wired into VM provisioning.
 
 VM Pi-hole secrets use the same SSH, systemd, and Podman delivery path. Keep token IDs,
 expiry, and owned record IDs in run metadata, without token values. Existing
