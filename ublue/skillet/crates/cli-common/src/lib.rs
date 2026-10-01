@@ -61,7 +61,13 @@ pub enum CredentialCommands {
     /// Print `present` if a host credential or Podman secret exists, otherwise `absent`
     State { name: String },
     /// Encrypt stdin for this host, install it, and start the consuming unit
-    Install { name: String, unit: String },
+    Install {
+        name: String,
+        unit: String,
+        /// Save the encrypted credential without starting its consuming unit.
+        #[arg(long)]
+        no_start: bool,
+    },
 }
 
 pub fn run_host<F>(hostname: &str, apply_fn: F) -> Result<(), CliCommonError>
@@ -89,7 +95,11 @@ where
                 CredentialCommands::State { name } => {
                     println!("{}", credential::state(&name)?);
                 }
-                CredentialCommands::Install { name, unit } => credential::install(&name, &unit)?,
+                CredentialCommands::Install {
+                    name,
+                    unit,
+                    no_start,
+                } => credential::install(&name, &unit, !no_start)?,
             }
             Ok(())
         }
