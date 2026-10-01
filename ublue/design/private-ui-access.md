@@ -19,8 +19,13 @@ client secret.
 
 Use host-specific names in existing Cloudflare-managed production and smoke-test
 zones rather than `*.ts.net`, so UI URLs and Caddy routes can survive a move
-between hosted Tailscale and Headscale. Publish DNS-only A/AAAA records pointing
-to each host's tailnet address. Do not enable Cloudflare proxying. Keep literal
+between hosted Tailscale and Headscale. Publish DNS-only A/AAAA records for
+`<host>.<ui-domain>` pointing to its tailnet addresses. Canonical UI names CNAME to that machine name;
+caller-declared aliases CNAME to their canonical UI names. Caddy serves every
+name with matching certificate coverage and the same upstream/access policy.
+The machine/CNAME/alias model is planned; see the
+[Cloudflare lifecycle](cloudflare-ui-lifecycle.md). Do not enable Cloudflare
+proxying. Keep literal
 zones and records outside this public repository; public DNS still exposes the
 names and addresses. Some resolvers block public answers containing tailnet
 addresses as DNS rebinding, so check resolution from real clients before
@@ -30,8 +35,9 @@ records: Caddy serves the certificate.
 
 Do not configure Tailscale split DNS for the UI names. A VM can enroll before
 its DNS record exists. After enrollment, the workstation reads its tailnet
-address and creates a DNS-only record with a short-lived token scoped to the
-smoke-test zone. VM destruction deletes only its recorded DNS records and
+addresses and reconciles the machine address records and UI/alias CNAMEs
+with a short-lived token scoped to the smoke-test zone. VM destruction deletes
+only its recorded DNS records and
 revokes that token. Production records use a separately scoped credential;
 update them if a host's tailnet address changes. Tailscale enrollment needs no
 DNS-management OAuth scope. Keep the Cloudflare token creator on the workstation.
@@ -66,6 +72,10 @@ dependency from UI name resolution, while keeping our own names across control
 planes. The names and tailnet IPs are public DNS data.
 
 ## Status and references
+
+Implement the [Cloudflare ownership lifecycle](cloudflare-ui-lifecycle.md)
+before live ACME acceptance. Issue credentials automatically and verify DNS
+cleanup after expiry; do not require a manually created VM token.
 
 Host UI service declarations now drive a shared versioned Caddy payload.
 Provisioning derives `<service>.<host>.<ui-domain>` from the selected
