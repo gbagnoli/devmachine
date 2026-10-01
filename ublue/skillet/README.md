@@ -186,38 +186,26 @@ entry before removing the old copy. The current smoke command does not use it.
 
 ### Caddy UI credentials
 
-Caddy proxies each host-declared UI on port 443 and rejects clients outside
-the Tailscale IPv4 and IPv6 ranges. Its credentials are independent of normal
-full apply. In KeePassXC, store each value in the Password field:
+Caddy proxies host-declared UIs on port 443 over Tailscale. Prepare these
+KeePassXC entries in their Password fields:
 
 | Group path | Entry title | Value |
 | --- | --- | --- |
-| `skillet/environments/production/ui` | `domain` | Base domain for derived host UI names |
-| `skillet/environments/production/cloudflare` | `zone` | Cloudflare zone containing the UI domain |
-| `skillet/environments/production/hosts/<host>/cloudflare` | `acme-token` | Existing token with Zone Read and DNS Edit |
-| `skillet/environments/test/ui` | `domain` | Test base domain |
-| `skillet/environments/test/cloudflare` | `zone` | Cloudflare zone containing the test UI domain |
-| `skillet/environments/test/hosts/<host>/cloudflare` | `acme-token` | Test token with Zone Read and DNS Edit |
+| `skillet/environments/<environment>/dns` | `ui-domain` | Base domain for derived host UI names |
+| `skillet/environments/<environment>/dns` | `cloudflare-zone-id` | Cloudflare Zone ID containing the UI domain |
+| `skillet/cloudflare` | `token-creator` | Workstation token issuer |
 
-Create DNS-only A/AAAA records for derived names pointing to that host's
-Tailscale addresses. Then deliver the credentials over a host-key-verified SSH session:
+Select `production` or `test` for `<environment>`. Copy the Zone ID from the
+selected zone's Cloudflare Overview page. Move the base-domain value from
+`skillet/dns/smoke-ui-zone` to the test `dns/ui-domain` entry before removing
+the old entry. The previous `cloudflare/zone` entry contained a zone name;
+populate `dns/cloudflare-zone-id` with the actual ID.
 
-```bash
-cargo run --release -p skillet -- secret deliver clamps caddy \
-  --target giacomo@clamps --identity /path/to/ssh-key \
-  --known-hosts /path/to/known_hosts
-```
-
-Skillet derives each name as `<service>.<host>.<ui-domain>` from that host's
-declared UI services and keeps the versioned configuration in an encrypted
-host credential. The Cloudflare token becomes a Podman secret used
-only by Caddy's DNS-01 provider. The command installs both encrypted host
-credentials before starting its dedicated apply service. For a test VM, select
-`--environment test`; this uses the staging ACME directory. Automatic VM token
-creation, DNS record lifecycle, and credential delivery during `vm provision`
-remain future work. Existing per-service hostname entries are no longer read;
-redeliver using the environment entries. Production token lookup temporarily
-supports the previous `skillet/hosts/<host>/cloudflare/acme-token` path.
+These are the agreed target paths; current delivery still reads older paths.
+Token issuance, DNS reconciliation, path migration, and cleanup must be
+implemented before the next live ACME acceptance run. Do not create a manual
+smoke VM ACME token. See the [generic UI plan](../plan/GENERIC-PRIVATE-UIS.md)
+and [Cloudflare lifecycle design](../design/cloudflare-ui-lifecycle.md).
 
 ### Tailscale setup for Skillet
 

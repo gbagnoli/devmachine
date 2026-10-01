@@ -37,7 +37,7 @@ permissions needed to set its expiry. If the kernel denies expiry, Skillet
 removes the new key and continues without a cache. `skillet secret lock`
 removes a cached key early. A new workstation can unlock the copied database
 without the old one's keyring.
-The existing `cloudflare-token-creator` keyring item still needs migration.
+The Cloudflare token creator is stored at `skillet/cloudflare/token-creator`.
 
 Vault paths are group paths plus an entry title; values use the Password field.
 The prefix is consistently singular, `skillet`:
@@ -45,8 +45,8 @@ The prefix is consistently singular, `skillet`:
 | Vault entry | Host credential and Podman secret name |
 | --- | --- |
 | `skillet/hosts/clamps/pihole/web-password` | `pihole_web_password` |
-| `skillet/environments/<environment>/ui/domain` | Base for derived Caddy hostnames |
-| `skillet/environments/<environment>/cloudflare/zone` | Zone containing the UI domain |
+| `skillet/environments/<environment>/dns/ui-domain` | Base for derived Caddy hostnames |
+| `skillet/environments/<environment>/dns/cloudflare-zone-id` | Planned Cloudflare Zone ID lookup |
 | `skillet/environments/<environment>/hosts/<host>/cloudflare/acme-token` | `cloudflare_acme_token` |
 | `skillet/hosts/clamps/cloudflare/acme-token` | Legacy production token fallback |
 | `skillet/cloudflare/token-creator` | Workstation only |
@@ -99,6 +99,12 @@ credential encryption does not encrypt that copy.
 
 ## Disposable credentials
 
+The [Cloudflare lifecycle decision](cloudflare-ui-lifecycle.md) must be
+implemented before live Caddy acceptance. New DNS vault paths and Zone ID
+lookup in the table above are planned; current manual delivery reads the
+previous `ui/domain` and `cloudflare/zone` paths and expects a zone name.
+Do not create a manual VM ACME token to bypass lifecycle implementation.
+
 Smoke VMs get generated test passwords, never production host entries. Tailscale
 enrollment reads `skillet/tailscale/provisioner-client-id` and
 `skillet/tailscale/provisioner-client-secret` locally, then mints a one-use,
@@ -114,8 +120,10 @@ uses the server tag and the same one-use-key path.
 Live UI/ACME testing will read `skillet/cloudflare/token-creator` locally and mint
 one short-lived Cloudflare token per VM, with Zone Read and DNS Edit restricted
 to the existing smoke-test zone. Once a VM joins the tailnet, the workstation
-will create DNS-only A/AAAA records pointing at its tailnet address; the VM
-token also supports Caddy's DNS-01 challenge. DNS Edit covers the whole zone;
+will create machine A/AAAA records pointing at its tailnet addresses, UI
+CNAMEs to that machine, and caller-declared alias CNAMEs to canonical UIs.
+The Caddy payload will include all served names for TLS coverage and proxying.
+The VM token also supports DNS-01. DNS Edit covers the whole zone;
 unique test names prevent collisions, not access to other records. Production
 UI records belong in the existing production zone and use a separate scoped
 credential. Keep literal zone names and records outside this public repository.

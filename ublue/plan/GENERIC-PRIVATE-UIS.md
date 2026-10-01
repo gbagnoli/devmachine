@@ -1,6 +1,9 @@
 # Generic private UI provisioning
 
-Status: steps 1 and 2 implemented locally, 2026-10-01. Steps 3 and 4 remain.
+Status: steps 1 and 2 implemented locally, 2026-10-01. Step 3 is the next
+prerequisite for live Caddy testing. The new DNS vault paths and Zone ID
+lookup below are not implemented yet. Machine records, UI CNAMEs, and caller
+alias declarations are new pending extensions to steps 1 and 2.
 
 ## Goal and fixed decisions
 
@@ -10,7 +13,9 @@ Cloudflare credential through the existing encrypted SSH delivery mechanism.
 Syncthing is intended on every host; Pi-hole is included only where configured.
 The caller selects the environment and declares the services. Caddy, DNS name
 derivation, token issuance, and credential delivery must contain no clamps or
-smoke special cases.
+smoke special cases. Machine A/AAAA records are shared by all UIs; canonical
+UI names and caller-declared aliases use CNAMEs. Every served name needs
+certificate coverage and the same Caddy upstream/access policy.
 
 `host` means the host configuration name, such as clamps. It does not mean a
 libvirt domain, Tailscale device name, or VM instance. Environment selects
@@ -24,8 +29,8 @@ the Password field, following the existing exact-lookup convention:
 
 | Entry | Purpose |
 | --- | --- |
-| `skillet/environments/<environment>/ui/domain` | Base UI domain |
-| `skillet/environments/<environment>/cloudflare/zone` | DNS name of the authorized existing zone |
+| `skillet/environments/<environment>/dns/ui-domain` | Base UI domain |
+| `skillet/environments/<environment>/dns/cloudflare-zone-id` | Cloudflare Zone ID of the authorized existing zone |
 | `skillet/environments/<environment>/hosts/<host>/cloudflare/acme-token` | Durable token for a persistent host |
 | `skillet/cloudflare/token-creator` | Workstation-only token issuer |
 
@@ -78,6 +83,34 @@ Exit: a non-clamps host with only Syncthing derives exactly one route; the
 same host definition works with either environment. Use reserved example
 domains in tests. Missing config fails with the entry path, without values.
 
+### 1a. Caller-declared UI aliases (pending; before Cloudflare mutations)
+
+Extend each shared UI service declaration with a list of relative alias names
+beneath the environment's UI domain; an empty list preserves current behavior.
+Allow a `{host}` placeholder only as a complete DNS label. For example,
+`sync.{host}` derives `sync.<host>.<ui-domain>`; `sync` derives
+`sync.<ui-domain>`. Keep real domains out of caller code. Reject absolute
+names, other placeholders, wildcards, and names outside the selected namespace.
+Validate all expanded names globally: aliases cannot equal the machine name,
+collide with another UI/canonical/alias name, or create loops. Validate before
+unlocking for mutations or issuing tokens; environment values require an
+unlocked vault before their validation.
+
+Derive one shared DNS plan containing the machine name, canonical UI names,
+aliases, and CNAME targets; use the same resolved names for Caddy delivery.
+Extend and version the Caddy payload for aliases, validate it against the
+receiving caller declaration, and require explicit redelivery for old payloads.
+Render each service's canonical name and aliases with the same upstream and
+access restrictions. Caddy manages TLS coverage/renewal for every name; aliases
+must serve the application directly rather than redirect to a canonical URL.
+Certificate file/count layout is not an acceptance requirement.
+
+Exit: a host with zero aliases behaves as before; a host with multiple aliases
+serves every name on its declared upstream. Separate tests cover name/target
+collisions, invalid expansions, payload mismatch, and alias isolation across
+environments. Use only reserved domains in tests. Document application host or
+origin allowlists when an upstream requires changes to accept its aliases.
+
 ### 2. Generic Caddy configuration and delivery (implemented)
 
 Replace `CaddySites { pihole, syncthing, ... }` with a versioned service-list
@@ -115,7 +148,17 @@ per-service hostname entries require explicit redelivery; old payloads are
 rejected rather than silently reinterpreted. Production token lookup temporarily
 falls back to the existing per-host token path.
 
-### 3. Shared Cloudflare token and DNS reconciliation
+### 3. Shared Cloudflare token and DNS reconciliation (next)
+
+Follow [Cloudflare UI lifecycle](../design/cloudflare-ui-lifecycle.md). Do not
+use manually created VM ACME tokens as an interim acceptance path.
+
+First migrate environment lookups to the DNS paths above. Previous `ui/domain`
+and `cloudflare/zone` lookups are superseded. The old zone value was a DNS name;
+never reinterpret it as an ID. Fetch the exact zone by its configured ID and
+validate the returned name contains the UI domain before issuance or record
+changes. Missing entries report paths without values. Update lookup tests and
+setup instructions with the migration.
 
 Add a Rust HTTP client module with typed errors and injectable API boundary.
 Reuse project HTTP dependencies; do not use a Cloudflare CLI or shell program.
@@ -125,10 +168,18 @@ protection. If saving fails after issuance, revoke the newly issued token or
 retain recoverable ownership before returning an error. Never replace an
 existing host token implicitly; rotation is explicit.
 
-After Tailscale enrollment, reconcile DNS-only A/AAAA records for every declared
-UI to the target's actual tailnet addresses. Reuse matching owned records;
-refuse unrelated conflicting records. Do not create a new zone or configure
-Tailscale split DNS. No record deletion by name alone.
+After Tailscale enrollment, reconcile one machine name `<host>.<ui-domain>`
+with A and AAAA records for its verified Tailscale IPv4 and usable IPv6.
+Report a missing family explicitly rather than creating an invalid record.
+Create each `<service>.<host>.<ui-domain>` as a CNAME to the machine name;
+create each caller-declared alias as a CNAME to its canonical service name.
+Use short TTLs and `proxied=false` for every managed record. Zone DNS Edit
+covers A, AAAA, CNAME, and ACME TXT records with no extra permissions.
+Reuse matching owned records; refuse unrelated conflicts, including existing
+A/AAAA data at a desired CNAME name. Do not create a zone or configure
+Tailscale split DNS. No deletion by name alone. Update machine addresses
+without duplicating address records per UI. Reconcile removed aliases without
+disrupting other routes or services; remove only owned obsolete records.
 
 Separate credential lifetime from UI configuration: a persistent deployment
 reuses its vault token; a disposable deployment records token ID, expiry,
@@ -140,12 +191,18 @@ recovery, but never token values.
 
 Journal external ownership immediately after each successful mutation. Use
 deterministic ownership markers to recover a response-loss/crash window; refuse
-ambiguous resources. Disposable cleanup removes only recorded/verified records
-and revokes only its token. Failures retain enough state for retry and prevent
-discarding the run directory. Persistent cleanup/rotation requires an explicit
+ambiguous resources. Disposable cleanup removes only recorded/verified alias
+CNAMEs, canonical CNAMEs, and then machine A/AAAA records before revoking its
+token. If the token expired, mint and journal a temporary scoped
+cleanup token through the issuer and revoke it afterward. Token expiry does
+not delete DNS records. Do not sweep Caddy challenge TXT or unrelated records.
+Failures retain enough state for retry and prevent discarding the run
+directory. Persistent cleanup/rotation requires an explicit
 operation and is never triggered by a VM disposal command.
 
-Exit: both environments use the same reconciler; a second apply creates no
+Exit: new DNS paths and Zone ID validation are covered; issuance requires no
+manually populated VM ACME entry; cleanup works after token expiry; both
+environments use the same reconciler; a second apply creates no
 duplicate token or records; failures at each external mutation can resume or
 clean up. Concurrent deployments claiming the same host/environment names
 are refused. Do not append VM instance names to URLs silently; supporting
@@ -166,7 +223,9 @@ provision cycle for final acceptance. User unlocks the KDBX in their own termina
 subsequent commands reuse the three-hour cache. Do not print secret values.
 
 Exit: staging DNS-01 succeeds, certificates have the derived service names,
-and HTTPS reaches both enabled upstreams from an authorized tailnet client.
+and HTTPS reaches every enabled upstream through its canonical name and all
+aliases from an authorized tailnet client. Verify the machine A/AAAA and UI
+CNAME chains through the real client resolver, including IPv6 when available.
 Staging certificates are untrusted: verify staging trust/identity explicitly;
 do not claim trusted-browser acceptance or use unchecked `curl -k` as proof.
 Verify actual client DNS resolution, denial outside tailnet, absence of direct
@@ -178,7 +237,8 @@ scenario; if not exercised, record it as outstanding rather than passed.
 ## Required validation and documentation
 
 Add meaningful separate test modules covering hostname/config validation,
-single/multiple service rendering, host/environment selection, API ownership,
+single/multiple service and alias rendering, host/environment selection,
+machine A/AAAA and CNAME reconciliation, alias removal, API ownership,
 idempotency, cleanup, and interrupted issuance/delivery. Mock HTTP for CI so
 routine CI needs no vault, Cloudflare token, or real DNS zone. Cover a second
 host definition to catch clamps dependencies; do not require unfinished hosts

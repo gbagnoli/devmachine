@@ -58,9 +58,14 @@ the test artifacts and uses QEMU user networking.
 
 ## Live ACME boundary
 
+Implement the [Cloudflare ownership lifecycle](cloudflare-ui-lifecycle.md)
+before live ACME acceptance. Issue credentials automatically and verify DNS
+cleanup after expiry; do not require a manually created VM token.
+
 Routine smoke checks need no Cloudflare access. The optional live scenario
 enrolls the VM in Tailscale, obtains its tailnet IP, and creates a DNS-only
-A/AAAA record under the existing smoke-test Cloudflare zone using a per-VM
+machine A/AAAA record set and UI/alias CNAMEs under the existing smoke-test
+Cloudflare zone using a per-VM
 token minted by the workstation token creator. It uses Let's Encrypt staging
 and a unique hostname, preserving the zone's other records. Keep the literal
 zone outside this public repository. DNS-01 needs no publicly reachable VM.
