@@ -172,7 +172,7 @@ impl Cloudflare {
         }
         match (zone_read, dns_write) {
             (Some(read), Some(write)) => Ok((read, write)),
-            _ => Err(anyhow!("Cloudflare did not expose selectable Zone Read and DNS Write permission groups; the token creator needs User > API Tokens > Read and Write")),
+            _ => Err(anyhow!("Cloudflare did not expose selectable Zone Read and DNS Write permission groups; the token creator needs User > API Tokens > Read and API Tokens > Edit (Write)")),
         }
     }
 

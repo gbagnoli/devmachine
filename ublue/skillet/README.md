@@ -179,7 +179,8 @@ vault edit and redelivery for rotation. The production TPM binding decision
 remains in the [secret design](../design/secrets.md).
 
 For Cloudflare token issuance, select **Create additional tokens** in the
-Cloudflare dashboard, granting **User > API Tokens > Read** and **Write** only.
+Cloudflare dashboard, granting **User > API Tokens > Read** and **API Tokens >
+Edit** (the write permission) only.
 Do not add zone permissions to this workstation issuer. Save it as
 `skillet/cloudflare/token-creator`. Skillet discovers the Cloudflare
 permission-group IDs at runtime, then creates zone-scoped child tokens with
