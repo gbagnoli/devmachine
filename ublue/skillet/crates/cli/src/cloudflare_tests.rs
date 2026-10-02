@@ -208,6 +208,233 @@ fn lists_and_revokes_tokens_through_account_endpoints() {
     server.join().expect("server thread");
 }
 
+#[test]
+fn named_token_retry_recovers_and_replaces_a_token_after_ambiguous_creation() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+    let address = listener.local_addr().expect("address");
+    let server = thread::spawn(move || {
+        let mut tokens: Vec<Value> = Vec::new();
+        let mut post_count = 0;
+        for _ in 0..7 {
+            let (mut stream, _) = listener.accept().expect("client");
+            let request = read_request(&mut stream);
+            let line = request.lines().next().expect("request line");
+            let (headers, body) = request.split_once("\r\n\r\n").expect("headers");
+            assert!(headers
+                .to_ascii_lowercase()
+                .contains("authorization: bearer issuer-token"));
+            if line.starts_with("GET /client/v4/accounts/") && line.contains("/tokens?") {
+                send_json(&mut stream, 200, &json!({"result": tokens}));
+            } else if line.starts_with("GET /client/v4/accounts/")
+                && line.contains("/tokens/permission_groups?")
+            {
+                send_json(
+                    &mut stream,
+                    200,
+                    &json!({"result": [
+                        {"id":"zone-read-id", "name":"Zone Read", "scopes":["com.cloudflare.api.account.zone"], "is_selectable":true},
+                        {"id":"dns-write-id", "name":"DNS Write", "scopes":["com.cloudflare.api.account.zone"], "is_selectable":true}
+                    ]}),
+                );
+            } else if line.starts_with("DELETE /client/v4/accounts/") {
+                let id = line
+                    .split_whitespace()
+                    .nth(1)
+                    .and_then(|path| path.split('/').next_back())
+                    .expect("token ID");
+                tokens.retain(|token| token["id"] != id);
+                send_json(&mut stream, 200, &json!({"result": {}}));
+            } else if line.starts_with("POST /client/v4/accounts/") && line.contains("/tokens ") {
+                let payload: Value = serde_json::from_str(body).expect("token payload");
+                post_count += 1;
+                let id = if post_count == 1 {
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                } else {
+                    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                };
+                tokens.push(json!({"id":id, "name":payload["name"]}));
+                if post_count == 1 {
+                    // The API committed the token, but the caller saw a failed
+                    // response. This models the retry ambiguity.
+                    send_json(&mut stream, 500, &json!({"errors":[{"code":1}]}));
+                } else {
+                    send_json(
+                        &mut stream,
+                        200,
+                        &json!({"result":{"id":id, "value":"replacement-secret"}}),
+                    );
+                }
+            } else {
+                panic!("unexpected mock Cloudflare request: {line}");
+            }
+        }
+        assert_eq!(post_count, 2);
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0]["id"], "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    });
+    let api = Cloudflare::with_base(&format!("http://{address}/client/v4/"));
+    let account = "abcdef0123456789abcdef0123456789";
+    let zone = "0123456789abcdef0123456789abcdef";
+    let name = "skillet:production:clamps";
+
+    assert!(api
+        .replace_named_zone_token("issuer-token", zone, account, name, None)
+        .is_err());
+    let retry = api
+        .replace_named_zone_token("issuer-token", zone, account, name, None)
+        .expect("retry replaces ambiguous first issuance");
+    assert_eq!(retry.id, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    assert_eq!(retry.value, "replacement-secret");
+    server.join().expect("server thread");
+}
+
+#[test]
+fn dns_reconcile_retry_does_not_duplicate_a_record_after_lost_create_response() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+    let address = listener.local_addr().expect("address");
+    let server = thread::spawn(move || {
+        let mut records = Vec::<Value>::new();
+        let mut posts = 0;
+        for _ in 0..4 {
+            let (mut stream, _) = listener.accept().expect("client");
+            let request = read_request(&mut stream);
+            let line = request.lines().next().expect("request line");
+            if line.starts_with("GET /client/v4/zones/") {
+                send_json(&mut stream, 200, &json!({"result": records}));
+            } else if line.starts_with("POST /client/v4/zones/") {
+                let (_, body) = request.split_once("\r\n\r\n").expect("POST body");
+                let payload: Value = serde_json::from_str(body).expect("record payload");
+                posts += 1;
+                let id = format!("{posts:032x}");
+                let record = json!({
+                    "id": id,
+                    "name": payload["name"],
+                    "type": payload["type"],
+                    "content": payload["content"],
+                    "comment": payload["comment"]
+                });
+                records.push(record.clone());
+                if posts == 2 {
+                    send_json(&mut stream, 500, &json!({"errors":[{"code":1}]}));
+                } else {
+                    send_json(&mut stream, 200, &json!({"result": record}));
+                }
+            } else {
+                panic!("unexpected mock Cloudflare request: {line}");
+            }
+        }
+        assert_eq!(posts, 2);
+        assert_eq!(records.len(), 2);
+    });
+    let api = Cloudflare::with_base(&format!("http://{address}/client/v4/"));
+    let desired = [
+        DesiredRecord {
+            name: "clamps.example.test".to_string(),
+            record_type: "A".to_string(),
+            content: "100.64.0.2".to_string(),
+        },
+        DesiredRecord {
+            name: "syncthing.clamps.example.test".to_string(),
+            record_type: "CNAME".to_string(),
+            content: "clamps.example.test".to_string(),
+        },
+    ];
+    assert!(api
+        .reconcile_dns(
+            "child-token",
+            "0123456789abcdef0123456789abcdef",
+            "skillet:test:clamps:smoke",
+            "example.test",
+            &desired,
+        )
+        .is_err());
+    let reconciled = api
+        .reconcile_dns(
+            "child-token",
+            "0123456789abcdef0123456789abcdef",
+            "skillet:test:clamps:smoke",
+            "example.test",
+            &desired,
+        )
+        .expect("retry adopts both previously created records");
+    assert_eq!(reconciled.records.len(), 2);
+    server.join().expect("server thread");
+}
+
+#[test]
+fn dns_cleanup_retry_finishes_after_a_partial_delete_failure() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+    let address = listener.local_addr().expect("address");
+    let server = thread::spawn(move || {
+        let mut records = vec![
+            json!({"id":"11111111111111111111111111111111", "name":"clamps.example.test", "type":"A", "content":"100.64.0.2", "comment":"skillet:test:clamps:smoke"}),
+            json!({"id":"22222222222222222222222222222222", "name":"syncthing.clamps.example.test", "type":"CNAME", "content":"clamps.example.test", "comment":"skillet:test:clamps:smoke"}),
+            json!({"id":"33333333333333333333333333333333", "name":"other.example.test", "type":"A", "content":"192.0.2.4", "comment":"other-owner"}),
+        ];
+        let mut fail_once = true;
+        for _ in 0..5 {
+            let (mut stream, _) = listener.accept().expect("client");
+            let request = read_request(&mut stream);
+            let line = request.lines().next().expect("request line");
+            if line.starts_with("GET /client/v4/zones/") {
+                send_json(&mut stream, 200, &json!({"result": records}));
+            } else if line.starts_with("DELETE /client/v4/zones/") {
+                let id = line
+                    .split_whitespace()
+                    .nth(1)
+                    .and_then(|path| path.split('/').next_back())
+                    .expect("record ID");
+                if id.starts_with('2') && fail_once {
+                    fail_once = false;
+                    send_json(&mut stream, 500, &json!({"errors":[{"code":1}]}));
+                } else {
+                    records.retain(|record| record["id"] != id);
+                    send_json(&mut stream, 200, &json!({"result": {}}));
+                }
+            } else {
+                panic!("unexpected mock Cloudflare request: {line}");
+            }
+        }
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0]["comment"], "other-owner");
+    });
+    let api = Cloudflare::with_base(&format!("http://{address}/client/v4/"));
+    assert!(api
+        .remove_dns_marker(
+            "child-token",
+            "0123456789abcdef0123456789abcdef",
+            "skillet:test:clamps:smoke",
+            "example.test",
+        )
+        .is_err());
+    api.remove_dns_marker(
+        "child-token",
+        "0123456789abcdef0123456789abcdef",
+        "skillet:test:clamps:smoke",
+        "example.test",
+    )
+    .expect("retry removes remaining owned record");
+    server.join().expect("server thread");
+}
+
+fn send_json(stream: &mut std::net::TcpStream, status: u16, value: &Value) {
+    let success = (200..300).contains(&status);
+    let body = json!({
+        "success": success,
+        "errors": value.get("errors").cloned().unwrap_or_else(|| json!([])),
+        "messages": [],
+        "result": value.get("result").cloned().unwrap_or(Value::Null),
+        "result_info": value.get("result_info").cloned().unwrap_or(Value::Null)
+    })
+    .to_string();
+    let phrase = if success {
+        "OK"
+    } else {
+        "Internal Server Error"
+    };
+    write!(stream, "HTTP/1.1 {status} {phrase}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len()).expect("mock response");
+}
+
 fn read_request(stream: &mut std::net::TcpStream) -> String {
     let mut request = Vec::new();
     let mut chunk = [0_u8; 2048];

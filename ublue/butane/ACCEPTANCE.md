@@ -471,3 +471,17 @@ host tool; it still uses normal command approvals.
   config directory mount have regression coverage.
 - This validates staging only. A request from outside the tailnet and
   production ACME issuance/renewal were not tested.
+
+### Cloudflare API failure recovery tests, 2026-10-02
+
+- Added local mocked-HTTP tests under `skillet/crates/cli/src/cloudflare_tests.rs`.
+  They run as part of the existing workspace `cargo test` CI job and require
+  no vault, Cloudflare account, credentials, or DNS zone.
+- The token test models Cloudflare committing a named token while returning an
+  error; retry lists and revokes that orphan before creating exactly one
+  replacement. DNS reconciliation retries after a create failure and adopts
+  the already committed records without duplicates. Cleanup retries after a
+  partial delete failure and preserves a record owned by another marker.
+- Focused Cloudflare tests pass (10 tests). `cargo fmt --all --check`, all 70
+  workspace tests, `cargo clippy --all-targets -- -D warnings`, and
+  `skillet test run beezelbot --phase base --image fedora:latest` all pass.
