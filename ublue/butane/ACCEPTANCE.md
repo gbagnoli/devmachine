@@ -351,3 +351,24 @@ host tool; it still uses normal command approvals.
   Caddy startup, ACME issuance, HTTPS proxy access, renewal, and DNS lifecycle
   remain unverified. `beezelbot` has no Butane template, so its real-runtime
   service behavior remains unverified.
+
+## Cloudflare UI lifecycle implementation, 2026-10-02
+
+- `cargo fmt --all` passed.
+- `CARGO_TARGET_DIR=/home/giacomo/.cache/devmachine-target
+  CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
+  cargo test --workspace --target x86_64-unknown-linux-gnu` passed (63 tests).
+- `CARGO_TARGET_DIR=/home/giacomo/.cache/devmachine-target
+  CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
+  cargo clippy --workspace --all-targets --target x86_64-unknown-linux-gnu --
+  -D warnings` passed. Cloudflare tests use a local mock HTTP server and need
+  no KeePassXC unlock, Cloudflare account, or live zone.
+- The CI integration command `skillet test run beezelbot --phase base --image
+  fedora:latest` passed using the GNU-target CLI. Its repeat apply issued no
+  extra service starts.
+- `skillet test vm list clamps` found `generic-ui` and `smoke` running. Updating
+  `generic-ui` for the integration test was attempted, but `test-vm update`
+  requires the x86_64 musl artifact and this workstation has no musl target
+  compiler. No packages or toolchains were installed. The VM smoke script,
+  `--with-ui` provisioning, real Cloudflare mutations, staging ACME, and HTTPS
+  acceptance remain unverified.

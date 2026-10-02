@@ -1,9 +1,10 @@
 # Generic private UI provisioning
 
-Status: steps 1 and 2 implemented locally, 2026-10-01. Step 3 is the next
-prerequisite for live Caddy testing. The new DNS vault paths and Zone ID
-lookup below are not implemented yet. Machine records, UI CNAMEs, and caller
-alias declarations are new pending extensions to steps 1 and 2.
+Status: shared UI declarations, aliases, environment lookup, Caddy payloads,
+Cloudflare token issuance, DNS reconciliation, and opt-in smoke VM cleanup are
+implemented locally, 2026-10-02. Local tests pass for the SDK transport and DNS
+planning. Full API mutation fault-injection and live staging ACME/HTTPS
+acceptance remain pending.
 
 ## Goal and fixed decisions
 
@@ -83,7 +84,7 @@ Exit: a non-clamps host with only Syncthing derives exactly one route; the
 same host definition works with either environment. Use reserved example
 domains in tests. Missing config fails with the entry path, without values.
 
-### 1a. Caller-declared UI aliases (pending; before Cloudflare mutations)
+### 1a. Caller-declared UI aliases (implemented; environment isolation tests pending)
 
 Extend each shared UI service declaration with a list of relative alias names
 beneath the environment's UI domain; an empty list preserves current behavior.
@@ -137,32 +138,30 @@ secrets, tailnet access restrictions, persistent certificates, and secret-free
 Caddyfiles. Use normal blocking systemctl starts, without `--wait`.
 
 CLI target: `skillet secret deliver <host> caddy --environment production`
-with the existing SSH and vault options. The shared delivery function accepts
-host definition, environment config, credentials, and transport. VM provisioning
-does not call it yet; wiring it with its recorded transport and test environment
-is step 4.
+with the existing SSH and vault options. Production delivery uses the shared
+host definition, environment config, credentials, and SSH transport. VM
+provisioning reuses the Caddy payload and Cloudflare operations with its
+recorded SSH transport and test environment.
 
 Exit: rerunning unchanged delivery preserves container identity. A host with
 Syncthing only has no Pi-hole route. Existing old `caddy_sites` payloads and
 per-service hostname entries require explicit redelivery; old payloads are
-rejected rather than silently reinterpreted. Production token lookup temporarily
-falls back to the existing per-host token path.
+rejected rather than silently reinterpreted. First production delivery migrates
+an existing legacy token into the environment-scoped vault entry.
 
-### 3. Shared Cloudflare token and DNS reconciliation (next)
+### 3. Shared Cloudflare token and DNS reconciliation (implemented; expand tests)
 
 Follow [Cloudflare UI lifecycle](../design/cloudflare-ui-lifecycle.md). Do not
 use manually created VM ACME tokens as an interim acceptance path.
 
-First migrate environment lookups to the DNS paths above. Previous `ui/domain`
-and `cloudflare/zone` lookups are superseded. The old zone value was a DNS name;
-never reinterpret it as an ID. Fetch the exact zone by its configured ID and
-validate the returned name contains the UI domain before issuance or record
-changes. Missing entries report paths without values. Update lookup tests and
-setup instructions with the migration.
+Environment lookups use the DNS paths above. The configured Zone ID is fetched
+exactly and the returned zone name must contain the UI domain before issuance
+or record changes. The former zone-name entry is never treated as an ID.
 
-Add a Rust HTTP client module with typed errors and injectable API boundary.
-Reuse project HTTP dependencies; do not use a Cloudflare CLI or shell program.
-Discover required permission IDs through the API; do not guess or bake IDs in.
+Use `cloudflare-rs` for authenticated blocking HTTP transport and custom typed
+JSON endpoint specs for token APIs and DNS comments not represented by its DNS
+models. Do not use a Cloudflare CLI or shell program. Discover permission IDs
+through the API; do not guess or bake IDs in.
 Persistent token creation must use the existing atomic KDBX writer and conflict
 protection. If saving fails after issuance, revoke the newly issued token or
 retain recoverable ownership before returning an error. Never replace an
@@ -204,19 +203,18 @@ Exit: new DNS paths and Zone ID validation are covered; issuance requires no
 manually populated VM ACME entry; cleanup works after token expiry; both
 environments use the same reconciler; a second apply creates no
 duplicate token or records; failures at each external mutation can resume or
-clean up. Concurrent deployments claiming the same host/environment names
+clean up. Mutation fault-injection coverage remains outstanding. Concurrent deployments claiming the same host/environment names
 are refused. Do not append VM instance names to URLs silently; supporting
 parallel instances requires separately selected base domains/environments.
 
-### 4. Wire VM lifecycle and verify live ACME
+### 4. Wire VM lifecycle and verify live ACME (wiring implemented; live check pending)
 
-Extend `test vm provision <host> <instance>` with explicit live-UI opt-in,
-for example `--with-ui`. Standard fixture smoke remains offline from Cloudflare.
-The caller supplies test environment and disposable ownership; the shared UI
-pipeline handles token, records, config delivery, and Caddy activation after
-Tailscale is connected. Destroy cleans Cloudflare resources and Tailscale
-identity before deleting local ownership metadata. Missing vault entries fail
-before external mutations, naming only the required paths.
+`test vm provision <host> <instance> --with-ui` explicitly opts into Cloudflare
+and Caddy. Standard fixture smoke remains offline from Cloudflare. Provisioning
+uses the test environment, journals disposable ownership, then creates the
+token, records, delivers the config, and activates Caddy after Tailscale joins.
+Destroy reconciles Cloudflare resources and Tailscale identity before local
+ownership metadata is deleted. Missing vault entries name only required paths.
 
 Reuse the retained VM for development, then run one fresh destroy/create/
 provision cycle for final acceptance. User unlocks the KDBX in their own terminal;

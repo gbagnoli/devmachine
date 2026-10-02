@@ -179,10 +179,13 @@ vault edit and redelivery for rotation. The production TPM binding decision
 remains in the [secret design](../design/secrets.md).
 
 For Cloudflare token issuance, select **Create additional tokens** in the
-Cloudflare dashboard, with **User > API Tokens > Edit** and no extra
-permissions. Save it as `skillet/cloudflare/token-creator`. If already stored
-in the desktop keyring, move that value into KeePassXC and verify the saved
-entry before removing the old copy. The current smoke command does not use it.
+Cloudflare dashboard, granting **User > API Tokens > Read** and **Write** only.
+Do not add zone permissions to this workstation issuer. Save it as
+`skillet/cloudflare/token-creator`. Skillet discovers the Cloudflare
+permission-group IDs at runtime, then creates zone-scoped child tokens with
+Zone Read and DNS Write. If the issuer is already stored in the desktop
+keyring, move the value into KeePassXC and verify the saved entry before
+removing the old copy.
 
 ### Caddy UI credentials
 
@@ -201,11 +204,15 @@ selected zone's Cloudflare Overview page. Move the base-domain value from
 the old entry. The previous `cloudflare/zone` entry contained a zone name;
 populate `dns/cloudflare-zone-id` with the actual ID.
 
-These are the agreed target paths; current delivery still reads older paths.
-Token issuance, DNS reconciliation, path migration, and cleanup must be
-implemented before the next live ACME acceptance run. Do not create a manual
-smoke VM ACME token. See the [generic UI plan](../plan/GENERIC-PRIVATE-UIS.md)
-and [Cloudflare lifecycle design](../design/cloudflare-ui-lifecycle.md).
+The CLI reads these environment paths directly. Persistent Caddy delivery
+creates and saves a missing host ACME token at
+`skillet/environments/<environment>/hosts/<host>/cloudflare/acme-token`, then
+reconciles the host's Tailscale A/AAAA records and UI CNAMEs. Smoke VMs only do
+this when explicitly provisioned with `--with-ui`; they receive a 12-hour
+zone-scoped token and `test vm destroy` removes its owned records and token.
+Do not create a manual smoke VM ACME token. See the
+[generic UI plan](../plan/GENERIC-PRIVATE-UIS.md) and
+[Cloudflare lifecycle design](../design/cloudflare-ui-lifecycle.md).
 
 ### Tailscale setup for Skillet
 
@@ -242,16 +249,16 @@ requires `curl` on the workstation. See the
    mint new auth keys, so treat it as the workstation-side master credential.
    Never put it in a VM, Quadlet, environment file, or repository. Close
    KeePassXC before Skillet edits the database.
-4. In each existing Cloudflare zone, create DNS-only (grey cloud) A/AAAA UI
-   records pointing to the enrolled host's Tailscale address. Use the
-   production zone for production hosts and the smoke-test zone for disposable
-   VMs. No delegated subzone or Tailscale split DNS configuration is required.
-   Test lookup using a tailnet client's normal resolver. Caddy obtains its own
-   certificate through Cloudflare DNS-01.
+4. Keep the test and production UI domain and Cloudflare Zone ID in their
+   respective KeePassXC environment entries. Skillet validates each domain
+   against the exact zone ID before it creates credentials or DNS records. No
+   delegated subzone or Tailscale split DNS configuration is required.
 5. For a disposable VM, run `cargo run --release -p skillet -- test vm provision clamps smoke`.
    Skillet prompts to unlock KeePassXC when its three-hour kernel cache is
    empty, enrolls the VM, then provisions Pi-hole. Repeat the command to reuse
-   the Tailscale identity and Pi-hole credential. Dispose of the VM with
+   the Tailscale identity and Pi-hole credential. Add `--with-ui` to also mint
+   the disposable Cloudflare credential, publish its tailnet DNS records, and
+   activate Caddy with the test ACME staging issuer. Dispose of the VM with
    `cargo run --release -p skillet -- test vm destroy clamps smoke`. If
    Tailscale cleanup fails, destruction stops and the VM metadata remains for
    retry. Keep the OAuth client available for cleanup.
@@ -267,9 +274,10 @@ requires `curl` on the workstation. See the
    services. Preserve the encrypted KeePassXC entries so another workstation
    can reprovision credentials.
 
-Cloudflare DNS record automation and smoke-specific Caddy staging remain future
-work. Keep the Cloudflare token creator on the workstation; Tailscale
-enrollment needs no Cloudflare or Tailscale DNS permissions. See the
+Cloudflare credentials and DNS records are removed before the smoke Tailscale
+device and VM are destroyed. Keep the Cloudflare token creator on the
+workstation; Tailscale enrollment needs no Cloudflare or Tailscale DNS
+permissions. Live ACME and HTTPS acceptance remains pending. See the
 [VM lifecycle](../design/smoke-vms.md).
 
 ## Development checks

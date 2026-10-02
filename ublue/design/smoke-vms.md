@@ -3,10 +3,9 @@
 Decision: keep VM creation, readiness, repeatable smoke checks, and destruction
 separate. A retained VM supports inspection and repeated convergence checks;
 a fresh VM establishes that bootstrap is reproducible. The existing fixture
-tests real systemd/Podman convergence. Pi-hole credential delivery and
-Tailscale enrollment/device cleanup are implemented. Generic manual Caddy
-delivery is available for declared host UIs; Cloudflare DNS lifecycle, automatic
-smoke provisioning, and live ACME scenarios remain planned.
+tests real systemd/Podman convergence. Pi-hole credential delivery,
+Tailscale enrollment/device cleanup, and opt-in Cloudflare/Caddy provisioning
+are implemented. Live ACME scenarios remain unverified.
 
 ## Identity and ownership
 
@@ -45,22 +44,27 @@ the test artifacts and uses QEMU user networking.
    It waits for the VM to join and records its device identity before delivering
    a generated Pi-hole credential and running full apply. Repeated provisioning
    reuses the Tailscale identity and installed Pi-hole credential; `--rotate`
-   replaces the latter.
+   replaces the latter. `--with-ui` also creates a 12-hour zone-scoped
+   Cloudflare token, reconciles tailnet A/AAAA and UI/alias CNAME records,
+   installs both Caddy credentials, and activates the Caddy apply unit. The
+   ignored mode-0600 Cloudflare metadata records its token ID, expiry, marker,
+   and DNS record IDs, never the token value.
 4. **Smoke:** run assertions against the retained VM. Check repeat apply,
    configuration/secret changes, interruption recovery, and reboot persistence.
    The container sandbox uses mocked systemctl/Podman; only VM checks establish
    real runtime behavior. Failures retain the VM and diagnostics for repair.
-5. **Destroy:** validate ownership, remove only the recorded smoke-tagged
-   Tailscale device, then remove the domain, disk, SSH key, and artifacts.
-   Failed Tailscale cleanup prevents local destruction and retains metadata for
-   retry, even if the domain is already gone. Cloudflare records and tokens are
-   not yet part of the lifecycle.
+5. **Destroy:** validate ownership, mint a short-lived scoped cleanup token,
+   remove only DNS records carrying this instance's ownership marker, revoke
+   its disposable tokens, remove the recorded smoke-tagged Tailscale device,
+   then remove the domain, disk, SSH key, and artifacts. Failed external
+   cleanup prevents local destruction and retains metadata for retry, even if
+   the domain is already gone.
 
 ## Live ACME boundary
 
-Implement the [Cloudflare ownership lifecycle](cloudflare-ui-lifecycle.md)
-before live ACME acceptance. Issue credentials automatically and verify DNS
-cleanup after expiry; do not require a manually created VM token.
+The [Cloudflare ownership lifecycle](cloudflare-ui-lifecycle.md) is implemented
+for token issuance and DNS cleanup after expiry. Live ACME acceptance remains
+pending; do not require a manually created VM token.
 
 Routine smoke checks need no Cloudflare access. The optional live scenario
 enrolls the VM in Tailscale, obtains its tailnet IP, and creates a DNS-only

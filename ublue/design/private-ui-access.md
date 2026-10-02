@@ -23,7 +23,7 @@ between hosted Tailscale and Headscale. Publish DNS-only A/AAAA records for
 `<host>.<ui-domain>` pointing to its tailnet addresses. Canonical UI names CNAME to that machine name;
 caller-declared aliases CNAME to their canonical UI names. Caddy serves every
 name with matching certificate coverage and the same upstream/access policy.
-The machine/CNAME/alias model is planned; see the
+The machine/CNAME/alias model is implemented; see the
 [Cloudflare lifecycle](cloudflare-ui-lifecycle.md). Do not enable Cloudflare
 proxying. Keep literal
 zones and records outside this public repository; public DNS still exposes the
@@ -73,9 +73,9 @@ planes. The names and tailnet IPs are public DNS data.
 
 ## Status and references
 
-Implement the [Cloudflare ownership lifecycle](cloudflare-ui-lifecycle.md)
-before live ACME acceptance. Issue credentials automatically and verify DNS
-cleanup after expiry; do not require a manually created VM token.
+The [Cloudflare ownership lifecycle](cloudflare-ui-lifecycle.md) now issues
+credentials automatically and cleans DNS after token expiry. Live ACME
+acceptance remains pending; no manually created VM token is required.
 
 Host UI service declarations now drive a shared versioned Caddy payload.
 Provisioning derives `<service>.<host>.<ui-domain>` from the selected
@@ -85,8 +85,9 @@ restrictions. Shared Butane units call the generic `skillet` CLI and read the
 stable host profile from `/etc/skillet/host`; VM hostnames remain independent.
 Host-specific apply units and credential gates live in host-specific Butane
 includes. Manual delivery accepts production or test environments.
-Cloudflare token/DNS lifecycle and automatic VM provisioning remain planned;
-see the [implementation plan](../plan/GENERIC-PRIVATE-UIS.md).
+Cloudflare token/DNS lifecycle and opt-in VM provisioning are implemented;
+real ACME and HTTPS acceptance remain pending. See the
+[implementation plan](../plan/GENERIC-PRIVATE-UIS.md).
 
 Skillet configures host-network Tailscale and manages tagged enrollment and
 removal for clamps smoke VMs; live smoke enrollment and cleanup were accepted

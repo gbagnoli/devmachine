@@ -3,8 +3,8 @@
 UI provisioning reads a base domain and Cloudflare zone from the selected
 environment in KeePassXC, derives service names from the host's declarations,
 and uses shared credential delivery. Cloudflare token issuance, DNS lifecycle,
-and automatic smoke VM wiring remain planned in the
-[generic UI plan](../plan/GENERIC-PRIVATE-UIS.md).
+and smoke VM cleanup are implemented; live ACME acceptance remains pending.
+See the [generic UI plan](../plan/GENERIC-PRIVATE-UIS.md).
 
 Decision: use KeePassXC for durable secrets and read and write its KDBX database
 directly from workstation Skillet through a Rust library. Pi-hole delivery uses
@@ -46,9 +46,9 @@ The prefix is consistently singular, `skillet`:
 | --- | --- |
 | `skillet/hosts/clamps/pihole/web-password` | `pihole_web_password` |
 | `skillet/environments/<environment>/dns/ui-domain` | Base for derived Caddy hostnames |
-| `skillet/environments/<environment>/dns/cloudflare-zone-id` | Planned Cloudflare Zone ID lookup |
-| `skillet/environments/<environment>/hosts/<host>/cloudflare/acme-token` | `cloudflare_acme_token` |
-| `skillet/hosts/clamps/cloudflare/acme-token` | Legacy production token fallback |
+| `skillet/environments/<environment>/dns/cloudflare-zone-id` | Cloudflare Zone ID lookup |
+| `skillet/environments/<environment>/hosts/<host>/cloudflare/acme-token` | Persistent `cloudflare_acme_token`, created on first Caddy delivery |
+| `skillet/hosts/<host>/cloudflare/acme-token` | Legacy production credential migrated on first delivery |
 | `skillet/cloudflare/token-creator` | Workstation only |
 | `skillet/tailscale/provisioner-client-id` | Workstation only; OAuth Client ID |
 | `skillet/tailscale/provisioner-client-secret` | Workstation only; OAuth Client secret |
@@ -92,18 +92,16 @@ domain, staging policy, and the declared service/upstream list. The receiving
 host checks it against its local declaration. The generated Caddyfile is
 persisted under `/etc/skillet` and contains no token. A dedicated systemd apply
 unit runs only after both Caddy credentials are installed. Old payloads are
-rejected; redeliver after updating the environment entries. Production token
-lookup temporarily falls back to the existing per-host token path.
+rejected; redeliver after updating the environment entries. The first
+production delivery migrates a legacy per-host token into the environment path.
 Podman's default secret storage persists a copy on the guest disk; systemd's
 credential encryption does not encrypt that copy.
 
 ## Disposable credentials
 
-The [Cloudflare lifecycle decision](cloudflare-ui-lifecycle.md) must be
-implemented before live Caddy acceptance. New DNS vault paths and Zone ID
-lookup in the table above are planned; current manual delivery reads the
-previous `ui/domain` and `cloudflare/zone` paths and expects a zone name.
-Do not create a manual VM ACME token to bypass lifecycle implementation.
+The [Cloudflare lifecycle decision](cloudflare-ui-lifecycle.md) is implemented
+for credential issuance, DNS reconciliation, and disposable cleanup. No manual
+smoke VM ACME token is required.
 
 Smoke VMs get generated test passwords, never production host entries. Tailscale
 enrollment reads `skillet/tailscale/provisioner-client-id` and
@@ -117,21 +115,17 @@ recorded name, smoke tag, and identity. If enrollment or deletion is
 interrupted, pending metadata remains so cleanup can be retried. Production
 uses the server tag and the same one-use-key path.
 
-Live UI/ACME testing will read `skillet/cloudflare/token-creator` locally and mint
-one short-lived Cloudflare token per VM, with Zone Read and DNS Edit restricted
-to the existing smoke-test zone. Once a VM joins the tailnet, the workstation
-will create machine A/AAAA records pointing at its tailnet addresses, UI
-CNAMEs to that machine, and caller-declared alias CNAMEs to canonical UIs.
-The Caddy payload will include all served names for TLS coverage and proxying.
-The VM token also supports DNS-01. DNS Edit covers the whole zone;
-unique test names prevent collisions, not access to other records. Production
-UI records belong in the existing production zone and use a separate scoped
-credential. Keep literal zone names and records outside this public repository.
-The token creator remains on the workstation. Cloudflare token issuance and
-record management are planned; current smoke provisioning only enrolls
-Tailscale and provisions Pi-hole. Caddy can be delivered manually to a host
-with `secret deliver <host> caddy --environment <production|test>`; smoke VM
-provisioning does not invoke this path automatically yet.
+Opt-in `test vm provision <host> <instance> --with-ui` reads
+`skillet/cloudflare/token-creator` locally and mints a 12-hour Cloudflare token
+per disposable instance, restricted to the selected zone with Zone Read and DNS
+Write. After Tailscale enrollment, it reconciles machine A/AAAA records for the
+verified tailnet addresses, canonical UI CNAMEs, and declared alias CNAMEs.
+The token supports Caddy DNS-01. DNS Write scopes access to the whole zone;
+unique test names prevent record collisions, not access to other records. On
+destroy, Skillet issues a short-lived cleanup token, removes only records with
+the instance ownership marker, and revokes disposable tokens. Keep literal
+zone names and records outside this public repository. The token creator
+remains on the workstation. Live ACME and HTTPS acceptance is still pending.
 
 VM Pi-hole secrets use the same SSH, systemd, and Podman delivery path. Keep token IDs,
 expiry, and owned record IDs in run metadata, without token values. Existing
