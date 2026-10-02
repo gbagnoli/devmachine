@@ -17,15 +17,16 @@ Pi-hole container runs in the VM with data and Podman storage under
 `/var/lib/data`; service networking, live ACME, final disk selection, and
 post-provision rebase checks remain open.
 
-Next: implement Cloudflare token/DNS lifecycle and automatic smoke VM delivery
-from [generic private UI provisioning](GENERIC-PRIVATE-UIS.md), then validate
-DNS-01 staging for private Pi-hole and Syncthing UIs.
-The private-UI design requires a tailnet-only
-listener and DNS-only Cloudflare records pointing to tailnet addresses, so
-certificate issuance alone is not the acceptance target.
-Pi-hole LAN-client reachability and final custom DNS records also remain open;
-production DNS stays on rupik. Syncthing passed the named disposable-VM service
-and repeat-apply checks, and the [btrbk milestone](CLAMPS-BTRBK.md) is complete.
+Next: complete Pi-hole LAN acceptance and configure the actual custom DNS
+records once their values are supplied. On 2026-10-02, the running smoke VM
+passed IPv4/IPv6 UDP/TCP DNS queries and a reversible custom-record test.
+Its libvirt user-mode network forwards only SSH, so client ingress and firewall
+behavior remain unverified; use a bridged/physical clamps network for that
+check. Keep production DNS on rupik. Generic private UI staging acceptance is
+recorded in [ACCEPTANCE.md](../butane/ACCEPTANCE.md); two deferred UI checks are
+tracked in [generic private UI provisioning](GENERIC-PRIVATE-UIS.md).
+Syncthing passed the named disposable-VM service and repeat-apply checks, and
+the [btrbk milestone](CLAMPS-BTRBK.md) is complete.
 See the [private UI design](../design/private-ui-access.md), [Syncthing
 design](../design/syncthing.md), [Pi-hole network design](../design/pihole-network.md),
 [storage design](../design/storage.md), [secret design](../design/secrets.md),
@@ -79,8 +80,8 @@ Done when: Pi-hole's storage and password can be provisioned, recovered after in
 - Implemented the reusable Quadlet network resource. Pi-hole now has a dual-stack bridge, network DNS enabled, container name `pihole`, and registry auto-update; see the [network design](../design/pihole-network.md).
 - VM apply found Aardvark DNS colliding with Pi-hole's host port 53. Skillet now configures rootful Aardvark DNS to listen on port 54. On the named uCore VM, Pi-hole starts, Aardvark resolves its dual-stack container addresses from another container, an HTTP request reaches `http://pihole:8088/admin/`, and Pi-hole answers DNS over UDP and TCP through host IPv4 and IPv6 addresses. `ss` confirms host publication on IPv4 and IPv6 for both transports.
 - Replace the Chef web pod with separate containers on the shared bridge. Caddy can resolve `pihole` and proxy to port 8088 without static container IPs or a host-published admin port.
-- The Chef DNS listener behavior is represented as wildcard IPv4/IPv6 TCP/UDP port 53 publication. Verify the test VM's host firewall and actual client reachability before considering this item accepted.
-- Pi-hole password-file consumption and startup identity/permissions passed on the VM. Verify custom-record format for the selected image version and DNS reachability from a LAN client through the host firewall.
+- The Chef DNS listener behavior is represented as wildcard IPv4/IPv6 TCP/UDP port 53 publication. The running smoke VM answers queries on its IPv4/IPv6 interface addresses, but its `passt` user-mode network only forwards SSH; verify ingress from a real LAN client through the host firewall before accepting LAN reachability.
+- Pi-hole password-file consumption and startup identity/permissions passed on the VM. Pi-hole v6 accepted and served a temporary `dns.hosts` custom record; the setting was restored empty. Configure actual custom records only after their values are supplied.
 - Replace placeholder DNS records with supplied configuration. Support multiple names per address.
 - Keep host bootstrap DNS independent of Pi-hole availability. Verify IPv4/IPv6 TCP and UDP DNS, web authentication, persistence, rotation, repeated apply and reboot.
 - Decide whether Nebula Sync is required and which instance is authoritative before enabling it.
