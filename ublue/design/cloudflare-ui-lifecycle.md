@@ -1,7 +1,8 @@
 # Cloudflare UI credentials and DNS lifecycle
 
-Decision (planned): implement automated token issuance and cleanup before live
-Caddy ACME acceptance. Do not require manually created smoke VM ACME tokens.
+Decision: the workstation issuer creates scoped Cloudflare child tokens and
+reconciles owned DNS before live Caddy ACME acceptance. Do not require manually
+created smoke VM ACME tokens.
 The workstation keeps `skillet/cloudflare/token-creator` in KeePassXC and mints
 zone-scoped child tokens; only a child token is delivered to Caddy.
 
@@ -10,10 +11,9 @@ zone-scoped child tokens; only a child token is delivered to Caddy.
 Each environment supplies `skillet/environments/<environment>/dns/ui-domain`
 and `skillet/environments/<environment>/dns/cloudflare-zone-id` in the vault's
 Password fields. The latter is a Cloudflare Zone ID. Resolve that exact ID
-through the API and validate its returned zone name contains the UI domain
-before mutations. Current code reads older paths and a zone name; migrating
-those lookups is required, and a zone name must never be treated as an ID.
-Production and test retain separate configuration.
+through the Cloudflare API and validate its returned zone name contains the UI
+domain before token issuance or DNS mutations. Production and test retain
+separate configuration.
 
 Host declarations derive a machine name `<host>.<ui-domain>` with one A
 record for its verified Tailscale IPv4 address and one AAAA for its verified,
@@ -92,7 +92,16 @@ workstation issuer, delete the verified records, and revoke the cleanup token.
 Retained VMs need explicit token renewal for later ACME operations. Production
 credentials and records are never disposed by test VM commands.
 
-Status: design only. Implement and mock-test issuance, recovery, DNS ownership,
-expiry cleanup, and disposal before a fresh staging ACME/HTTPS VM acceptance.
+Implementation status: `cloudflare-rs` supplies authenticated blocking HTTP
+transport; custom typed JSON endpoints use that transport for token APIs and
+DNS record comments that the crate's DNS models do not expose. Persistent
+delivery use-or-creates and saves its scoped token in KeePassXC. Opt-in smoke
+provisioning records token ID, expiry, DNS record IDs, and ownership metadata;
+destroy mints a short-lived cleanup token, deletes marker-owned DNS records,
+and revokes disposable tokens. Local tests cover the SDK transport, permission
+group discovery, scoped token payloads, address-family validation, and DNS
+planning. DNS mutation fault-injection/recovery tests and live
+staging ACME/HTTPS acceptance are still pending.
+
 See [generic UI plan](../plan/GENERIC-PRIVATE-UIS.md),
 [secret delivery](secrets.md), and [VM lifecycle](smoke-vms.md).
