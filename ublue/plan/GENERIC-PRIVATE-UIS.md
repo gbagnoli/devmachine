@@ -30,15 +30,20 @@ the Password field, following the existing exact-lookup convention:
 
 | Entry | Purpose |
 | --- | --- |
-| `skillet/environments/<environment>/dns/ui-domain` | Base UI domain |
+| `skillet/environments/<environment>/dns/ui-domain` | Optional relative prefix; absent means `ui` |
 | `skillet/environments/<environment>/dns/cloudflare-zone-id` | Cloudflare Zone ID of the authorized existing zone |
 | `skillet/environments/<environment>/hosts/<host>/cloudflare/acme-token` | Durable token for a persistent host |
 | `skillet/cloudflare/token-creator` | Workstation-only token issuer |
 
 Production and test are environment names, not distinct implementations.
-Locate the existing domain entries privately before migration; reuse or move
-their values, never invent or overwrite them. Read-only config migration
-must not expose their values. Keep unrelated host secret paths unchanged.
+Fetch the mandatory Zone ID's domain from Cloudflare and always append it to
+the optional relative prefix. `ui.whatever` in zone `example.com` resolves to
+`ui.whatever.example.com`; absent means `ui.example.com`, while empty is invalid.
+Former full-domain values must be deliberately replaced or removed locally;
+never silently treat them as absolute names or rewrite the vault. Cleanup must
+resolve the prefix identically and compare the full namespace with recorded
+ownership. Dispose of old UI deployments under their original configuration
+before migrating. Keep unrelated host secret paths unchanged.
 
 The shared environment policy selects ACME staging for test and the normal
 issuer for production. Token scope is Zone Read plus DNS Write for the selected
@@ -74,6 +79,8 @@ dependency.
 Declaring future services must not require editing Caddy's renderer.
 
 Add a validated environment configuration and one hostname derivation helper.
+Resolve the UI namespace from the Cloudflare zone domain plus the optional
+relative prefix (default `ui`) using the same helper for delivery and cleanup.
 Validate DNS labels, domain length, duplicates, empty service lists, and
 upstream inputs before SSH delivery or remote API mutations. Reject schemes,
 paths, ports, whitespace, and configuration injection in the base domain.
@@ -82,7 +89,8 @@ scope to another zone automatically.
 
 Exit: a non-clamps host with only Syncthing derives exactly one route; the
 same host definition works with either environment. Use reserved example
-domains in tests. Missing config fails with the entry path, without values.
+domains in tests. Missing mandatory Zone ID config fails with the entry path,
+without values; an absent relative prefix uses `ui`.
 
 ### 1a. Caller-declared UI aliases (implemented; environment isolation tests pending)
 

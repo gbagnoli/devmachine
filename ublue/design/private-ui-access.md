@@ -79,7 +79,9 @@ acceptance remains pending; no manually created VM token is required.
 
 Host UI service declarations now drive a shared versioned Caddy payload.
 Provisioning derives `<service>.<host>.<ui-domain>` from the selected
-environment's KeePassXC domain. Caddy validates the payload against the host's
+environment's resolved namespace: the optional KeePassXC `dns/ui-domain`
+relative prefix (default `ui`) appended to the zone domain fetched using the
+mandatory `dns/cloudflare-zone-id`. Caddy validates the payload against the host's
 declaration and renders each route through bridge DNS with tailnet source
 restrictions. Shared Butane units call the generic `skillet` CLI and read the
 stable host profile from `/etc/skillet/host`; VM hostnames remain independent.

@@ -1,7 +1,8 @@
 # Secret storage and delivery
 
-UI provisioning reads a base domain and Cloudflare zone from the selected
-environment in KeePassXC, derives service names from the host's declarations,
+UI provisioning reads a mandatory Cloudflare Zone ID and optional relative
+UI prefix from the selected environment in KeePassXC, fetches the zone domain,
+and derives service names from the host's declarations,
 and uses shared credential delivery. Cloudflare token issuance, DNS lifecycle,
 and smoke VM cleanup are implemented; live ACME acceptance remains pending.
 See the [generic UI plan](../plan/GENERIC-PRIVATE-UIS.md).
@@ -53,7 +54,7 @@ The prefix is consistently singular, `skillet`:
 | Vault entry | Host credential and Podman secret name |
 | --- | --- |
 | `skillet/hosts/clamps/pihole/web-password` | `pihole_web_password` |
-| `skillet/environments/<environment>/dns/ui-domain` | Base for derived Caddy hostnames |
+| `skillet/environments/<environment>/dns/ui-domain` | Optional relative UI prefix; defaults to `ui`, appended to the fetched zone domain |
 | `skillet/environments/<environment>/dns/cloudflare-zone-id` | Cloudflare Zone ID lookup |
 | `skillet/environments/<environment>/hosts/<host>/cloudflare/acme-token` | Persistent `cloudflare_acme_token`, created on first Caddy delivery |
 | `skillet/hosts/<host>/cloudflare/acme-token` | Legacy production credential migrated on first delivery |

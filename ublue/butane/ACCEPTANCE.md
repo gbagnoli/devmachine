@@ -409,3 +409,29 @@ host tool; it still uses normal command approvals.
   useful 403 context without token or configured zone ID disclosure.
 - Live acceptance is pending issuer zone access being updated in Cloudflare;
   no live certificate issuance or fresh full cycle is claimed.
+
+### Relative UI namespace, 2026-10-02
+
+- `dns/cloudflare-zone-id` remains mandatory. Workstation production delivery,
+  opt-in VM UI provisioning, and VM cleanup now resolve the optional
+  `dns/ui-domain` as a relative prefix appended to the fetched zone domain.
+  An absent entry defaults to `ui`; an empty entry is invalid. Full-domain
+  values are also treated as relative and require deliberate local migration.
+- `cargo fmt --all --check`, workspace tests (66 tests), and all-target
+  pedantic Clippy passed; tests and Clippy used the GNU target. Tests cover
+  default/multiple-label prefixes, environment isolation, always-appended
+  zone suffixes, invalid prefixes and excessive total domain length.
+- Both musl release binaries built successfully with the documented compiler
+  PATH. `skillet test run beezelbot --phase base --image fedora:latest` passed
+  with no repeat-apply service restart. The named `clamps-test-generic-ui` VM
+  was updated with both binaries.
+- `integration_tests/smoke-ssh.sh --target giacomo@127.0.0.1 --port 2202
+  --identity ../butane/runs/clamps-test-generic-ui/ssh/id_ed25519
+  --disposable-target --binary
+  /home/giacomo/.cache/devmachine-target/x86_64-unknown-linux-musl/release/skillet
+  --clamps-binary /var/usrlocal/bin/skillet-clamps` passed all fixture cases,
+  failure recovery and reboot persistence. Evidence is retained in the guest
+  under `/var/lib/skillet-smoke/`. This fixture check is not live ACME acceptance.
+- Live Cloudflare/Caddy acceptance remains pending migration of the existing
+  vault prefix. No new DNS mutations or certificate issuance are claimed for
+  this change.
