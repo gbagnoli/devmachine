@@ -389,3 +389,23 @@ host tool; it still uses normal command approvals.
   No Cloudflare API or live certificate acceptance is claimed. User terminal
   unlock is needed before continuing retained-VM checks and the fresh
   destroy/create/provision/verify/dispose cycle.
+
+### Cloudflare zone preflight permissions, 2026-10-02
+
+- After user unlock, `skillet test vm provision clamps generic-ui --with-ui`
+  reached Cloudflare and returned HTTP 403 / code 9109 during the configured
+  zone lookup using the workstation issuer. This occurs before child-token
+  issuance and DNS reconciliation. Caddy ACME/HTTPS remain unverified.
+- The README had incorrectly excluded zone permissions from the issuer.
+  Corrected setup requires Zone Read on configured zones as well as User API
+  Tokens Read/Edit; DNS Write is still confined to child tokens. The rebuilt
+  CLI reproduced the error with zone-preflight permission context.
+- `cargo fmt --all --check`, workspace tests (64 tests), and all-target
+  pedantic Clippy passed with `--target x86_64-unknown-linux-gnu` for tests and
+  Clippy. The CI integration scenario `skillet test run beezelbot --phase base
+  --image fedora:latest` passed; repeat apply issued no service restarts.
+  `cargo build --release --target x86_64-unknown-linux-musl -p skillet` passed
+  with the documented compiler PATH. The HTTP mock regression test verifies
+  useful 403 context without token or configured zone ID disclosure.
+- Live acceptance is pending issuer zone access being updated in Cloudflare;
+  no live certificate issuance or fresh full cycle is claimed.

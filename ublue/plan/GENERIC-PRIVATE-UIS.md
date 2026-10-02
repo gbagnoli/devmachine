@@ -157,6 +157,9 @@ use manually created VM ACME tokens as an interim acceptance path.
 Environment lookups use the DNS paths above. The configured Zone ID is fetched
 exactly and the returned zone name must contain the UI domain before issuance
 or record changes. The former zone-name entry is never treated as an ID.
+The workstation issuer therefore needs Zone Read on the selected zones in
+addition to User API Tokens Read/Edit. The template's token-management
+permissions alone do not authorize zone preflight; the issuer needs no DNS Write.
 
 Use `cloudflare-rs` for authenticated blocking HTTP transport and custom typed
 JSON endpoint specs for token APIs and DNS comments not represented by its DNS

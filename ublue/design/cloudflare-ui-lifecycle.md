@@ -5,6 +5,9 @@ reconciles owned DNS before live Caddy ACME acceptance. Do not require manually
 created smoke VM ACME tokens.
 The workstation keeps `skillet/cloudflare/token-creator` in KeePassXC and mints
 zone-scoped child tokens; only a child token is delivered to Caddy.
+The issuer also has Zone Read on the configured zones because preflight
+validation fetches the exact zone before issuance. User API Tokens Read/Edit
+alone does not authorize that lookup. DNS Write remains on child tokens.
 
 ## Configuration and access
 

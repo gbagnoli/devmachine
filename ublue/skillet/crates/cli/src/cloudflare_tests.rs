@@ -90,6 +90,29 @@ fn sdk_transport_calls_cloudflare_with_bearer_token() {
 }
 
 #[test]
+fn forbidden_zone_lookup_reports_permission_context_without_zone_id() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+    let address = listener.local_addr().expect("address");
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("client");
+        let _request = read_request(&mut stream);
+        let body = r#"{"success":false,"errors":[{"code":9109,"message":"Unauthorized to access requested resource"}],"messages":[],"result":null}"#;
+        write!(stream, "HTTP/1.1 403 Forbidden\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len()).expect("response");
+    });
+    let api = Cloudflare::with_base(&format!("http://{address}/client/v4/"));
+    let error = api
+        .zone("issuer-token", "0123456789abcdef0123456789abcdef")
+        .expect_err("forbidden lookup");
+    let diagnostic = format!("{error:#}");
+    assert!(diagnostic.contains("reading configured Cloudflare zone"));
+    assert!(diagnostic.contains("Zone > Zone > Read"));
+    assert!(diagnostic.contains("403"));
+    assert!(!diagnostic.contains("issuer-token"));
+    assert!(!diagnostic.contains("0123456789abcdef0123456789abcdef"));
+    server.join().expect("server thread");
+}
+
+#[test]
 fn discovers_permission_group_ids_and_creates_scoped_token_through_sdk() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
     let address = listener.local_addr().expect("address");
