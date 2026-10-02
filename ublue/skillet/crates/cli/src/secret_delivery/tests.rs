@@ -139,7 +139,7 @@ fn creates_and_reopens_encrypted_entry_through_symlink_target() {
     };
     let entry_path = "skillet/hosts/clamps/pihole/web-password";
     create_entry(&mut vault.database, entry_path, "generated test value").unwrap();
-    save_vault(&vault, None, entry_path, "generated test value").unwrap();
+    save_vault(&mut vault, None, entry_path, "generated test value").unwrap();
     assert!(link_path.is_symlink());
     let changed = std::fs::read(&database_path).unwrap();
     let reopened = Database::open(

@@ -15,6 +15,7 @@ tracing-subscriber.workspace = true
 anyhow = "1.0"
 keepass.workspace = true
 rpassword.workspace = true
+cloudflare.workspace = true
 keyutils.workspace = true
 hex.workspace = true
 sha2.workspace = true

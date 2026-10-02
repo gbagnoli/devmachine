@@ -11,6 +11,7 @@ fn syncthing_only() -> Vec<UiService> {
         name: "syncthing".to_string(),
         upstream: "syncthing".to_string(),
         port: 8384,
+        aliases: Vec::new(),
     }]
 }
 
@@ -98,6 +99,7 @@ fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
             name: "pihole".to_string(),
             upstream: "pihole".to_string(),
             port: 8088,
+            aliases: Vec::new(),
         },
         syncthing_only().remove(0),
     ];
@@ -172,4 +174,51 @@ fn rejects_domain_injection_duplicates_and_empty_service_sets() {
     .is_err());
     assert!(super::validate_domain_in_zone("ui.other.invalid", "example.invalid").is_err());
     assert!(super::validate_domain_in_zone("ui.example.invalid", "example.invalid").is_ok());
+}
+
+#[test]
+fn renders_declared_aliases_and_rejects_conflicting_names() {
+    let services = vec![UiService {
+        name: "syncthing".to_string(),
+        upstream: "syncthing".to_string(),
+        port: 8384,
+        aliases: vec!["sync".to_string(), "sync.{host}".to_string()],
+    }];
+    let sites = CaddySites::from_host(
+        "clamps",
+        &UiEnvironment {
+            ui_domain: "test.example.invalid".to_string(),
+            acme_staging: true,
+        },
+        &services,
+    )
+    .unwrap();
+    assert_eq!(sites.machine_hostname, "clamps.test.example.invalid");
+    assert_eq!(
+        sites.services[0].aliases,
+        vec![
+            "sync.test.example.invalid",
+            "sync.clamps.test.example.invalid",
+        ]
+    );
+    let rendered = sites.render();
+    assert!(rendered.contains("sync.test.example.invalid {"));
+    assert!(rendered.contains("sync.clamps.test.example.invalid {"));
+    assert_eq!(rendered.matches("reverse_proxy syncthing:8384").count(), 3);
+
+    for alias in ["", ".sync", "sync.", "*.sync", "bad{host}", "clamps"] {
+        let invalid = vec![UiService {
+            aliases: vec![alias.to_string()],
+            ..services[0].clone()
+        }];
+        assert!(CaddySites::from_host(
+            "clamps",
+            &UiEnvironment {
+                ui_domain: "test.example.invalid".to_string(),
+                acme_staging: true,
+            },
+            &invalid,
+        )
+        .is_err());
+    }
 }
