@@ -2349,6 +2349,7 @@ dependencies = [
  "skillet_pihole",
  "skillet_podman",
  "skillet_syncthing",
+ "skillet_unifi",
  "tempfile",
  "thiserror 1.0.69",
  "tracing",
@@ -2418,6 +2419,17 @@ dependencies = [
  "skillet_podman",
  "thiserror 1.0.69",
  "tracing",
+]
+
+[[package]]
+name = "skillet_unifi"
+version = "0.1.0"
+dependencies = [
+ "skillet_core",
+ "skillet_podman",
+ "thiserror 1.0.69",
+ "tracing",
+ "users",
 ]
 
 [[package]]

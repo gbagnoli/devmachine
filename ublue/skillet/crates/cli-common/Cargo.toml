@@ -10,6 +10,7 @@ workspace = true
 skillet_core.workspace = true
 skillet_hardening.workspace = true
 skillet_pihole.workspace = true
+skillet_unifi.workspace = true
 skillet_syncthing.workspace = true
 skillet_btrbk.workspace = true
 skillet_caddy.workspace = true
