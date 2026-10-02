@@ -222,3 +222,52 @@ fn renders_declared_aliases_and_rejects_conflicting_names() {
         .is_err());
     }
 }
+#[test]
+fn relative_ui_domain_defaults_and_always_appends_zone() {
+    assert_eq!(
+        super::resolve_ui_domain("example.com", None).expect("default"),
+        "ui.example.com"
+    );
+    assert_eq!(
+        super::resolve_ui_domain("example.com", Some("ui.whatever")).expect("relative prefix"),
+        "ui.whatever.example.com"
+    );
+    assert_eq!(
+        super::resolve_ui_domain("example.com", Some(" ui ")).expect("trimmed prefix"),
+        "ui.example.com"
+    );
+    assert_eq!(
+        super::resolve_ui_domain("example.com", Some("other.example.com"))
+            .expect("all values are relative"),
+        "other.example.com.example.com"
+    );
+    assert_eq!(
+        super::resolve_ui_domain("example.test", None).expect("other environment"),
+        "ui.example.test"
+    );
+}
+
+#[test]
+fn relative_ui_domain_rejects_invalid_prefixes_and_total_length() {
+    for prefix in [
+        "",
+        " ",
+        ".ui",
+        "ui.",
+        "ui..private",
+        "https://ui",
+        "ui:443",
+        "ui/path",
+        "ui space",
+        "*",
+        "{host}",
+        "-ui",
+        "ui-",
+    ] {
+        assert!(super::resolve_ui_domain("example.com", Some(prefix)).is_err());
+    }
+    assert!(super::resolve_ui_domain("invalid", None).is_err());
+    let label = "a".repeat(63);
+    let too_long = format!("{label}.{label}.{label}.{label}");
+    assert!(super::resolve_ui_domain("example.com", Some(&too_long)).is_err());
+}

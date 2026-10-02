@@ -241,6 +241,18 @@ pub fn validate_domain(domain: &str) -> Result<(), CaddyError> {
     Ok(())
 }
 
+/// Resolve an optional relative UI namespace beneath the authoritative zone.
+pub fn resolve_ui_domain(zone: &str, prefix: Option<&str>) -> Result<String, CaddyError> {
+    validate_domain(zone)?;
+    let prefix = prefix.unwrap_or("ui").trim();
+    for label in prefix.split('.') {
+        validate_label(label, "relative UI domain prefix")?;
+    }
+    let domain = format!("{prefix}.{zone}");
+    validate_domain(&domain)?;
+    Ok(domain)
+}
+
 pub fn validate_domain_in_zone(domain: &str, zone: &str) -> Result<(), CaddyError> {
     validate_domain(domain)?;
     validate_domain(zone)?;

@@ -11,12 +11,17 @@ alone does not authorize that lookup. DNS Write remains on child tokens.
 
 ## Configuration and access
 
-Each environment supplies `skillet/environments/<environment>/dns/ui-domain`
-and `skillet/environments/<environment>/dns/cloudflare-zone-id` in the vault's
-Password fields. The latter is a Cloudflare Zone ID. Resolve that exact ID
-through the Cloudflare API and validate its returned zone name contains the UI
-domain before token issuance or DNS mutations. Production and test retain
-separate configuration.
+Each environment requires `skillet/environments/<environment>/dns/cloudflare-zone-id`
+in the vault's Password field. Fetch that exact zone's domain from Cloudflare.
+The optional `skillet/environments/<environment>/dns/ui-domain` is a relative
+prefix, defaulting to `ui` only when absent. Always append the zone's domain:
+`ui.whatever` in zone `example.com` resolves to `ui.whatever.example.com`.
+This removes redundant full-domain configuration and keeps namespaces within
+the selected zone. Empty or invalid prefixes fail before issuance or DNS
+mutations. Former full-domain values require a deliberate vault migration;
+they are never interpreted as absolute names. Production and test retain
+separate configuration. Delivery and cleanup use the same resolution rule;
+ignored ownership metadata retains the resolved full namespace for verification.
 
 Host declarations derive a machine name `<host>.<ui-domain>` with one A
 record for its verified Tailscale IPv4 address and one AAAA for its verified,

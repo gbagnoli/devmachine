@@ -102,12 +102,10 @@ fn deliver_caddy_from_vault(
     let ui_config = ui_config.ok_or_else(|| anyhow!("missing host UI declaration"))?;
     let environment = args.environment.as_str();
     let domain_path = format!("skillet/environments/{environment}/dns/ui-domain");
-    let domain = lookup(&vault.database, &domain_path)?
-        .ok_or_else(|| anyhow!("KeePassXC UI domain entry is missing: {domain_path}"))?;
+    let domain_prefix = lookup(&vault.database, &domain_path)?;
     let zone_path = format!("skillet/environments/{environment}/dns/cloudflare-zone-id");
     let zone_id = lookup(&vault.database, &zone_path)?
         .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
-    let domain = domain.trim();
     let zone_id = zone_id.trim();
     crate::cloudflare::validate_zone_id(zone_id)?;
     let creator =
@@ -118,12 +116,12 @@ fn deliver_caddy_from_vault(
         })?;
     let cloudflare = crate::cloudflare::Cloudflare::new();
     let zone = cloudflare.zone(&creator, zone_id)?;
-    skillet_caddy::validate_domain_in_zone(domain, &zone.name)
-        .context("validating KeePassXC UI domain against its Cloudflare zone")?;
+    let domain = skillet_caddy::resolve_ui_domain(&zone.name, domain_prefix.as_deref())
+        .context("resolving KeePassXC relative UI domain beneath its Cloudflare zone")?;
     let sites = skillet_caddy::CaddySites::from_host(
         &args.hostname,
         &skillet_caddy::UiEnvironment {
-            ui_domain: domain.to_string(),
+            ui_domain: domain.clone(),
             acme_staging: args.environment.acme_staging(),
         },
         &ui_config.services,
@@ -138,7 +136,7 @@ fn deliver_caddy_from_vault(
     let token = host_acme_token(args, vault, &cloudflare, &creator, zone_id)?;
     cloudflare.zone(&token, zone_id)?;
     ensure_vault_unchanged(vault)?;
-    cloudflare.reconcile_dns(&token, zone_id, &dns_marker, domain, &dns)?;
+    cloudflare.reconcile_dns(&token, zone_id, &dns_marker, &domain, &dns)?;
     ensure_vault_unchanged(vault)?;
     let sites = serde_json::to_string(&sites)?;
     for (credential, value) in [
@@ -453,8 +451,7 @@ fn provision_vm_ui(
     let environment = UiEnvironmentName::Test.as_str();
     let domain_path = format!("skillet/environments/{environment}/dns/ui-domain");
     let zone_path = format!("skillet/environments/{environment}/dns/cloudflare-zone-id");
-    let ui_domain = lookup(&vault.database, &domain_path)?
-        .ok_or_else(|| anyhow!("KeePassXC UI domain entry is missing: {domain_path}"))?;
+    let domain_prefix = lookup(&vault.database, &domain_path)?;
     let zone_id = lookup(&vault.database, &zone_path)?
         .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
     let creator =
@@ -463,13 +460,12 @@ fn provision_vm_ui(
                 "KeePassXC Cloudflare token creator is missing: skillet/cloudflare/token-creator"
             )
         })?;
-    let ui_domain = ui_domain.trim().to_string();
     let zone_id = zone_id.trim().to_string();
     crate::cloudflare::validate_zone_id(&zone_id)?;
     let api = crate::cloudflare::Cloudflare::new();
     let zone = api.zone(&creator, &zone_id)?;
-    skillet_caddy::validate_domain_in_zone(&ui_domain, &zone.name)
-        .context("validating test UI domain against its Cloudflare zone")?;
+    let ui_domain = skillet_caddy::resolve_ui_domain(&zone.name, domain_prefix.as_deref())
+        .context("resolving test relative UI domain beneath its Cloudflare zone")?;
     let host_ui = skillet_cli_common::hosts::ui_config_for_host(&args.hostname)
         .ok_or_else(|| anyhow!("host {} has no declared UI services", args.hostname))?;
     let sites = skillet_caddy::CaddySites::from_host(
@@ -575,17 +571,18 @@ fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<(
         "skillet/environments/test/dns/cloudflare-zone-id",
     )?
     .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: skillet/environments/test/dns/cloudflare-zone-id"))?;
-    let configured_domain = lookup(&vault.database, "skillet/environments/test/dns/ui-domain")?
-        .ok_or_else(|| {
-            anyhow!("KeePassXC UI domain entry is missing: skillet/environments/test/dns/ui-domain")
-        })?;
-    if configured_zone.trim() != ownership.zone_id
-        || configured_domain.trim() != ownership.ui_domain
-    {
+    let configured_prefix = lookup(&vault.database, "skillet/environments/test/dns/ui-domain")?;
+    if configured_zone.trim() != ownership.zone_id {
         return Err(anyhow!("test Cloudflare configuration differs from the recorded VM owner; restore the original vault values before cleanup"));
     }
     let api = crate::cloudflare::Cloudflare::new();
     let zone = api.zone(&creator, &ownership.zone_id)?;
+    let configured_domain =
+        skillet_caddy::resolve_ui_domain(&zone.name, configured_prefix.as_deref())
+            .context("resolving test UI namespace before VM cleanup")?;
+    if configured_domain != ownership.ui_domain {
+        return Err(anyhow!("test Cloudflare configuration differs from the recorded VM owner; restore the original relative prefix before cleanup"));
+    }
     skillet_caddy::validate_domain_in_zone(&ownership.ui_domain, &zone.name)
         .context("validating recorded test UI domain against its Cloudflare zone")?;
     let cleanup_name = format!("{}:cleanup", ownership.token_name);

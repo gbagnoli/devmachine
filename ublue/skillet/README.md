@@ -198,15 +198,23 @@ KeePassXC entries in their Password fields:
 
 | Group path | Entry title | Value |
 | --- | --- | --- |
-| `skillet/environments/<environment>/dns` | `ui-domain` | Base domain for derived host UI names |
-| `skillet/environments/<environment>/dns` | `cloudflare-zone-id` | Cloudflare Zone ID containing the UI domain |
+| `skillet/environments/<environment>/dns` | `ui-domain` | Optional relative prefix; defaults to `ui` when absent |
+| `skillet/environments/<environment>/dns` | `cloudflare-zone-id` | Required Cloudflare Zone ID |
 | `skillet/cloudflare` | `token-creator` | Workstation token issuer |
 
 Select `production` or `test` for `<environment>`. Copy the Zone ID from the
-selected zone's Cloudflare Overview page. Move the base-domain value from
-`skillet/dns/smoke-ui-zone` to the test `dns/ui-domain` entry before removing
-the old entry. The previous `cloudflare/zone` entry contained a zone name;
-populate `dns/cloudflare-zone-id` with the actual ID.
+selected zone's Cloudflare Overview page. Skillet fetches the zone's domain
+and always appends it to the relative prefix. For zone `example.com`, an
+absent entry produces `ui.example.com`; `ui.whatever` produces
+`ui.whatever.example.com`. An empty entry is invalid. Replace any former
+full-domain value with a relative prefix, or remove the entry to use `ui`.
+Full-domain values are not detected or reused as absolute names: they too
+are appended to the zone. Do not copy a full domain from the old
+`skillet/dns/smoke-ui-zone` entry. The previous `cloudflare/zone` entry contained
+a zone name; populate `dns/cloudflare-zone-id` with the actual ID.
+Clean up any existing disposable UI deployment with the previous CLI and
+configuration before migrating its prefix; cleanup verifies the recorded
+resolved namespace and refuses a changed configuration.
 
 The CLI reads these environment paths directly. Persistent Caddy delivery
 creates and saves a missing host ACME token at
