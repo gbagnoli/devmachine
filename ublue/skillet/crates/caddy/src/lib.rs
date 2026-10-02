@@ -180,7 +180,7 @@ impl CaddySites {
             for hostname in std::iter::once(&service.hostname).chain(&service.aliases) {
                 let _ = writeln!(
                     config,
-                    "\n{} {{\n    @outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48\n    respond @outside_tailnet 403\n    reverse_proxy {}:{}\n}}",
+                    "\n{} {{\n    @outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48\n    respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403\n    reverse_proxy {}:{}\n}}",
                     hostname, service.upstream, service.port
                 );
             }

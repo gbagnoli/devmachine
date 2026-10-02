@@ -116,8 +116,11 @@ declared canonical UI and alias, verified DNS and HTTPS over IPv4/IPv6, and
 disposed the VM, DNS records, and child tokens. CI tests inject an ambiguous
 token-create response, a DNS-create failure after a partial reconciliation,
 and a DNS-delete failure during cleanup; each retry converges without
-duplicates or deleting unrelated records. Outside-tailnet denial and
-production certificate acceptance remain pending.
+duplicates or deleting unrelated records. Opt-in smoke provisioning also
+requests each configured UI from the guest's loopback source and requires
+Caddy's explicit 403 response. This verifies the source-address matcher for a
+non-tailnet source; denial from a separate external network and production
+certificate acceptance remain pending.
 
 See [generic UI plan](../plan/GENERIC-PRIVATE-UIS.md),
 [secret delivery](secrets.md), and [VM lifecycle](smoke-vms.md).

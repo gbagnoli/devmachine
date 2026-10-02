@@ -521,6 +521,7 @@ fn provision_vm_ui(
             &issued.value,
         )?;
         ssh.run("sudo -n systemctl start skillet-caddy-apply.service")?;
+        verify_caddy_denies_non_tailnet_probe(ssh, &sites)?;
         for old_id in api.token_ids_by_name(&creator, &account_id, &ownership.token_name)? {
             if old_id != issued.id {
                 api.revoke_token(&creator, &account_id, &old_id)?;
@@ -530,6 +531,35 @@ fn provision_vm_ui(
     })();
     if let Err(error) = work {
         return Err(error.context("provisioning disposable Cloudflare DNS and Caddy"));
+    }
+    Ok(())
+}
+
+fn verify_caddy_denies_non_tailnet_probe(
+    ssh: &mut VmSsh<'_>,
+    sites: &skillet_caddy::CaddySites,
+) -> Result<()> {
+    for site in &sites.services {
+        for hostname in std::iter::once(&site.hostname).chain(&site.aliases) {
+            let probe = format!(
+                "curl --insecure --silent --show-error --max-time 8 --resolve '{hostname}:443:127.0.0.1' --write-out '\n%{{http_code}}' 'https://{hostname}/'"
+            );
+            let mut denied = false;
+            for _ in 0..30 {
+                let output = ssh.output(&probe)?;
+                let response = String::from_utf8_lossy(&output.stdout);
+                if output.status.success()
+                    && response.trim() == "Access denied by Skillet tailnet policy\n403"
+                {
+                    denied = true;
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_secs(2));
+            }
+            if !denied {
+                return Err(anyhow!("Caddy did not return its explicit access-denied response to a non-tailnet probe"));
+            }
+        }
     }
     Ok(())
 }

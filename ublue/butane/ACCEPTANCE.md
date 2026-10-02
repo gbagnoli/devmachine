@@ -485,3 +485,19 @@ host tool; it still uses normal command approvals.
 - Focused Cloudflare tests pass (10 tests). `cargo fmt --all --check`, all 70
   workspace tests, `cargo clippy --all-targets -- -D warnings`, and
   `skillet test run beezelbot --phase base --image fedora:latest` all pass.
+
+### Non-tailnet Caddy denial probe, 2026-10-02
+
+- Caddy now returns a distinctive 403 body for requests outside the Tailscale
+  IPv4/IPv6 ranges. Opt-in `test vm provision --with-ui` probes each declared
+  canonical name and alias from the guest's loopback address, using the UI
+  hostname for TLS SNI and the HTTP Host header.
+- The user completed live `test vm provision clamps generic-ui --with-ui` on
+  the disposable VM. Provisioning returned successfully, which means the
+  loopback probe received the exact configured 403 for every declared UI name
+  and alias. Follow-up inspection found the Caddy container running and three
+  successful certificate issuance events in its logs.
+- The Caddy renderer test, workspace suite, Clippy, and routine integration
+  scenario pass. This loopback check does not replace a request from an
+  independent network outside the VM. The disposable VM remains running for
+  manual inspection.

@@ -4,8 +4,10 @@ Status: shared UI declarations, aliases, environment lookup, Caddy payloads,
 Cloudflare account-token issuance, DNS reconciliation, and opt-in smoke VM
 cleanup are implemented and passed live staging ACME/HTTPS acceptance on
 2026-10-02. Unit tests cover ambiguous token creation, retry after partial DNS
-reconciliation, and retry after interrupted DNS cleanup. Remaining: access
-denial from outside the tailnet and production ACME/renewal acceptance.
+reconciliation, and retry after interrupted DNS cleanup. The opt-in UI VM
+provision path now probes each UI from the guest's loopback source and checks
+Caddy's explicit 403 response. Remaining: denial from a separate network
+outside the tailnet and production ACME/renewal acceptance.
 
 ## Goal and fixed decisions
 
