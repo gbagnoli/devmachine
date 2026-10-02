@@ -272,7 +272,10 @@ requires `curl` on the workstation. See the
    activate Caddy with the test ACME staging issuer. Dispose of the VM with
    `cargo run --release -p skillet -- test vm destroy clamps smoke`. If
    Tailscale cleanup fails, destruction stops and the VM metadata remains for
-   retry. Keep the OAuth client available for cleanup.
+   retry. UI provisioning also probes each configured hostname from the VM's
+   loopback address and requires Caddy's explicit 403 denial response. This
+   checks the source-address rule; it does not replace a test from a separate
+   network outside the tailnet. Keep the OAuth client available for cleanup.
 6. For production, deliver the Pi-hole credential first, then Tailscale:
 
    ```bash

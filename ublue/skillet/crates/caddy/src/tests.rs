@@ -124,7 +124,14 @@ fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
     assert!(rendered.contains("syncthing.clamps.private.example.invalid"));
     assert!(rendered.contains("reverse_proxy pihole:8088"));
     assert!(rendered.contains("reverse_proxy syncthing:8384"));
-    assert_eq!(rendered.matches("respond @outside_tailnet 403").count(), 2);
+    assert!(rendered
+        .contains("respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403"));
+    assert_eq!(
+        rendered
+            .matches("respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403")
+            .count(),
+        2
+    );
     assert!(rendered.contains("https://acme-staging-v02.api.letsencrypt.org/directory"));
 }
 
