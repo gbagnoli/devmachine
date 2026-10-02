@@ -19,6 +19,8 @@ pub struct UiService {
     pub name: String,
     pub upstream: String,
     pub port: u16,
+    #[serde(default)]
+    pub aliases: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -34,6 +36,7 @@ pub struct CaddySites {
     pub host: String,
     pub ui_domain: String,
     pub acme_staging: bool,
+    pub machine_hostname: String,
     pub services: Vec<CaddySite>,
 }
 
@@ -42,6 +45,7 @@ pub struct CaddySites {
 pub struct CaddySite {
     pub name: String,
     pub hostname: String,
+    pub aliases: Vec<String>,
     pub upstream: String,
     pub port: u16,
 }
@@ -73,7 +77,10 @@ impl CaddySites {
                 "host declares no UI services".to_string(),
             ));
         }
+        let machine_hostname = format!("{host}.{}", environment.ui_domain);
+        validate_domain(&machine_hostname)?;
         let mut sites = Vec::with_capacity(services.len());
+        let mut all_hostnames = BTreeMap::from([(machine_hostname.clone(), "machine")]);
         for service in services {
             validate_label(&service.name, "service name")?;
             validate_label(&service.upstream, "upstream name")?;
@@ -94,25 +101,51 @@ impl CaddySites {
             }
             let hostname = format!("{}.{}.{}", service.name, host, environment.ui_domain);
             validate_domain(&hostname)?;
+            if all_hostnames
+                .insert(hostname.clone(), "canonical UI")
+                .is_some()
+            {
+                return Err(CaddyError::InvalidConfiguration(
+                    "duplicate UI hostname".to_string(),
+                ));
+            }
+            let mut aliases = Vec::with_capacity(service.aliases.len());
+            for alias in &service.aliases {
+                let expanded = expand_alias(alias, host)?;
+                let alias_hostname = format!("{expanded}.{}", environment.ui_domain);
+                validate_domain(&alias_hostname)?;
+                if all_hostnames
+                    .insert(alias_hostname.clone(), "UI alias")
+                    .is_some()
+                {
+                    return Err(CaddyError::InvalidConfiguration(format!(
+                        "duplicate UI hostname for alias on service {}",
+                        service.name
+                    )));
+                }
+                aliases.push(alias_hostname);
+            }
             sites.push(CaddySite {
                 name: service.name.clone(),
                 hostname,
+                aliases,
                 upstream: service.upstream.clone(),
                 port: service.port,
             });
         }
         Ok(Self {
-            version: 1,
+            version: 2,
             host: host.to_string(),
             ui_domain: environment.ui_domain.clone(),
             acme_staging: environment.acme_staging,
+            machine_hostname,
             services: sites,
         })
     }
 
     pub fn parse(contents: &str, host: &str, services: &[UiService]) -> Result<Self, CaddyError> {
         let sites: Self = serde_json::from_str(contents)?;
-        if sites.version != 1 {
+        if sites.version != 2 {
             return Err(CaddyError::InvalidConfiguration(format!(
                 "unsupported payload version {}",
                 sites.version
@@ -144,14 +177,39 @@ impl CaddySites {
             format!("{{\n    admin off\n{acme}    acme_dns cloudflare {{env.CF_API_TOKEN}}\n}}\n");
         for service in &self.services {
             use std::fmt::Write as _;
-            let _ = writeln!(
-                config,
-                "\n{} {{\n    @outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48\n    respond @outside_tailnet 403\n    reverse_proxy {}:{}\n}}",
-                service.hostname, service.upstream, service.port
-            );
+            for hostname in std::iter::once(&service.hostname).chain(&service.aliases) {
+                let _ = writeln!(
+                    config,
+                    "\n{} {{\n    @outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48\n    respond @outside_tailnet 403\n    reverse_proxy {}:{}\n}}",
+                    hostname, service.upstream, service.port
+                );
+            }
         }
         config
     }
+}
+
+fn expand_alias(alias: &str, host: &str) -> Result<String, CaddyError> {
+    if alias.is_empty() || alias.len() > 253 || alias.starts_with('.') || alias.ends_with('.') {
+        return Err(CaddyError::InvalidConfiguration(
+            "invalid relative UI alias".to_string(),
+        ));
+    }
+    let mut labels = Vec::new();
+    for label in alias.split('.') {
+        if label == "{host}" {
+            labels.push(host);
+        } else {
+            if label.contains('{') || label.contains('}') {
+                return Err(CaddyError::InvalidConfiguration(
+                    "the {host} alias placeholder must be a complete DNS label".to_string(),
+                ));
+            }
+            validate_label(label, "UI alias")?;
+            labels.push(label);
+        }
+    }
+    Ok(labels.join("."))
 }
 
 fn validate_label(label: &str, field: &str) -> Result<(), CaddyError> {

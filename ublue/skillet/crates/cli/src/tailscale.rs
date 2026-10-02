@@ -144,6 +144,42 @@ pub(crate) fn find_device(
     }
 }
 
+pub(crate) fn find_device_by_hostname(
+    credentials: &OAuthCredentials,
+    expected_hostname: &str,
+    expected_tag: &str,
+) -> Result<DeviceRecord> {
+    if !matches!(expected_tag, SERVER_TAG | SMOKE_TAG) || expected_hostname.is_empty() {
+        return Err(anyhow!("invalid Tailscale device lookup constraints"));
+    }
+    let token = credentials.access_token("devices:core")?;
+    let response = request(
+        "GET",
+        &format!("{API_BASE}/tailnet/-/devices"),
+        Some(&token),
+        None,
+    )?;
+    let devices = response
+        .get("devices")
+        .and_then(Value::as_array)
+        .ok_or_else(|| anyhow!("Tailscale device list response is malformed"))?;
+    let matches = devices
+        .iter()
+        .filter_map(|device| device_record(device, expected_tag))
+        .filter(|device| device.hostname == expected_hostname)
+        .collect::<Vec<_>>();
+    match matches.as_slice() {
+        [device] if !device.addresses.is_empty() => Ok(device.clone()),
+        [] => Err(anyhow!(
+            "Tailscale has no device named {expected_hostname} with tag {expected_tag}"
+        )),
+        [_] => Err(anyhow!("Tailscale device has no registered addresses")),
+        _ => Err(anyhow!(
+            "multiple tagged Tailscale devices have hostname {expected_hostname}; refusing ambiguity"
+        )),
+    }
+}
+
 pub(crate) fn remove_device_for_hostname(
     credentials: &OAuthCredentials,
     hostname: &str,

@@ -4,6 +4,7 @@ use super::{
 };
 use anyhow::{anyhow, Context, Result};
 use keepass::{Database, DatabaseKey};
+use serde::{Deserialize, Serialize};
 use std::{
     fs,
     io::{Read as _, Write as _},
@@ -61,7 +62,7 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
                 }
                 let secret = random_password()?;
                 create_entry(&mut vault.database, &path, &secret)?;
-                save_vault(&vault, args.key_file.as_deref(), &path, &secret)?;
+                save_vault(&mut vault, args.key_file.as_deref(), &path, &secret)?;
                 secret
             };
             let mut command = ssh_command(args);
@@ -100,29 +101,25 @@ fn deliver_caddy_from_vault(
 ) -> Result<()> {
     let ui_config = ui_config.ok_or_else(|| anyhow!("missing host UI declaration"))?;
     let environment = args.environment.as_str();
-    let domain_path = format!("skillet/environments/{environment}/ui/domain");
+    let domain_path = format!("skillet/environments/{environment}/dns/ui-domain");
     let domain = lookup(&vault.database, &domain_path)?
         .ok_or_else(|| anyhow!("KeePassXC UI domain entry is missing: {domain_path}"))?;
-    let zone_path = format!("skillet/environments/{environment}/cloudflare/zone");
-    let zone = lookup(&vault.database, &zone_path)?
+    let zone_path = format!("skillet/environments/{environment}/dns/cloudflare-zone-id");
+    let zone_id = lookup(&vault.database, &zone_path)?
         .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
     let domain = domain.trim();
-    let zone = zone.trim();
-    skillet_caddy::validate_domain_in_zone(domain, zone)
+    let zone_id = zone_id.trim();
+    crate::cloudflare::validate_zone_id(zone_id)?;
+    let creator =
+        lookup(&vault.database, "skillet/cloudflare/token-creator")?.ok_or_else(|| {
+            anyhow!(
+                "KeePassXC Cloudflare token creator is missing: skillet/cloudflare/token-creator"
+            )
+        })?;
+    let cloudflare = crate::cloudflare::Cloudflare::new();
+    let zone = cloudflare.zone(&creator, zone_id)?;
+    skillet_caddy::validate_domain_in_zone(domain, &zone.name)
         .context("validating KeePassXC UI domain against its Cloudflare zone")?;
-    let token_path = format!(
-        "skillet/environments/{environment}/hosts/{}/cloudflare/acme-token",
-        args.hostname
-    );
-    let mut token = lookup(&vault.database, &token_path)?;
-    if token.is_none() && args.environment == UiEnvironmentName::Production {
-        token = lookup(
-            &vault.database,
-            &format!("skillet/hosts/{}/cloudflare/acme-token", args.hostname),
-        )?;
-    }
-    let token = token
-        .ok_or_else(|| anyhow!("KeePassXC Cloudflare ACME token entry is missing: {token_path}"))?;
     let sites = skillet_caddy::CaddySites::from_host(
         &args.hostname,
         &skillet_caddy::UiEnvironment {
@@ -131,6 +128,17 @@ fn deliver_caddy_from_vault(
         },
         &ui_config.services,
     )?;
+    let tailnet = tailscale_credentials(vault)?;
+    let device =
+        tailscale::find_device_by_hostname(&tailnet, &args.hostname, tailscale::SERVER_TAG)?;
+    let dns_marker = format!("skillet:{environment}:{}", args.hostname);
+    let dns =
+        crate::cloudflare::desired_records(&sites.machine_hostname, &device.addresses, &sites)?;
+    ensure_vault_unchanged(vault)?;
+    let token = host_acme_token(args, vault, &cloudflare, &creator, zone_id)?;
+    cloudflare.zone(&token, zone_id)?;
+    ensure_vault_unchanged(vault)?;
+    cloudflare.reconcile_dns(&token, zone_id, &dns_marker, domain, &dns)?;
     ensure_vault_unchanged(vault)?;
     let sites = serde_json::to_string(&sites)?;
     for (credential, value) in [
@@ -153,6 +161,55 @@ fn deliver_caddy_from_vault(
         return Err(anyhow!("Caddy apply failed with status {status}"));
     }
     Ok(())
+}
+
+fn host_acme_token(
+    args: &SecretDeliverArgs,
+    vault: &mut OpenVault,
+    api: &crate::cloudflare::Cloudflare,
+    creator: &str,
+    zone_id: &str,
+) -> Result<String> {
+    let environment = args.environment.as_str();
+    let token_path = format!(
+        "skillet/environments/{environment}/hosts/{}/cloudflare/acme-token",
+        args.hostname
+    );
+    if let Some(token) = lookup(&vault.database, &token_path)? {
+        return Ok(token);
+    }
+    let legacy = if args.environment == UiEnvironmentName::Production {
+        lookup(
+            &vault.database,
+            &format!("skillet/hosts/{}/cloudflare/acme-token", args.hostname),
+        )?
+    } else {
+        None
+    };
+    if let Some(token) = legacy {
+        create_entry(&mut vault.database, &token_path, &token)?;
+        save_vault(vault, args.key_file.as_deref(), &token_path, &token)?;
+        return Ok(token);
+    }
+    let token_name = format!("skillet:{environment}:{}", args.hostname);
+    // A previous request may have reached Cloudflare before its response was
+    // lost. With no vault credential to reuse, clean up only child tokens
+    // carrying this exact Skillet-owned name.
+    for orphan in api.token_ids_by_name(creator, &token_name)? {
+        api.revoke_token(creator, &orphan)?;
+    }
+    let issued = api.create_zone_token(creator, zone_id, &token_name, None)?;
+    if let Err(error) = create_entry(&mut vault.database, &token_path, &issued.value)
+        .and_then(|()| save_vault(vault, args.key_file.as_deref(), &token_path, &issued.value))
+    {
+        if let Err(revoke_error) = api.revoke_token(creator, &issued.id) {
+            return Err(anyhow!("saving issued Cloudflare credential failed ({error}); revoking token {} also failed ({revoke_error})", issued.id));
+        }
+        return Err(
+            error.context("saving new Cloudflare token into KeePassXC; issued token was revoked")
+        );
+    }
+    Ok(issued.value)
 }
 
 pub(super) fn lock_vault(path: Option<&Path>) -> Result<()> {
@@ -287,7 +344,7 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
         Some(path) => path.clone(),
         None => default_database_path()?,
     };
-    let vault = open_vault(&vault_path, args.key_file.as_deref())?;
+    let mut vault = open_vault(&vault_path, args.key_file.as_deref())?;
     let credentials = tailscale_credentials(&vault)?;
     let expected_hostname = name.as_str();
 
@@ -319,6 +376,9 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
         &addresses,
     )?;
     save_vm_tailscale_record(&run_dir, &record)?;
+    if args.with_ui {
+        provision_vm_ui(args, &run_dir, &mut ssh, &mut vault, &record)?;
+    }
     remove_pending_tailscale(&run_dir)?;
     println!("Tailscale connected VM {expected_hostname}");
     Ok(())
@@ -333,6 +393,13 @@ pub(super) fn remove_vm_from_tailscale(args: &VmDestroyArgs) -> Result<()> {
     let run_dir = butane.join("runs").join(&name);
     let pending = run_dir.join("tailscale-pending");
     let record_path = run_dir.join("tailscale.json");
+    let cloudflare_path = run_dir.join("cloudflare.json");
+    if !pending.exists() && !record_path.exists() && !cloudflare_path.exists() {
+        return Ok(());
+    }
+    if cloudflare_path.exists() {
+        cleanup_vm_cloudflare(args, &cloudflare_path)?;
+    }
     if !pending.exists() && !record_path.exists() {
         return Ok(());
     }
@@ -361,6 +428,214 @@ pub(super) fn remove_vm_from_tailscale(args: &VmDestroyArgs) -> Result<()> {
     if record_path.exists() {
         fs::remove_file(record_path).context("removing Tailscale VM metadata")?;
     }
+    Ok(())
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct CloudflareVmOwnership {
+    environment: String,
+    marker: String,
+    zone_id: String,
+    ui_domain: String,
+    token_name: String,
+    token_id: Option<String>,
+    expires_on: Option<String>,
+    record_ids: Vec<String>,
+}
+
+fn provision_vm_ui(
+    args: &VmProvisionArgs,
+    run_dir: &Path,
+    ssh: &mut VmSsh<'_>,
+    vault: &mut OpenVault,
+    device: &tailscale::DeviceRecord,
+) -> Result<()> {
+    let environment = UiEnvironmentName::Test.as_str();
+    let domain_path = format!("skillet/environments/{environment}/dns/ui-domain");
+    let zone_path = format!("skillet/environments/{environment}/dns/cloudflare-zone-id");
+    let ui_domain = lookup(&vault.database, &domain_path)?
+        .ok_or_else(|| anyhow!("KeePassXC UI domain entry is missing: {domain_path}"))?;
+    let zone_id = lookup(&vault.database, &zone_path)?
+        .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
+    let creator =
+        lookup(&vault.database, "skillet/cloudflare/token-creator")?.ok_or_else(|| {
+            anyhow!(
+                "KeePassXC Cloudflare token creator is missing: skillet/cloudflare/token-creator"
+            )
+        })?;
+    let ui_domain = ui_domain.trim().to_string();
+    let zone_id = zone_id.trim().to_string();
+    crate::cloudflare::validate_zone_id(&zone_id)?;
+    let api = crate::cloudflare::Cloudflare::new();
+    let zone = api.zone(&creator, &zone_id)?;
+    skillet_caddy::validate_domain_in_zone(&ui_domain, &zone.name)
+        .context("validating test UI domain against its Cloudflare zone")?;
+    let host_ui = skillet_cli_common::hosts::ui_config_for_host(&args.hostname)
+        .ok_or_else(|| anyhow!("host {} has no declared UI services", args.hostname))?;
+    let sites = skillet_caddy::CaddySites::from_host(
+        &args.hostname,
+        &skillet_caddy::UiEnvironment {
+            ui_domain: ui_domain.clone(),
+            acme_staging: true,
+        },
+        &host_ui.services,
+    )?;
+    let dns =
+        crate::cloudflare::desired_records(&sites.machine_hostname, &device.addresses, &sites)?;
+    let marker = format!("skillet:test:{}:{}", args.hostname, args.instance);
+    let token_name = format!("skillet:test:{}-{}", args.hostname, args.instance);
+    let metadata_path = run_dir.join("cloudflare.json");
+    let mut ownership = CloudflareVmOwnership {
+        environment: environment.to_string(),
+        marker,
+        zone_id,
+        ui_domain,
+        token_name,
+        token_id: None,
+        expires_on: None,
+        record_ids: Vec::new(),
+    };
+    write_cloudflare_ownership(&metadata_path, &ownership)?;
+    ensure_vault_unchanged(vault)?;
+    let issued = api.create_zone_token(
+        &creator,
+        &ownership.zone_id,
+        &ownership.token_name,
+        Some(std::time::Duration::from_hours(12)),
+    )?;
+    ownership.token_id = Some(issued.id.clone());
+    ownership.expires_on.clone_from(&issued.expires_on);
+    write_cloudflare_ownership(&metadata_path, &ownership)?;
+    let work = (|| {
+        let owned = api.reconcile_dns(
+            &issued.value,
+            &ownership.zone_id,
+            &ownership.marker,
+            &ownership.ui_domain,
+            &dns,
+        )?;
+        ownership.record_ids = owned.records.into_iter().map(|record| record.id).collect();
+        write_cloudflare_ownership(&metadata_path, &ownership)?;
+        ssh.install_deferred(
+            "caddy_sites",
+            "skillet-caddy-apply.service",
+            &serde_json::to_string(&sites)?,
+        )?;
+        ssh.install_deferred(
+            "cloudflare_acme_token",
+            "skillet-caddy-apply.service",
+            &issued.value,
+        )?;
+        ssh.run("sudo -n systemctl start skillet-caddy-apply.service")?;
+        for old_id in api.token_ids_by_name(&creator, &ownership.token_name)? {
+            if old_id != issued.id {
+                api.revoke_token(&creator, &old_id)?;
+            }
+        }
+        Ok::<(), anyhow::Error>(())
+    })();
+    if let Err(error) = work {
+        return Err(error.context("provisioning disposable Cloudflare DNS and Caddy"));
+    }
+    Ok(())
+}
+
+fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<()> {
+    let bytes = fs::read(metadata_path).context("reading Cloudflare VM ownership metadata")?;
+    let ownership: CloudflareVmOwnership =
+        serde_json::from_slice(&bytes).context("decoding Cloudflare VM ownership metadata")?;
+    if ownership.environment != UiEnvironmentName::Test.as_str() {
+        return Err(anyhow!(
+            "refusing VM cleanup for a non-test Cloudflare environment"
+        ));
+    }
+    let expected_marker = format!("skillet:test:{}:{}", args.hostname, args.instance);
+    let expected_token_name = format!("skillet:test:{}-{}", args.hostname, args.instance);
+    if ownership.marker != expected_marker || ownership.token_name != expected_token_name {
+        return Err(anyhow!(
+            "Cloudflare metadata does not match this VM identity; refusing cleanup"
+        ));
+    }
+    crate::cloudflare::validate_zone_id(&ownership.zone_id)?;
+    skillet_caddy::validate_domain_in_zone(&ownership.ui_domain, &ownership.ui_domain)
+        .context("validating Cloudflare UI domain in VM metadata")?;
+    let vault_path = args
+        .database
+        .clone()
+        .map_or_else(default_database_path, Ok)?;
+    let vault = open_vault(&vault_path, args.key_file.as_deref())?;
+    let creator =
+        lookup(&vault.database, "skillet/cloudflare/token-creator")?.ok_or_else(|| {
+            anyhow!(
+                "KeePassXC Cloudflare token creator is missing: skillet/cloudflare/token-creator"
+            )
+        })?;
+    let configured_zone = lookup(
+        &vault.database,
+        "skillet/environments/test/dns/cloudflare-zone-id",
+    )?
+    .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: skillet/environments/test/dns/cloudflare-zone-id"))?;
+    let configured_domain = lookup(&vault.database, "skillet/environments/test/dns/ui-domain")?
+        .ok_or_else(|| {
+            anyhow!("KeePassXC UI domain entry is missing: skillet/environments/test/dns/ui-domain")
+        })?;
+    if configured_zone.trim() != ownership.zone_id
+        || configured_domain.trim() != ownership.ui_domain
+    {
+        return Err(anyhow!("test Cloudflare configuration differs from the recorded VM owner; restore the original vault values before cleanup"));
+    }
+    let api = crate::cloudflare::Cloudflare::new();
+    let zone = api.zone(&creator, &ownership.zone_id)?;
+    skillet_caddy::validate_domain_in_zone(&ownership.ui_domain, &zone.name)
+        .context("validating recorded test UI domain against its Cloudflare zone")?;
+    let cleanup_name = format!("{}:cleanup", ownership.token_name);
+    let cleanup_token = api.create_zone_token(
+        &creator,
+        &ownership.zone_id,
+        &cleanup_name,
+        Some(std::time::Duration::from_mins(15)),
+    )?;
+    let cleanup = (|| {
+        api.zone(&cleanup_token.value, &ownership.zone_id)?;
+        api.remove_dns_marker(
+            &cleanup_token.value,
+            &ownership.zone_id,
+            &ownership.marker,
+            &ownership.ui_domain,
+        )?;
+        for id in api.token_ids_by_name(&creator, &ownership.token_name)? {
+            api.revoke_token(&creator, &id)?;
+        }
+        Ok::<(), anyhow::Error>(())
+    })();
+    let revoke_cleanup = api
+        .token_ids_by_name(&creator, &cleanup_name)
+        .and_then(|ids| {
+            for id in ids {
+                api.revoke_token(&creator, &id)?;
+            }
+            Ok(())
+        });
+    cleanup?;
+    revoke_cleanup.context("revoking temporary Cloudflare cleanup token")?;
+    fs::remove_file(metadata_path).context("removing Cloudflare VM ownership metadata")?;
+    Ok(())
+}
+
+fn write_cloudflare_ownership(path: &Path, ownership: &CloudflareVmOwnership) -> Result<()> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| anyhow!("Cloudflare metadata has no parent directory"))?;
+    let mut file = tempfile::NamedTempFile::new_in(parent)
+        .context("creating Cloudflare ownership metadata")?;
+    file.as_file_mut()
+        .write_all(&serde_json::to_vec(ownership)?)?;
+    file.as_file()
+        .set_permissions(fs::Permissions::from_mode(0o600))?;
+    file.as_file().sync_all()?;
+    file.persist(path)
+        .context("recording Cloudflare ownership metadata")?;
+    fs::File::open(parent)?.sync_all()?;
     Ok(())
 }
 
@@ -414,13 +689,36 @@ impl VmSsh<'_> {
     }
 
     fn install(&mut self, name: &str, secret: &str) -> Result<()> {
+        self.install_for_unit(name, "skillet-full-apply.service", secret, false)
+    }
+
+    fn install_deferred(&mut self, name: &str, unit: &str, secret: &str) -> Result<()> {
+        self.install_for_unit(name, unit, secret, true)
+    }
+
+    fn install_for_unit(
+        &mut self,
+        name: &str,
+        unit: &str,
+        secret: &str,
+        defer_start: bool,
+    ) -> Result<()> {
         if secret.is_empty() {
             return Err(anyhow!("refusing to deliver an empty credential"));
         }
+        if !unit
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-' | b'@'))
+        {
+            return Err(anyhow!("invalid credential consumer unit"));
+        }
+        let mut remote =
+            format!("sudo -n /var/usrlocal/bin/skillet-clamps credential install {name} {unit}");
+        if defer_start {
+            remote.push_str(" --no-start");
+        }
         let mut child = self
-            .command(&format!(
-                "sudo -n /var/usrlocal/bin/skillet-clamps credential install {name} skillet-full-apply.service"
-            ))
+            .command(&remote)
             .stdin(Stdio::piped())
             .spawn()
             .context("opening VM credential delivery")?;
@@ -727,7 +1025,7 @@ fn create_entry(database: &mut Database, path: &str, password: &str) -> Result<(
 }
 
 fn save_vault(
-    vault: &OpenVault,
+    vault: &mut OpenVault,
     key_file: Option<&Path>,
     entry_path: &str,
     secret: &str,
@@ -800,6 +1098,7 @@ fn save_vault(
         .persist(&vault.path)
         .context("atomically replacing KeePassXC database")?;
     fs::File::open(parent)?.sync_all()?;
+    vault.original = fs::read(&vault.path).context("refreshing vault snapshot after save")?;
     Ok(())
 }
 

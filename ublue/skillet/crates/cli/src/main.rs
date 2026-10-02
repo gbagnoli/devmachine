@@ -9,6 +9,7 @@ use std::{
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
+mod cloudflare;
 mod secret_delivery;
 mod tailscale;
 
@@ -151,6 +152,9 @@ struct VmDestroyArgs {
 struct VmProvisionArgs {
     hostname: String,
     instance: String,
+    /// Also provision private UI DNS, Caddy, and disposable Cloudflare credentials
+    #[arg(long)]
+    with_ui: bool,
     #[arg(long)]
     database: Option<PathBuf>,
     #[arg(long)]
