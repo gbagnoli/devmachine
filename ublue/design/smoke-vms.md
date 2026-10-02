@@ -25,6 +25,12 @@ the test artifacts and uses QEMU user networking.
 
 ## States and recovery
 
+Planned encrypted-root tests add a software TPM2 and UEFI/Secure Boot profile.
+Each VM owns independent TPM state and firmware NVRAM alongside its disk;
+reboots preserve them and disposal removes only owned state. Software TPM
+checks establish provisioning behavior; physical hardware acceptance remains
+required. See the [TPM encrypted-root plan](../plan/TPM-ENCRYPTED-ROOT.md).
+
 1. **Create:** build the generic CLI and host binary, allocate the run directory and SSH key,
    and provision a fresh VM disk. Ignition contains the public SSH key and
    base configuration. Large binaries travel over SSH because embedding them

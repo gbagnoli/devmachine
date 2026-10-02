@@ -44,6 +44,22 @@ this rule by design. The `containers` subvolume can then be omitted from
 service-data snapshots. A shared filesystem shares free space and physical
 failure; snapshots are not independent backups.
 
+## Planned encryption
+
+Decision, 2026-10-02: add LUKS2 beneath the shared Btrfs backing filesystem
+and prefer local TPM2 unlock on both local and remote physical hosts. Normal
+boots must not need a network or operator. This protects persistent service
+state, including Podman's disk copies of secrets, while retaining the existing
+subvolume layout. Tang is deferred; assess each remote host's TPM first.
+EFI and `/boot` remain outside encryption. An explicit boot-integrity policy
+and update/rollback compatibility must be proved before claiming protection
+against theft of the whole machine. Keep an independent recovery key in the
+private vault and a protected off-machine LUKS header backup.
+Encryption is not implemented. Installation owns formatting; the current raw
+root partition mount assumptions must be changed to the unlocked filesystem.
+QEMU functional tests and physical acceptance are specified in the
+[TPM encrypted-root plan](../plan/TPM-ENCRYPTED-ROOT.md).
+
 The clamps VM passed fresh provisioning, mount, SELinux, reboot, repeat apply,
 and unavailable/wrong-mount recovery. A post-provision OS rebase and the
 physical disk choice remain open in

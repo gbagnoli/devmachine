@@ -13,6 +13,14 @@ stay on the workstation and mint short-lived, one-use enrollment keys.
 
 ## Portable storage
 
+Planned disk recovery: production LUKS recovery keys use
+`skillet/hosts/<host>/storage/root-recovery-key` and remain available off the
+protected host. Root unlock uses the TPM, independently of vault access or
+Skillet application-credential delivery. Disposable encryption tests generate
+their own recovery material. Header backups require protected off-machine
+storage; implementation and recovery checks are in the
+[TPM encrypted-root plan](../plan/TPM-ENCRYPTED-ROOT.md).
+
 KeePassXC is already the user's password manager, and Syncthing already moves
 the encrypted database between machines. Reusing that database avoids a custom
 vault format, export mechanism, or second authoritative store. Skillet defaults
