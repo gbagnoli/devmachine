@@ -123,7 +123,9 @@ impl Cloudflare {
 
     pub(crate) fn zone(&self, token: &str, zone_id: &str) -> Result<Zone> {
         validate_zone_id(zone_id)?;
-        let value = self.result(token, Method::GET, format!("zones/{zone_id}"), None, None)?;
+        let value = self
+            .result(token, Method::GET, format!("zones/{zone_id}"), None, None)
+            .context("reading configured Cloudflare zone; check Zone > Zone > Read permission and access to the configured zone")?;
         serde_json::from_value(value).context("decoding Cloudflare zone")
     }
 

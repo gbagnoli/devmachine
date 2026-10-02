@@ -180,8 +180,11 @@ remains in the [secret design](../design/secrets.md).
 
 For Cloudflare token issuance, select **Create additional tokens** in the
 Cloudflare dashboard, granting **User > API Tokens > Read** and **API Tokens >
-Edit** (the write permission) only.
-Do not add zone permissions to this workstation issuer. Save it as
+Edit** (the write permission). Add **Zone > Zone > Read**, with Zone Resources
+restricted to the configured test and/or production zones. Skillet uses the
+issuer to validate the selected zone before minting a child token. The issuer
+does not need DNS Write. A token with only the additional-tokens template
+permissions fails this validation with HTTP 403. Save it as
 `skillet/cloudflare/token-creator`. Skillet discovers the Cloudflare
 permission-group IDs at runtime, then creates zone-scoped child tokens with
 Zone Read and DNS Write. If the issuer is already stored in the desktop
