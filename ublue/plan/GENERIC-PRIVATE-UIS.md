@@ -3,9 +3,9 @@
 Status: shared UI declarations, aliases, environment lookup, Caddy payloads,
 Cloudflare account-token issuance, DNS reconciliation, and opt-in smoke VM
 cleanup are implemented and passed live staging ACME/HTTPS acceptance on
-2026-10-02. Unit tests, Clippy, and routine CI pass. Remaining: API mutation
-fault-injection tests, access denial from outside the tailnet, and production
-ACME/renewal acceptance.
+2026-10-02. Unit tests cover ambiguous token creation, retry after partial DNS
+reconciliation, and retry after interrupted DNS cleanup. Remaining: access
+denial from outside the tailnet and production ACME/renewal acceptance.
 
 ## Goal and fixed decisions
 
@@ -216,7 +216,8 @@ Exit: new DNS paths and Zone ID validation are covered; issuance requires no
 manually populated VM ACME entry; cleanup works after token expiry; both
 environments use the same reconciler; a second apply creates no
 duplicate token or records; failures at each external mutation can resume or
-clean up. Mutation fault-injection coverage remains outstanding. Concurrent deployments claiming the same host/environment names
+clean up. The retry tests inject API failures after token creation, between DNS
+record creates, and during DNS deletion. Concurrent deployments claiming the same host/environment names
 are refused. Do not append VM instance names to URLs silently; supporting
 parallel instances requires separately selected base domains/environments.
 

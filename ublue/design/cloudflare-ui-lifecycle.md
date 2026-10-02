@@ -113,9 +113,11 @@ and revokes disposable tokens. Local tests cover the SDK transport, permission
 group discovery, scoped token payloads, address-family validation, and DNS
 planning. Live 2026-10-02 staging acceptance issued certificates for each
 declared canonical UI and alias, verified DNS and HTTPS over IPv4/IPv6, and
-disposed the VM, DNS records, and child tokens. DNS mutation
-fault-injection/recovery tests, outside-tailnet denial, and production
-certificate acceptance remain pending.
+disposed the VM, DNS records, and child tokens. CI tests inject an ambiguous
+token-create response, a DNS-create failure after a partial reconciliation,
+and a DNS-delete failure during cleanup; each retry converges without
+duplicates or deleting unrelated records. Outside-tailnet denial and
+production certificate acceptance remain pending.
 
 See [generic UI plan](../plan/GENERIC-PRIVATE-UIS.md),
 [secret delivery](secrets.md), and [VM lifecycle](smoke-vms.md).

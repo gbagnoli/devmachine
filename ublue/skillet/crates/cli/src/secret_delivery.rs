@@ -192,13 +192,7 @@ fn host_acme_token(
         return Ok(token);
     }
     let token_name = format!("skillet:{environment}:{}", args.hostname);
-    // A previous request may have reached Cloudflare before its response was
-    // lost. With no vault credential to reuse, clean up only child tokens
-    // carrying this exact Skillet-owned name.
-    for orphan in api.token_ids_by_name(creator, account_id, &token_name)? {
-        api.revoke_token(creator, account_id, &orphan)?;
-    }
-    let issued = api.create_zone_token(creator, zone_id, account_id, &token_name, None)?;
+    let issued = api.replace_named_zone_token(creator, zone_id, account_id, &token_name, None)?;
     if let Err(error) = create_entry(&mut vault.database, &token_path, &issued.value)
         .and_then(|()| save_vault(vault, args.key_file.as_deref(), &token_path, &issued.value))
     {

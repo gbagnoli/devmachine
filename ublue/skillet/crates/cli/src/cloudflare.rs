@@ -224,6 +224,23 @@ impl Cloudflare {
         serde_json::from_value(value).context("decoding newly issued Cloudflare token")
     }
 
+    pub(crate) fn replace_named_zone_token(
+        &self,
+        creator_token: &str,
+        zone_id: &str,
+        account_id: &str,
+        name: &str,
+        lifetime: Option<Duration>,
+    ) -> Result<IssuedToken> {
+        // A previous create may have reached Cloudflare even when its response
+        // was lost. Deterministic names let the next invocation find and
+        // revoke that orphan before issuing a replacement.
+        for id in self.token_ids_by_name(creator_token, account_id, name)? {
+            self.revoke_token(creator_token, account_id, &id)?;
+        }
+        self.create_zone_token(creator_token, zone_id, account_id, name, lifetime)
+    }
+
     pub(crate) fn token_ids_by_name(
         &self,
         creator_token: &str,
