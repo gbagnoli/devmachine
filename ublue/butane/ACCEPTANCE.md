@@ -501,3 +501,21 @@ host tool; it still uses normal command approvals.
   scenario pass. This loopback check does not replace a request from an
   independent network outside the VM. The disposable VM remains running for
   manual inspection.
+
+### Pi-hole DNS behavior on smoke VM, 2026-10-02
+
+- On the running `clamps-test-smoke` VM, Pi-hole was active and published DNS
+  listeners on wildcard IPv4 and IPv6 addresses. Queries for a public test
+  name succeeded over UDP and TCP through the VM's IPv4 and IPv6 interface
+  addresses.
+- A temporary Pi-hole v6 `dns.hosts` record using the documented
+  `"IP HOSTNAME"` format resolved over both transports and address families.
+  The original empty custom-host setting was restored and verified afterward.
+  The unauthenticated admin page redirected to login (302), and the unauthenticated
+  API auth endpoint returned 401.
+- This VM uses libvirt's user-mode `passt` network with only SSH forwarded to
+  the workstation. Its active firewalld zone has no explicit DNS service or
+  port allowance. Guest-local queries do not establish client ingress, so LAN
+  reachability and host-firewall behavior remain unverified; validate them on
+  a bridged/physical clamps network before cutover. No production DNS records
+  were supplied or changed.
