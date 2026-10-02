@@ -435,3 +435,39 @@ host tool; it still uses normal command approvals.
 - Live Cloudflare/Caddy acceptance remains pending migration of the existing
   vault prefix. No new DNS mutations or certificate issuance are claimed for
   this change.
+
+### Live issuer retry, 2026-10-02
+
+- Retried `skillet test vm provision clamps generic-ui --with-ui` using the
+  cached vault unlock. Zone lookup and relative namespace resolution succeeded.
+- The first retry found that the saved issuer is account-owned and correctly
+  has Account API Tokens Write. The original Skillet implementation called
+  user-token endpoints, which returned HTTP 403 / code 9109. This endpoint
+  mismatch was corrected by deriving the account ID from the selected zone and
+  using account-token endpoints for discovery, creation, listing, and revoke.
+- See the live account-token and Caddy result below; the earlier blocked state
+  has been resolved.
+
+### Account token, Cloudflare DNS, and Caddy live acceptance, 2026-10-02
+
+- The account-owned issuer passed permission-group discovery and created the
+  scoped child token. Cloudflare DNS reconciliation created the expected five
+  owned records for the machine address, canonical UIs, and declared alias.
+- Caddy's disposable container started and obtained Let's Encrypt staging
+  certificates for Pi-hole, Syncthing, and the Syncthing alias using DNS-01.
+  OpenSSL checks confirmed each certificate SAN matched the requested name and
+  the issuer was staging.
+- From the workstation on the tailnet, DNS resolved over IPv4 and IPv6. HTTPS
+  returned Pi-hole `/admin/` login redirects (302) and Syncthing canonical and
+  alias pages (200) over both address families. Bare Pi-hole `/` returns 403;
+  its UI is at `/admin/`.
+- `skillet test vm destroy clamps generic-ui` completed. It removed the owned
+  Cloudflare records and child tokens through account endpoints, removed the
+  Tailscale device, undefined the libvirt domain, and removed Cloudflare
+  ownership metadata. The retained unrelated `clamps-test-smoke` VM remains.
+- `cargo fmt --all --check`, workspace GNU tests (67 tests), all-target
+  pedantic Clippy, and `skillet test run beezelbot --phase base --image
+  fedora:latest` passed. The account create/list/revoke endpoints and Caddy
+  config directory mount have regression coverage.
+- This validates staging only. A request from outside the tailnet and
+  production ACME issuance/renewal were not tested.

@@ -78,7 +78,7 @@ fn sdk_transport_calls_cloudflare_with_bearer_token() {
         let request = String::from_utf8_lossy(&request[..count]).to_ascii_lowercase();
         assert!(request.contains("authorization: bearer test-token"));
         assert!(request.contains("/client/v4/zones/0123456789abcdef0123456789abcdef"));
-        let body = r#"{"success":true,"errors":[],"messages":[],"result":{"id":"0123456789abcdef0123456789abcdef","name":"example.test"}}"#;
+        let body = r#"{"success":true,"errors":[],"messages":[],"result":{"id":"0123456789abcdef0123456789abcdef","name":"example.test","account":{"id":"abcdef0123456789abcdef0123456789"}}}"#;
         write!(stream, "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len()).expect("response");
     });
     let api = Cloudflare::with_base(&format!("http://{address}/client/v4/"));
@@ -119,11 +119,11 @@ fn discovers_permission_group_ids_and_creates_scoped_token_through_sdk() {
     let server = thread::spawn(move || {
         for (expected_path, body) in [
             (
-                "/client/v4/user/tokens/permission_groups",
+                "/client/v4/accounts/abcdef0123456789abcdef0123456789/tokens/permission_groups",
                 r#"{"success":true,"errors":[],"messages":[],"result":[{"id":"zone-read-id","name":"Zone Read","scopes":["com.cloudflare.api.account.zone"],"is_selectable":true},{"id":"dns-write-id","name":"DNS Write","scopes":["com.cloudflare.api.account.zone"],"is_selectable":true}]}"#,
             ),
             (
-                "/client/v4/user/tokens",
+                "/client/v4/accounts/abcdef0123456789abcdef0123456789/tokens",
                 r#"{"success":true,"errors":[],"messages":[],"result":{"id":"0123456789abcdef0123456789abcdef","value":"child-secret","expires_on":"2026-10-02T00:00:00Z"}}"#,
             ),
         ] {
@@ -133,9 +133,7 @@ fn discovers_permission_group_ids_and_creates_scoped_token_through_sdk() {
                 .to_ascii_lowercase()
                 .contains("authorization: bearer issuer-token"));
             assert!(request.contains(expected_path));
-            if expected_path.ends_with("user/tokens")
-                && !expected_path.ends_with("permission_groups")
-            {
+            if expected_path.ends_with("/tokens") {
                 let (_, request_body) = request.split_once("\r\n\r\n").expect("POST body");
                 let payload: Value = serde_json::from_str(request_body).expect("JSON payload");
                 assert_eq!(
@@ -162,12 +160,51 @@ fn discovers_permission_group_ids_and_creates_scoped_token_through_sdk() {
         .create_zone_token(
             "issuer-token",
             "0123456789abcdef0123456789abcdef",
+            "abcdef0123456789abcdef0123456789",
             "skillet:test:clamps-smoke",
             Some(Duration::from_mins(30)),
         )
         .expect("scoped token");
     assert_eq!(token.value, "child-secret");
     assert_eq!(token.id, "0123456789abcdef0123456789abcdef");
+    server.join().expect("server thread");
+}
+
+#[test]
+fn lists_and_revokes_tokens_through_account_endpoints() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+    let address = listener.local_addr().expect("address");
+    let server = thread::spawn(move || {
+        for (expected, body) in [
+            (
+                "GET /client/v4/accounts/abcdef0123456789abcdef0123456789/tokens?",
+                r#"{"success":true,"errors":[],"messages":[],"result":[{"id":"0123456789abcdef0123456789abcdef","name":"skillet:test:clamps-smoke"}],"result_info":{"total_pages":1}}"#,
+            ),
+            (
+                "DELETE /client/v4/accounts/abcdef0123456789abcdef0123456789/tokens/0123456789abcdef0123456789abcdef",
+                r#"{"success":true,"errors":[],"messages":[],"result":{}}"#,
+            ),
+        ] {
+            let (mut stream, _) = listener.accept().expect("client");
+            let request = read_request(&mut stream);
+            assert!(request.starts_with(expected));
+            assert!(request
+                .to_ascii_lowercase()
+                .contains("authorization: bearer issuer-token"));
+            write!(stream, "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len()).expect("response");
+        }
+    });
+    let api = Cloudflare::with_base(&format!("http://{address}/client/v4/"));
+    let ids = api
+        .token_ids_by_name(
+            "issuer-token",
+            "abcdef0123456789abcdef0123456789",
+            "skillet:test:clamps-smoke",
+        )
+        .expect("list account tokens");
+    assert_eq!(ids, ["0123456789abcdef0123456789abcdef"]);
+    api.revoke_token("issuer-token", "abcdef0123456789abcdef0123456789", &ids[0])
+        .expect("revoke account token");
     server.join().expect("server thread");
 }
 

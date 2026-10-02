@@ -50,6 +50,13 @@ fn applying_unchanged_caddy_sites_preserves_the_container() {
         .get("/etc/containers/systemd/caddy.container")
         .cloned()
         .unwrap();
+    let initial_config_text = String::from_utf8_lossy(&initial_config);
+    assert!(initial_config_text.contains("Volume=/etc/skillet/caddy:/etc/caddy:ro,Z"));
+    assert!(files
+        .files
+        .lock()
+        .unwrap()
+        .contains_key("/etc/skillet/caddy/Caddyfile"));
 
     super::apply(&system, &files, &sites, test_network()).unwrap();
 
