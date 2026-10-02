@@ -374,3 +374,18 @@ host tool; it still uses normal command approvals.
   compiler was incorrect. No packages or toolchains were installed. The VM smoke script,
   `--with-ui` provisioning, real Cloudflare mutations, staging ACME, and HTTPS
   acceptance remain unverified.
+
+### Musl build and live UI attempt, 2026-10-02
+
+- With `/opt/x86_64-linux-musl-cross/bin` prepended to PATH and
+  `CARGO_TARGET_DIR=/home/giacomo/.cache/devmachine-target`,
+  `cargo build --release --target x86_64-unknown-linux-musl -p skillet
+  -p skillet-clamps` passed using the existing toolchain.
+- `skillet test vm update clamps generic-ui` installed both static binaries
+  in the existing named disposable VM.
+- `skillet test vm provision clamps generic-ui --with-ui` stopped at vault
+  unlock: the kernel cache was unavailable and the tool process had no terminal
+  (`reading database password from terminal: No such device or address`).
+  No Cloudflare API or live certificate acceptance is claimed. User terminal
+  unlock is needed before continuing retained-VM checks and the fresh
+  destroy/create/provision/verify/dispose cycle.
