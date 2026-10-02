@@ -368,7 +368,9 @@ host tool; it still uses normal command approvals.
   extra service starts.
 - `skillet test vm list clamps` found `generic-ui` and `smoke` running. Updating
   `generic-ui` for the integration test was attempted, but `test-vm update`
-  requires the x86_64 musl artifact and this workstation has no musl target
-  compiler. No packages or toolchains were installed. The VM smoke script,
+  requires both x86_64 musl artifacts; the generic CLI artifact was missing.
+  The musl Rust target is installed, and the existing cross compiler requires
+  `/opt/x86_64-linux-musl-cross/bin` in PATH. The earlier diagnosis of a missing
+  compiler was incorrect. No packages or toolchains were installed. The VM smoke script,
   `--with-ui` provisioning, real Cloudflare mutations, staging ACME, and HTTPS
   acceptance remain unverified.
