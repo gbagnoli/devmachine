@@ -30,6 +30,15 @@ This document defines the architectural mandates and project structure for `skil
     - **Unit Tests**: `cargo test` across the workspace.
     - **Runtime Smoke**: Run `integration_tests/smoke-ssh.sh` against an explicitly named disposable VM with real systemd and Podman for affected container resources. Record the guest state snapshots and failure diagnostics.
 
+## Local musl toolchain
+
+- On this workstation, the musl cross compiler is installed under
+  `/opt/x86_64-linux-musl-cross/bin`. Before compiling musl binaries, run:
+  `export PATH=/opt/x86_64-linux-musl-cross/bin:$PATH`.
+- Ensure this PATH is inherited by Cargo and its child build commands. Check
+  the installed Rust target and compiler before reporting musl as unavailable;
+  a missing binary artifact alone does not indicate a missing toolchain.
+
 ## Testing Philosophy
 
 Skillet uses a multi-layered testing approach to ensure reliability and idempotency:
