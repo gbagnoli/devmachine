@@ -1,60 +1,234 @@
-#!/bin/bash
-
+#!/usr/bin/env bash
 set -euo pipefail
 
-script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-# shellcheck source-path=SCRIPTDIR
-# shellcheck source=../../lib/utils.sh
-source "$(realpath "$script_dir/../../lib/utils.sh")"
+script_dir="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+butane_dir="$(realpath "$script_dir/..")"
+repo_dir="$(realpath "$butane_dir/..")"
 
-if [ $# -lt 1 ]; then
-  echo "Missing butane input script" >&2
+usage() {
+  cat <<USAGE
+Usage: $0 [--name NAME] [--output-dir DIR] [--ssh-port PORT] [--artifact FILE] [--image FILE] [--libvirt-uri URI] CONFIG.bu
+
+Default VM name is taken from CONFIG.bu. Generated keys, Ignition, logs and disk are kept in
+butane/runs/NAME. Existing domains and output directories are refused.
+USAGE
+}
+
+vm_name=
+output_dir=
+ssh_port=2222
+artifact=
+generic_artifact=
+custom_artifact=false
+image=
+libvirt_uri=qemu:///session
+vm_command() {
+  if [[ -n "${TEST_VM_LIBVIRT_RUNTIME_DIR:-}" && "${TEST_VM_BACKEND:-native}" == native ]]; then
+    env XDG_RUNTIME_DIR="$TEST_VM_LIBVIRT_RUNTIME_DIR" "$@"
+  else
+    "$@"
+  fi
+}
+while (($#)); do
+  case "$1" in
+    --name|--output-dir|--ssh-port|--artifact|--image|--libvirt-uri)
+      (($# >= 2)) || { usage >&2; exit 2; }
+      case "$1" in
+        --name) vm_name="$2" ;;
+        --output-dir) output_dir="$2" ;;
+        --ssh-port) ssh_port="$2" ;;
+        --artifact) artifact="$2"; custom_artifact=true ;;
+        --image) image="$2" ;;
+        --libvirt-uri) libvirt_uri="$2" ;;
+      esac
+      shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    --) shift; break ;;
+    -*) usage >&2; exit 2 ;;
+    *) break ;;
+  esac
+done
+(($# == 1)) && [[ "$1" == *.bu && -f "$1" ]] || { usage >&2; exit 2; }
+input="$(realpath "$1")"
+host="$(basename "$input" .bu)"
+[[ "$host" =~ ^[a-z][a-z0-9-]*$ && "$input" == "$butane_dir/$host.bu" ]] || { echo "Use a host Butane file from $butane_dir" >&2; exit 2; }
+vm_name="${vm_name:-$host}"
+[[ "$vm_name" =~ ^[a-zA-Z][a-zA-Z0-9_-]*$ ]] || { echo "Invalid VM name" >&2; exit 2; }
+if [[ ! "$ssh_port" =~ ^[0-9]+$ ]] || ((ssh_port < 1024 || ssh_port > 65535)); then
+  echo "Invalid SSH port" >&2
+  exit 2
+fi
+output_dir="$(realpath -m "${output_dir:-$butane_dir/runs/$vm_name}")"
+vm_command virsh -c "$libvirt_uri" uri >/dev/null || { echo "Cannot access libvirt URI $libvirt_uri" >&2; exit 1; }
+command -v passt >/dev/null || { echo "passt is required for loopback SSH forwarding" >&2; exit 1; }
+if vm_command virsh -c "$libvirt_uri" dominfo "$vm_name" &>/dev/null; then
+  echo "Refusing existing libvirt domain $vm_name on $libvirt_uri" >&2
   exit 1
 fi
-
-BUTANE_CONFIG="$1"
-if [[ ! -f "$BUTANE_CONFIG" ]]; then
-  echo "Cannot find file at $BUTANE_CONFIG" >&2
+if [[ -e "$output_dir" || -L "$output_dir" ]]; then
+  echo "Refusing existing output path $output_dir" >&2
   exit 1
 fi
-
-if [[ "$BUTANE_CONFIG" != *".bu" ]]; then
-  echo "Invalid file $BUTANE_CONFIG: should be a butane config" >&2
-  exit 1
+if [[ -z "$artifact" ]]; then
+  artifact_target_dir="${CARGO_TARGET_DIR:-$repo_dir/skillet/target}"
+  if [[ "$artifact_target_dir" != /* ]]; then
+    artifact_target_dir="$repo_dir/skillet/$artifact_target_dir"
+  fi
+  artifact="$artifact_target_dir/x86_64-unknown-linux-musl/release/skillet-$host"
+  generic_artifact="$artifact_target_dir/x86_64-unknown-linux-musl/release/skillet"
+  (cd "$repo_dir/skillet" && cargo build --release --target x86_64-unknown-linux-musl -p skillet -p "skillet-$host")
 fi
-
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-IGNITION_CONFIG_NAME="${BUTANE_CONFIG/.bu/.ign}"
-IGNITION_CONFIG="$(realpath "$SCRIPT_DIR/../ignition/$IGNITION_CONFIG_NAME")"
-echo >&2 "Creating $IGNITION_CONFIG from $BUTANE_CONFIG"
-"$SCRIPT_DIR"/butane -s -o "$SCRIPT_DIR/../ignition" "$BUTANE_CONFIG" "$IGNITION_CONFIG_NAME"
-
-VM_NAME="${BUTANE_CONFIG/.bu/}"
-IMAGES_DIR="$(realpath "$SCRIPT_DIR/../images/")"
-mkdir -p "$IMAGES_DIR"
-IMAGE_NAME="coreos.qcow2"
-IMAGE_PATH="$IMAGES_DIR/$IMAGE_NAME"
-
-if [[ ! -L "$IMAGE_PATH" ]]; then
-  set -x
-  run_on_host podman run --pull=always --privileged --rm -v "${IMAGES_DIR}:/data" -w /data \
-    quay.io/coreos/coreos-installer:release download -s stable -p qemu -f "qcow2.xz" --decompress
-  set +x
-  for file in "$IMAGES_DIR"/fedora-coreos-*; do
-      latest=$(basename "$file")
-  done
-
-  ln -vs "$IMAGES_DIR/$latest" "$IMAGE_PATH"
+[[ -f "$artifact" ]] || { echo "Missing Skillet artifact: $artifact" >&2; exit 1; }
+artifact="$(realpath "$artifact")"
+if [[ -z "$generic_artifact" ]]; then
+  artifact_target_dir="${CARGO_TARGET_DIR:-$repo_dir/skillet/target}"
+  if [[ "$artifact_target_dir" != /* ]]; then artifact_target_dir="$repo_dir/skillet/$artifact_target_dir"; fi
+  generic_artifact="$artifact_target_dir/x86_64-unknown-linux-musl/release/skillet"
 fi
+if [[ "$custom_artifact" == true || ! -f "$generic_artifact" ]]; then
+  (cd "$repo_dir/skillet" && cargo build --release --target x86_64-unknown-linux-musl -p skillet)
+fi
+[[ -f "$generic_artifact" ]] || { echo "Missing generic Skillet artifact: $generic_artifact" >&2; exit 1; }
+generic_artifact="$(realpath "$generic_artifact")"
+if [[ -z "$image" ]]; then
+  mapfile -t images < <(find "$butane_dir/images" -maxdepth 1 -name 'fedora-coreos-*-qemu.x86_64.qcow2' -type f 2>/dev/null | sort)
+  if ((${#images[@]} == 0)); then
+    mkdir -p "$butane_dir/images"
+    podman run --pull=always --rm --security-opt label=disable \
+      -v "$butane_dir/images:/data" -w /data \
+      quay.io/coreos/coreos-installer:release \
+      download -s stable -p qemu -f qcow2.xz --decompress
+    mapfile -t images < <(find "$butane_dir/images" -maxdepth 1 -name 'fedora-coreos-*-qemu.x86_64.qcow2' -type f | sort)
+  fi
+  ((${#images[@]} == 1)) || { echo "Specify --image: found ${#images[@]} candidate FCOS images" >&2; exit 1; }
+  image="${images[0]}"
+fi
+[[ -f "$image" ]] || { echo "Missing FCOS image: $image" >&2; exit 1; }
+image="$(realpath "$image")"
+mkdir -p "$(dirname "$output_dir")"
+mkdir "$output_dir"
+mkdir -p "$output_dir/source/includes" "$output_dir/source/files" "$output_dir/ssh" "$output_dir/ignition"
+cp "$input" "$output_dir/source/$host.bu"
+cp "$butane_dir"/includes/*.bu "$output_dir/source/includes/"
+cp "$artifact" "$output_dir/source/files/skillet-$host"
+chmod 755 "$output_dir/source/files/skillet-$host"
+cp "$generic_artifact" "$output_dir/source/files/skillet"
+chmod 755 "$output_dir/source/files/skillet"
+# Give each test VM its own hostname so Tailscale device cleanup can verify
+# the exact node belonging to this run, even when several VMs share a host OS.
+TEST_VM_HOSTNAME="$vm_name" yq -i \
+  '(.storage.files[] | select(.path == "/etc/hostname").contents.inline) = strenv(TEST_VM_HOSTNAME)' \
+  "$output_dir/source/$host.bu"
+# Keep the multi-megabyte static binary out of QEMU fw_cfg. Ignition reads
+# fw_cfg very slowly for large configs; test-vm-ready installs this artifact
+# over SSH after the guest has completed its first Ignition boot.
+skillet_include="$output_dir/source/includes/skillet.bu"
+[[ -f "$skillet_include" ]] || { echo "Missing shared Skillet Butane include" >&2; exit 1; }
+yq -i 'del(.storage.files[] | select(.path == "/var/usrlocal/bin/skillet"))' \
+  "$skillet_include"
+skillet_host_include="$output_dir/source/includes/skillet-$host.bu"
+[[ -f "$skillet_host_include" ]] || { echo "Missing host Skillet Butane include: $skillet_host_include" >&2; exit 1; }
+HOST="$host" yq -i 'del(.storage.files[] | select(.path == "/var/usrlocal/bin/skillet-" + strenv(HOST)))' \
+  "$skillet_host_include"
+ssh-keygen -q -t ed25519 -N '' -f "$output_dir/ssh/id_ed25519"
+chmod 600 "$output_dir/ssh/id_ed25519"
+public_key="$(cat "$output_dir/ssh/id_ed25519.pub")"
+# The existing giacomo account survives the FCOS-to-uCore rebase. Inject the
+# disposable key into that same account and skip its interactive password
+# expiry service only in this staged VM copy.
+PUBLIC_KEY="$public_key" yq -i \
+  '(.passwd.users[] | select(.name == "giacomo") | .ssh_authorized_keys) += [strenv(PUBLIC_KEY)] |
+   del(.systemd.units[] | select(.name == "force-pw-change.service")) |
+   del(.storage.files[] | select(.path == "/usr/local/bin/force_pw_change.sh")) |
+   .storage.files += [{"path":"/etc/sudoers.d/90-skillet-vm","mode":288,"contents":{"inline":"giacomo ALL=(ALL) NOPASSWD: ALL\n"}}]' \
+  "$output_dir/source/includes/passwd.bu"
+ignition="$("$script_dir/butane" -s -o "$output_dir/ignition" "$output_dir/source/$host.bu" "$host.ign")"
+ignition_bytes="$(stat -c '%s' "$ignition")"
+if ((ignition_bytes > 1048576)); then
+  echo "Warning: Ignition config is ${ignition_bytes} bytes; large QEMU fw_cfg configs can take a long time to read" >&2
+fi
+cp --reflink=auto "$image" "$output_dir/$vm_name.qcow2"
+sha256sum "$output_dir/source/files/skillet-$host" > "$output_dir/skillet.sha256"
+sha256sum "$output_dir/source/files/skillet" > "$output_dir/skillet-generic.sha256"
+sha256sum "$image" > "$output_dir/fcos-image.sha256"
+printf 'vm=%s\nhost=%s\nuri=%s\nssh_port=%s\nimage=%s\nartifact=%s\nruntime_dir=%s\nbackend=%s\nsource_commit=%s\n' \
+  "$vm_name" "$host" "$libvirt_uri" "$ssh_port" "$image" "$artifact" "${TEST_VM_LIBVIRT_RUNTIME_DIR:-}" "${TEST_VM_BACKEND:-native}" \
+  "$(git -C "$repo_dir" rev-parse HEAD)" > "$output_dir/run.conf"
+{
+  if [[ "${TEST_VM_BACKEND:-native}" == flatpak ]]; then
+    virt-install --version
+  else
+    echo 'Native VM launcher: virsh XML'
+  fi
+  vm_command virsh --version
+  podman --version
+  yq --version
+} > "$output_dir/tool-versions.txt"
 
-echo >&2 "Creating copy of image file"
-VM_IMAGE="${VM_NAME}.img"
-VM_IMAGE_PATH="${IMAGES_DIR}/$VM_IMAGE"
-rm -f "$VM_IMAGE_PATH"
-cp -v "$IMAGE_PATH" "$VM_IMAGE_PATH"
+if [[ "${TEST_VM_BACKEND:-native}" == flatpak ]]; then
+  network=none
+  qemu_commandline="-fw_cfg name=opt/com.coreos/config,file=$ignition -netdev user,id=skilletnet,hostfwd=tcp:127.0.0.1:$ssh_port-:22 -device virtio-net-pci,netdev=skilletnet,bus=pcie.0,addr=0x1d"
+else
+  network="passt,model=virtio,portForward0.proto=tcp,portForward0.address=127.0.0.1,portForward0.range0.start=$ssh_port,portForward0.range0.to=22"
+  qemu_commandline="-fw_cfg name=opt/com.coreos/config,file=$ignition"
+fi
+echo "Creating $vm_name on $libvirt_uri, disk $output_dir/$vm_name.qcow2, SSH 127.0.0.1:$ssh_port" >&2
+if [[ "${TEST_VM_BACKEND:-native}" == flatpak ]]; then
+  vm_command virt-install --connect "$libvirt_uri" --name "$vm_name" \
+    --osinfo linux2024 --memory 8192 --vcpus 2 --import \
+    --disk "path=$output_dir/$vm_name.qcow2,format=qcow2,bus=virtio" \
+    --disk "path=$ignition,format=raw,bus=virtio,readonly=on" \
+    --network "$network" --graphics none \
+    --console pty,target_type=serial --noautoconsole \
+    --qemu-commandline="$qemu_commandline"
+else
+  [[ "${TEST_VM_BACKEND:-native}" == native ]] || { echo 'Flatpak backend needs virt-install' >&2; exit 1; }
+  emulator="$(vm_command virsh -c "$libvirt_uri" capabilities |
+    xmllint --xpath "string((//guest[os_type='hvm']/arch[@name='x86_64']/emulator)[1])" -)"
+  [[ -n "$emulator" && -x "$emulator" ]] || { echo 'No usable x86_64 libvirt emulator' >&2; exit 1; }
+  python3 - "$vm_name" "$emulator" "$output_dir/$vm_name.qcow2" "$ignition" "$ssh_port" > "$output_dir/domain.xml" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
 
-set -x
-run_on_host qemu-kvm -m 8192 -cpu host \
-  -drive "if=virtio,format=qcow2,file=$(realpath "$VM_IMAGE_PATH")" \
-  -fw_cfg "name=opt/com.coreos/config,file=${IGNITION_CONFIG}" \
-  -nic "user,model=virtio,hostfwd=tcp::2222-:22"
+name, emulator, disk, ignition, port = sys.argv[1:]
+domain = ET.Element('domain', type='kvm')
+ET.SubElement(domain, 'name').text = name
+ET.SubElement(domain, 'memory', unit='MiB').text = '8192'
+ET.SubElement(domain, 'vcpu').text = '2'
+os = ET.SubElement(domain, 'os')
+ET.SubElement(os, 'type', arch='x86_64', machine='q35').text = 'hvm'
+ET.SubElement(os, 'boot', dev='hd')
+features = ET.SubElement(domain, 'features')
+ET.SubElement(features, 'acpi')
+ET.SubElement(features, 'apic')
+ET.SubElement(domain, 'cpu', mode='host-passthrough')
+sysinfo = ET.SubElement(domain, 'sysinfo', type='fwcfg')
+ET.SubElement(sysinfo, 'entry', name='opt/com.coreos/config', file=ignition)
+devices = ET.SubElement(domain, 'devices')
+ET.SubElement(devices, 'emulator').text = emulator
+for source, fmt, target, readonly in ((disk, 'qcow2', 'vda', False), (ignition, 'raw', 'vdb', True)):
+    device = ET.SubElement(devices, 'disk', type='file', device='disk')
+    ET.SubElement(device, 'driver', name='qemu', type=fmt)
+    ET.SubElement(device, 'source', file=source)
+    ET.SubElement(device, 'target', dev=target, bus='virtio')
+    if readonly:
+        ET.SubElement(device, 'readonly')
+interface = ET.SubElement(devices, 'interface', type='user')
+ET.SubElement(interface, 'backend', type='passt')
+forward = ET.SubElement(interface, 'portForward', proto='tcp', address='127.0.0.1')
+ET.SubElement(forward, 'range', start=port, to='22')
+ET.SubElement(interface, 'model', type='virtio')
+serial = ET.SubElement(devices, 'serial', type='pty')
+ET.SubElement(serial, 'target', port='0')
+console = ET.SubElement(devices, 'console', type='pty')
+ET.SubElement(console, 'target', type='serial', port='0')
+ET.indent(domain)
+ET.ElementTree(domain).write(sys.stdout, encoding='unicode', xml_declaration=True)
+PY
+  virt-xml-validate "$output_dir/domain.xml"
+  vm_command virsh -c "$libvirt_uri" define "$output_dir/domain.xml"
+  if ! vm_command virsh -c "$libvirt_uri" start "$vm_name"; then
+    vm_command virsh -c "$libvirt_uri" undefine "$vm_name"
+    exit 1
+  fi
+fi

@@ -1,11 +1,19 @@
 variant: fcos
 version: 1.6.0
+# VM-only layout: coreos-install attaches the FCOS disk as virtio /dev/vda.
+# A physical installer must use an explicitly selected hardware disk instead.
 ignition:
   config:
     merge:
       - local: includes/passwd.bu
       - local: includes/zram.bu
+      - local: includes/resolver.bu
+      - local: includes/data-storage.bu
       - local: includes/brew.bu
+      - local: includes/skillet.bu
+      - local: includes/skillet-clamps.bu
+      - local: includes/ucore-bootstrap.bu
+      - local: includes/ucore-clamps.bu
 storage:
   disks:
     - # The link to the block device the OS was booted from.
@@ -27,6 +35,10 @@ storage:
     - path: /etc/localtime
       target: ../usr/share/zoneinfo/Europe/Madrid
   files:
+    - path: /etc/skillet/host
+      mode: 0644
+      contents:
+        inline: clamps
     - path: /etc/hostname
       mode: 0644
       contents:
