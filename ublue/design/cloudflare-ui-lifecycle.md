@@ -43,8 +43,8 @@ and validate it against the receiving host's declaration. Verify DNS, TLS
 hostname identity, and upstream responses for canonical names and aliases.
 Publish no LAN or public host addresses.
 
-Child tokens have Zone Read and DNS Edit restricted to the selected zone.
-DNS Edit covers A, AAAA, CNAME, and ACME TXT records, so address publication
+Child tokens have Zone Read and DNS Write restricted to the selected zone.
+DNS Write covers A, AAAA, CNAME, and ACME TXT records, so address publication
 needs no additional permission. The scope covers the whole zone, not an individual
 host's records. Separate tokens allow independent revocation, while the issuer
 stays on the workstation. Public DNS exposes the published names and tailnet

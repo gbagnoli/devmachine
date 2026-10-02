@@ -41,7 +41,7 @@ their values, never invent or overwrite them. Read-only config migration
 must not expose their values. Keep unrelated host secret paths unchanged.
 
 The shared environment policy selects ACME staging for test and the normal
-issuer for production. Token scope is Zone Read plus DNS Edit for the selected
+issuer for production. Token scope is Zone Read plus DNS Write for the selected
 zone. This permits editing the whole zone, not just the derived names. The
 master token stays on the workstation. Persistent hosts use-or-create their
 token in KDBX; disposable deployments use a temporary token and recorded
@@ -172,7 +172,7 @@ with A and AAAA records for its verified Tailscale IPv4 and usable IPv6.
 Report a missing family explicitly rather than creating an invalid record.
 Create each `<service>.<host>.<ui-domain>` as a CNAME to the machine name;
 create each caller-declared alias as a CNAME to its canonical service name.
-Use short TTLs and `proxied=false` for every managed record. Zone DNS Edit
+Use short TTLs and `proxied=false` for every managed record. Zone DNS Write
 covers A, AAAA, CNAME, and ACME TXT records with no extra permissions.
 Reuse matching owned records; refuse unrelated conflicts, including existing
 A/AAAA data at a desired CNAME name. Do not create a zone or configure
