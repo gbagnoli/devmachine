@@ -4,6 +4,7 @@ members = [
     "crates/core",
     "crates/hardening",
     "crates/pihole",
+    "crates/unifi",
     "crates/syncthing",
     "crates/btrbk",
     "crates/caddy",
@@ -18,6 +19,7 @@ members = [
 skillet_core = { path = "crates/core" }
 skillet_hardening = { path = "crates/hardening" }
 skillet_pihole = { path = "crates/pihole" }
+skillet_unifi = { path = "crates/unifi" }
 skillet_syncthing = { path = "crates/syncthing" }
 skillet_btrbk = { path = "crates/btrbk" }
 skillet_caddy = { path = "crates/caddy" }

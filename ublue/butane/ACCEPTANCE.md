@@ -519,3 +519,32 @@ host tool; it still uses normal command approvals.
   reachability and host-firewall behavior remain unverified; validate them on
   a bridged/physical clamps network before cutover. No production DNS records
   were supplied or changed.
+
+### UniFi rupik source inventory, 2026-10-02
+
+- The sanitized inventory log is `/tmp/rupik.log` on the workstation. Rupik is
+  ARM64 and runs `jacobalberty/unifi:latest`, package `10.0.162-32076-1`, in a
+  rootful host-network container as image user `unifi` (UID/GID 999). Podman
+  reports host UID 999 as `systemd-coredump`; Chef separately creates host
+  `unifi` UID/GID 2666. The data tree is owned by 999:999, mode 0750, and uses
+  1.2 GiB. `/srv` is Btrfs; the image's `/unifi/run` is a separate generated
+  Podman volume.
+- Observed listeners: TCP 8080, 8443, 6789, 8843, 8880; UDP 3478, 10001. HTTPS
+  on local 8443 returned 302. No UniFi nginx route appears in the Chef repo.
+  Eight small monthly `.unf` backup files were listed through October 2026;
+  validity and restore compatibility are unverified. Clamps is x86_64, so a
+  backup restore from the ARM64 controller must pass on an isolated VM before
+  any production migration. The full private controller settings were not
+  included in this log.
+
+### UniFi Skillet implementation, 2026-10-02
+
+- Added reusable `skillet_unifi` support and enabled it from clamps full
+  apply. It requires `/var/lib/data`, creates `/var/lib/data/unifi` as a Btrfs
+  subvolume, mounts it at `/unifi`, and configures rootful Podman with mandatory
+  host networking, the Chef image family, `User=unifi`, `TZ=Europe/Madrid`,
+  restart-at-boot, and registry auto-update.
+- Skillet updates only the subvolume root to host names corresponding to
+  UID/GID 999; it does not recursively alter existing controller data. No
+  container runtime or backup-restore acceptance has been run yet. Those checks
+  remain pending in [the UniFi plan](../plan/CLAMPS-UNIFI.md).

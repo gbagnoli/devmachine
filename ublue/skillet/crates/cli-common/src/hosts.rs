@@ -35,6 +35,8 @@ pub enum ApplyError {
     Hardening(String),
     #[error("Pihole apply error: {0}")]
     Pihole(#[from] skillet_pihole::PiholeError),
+    #[error("UniFi apply error: {0}")]
+    Unifi(#[from] skillet_unifi::UnifiError),
     #[error("Syncthing apply error: {0}")]
     Syncthing(#[from] skillet_syncthing::SyncthingError),
     #[error("Btrbk apply error: {0}")]
@@ -300,6 +302,7 @@ pub fn apply_clamps(
     )?;
 
     apply_syncthing(system, files, host_service_network("clamps"))?;
+    skillet_unifi::apply(system, files)?;
     skillet_btrbk::apply(
         system,
         files,
