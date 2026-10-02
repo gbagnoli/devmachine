@@ -33,6 +33,10 @@ design](../design/syncthing.md), [Pi-hole network design](../design/pihole-netwo
 [storage/credential plan](CLAMPS-STORAGE-CREDENTIALS.md). The final physical
 disk remains open.
 
+Planned before physical cutover: [TPM-encrypted Btrfs root](TPM-ENCRYPTED-ROOT.md),
+including QEMU TPM2 tests, recovery and stock-SSD hardware acceptance. Tang is
+deferred; remote hosts will first be assessed for usable TPM support.
+
 ## Boundaries
 
 - Image: packages, static OS files, baseline unit enablement/masking. Preserve common-before-host image builds.
