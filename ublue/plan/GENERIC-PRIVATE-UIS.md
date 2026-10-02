@@ -7,7 +7,8 @@ cleanup are implemented and passed live staging ACME/HTTPS acceptance on
 reconciliation, and retry after interrupted DNS cleanup. The opt-in UI VM
 provision path now probes each UI from the guest's loopback source and checks
 Caddy's explicit 403 response. Remaining: denial from a separate network
-outside the tailnet and production ACME/renewal acceptance.
+outside the tailnet and production ACME/renewal acceptance; these are grouped
+with Pi-hole LAN DNS acceptance in the [deferred live acceptance batch](CLAMPS-MIGRATION.md#deferred-live-acceptance-batch).
 
 ## Goal and fixed decisions
 
@@ -223,7 +224,7 @@ record creates, and during DNS deletion. Concurrent deployments claiming the sam
 are refused. Do not append VM instance names to URLs silently; supporting
 parallel instances requires separately selected base domains/environments.
 
-### 4. Wire VM lifecycle and verify live ACME (wiring implemented; live check pending)
+### 4. Wire VM lifecycle and verify live ACME (staging verified; two checks deferred)
 
 `test vm provision <host> <instance> --with-ui` explicitly opts into Cloudflare
 and Caddy. Standard fixture smoke remains offline from Cloudflare. Provisioning

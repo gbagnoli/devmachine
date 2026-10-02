@@ -34,6 +34,23 @@ design](../design/syncthing.md), [Pi-hole network design](../design/pihole-netwo
 [storage/credential plan](CLAMPS-STORAGE-CREDENTIALS.md). The final physical
 disk remains open.
 
+## Deferred live acceptance batch
+
+Run these together when a suitable client network and the required production
+configuration are available; record each result in
+[ACCEPTANCE.md](../butane/ACCEPTANCE.md):
+
+1. Pi-hole: query from a real LAN client over IPv4/IPv6 and UDP/TCP, confirming
+   host-firewall behavior. Use isolated test records; add actual custom DNS
+   records only after their values are supplied.
+2. Private UIs: verify a request from outside the tailnet gets Caddy's denial
+   response. Workstation loopback is not an outside-tailnet source.
+3. Cloudflare production: accept production certificate issuance and a bounded
+   renewal scenario using the production environment and its existing DNS.
+
+The smoke VM uses libvirt user-mode networking and cannot satisfy item 1; use a
+bridged test VM or the physical clamps host on an isolated/test network.
+
 Planned before physical cutover: [TPM-encrypted Btrfs root](TPM-ENCRYPTED-ROOT.md),
 including QEMU TPM2 tests, recovery and stock-SSD hardware acceptance. Tang is
 deferred; remote hosts will first be assessed for usable TPM support.
