@@ -1,10 +1,11 @@
 # Generic private UI provisioning
 
 Status: shared UI declarations, aliases, environment lookup, Caddy payloads,
-Cloudflare token issuance, DNS reconciliation, and opt-in smoke VM cleanup are
-implemented locally, 2026-10-02. Local tests pass for the SDK transport and DNS
-planning. Full API mutation fault-injection and live staging ACME/HTTPS
-acceptance remain pending.
+Cloudflare account-token issuance, DNS reconciliation, and opt-in smoke VM
+cleanup are implemented and passed live staging ACME/HTTPS acceptance on
+2026-10-02. Unit tests, Clippy, and routine CI pass. Remaining: API mutation
+fault-injection tests, access denial from outside the tailnet, and production
+ACME/renewal acceptance.
 
 ## Goal and fixed decisions
 
@@ -165,9 +166,10 @@ use manually created VM ACME tokens as an interim acceptance path.
 Environment lookups use the DNS paths above. The configured Zone ID is fetched
 exactly and the returned zone name must contain the UI domain before issuance
 or record changes. The former zone-name entry is never treated as an ID.
-The workstation issuer therefore needs Zone Read on the selected zones in
-addition to User API Tokens Read/Edit. The template's token-management
-permissions alone do not authorize zone preflight; the issuer needs no DNS Write.
+The workstation issuer is an account-owned token with Account API Tokens Read
+or Write and Zone Read on the selected zones. Skillet gets the account ID from
+the zone response and uses account-token endpoints for permission discovery,
+creation, listing, and revocation. The issuer needs no DNS Write.
 
 Use `cloudflare-rs` for authenticated blocking HTTP transport and custom typed
 JSON endpoint specs for token APIs and DNS comments not represented by its DNS

@@ -133,7 +133,8 @@ fn deliver_caddy_from_vault(
     let dns =
         crate::cloudflare::desired_records(&sites.machine_hostname, &device.addresses, &sites)?;
     ensure_vault_unchanged(vault)?;
-    let token = host_acme_token(args, vault, &cloudflare, &creator, zone_id)?;
+    let account_id = crate::cloudflare::Cloudflare::account_id(&zone)?;
+    let token = host_acme_token(args, vault, &cloudflare, &creator, zone_id, account_id)?;
     cloudflare.zone(&token, zone_id)?;
     ensure_vault_unchanged(vault)?;
     cloudflare.reconcile_dns(&token, zone_id, &dns_marker, &domain, &dns)?;
@@ -167,6 +168,7 @@ fn host_acme_token(
     api: &crate::cloudflare::Cloudflare,
     creator: &str,
     zone_id: &str,
+    account_id: &str,
 ) -> Result<String> {
     let environment = args.environment.as_str();
     let token_path = format!(
@@ -193,14 +195,14 @@ fn host_acme_token(
     // A previous request may have reached Cloudflare before its response was
     // lost. With no vault credential to reuse, clean up only child tokens
     // carrying this exact Skillet-owned name.
-    for orphan in api.token_ids_by_name(creator, &token_name)? {
-        api.revoke_token(creator, &orphan)?;
+    for orphan in api.token_ids_by_name(creator, account_id, &token_name)? {
+        api.revoke_token(creator, account_id, &orphan)?;
     }
-    let issued = api.create_zone_token(creator, zone_id, &token_name, None)?;
+    let issued = api.create_zone_token(creator, zone_id, account_id, &token_name, None)?;
     if let Err(error) = create_entry(&mut vault.database, &token_path, &issued.value)
         .and_then(|()| save_vault(vault, args.key_file.as_deref(), &token_path, &issued.value))
     {
-        if let Err(revoke_error) = api.revoke_token(creator, &issued.id) {
+        if let Err(revoke_error) = api.revoke_token(creator, account_id, &issued.id) {
             return Err(anyhow!("saving issued Cloudflare credential failed ({error}); revoking token {} also failed ({revoke_error})", issued.id));
         }
         return Err(
@@ -491,11 +493,13 @@ fn provision_vm_ui(
         expires_on: None,
         record_ids: Vec::new(),
     };
+    let account_id = crate::cloudflare::Cloudflare::account_id(&zone)?.to_string();
     write_cloudflare_ownership(&metadata_path, &ownership)?;
     ensure_vault_unchanged(vault)?;
     let issued = api.create_zone_token(
         &creator,
         &ownership.zone_id,
+        &account_id,
         &ownership.token_name,
         Some(std::time::Duration::from_hours(12)),
     )?;
@@ -523,9 +527,9 @@ fn provision_vm_ui(
             &issued.value,
         )?;
         ssh.run("sudo -n systemctl start skillet-caddy-apply.service")?;
-        for old_id in api.token_ids_by_name(&creator, &ownership.token_name)? {
+        for old_id in api.token_ids_by_name(&creator, &account_id, &ownership.token_name)? {
             if old_id != issued.id {
-                api.revoke_token(&creator, &old_id)?;
+                api.revoke_token(&creator, &account_id, &old_id)?;
             }
         }
         Ok::<(), anyhow::Error>(())
@@ -577,6 +581,7 @@ fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<(
     }
     let api = crate::cloudflare::Cloudflare::new();
     let zone = api.zone(&creator, &ownership.zone_id)?;
+    let account_id = crate::cloudflare::Cloudflare::account_id(&zone)?.to_string();
     let configured_domain =
         skillet_caddy::resolve_ui_domain(&zone.name, configured_prefix.as_deref())
             .context("resolving test UI namespace before VM cleanup")?;
@@ -589,6 +594,7 @@ fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<(
     let cleanup_token = api.create_zone_token(
         &creator,
         &ownership.zone_id,
+        &account_id,
         &cleanup_name,
         Some(std::time::Duration::from_mins(15)),
     )?;
@@ -600,16 +606,16 @@ fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<(
             &ownership.marker,
             &ownership.ui_domain,
         )?;
-        for id in api.token_ids_by_name(&creator, &ownership.token_name)? {
-            api.revoke_token(&creator, &id)?;
+        for id in api.token_ids_by_name(&creator, &account_id, &ownership.token_name)? {
+            api.revoke_token(&creator, &account_id, &id)?;
         }
         Ok::<(), anyhow::Error>(())
     })();
     let revoke_cleanup = api
-        .token_ids_by_name(&creator, &cleanup_name)
+        .token_ids_by_name(&creator, &account_id, &cleanup_name)
         .and_then(|ids| {
             for id in ids {
-                api.revoke_token(&creator, &id)?;
+                api.revoke_token(&creator, &account_id, &id)?;
             }
             Ok(())
         });

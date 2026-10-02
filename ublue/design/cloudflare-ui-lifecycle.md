@@ -4,10 +4,13 @@ Decision: the workstation issuer creates scoped Cloudflare child tokens and
 reconciles owned DNS before live Caddy ACME acceptance. Do not require manually
 created smoke VM ACME tokens.
 The workstation keeps `skillet/cloudflare/token-creator` in KeePassXC and mints
-zone-scoped child tokens; only a child token is delivered to Caddy.
-The issuer also has Zone Read on the configured zones because preflight
-validation fetches the exact zone before issuance. User API Tokens Read/Edit
-alone does not authorize that lookup. DNS Write remains on child tokens.
+zone-scoped child tokens through Cloudflare's account-token API; the account ID
+comes from the selected zone response. Only a child token is delivered to Caddy.
+The issuer is an account-owned API token with Account API Tokens Read or Write
+and Zone Read on the configured zones. Zone Read allows preflight validation to
+fetch the selected zone and its account ID. Skillet uses account-token
+permission discovery, creation, listing, and revocation endpoints; DNS Write
+remains confined to child tokens.
 
 ## Configuration and access
 
@@ -108,8 +111,11 @@ provisioning records token ID, expiry, DNS record IDs, and ownership metadata;
 destroy mints a short-lived cleanup token, deletes marker-owned DNS records,
 and revokes disposable tokens. Local tests cover the SDK transport, permission
 group discovery, scoped token payloads, address-family validation, and DNS
-planning. DNS mutation fault-injection/recovery tests and live
-staging ACME/HTTPS acceptance are still pending.
+planning. Live 2026-10-02 staging acceptance issued certificates for each
+declared canonical UI and alias, verified DNS and HTTPS over IPv4/IPv6, and
+disposed the VM, DNS records, and child tokens. DNS mutation
+fault-injection/recovery tests, outside-tailnet denial, and production
+certificate acceptance remain pending.
 
 See [generic UI plan](../plan/GENERIC-PRIVATE-UIS.md),
 [secret delivery](secrets.md), and [VM lifecycle](smoke-vms.md).

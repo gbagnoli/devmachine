@@ -42,6 +42,12 @@ pub(crate) struct IssuedToken {
 pub(crate) struct Zone {
     pub id: String,
     pub name: String,
+    pub account: Option<ZoneAccount>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(crate) struct ZoneAccount {
+    pub id: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -129,14 +135,23 @@ impl Cloudflare {
         serde_json::from_value(value).context("decoding Cloudflare zone")
     }
 
-    fn permission_groups(&self, token: &str) -> Result<(String, String)> {
+    pub(crate) fn account_id(zone: &Zone) -> Result<&str> {
+        zone.account
+            .as_ref()
+            .map(|account| account.id.as_str())
+            .filter(|id| validate_token_id(id).is_ok())
+            .ok_or_else(|| anyhow!("Cloudflare zone response does not include a valid account ID"))
+    }
+
+    fn permission_groups(&self, token: &str, account_id: &str) -> Result<(String, String)> {
+        validate_token_id(account_id).context("validating Cloudflare account ID")?;
         let value = self.result(
             token,
             Method::GET,
-            "user/tokens/permission_groups".to_string(),
+            format!("accounts/{account_id}/tokens/permission_groups"),
             Some("per_page=500".to_string()),
             None,
-        )?;
+        ).context("discovering Cloudflare account-token permission groups; the issuer needs Account > API Tokens > Read or Write")?;
         let groups = value
             .as_array()
             .ok_or_else(|| anyhow!("Cloudflare permission group response is malformed"))?;
@@ -174,7 +189,7 @@ impl Cloudflare {
         }
         match (zone_read, dns_write) {
             (Some(read), Some(write)) => Ok((read, write)),
-            _ => Err(anyhow!("Cloudflare did not expose selectable Zone Read and DNS Write permission groups; the token creator needs User > API Tokens > Read and API Tokens > Edit (Write)")),
+            _ => Err(anyhow!("Cloudflare did not expose selectable Zone Read and DNS Write permission groups for this account")),
         }
     }
 
@@ -182,11 +197,12 @@ impl Cloudflare {
         &self,
         creator_token: &str,
         zone_id: &str,
+        account_id: &str,
         name: &str,
         lifetime: Option<Duration>,
     ) -> Result<IssuedToken> {
         validate_zone_id(zone_id)?;
-        let (zone_read, dns_write) = self.permission_groups(creator_token)?;
+        let (zone_read, dns_write) = self.permission_groups(creator_token, account_id)?;
         let mut payload = json!({
             "name": name,
             "policies": [{
@@ -201,20 +217,26 @@ impl Cloudflare {
         let value = self.result(
             creator_token,
             Method::POST,
-            "user/tokens".to_string(),
+            format!("accounts/{account_id}/tokens"),
             None,
             Some(payload),
         )?;
         serde_json::from_value(value).context("decoding newly issued Cloudflare token")
     }
 
-    pub(crate) fn token_ids_by_name(&self, creator_token: &str, name: &str) -> Result<Vec<String>> {
+    pub(crate) fn token_ids_by_name(
+        &self,
+        creator_token: &str,
+        account_id: &str,
+        name: &str,
+    ) -> Result<Vec<String>> {
+        validate_token_id(account_id).context("validating Cloudflare account ID")?;
         let mut matches = Vec::new();
         for page in 1..=100_u32 {
             let response = self.request(
                 creator_token,
                 Method::GET,
-                "user/tokens".to_string(),
+                format!("accounts/{account_id}/tokens"),
                 Some(format!("page={page}&per_page=100")),
                 None,
             )?;
@@ -243,12 +265,18 @@ impl Cloudflare {
         Ok(matches)
     }
 
-    pub(crate) fn revoke_token(&self, creator_token: &str, token_id: &str) -> Result<()> {
+    pub(crate) fn revoke_token(
+        &self,
+        creator_token: &str,
+        account_id: &str,
+        token_id: &str,
+    ) -> Result<()> {
+        validate_token_id(account_id).context("validating Cloudflare account ID")?;
         validate_token_id(token_id)?;
         self.result(
             creator_token,
             Method::DELETE,
-            format!("user/tokens/{token_id}"),
+            format!("accounts/{account_id}/tokens/{token_id}"),
             None,
             None,
         )?;

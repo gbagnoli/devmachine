@@ -321,8 +321,8 @@ where
         create_host_user: false,
         volumes: vec![
             Volume {
-                host_path: "/etc/skillet/caddy/Caddyfile".to_string(),
-                container_path: "/etc/caddy/Caddyfile".to_string(),
+                host_path: "/etc/skillet/caddy".to_string(),
+                container_path: "/etc/caddy".to_string(),
                 options: Some("ro,Z".to_string()),
             },
             Volume {
