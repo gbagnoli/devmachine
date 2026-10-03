@@ -31,6 +31,13 @@ vm_command() {
     "$@"
   fi
 }
+skillet_cli() {
+  if [[ -n "${SKILLET_BINARY:-}" ]]; then
+    "$SKILLET_BINARY" "$@"
+  else
+    (cd "$repo_dir/skillet" && cargo run --quiet --release -p skillet -- "$@")
+  fi
+}
 while (($#)); do
   case "$1" in
     --name|--output-dir|--ssh-port|--artifact|--image|--libvirt-uri|--uuid)
@@ -120,7 +127,7 @@ fi
 [[ -f "$image" ]] || { echo "Missing FCOS image: $image" >&2; exit 1; }
 image="$(realpath "$image")"
 mkdir -p "$(dirname "$output_dir")"
-mkdir -p "$output_dir/source/includes" "$output_dir/source/files" "$output_dir/ssh" "$output_dir/ignition"
+mkdir -p "$output_dir/source/includes" "$output_dir/source/files" "$output_dir/ignition"
 cp "$input" "$output_dir/source/$host.bu"
 cp "$butane_dir"/includes/*.bu "$output_dir/source/includes/"
 cp "$artifact" "$output_dir/source/files/skillet-$host"
@@ -143,19 +150,7 @@ skillet_host_include="$output_dir/source/includes/skillet-$host.bu"
 [[ -f "$skillet_host_include" ]] || { echo "Missing host Skillet Butane include: $skillet_host_include" >&2; exit 1; }
 HOST="$host" yq -i 'del(.storage.files[] | select(.path == "/var/usrlocal/bin/skillet-" + strenv(HOST)))' \
   "$skillet_host_include"
-if [[ ! -f "$output_dir/ssh/id_ed25519" && ! -e "$output_dir/ssh/id_ed25519.pub" ]]; then
-  ssh-keygen -q -t ed25519 -N '' -f "$output_dir/ssh/id_ed25519"
-elif [[ -f "$output_dir/ssh/id_ed25519" && -f "$output_dir/ssh/id_ed25519.pub" ]]; then
-  derived_public_key="$(ssh-keygen -y -f "$output_dir/ssh/id_ed25519")"
-  [[ "$derived_public_key" == "$(cat "$output_dir/ssh/id_ed25519.pub")" ]] || {
-    echo "Prepared SSH key pair is inconsistent" >&2; exit 1;
-  }
-else
-  echo "Prepared SSH key pair is incomplete; inspect the run directory before retrying" >&2
-  exit 1
-fi
-chmod 600 "$output_dir/ssh/id_ed25519"
-public_key="$(cat "$output_dir/ssh/id_ed25519.pub")"
+public_key="$(skillet_cli test vm prepare-local "$host" "${vm_name#"$host-test-"}" --image "$image")"
 # The existing giacomo account survives the FCOS-to-uCore rebase. Inject the
 # disposable key into that same account and skip its interactive password
 # expiry service only in this staged VM copy.
@@ -170,10 +165,8 @@ ignition_bytes="$(stat -c '%s' "$ignition")"
 if ((ignition_bytes > 1048576)); then
   echo "Warning: Ignition config is ${ignition_bytes} bytes; large QEMU fw_cfg configs can take a long time to read" >&2
 fi
-cp --reflink=auto "$image" "$output_dir/$vm_name.qcow2"
 sha256sum "$output_dir/source/files/skillet-$host" > "$output_dir/skillet.sha256"
 sha256sum "$output_dir/source/files/skillet" > "$output_dir/skillet-generic.sha256"
-sha256sum "$image" > "$output_dir/fcos-image.sha256"
 printf 'vm=%s\nhost=%s\nuri=%s\nssh_port=%s\nimage=%s\nartifact=%s\nruntime_dir=%s\nbackend=%s\nsource_commit=%s\n' \
   "$vm_name" "$host" "$libvirt_uri" "$ssh_port" "$image" "$artifact" "${TEST_VM_LIBVIRT_RUNTIME_DIR:-}" "${TEST_VM_BACKEND:-native}" \
   "$(git -C "$repo_dir" rev-parse HEAD)" > "$output_dir/run.conf"

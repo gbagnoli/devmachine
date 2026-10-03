@@ -1,7 +1,7 @@
 //! CLI presentation and legacy provider wiring. Ownership lives in `skillet_vm`.
 use super::{
     butane_root, secret_delivery, workspace_root, VmDestroyArgs, VmDirectoryArgs, VmListArgs,
-    VmRenderDomainArgs, VmTargetArgs,
+    VmPrepareLocalArgs, VmRenderDomainArgs, VmTargetArgs,
 };
 use anyhow::{anyhow, Result};
 use skillet_vm::{
@@ -74,6 +74,16 @@ pub(super) fn render_domain(args: &VmRenderDomainArgs) -> Result<()> {
     }
     let path = skillet_vm::domain_xml::write_native_domain_xml(&store, &run, &args.emulator)?;
     println!("{}", path.display());
+    Ok(())
+}
+
+pub(super) fn prepare_local(args: &VmPrepareLocalArgs) -> Result<()> {
+    let butane = butane_root()?;
+    let identity = RunIdentity::new(&args.hostname, &args.instance)?;
+    let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
+    let public_key =
+        skillet_vm::provisioning::prepare_local_artifacts(&store, &identity, &args.image)?;
+    println!("{public_key}");
     Ok(())
 }
 

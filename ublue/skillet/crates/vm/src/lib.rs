@@ -8,6 +8,7 @@ pub mod domain_xml;
 pub mod lifecycle;
 pub mod manifest;
 mod process;
+pub mod provisioning;
 pub mod readiness;
 pub mod transport;
 
@@ -34,6 +35,8 @@ pub enum Error {
     },
     #[error("VM tooling command exceeded its timeout")]
     Timeout,
+    #[error("VM artifact preparation failed: {0}")]
+    Preparation(String),
     #[error("external VM cleanup failed: {0}")]
     ExternalCleanup(String),
     #[error("VM run is busy; retry after its current operation finishes")]
