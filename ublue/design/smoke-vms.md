@@ -42,9 +42,13 @@ boot expectations and captured binaries, and records Ready only after signed
 boot, unit, SELinux, resolver and user-environment checks. Bounded probes and
 private diagnostics allow failed checks to be retried. It first persists
 Started to invalidate stale readiness, then checks ownership before and after
-each guest command/upload. Creation and other
-remaining lifecycle commands still use Bash. Unit/adapter checks pass;
-live migration acceptance is deferred while the user's VM creation runs.
+each guest command/upload. Creation still uses the Bash installer, with Rust
+persisting a private `Preparing` intent and UUID first. The generated UUID is
+now part of native XML and Flatpak creation. Native definition and start are
+separate manifest phases; failed starts retain the defined domain for
+inspection and retry. Re-running create validates and starts that owned domain,
+or resumes staging when no domain exists. Unit/adapter checks pass; live
+migration acceptance is deferred while the user's VM creation runs.
 
 ## States and recovery
 

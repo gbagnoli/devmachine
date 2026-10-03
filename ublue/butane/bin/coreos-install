@@ -7,7 +7,7 @@ repo_dir="$(realpath "$butane_dir/..")"
 
 usage() {
   cat <<USAGE
-Usage: $0 [--name NAME] [--output-dir DIR] [--ssh-port PORT] [--artifact FILE] [--image FILE] [--libvirt-uri URI] CONFIG.bu
+Usage: $0 [--name NAME] [--output-dir DIR] [--ssh-port PORT] [--artifact FILE] [--image FILE] [--libvirt-uri URI] [--uuid UUID --resume-prepared] CONFIG.bu
 
 Default VM name is taken from CONFIG.bu. Generated keys, Ignition, logs and disk are kept in
 butane/runs/NAME. Existing domains and output directories are refused.
@@ -22,6 +22,8 @@ generic_artifact=
 custom_artifact=false
 image=
 libvirt_uri=qemu:///session
+vm_uuid=
+resume_prepared=false
 vm_command() {
   if [[ -n "${TEST_VM_LIBVIRT_RUNTIME_DIR:-}" && "${TEST_VM_BACKEND:-native}" == native ]]; then
     env XDG_RUNTIME_DIR="$TEST_VM_LIBVIRT_RUNTIME_DIR" "$@"
@@ -31,7 +33,7 @@ vm_command() {
 }
 while (($#)); do
   case "$1" in
-    --name|--output-dir|--ssh-port|--artifact|--image|--libvirt-uri)
+    --name|--output-dir|--ssh-port|--artifact|--image|--libvirt-uri|--uuid)
       (($# >= 2)) || { usage >&2; exit 2; }
       case "$1" in
         --name) vm_name="$2" ;;
@@ -40,8 +42,10 @@ while (($#)); do
         --artifact) artifact="$2"; custom_artifact=true ;;
         --image) image="$2" ;;
         --libvirt-uri) libvirt_uri="$2" ;;
+        --uuid) vm_uuid="$2" ;;
       esac
       shift 2 ;;
+    --resume-prepared) resume_prepared=true; shift ;;
     -h|--help) usage; exit 0 ;;
     --) shift; break ;;
     -*) usage >&2; exit 2 ;;
@@ -59,13 +63,23 @@ if [[ ! "$ssh_port" =~ ^[0-9]+$ ]] || ((ssh_port < 1024 || ssh_port > 65535)); t
   exit 2
 fi
 output_dir="$(realpath -m "${output_dir:-$butane_dir/runs/$vm_name}")"
+if [[ "$resume_prepared" == true ]]; then
+  [[ "$output_dir" == "$butane_dir/runs/$vm_name" && -f "$output_dir/vm.json" ]] || {
+    echo "Prepared VM output must be its recorded run directory" >&2; exit 1;
+  }
+  [[ "$vm_uuid" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] || {
+    echo "A valid recorded UUID is required for prepared VM creation" >&2; exit 2;
+  }
+else
+  [[ -z "$vm_uuid" ]] || { echo "--uuid requires --resume-prepared" >&2; exit 2; }
+fi
 vm_command virsh -c "$libvirt_uri" uri >/dev/null || { echo "Cannot access libvirt URI $libvirt_uri" >&2; exit 1; }
 command -v passt >/dev/null || { echo "passt is required for loopback SSH forwarding" >&2; exit 1; }
 if vm_command virsh -c "$libvirt_uri" dominfo "$vm_name" &>/dev/null; then
   echo "Refusing existing libvirt domain $vm_name on $libvirt_uri" >&2
   exit 1
 fi
-if [[ -e "$output_dir" || -L "$output_dir" ]]; then
+if [[ -e "$output_dir" && "$resume_prepared" != true || -L "$output_dir" ]]; then
   echo "Refusing existing output path $output_dir" >&2
   exit 1
 fi
@@ -106,7 +120,6 @@ fi
 [[ -f "$image" ]] || { echo "Missing FCOS image: $image" >&2; exit 1; }
 image="$(realpath "$image")"
 mkdir -p "$(dirname "$output_dir")"
-mkdir "$output_dir"
 mkdir -p "$output_dir/source/includes" "$output_dir/source/files" "$output_dir/ssh" "$output_dir/ignition"
 cp "$input" "$output_dir/source/$host.bu"
 cp "$butane_dir"/includes/*.bu "$output_dir/source/includes/"
@@ -130,7 +143,17 @@ skillet_host_include="$output_dir/source/includes/skillet-$host.bu"
 [[ -f "$skillet_host_include" ]] || { echo "Missing host Skillet Butane include: $skillet_host_include" >&2; exit 1; }
 HOST="$host" yq -i 'del(.storage.files[] | select(.path == "/var/usrlocal/bin/skillet-" + strenv(HOST)))' \
   "$skillet_host_include"
-ssh-keygen -q -t ed25519 -N '' -f "$output_dir/ssh/id_ed25519"
+if [[ ! -f "$output_dir/ssh/id_ed25519" && ! -e "$output_dir/ssh/id_ed25519.pub" ]]; then
+  ssh-keygen -q -t ed25519 -N '' -f "$output_dir/ssh/id_ed25519"
+elif [[ -f "$output_dir/ssh/id_ed25519" && -f "$output_dir/ssh/id_ed25519.pub" ]]; then
+  derived_public_key="$(ssh-keygen -y -f "$output_dir/ssh/id_ed25519")"
+  [[ "$derived_public_key" == "$(cat "$output_dir/ssh/id_ed25519.pub")" ]] || {
+    echo "Prepared SSH key pair is inconsistent" >&2; exit 1;
+  }
+else
+  echo "Prepared SSH key pair is incomplete; inspect the run directory before retrying" >&2
+  exit 1
+fi
 chmod 600 "$output_dir/ssh/id_ed25519"
 public_key="$(cat "$output_dir/ssh/id_ed25519.pub")"
 # The existing giacomo account survives the FCOS-to-uCore rebase. Inject the
@@ -172,9 +195,16 @@ else
   network="passt,model=virtio,portForward0.proto=tcp,portForward0.address=127.0.0.1,portForward0.range0.start=$ssh_port,portForward0.range0.to=22"
   qemu_commandline="-fw_cfg name=opt/com.coreos/config,file=$ignition"
 fi
+if [[ -n "$vm_uuid" ]]; then
+  printf '%s\n' "$vm_uuid" > "$output_dir/domain.uuid.tmp"
+  chmod 600 "$output_dir/domain.uuid.tmp"
+  mv -f "$output_dir/domain.uuid.tmp" "$output_dir/domain.uuid"
+fi
 echo "Creating $vm_name on $libvirt_uri, disk $output_dir/$vm_name.qcow2, SSH 127.0.0.1:$ssh_port" >&2
 if [[ "${TEST_VM_BACKEND:-native}" == flatpak ]]; then
-  vm_command virt-install --connect "$libvirt_uri" --name "$vm_name" \
+  uuid_args=()
+  [[ -z "$vm_uuid" ]] || uuid_args=(--uuid "$vm_uuid")
+  vm_command virt-install --connect "$libvirt_uri" --name "$vm_name" "${uuid_args[@]}" \
     --osinfo linux2024 --memory 8192 --vcpus 2 --import \
     --disk "path=$output_dir/$vm_name.qcow2,format=qcow2,bus=virtio" \
     --disk "path=$ignition,format=raw,bus=virtio,readonly=on" \
@@ -186,13 +216,15 @@ else
   emulator="$(vm_command virsh -c "$libvirt_uri" capabilities |
     xmllint --xpath "string((//guest[os_type='hvm']/arch[@name='x86_64']/emulator)[1])" -)"
   [[ -n "$emulator" && -x "$emulator" ]] || { echo 'No usable x86_64 libvirt emulator' >&2; exit 1; }
-  python3 - "$vm_name" "$emulator" "$output_dir/$vm_name.qcow2" "$ignition" "$ssh_port" > "$output_dir/domain.xml" <<'PY'
+  python3 - "$vm_name" "$vm_uuid" "$emulator" "$output_dir/$vm_name.qcow2" "$ignition" "$ssh_port" > "$output_dir/domain.xml" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
 
-name, emulator, disk, ignition, port = sys.argv[1:]
+name, uuid, emulator, disk, ignition, port = sys.argv[1:]
 domain = ET.Element('domain', type='kvm')
 ET.SubElement(domain, 'name').text = name
+if uuid:
+    ET.SubElement(domain, 'uuid').text = uuid
 ET.SubElement(domain, 'memory', unit='MiB').text = '8192'
 ET.SubElement(domain, 'vcpu').text = '2'
 os = ET.SubElement(domain, 'os')
@@ -227,8 +259,11 @@ ET.ElementTree(domain).write(sys.stdout, encoding='unicode', xml_declaration=Tru
 PY
   virt-xml-validate "$output_dir/domain.xml"
   vm_command virsh -c "$libvirt_uri" define "$output_dir/domain.xml"
-  if ! vm_command virsh -c "$libvirt_uri" start "$vm_name"; then
-    vm_command virsh -c "$libvirt_uri" undefine "$vm_name"
-    exit 1
+  if [[ -n "${SKILLET_BINARY:-}" ]]; then
+    "$SKILLET_BINARY" test vm defined "$host" "${vm_name#"$host-test-"}"
+  else
+    (cd "$repo_dir/skillet" && cargo run --quiet --release -p skillet -- \
+      test vm defined "$host" "${vm_name#"$host-test-"}")
   fi
+  vm_command virsh -c "$libvirt_uri" start "$vm_name"
 fi

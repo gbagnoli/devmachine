@@ -157,6 +157,113 @@ impl ManifestStore {
         &self.root
     }
 
+    /// Create or resume a creation intent before any guest resources are
+    /// defined. Matching Preparing and Defined states can be recovered;
+    /// ambiguous or progressed runs must be inspected explicitly.
+    pub fn prepare_intent(
+        &self,
+        identity: &RunIdentity,
+        connection: Connection,
+        ssh_port: u16,
+        source_commit: &str,
+    ) -> Result<VmRun> {
+        if !(2200..=2299).contains(&ssh_port) || source_commit.trim().is_empty() {
+            return Err(Error::Invalid(
+                "invalid SSH port or empty source revision for VM creation".into(),
+            ));
+        }
+        connection.validate(self.owner_uid)?;
+        let dir = self.run_dir(identity);
+        reject_symlinks(&self.root)?;
+        if !self.root.exists() {
+            fs::create_dir_all(&self.root)?;
+        }
+        reject_symlinks(&self.root)?;
+        let root_metadata = fs::metadata(&self.root)?;
+        if !root_metadata.is_dir() || root_metadata.uid() != self.owner_uid {
+            return Err(Error::Invalid(
+                "VM artifact root is not a directory owned by the current user".into(),
+            ));
+        }
+        if dir.exists() {
+            let existing = self.load(identity)?;
+            if matches!(existing.phase, Phase::Preparing | Phase::Defined)
+                && existing.connection == connection
+                && existing.ssh.port == ssh_port
+                && existing.source_commit == source_commit
+            {
+                return Ok(existing);
+            }
+            return Err(Error::Invalid(
+                "VM run already exists and is not a matching recoverable creation; inspect or dispose it before creating".into(),
+            ));
+        }
+        fs::create_dir(&dir)?;
+        fs::set_permissions(&dir, fs::Permissions::from_mode(0o700))?;
+        let run = VmRun {
+            version: MANIFEST_VERSION,
+            owner_uid: self.owner_uid,
+            identity: identity.clone(),
+            environment: Environment::Test,
+            guest_hostname: identity.domain_name(),
+            uuid: Uuid::new_v4(),
+            connection,
+            ssh: SshTarget {
+                user: "giacomo".into(),
+                address: "127.0.0.1".into(),
+                port: ssh_port,
+                identity: dir.join("ssh/id_ed25519"),
+                known_hosts: dir.join("ssh/known_hosts"),
+            },
+            disk: dir.join(format!("{}.qcow2", identity.domain_name())),
+            ignition: dir
+                .join("ignition")
+                .join(format!("{}.ign", identity.host())),
+            source_commit: source_commit.into(),
+            captured: None,
+            deployed: None,
+            phase: Phase::Preparing,
+        };
+        self.write(&run, false)?;
+        Ok(run)
+    }
+
+    /// Record successful VM definition/start only after callers validate the
+    /// runtime UUID and disk ownership. Hashes are read from the captured files.
+    pub fn mark_started(&self, identity: &RunIdentity) -> Result<VmRun> {
+        let mut run = self.load(identity)?;
+        if !matches!(run.phase, Phase::Preparing | Phase::Defined) {
+            return Err(Error::Invalid(
+                "only a preparing or defined VM can be recorded as started".into(),
+            ));
+        }
+        let dir = self.run_dir(identity);
+        run.captured = Some(ArtifactHashes {
+            host: read_hash(&dir.join("skillet.sha256"))?,
+            generic: read_hash(&dir.join("skillet-generic.sha256"))?,
+        });
+        run.phase = Phase::Started;
+        self.save(&run)?;
+        Ok(run)
+    }
+
+    pub fn mark_defined(&self, identity: &RunIdentity) -> Result<VmRun> {
+        let mut run = self.load(identity)?;
+        if run.phase != Phase::Preparing {
+            return Err(Error::Invalid(
+                "only a preparing VM can be recorded as defined".into(),
+            ));
+        }
+        let dir = self.run_dir(identity);
+        run.captured = Some(ArtifactHashes {
+            host: read_hash(&dir.join("skillet.sha256"))?,
+            generic: read_hash(&dir.join("skillet-generic.sha256"))?,
+        });
+        run.phase = Phase::Defined;
+        self.save(&run)?;
+        Ok(run)
+    }
+
     /// Compatibility entry points obtain identity from recorded fields, never
     /// by splitting a potentially ambiguous composite directory name.
     pub fn load_directory(&self, dir: &Path) -> Result<VmRun> {

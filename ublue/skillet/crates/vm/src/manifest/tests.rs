@@ -1,5 +1,5 @@
 use super::*;
-use std::os::unix::fs::symlink;
+use std::{os::unix::fs::symlink, path::PathBuf};
 
 pub(crate) fn legacy_run() -> (tempfile::TempDir, ManifestStore, RunIdentity) {
     let tmp = tempfile::tempdir().unwrap();
@@ -39,6 +39,61 @@ fn identity_separates_profile_and_instance_and_rejects_path_input() {
         assert!(RunIdentity::new(invalid, "smoke").is_err());
         assert!(RunIdentity::new("fixture", invalid).is_err());
     }
+}
+
+#[test]
+fn preparation_intent_is_durable_repeatable_and_can_be_advanced_after_capture() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = ManifestStore::new(tmp.path(), users::get_current_uid()).unwrap();
+    let identity = RunIdentity::new("fixture", "intent").unwrap();
+    let connection = Connection {
+        backend: Backend::Native,
+        uri: "qemu:///session".into(),
+        runtime_dir: PathBuf::from(format!("/run/user/{}", users::get_current_uid())),
+    };
+    let first = store
+        .prepare_intent(&identity, connection.clone(), 2205, "fixture-revision")
+        .unwrap();
+    assert_eq!(first.phase, Phase::Preparing);
+    assert!(first.captured.is_none());
+    assert_eq!(
+        fs::metadata(store.run_dir(&identity)).unwrap().mode() & 0o777,
+        0o700
+    );
+    let repeated = store
+        .prepare_intent(&identity, connection.clone(), 2205, "fixture-revision")
+        .unwrap();
+    assert_eq!(repeated.uuid, first.uuid);
+    assert!(store
+        .prepare_intent(&identity, connection.clone(), 2206, "fixture-revision")
+        .is_err());
+
+    let dir = store.run_dir(&identity);
+    fs::write(
+        dir.join("skillet.sha256"),
+        format!("{} host\n", "a".repeat(64)),
+    )
+    .unwrap();
+    fs::write(
+        dir.join("skillet-generic.sha256"),
+        format!("{} generic\n", "b".repeat(64)),
+    )
+    .unwrap();
+    let defined = store.mark_defined(&identity).unwrap();
+    assert_eq!(defined.phase, Phase::Defined);
+    assert_eq!(
+        store
+            .prepare_intent(&identity, connection.clone(), 2205, "fixture-revision")
+            .unwrap()
+            .uuid,
+        first.uuid
+    );
+    let started = store.mark_started(&identity).unwrap();
+    assert_eq!(started.phase, Phase::Started);
+    assert_eq!(started.captured.unwrap().host, "a".repeat(64));
+    assert!(store
+        .prepare_intent(&identity, connection.clone(), 2205, "fixture-revision")
+        .is_err());
 }
 
 #[test]
