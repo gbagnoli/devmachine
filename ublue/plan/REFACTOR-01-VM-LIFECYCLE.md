@@ -41,7 +41,7 @@ not yet adopted the shared transport. Workstream 2 must consolidate the interim
 `boot_policy_for_host` lookup with the canonical capability declaration.
 Next: recoverable creation and the remaining public-helper delegation. Disposal
 and readiness live acceptance remain deferred. See
-[validation evidence](../butane/ACCEPTANCE.md#vm-refactoring-foundation-2026-10-03).
+[validation evidence](../butane/ACCEPTANCE.md#readiness-retry-recovery-2026-10-03).
 
 ## Read and locate
 
