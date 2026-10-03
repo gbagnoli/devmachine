@@ -93,6 +93,28 @@ fn missing_domain_requires_successful_lists_not_an_error_message() {
 }
 
 #[test]
+fn capabilities_select_executable_x86_64_hvm_emulator() {
+    let (_tmp, store, identity) = legacy_run();
+    let run = store.load(&identity).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let emulator = dir.path().join("qemu-system-x86_64");
+    std::fs::write(&emulator, b"test emulator").unwrap();
+    std::fs::set_permissions(&emulator, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let capabilities = format!(
+        "<capabilities><guest><os_type>hvm</os_type><arch name='aarch64'><emulator>/not/selected</emulator></arch><arch name='x86_64'><emulator>{}</emulator></arch></guest></capabilities>",
+        emulator.display()
+    );
+    let backend = VirshBackend::new(
+        run.connection.clone(),
+        run.owner_uid,
+        Path::new("/wrapper"),
+        executor(vec![output(&capabilities)]),
+    )
+    .unwrap();
+    assert_eq!(backend.x86_64_emulator(&run).unwrap(), emulator);
+}
+
+#[test]
 fn reused_name_and_renamed_uuid_are_not_owned() {
     let (_tmp, store, identity) = legacy_run();
     let run = store.load(&identity).unwrap();

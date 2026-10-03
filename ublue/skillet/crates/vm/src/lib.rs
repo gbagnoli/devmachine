@@ -3,6 +3,7 @@
 pub mod artifacts;
 pub mod backend;
 pub mod catalog;
+pub mod creation;
 pub mod delivery;
 pub mod domain_xml;
 pub mod lifecycle;
@@ -57,6 +58,8 @@ pub enum Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+pub use process::capture_version;
 
 pub fn current_uid() -> u32 {
     users::get_current_uid()

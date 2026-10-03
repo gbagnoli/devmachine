@@ -5,6 +5,7 @@ use std::{
     collections::BTreeMap,
     ffi::OsString,
     fs,
+    os::unix::fs::PermissionsExt as _,
     path::{Path, PathBuf},
     process::Command,
     time::Duration,
@@ -167,6 +168,38 @@ impl<E: VirshExecutor> VirshBackend<E> {
         }
         Ok(())
     }
+
+    /// Resolve the emulator advertised for the architecture used by native
+    /// test guests. Keep capability parsing beside the selected libvirt
+    /// adapter so alternate runtimes use their own connection and environment.
+    pub fn x86_64_emulator(&self, run: &VmRun) -> Result<PathBuf> {
+        self.validate_connection(run)?;
+        let capabilities = self.invoke(&["capabilities"])?;
+        let capabilities: CapabilitiesXml = quick_xml::de::from_str(&capabilities)?;
+        let emulator = capabilities
+            .guests
+            .into_iter()
+            .filter(|guest| guest.os_type == "hvm")
+            .flat_map(|guest| guest.arches)
+            .find(|arch| arch.name == "x86_64")
+            .and_then(|arch| arch.emulator)
+            .ok_or_else(|| Error::Invalid("libvirt has no x86_64 HVM emulator".into()))?;
+        let metadata = fs::metadata(&emulator)?;
+        if !emulator.is_absolute()
+            || !metadata.is_file()
+            || metadata.permissions().mode() & 0o111 == 0
+        {
+            return Err(Error::Invalid(
+                "libvirt x86_64 emulator is not an executable file".into(),
+            ));
+        }
+        Ok(emulator)
+    }
+
+    pub fn version(&self, run: &VmRun) -> Result<String> {
+        self.validate_connection(run)?;
+        self.invoke(&["--version"])
+    }
 }
 
 impl<E: VirshExecutor> VmBackend for VirshBackend<E> {
@@ -219,6 +252,26 @@ struct DomainXml {
     name: String,
     uuid: Uuid,
     devices: DevicesXml,
+}
+
+#[derive(Deserialize)]
+struct CapabilitiesXml {
+    #[serde(rename = "guest", default)]
+    guests: Vec<GuestXml>,
+}
+
+#[derive(Deserialize)]
+struct GuestXml {
+    os_type: String,
+    #[serde(rename = "arch", default)]
+    arches: Vec<ArchitectureXml>,
+}
+
+#[derive(Deserialize)]
+struct ArchitectureXml {
+    #[serde(rename = "@name")]
+    name: String,
+    emulator: Option<PathBuf>,
 }
 #[derive(Deserialize)]
 struct DevicesXml {

@@ -14,6 +14,22 @@ pub(crate) fn capture(command: Command, timeout: Duration) -> Result<Output> {
     capture_with_input(command, timeout, None)
 }
 
+/// Capture a local tool's version with the same output and time bounds used
+/// for lifecycle subprocesses.
+pub fn capture_version(program: &str) -> Result<String> {
+    let mut command = Command::new(program);
+    command.arg("--version");
+    let output = capture(command, Duration::from_secs(30))?;
+    if !output.status.success() {
+        return Err(Error::Command {
+            operation: format!("{program} --version"),
+            code: output.status.code(),
+        });
+    }
+    String::from_utf8(output.stdout)
+        .map_err(|_| Error::Invalid(format!("{program} version output is not UTF8")))
+}
+
 pub(crate) fn capture_with_input(
     mut command: Command,
     timeout: Duration,

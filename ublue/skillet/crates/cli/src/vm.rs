@@ -1,7 +1,7 @@
 //! CLI presentation and legacy provider wiring. Ownership lives in `skillet_vm`.
 use super::{
     butane_root, secret_delivery, workspace_root, VmDestroyArgs, VmDirectoryArgs, VmListArgs,
-    VmPrepareLocalArgs, VmRenderDomainArgs, VmStageLocalArgs, VmTargetArgs,
+    VmPrepareLocalArgs, VmStageLocalArgs, VmTargetArgs,
 };
 use anyhow::{anyhow, Result};
 use skillet_vm::{
@@ -47,36 +47,6 @@ pub(super) fn record_started(args: &VmTargetArgs) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn record_defined(args: &VmTargetArgs) -> Result<()> {
-    let butane = butane_root()?;
-    let identity = RunIdentity::new(&args.hostname, &args.instance)?;
-    let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
-    let _lock = store.lock(&identity)?;
-    let run = store.load(&identity)?;
-    let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
-    backend
-        .inspect(&run)?
-        .ok_or_else(|| anyhow!("VM definition returned without an owned domain"))?
-        .validate_owned(&run)?;
-    store.mark_defined(&identity)?;
-    Ok(())
-}
-
-pub(super) fn render_domain(args: &VmRenderDomainArgs) -> Result<()> {
-    let butane = butane_root()?;
-    let identity = RunIdentity::new(&args.hostname, &args.instance)?;
-    let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
-    let run = store.load(&identity)?;
-    if run.phase != skillet_vm::Phase::Preparing {
-        return Err(anyhow!(
-            "domain XML can only be rendered for a preparing VM"
-        ));
-    }
-    let path = skillet_vm::domain_xml::write_native_domain_xml(&store, &run, &args.emulator)?;
-    println!("{}", path.display());
-    Ok(())
-}
-
 pub(super) fn prepare_local(args: &VmPrepareLocalArgs) -> Result<()> {
     let butane = butane_root()?;
     let identity = RunIdentity::new(&args.hostname, &args.instance)?;
@@ -101,6 +71,25 @@ pub(super) fn stage_local(args: &VmStageLocalArgs) -> Result<()> {
         &args.generic_binary,
         &args.image,
     )?;
+    Ok(())
+}
+
+pub(super) fn create_native(args: &VmTargetArgs) -> Result<()> {
+    let butane = butane_root()?;
+    let identity = RunIdentity::new(&args.hostname, &args.instance)?;
+    let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
+    let run = store.load(&identity)?;
+    let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
+    let emulator = backend.x86_64_emulator(&run)?;
+    let versions = format!(
+        "Native VM launcher: virsh XML\n{}{}{}",
+        backend.version(&run)?,
+        skillet_vm::capture_version("podman")?,
+        skillet_vm::capture_version("yq")?,
+    );
+    let run =
+        skillet_vm::creation::create_native(&store, &identity, &backend, &emulator, &versions)?;
+    println!("Started {} ({})", identity.domain_name(), run.uuid);
     Ok(())
 }
 
