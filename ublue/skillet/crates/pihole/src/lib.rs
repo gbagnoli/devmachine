@@ -4,7 +4,8 @@ use skillet_core::system::{
     AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
 };
 use skillet_podman::{
-    self, PodmanConfig, PodmanError, PodmanNetwork, ProcessIdentity, QuadletSecret, Volume,
+    self, NetworkAttachment, PodmanConfig, PodmanError, PortProtocol, PortPublication,
+    ProcessIdentity, QuadletSecret, Volume,
 };
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -43,7 +44,7 @@ pub fn apply<S, F>(
     user_config: &PiholeUser,
     secrets: Vec<QuadletSecret>,
     custom_records: BTreeMap<String, String>,
-    network: PodmanNetwork,
+    network_name: String,
 ) -> Result<(), PiholeError>
 where
     S: AccountLookupResource + AccountResource + PodmanSecretResource + ServiceResource + ?Sized,
@@ -116,10 +117,6 @@ where
             "Environment=FTLCONF_webserver_port=8088o,[::]:8088o".to_string(),
             "Environment=TZ=Europe/Madrid".to_string(),
             "Environment=WEBPASSWORD_FILE=/run/secrets/pihole_web_password".to_string(),
-            "PublishPort=[::]:53:53/tcp".to_string(),
-            "PublishPort=[::]:53:53/udp".to_string(),
-            "PublishPort=0.0.0.0:53:53/tcp".to_string(),
-            "PublishPort=0.0.0.0:53:53/udp".to_string(),
         ],
     );
     extra_config.insert(
@@ -145,7 +142,8 @@ where
         PodmanConfig {
             name: "pihole".to_string(),
             image: "docker.io/pihole/pihole:latest".to_string(),
-            networks: vec![network],
+            network_attachments: vec![NetworkAttachment::Bridge(network_name)],
+            port_publications: dns_port_publications(),
             process_identity: ProcessIdentity::ImageDefault,
             namespace_mapping: None,
             volumes,
@@ -156,6 +154,23 @@ where
     )?;
 
     Ok(())
+}
+
+fn dns_port_publications() -> Vec<PortPublication> {
+    [
+        std::net::Ipv6Addr::UNSPECIFIED.into(),
+        std::net::Ipv4Addr::UNSPECIFIED.into(),
+    ]
+    .into_iter()
+    .flat_map(|host_address| {
+        [PortProtocol::Tcp, PortProtocol::Udp].map(move |protocol| PortPublication {
+            host_address,
+            host_port: 53,
+            container_port: 53,
+            protocol,
+        })
+    })
+    .collect()
 }
 
 #[cfg(test)]

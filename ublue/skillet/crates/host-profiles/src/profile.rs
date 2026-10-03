@@ -121,6 +121,15 @@ impl HostProfile {
             .any(|service| matches!(service.config, ServiceConfig::Pihole { .. }))
     }
 
+    pub fn requires_service_network(&self) -> bool {
+        self.services.iter().any(|service| {
+            matches!(
+                service.config,
+                ServiceConfig::Pihole { .. } | ServiceConfig::Syncthing { .. }
+            ) || service.ui.is_some()
+        })
+    }
+
     pub fn requires_full_apply_credentials(&self) -> bool {
         self.services.iter().any(|service| {
             matches!(

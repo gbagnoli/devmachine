@@ -5,9 +5,7 @@ use skillet_core::{
     files::{FileError, FileResource},
     system::{SystemError, SystemResource},
 };
-use skillet_podman::{
-    PodmanConfig, PodmanNetwork, ProcessIdentity, QuadletSecret, SecretTarget, Volume,
-};
+use skillet_podman::{PodmanConfig, ProcessIdentity, QuadletSecret, SecretTarget, Volume};
 use std::collections::BTreeMap;
 use thiserror::Error;
 
@@ -110,7 +108,7 @@ pub const CLOUDFLARE_ACME_TOKEN_CREDENTIAL: &str = "cloudflare_acme_token";
 /// both on the workstation (to build delivery payloads) and on the host (to
 /// validate and apply them).
 pub struct HostUiConfig {
-    pub network: PodmanNetwork,
+    pub network_name: String,
     pub services: Vec<skillet_caddy::UiService>,
 }
 
@@ -118,7 +116,7 @@ pub fn ui_config_for_host(hostname: &str) -> Option<HostUiConfig> {
     let profile = profile_for_name(hostname)?;
     let services = profile.ui_services();
     (!services.is_empty()).then(|| HostUiConfig {
-        network: profile.service_network(),
+        network_name: profile.id.as_str().to_string(),
         services,
     })
 }
@@ -138,7 +136,6 @@ fn tailscale_config(hostname: &str, auth_key: String, state_path: &str) -> Podma
                 format!("Environment=TS_HOSTNAME={hostname}"),
                 "Environment=TS_STATE_DIR=/var/lib/tailscale".to_string(),
                 "Environment=TS_USERSPACE=false".to_string(),
-                "Network=host".to_string(),
             ],
         ),
         (
@@ -149,7 +146,8 @@ fn tailscale_config(hostname: &str, auth_key: String, state_path: &str) -> Podma
     PodmanConfig {
         name: "tailscale".to_string(),
         image: "docker.io/tailscale/tailscale:stable".to_string(),
-        networks: Vec::new(),
+        network_attachments: vec![skillet_podman::NetworkAttachment::Host],
+        port_publications: Vec::new(),
         process_identity: ProcessIdentity::ImageDefault,
         namespace_mapping: None,
         volumes: vec![Volume {
@@ -196,7 +194,7 @@ fn apply_syncthing(
             data_group: data_group.to_string(),
             uid,
             gid,
-            network: profile.service_network(),
+            network_name: profile.id.as_str().to_string(),
         },
     )?;
     Ok(())
@@ -232,6 +230,9 @@ fn apply_profile(
     if profile.requires_pihole_dns_listener_policy() {
         skillet_podman::ensure_dns_listener_port(files, 54)?;
     }
+    if profile.requires_service_network() {
+        skillet_podman::ensure_network(system, files, &profile.service_network())?;
+    }
     for service in &profile.services {
         match &service.config {
             ServiceConfig::Pihole { custom_dns } => {
@@ -263,7 +264,7 @@ fn apply_profile(
                         .iter()
                         .map(|(ip, domain)| ((*ip).to_string(), (*domain).to_string()))
                         .collect::<BTreeMap<_, _>>(),
-                    profile.service_network(),
+                    profile.id.as_str().to_string(),
                 )?;
             }
             ServiceConfig::Syncthing { .. } => apply_syncthing(system, files, profile, service)?,
@@ -346,7 +347,7 @@ fn apply_caddy_host(
         )));
     }
     let ui_config = HostUiConfig {
-        network: profile.service_network(),
+        network_name: profile.id.as_str().to_string(),
         services,
     };
     if profile.requires_data_mount {
@@ -356,6 +357,7 @@ fn apply_caddy_host(
             "/data",
         )?;
     }
+    skillet_podman::ensure_network(system, files, &profile.service_network())?;
     let sites = skillet_caddy::CaddySites::parse(
         credentials.require(CADDY_SITES_CREDENTIAL)?,
         hostname,
@@ -365,6 +367,6 @@ fn apply_caddy_host(
         .require(CLOUDFLARE_ACME_TOKEN_CREDENTIAL)?
         .to_string();
     system.ensure_podman_secret(CLOUDFLARE_ACME_TOKEN_CREDENTIAL, &token)?;
-    skillet_caddy::apply(system, files, &sites, ui_config.network)?;
+    skillet_caddy::apply(system, files, &sites, &ui_config.network_name)?;
     Ok(())
 }

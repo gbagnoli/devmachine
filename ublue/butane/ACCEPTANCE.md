@@ -1036,3 +1036,16 @@ host tool; it still uses normal command approvals.
   beezelbot base twice with no restart on the second apply, then was removed.
 - No live container identity or ownership checks ran; `/dev/kvm` is unavailable
   on this workstation.
+
+### Typed Podman networks and port publications, 2026-10-04
+
+- Host composition now creates each profile bridge network once; application
+  recipes attach by network name. Container network mode and port bindings are
+  typed values. Dual-stack Pi-hole, Syncthing, and Caddy publications plus
+  UniFi/Tailscale host networking retain their prior intent. Raw directives
+  that conflict with typed fields fail validation.
+- Podman, service, and full workspace tests passed. Strict all-target Clippy
+  passed. The CI container integration exited 0; beezelbot base applied twice
+  without a restart on the repeat and its container was removed.
+- No named-VM DNS/discovery or service networking test ran; `/dev/kvm` is not
+  available here.

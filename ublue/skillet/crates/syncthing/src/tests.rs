@@ -15,15 +15,7 @@ fn syncthing_uses_persistent_data_and_shared_dns_network() {
             data_group: "giacomo".to_string(),
             uid: 1000,
             gid: 1000,
-            network: PodmanNetwork {
-                unit_name: "clamps".to_string(),
-                options: vec![
-                    "DisableDNS=false".to_string(),
-                    "Driver=bridge".to_string(),
-                    "NetworkName=clamps".to_string(),
-                    "Subnet=172.26.26.0/24".to_string(),
-                ],
-            },
+            network_name: "clamps".to_string(),
         },
     )
     .unwrap();

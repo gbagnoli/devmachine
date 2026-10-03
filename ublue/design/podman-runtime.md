@@ -8,5 +8,7 @@ is opt-in, maps an existing host account through its subordinate-ID ranges,
 and never creates host accounts as a side effect.
 
 Host-wide Podman settings are selected and applied once by host composition.
-Individual container recipes declare their own service configuration and
-network attachments; they do not change global daemon policy.
+Host composition also creates and records each shared network definition once.
+Container recipes attach by network name and declare host-network mode or port
+publications with typed values; they do not carry duplicate network definitions
+or change global daemon policy.

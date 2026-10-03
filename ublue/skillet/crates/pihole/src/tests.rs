@@ -3,7 +3,7 @@ use skillet_core::{
     system::PodmanSecretResource,
     test_utils::{MockFiles, MockSystem},
 };
-use skillet_podman::{PodmanNetwork, QuadletSecret, SecretTarget};
+use skillet_podman::{QuadletSecret, SecretTarget};
 use std::collections::BTreeMap;
 
 #[test]
@@ -33,19 +33,7 @@ fn pihole_uses_dual_stack_dns_network_and_registry_updates() {
             },
         }],
         BTreeMap::new(),
-        PodmanNetwork {
-            unit_name: "clamps".to_string(),
-            options: vec![
-                "DisableDNS=false".to_string(),
-                "Driver=bridge".to_string(),
-                "Gateway=172.26.26.1".to_string(),
-                "Gateway=fd59:4e23:2950:11f5::1".to_string(),
-                "IPv6=true".to_string(),
-                "NetworkName=clamps".to_string(),
-                "Subnet=172.26.26.0/24".to_string(),
-                "Subnet=fd59:4e23:2950:11f5::/64".to_string(),
-            ],
-        },
+        "clamps".to_string(),
     )
     .unwrap();
 
@@ -73,11 +61,4 @@ fn pihole_uses_dual_stack_dns_network_and_registry_updates() {
         );
     }
     assert!(!quadlet.contains("Pod="));
-    let network = String::from_utf8_lossy(
-        generated
-            .get("/etc/containers/systemd/clamps.network")
-            .unwrap(),
-    );
-    assert!(network.contains("DisableDNS=false"));
-    assert!(network.contains("IPv6=true"));
 }
