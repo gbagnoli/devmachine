@@ -734,3 +734,23 @@ host tool; it still uses normal command approvals.
   and the container ID stayed unchanged. Backup restore, reboot persistence,
   and expected host listener checks remain pending; see
   [the UniFi plan](../plan/CLAMPS-UNIFI.md).
+
+### Rust VM local artifact preparation, 2026-10-03
+
+- `skillet_vm::provisioning` now owns preparation of the disposable VM's copied
+  disk and Ed25519 SSH key. Disk copies are staged beside the destination and
+  atomically renamed; a SHA-256 sidecar records the selected image. Repeated
+  preparation reuses a byte-identical disk and matching key pair, repairs a
+  changed image while the run is still `Preparing`, and rejects partial keys,
+  symlinked inputs, or progressed runs. The hidden `skillet test vm
+  prepare-local` command bridges `coreos-install` to this library and returns
+  the public key for Ignition rendering.
+- `cargo fmt --all --check`, workspace pedantic Clippy with warnings denied,
+  all 131 workspace tests, and `cargo build --offline --workspace` passed.
+  `bash -n` and ShellCheck passed for `coreos-install`; `git diff --check`
+  passed. The CI-style `cargo run --release -p skillet -- test run beezelbot
+  --phase base --image fedora:latest` passed, including repeat apply without
+  service restarts.
+- No VM was created or changed for this slice. Template staging, Butane
+  compilation and native define/start remain in the Bash installer; Flatpak
+  creation and end-to-end VM acceptance remain pending.

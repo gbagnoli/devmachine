@@ -61,9 +61,13 @@ reboots preserve them and disposal removes only owned state. Software TPM
 checks establish provisioning behavior; physical hardware acceptance remains
 required. See the [TPM encrypted-root plan](../plan/TPM-ENCRYPTED-ROOT.md).
 
-1. **Create:** build the generic CLI and host binary, allocate the run directory and SSH key,
-   and provision a fresh VM disk. Ignition contains the public SSH key and
-   base configuration. Large binaries travel over SSH because embedding them
+1. **Create:** build the generic CLI and host binary, allocate the run directory,
+   and persist a `Preparing` manifest before local artifact changes. The Rust VM
+   library atomically copies the selected image, records its digest, and creates
+   or validates the run's Ed25519 SSH key pair. The Bash installer currently
+   stages templates and compiles Ignition; it receives the public key from the
+   hidden `test vm prepare-local` command. Ignition contains the public SSH key
+   and base configuration. Large binaries travel over SSH because embedding them
    in QEMU `fw_cfg` previously caused long boot delays.
 2. **Ready:** wait for SSH, deliver both binaries, complete unsigned then signed
    rebase, and check the booted deployment, base apply, resolver, SELinux, and
