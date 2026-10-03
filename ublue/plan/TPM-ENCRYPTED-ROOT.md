@@ -25,7 +25,7 @@ slot. Existing unencrypted development VMs may retain their explicit profile.
 
 Read `AGENTS.md`, `skillet/AGENTS.md`, `design/storage.md`, `design/secrets.md`,
 `design/smoke-vms.md`, `butane/clamps.bu`, `butane/includes/data-storage.bu`,
-`butane/bin/{coreos-install,test-vm,test-vm-ready}`, and the ucore-images recipes.
+`butane/bin/{test-vm,test-vm-ready,butane}`, and the ucore-images recipes.
 Make small validated changes in the order below. Never format a populated
 physical disk as part of Skillet convergence; use only named disposable disks
 until physical install and restore are explicitly arranged.
