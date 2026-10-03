@@ -1,5 +1,9 @@
 # Clamps migration draft
 
+Prerequisite: complete [the Skillet refactoring roadmap](SKILLET-REFACTOR.md)
+before proceeding with the remaining feature milestones in this plan.
+Existing acceptance evidence and deferred tasks remain applicable.
+
 Status: remaining work, 2026-09-27. Skillet convergence and disposable VM
 bootstrap are implemented; their completed agent assignments have been removed.
 Runtime evidence and outstanding bootstrap checks are recorded in
@@ -17,7 +21,8 @@ Pi-hole container runs in the VM with data and Podman storage under
 `/var/lib/data`; service networking, live ACME, final disk selection, and
 post-provision rebase checks remain open.
 
-Next: complete Pi-hole LAN acceptance and configure the actual custom DNS
+After the refactoring prerequisite: complete Pi-hole LAN acceptance and configure
+the actual custom DNS
 records once their values are supplied. On 2026-10-02, the running smoke VM
 passed IPv4/IPv6 UDP/TCP DNS queries and a reversible custom-record test.
 Its libvirt user-mode network forwards only SSH, so client ingress and firewall

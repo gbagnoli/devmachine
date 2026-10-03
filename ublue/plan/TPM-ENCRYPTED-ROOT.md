@@ -1,7 +1,11 @@
 # TPM-encrypted uCore root
 
+Prerequisite: complete [the Skillet refactoring roadmap](SKILLET-REFACTOR.md)
+before proceeding with the remaining feature milestones in this plan.
+Existing acceptance evidence and deferred tasks remain applicable.
+
 Status: planned, 2026-10-02. No encrypted-root implementation or acceptance
-is claimed. Start after the current private-UI acceptance work.
+is claimed. Start after the refactoring prerequisite and private-UI acceptance work.
 
 ## Scope and decisions
 

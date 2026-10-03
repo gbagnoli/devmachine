@@ -5,7 +5,8 @@ separate. A retained VM supports inspection and repeated convergence checks;
 a fresh VM establishes that bootstrap is reproducible. The existing fixture
 tests real systemd/Podman convergence. Pi-hole credential delivery,
 Tailscale enrollment/device cleanup, and opt-in Cloudflare/Caddy provisioning
-are implemented. Live ACME scenarios remain unverified.
+are implemented. Live staging ACME/HTTPS acceptance passed on 2026-10-02;
+production ACME and the deferred external-access checks remain unverified.
 
 ## Identity and ownership
 
@@ -22,6 +23,17 @@ in the manifest. Each concurrent VM has a distinct localhost SSH port. Native
 libvirt and the existing virt-manager Flatpak support different workstation
 OSes without installing host packages. The Flatpak runtime grants access to
 the test artifacts and uses QEMU user networking.
+
+## Planned orchestration migration
+
+Move VM lifecycle management from Bash to one Rust orchestrator, as recorded
+in [the architecture decision](skillet-architecture.md) and
+[the migration plan](../plan/REFACTOR-01-VM-LIFECYCLE.md). Preserve public
+commands, retained manifests, native/Flatpak support, and guest assertions.
+The current Bash destruction path does not perform external cleanup; the
+target architecture routes all disposal through one owner and preserves
+recovery metadata until cleanup succeeds. This migration is planned, not
+implemented or accepted.
 
 ## States and recovery
 

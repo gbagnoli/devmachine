@@ -39,6 +39,63 @@ This document defines the architectural mandates and project structure for `skil
   the installed Rust target and compiler before reporting musl as unavailable;
   a missing binary artifact alone does not indicate a missing toolchain.
 
+## Architecture and refactoring rules
+
+Follow [the refactoring roadmap](../plan/SKILLET-REFACTOR.md) before further
+feature milestones. These rules describe the target architecture; the roadmap
+tracks existing violations and their migration, not completed implementation.
+
+- Route effectful observations and mutations through the same explicit
+  boundary. Recipe and orchestration code must not bypass an injected resource
+  interface to inspect the live filesystem, account database, process
+  environment, or runtime. Concrete adapters own those operations; load
+  credentials and ambient configuration at the entry point and pass them in.
+- Define traits around cohesive capabilities needed by consumers. Add an
+  operation to the capability that owns it, not an unrelated omnibus trait.
+  Use ordinary data and functions for pure validation, rendering, and static
+  recipe composition; do not introduce a trait for every recipe.
+- Keep one authoritative host capability declaration. Application composition,
+  UI exposure, credential requirements, and provisioning eligibility must agree
+  with it. Reject unknown profiles for profile-dependent operations.
+- Keep binary entry points thin. Host composition, guest runtime adapters,
+  workstation provisioning, and test fixtures have distinct responsibilities.
+  Extract modules first and crates where dependency or deployment boundaries
+  justify them; production dispatch must not include synthetic test profiles.
+- Share delivery and lifecycle workflows across environments. Supply explicit
+  policy and target inputs rather than duplicating algorithms or branching on
+  particular deployment names. Keep secret values off command lines and out of
+  manifests, recordings, and errors.
+- Use a common ownership representation for named and numeric identities.
+  Model application identity, host filesystem ownership, and namespace mapping
+  separately. Existing numeric ownership must not require a named host account.
+- Give common configuration fields one authoritative representation. Reject
+  conflicts between typed fields and extension directives; preserve ordering
+  where repeated directives are semantically ordered. Global runtime policy
+  belongs to the host baseline, not an arbitrary container resource.
+- State what every convergence result means. Distinguish definition changes,
+  activation, recovery, and no-op outcomes. Persist applied state only after the
+  consuming operation succeeds and retry pending activation after interruption.
+- Define whether omission means leaving a resource unmanaged or ensuring its
+  absence. Deactivation must be explicit and must preserve application data
+  unless its deletion is authorized.
+- Diagnostic recording must survive apply failures and describe operation
+  outcomes without exposing payloads. Do not treat an attempted operation as
+  proof of a change, success, or idempotence.
+- Fakes and command stubs must honor production contracts for state, metadata,
+  identities, and error/exit semantics. Unsupported behavior must fail explicitly
+  rather than silently succeeding. Use shared contract checks for important
+  adapters and fakes; a mocked runtime does not prove real runtime acceptance.
+- Select build artifacts from Cargo's reported outputs and honor its target,
+  profile, and configured target directory. Do not discover the new build by
+  scanning potentially stale binaries at conventional paths.
+- Keep subprocess adapters focused: construct executable arguments and
+  environments directly, observe results, and bound waits with diagnostics.
+  Preserve supported workstation backends and static guest builds without
+  installing tools as part of a refactor.
+- CI must cover executable helpers regardless of filename extension and must
+  run relevant checks when their shared inputs change. Keep routine CI free of
+  private credentials and external API access; record live acceptance separately.
+
 ## Testing Philosophy
 
 Skillet uses a multi-layered testing approach to ensure reliability and idempotency:
@@ -80,6 +137,6 @@ skillet/
 ```
 
 ## Module Design
-- **Modules as Cookbooks**: Each library crate under `crates/` (besides `core`) represents a "module" or "cookbook" (e.g., `skillet_hardening`).
-- **Binary per Host**: The idea is to have one binary per host type that picks up these modules and reuses core primitives.
+- **Service Modules**: Service crates compose shared primitives and own their application configuration. Supporting libraries own cohesive runtime, host-profile, or workstation responsibilities.
+- **Binary per Host**: Host binaries select a shared canonical profile. Keep their behavior consistent with the generic entry point; do not duplicate recipe composition between binaries.
 - **Core Primitives**: Found in `skillet_core`, providing the building blocks for all modules.

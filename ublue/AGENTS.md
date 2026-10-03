@@ -1,5 +1,14 @@
 # uBlue agent instructions
 
+## Current priority
+
+- Complete the seven workstreams in [the Skillet refactoring roadmap](plan/SKILLET-REFACTOR.md)
+  before proceeding with further service migrations, encryption features, or
+  production cutover. VM management's Bash-to-Rust migration is included.
+- Follow the roadmap's ordering and validation gates. Existing feature plans
+  retain their unfinished work but are gated by this prerequisite. Fixes and
+  acceptance work necessary to complete the refactoring are in scope.
+
 ## Design documentation
 
 - Read the relevant documents in [design/](design/) before changing architecture
@@ -22,6 +31,28 @@
 - Remove completed or superseded plans after preserving any unfinished work
   in an active plan. Retain implementation evidence in the relevant acceptance
   record; do not label unverified checks as passed.
+- Each refactoring handoff must name the implemented slice, remaining work,
+  interface changes, and validation evidence. Record the general prevention
+  rule in the applicable `AGENTS.md` when an architectural defect is corrected;
+  keep incident-specific details in designs, plans, or acceptance records.
+
+## Shared infrastructure boundaries
+
+- Shared helpers receive identity and configuration from validated inputs or
+  declarations. Keep deployment-specific assumptions in the selected profile;
+  do not bake them into generic readiness, delivery, or lifecycle code.
+- Give each resource lifecycle one owner. Every public entry point must use
+  the same ownership validation, recovery, and cleanup policy; transport
+  adapters must not provide a shortcut that bypasses those guarantees.
+- Keep host profile, environment, deployment instance, runtime identity, and
+  connection target distinct. Derive conventions in one place and persist the
+  resolved values needed for recovery.
+- Persist ownership before mutations and preserve it across partial failures.
+  Cleanup must tolerate already-absent owned resources while refusing ambiguous
+  or unrelated resources. Remove recovery metadata only after cleanup completes.
+- Compatibility-sensitive refactors must preserve retained artifacts and
+  manifests through an explicit migration; never infer that existing state is
+  disposable merely because its format is old.
 
 ## Local validation before commit
 
