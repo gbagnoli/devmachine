@@ -382,27 +382,7 @@ fn run_vm_list(args: &VmListArgs) -> Result<()> {
 }
 
 fn vm_name(hostname: &str, instance: &str) -> Result<String> {
-    let valid = |value: &str| {
-        !value.is_empty()
-            && value.starts_with(|character: char| character.is_ascii_lowercase())
-            && value
-                .bytes()
-                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
-    };
-    if !valid(hostname) {
-        return Err(anyhow!("invalid VM host name: {hostname}"));
-    }
-    if !instance
-        .bytes()
-        .next()
-        .is_some_and(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
-        || !instance
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
-    {
-        return Err(anyhow!("invalid VM instance: {instance}"));
-    }
-    Ok(format!("{hostname}-test-{instance}"))
+    Ok(skillet_vm::RunIdentity::new(hostname, instance)?.domain_name())
 }
 
 fn run_helper(path: &Path, args: &[&str]) -> Result<()> {

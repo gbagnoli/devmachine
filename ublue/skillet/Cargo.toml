@@ -13,6 +13,7 @@ members = [
     "crates/hosts/beezelbot",
     "crates/hosts/clamps",
     "crates/cli-common",
+    "crates/vm",
 ]
 
 [workspace.dependencies]
@@ -25,6 +26,7 @@ skillet_btrbk = { path = "crates/btrbk" }
 skillet_caddy = { path = "crates/caddy" }
 skillet_podman = { path = "crates/podman" }
 skillet_cli_common = { path = "crates/cli-common" }
+skillet_vm = { path = "crates/vm" }
 thiserror = "1.0"
 sha2 = "0.10"
 users = "0.11"
@@ -43,6 +45,8 @@ keepass = { version = "0.13.25", features = ["save_kdbx4"] }
 rpassword = "7.5"
 cloudflare = { version = "0.14.0", default-features = false, features = ["blocking", "rustls-tls"] }
 keyutils = "0.4"
+uuid = { version = "1.26", features = ["serde", "v4"] }
+quick-xml = { version = "0.41", features = ["serialize"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
