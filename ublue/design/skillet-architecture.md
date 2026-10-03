@@ -1,0 +1,31 @@
+# Skillet architecture refactoring
+
+Decision, 2026-10-03: complete the seven refactoring workstreams before further
+service migrations, encryption implementation, or production cutover. Existing
+service behavior and unfinished acceptance requirements remain authoritative.
+Status: planned; the review and plans do not establish runtime acceptance.
+
+Keep application crates as reusable recipes. Separate canonical host profiles
+and composition from guest runtime adapters, CLI parsing, workstation
+provisioning, and synthetic test fixtures. Effects need injectable capability
+boundaries covering both observations and mutations. Pure configuration and
+composition use ordinary data and functions. This makes host tests independent
+of the workstation and keeps one declaration authoritative across entry points.
+
+Move VM lifecycle orchestration from Bash into Rust. One orchestrator owns the
+typed manifest, identity validation, readiness, recovery, and destruction,
+including external-resource cleanup before deleting local recovery metadata.
+Native and Flatpak execution remain supported. Initially invoke focused
+`virsh`, SSH, and existing compiler tools through subprocess adapters; native
+libvirt linkage would add requirements to the static musl build and Flatpak
+workstations. Keep that choice behind an interface. Do not embed shell programs
+in Rust or install workstation dependencies during the migration.
+
+Preserve command behavior and import existing run manifests before replacing
+their format. Guest assertion scripts may remain standalone fixtures. Recording
+is diagnostic; fast tests establish decisions and adapter contracts, while
+named disposable VMs establish real service and reboot behavior.
+
+Implementation order and exit criteria:
+[refactoring roadmap](../plan/SKILLET-REFACTOR.md). Existing runtime design:
+[smoke VMs](smoke-vms.md), [secrets](secrets.md), and [storage](storage.md).

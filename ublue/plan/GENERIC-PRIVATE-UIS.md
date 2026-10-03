@@ -1,5 +1,9 @@
 # Generic private UI provisioning
 
+Prerequisite: complete [the Skillet refactoring roadmap](SKILLET-REFACTOR.md)
+before proceeding with the remaining feature milestones in this plan.
+Existing acceptance evidence and deferred tasks remain applicable.
+
 Status: shared UI declarations, aliases, environment lookup, Caddy payloads,
 Cloudflare account-token issuance, DNS reconciliation, and opt-in smoke VM
 cleanup are implemented and passed live staging ACME/HTTPS acceptance on

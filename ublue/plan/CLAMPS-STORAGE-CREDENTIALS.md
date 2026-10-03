@@ -1,5 +1,9 @@
 # Milestone 3 discussion: storage and credentials
 
+Prerequisite: complete [the Skillet refactoring roadmap](SKILLET-REFACTOR.md)
+before proceeding with the remaining feature milestones in this plan.
+Existing acceptance evidence and deferred tasks remain applicable.
+
 Status: remaining work, 2026-09-27. Base provisioning is implemented. The
 storage mount path and subvolume layout are decided in
 [the storage design](../design/storage.md); final physical disk remains open.

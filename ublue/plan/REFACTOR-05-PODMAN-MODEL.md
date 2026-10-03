@@ -1,0 +1,65 @@
+# 5. Podman configuration with explicit host policy
+
+Status: planned; follows workstreams 2–4 in
+[the prerequisite roadmap](SKILLET-REFACTOR.md).
+Further feature milestones wait for that roadmap's completion.
+
+## Read and locate
+
+- `../skillet/crates/podman/src/{lib,tests}.rs` and its Quadlet template.
+- Application crates' container definitions and workstream 2's shared network
+  and storage declarations; workstream 3's account/ownership interfaces.
+- `../design/{storage,pihole-network,syncthing,unifi,private-ui-access}.md` and
+  `../butane/includes/data-storage.bu`.
+
+Current defects: runtime user/network settings can come from both typed fields
+and raw directives; unused user fields misdescribe runtime identity. Per-container
+apply also owns a global DNS-port policy and converges shared networks repeatedly.
+
+## Implementation sequence
+
+1. Inventory actual resource usage before changing the model. Define explicit
+   image-default/named/numeric process identity, separate host volume ownership,
+   and optional namespace mapping. Reuse workstream 3's identity types. Remove
+   inert fields and implicit user creation; retain mapping support only with an
+   explicit validated caller and meaningful tests.
+2. Make commonly used container settings typed, including identity, network
+   attachments and declared port publications. Keep an extension section for
+   unsupported directives with documented constraints. Reject conflicts with
+   typed values and invalid input before effects. Validate repeated directives
+   according to their cardinality; preserve order where it affects semantics.
+3. Add explicit shared network/global Podman baseline convergence selected by
+   the host profile. Move DNS listener policy out of generic container apply.
+   Services reference an already-declared network rather than each owning its
+   full definition. Preserve bridge DNS, dual stack, host networking and network
+   change refusal until an explicit safe replacement workflow exists.
+4. Add reusable storage dependency helpers for application units and shared
+   data validation. Preserve the installation/runtime split: Ignition prepares
+   the filesystem and graphroot; recipes validate and prepare application data.
+   Keep application-owned volume metadata out of generic volume creation.
+5. Migrate every existing service, including Tailscale and the smoke fixture,
+   preserving images, ports, capabilities, SELinux labels, identities, paths,
+   secret directives, auto-update and startup dependencies. Explain intentional
+   definition differences in the design; do not make service-policy changes
+   merely to simplify a type or get a test passing.
+6. Keep revision/activation behavior compatible with workstream 6. Document
+   what omitted services/options mean: an omitted recipe leaves existing state
+   unmanaged unless an explicit deactivation is requested. Do not remove data
+   during the refactor or silently interpret omission as destructive cleanup.
+
+## Validation and exit criteria
+
+- Rendering/validation tests cover image-default and named/numeric users,
+  explicit mappings, bridge and host networks, dual-stack publications, secrets,
+  typed/raw conflicts and semantically ordered repeated directives.
+- Baseline tests prove global/network policy is selected once from profile
+  inputs and independent of application apply order. Network definition changes
+  still fail safely instead of replacing a network in use.
+- Unit and real-VM tests establish mount dependencies, volume root ownership,
+  preserved descendant metadata, secret/config consumption and repeat apply.
+  Compare representative old/new Quadlets and document intended changes.
+- A named VM verifies actual process identity, DNS publications, service-to-
+  service resolution, host-network services, and unchanged application state.
+  Include stop/start and reboot checks for definitions that changed.
+- Pass roadmap checks, update affected service designs and acceptance evidence,
+  and retain separate process/mapping/ownership and global-policy AGENTS rules.

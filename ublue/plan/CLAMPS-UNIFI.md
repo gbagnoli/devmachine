@@ -1,5 +1,9 @@
 # UniFi container on clamps
 
+Prerequisite: complete [the Skillet refactoring roadmap](SKILLET-REFACTOR.md)
+before proceeding with the remaining feature milestones in this plan.
+Existing acceptance evidence and deferred tasks remain applicable.
+
 Status: implementation and empty-controller acceptance passed on the
 disposable x86_64 VM on 2026-10-03. Backup restore and production migration
 remain pending.
