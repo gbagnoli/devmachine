@@ -1,6 +1,6 @@
 # 4. Thin CLIs and shared workstation provisioning
 
-Status: planned; follows workstreams 1–3 in
+Status: in progress; follows workstreams 1–3 in
 [the prerequisite roadmap](SKILLET-REFACTOR.md).
 Further feature milestones wait for that roadmap's completion.
 
@@ -79,3 +79,15 @@ and VM delivery have duplicate implementations with different validation.
   evidence and mark unavailable live checks honestly.
 - Pass roadmap checks; no duplicated production/VM credential workflow remains,
   and runtime/CLI/library boundaries are reflected in designs and AGENTS.
+
+## Progress
+
+- Implemented: production and disposable-VM credential installations now use
+  one `skillet_vm::credential::install` operation over `GuestTransport`. It
+  accepts host, credential, consumer unit, activation policy, and payload as
+  typed values; validates identifiers; sends secret bytes only on stdin; and
+  reports sanitized guest errors. Both verify recorded SSH host keys.
+- Pending: workstation/vault/provider logic still lives in CLI modules; Tailscale
+  still uses its current curl adapter; Cloudflare/token lifecycle orchestration
+  and VM state persistence remain in place pending extraction/consolidation.
+  Finish remaining sequence items and run named-VM acceptance.

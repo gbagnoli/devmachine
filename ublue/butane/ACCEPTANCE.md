@@ -927,3 +927,17 @@ host tool; it still uses normal command approvals.
   restart, and the disposable test container was removed.
 - Live ownership and Btrfs mount acceptance remains unverified because this
   workstation has no `/dev/kvm`; no VM was changed.
+
+### Shared guest credential delivery, 2026-10-04
+
+- Production host secret delivery and disposable VM provisioning now call the
+  same `skillet_vm::credential::install` API over `GuestTransport`. The helper
+  validates host/credential/unit inputs, supports immediate or deferred unit
+  activation, delivers bytes on stdin, and returns sanitized guest errors.
+- Tests cover stdin-only delivery, deferred activation arguments, invalid
+  inputs before transport, and remote failure diagnostics. Passed offline
+  workspace tests, workspace formatting, and strict all-target Clippy.
+- The CI container integration command exited 0. Both base applies succeeded,
+  repeat apply did not restart a service, and the disposable test container
+  was removed. VM credential rotation/recovery acceptance remains pending; no
+  `/dev/kvm` is available here.
