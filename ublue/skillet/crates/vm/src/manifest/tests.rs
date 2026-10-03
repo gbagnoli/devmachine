@@ -1,7 +1,7 @@
 use super::*;
 use std::os::unix::fs::symlink;
 
-fn legacy_run() -> (tempfile::TempDir, ManifestStore, RunIdentity) {
+pub(crate) fn legacy_run() -> (tempfile::TempDir, ManifestStore, RunIdentity) {
     let tmp = tempfile::tempdir().unwrap();
     let identity = RunIdentity::new("fixture", "retained-2").unwrap();
     let store = ManifestStore::new(tmp.path(), users::get_current_uid()).unwrap();

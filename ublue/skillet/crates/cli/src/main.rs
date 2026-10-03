@@ -12,6 +12,7 @@ use tracing_subscriber::FmtSubscriber;
 mod cloudflare;
 mod secret_delivery;
 mod tailscale;
+mod vm;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -124,6 +125,8 @@ enum VmCommands {
     Destroy(VmDestroyArgs),
     /// List available host templates and their recorded disposable VMs
     List(VmListArgs),
+    /// Inspect the UUID and disks recorded for an owned disposable VM
+    Status(VmTargetArgs),
     /// Provision Pi-hole and enroll the disposable VM in Tailscale
     Provision(VmProvisionArgs),
     /// Install the current host binary on a retained disposable VM
@@ -136,6 +139,12 @@ struct VmCreateArgs {
     instance: String,
     #[arg(long, default_value_t = 2201)]
     port: u16,
+}
+
+#[derive(clap::Args, Debug)]
+struct VmTargetArgs {
+    hostname: String,
+    instance: String,
 }
 
 #[derive(clap::Args, Debug)]
@@ -263,6 +272,12 @@ fn main() -> Result<()> {
         Commands::Test {
             command:
                 TestCommands::Vm {
+                    command: VmCommands::Status(args),
+                },
+        } => vm::status(&args)?,
+        Commands::Test {
+            command:
+                TestCommands::Vm {
                     command: VmCommands::Provision(args),
                 },
         } => secret_delivery::provision_vm(&args)?,
@@ -349,11 +364,7 @@ fn run_vm_create(args: &VmCreateArgs) -> Result<()> {
 }
 
 fn run_vm_destroy(args: &VmDestroyArgs) -> Result<()> {
-    vm_name(&args.hostname, &args.instance)?;
-    let helper = butane_root()?.join("bin/test-vm");
-    run_helper(&helper, &[&args.hostname, "status", &args.instance])?;
-    secret_delivery::remove_vm_from_tailscale(args)?;
-    run_helper(&helper, &[&args.hostname, "destroy", &args.instance])
+    vm::destroy(args)
 }
 
 fn run_vm_update(args: &VmDestroyArgs) -> Result<()> {

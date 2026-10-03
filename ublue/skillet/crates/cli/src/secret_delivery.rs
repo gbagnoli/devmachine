@@ -378,10 +378,7 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn remove_vm_from_tailscale(args: &VmDestroyArgs) -> Result<()> {
-    if args.hostname != "clamps" {
-        return Ok(());
-    }
+pub(super) fn remove_vm_external_resources(args: &VmDestroyArgs) -> Result<()> {
     let name = vm_name(&args.hostname, &args.instance)?;
     let butane = butane_root()?;
     let run_dir = butane.join("runs").join(&name);

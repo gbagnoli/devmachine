@@ -421,4 +421,4 @@ pub(crate) fn reject_symlinks(path: &Path) -> Result<()> {
 
 #[cfg(test)]
 #[path = "manifest/tests.rs"]
-mod tests;
+pub(crate) mod tests;
