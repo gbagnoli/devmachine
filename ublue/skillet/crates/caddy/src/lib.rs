@@ -1,7 +1,7 @@
 //! Caddy reverse proxy for administrative interfaces.
 
 use serde::{Deserialize, Serialize};
-use skillet_core::files::{FileError, FileResource};
+use skillet_core::files::{FileError, FileMutationResource, FileReadResource};
 use skillet_core::system::{SystemError, SystemResource};
 use skillet_podman::{
     self, ContainerUser, PodmanConfig, PodmanError, PodmanNetwork, QuadletSecret, SecretTarget,
@@ -272,7 +272,7 @@ pub fn apply<S, F>(
 ) -> Result<(), CaddyError>
 where
     S: SystemResource + ?Sized,
-    F: FileResource + ?Sized,
+    F: FileMutationResource + FileReadResource + ?Sized,
 {
     let caddyfile = sites.render();
     let config_dir = Path::new("/etc/skillet/caddy");

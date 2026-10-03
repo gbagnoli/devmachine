@@ -1,4 +1,4 @@
-use crate::files::{FileError, FileResource, Ownership};
+use crate::files::{FileError, FileMutationResource, FileReadResource, Ownership, StorageResource};
 use crate::resource_op::ResourceOp;
 use crate::system::{AccountResource, GroupIdentity, SystemError, SystemResource, UserIdentity};
 use sha2::{Digest, Sha256};
@@ -41,7 +41,7 @@ impl<T> Recorder<T> {
     }
 }
 
-impl<T: FileResource> FileResource for Recorder<T> {
+impl<T: StorageResource> StorageResource for Recorder<T> {
     fn require_btrfs_subvolume_mount(
         &self,
         path: &Path,
@@ -62,10 +62,15 @@ impl<T: FileResource> FileResource for Recorder<T> {
         });
         self.inner.ensure_btrfs_subvolume(path)
     }
+}
 
+impl<T: FileReadResource> FileReadResource for Recorder<T> {
     fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
         self.inner.read_file(path)
     }
+}
+
+impl<T: FileMutationResource> FileMutationResource for Recorder<T> {
     fn ensure_file(
         &self,
         path: &Path,

@@ -1,4 +1,4 @@
-use crate::files::{FileError, FileResource, Ownership};
+use crate::files::{FileError, FileMutationResource, FileReadResource, Ownership, StorageResource};
 use crate::system::{AccountResource, GroupIdentity, SystemError, SystemResource, UserIdentity};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
@@ -278,7 +278,7 @@ impl Default for MockFiles {
     }
 }
 
-impl FileResource for MockFiles {
+impl StorageResource for MockFiles {
     fn require_btrfs_subvolume_mount(
         &self,
         path: &Path,
@@ -297,9 +297,11 @@ impl FileResource for MockFiles {
     }
 
     fn ensure_btrfs_subvolume(&self, path: &Path) -> Result<bool, FileError> {
-        self.ensure_directory(path, None, None, None)
+        FileMutationResource::ensure_directory(self, path, None, None, None)
     }
+}
 
+impl FileReadResource for MockFiles {
     fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
         Ok(self
             .files
@@ -308,6 +310,9 @@ impl FileResource for MockFiles {
             .get(&path.display().to_string())
             .cloned())
     }
+}
+
+impl FileMutationResource for MockFiles {
     fn ensure_file(
         &self,
         path: &Path,
