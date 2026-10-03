@@ -2289,6 +2289,7 @@ dependencies = [
  "sha2 0.10.9",
  "skillet_caddy",
  "skillet_cli_common",
+ "skillet_vm",
  "tempfile",
  "tracing",
  "tracing-subscriber",
@@ -2429,6 +2430,18 @@ dependencies = [
  "skillet_podman",
  "thiserror 1.0.69",
  "tracing",
+]
+
+[[package]]
+name = "skillet_vm"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "users",
+ "uuid",
 ]
 
 [[package]]

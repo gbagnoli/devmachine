@@ -1,7 +1,21 @@
 # 1. One VM lifecycle owner; migrate Bash management to Rust
 
-Status: planned. First workstream in [the prerequisite roadmap](SKILLET-REFACTOR.md).
+Status: in progress. First workstream in [the prerequisite roadmap](SKILLET-REFACTOR.md).
 Further feature milestones wait for that roadmap's completion.
+
+## Progress, 2026-10-03
+
+Implemented foundation: `skillet_vm` owns validated host/instance identity,
+backend/connection and SSH types, version-1 `vm.json`, atomic mode-0600 writes,
+and explicit legacy import. Reads do not rewrite retained runs. Legacy files,
+captured/deployed hashes and provider journals remain intact. The generic CLI
+uses the shared identity validator. Eight manifest regression tests pass.
+
+Creation, readiness, inspection and disposal still use existing Bash/CLI paths;
+the library does not yet replace them. No live VM was changed or imported.
+Next: backend/transport contracts and shared Rust inspection, then recoverable
+creation/readiness/disposal and public-helper delegation. See
+[validation evidence](../butane/ACCEPTANCE.md#vm-refactoring-foundation-2026-10-03).
 
 ## Read and locate
 

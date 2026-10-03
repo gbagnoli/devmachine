@@ -1,5 +1,25 @@
 # Clamps VM acceptance log
 
+## VM refactoring foundation, 2026-10-03
+
+- Source slice: after roadmap commit `471068f`, added `skillet_vm` manifest
+  types and shared CLI identity validation. No guest service behavior changed.
+- Passed on the static-musl target, with the existing cross compiler on PATH:
+  `cargo fmt --all --check`,
+  `cargo clippy --offline --workspace --all-targets -- -D warnings`,
+  `cargo test --offline --workspace`, and `cargo build --offline`, followed by
+  `./target/x86_64-unknown-linux-musl/debug/skillet test run beezelbot --phase base --image fedora:latest`.
+  The isolated Fedora container passed both applies with no repeat start/restart
+  and was removed afterward. Eight new manifest tests cover strict import,
+  preserved journals/hashes, metadata permissions and ownership/path refusal.
+- Initial GNU-target checks under `/tmp` ran out of space. Only this task's
+  temporary build directory was removed; subsequent builds used `/home`.
+  The cross compiler was present outside the restricted filesystem view; no
+  software was installed.
+- Live creation/import/readiness/destruction checks are deferred. The user is
+  creating a smoke VM in another panel; it and its artifacts were left alone.
+  No vault, Cloudflare or Tailscale request was needed for this slice.
+
 Status: clean disposable VM create, readiness, and the real Skillet smoke
 scenario passed on 2026-09-26. A subsequent fresh VM reached the signed
 deployment and installed the full user environment. Bootstrap interruption

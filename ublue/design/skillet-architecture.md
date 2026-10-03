@@ -5,6 +5,10 @@ service migrations, encryption implementation, or production cutover. Existing
 service behavior and unfinished acceptance requirements remain authoritative.
 Status: planned; the review and plans do not establish runtime acceptance.
 
+Implementation progress: `skillet_vm` now supplies validated run identity and
+versioned manifests with explicit, non-destructive legacy import. VM lifecycle
+commands remain on their existing paths until their migration slices land.
+
 Keep application crates as reusable recipes. Separate canonical host profiles
 and composition from guest runtime adapters, CLI parsing, workstation
 provisioning, and synthetic test fixtures. Effects need injectable capability

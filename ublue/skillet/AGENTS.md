@@ -88,6 +88,9 @@ tracks existing violations and their migration, not completed implementation.
 - Select build artifacts from Cargo's reported outputs and honor its target,
   profile, and configured target directory. Do not discover the new build by
   scanning potentially stale binaries at conventional paths.
+- Reading retained state must not implicitly migrate it. Import legacy formats
+  explicitly, preserve original evidence, and use atomic creation that cannot
+  overwrite a concurrently created authoritative manifest.
 - Keep subprocess adapters focused: construct executable arguments and
   environments directly, observe results, and bound waits with diagnostics.
   Preserve supported workstation backends and static guest builds without
