@@ -1,6 +1,6 @@
 use crate::{apply, PiholeUser};
 use skillet_core::{
-    system::SystemResource,
+    system::PodmanSecretResource,
     test_utils::{MockFiles, MockSystem},
 };
 use skillet_podman::{PodmanNetwork, QuadletSecret, SecretTarget};

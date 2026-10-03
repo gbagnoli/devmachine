@@ -1,5 +1,5 @@
 #[cfg(feature = "test-utils")]
-use super::SystemResource;
+use super::{AccountLookupResource, AccountResource, ServiceResource};
 #[cfg(feature = "test-utils")]
 use crate::test_utils::MockSystem;
 

@@ -74,13 +74,13 @@ pub struct GroupIdentity {
 
 /// Account lookups needed by host and container identity configuration.
 /// Implementations are the only layer that consults NSS.
-pub trait AccountResource {
+pub trait AccountLookupResource {
     fn user_by_name(&self, name: &str) -> Result<Option<UserIdentity>, SystemError>;
     fn user_by_uid(&self, uid: u32) -> Result<Option<UserIdentity>, SystemError>;
     fn group_by_name(&self, name: &str) -> Result<Option<GroupIdentity>, SystemError>;
 }
 
-pub trait SystemResource: AccountResource {
+pub trait AccountResource {
     fn ensure_group(&self, name: &str, gid: Option<u32>) -> Result<bool, SystemError>;
     fn ensure_user(
         &self,
@@ -88,8 +88,14 @@ pub trait SystemResource: AccountResource {
         uid: Option<u32>,
         gid: Option<u32>,
     ) -> Result<bool, SystemError>;
+}
+
+pub trait PodmanSecretResource {
     fn ensure_podman_secret(&self, name: &str, payload: &str) -> Result<bool, SystemError>;
     fn podman_secret_id(&self, name: &str) -> Result<String, SystemError>;
+}
+
+pub trait ServiceResource {
     fn service_is_active(&self, name: &str) -> Result<bool, SystemError>;
     fn service_start(&self, name: &str) -> Result<(), SystemError>;
     fn service_stop(&self, name: &str) -> Result<(), SystemError>;
@@ -97,6 +103,18 @@ pub trait SystemResource: AccountResource {
     fn service_reload(&self, name: &str) -> Result<(), SystemError>;
     fn service_enable(&self, name: &str) -> Result<(), SystemError>;
     fn daemon_reload(&self) -> Result<(), SystemError>;
+}
+
+/// Aggregate retained for host composition and adapters while consumers move
+/// to narrower account, service, and Podman-secret capabilities.
+pub trait SystemResource:
+    AccountLookupResource + AccountResource + PodmanSecretResource + ServiceResource
+{
+}
+
+impl<T> SystemResource for T where
+    T: AccountLookupResource + AccountResource + PodmanSecretResource + ServiceResource
+{
 }
 
 pub struct LinuxSystemResource {
@@ -204,7 +222,7 @@ impl Default for LinuxSystemResource {
     }
 }
 
-impl AccountResource for LinuxSystemResource {
+impl AccountLookupResource for LinuxSystemResource {
     fn user_by_name(&self, name: &str) -> Result<Option<UserIdentity>, SystemError> {
         Ok(get_user_by_name(name).map(|user| UserIdentity {
             name: user.name().to_string_lossy().into_owned(),
@@ -232,7 +250,7 @@ impl AccountResource for LinuxSystemResource {
 const EXIT_CODE_GROUP_EXISTS: i32 = 9;
 const EXIT_CODE_USER_EXISTS: i32 = 9;
 
-impl SystemResource for LinuxSystemResource {
+impl AccountResource for LinuxSystemResource {
     fn ensure_group(&self, name: &str, gid: Option<u32>) -> Result<bool, SystemError> {
         if let Some(grp) = get_group_by_name(name) {
             debug!("Group {name} already exists");
@@ -327,7 +345,9 @@ impl SystemResource for LinuxSystemResource {
         info!("Created user {name}");
         Ok(true)
     }
+}
 
+impl PodmanSecretResource for LinuxSystemResource {
     fn ensure_podman_secret(&self, name: &str, payload: &str) -> Result<bool, SystemError> {
         let mut hasher = Sha256::new();
         hasher.update(payload.as_bytes());
@@ -418,7 +438,9 @@ impl SystemResource for LinuxSystemResource {
         }
         Ok(id)
     }
+}
 
+impl ServiceResource for LinuxSystemResource {
     fn service_is_active(&self, name: &str) -> Result<bool, SystemError> {
         let name = ensure_systemd_suffix(name);
         let output = Command::new("systemctl")

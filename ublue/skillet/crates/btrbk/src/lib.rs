@@ -1,6 +1,6 @@
 use skillet_core::{
     files::{FileError, FileMutationResource, StorageResource},
-    system::{SystemError, SystemResource},
+    system::{ServiceResource, SystemError},
 };
 use std::path::{Component, Path, PathBuf};
 use thiserror::Error;
@@ -28,7 +28,7 @@ pub struct BtrbkConfig {
 
 pub fn apply<S, F>(system: &S, files: &F, config: &BtrbkConfig) -> Result<(), BtrbkError>
 where
-    S: SystemResource + ?Sized,
+    S: ServiceResource + ?Sized,
     F: FileMutationResource + StorageResource + ?Sized,
 {
     if config.snapshot_subvolumes.is_empty() {

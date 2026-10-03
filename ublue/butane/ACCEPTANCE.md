@@ -913,3 +913,17 @@ host tool; it still uses normal command approvals.
   and the test container was removed.
 - System capability splitting and live VM ownership/mount acceptance remain
   pending. This workstation has no `/dev/kvm`; no VM was changed.
+
+### Cohesive system effect capabilities, 2026-10-04
+
+- Split system effects into account lookup, account mutation, Podman-secret,
+  and service capabilities. Narrowed Podman, hardening, service, and backup
+  crate bounds; host composition keeps the aggregate trait. Linux, recorder,
+  and mock adapters implement each capability.
+- Passed workspace formatting, offline workspace tests, and offline workspace
+  all-target Clippy with warnings denied. The full CI command
+  `ublue/skillet/target/debug/skillet test run beezelbot --phase base --image
+  fedora:latest` exited 0: both applies succeeded, repeat apply issued no
+  restart, and the disposable test container was removed.
+- Live ownership and Btrfs mount acceptance remains unverified because this
+  workstation has no `/dev/kvm`; no VM was changed.

@@ -1,7 +1,9 @@
 use askama::Template;
 use sha2::{Digest, Sha256};
 use skillet_core::files::{FileError, FileMutationResource, FileReadResource};
-use skillet_core::system::{SystemError, SystemResource};
+use skillet_core::system::{
+    AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
+};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::{path::Path, str::FromStr};
@@ -126,7 +128,7 @@ pub struct PodmanNetwork {
 #[allow(clippy::similar_names)]
 pub fn container<S, F>(system: &S, files: &F, config: PodmanConfig) -> Result<bool, PodmanError>
 where
-    S: SystemResource + ?Sized,
+    S: AccountLookupResource + AccountResource + PodmanSecretResource + ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
 {
     let name = &config.name;
@@ -283,7 +285,7 @@ fn render_network(network: &PodmanNetwork) -> Result<String, PodmanError> {
     Ok(content)
 }
 
-fn resolve_host_user<S: SystemResource + ?Sized>(
+fn resolve_host_user<S: AccountLookupResource + AccountResource + ?Sized>(
     system: &S,
     user: &ContainerUser,
     create: bool,
@@ -439,7 +441,7 @@ fn render_and_ensure_quadlet<S, F>(
     config_revisions: &[Vec<u8>],
 ) -> Result<bool, PodmanError>
 where
-    S: SystemResource + ?Sized,
+    S: ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
 {
     let template = QuadletTemplate { sections };

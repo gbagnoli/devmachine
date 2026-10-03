@@ -1,7 +1,9 @@
 use skillet_core::files::{
     FileError, FileMutationResource, FileReadResource, OwnerIdentity, Ownership, StorageResource,
 };
-use skillet_core::system::{SystemError, SystemResource};
+use skillet_core::system::{
+    AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
+};
 use skillet_podman::{self, ContainerUser, PodmanConfig, PodmanError, Volume};
 use std::{collections::BTreeMap, path::Path};
 use thiserror::Error;
@@ -29,7 +31,7 @@ pub enum UnifiError {
 /// changing existing application data or requiring matching host accounts.
 pub fn apply<S, F>(system: &S, files: &F) -> Result<(), UnifiError>
 where
-    S: SystemResource + ?Sized,
+    S: AccountLookupResource + AccountResource + PodmanSecretResource + ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + StorageResource + ?Sized,
 {
     info!("Applying UniFi Network container...");

@@ -81,8 +81,10 @@ ownership use separate APIs; mocks do not enforce important metadata contracts.
   need the entire file interface. The aggregate remains for host composition
   and migration paths. Recorder and mock adapters implement the capabilities
   separately.
-- Pending: split the broad system interface into account, service, and
-  Podman-secret capabilities and narrow consumers. The fakes already model
-  object types and injected failures; shared adapter contract tests still need
-  review. Live ownership/mount acceptance is also outstanding. This workstream
-  is not complete.
+- Implemented: system effects expose separate account lookup, account
+  mutation, Podman-secret, and service capabilities. The Podman, hardening,
+  service, and backup crates request their required capabilities; host
+  composition retains the aggregate during migration. Recorder and mock
+  adapters implement the narrow contracts.
+- Pending: shared adapter contract tests still need review, and live
+  ownership/mount acceptance is outstanding. This workstream is not complete.
