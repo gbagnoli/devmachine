@@ -544,7 +544,9 @@ host tool; it still uses normal command approvals.
   subvolume, mounts it at `/unifi`, and configures rootful Podman with mandatory
   host networking, the Chef image family, `User=unifi`, `TZ=Europe/Madrid`,
   restart-at-boot, and registry auto-update.
-- Skillet updates only the subvolume root to host names corresponding to
-  UID/GID 999; it does not recursively alter existing controller data. No
-  container runtime or backup-restore acceptance has been run yet. Those checks
-  remain pending in [the UniFi plan](../plan/CLAMPS-UNIFI.md).
+- Skillet updates only the subvolume root to numeric UID/GID 999; it does not
+  recursively alter existing controller data and does not require matching
+  host account names. The first disposable VM apply exposed that clamps uCore
+  has no passwd entry for UID 999. The numeric ownership handling and its
+  regression tests are now implemented; the full-apply retry and backup
+  restore acceptance remain pending in [the UniFi plan](../plan/CLAMPS-UNIFI.md).

@@ -106,6 +106,23 @@ impl<T: FileResource> FileResource for Recorder<T> {
         self.inner.ensure_directory(path, mode, owner, group)
     }
 
+    fn ensure_directory_with_owner_ids(
+        &self,
+        path: &Path,
+        mode: Option<u32>,
+        uid: u32,
+        gid: u32,
+    ) -> Result<bool, FileError> {
+        self.record(ResourceOp::EnsureDirectoryWithOwnerIds {
+            path: path.display().to_string(),
+            mode: mode.map(|m| format!("0o{m:o}")),
+            uid,
+            gid,
+        });
+        self.inner
+            .ensure_directory_with_owner_ids(path, mode, uid, gid)
+    }
+
     fn delete_file(&self, path: &Path) -> Result<bool, FileError> {
         self.record(ResourceOp::DeleteFile {
             path: path.display().to_string(),

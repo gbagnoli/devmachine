@@ -63,6 +63,13 @@ pub trait FileResource {
         owner: Option<&str>,
         group: Option<&str>,
     ) -> Result<bool, FileError>;
+    fn ensure_directory_with_owner_ids(
+        &self,
+        path: &Path,
+        mode: Option<u32>,
+        uid: u32,
+        gid: u32,
+    ) -> Result<bool, FileError>;
     fn delete_file(&self, path: &Path) -> Result<bool, FileError>;
     fn require_btrfs_subvolume_mount(
         &self,
@@ -380,6 +387,26 @@ impl FileResource for LocalFileResource {
             info!("Updated directory metadata for {}", path.display());
         }
 
+        Ok(changed)
+    }
+
+    fn ensure_directory_with_owner_ids(
+        &self,
+        path: &Path,
+        mode: Option<u32>,
+        uid: u32,
+        gid: u32,
+    ) -> Result<bool, FileError> {
+        let mut changed = self.ensure_directory(path, mode, None, None)?;
+        let metadata = fs::metadata(path)
+            .map_err(|error| FileError::Read(path.display().to_string(), error))?;
+        if metadata.uid() != uid || metadata.gid() != gid {
+            chown(path, Some(Uid::from_raw(uid)), Some(Gid::from_raw(gid))).map_err(|error| {
+                FileError::SetOwnership(path.display().to_string(), error.to_string())
+            })?;
+            changed = true;
+            info!("Updated directory numeric ownership for {}", path.display());
+        }
         Ok(changed)
     }
 

@@ -154,6 +154,29 @@ fn test_ensure_directory_creates_dir() {
 }
 
 #[test]
+fn directory_numeric_owner_is_idempotent() {
+    use std::os::unix::fs::MetadataExt;
+
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("numeric-owner");
+    let parent = fs::metadata(dir.path()).unwrap();
+    let resource = LocalFileResource::new();
+
+    assert!(resource
+        .ensure_directory_with_owner_ids(&path, Some(0o750), parent.uid(), parent.gid())
+        .unwrap());
+    assert!(!resource
+        .ensure_directory_with_owner_ids(&path, Some(0o750), parent.uid(), parent.gid())
+        .unwrap());
+
+    let metadata = fs::metadata(path).unwrap();
+    assert_eq!(
+        (metadata.uid(), metadata.gid()),
+        (parent.uid(), parent.gid())
+    );
+}
+
+#[test]
 fn test_ensure_directory_fails_if_file() {
     let dir = tempdir().unwrap();
     let file_path = dir.path().join("file.txt");

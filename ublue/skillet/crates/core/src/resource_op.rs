@@ -18,6 +18,12 @@ pub enum ResourceOp {
         owner: Option<String>,
         group: Option<String>,
     },
+    EnsureDirectoryWithOwnerIds {
+        path: String,
+        mode: Option<String>,
+        uid: u32,
+        gid: u32,
+    },
     EnsureBtrfsSubvolume {
         path: String,
     },
