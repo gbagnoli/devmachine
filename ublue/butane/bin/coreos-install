@@ -85,7 +85,9 @@ else
   [[ -z "$vm_uuid" ]] || { echo "--uuid requires --resume-prepared" >&2; exit 2; }
 fi
 vm_command virsh -c "$libvirt_uri" uri >/dev/null || { echo "Cannot access libvirt URI $libvirt_uri" >&2; exit 1; }
-command -v passt >/dev/null || { echo "passt is required for loopback SSH forwarding" >&2; exit 1; }
+if [[ "${TEST_VM_BACKEND:-native}" == native ]]; then
+  command -v passt >/dev/null || { echo "passt is required for loopback SSH forwarding" >&2; exit 1; }
+fi
 if vm_command virsh -c "$libvirt_uri" dominfo "$vm_name" &>/dev/null; then
   echo "Refusing existing libvirt domain $vm_name on $libvirt_uri" >&2
   exit 1
@@ -142,33 +144,8 @@ ignition_bytes="$(stat -c '%s' "$ignition")"
 if ((ignition_bytes > 1048576)); then
   echo "Warning: Ignition config is ${ignition_bytes} bytes; large QEMU fw_cfg configs can take a long time to read" >&2
 fi
-if [[ "${TEST_VM_BACKEND:-native}" == flatpak ]]; then
-  {
-    virt-install --version
-    vm_command virsh --version
-    podman --version
-    yq --version
-  } > "$output_dir/tool-versions.txt"
-else
-  skillet_cli test vm create-native "$host" "$instance"
-fi
-
-if [[ "${TEST_VM_BACKEND:-native}" == flatpak ]]; then
-  network=none
-  qemu_commandline="-fw_cfg name=opt/com.coreos/config,file=$ignition -netdev user,id=skilletnet,hostfwd=tcp:127.0.0.1:$ssh_port-:22 -device virtio-net-pci,netdev=skilletnet,bus=pcie.0,addr=0x1d"
-  uuid_args=()
-  [[ -z "$vm_uuid" ]] || uuid_args=(--uuid "$vm_uuid")
-  printf '%s\n' "$vm_uuid" > "$output_dir/domain.uuid.tmp"
-  chmod 600 "$output_dir/domain.uuid.tmp"
-  mv -f "$output_dir/domain.uuid.tmp" "$output_dir/domain.uuid"
-  echo "Creating $vm_name on $libvirt_uri, disk $output_dir/$vm_name.qcow2, SSH 127.0.0.1:$ssh_port" >&2
-  vm_command virt-install --connect "$libvirt_uri" --name "$vm_name" "${uuid_args[@]}" \
-    --osinfo linux2024 --memory 8192 --vcpus 2 --import \
-    --disk "path=$output_dir/$vm_name.qcow2,format=qcow2,bus=virtio" \
-    --disk "path=$ignition,format=raw,bus=virtio,readonly=on" \
-    --network "$network" --graphics none \
-    --console pty,target_type=serial --noautoconsole \
-    --qemu-commandline="$qemu_commandline"
-else
-  [[ "${TEST_VM_BACKEND:-native}" == native ]] || { echo 'Flatpak backend needs virt-install' >&2; exit 1; }
-fi
+case "${TEST_VM_BACKEND:-native}" in
+  native) skillet_cli test vm create-native "$host" "$instance" ;;
+  flatpak) skillet_cli test vm create-flatpak "$host" "$instance" ;;
+  *) echo "Unknown VM backend: ${TEST_VM_BACKEND:-native}" >&2; exit 2 ;;
+esac

@@ -11,8 +11,9 @@ Design decisions: [disposable VM lifecycle](../design/smoke-vms.md) and
 `/dev/vda`, the virtio disk attached by this launcher. Do not use it as a
 physical-disk install file. The host needs Podman, `yq`, `rg`, `ssh-keygen`,
 and KVM. Native libvirt additionally needs `virsh`, `virtqemud`,
-`virtstoraged`, and `passt`; Rust defines native VMs through `virsh`. The Flatpak backend uses QEMU user networking
-and an existing virt-manager with its QEMU extension.
+`virtstoraged`, and `passt`; Rust defines native VMs through `virsh`. The
+Flatpak backend uses `virt-install`, QEMU user networking, and an existing
+virt-manager installation with its QEMU extension.
 The shared [data storage design](../design/storage.md) is implemented by
 `includes/data-storage.bu`. On a fresh VM it mounts the Btrfs `data` subvolume
 at `/var/lib/data` and sets rootful Podman's graphroot there. Recreate a
@@ -107,8 +108,8 @@ the `skillet-clamps` host binary. The lower-level launcher accepts `--artifact P
 to use a specific host binary; the generic CLI is built from the workspace.
 Rust prepares the run's disk and SSH key, stages and specializes the Butane
 source tree, and records captured binary hashes in `runs/NAME/`. The standalone
-Butane compiler builds Ignition; Rust handles native domain definition and
-start. `test-vm ready` transfers
+Butane compiler builds Ignition; Rust handles native and Flatpak domain
+definition and start. `test-vm ready` transfers
 both binaries over SSH after first boot and installs them at
 `/var/usrlocal/bin/skillet` and `/var/usrlocal/bin/skillet-clamps`. `ready`
 uses those captured binaries on every run. The shared base unit reads the

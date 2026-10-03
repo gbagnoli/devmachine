@@ -159,15 +159,7 @@ case "$operation" in
       if [[ "$backend" == native ]]; then
         skillet_cli test vm create-native "$host" "$instance"
       else
-        skillet_cli test vm status "$host" "$instance"
-        state="$(vm_virsh domstate "$name" | tr -d '\r')"
-        if [[ "$state" == "shut off" ]]; then
-          vm_virsh start "$name"
-        elif [[ "$state" != "running" ]]; then
-          echo "Cannot resume VM in libvirt state: $state" >&2
-          exit 1
-        fi
-        skillet_cli test vm started "$host" "$instance"
+        skillet_cli test vm create-flatpak "$host" "$instance"
       fi
       echo "Resumed recorded VM $name"
       exit 0
@@ -176,10 +168,6 @@ case "$operation" in
     uuid="$(skillet_cli "${prepare_args[@]}")"
     TEST_VM_BACKEND="$backend" TEST_VM_LIBVIRT_RUNTIME_DIR="$runtime_dir" "$script_dir/coreos-install" --name "$name" --output-dir "$run_dir" \
       --ssh-port "$port" --libvirt-uri "$uri" --uuid "$uuid" --resume-prepared "$script_dir/../$host.bu"
-    if [[ "$backend" == flatpak ]]; then
-      vm_virsh domuuid "$name" > "$run_dir/domain.uuid"
-      skillet_cli test vm started "$host" "$instance"
-    fi
     echo "Run: $run_dir" ;;
   *) usage ;;
 esac
