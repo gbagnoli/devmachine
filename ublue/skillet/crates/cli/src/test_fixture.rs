@@ -1,27 +1,44 @@
-//! Disposable VM fixture. Only the explicit `skillet-smoke` host selects it.
+//! Disposable integration-test fixture; it is not a host profile or apply path.
 
-use super::ApplyError;
-use skillet_core::{files::FileResource, system::SystemResource};
-use skillet_podman::{ContainerUser, PodmanConfig, QuadletSecret, SecretTarget, Volume};
+use skillet_core::{
+    files::{FileError, FileResource},
+    system::{SystemError, SystemResource},
+};
+use skillet_podman::{
+    ContainerUser, PodmanConfig, PodmanError, QuadletSecret, SecretTarget, Volume,
+};
 use std::{collections::BTreeMap, path::Path};
+use thiserror::Error;
 
 const INPUT_DIR: &str = "/var/lib/skillet-smoke/desired";
 const CONFIG_PATH: &str = "/etc/skillet-smoke/config";
 const SECRET_NAME: &str = "skillet-smoke-dummy";
 const ENTRYPOINT: &[u8] = b"#!/bin/sh\nset -eu\ncp /fixture/config /data/observed-config\nsha256sum /run/secrets/skillet-smoke-dummy | cut -d' ' -f1 > /data/observed-secret-sha\nwhile :; do sleep 3600; done\n";
 
+#[derive(Debug, Error)]
+pub(super) enum FixtureError {
+    #[error("System error: {0}")]
+    System(#[from] SystemError),
+    #[error("File error: {0}")]
+    File(#[from] FileError),
+    #[error("Podman error: {0}")]
+    Podman(#[from] PodmanError),
+    #[error("Fixture input error: {0}")]
+    Input(String),
+}
+
 pub(super) fn apply(
     system: &dyn SystemResource,
     files: &dyn FileResource,
-) -> Result<(), ApplyError> {
+) -> Result<(), FixtureError> {
     let config = files
         .read_file(&Path::new(INPUT_DIR).join("config"))?
-        .ok_or_else(|| ApplyError::FixtureInput("missing desired config".to_string()))?;
+        .ok_or_else(|| FixtureError::Input("missing desired config".to_string()))?;
     let secret = files
         .read_file(&Path::new(INPUT_DIR).join("secret"))?
-        .ok_or_else(|| ApplyError::FixtureInput("missing desired dummy secret".to_string()))?;
+        .ok_or_else(|| FixtureError::Input("missing desired dummy secret".to_string()))?;
     let secret = String::from_utf8(secret)
-        .map_err(|_| ApplyError::FixtureInput("dummy secret must be UTF-8".to_string()))?;
+        .map_err(|_| FixtureError::Input("dummy secret must be UTF-8".to_string()))?;
 
     files.ensure_directory(
         Path::new("/etc/skillet-smoke"),
@@ -113,5 +130,5 @@ pub(super) fn apply(
 }
 
 #[cfg(test)]
-#[path = "fixture/tests.rs"]
+#[path = "test_fixture_tests.rs"]
 mod tests;

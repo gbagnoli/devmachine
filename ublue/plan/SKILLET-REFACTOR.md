@@ -21,7 +21,7 @@ assignments to execute concurrently against the same interfaces.
 | Order | Workstream | Depends on | Status |
 | --- | --- | --- | --- |
 | 1 | [VM lifecycle and Bash-to-Rust migration](REFACTOR-01-VM-LIFECYCLE.md) | Current lifecycle/secret designs | Rust owns create and retained-run commands; required live acceptance remains |
-| 2 | [Canonical host profiles](REFACTOR-02-HOST-PROFILES.md) | VM identity types from 1 | Planned |
+| 2 | [Canonical host profiles](REFACTOR-02-HOST-PROFILES.md) | VM identity types from 1 | Implemented; live acceptance pending |
 | 3 | [Effect interfaces and ownership](REFACTOR-03-RESOURCE-BOUNDARIES.md) | Profile inputs from 2 | Planned |
 | 4 | [CLI/library and delivery boundaries](REFACTOR-04-CLI-PROVISIONING.md) | Interfaces from 1–3 | Planned |
 | 5 | [Podman configuration and host policy](REFACTOR-05-PODMAN-MODEL.md) | Profiles/effect interfaces from 2–4 | Planned |

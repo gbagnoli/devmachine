@@ -3,16 +3,14 @@ use skillet_core::test_utils::{MockFiles, MockSystem};
 
 #[test]
 fn fixture_requires_explicit_inputs() {
-    let system = MockSystem::new();
-    let files = MockFiles::new();
     assert!(matches!(
-        apply(&system, &files),
-        Err(ApplyError::FixtureInput(_))
+        apply(&MockSystem::new(), &MockFiles::new()),
+        Err(FixtureError::Input(_))
     ));
 }
 
 #[test]
-fn fixture_uses_the_host_container_resources() {
+fn fixture_uses_host_container_resources() {
     let system = MockSystem::new();
     let files = MockFiles::new();
     files
