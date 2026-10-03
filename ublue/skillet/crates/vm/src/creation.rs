@@ -19,17 +19,58 @@ pub fn create_native(
     emulator: &Path,
     tool_versions: &str,
 ) -> Result<VmRun> {
+    create_with(
+        store,
+        identity,
+        backend,
+        Backend::Native,
+        tool_versions,
+        |run| {
+            let xml = domain_xml::write_native_domain_xml(store, run, emulator)?;
+            backend.define(run, &xml)
+        },
+    )
+}
+
+/// Create a Flatpak-backed guest through the caller's focused virt-install
+/// adapter, then use the same ownership and recovery sequence as native VM
+/// creation. `virt-install` may start the guest as part of definition.
+pub fn create_flatpak(
+    store: &ManifestStore,
+    identity: &RunIdentity,
+    backend: &impl VmBackend,
+    tool_versions: &str,
+    define: impl FnOnce(&VmRun) -> Result<()>,
+) -> Result<VmRun> {
+    create_with(
+        store,
+        identity,
+        backend,
+        Backend::Flatpak,
+        tool_versions,
+        define,
+    )
+}
+
+fn create_with(
+    store: &ManifestStore,
+    identity: &RunIdentity,
+    backend: &impl VmBackend,
+    expected_backend: Backend,
+    tool_versions: &str,
+    define: impl FnOnce(&VmRun) -> Result<()>,
+) -> Result<VmRun> {
     let _lock = store.lock(identity)?;
     let mut run = store.load(identity)?;
     store.validate(&run, identity)?;
-    if run.connection.backend != Backend::Native
+    if run.connection.backend != expected_backend
         || !matches!(
             run.phase,
             Phase::Preparing | Phase::Defined | Phase::Started | Phase::Ready
         )
     {
         return Err(Error::Invalid(
-            "native VM creation requires an active native run".into(),
+            "VM creation requires an active run for the selected backend".into(),
         ));
     }
     save_tool_versions(store, &run, tool_versions)?;
@@ -46,8 +87,7 @@ pub fn create_native(
                 "recorded native VM domain is absent; refusing to recreate it".into(),
             ));
         }
-        let xml = domain_xml::write_native_domain_xml(store, &run, emulator)?;
-        backend.define(&run, &xml)?;
+        define(&run)?;
         domain = backend.inspect(&run)?;
         let defined = owned_domain(domain.as_ref(), &run)?;
         if run.phase == Phase::Preparing {

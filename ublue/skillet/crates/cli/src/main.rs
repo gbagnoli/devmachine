@@ -133,9 +133,9 @@ enum VmCommands {
     /// Define and start an owned native VM from staged artifacts
     #[command(hide = true)]
     CreateNative(VmTargetArgs),
-    /// Record successful VM start for the source-tree helper
+    /// Define and start an owned Flatpak-backed VM from staged artifacts
     #[command(hide = true)]
-    Started(VmTargetArgs),
+    CreateFlatpak(VmTargetArgs),
     /// Destroy a disposable host VM and remove its temporary key and artifacts
     Destroy(VmDestroyArgs),
     /// List available host templates and their recorded disposable VMs
@@ -336,7 +336,7 @@ fn run_vm_command(command: VmCommands) -> Result<()> {
         VmCommands::PrepareLocal(args) => vm::prepare_local(&args)?,
         VmCommands::StageLocal(args) => vm::stage_local(&args)?,
         VmCommands::CreateNative(args) => vm::create_native(&args)?,
-        VmCommands::Started(args) => vm::record_started(&args)?,
+        VmCommands::CreateFlatpak(args) => vm::create_flatpak(&args)?,
         VmCommands::Destroy(args) => run_vm_destroy(&args)?,
         VmCommands::List(args) => run_vm_list(&args)?,
         VmCommands::Status(args) => vm::status(&args)?,
@@ -737,6 +737,13 @@ mod tests {
     fn native_vm_lifecycle_command_parses_identity_fields() {
         let parsed =
             Args::try_parse_from(["skillet", "test", "vm", "create-native", "clamps", "smoke"]);
+        assert!(parsed.is_ok());
+    }
+
+    #[test]
+    fn flatpak_vm_lifecycle_command_parses_identity_fields() {
+        let parsed =
+            Args::try_parse_from(["skillet", "test", "vm", "create-flatpak", "clamps", "smoke"]);
         assert!(parsed.is_ok());
     }
 }

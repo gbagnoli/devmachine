@@ -54,6 +54,10 @@ fn snapshot(run: &VmRun, state: &str) -> DomainSnapshot {
 }
 
 fn fixture() -> (tempfile::TempDir, ManifestStore, RunIdentity, PathBuf) {
+    fixture_for(Backend::Native)
+}
+
+fn fixture_for(backend: Backend) -> (tempfile::TempDir, ManifestStore, RunIdentity, PathBuf) {
     let temp = tempfile::tempdir().unwrap();
     let store = ManifestStore::new(temp.path(), crate::current_uid()).unwrap();
     let identity = RunIdentity::new("clamps", "create-test").unwrap();
@@ -61,9 +65,14 @@ fn fixture() -> (tempfile::TempDir, ManifestStore, RunIdentity, PathBuf) {
         .prepare_intent(
             &identity,
             Connection {
-                backend: Backend::Native,
+                backend,
                 uri: "qemu:///session".into(),
-                runtime_dir: PathBuf::from(format!("/run/user/{}", crate::current_uid())),
+                runtime_dir: match backend {
+                    Backend::Native => PathBuf::from(format!("/run/user/{}", crate::current_uid())),
+                    Backend::Flatpak => {
+                        PathBuf::from(format!("/run/user/{}/skvm", crate::current_uid()))
+                    }
+                },
             },
             2205,
             "source-revision",
@@ -162,4 +171,24 @@ fn failed_start_retains_defined_state_for_retry() {
     let run = create_native(&store, &identity, &backend, &emulator, "versions\n").unwrap();
     assert_eq!(run.phase, Phase::Started);
     assert_eq!(*backend.calls.borrow(), ["define", "start", "start"]);
+}
+
+#[test]
+fn flatpak_creation_uses_one_shot_definition_then_shared_recovery() {
+    let (_temp, store, identity, _) = fixture_for(Backend::Flatpak);
+    let backend = FakeBackend {
+        domain: RefCell::new(None),
+        calls: RefCell::default(),
+        fail_start: Cell::new(false),
+    };
+    let run = create_flatpak(
+        &store,
+        &identity,
+        &backend,
+        "virt-install\nvirsh\npodman\nyq\n",
+        |run| backend.define(run, Path::new("/flatpak-creator-test")),
+    )
+    .unwrap();
+    assert_eq!(run.phase, Phase::Started);
+    assert_eq!(*backend.calls.borrow(), ["define", "start"]);
 }

@@ -47,16 +47,17 @@ local disk atomically, records its source digest, and creates or validates the
 per-run SSH key pair; `coreos-install` delegates that operation through a
 hidden CLI command. The same library stages and specializes the Butane source
 tree and records compatibility metadata and binary hashes. The standalone
-Butane compilation still uses Bash. Native
+Butane compilation still uses Bash. Native and Flatpak
 define/start, emulator discovery, UUID bookkeeping and tool-version capture
-now run through the Rust lifecycle and selected backend. Flatpak
-`virt-install` creation and version capture remain in Bash. Credential delivery
+now run through Rust lifecycle adapters. Credential delivery
 has not yet adopted the shared transport. Workstream 2 must consolidate the
 interim `boot_policy_for_host` lookup with the canonical capability
 declaration. Reboot, interactive SSH and guest diagnostics now use Rust's
-ownership-checked backend and SSH transport. Next: move Flatpak
-`virt-install` creation behind a Rust adapter and make the shell create wrapper
-delegate without lifecycle decisions. Disposal and readiness live acceptance remain
+ownership-checked backend and SSH transport. The Flatpak `virt-install`
+adapter shares creation recovery and manifest updates with native libvirt.
+Next: move backend selection, runtime preparation and create orchestration
+behind Rust, leaving shell entry points as forwarding wrappers. Disposal and
+readiness live acceptance remain
 deferred. See
 [creation validation](../butane/ACCEPTANCE.md#recoverable-vm-creation-intent-2026-10-03)
 and [native XML validation](../butane/ACCEPTANCE.md#native-xml-rendering-2026-10-03),
@@ -91,11 +92,11 @@ creation inspectable; readiness and target selection remain duplicated.
    current connection/runtime selection and networking behavior. Do not link
    native libvirt, embed shell, or install tools during this migration.
 4. Move list/status/create/reboot/update into Rust. Native domain XML now uses
-   `quick-xml`; Flatpak still uses `virt-install`. Rust owns atomic disk
-   preparation, per-run key creation/validation, structured Butane staging,
-   and native define/start, tool-version capture, and domain UUID bookkeeping.
-   `coreos-install` invokes the standalone Butane compiler. Build artifacts
-   through a shared Cargo helper. Validate required
+   `quick-xml`; Flatpak uses a focused `virt-install` adapter. Rust owns atomic
+   disk preparation, per-run key creation/validation, structured Butane
+   staging, backend definition/start, tool-version capture, and domain UUID
+   bookkeeping. `coreos-install` invokes the standalone Butane compiler. Build
+   artifacts through a shared Cargo helper. Validate required
    tools and SSH-port conflicts before costly provisioning. See
    [native XML validation](../butane/ACCEPTANCE.md#native-xml-rendering-2026-10-03).
 5. Persist creation intent and a generated UUID before domain definition;

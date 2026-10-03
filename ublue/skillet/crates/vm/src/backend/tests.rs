@@ -8,6 +8,19 @@ struct FakeExecutor {
     calls: RefCell<Vec<VirshInvocation>>,
 }
 
+#[derive(Default)]
+struct FakeVirtInstallExecutor {
+    responses: RefCell<VecDeque<VirshOutput>>,
+    calls: RefCell<Vec<VirtInstallInvocation>>,
+}
+
+impl VirtInstallExecutor for FakeVirtInstallExecutor {
+    fn execute(&self, invocation: &VirtInstallInvocation) -> Result<VirshOutput> {
+        self.calls.borrow_mut().push(invocation.clone());
+        Ok(self.responses.borrow_mut().pop_front().unwrap())
+    }
+}
+
 impl VirshExecutor for FakeExecutor {
     fn execute(&self, invocation: &VirshInvocation) -> Result<VirshOutput> {
         self.calls.borrow_mut().push(invocation.clone());
@@ -112,6 +125,58 @@ fn capabilities_select_executable_x86_64_hvm_emulator() {
     )
     .unwrap();
     assert_eq!(backend.x86_64_emulator(&run).unwrap(), emulator);
+}
+
+#[test]
+fn flatpak_virt_install_preserves_uuid_paths_network_and_recorded_runtime() {
+    let (_tmp, store, identity) = legacy_run();
+    let mut run = store.load(&identity).unwrap();
+    run.connection.backend = Backend::Flatpak;
+    run.connection.runtime_dir = format!("/run/user/{}/skvm", run.owner_uid).into();
+    fs::write(&run.disk, "disk").unwrap();
+    fs::create_dir_all(run.ignition.parent().unwrap()).unwrap();
+    fs::write(&run.ignition, "ignition").unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let wrapper = directory.path().join("virt-install");
+    fs::write(&wrapper, "fixture wrapper").unwrap();
+    fs::set_permissions(&wrapper, fs::Permissions::from_mode(0o700)).unwrap();
+    let executor = FakeVirtInstallExecutor {
+        responses: RefCell::new(vec![output("virt-install 4.0\n"), output("")].into()),
+        calls: RefCell::default(),
+    };
+    let creator = FlatpakVirtInstall::new(&run, &wrapper, executor).unwrap();
+    assert_eq!(creator.version().unwrap(), "virt-install 4.0\n");
+    creator.define(&run).unwrap();
+    let calls = creator.executor.calls.borrow();
+    let invocation = &calls[1];
+    let arguments: Vec<_> = invocation
+        .arguments
+        .iter()
+        .map(|argument| argument.to_str().unwrap())
+        .collect();
+    let uuid = run.uuid.to_string();
+    assert_eq!(invocation.program, wrapper);
+    assert_eq!(
+        invocation.environment[&OsString::from("TEST_VM_LIBVIRT_RUNTIME_DIR")],
+        run.connection.runtime_dir.as_os_str()
+    );
+    assert!(arguments
+        .windows(2)
+        .any(|pair| pair == ["--uuid", uuid.as_str()]));
+    assert!(arguments
+        .windows(2)
+        .any(|pair| pair == ["--network", "none"]));
+    assert!(arguments.iter().any(|argument| {
+        argument.starts_with("--qemu-commandline=-fw_cfg ")
+            && argument.contains(&format!("hostfwd=tcp:127.0.0.1:{}-:22", run.ssh.port))
+    }));
+    assert!(arguments.iter().any(|argument| {
+        argument
+            == &format!(
+                "path={},format=raw,bus=virtio,readonly=on",
+                run.ignition.display()
+            )
+    }));
 }
 
 #[test]

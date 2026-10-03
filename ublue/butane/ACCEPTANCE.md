@@ -808,3 +808,19 @@ host tool; it still uses normal command approvals.
   command was unavailable: Podman cannot set the sticky bit on
   `/run/user/4000/libpod` because the filesystem is read-only. No container
   was started.
+
+### Rust Flatpak VM creation adapter, 2026-10-03
+
+- Added a bounded `virt-install` adapter that uses the recorded Flatpak runtime
+  and preserves the manifest UUID, disk, Ignition, QEMU user-networking, and
+  forwarded SSH port. Flatpak definition now uses the common Rust phase and
+  ownership recovery logic, including a retry when `virt-install` created or
+  started the guest before an interrupted response. `coreos-install` delegates
+  both native and Flatpak domain creation; Bash no longer records the domain
+  UUID or start phase.
+- Fake adapter and lifecycle coverage checks the executable wrapper, runtime
+  environment, UUID, disk/network arguments, successful transition and retry
+  behavior. The workspace suite passed, including 66 VM crate tests, and
+  pedantic Clippy passed; formatting, ShellCheck, Bash syntax, and
+  `git diff --check` passed.
+- No Flatpak VM was created. Live acceptance remains unverified on Bazzite.

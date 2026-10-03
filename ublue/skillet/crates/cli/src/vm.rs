@@ -5,7 +5,7 @@ use super::{
 };
 use anyhow::{anyhow, Result};
 use skillet_vm::{
-    backend::{DomainSnapshot, VirshBackend, VmBackend},
+    backend::{DomainSnapshot, FlatpakVirtInstall, VirshBackend, VmBackend},
     transport::{GuestCommand, GuestTransport, HostKeyPolicy, SshTransport},
     ManifestStore, Phase, RunIdentity, VmRun,
 };
@@ -31,21 +31,6 @@ pub(super) fn status(args: &VmTargetArgs) -> Result<()> {
     for disk in domain.disks {
         println!("Disk: {}", disk.display());
     }
-    Ok(())
-}
-
-pub(super) fn record_started(args: &VmTargetArgs) -> Result<()> {
-    let butane = butane_root()?;
-    let identity = RunIdentity::new(&args.hostname, &args.instance)?;
-    let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
-    let _lock = store.lock(&identity)?;
-    let run = store.load(&identity)?;
-    let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
-    backend
-        .inspect(&run)?
-        .ok_or_else(|| anyhow!("VM creation returned without an owned domain"))?
-        .validate_owned(&run)?;
-    store.mark_started(&identity)?;
     Ok(())
 }
 
@@ -91,6 +76,28 @@ pub(super) fn create_native(args: &VmTargetArgs) -> Result<()> {
     );
     let run =
         skillet_vm::creation::create_native(&store, &identity, &backend, &emulator, &versions)?;
+    println!("Started {} ({})", identity.domain_name(), run.uuid);
+    Ok(())
+}
+
+pub(super) fn create_flatpak(args: &VmTargetArgs) -> Result<()> {
+    let butane = butane_root()?;
+    let identity = RunIdentity::new(&args.hostname, &args.instance)?;
+    let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
+    let run = store.load(&identity)?;
+    let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
+    let creator = FlatpakVirtInstall::for_run(&run, &butane.join("bin/virt-install"))?;
+    let versions = format!(
+        "Flatpak VM launcher: virt-install\n{}{}{}{}",
+        creator.version()?,
+        backend.version(&run)?,
+        skillet_vm::capture_version("podman")?,
+        skillet_vm::capture_version("yq")?,
+    );
+    let run =
+        skillet_vm::creation::create_flatpak(&store, &identity, &backend, &versions, |run| {
+            creator.define(run)
+        })?;
     println!("Started {} ({})", identity.domain_name(), run.uuid);
     Ok(())
 }

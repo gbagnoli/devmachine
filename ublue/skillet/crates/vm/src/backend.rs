@@ -63,6 +63,18 @@ pub trait VirshExecutor {
     fn execute(&self, invocation: &VirshInvocation) -> Result<VirshOutput>;
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VirtInstallInvocation {
+    pub program: PathBuf,
+    pub arguments: Vec<OsString>,
+    pub environment: BTreeMap<OsString, OsString>,
+}
+
+/// Focused execution boundary for Flatpak's one-shot VM definition tool.
+pub trait VirtInstallExecutor {
+    fn execute(&self, invocation: &VirtInstallInvocation) -> Result<VirshOutput>;
+}
+
 pub struct ProcessExecutor {
     pub timeout: Duration,
 }
@@ -88,6 +100,141 @@ impl VirshExecutor for ProcessExecutor {
             stdout: String::from_utf8(output.stdout)
                 .map_err(|_| Error::Invalid("libvirt output is not UTF8".into()))?,
         })
+    }
+}
+
+pub struct VirtInstallProcessExecutor {
+    pub timeout: Duration,
+}
+
+impl Default for VirtInstallProcessExecutor {
+    fn default() -> Self {
+        Self {
+            timeout: Duration::from_mins(1),
+        }
+    }
+}
+
+impl VirtInstallExecutor for VirtInstallProcessExecutor {
+    fn execute(&self, invocation: &VirtInstallInvocation) -> Result<VirshOutput> {
+        let mut command = Command::new(&invocation.program);
+        command
+            .args(&invocation.arguments)
+            .envs(&invocation.environment);
+        let output = crate::process::capture(command, self.timeout)?;
+        Ok(VirshOutput {
+            success: output.status.success(),
+            code: output.status.code(),
+            stdout: String::from_utf8(output.stdout)
+                .map_err(|_| Error::Invalid("virt-install output is not UTF8".into()))?,
+        })
+    }
+}
+
+pub struct FlatpakVirtInstall<E = VirtInstallProcessExecutor> {
+    program: PathBuf,
+    runtime_dir: PathBuf,
+    executor: E,
+}
+
+impl FlatpakVirtInstall {
+    pub fn for_run(run: &VmRun, program: &Path) -> Result<Self> {
+        Self::new(run, program, VirtInstallProcessExecutor::default())
+    }
+}
+
+impl<E: VirtInstallExecutor> FlatpakVirtInstall<E> {
+    pub fn new(run: &VmRun, program: &Path, executor: E) -> Result<Self> {
+        if run.connection.backend != Backend::Flatpak
+            || !program.is_absolute()
+            || !program.is_file()
+            || fs::metadata(program)?.permissions().mode() & 0o111 == 0
+        {
+            return Err(Error::Invalid(
+                "Flatpak virt-install requires an executable absolute wrapper".into(),
+            ));
+        }
+        run.connection.validate(run.owner_uid)?;
+        Ok(Self {
+            program: program.into(),
+            runtime_dir: run.connection.runtime_dir.clone(),
+            executor,
+        })
+    }
+
+    pub fn version(&self) -> Result<String> {
+        self.invoke(vec![OsString::from("--version")])
+    }
+
+    pub fn define(&self, run: &VmRun) -> Result<()> {
+        if run.connection.backend != Backend::Flatpak
+            || run.connection.runtime_dir != self.runtime_dir
+        {
+            return Err(Error::Invalid(
+                "virt-install adapter connection differs from the run manifest".into(),
+            ));
+        }
+        crate::manifest::reject_symlinks(&run.disk)?;
+        crate::manifest::reject_symlinks(&run.ignition)?;
+        if !run.disk.is_file() || !run.ignition.is_file() {
+            return Err(Error::Invalid(
+                "Flatpak VM disk and Ignition must be regular files".into(),
+            ));
+        }
+        let arguments = vec![
+            "--connect".into(),
+            run.connection.uri.clone().into(),
+            "--name".into(),
+            run.identity.domain_name().into(),
+            "--uuid".into(),
+            run.uuid.to_string().into(),
+            "--osinfo".into(),
+            "linux2024".into(),
+            "--memory".into(),
+            "8192".into(),
+            "--vcpus".into(),
+            "2".into(),
+            "--import".into(),
+            "--disk".into(),
+            format!("path={},format=qcow2,bus=virtio", run.disk.display()).into(),
+            "--disk".into(),
+            format!(
+                "path={},format=raw,bus=virtio,readonly=on",
+                run.ignition.display()
+            )
+            .into(),
+            "--network".into(),
+            "none".into(),
+            "--graphics".into(),
+            "none".into(),
+            "--console".into(),
+            "pty,target_type=serial".into(),
+            "--noautoconsole".into(),
+            format!(
+                "--qemu-commandline=-fw_cfg name=opt/com.coreos/config,file={} -netdev user,id=skilletnet,hostfwd=tcp:127.0.0.1:{}-:22 -device virtio-net-pci,netdev=skilletnet,bus=pcie.0,addr=0x1d",
+                run.ignition.display(), run.ssh.port
+            )
+            .into(),
+        ];
+        self.invoke(arguments).map(|_| ())
+    }
+
+    fn invoke(&self, arguments: Vec<OsString>) -> Result<String> {
+        let output = self.executor.execute(&VirtInstallInvocation {
+            program: self.program.clone(),
+            arguments,
+            environment: BTreeMap::from([(
+                "TEST_VM_LIBVIRT_RUNTIME_DIR".into(),
+                self.runtime_dir.as_os_str().into(),
+            )]),
+        })?;
+        if !output.success {
+            return Err(Error::Command {
+                operation: "virt-install".into(),
+                code: output.code,
+            });
+        }
+        Ok(output.stdout)
     }
 }
 
