@@ -68,6 +68,7 @@ vm_name="${vm_name:-$host}"
 [[ "$vm_name" == "$host-test-"* ]] || {
   echo "VM name must match the recorded host-test-instance identity" >&2; exit 2;
 }
+instance="${vm_name#"$host-test-"}"
 if [[ ! "$ssh_port" =~ ^[0-9]+$ ]] || ((ssh_port < 1024 || ssh_port > 65535)); then
   echo "Invalid SSH port" >&2
   exit 2
@@ -141,33 +142,26 @@ ignition_bytes="$(stat -c '%s' "$ignition")"
 if ((ignition_bytes > 1048576)); then
   echo "Warning: Ignition config is ${ignition_bytes} bytes; large QEMU fw_cfg configs can take a long time to read" >&2
 fi
-{
-  if [[ "${TEST_VM_BACKEND:-native}" == flatpak ]]; then
+if [[ "${TEST_VM_BACKEND:-native}" == flatpak ]]; then
+  {
     virt-install --version
-  else
-    echo 'Native VM launcher: virsh XML'
-  fi
-  vm_command virsh --version
-  podman --version
-  yq --version
-} > "$output_dir/tool-versions.txt"
+    vm_command virsh --version
+    podman --version
+    yq --version
+  } > "$output_dir/tool-versions.txt"
+else
+  skillet_cli test vm create-native "$host" "$instance"
+fi
 
 if [[ "${TEST_VM_BACKEND:-native}" == flatpak ]]; then
   network=none
   qemu_commandline="-fw_cfg name=opt/com.coreos/config,file=$ignition -netdev user,id=skilletnet,hostfwd=tcp:127.0.0.1:$ssh_port-:22 -device virtio-net-pci,netdev=skilletnet,bus=pcie.0,addr=0x1d"
-else
-  network="passt,model=virtio,portForward0.proto=tcp,portForward0.address=127.0.0.1,portForward0.range0.start=$ssh_port,portForward0.range0.to=22"
-  qemu_commandline="-fw_cfg name=opt/com.coreos/config,file=$ignition"
-fi
-if [[ -n "$vm_uuid" ]]; then
+  uuid_args=()
+  [[ -z "$vm_uuid" ]] || uuid_args=(--uuid "$vm_uuid")
   printf '%s\n' "$vm_uuid" > "$output_dir/domain.uuid.tmp"
   chmod 600 "$output_dir/domain.uuid.tmp"
   mv -f "$output_dir/domain.uuid.tmp" "$output_dir/domain.uuid"
-fi
-echo "Creating $vm_name on $libvirt_uri, disk $output_dir/$vm_name.qcow2, SSH 127.0.0.1:$ssh_port" >&2
-if [[ "${TEST_VM_BACKEND:-native}" == flatpak ]]; then
-  uuid_args=()
-  [[ -z "$vm_uuid" ]] || uuid_args=(--uuid "$vm_uuid")
+  echo "Creating $vm_name on $libvirt_uri, disk $output_dir/$vm_name.qcow2, SSH 127.0.0.1:$ssh_port" >&2
   vm_command virt-install --connect "$libvirt_uri" --name "$vm_name" "${uuid_args[@]}" \
     --osinfo linux2024 --memory 8192 --vcpus 2 --import \
     --disk "path=$output_dir/$vm_name.qcow2,format=qcow2,bus=virtio" \
@@ -177,23 +171,4 @@ if [[ "${TEST_VM_BACKEND:-native}" == flatpak ]]; then
     --qemu-commandline="$qemu_commandline"
 else
   [[ "${TEST_VM_BACKEND:-native}" == native ]] || { echo 'Flatpak backend needs virt-install' >&2; exit 1; }
-  emulator="$(vm_command virsh -c "$libvirt_uri" capabilities |
-    xmllint --xpath "string((//guest[os_type='hvm']/arch[@name='x86_64']/emulator)[1])" -)"
-  [[ -n "$emulator" && -x "$emulator" ]] || { echo 'No usable x86_64 libvirt emulator' >&2; exit 1; }
-  if [[ -n "${SKILLET_BINARY:-}" ]]; then
-    domain_xml="$("$SKILLET_BINARY" test vm render-domain "$host" "${vm_name#"$host-test-"}" --emulator "$emulator")"
-  else
-    domain_xml="$(cd "$repo_dir/skillet" && cargo run --quiet --release -p skillet -- \
-      test vm render-domain "$host" "${vm_name#"$host-test-"}" --emulator "$emulator")"
-  fi
-  [[ "$domain_xml" == "$output_dir/domain.xml" ]] || { echo 'Rust returned an unexpected domain XML path' >&2; exit 1; }
-  virt-xml-validate "$domain_xml"
-  vm_command virsh -c "$libvirt_uri" define "$domain_xml"
-  if [[ -n "${SKILLET_BINARY:-}" ]]; then
-    "$SKILLET_BINARY" test vm defined "$host" "${vm_name#"$host-test-"}"
-  else
-    (cd "$repo_dir/skillet" && cargo run --quiet --release -p skillet -- \
-      test vm defined "$host" "${vm_name#"$host-test-"}")
-  fi
-  vm_command virsh -c "$libvirt_uri" start "$vm_name"
 fi

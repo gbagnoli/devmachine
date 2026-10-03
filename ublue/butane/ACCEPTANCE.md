@@ -774,3 +774,20 @@ host tool; it still uses normal command approvals.
 - No VM was created or changed. The staged tree was exercised through fixture
   tests, but a fresh VM create through the combined flow was not verified.
   Native define/start remain in Bash; Flatpak creation is still unverified.
+
+### Rust native VM define and start, 2026-10-03
+
+- Native VM creation now resolves the x86_64 HVM emulator from the selected
+  libvirt connection, captures tool versions, renders the owned domain XML,
+  defines and starts the domain, and records its UUID in Rust. The lifecycle
+  validates UUID and disk ownership after each backend observation. A retry
+  after define or start can continue from the manifest and current domain
+  state. `test-vm` delegates native resume to the same Rust command; Flatpak
+  `virt-install` remains on its compatibility path.
+- Fake-backend coverage verifies successful creation, recovery from an
+  existing defined domain, idempotent running-domain retries, refusal of a
+  foreign UUID, start-failure retry, and x86_64 emulator selection. The VM crate's 62 tests and the
+  full workspace test suite and pedantic Clippy with warnings denied passed.
+  Formatting, ShellCheck, Bash syntax, and `git diff --check` passed.
+- No live VM was created or changed. The combined native flow and Flatpak
+  creation remain to be exercised on their respective backends.
