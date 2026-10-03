@@ -547,6 +547,21 @@ host tool; it still uses normal command approvals.
 - Skillet updates only the subvolume root to numeric UID/GID 999; it does not
   recursively alter existing controller data and does not require matching
   host account names. The first disposable VM apply exposed that clamps uCore
-  has no passwd entry for UID 999. The numeric ownership handling and its
-  regression tests are now implemented; the full-apply retry and backup
-  restore acceptance remain pending in [the UniFi plan](../plan/CLAMPS-UNIFI.md).
+  has no passwd entry for UID 999. Numeric ownership handling and regression
+  tests were added in follow-up commit `6765ecb`.
+
+### UniFi empty-controller VM acceptance, 2026-10-03
+
+- Updated the running `clamps-test-unifi` disposable VM with the new `skillet`
+  and `skillet-clamps` binaries using `cargo run --release -p skillet -- test
+  vm update clamps unifi`.
+- Retried `skillet-full-apply.service`; it completed with status 0. The
+  `unifi.service` Quadlet is active and `podman inspect` reports
+  `network=host` with `/var/lib/data/unifi:/unifi` mounted.
+- `/var/lib/data/unifi` is a Btrfs subvolume with owner `999:999` and mode
+  `750`. The container started and emitted UniFi application initialization
+  logs.
+- Repeated the full apply. It completed with status 0, UniFi remained active,
+  and the container ID stayed unchanged. Backup restore, reboot persistence,
+  and expected host listener checks remain pending; see
+  [the UniFi plan](../plan/CLAMPS-UNIFI.md).

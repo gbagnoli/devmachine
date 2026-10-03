@@ -1,7 +1,8 @@
 # UniFi container on clamps
 
-Status: initial Skillet implementation added, 2026-10-02. Disposable VM
-acceptance, backup restore, and production migration remain pending.
+Status: implementation and empty-controller acceptance passed on the
+disposable x86_64 VM on 2026-10-03. Backup restore and production migration
+remain pending.
 
 ## Current behavior
 
@@ -41,11 +42,11 @@ for the controller's UI account.
 
 ## Migration and acceptance
 
-1. Test the Quadlet/module on a named disposable x86_64 VM with an
+1. **Passed:** Test the Quadlet/module on a named disposable x86_64 VM with an
    empty controller: service starts, remains active, uses intended ownership,
-   has `Network=host` for discovery/adoption, and survives repeated apply,
-   restart, and reboot. Confirm the expected host listeners and that no
-   Caddy/Cloudflare setup is needed for UniFi.
+   has `Network=host` for discovery/adoption, and survives repeated apply.
+   See `butane/ACCEPTANCE.md`. Reboot survival, expected host listeners, and
+   confirmation that no Caddy/Cloudflare setup is needed remain to verify.
 2. Test restoring one private rupik `.unf` backup into an isolated x86_64 VM
    using a compatible application version. Keep it disconnected from production
    devices. Confirm the restored site/configuration and remote Site Manager
