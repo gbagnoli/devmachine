@@ -264,6 +264,20 @@ impl ManifestStore {
         Ok(run)
     }
 
+    /// Reboot invalidates the previously accepted readiness result before the
+    /// backend action, so interruption cannot leave stale Ready state behind.
+    pub fn mark_reboot_pending(&self, identity: &RunIdentity) -> Result<VmRun> {
+        let mut run = self.load(identity)?;
+        if !matches!(run.phase, Phase::Started | Phase::Ready) {
+            return Err(Error::Invalid(
+                "only a started or ready VM can be rebooted".into(),
+            ));
+        }
+        run.phase = Phase::Started;
+        self.save(&run)?;
+        Ok(run)
+    }
+
     /// Compatibility entry points obtain identity from recorded fields, never
     /// by splitting a potentially ambiguous composite directory name.
     pub fn load_directory(&self, dir: &Path) -> Result<VmRun> {

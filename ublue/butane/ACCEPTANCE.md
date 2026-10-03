@@ -791,3 +791,20 @@ host tool; it still uses normal command approvals.
   Formatting, ShellCheck, Bash syntax, and `git diff --check` passed.
 - No live VM was created or changed. The combined native flow and Flatpak
   creation remain to be exercised on their respective backends.
+
+### Rust VM reboot and guest access, 2026-10-03
+
+- `test-vm` now delegates reboot, interactive SSH, and guest diagnostics to the
+  Skillet CLI. Rust holds the per-run lock, validates domain UUID/disks before
+  guest access, and validates ownership after each operation. Reboot marks a
+  previously Ready run Started before issuing the backend command, so stale
+  readiness cannot survive an interrupted reboot. Interactive SSH attaches a
+  terminal directly; captured logs remain bounded through the shared transport.
+- Unit coverage verifies that interactive SSH allocates a terminal and uses
+  the manifest target, and that a reboot invalidates Ready state. Workspace
+  tests and pedantic Clippy passed; shell checks and formatting passed.
+- No live VM was contacted. Reboot and interactive access remain unverified
+  against a live guest in this slice. The CI-style container integration
+  command was unavailable: Podman cannot set the sticky bit on
+  `/run/user/4000/libpod` because the filesystem is read-only. No container
+  was started.
