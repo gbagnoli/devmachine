@@ -113,7 +113,7 @@ host="$1"
 operation="$2"
 shift 2
 if [[ ! "$host" =~ ^[a-z][a-z0-9-]*$ ]] ||
-   { [[ "$operation" != destroy && "$operation" != status && "$operation" != list ]] && ! host_exists "$host"; }; then
+   { [[ "$operation" != destroy && "$operation" != status && "$operation" != list && "$operation" != update ]] && ! host_exists "$host"; }; then
   echo "Unknown host: $host" >&2
   exit 2
 fi
@@ -131,7 +131,7 @@ run_dir="$root/$name"
 [[ ! -L "$root" && ! -L "$run_dir" ]] || { echo "Symlinked artifact path refused" >&2; exit 1; }
 # Migrate commands one slice at a time. All disposal now uses the Rust owner,
 # including provider cleanup when the owned domain has already disappeared.
-if [[ "$operation" == destroy || "$operation" == status ]]; then
+if [[ "$operation" == destroy || "$operation" == status || "$operation" == update ]]; then
   (($# == 0)) || usage
   cd "$script_dir/../../skillet"
   exec cargo run --quiet --release -p skillet -- test vm "$operation" "$host" "$instance"
@@ -206,29 +206,6 @@ case "$operation" in
     (($# == 0)) || usage
     inspect_owned
     "$script_dir/test-vm-ready" "$run_dir" ;;
-  update)
-    (($# == 0)) || usage
-    inspect_owned
-    artifact_target_dir="${CARGO_TARGET_DIR:-$script_dir/../../skillet/target}"
-    if [[ "$artifact_target_dir" != /* ]]; then
-      artifact_target_dir="$script_dir/../../skillet/$artifact_target_dir"
-    fi
-    artifact="$(realpath -e "$artifact_target_dir/x86_64-unknown-linux-musl/release/skillet-$host")"
-    generic_artifact="$(realpath -e "$artifact_target_dir/x86_64-unknown-linux-musl/release/skillet")"
-    [[ -f "$artifact" && ! -L "$artifact" && -f "$generic_artifact" && ! -L "$generic_artifact" ]] || { echo "Build skillet and skillet-$host first" >&2; exit 1; }
-    ssh_args
-    scp -O -i "$run_dir/ssh/id_ed25519" -P "$port" -o BatchMode=yes \
-      -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$run_dir/ssh/known_hosts" \
-      "$artifact" giacomo@127.0.0.1:/var/tmp/skillet-update
-    scp -O -i "$run_dir/ssh/id_ed25519" -P "$port" -o BatchMode=yes \
-      -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$run_dir/ssh/known_hosts" \
-      "$generic_artifact" giacomo@127.0.0.1:/var/tmp/skillet-generic-update
-    # shellcheck disable=SC2029
-    ssh "${args[@]}" giacomo@127.0.0.1 \
-      "sudo -n install -m 0755 /var/tmp/skillet-update /var/usrlocal/bin/skillet-$host && sudo -n install -m 0755 /var/tmp/skillet-generic-update /var/usrlocal/bin/skillet && rm -f /var/tmp/skillet-update /var/tmp/skillet-generic-update"
-    sha256sum "$artifact" > "$run_dir/deployed-skillet.sha256"
-    sha256sum "$generic_artifact" > "$run_dir/deployed-skillet-generic.sha256"
-    echo "Updated skillet and skillet-$host in $name" ;;
   ssh)
     (($# == 0)) || usage
     inspect_owned

@@ -49,6 +49,58 @@ fn current_uid() -> u32 {
     skillet_vm::current_uid()
 }
 
+pub(super) fn update(args: &VmDestroyArgs) -> Result<()> {
+    let butane = butane_root()?;
+    let identity = RunIdentity::new(&args.hostname, &args.instance)?;
+    let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
+    let _lock = store.lock(&identity)?;
+    let mut run = store.load(&identity)?;
+    if !matches!(
+        run.phase,
+        skillet_vm::Phase::Started | skillet_vm::Phase::Ready
+    ) {
+        return Err(anyhow!(
+            "finish VM creation or disposal before updating its binaries"
+        ));
+    }
+    let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
+    backend
+        .inspect(&run)?
+        .ok_or_else(|| anyhow!("owned domain is absent"))?
+        .validate_owned(&run)?;
+    let root = workspace_root()?;
+    let package = format!("skillet-{}", identity.host());
+    let artifacts = skillet_vm::artifacts::build(&skillet_vm::artifacts::BuildRequest {
+        workspace: &root,
+        packages: &["skillet", &package],
+        target: "x86_64-unknown-linux-musl",
+        profile: "release",
+    })?;
+    let host = artifacts
+        .get(&package)
+        .ok_or_else(|| anyhow!("Cargo did not report {package}"))?;
+    let generic = artifacts
+        .get("skillet")
+        .ok_or_else(|| anyhow!("Cargo did not report skillet"))?;
+    let transport = skillet_vm::transport::SshTransport::new(
+        run.ssh.clone(),
+        skillet_vm::transport::HostKeyPolicy::Verify,
+    )?;
+    run = store.import(&identity)?;
+    backend
+        .inspect(&run)?
+        .ok_or_else(|| anyhow!("owned domain disappeared during the build"))?
+        .validate_owned(&run)?;
+    let hashes = skillet_vm::delivery::deliver(&run, &transport, host, generic)?;
+    run.deployed = Some(hashes);
+    store.save(&run)?;
+    println!(
+        "Updated skillet and {package} in {}",
+        identity.domain_name()
+    );
+    Ok(())
+}
+
 pub(super) fn list(args: &VmListArgs) -> Result<()> {
     let butane = butane_root()?;
     let store = ManifestStore::new(&butane.join("runs"), current_uid())?;

@@ -1,9 +1,5 @@
 use crate::{backend::VmBackend, Error, ManifestStore, Phase, Result, RunIdentity, VmRun};
-use nix::fcntl::{Flock, FlockArg};
-use std::{
-    fs::{self, File, OpenOptions},
-    os::unix::fs::OpenOptionsExt as _,
-};
+use std::fs::{self, File};
 
 /// Dispose external resources, the UUID-verified domain, then local artifacts.
 /// The guest need not exist; runtime errors and cleanup failures retain state.
@@ -15,22 +11,7 @@ pub fn destroy(
 ) -> Result<()> {
     store.load(identity)?;
     let dir = store.run_dir(identity);
-    let lock_path = dir.join(".vm.lock");
-    crate::manifest::reject_symlinks(&lock_path)?;
-    let file = OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .read(true)
-        .write(true)
-        .mode(0o600)
-        .open(lock_path)?;
-    let _lock = Flock::lock(file, FlockArg::LockExclusiveNonblock).map_err(|(_, error)| {
-        if error == nix::errno::Errno::EWOULDBLOCK {
-            Error::Busy
-        } else {
-            Error::Io(std::io::Error::from_raw_os_error(error as i32))
-        }
-    })?;
+    let _lock = store.lock(identity)?;
     let run = store.load(identity)?;
     if let Some(domain) = backend.inspect(&run)? {
         domain.validate_owned(&run)?;

@@ -1,6 +1,10 @@
 use super::*;
 use crate::{backend::DomainSnapshot, manifest::tests::legacy_run};
-use std::cell::{Cell, RefCell};
+use nix::fcntl::{Flock, FlockArg};
+use std::{
+    cell::{Cell, RefCell},
+    fs::OpenOptions,
+};
 
 struct FakeBackend {
     domain: RefCell<Option<DomainSnapshot>>,

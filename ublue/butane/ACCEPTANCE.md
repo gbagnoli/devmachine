@@ -1,5 +1,22 @@
 # Clamps VM acceptance log
 
+## Retained VM update migration, 2026-10-03
+
+- Rust now builds both binaries from Cargo-reported paths, checks recorded
+  domain ownership, and delivers through the shared noninteractive SSH adapter.
+  Updates and disposal use the same per-run lock. Original captured hashes are
+  preserved; deployed hashes are saved only after both installed files verify.
+- Adapter tests cover repeated delivery without upload/install, interrupted
+  installation and retry, hash mismatch, cleanup-phase refusal, shared lock
+  contention and rejection of nonregular manifest files. Forty VM tests pass.
+- Passed `cargo fmt --all --check`, offline workspace all-target pedantic
+  Clippy with `-D warnings`, offline workspace tests and static musl build.
+  Passed `skillet test run beezelbot --phase base --image fedora:latest`:
+  both applies succeeded and the repeat issued no service start/restart.
+  ShellCheck for `bin/test-vm` and `git diff --check` passed.
+- No live VM was contacted or changed: VM creation is running in the user's
+  other panel. Live update, boot, and migration acceptance remain unverified.
+
 ## VM refactoring foundation, 2026-10-03
 
 - Source slice: after roadmap commit `471068f`, added `skillet_vm` manifest

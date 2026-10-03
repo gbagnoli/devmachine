@@ -3,6 +3,7 @@
 pub mod artifacts;
 pub mod backend;
 pub mod catalog;
+pub mod delivery;
 pub mod lifecycle;
 pub mod manifest;
 mod process;
