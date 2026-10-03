@@ -76,6 +76,13 @@ ownership use separate APIs; mocks do not enforce important metadata contracts.
 - Implemented: the guest CLI loads phase-required systemd credentials and
   passes `CredentialInputs` to host composition. Recipes no longer inspect
   `CREDENTIALS_DIRECTORY`; required names derive from profile consumers.
-- Pending: decompose the remaining broad file/system traits, extend fake
-  contracts for object type and failures, and run live ownership/mount
-  acceptance. This workstream is not complete.
+- Implemented: file effects now expose separate read, mutation, and storage
+  capabilities. Recipe signatures use those capabilities where they do not
+  need the entire file interface. The aggregate remains for host composition
+  and migration paths. Recorder and mock adapters implement the capabilities
+  separately.
+- Pending: split the broad system interface into account, service, and
+  Podman-secret capabilities and narrow consumers. The fakes already model
+  object types and injected failures; shared adapter contract tests still need
+  review. Live ownership/mount acceptance is also outstanding. This workstream
+  is not complete.

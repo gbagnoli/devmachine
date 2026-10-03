@@ -1,5 +1,5 @@
 use super::{apply, BtrbkConfig, BtrbkError, CONFIG_PATH, SERVICE_PATH, TIMER_PATH};
-use skillet_core::files::FileResource;
+use skillet_core::files::FileReadResource;
 use skillet_core::test_utils::{MockFiles, MockSystem};
 use std::path::PathBuf;
 

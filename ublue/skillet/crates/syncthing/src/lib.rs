@@ -1,4 +1,4 @@
-use skillet_core::files::{FileError, FileResource};
+use skillet_core::files::{FileError, FileMutationResource, FileReadResource, StorageResource};
 use skillet_core::system::{SystemError, SystemResource};
 use skillet_podman::{self, ContainerUser, PodmanConfig, PodmanError, PodmanNetwork, Volume};
 use std::collections::BTreeMap;
@@ -28,7 +28,7 @@ pub struct SyncthingConfig {
 pub fn apply<S, F>(system: &S, files: &F, config: SyncthingConfig) -> Result<(), SyncthingError>
 where
     S: SystemResource + ?Sized,
-    F: FileResource + ?Sized,
+    F: FileMutationResource + FileReadResource + StorageResource + ?Sized,
 {
     info!("Applying Syncthing configuration...");
     let data_path = Path::new(&config.data_path);

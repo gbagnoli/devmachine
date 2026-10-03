@@ -1,6 +1,6 @@
 use askama::Template;
 use sha2::{Digest, Sha256};
-use skillet_core::files::{FileError, FileResource};
+use skillet_core::files::{FileError, FileMutationResource, FileReadResource};
 use skillet_core::system::{SystemError, SystemResource};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -127,7 +127,7 @@ pub struct PodmanNetwork {
 pub fn container<S, F>(system: &S, files: &F, config: PodmanConfig) -> Result<bool, PodmanError>
 where
     S: SystemResource + ?Sized,
-    F: FileResource + ?Sized,
+    F: FileMutationResource + FileReadResource + ?Sized,
 {
     let name = &config.name;
     info!("Ensuring podman container: {name}");
@@ -368,7 +368,7 @@ struct SubordinateRange {
     size: u32,
 }
 
-fn discover_subid_range<F: FileResource + ?Sized>(
+fn discover_subid_range<F: FileReadResource + ?Sized>(
     files: &F,
     path: &'static str,
     username: &str,
@@ -440,7 +440,7 @@ fn render_and_ensure_quadlet<S, F>(
 ) -> Result<bool, PodmanError>
 where
     S: SystemResource + ?Sized,
-    F: FileResource + ?Sized,
+    F: FileMutationResource + FileReadResource + ?Sized,
 {
     let template = QuadletTemplate { sections };
     let content = template.render().map_err(|e| {

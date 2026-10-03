@@ -61,8 +61,11 @@ pub struct Ownership {
     pub gid: Option<OwnerIdentity>,
 }
 
-pub trait FileResource {
+pub trait FileReadResource {
     fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError>;
+}
+
+pub trait FileMutationResource {
     fn ensure_file(
         &self,
         path: &Path,
@@ -94,6 +97,9 @@ pub trait FileResource {
         )
     }
     fn delete_file(&self, path: &Path) -> Result<bool, FileError>;
+}
+
+pub trait StorageResource {
     fn require_btrfs_subvolume_mount(
         &self,
         path: &Path,
@@ -103,6 +109,12 @@ pub trait FileResource {
     fn require_btrfs_subvolume(&self, path: &Path) -> Result<(), FileError>;
     fn ensure_btrfs_subvolume(&self, path: &Path) -> Result<bool, FileError>;
 }
+
+/// Transitional aggregate for recipes that still consume more than one file
+/// capability. New consumers should request the narrowest trait they need.
+pub trait FileResource: FileReadResource + FileMutationResource + StorageResource {}
+
+impl<T> FileResource for T where T: FileReadResource + FileMutationResource + StorageResource {}
 
 pub struct LocalFileResource;
 
@@ -298,7 +310,7 @@ impl Default for LocalFileResource {
     }
 }
 
-impl FileResource for LocalFileResource {
+impl StorageResource for LocalFileResource {
     fn require_btrfs_subvolume_mount(
         &self,
         path: &Path,
@@ -353,7 +365,9 @@ impl FileResource for LocalFileResource {
         }
         Ok(true)
     }
+}
 
+impl FileReadResource for LocalFileResource {
     fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
         match fs::read(path) {
             Ok(bytes) => Ok(Some(bytes)),
@@ -361,6 +375,9 @@ impl FileResource for LocalFileResource {
             Err(error) => Err(FileError::Read(path.display().to_string(), error)),
         }
     }
+}
+
+impl FileMutationResource for LocalFileResource {
     fn ensure_file(
         &self,
         path: &Path,

@@ -1,5 +1,5 @@
 use askama::Template;
-use skillet_core::files::{FileError, FileResource};
+use skillet_core::files::{FileError, FileMutationResource, FileReadResource, StorageResource};
 use skillet_core::system::{SystemError, SystemResource};
 use skillet_podman::{
     self, ContainerUser, PodmanConfig, PodmanError, PodmanNetwork, QuadletSecret, Volume,
@@ -45,7 +45,7 @@ pub fn apply<S, F>(
 ) -> Result<(), PiholeError>
 where
     S: SystemResource + ?Sized,
-    F: FileResource + ?Sized,
+    F: FileMutationResource + FileReadResource + StorageResource + ?Sized,
 {
     info!("Applying pihole configuration...");
     let root = "/var/lib/data/pihole";

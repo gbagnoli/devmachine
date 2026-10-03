@@ -897,3 +897,19 @@ host tool; it still uses normal command approvals.
 - Workstream 3 remains in progress: the remaining broad file/system trait
   decomposition and live ownership/mount checks are outstanding. No live VM
   was changed; `/dev/kvm` is absent on this workstation.
+
+### Cohesive file effect capabilities, 2026-10-04
+
+- Split file access into read, mutation, and Btrfs storage traits. Recorder,
+  local adapter, and fake implement those contracts individually. Updated
+  service and Podman recipe bounds to declare the operations their composition
+  uses; retained the aggregate for host composition during migration.
+- Passed `cargo fmt --manifest-path ublue/skillet/Cargo.toml --all`, offline
+  workspace tests, and offline workspace all-target Clippy with warnings
+  denied. Passed `git diff --check`.
+- Passed the CI container integration command:
+  `ublue/skillet/target/debug/skillet test run beezelbot --phase base --image
+  fedora:latest`. Both applies succeeded, the second caused no service restart,
+  and the test container was removed.
+- System capability splitting and live VM ownership/mount acceptance remain
+  pending. This workstation has no `/dev/kvm`; no VM was changed.

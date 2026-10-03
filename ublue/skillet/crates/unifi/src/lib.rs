@@ -1,4 +1,6 @@
-use skillet_core::files::{FileError, FileResource, OwnerIdentity, Ownership};
+use skillet_core::files::{
+    FileError, FileMutationResource, FileReadResource, OwnerIdentity, Ownership, StorageResource,
+};
 use skillet_core::system::{SystemError, SystemResource};
 use skillet_podman::{self, ContainerUser, PodmanConfig, PodmanError, Volume};
 use std::{collections::BTreeMap, path::Path};
@@ -28,7 +30,7 @@ pub enum UnifiError {
 pub fn apply<S, F>(system: &S, files: &F) -> Result<(), UnifiError>
 where
     S: SystemResource + ?Sized,
-    F: FileResource + ?Sized,
+    F: FileMutationResource + FileReadResource + StorageResource + ?Sized,
 {
     info!("Applying UniFi Network container...");
     files.require_btrfs_subvolume_mount(Path::new("/var/lib/data"), Path::new("/var"), "/data")?;
