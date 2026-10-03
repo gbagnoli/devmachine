@@ -1,0 +1,22 @@
+[package]
+name = "skillet_hosts"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+skillet_core.workspace = true
+skillet_hardening.workspace = true
+skillet_pihole.workspace = true
+skillet_unifi.workspace = true
+skillet_syncthing.workspace = true
+skillet_btrbk.workspace = true
+skillet_caddy.workspace = true
+skillet_podman.workspace = true
+users.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+skillet_core = { workspace = true, features = ["test-utils"] }

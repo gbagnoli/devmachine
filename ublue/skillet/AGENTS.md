@@ -57,6 +57,8 @@ tracks existing violations and their migration, not completed implementation.
 - Keep one authoritative host capability declaration. Application composition,
   UI exposure, credential requirements, and provisioning eligibility must agree
   with it. Reject unknown profiles for profile-dependent operations.
+- Keep synthetic smoke/test fixtures outside production host identity and profile
+  dispatch. Invoke them through an explicitly test-scoped command or target.
 - Keep binary entry points thin. Host composition, guest runtime adapters,
   workstation provisioning, and test fixtures have distinct responsibilities.
   Extract modules first and crates where dependency or deployment boundaries

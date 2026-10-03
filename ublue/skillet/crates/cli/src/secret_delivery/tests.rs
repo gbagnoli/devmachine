@@ -1,6 +1,6 @@
 use super::{
     create_entry, database_path_from, lookup, open_vault, parse_tailscale_addresses, read_vm_port,
-    save_vault, validate_tailscale_unit_config, OpenVault,
+    save_vault, validate_delivery_service, validate_tailscale_unit_config, OpenVault,
 };
 use keepass::Database;
 use keepass::DatabaseKey;
@@ -61,6 +61,15 @@ fn rejects_vm_without_tailscale_systemd_credential() {
 
     let current_unit = "LoadCredentialEncrypted=tailscale_auth_key:/etc/credstore.encrypted/skillet/tailscale_auth_key.cred";
     assert!(validate_tailscale_unit_config(current_unit).is_ok());
+}
+
+#[test]
+fn delivery_eligibility_uses_declared_service_capabilities() {
+    assert!(validate_delivery_service("beezelbot", "pihole").is_err());
+    assert!(validate_delivery_service("beezelbot", "tailscale").is_err());
+    assert!(validate_delivery_service("beezelbot", "caddy").is_ok());
+    assert!(validate_delivery_service("missing-host", "caddy").is_err());
+    assert!(validate_delivery_service("clamps", "unknown").is_err());
 }
 
 #[test]

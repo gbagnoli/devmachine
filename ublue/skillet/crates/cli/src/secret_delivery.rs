@@ -17,11 +17,9 @@ use std::{
 mod vault_cache;
 
 pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
+    validate_delivery_service(&args.hostname, &args.service)?;
     let ui_config = if args.service == "caddy" {
-        Some(
-            skillet_cli_common::hosts::ui_config_for_host(&args.hostname)
-                .ok_or_else(|| anyhow!("host {} has no declared UI services", args.hostname))?,
-        )
+        skillet_hosts::ui_config_for_host(&args.hostname)
     } else {
         None
     };
@@ -37,19 +35,6 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
     let mut vault = open_vault(&database, args.key_file.as_deref())?;
     match args.service.as_str() {
         "pihole" => {
-            let declared = skillet_cli_common::hosts::ui_config_for_host(&args.hostname)
-                .is_some_and(|config| {
-                    config
-                        .services
-                        .iter()
-                        .any(|service| service.name == "pihole")
-                });
-            if !declared {
-                return Err(anyhow!(
-                    "host {} does not declare a Pi-hole UI",
-                    args.hostname
-                ));
-            }
             let path = format!("skillet/hosts/{}/pihole/web-password", args.hostname);
             let secret = if let Some(secret) = lookup(&vault.database, &path)? {
                 ensure_vault_unchanged(&vault)?;
@@ -69,17 +54,11 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
             install(&mut command, &args.hostname, "pihole_web_password", &secret)
         }
         "tailscale" => {
-            if args.hostname != "clamps" {
-                return Err(anyhow!(
-                    "host {} does not declare Tailscale credential delivery",
-                    args.hostname
-                ));
-            }
             let credentials = tailscale_credentials(&vault)?;
             let auth_key = tailscale::create_auth_key(
                 &credentials,
                 tailscale::SERVER_TAG,
-                "Skillet clamps production host",
+                &format!("Skillet {0} production host", args.hostname),
             )?;
             let mut command = ssh_command(args);
             install(
@@ -94,10 +73,25 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
     }
 }
 
+fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_hosts::HostProfile> {
+    let profile = skillet_hosts::profile_for_name(hostname)
+        .ok_or_else(|| anyhow!("unknown host profile: {hostname}"))?;
+    match service {
+        "pihole" | "tailscale" if !profile.supports_service(service) => Err(anyhow!(
+            "host {hostname} does not declare {service} credential delivery"
+        )),
+        "caddy" if profile.ui_services().is_empty() => {
+            Err(anyhow!("host {hostname} declares no UI services"))
+        }
+        "pihole" | "tailscale" | "caddy" => Ok(profile),
+        unsupported => Err(anyhow!("unsupported secret service {unsupported}")),
+    }
+}
+
 fn deliver_caddy_from_vault(
     args: &SecretDeliverArgs,
     vault: &mut OpenVault,
-    ui_config: Option<&skillet_cli_common::hosts::HostUiConfig>,
+    ui_config: Option<&skillet_hosts::HostUiConfig>,
 ) -> Result<()> {
     let ui_config = ui_config.ok_or_else(|| anyhow!("missing host UI declaration"))?;
     let environment = args.environment.as_str();
@@ -275,7 +269,10 @@ enum RemoteCredentialState {
 
 fn remote_credential_state(args: &SecretDeliverArgs) -> Result<RemoteCredentialState> {
     let output = ssh_command(args)
-        .arg("sudo -n /var/usrlocal/bin/skillet-clamps credential state pihole_web_password")
+        .arg(format!(
+            "sudo -n /var/usrlocal/bin/skillet-{} credential state pihole_web_password",
+            args.hostname
+        ))
         .output()
         .context("checking host state before generating a production credential")?;
     if !output.status.success() {
@@ -312,9 +309,12 @@ fn database_path_from(
 }
 
 pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
-    if args.hostname != "clamps" {
+    let profile = skillet_hosts::profile_for_name(&args.hostname)
+        .ok_or_else(|| anyhow!("unknown host profile: {}", args.hostname))?;
+    if !profile.supports_service("pihole") || !profile.supports_service("tailscale") {
         return Err(anyhow!(
-            "application provisioning currently supports clamps only"
+            "host {} must declare both Pi-hole and Tailscale to use VM application provisioning",
+            args.hostname
         ));
     }
     let name = vm_name(&args.hostname, &args.instance)?;
@@ -332,7 +332,7 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     let identity = run_dir.join("ssh/id_ed25519");
     let known_hosts = run_dir.join("ssh/known_hosts");
     let port = read_vm_port(&run_dir.join("run.conf"))?;
-    let mut ssh = VmSsh::new(&identity, &known_hosts, port);
+    let mut ssh = VmSsh::new(&args.hostname, &identity, &known_hosts, port);
     validate_vm_tailscale_delivery(&mut ssh)?;
     let vault_path = match &args.database {
         Some(path) => path.clone(),
@@ -459,7 +459,7 @@ fn provision_vm_ui(
     let zone = api.zone(&creator, &zone_id)?;
     let ui_domain = skillet_caddy::resolve_ui_domain(&zone.name, domain_prefix.as_deref())
         .context("resolving test relative UI domain beneath its Cloudflare zone")?;
-    let host_ui = skillet_cli_common::hosts::ui_config_for_host(&args.hostname)
+    let host_ui = skillet_hosts::ui_config_for_host(&args.hostname)
         .ok_or_else(|| anyhow!("host {} has no declared UI services", args.hostname))?;
     let sites = skillet_caddy::CaddySites::from_host(
         &args.hostname,
@@ -664,6 +664,7 @@ fn write_cloudflare_ownership(path: &Path, ownership: &CloudflareVmOwnership) ->
 }
 
 struct VmSsh<'a> {
+    host: &'a str,
     identity: &'a Path,
     known_hosts: &'a Path,
     port: u16,
@@ -736,8 +737,10 @@ impl VmSsh<'_> {
         {
             return Err(anyhow!("invalid credential consumer unit"));
         }
-        let mut remote =
-            format!("sudo -n /var/usrlocal/bin/skillet-clamps credential install {name} {unit}");
+        let mut remote = format!(
+            "sudo -n /var/usrlocal/bin/skillet-{} credential install {name} {unit}",
+            self.host
+        );
         if defer_start {
             remote.push_str(" --no-start");
         }
@@ -763,8 +766,9 @@ impl VmSsh<'_> {
 }
 
 impl<'a> VmSsh<'a> {
-    fn new(identity: &'a Path, known_hosts: &'a Path, port: u16) -> Self {
+    fn new(host: &'a str, identity: &'a Path, known_hosts: &'a Path, port: u16) -> Self {
         Self {
+            host,
             identity,
             known_hosts,
             port,

@@ -2289,8 +2289,12 @@ dependencies = [
  "sha2 0.10.9",
  "skillet_caddy",
  "skillet_cli_common",
+ "skillet_core",
+ "skillet_hosts",
+ "skillet_podman",
  "skillet_vm",
  "tempfile",
+ "thiserror 1.0.69",
  "tracing",
  "tracing-subscriber",
 ]
@@ -2341,21 +2345,13 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "serde",
- "serde_json",
  "serde_yml",
- "skillet_btrbk",
- "skillet_caddy",
  "skillet_core",
- "skillet_hardening",
- "skillet_pihole",
- "skillet_podman",
- "skillet_syncthing",
- "skillet_unifi",
+ "skillet_hosts",
  "tempfile",
  "thiserror 1.0.69",
  "tracing",
  "tracing-subscriber",
- "users",
 ]
 
 [[package]]
@@ -2384,6 +2380,22 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.69",
  "tracing",
+]
+
+[[package]]
+name = "skillet_hosts"
+version = "0.1.0"
+dependencies = [
+ "skillet_btrbk",
+ "skillet_caddy",
+ "skillet_core",
+ "skillet_hardening",
+ "skillet_pihole",
+ "skillet_podman",
+ "skillet_syncthing",
+ "skillet_unifi",
+ "thiserror 1.0.69",
+ "users",
 ]
 
 [[package]]

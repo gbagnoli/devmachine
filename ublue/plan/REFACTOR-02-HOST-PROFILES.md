@@ -1,7 +1,7 @@
 # 2. Canonical host profiles and capabilities
 
-Status: planned; follows workstream 1 in [the prerequisite roadmap](SKILLET-REFACTOR.md).
-Further feature milestones wait for that roadmap's completion.
+Status: implementation complete; retained-VM acceptance is pending. Feature
+milestones remain gated by [the prerequisite roadmap](SKILLET-REFACTOR.md).
 
 ## Read and locate
 
@@ -67,3 +67,16 @@ keep the VM readiness orchestrator independent of deployment names.
   DNS ownership conflicts preserve the current design and private values.
 - Pass roadmap checks and affected retained-VM base/full apply checks. Record
   evidence and update profile callers, designs and usage before completion.
+
+## Progress
+
+- Implemented: `skillet_hosts` is the canonical profile and composition crate
+  for clamps, beezelbot, and the explicit generic agent baseline. Profile data
+  owns boot image/masks, enabled services, UI exposure, credentials, bridge
+  network, storage requirement, and optional btrbk inputs.
+- Implemented: generic and per-host apply wrappers, Caddy apply, credential
+  eligibility, smoke selection, and VM boot expectations query the profile.
+  Unknown profiles fail closed. The smoke fixture is a separate hidden test
+  command, not a synthetic host profile.
+- Pending: live retained-VM base/full apply checks and the roadmap fresh-VM
+  cycle. These remain unverified until a named VM/runtime is available.

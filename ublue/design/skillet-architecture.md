@@ -13,14 +13,20 @@ reported binary and now serves the container runner and retained VM updates.
 Updates share the ownership lock and SSH transport, preserve captured hashes,
 and record deployed hashes only after verifying both installed artifacts.
 Readiness now uses the same locked owner and SSH transport, with explicit
-boot expectations from the selected profile, bounded probes and private
+boot expectations from the canonical host profile, bounded probes and private
 diagnostics. It verifies original artifacts and signed boot evidence before
 recording readiness. A retry first clears the persisted Ready checkpoint and
 restores it only after acceptance. Guest operations are guarded by ownership
-checks before and after each call. The interim profile boot lookup will join the canonical
-capability declaration in workstream 2. Remaining VM commands and credential
+checks before and after each call. Remaining VM commands and credential
 delivery stay on their existing paths until their slices land. Transport's
 bounded I/O stays in memory; payload copies are zeroized after stdin transfer.
+
+Workstream 2 adds `skillet_hosts` as the single host capability declaration.
+It owns host composition and supplies boot, service, network, UI, storage, and
+credential policy to entry points. The explicit `agent` baseline is the generic
+no-service apply profile. Synthetic smoke fixture composition lives in a
+separate test command and is not dispatched as a host identity. Retained-VM
+runtime acceptance remains pending.
 
 Keep application crates as reusable recipes. Separate canonical host profiles
 and composition from guest runtime adapters, CLI parsing, workstation

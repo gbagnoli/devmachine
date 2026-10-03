@@ -856,3 +856,24 @@ host tool; it still uses normal command approvals.
   `clamps/smoke` run was reported as unavailable by `test vm list`; it was not
   altered. Native/Flatpak create, readiness, reboot, and destroy remain
   unverified live.
+
+### Canonical host profiles, 2026-10-03
+
+- Moved host service composition and boot expectations into the canonical
+  `skillet_hosts` crate. Profile-level unit coverage checks all current hosts'
+  service sets, UI ports/aliases, credential consumers, network parameters,
+  mount needs, and snapshot configuration. Added a profile with a credentialed
+  Pi-hole service without UI exposure, and an explicit no-service baseline.
+  Unknown hosts are rejected before effects. The smoke fixture is now selected
+  by a separate hidden test command rather than a synthetic host identity.
+- Passed `cargo fmt --manifest-path ublue/skillet/Cargo.toml --all`,
+  `cargo test --offline --manifest-path ublue/skillet/Cargo.toml --workspace`,
+  and `cargo clippy --offline --manifest-path ublue/skillet/Cargo.toml
+  --workspace --all-targets -- -D warnings`. Passed ShellCheck and Bash syntax
+  checks for `smoke-ssh.sh` and `smoke-guest.sh`.
+- Passed the CI container command using the Cargo-reported beezelbot binary:
+  `ublue/skillet/target/x86_64-unknown-linux-musl/debug/skillet test run
+  beezelbot --phase base --image fedora:latest`. Both applies succeeded and
+  the test container was removed.
+- Live base/full apply on a retained VM remains unverified because `/dev/kvm`
+  is absent. No VM was created, contacted, or changed in this slice.

@@ -8,6 +8,7 @@ use tracing_subscriber::FmtSubscriber;
 mod cloudflare;
 mod secret_delivery;
 mod tailscale;
+mod test_fixture;
 mod vm;
 
 #[derive(Parser, Debug)]
@@ -106,6 +107,9 @@ enum TestCommands {
     Run(ContainerArgs),
     /// Exercise the real-systemd VM scenario using an explicit disposable SSH target
     Smoke(SmokeArgs),
+    /// Apply the disposable fixture used by the VM acceptance script
+    #[command(hide = true)]
+    FixtureApply,
     /// Create or destroy a disposable host VM
     Vm {
         #[command(subcommand)]
@@ -207,14 +211,17 @@ struct ContainerArgs {
 
 #[derive(clap::Args, Debug)]
 struct SmokeArgs {
-    /// Host configuration to exercise (currently `clamps`)
+    /// Host profile from the recorded disposable VM
     hostname: String,
+    /// Recorded disposable VM instance
+    #[arg(long, default_value = "smoke")]
+    instance: String,
     /// Explicit disposable SSH target, USER@HOST
-    #[arg(long, default_value = "giacomo@127.0.0.1")]
-    target: String,
+    #[arg(long)]
+    target: Option<String>,
     /// SSH port
-    #[arg(long, default_value_t = 2201)]
-    port: u16,
+    #[arg(long)]
+    port: Option<u16>,
     /// SSH private key (defaults to the key generated for `test vm create`)
     #[arg(long)]
     identity: Option<PathBuf>,
@@ -247,7 +254,7 @@ fn main() -> Result<()> {
             host_file,
             record,
         } => {
-            let mut hostname = host.unwrap_or_else(|| "(Agent Mode)".to_string());
+            let mut hostname = host.unwrap_or_else(|| "agent".to_string());
             if let Some(path) = host_file {
                 hostname = std::fs::read_to_string(path)
                     .context("Failed to read host file")?
@@ -266,6 +273,12 @@ fn main() -> Result<()> {
         Commands::Test {
             command: TestCommands::Smoke(args),
         } => run_smoke(&args)?,
+        Commands::Test {
+            command: TestCommands::FixtureApply,
+        } => skillet_cli_common::handle_apply("smoke fixture", None, |system, files| {
+            test_fixture::apply(system, files).map_err(|error| error.to_string())
+        })
+        .map_err(|error| anyhow!("Failed to apply smoke fixture: {error}"))?,
         Commands::Test {
             command: TestCommands::Vm { command },
         } => run_vm_command(command)?,
@@ -291,23 +304,65 @@ fn run_vm_command(command: VmCommands) -> Result<()> {
 }
 
 fn run_smoke(args: &SmokeArgs) -> Result<()> {
-    if args.hostname != "clamps" {
+    let root = workspace_root()?;
+    let profile = skillet_hosts::profile_for_name(&args.hostname)
+        .ok_or_else(|| anyhow!("unknown host profile: {}", args.hostname))?;
+    if profile.signed_image.is_none() || !profile.requires_data_mount {
         return Err(anyhow!(
-            "the VM smoke scenario currently supports only hostname `clamps`"
+            "host {} does not declare the boot and storage capabilities required by VM smoke",
+            args.hostname
         ));
     }
-    let root = workspace_root()?;
-    let identity = args.identity.clone().unwrap_or_else(|| {
-        root.parent()
-            .unwrap_or(&root)
-            .join("butane/runs/clamps-test-smoke/ssh/id_ed25519")
-    });
+    let butane = butane_root()?;
+    let run_identity = skillet_vm::RunIdentity::new(&args.hostname, &args.instance)?;
+    let store = skillet_vm::ManifestStore::new(&butane.join("runs"), skillet_vm::current_uid())?;
+    let run = store.load(&run_identity)?;
+    if run.phase != skillet_vm::Phase::Ready {
+        return Err(anyhow!(
+            "run `{} {}` must be ready before smoke",
+            args.hostname,
+            args.instance
+        ));
+    }
+    let target = format!("{}@{}", run.ssh.user, run.ssh.address);
+    if args
+        .target
+        .as_ref()
+        .is_some_and(|provided| provided != &target)
+    {
+        return Err(anyhow!(
+            "--target must match the SSH target recorded in the VM manifest: {target}"
+        ));
+    }
+    if args.port.is_some_and(|port| port != run.ssh.port) {
+        return Err(anyhow!(
+            "--port must match the SSH port recorded in the VM manifest: {}",
+            run.ssh.port
+        ));
+    }
+    let identity = if let Some(path) = &args.identity {
+        if !path.is_file() {
+            return Err(anyhow!("SSH key not found at {}", path.display()));
+        }
+        if std::fs::canonicalize(path)? != std::fs::canonicalize(&run.ssh.identity)? {
+            return Err(anyhow!(
+                "--identity must match the SSH key recorded in the VM manifest"
+            ));
+        }
+        path.clone()
+    } else {
+        run.ssh.identity.clone()
+    };
     if !identity.is_file() {
         return Err(anyhow!(
-            "SSH key not found at {}; create the default VM with `skillet test vm create clamps smoke` or pass --identity",
-            identity.display()
+            "SSH key not found at {}; create the VM with `skillet test vm create {} {}`",
+            identity.display(),
+            args.hostname,
+            args.instance
         ));
     }
+    let host_binary = format!("/var/usrlocal/bin/skillet-{}", run.identity.host());
+    let credentials_required = profile.requires_full_apply_credentials();
     let binary = std::env::current_exe().context("locating the running Skillet binary failed")?;
     let script = root.join("integration_tests/smoke-ssh.sh");
     if !script.is_file() {
@@ -315,12 +370,17 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
     }
     let status = std::process::Command::new("bash")
         .arg(script)
-        .args(["--target", &args.target, "--disposable-target", "--port"])
-        .arg(args.port.to_string())
+        .args(["--target", &target, "--disposable-target", "--port"])
+        .arg(run.ssh.port.to_string())
+        .args(["--host", run.identity.host()])
+        .args([
+            "--credentials-required",
+            if credentials_required { "yes" } else { "no" },
+        ])
         .args(["--binary"])
         .arg(&binary)
-        .args(["--clamps-binary"])
-        .arg("/var/usrlocal/bin/skillet-clamps")
+        .args(["--host-binary"])
+        .arg(host_binary)
         .args(["--identity"])
         .arg(&identity)
         .status()
@@ -381,13 +441,20 @@ fn workspace_root() -> Result<PathBuf> {
 }
 
 fn run_container_test(args: &ContainerArgs) -> Result<()> {
-    if !matches!(args.hostname.as_str(), "beezelbot" | "clamps") {
+    skillet_hosts::profile_for_name(&args.hostname)
+        .ok_or_else(|| anyhow!("unknown host profile: {}", args.hostname))?;
+    let root = workspace_root()?;
+    if !root
+        .join("crates/hosts")
+        .join(&args.hostname)
+        .join("Cargo.toml")
+        .is_file()
+    {
         return Err(anyhow!(
-            "unsupported host {}; expected beezelbot or clamps",
+            "host profile {} has no standalone host apply binary",
             args.hostname
         ));
     }
-    let root = workspace_root()?;
     let package = format!("skillet-{}", args.hostname);
     let artifacts = skillet_vm::artifacts::build(&skillet_vm::artifacts::BuildRequest {
         workspace: &root,

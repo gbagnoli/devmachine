@@ -394,7 +394,7 @@ pub(super) fn ready(args: &VmTargetArgs) -> Result<()> {
     let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
     let _lock = store.lock(&identity)?;
     let run = store.load(&identity)?;
-    let boot = skillet_cli_common::hosts::boot_policy_for_host(identity.host())
+    let boot = skillet_hosts::boot_policy_for_host(identity.host())
         .ok_or_else(|| anyhow!("unknown readiness profile: {}", identity.host()))?;
     let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
     backend

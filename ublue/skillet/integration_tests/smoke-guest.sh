@@ -3,7 +3,8 @@ set -euo pipefail
 
 phase=${1:?phase required}
 binary=/var/usrlocal/bin/skillet-smoke
-clamps_binary=${2:?clamps binary path required}
+host_binary=${2:?host binary path required}
+credentials_required=${3:?credential capability required}
 root=/var/lib/skillet-smoke
 service=skillet-smoke-fixture.service
 container=skillet-smoke-fixture
@@ -17,7 +18,7 @@ fail() {
 trap 'fail "unexpected command at line $LINENO"' ERR
 
 apply() {
-  timeout 180s "$binary" apply --host skillet-smoke || fail "fixture apply"
+  timeout 180s "$binary" test fixture-apply || fail "fixture apply"
 }
 
 running() {
@@ -76,12 +77,16 @@ case "$phase" in
     chmod 0600 "$root/desired/secret"
     timeout 180s podman pull docker.io/library/alpine:3.20 >/dev/null || fail "fixture image pull"
 
-    timeout 120s "$clamps_binary" apply --phase base || fail "base apply"
-    if env -u CREDENTIALS_DIRECTORY timeout 120s "$clamps_binary" apply >"$root/full-apply.stdout" 2>"$root/full-apply.stderr"; then
-      fail "full clamps apply accepted missing credentials"
-    fi
-    if ! grep -Eq 'CREDENTIALS_DIRECTORY|credential' "$root/full-apply.stderr"; then
-      fail "full clamps apply failed for an unexpected reason"
+    timeout 120s "$host_binary" apply --phase base || fail "host base apply"
+    if [[ $credentials_required == yes ]]; then
+      if env -u CREDENTIALS_DIRECTORY timeout 120s "$host_binary" apply >"$root/full-apply.stdout" 2>"$root/full-apply.stderr"; then
+        fail "full apply accepted missing declared credentials"
+      fi
+      if ! grep -Eq 'CREDENTIALS_DIRECTORY|credential' "$root/full-apply.stderr"; then
+        fail "full apply failed for an unexpected reason"
+      fi
+    elif ! timeout 180s "$host_binary" apply; then
+      fail "full apply failed without declared credentials"
     fi
 
     apply
@@ -120,7 +125,7 @@ case "$phase" in
 
     systemctl stop "$service" || fail "stopping fixture before startup failure"
     rm "$root/allow-start"
-    if timeout 120s "$binary" apply --host skillet-smoke >"$root/startup-failure.stdout" 2>"$root/startup-failure.stderr"; then
+    if timeout 120s "$binary" test fixture-apply >"$root/startup-failure.stdout" 2>"$root/startup-failure.stderr"; then
       fail "startup failure returned success"
     fi
     systemctl show "$service" -p ActiveState -p Result > "$root/startup-failure.systemd"
@@ -133,7 +138,7 @@ case "$phase" in
 
     rm "$root/allow-start"
     printf 'revision-three\n' > "$root/desired/config"
-    if timeout 120s "$binary" apply --host skillet-smoke >"$root/interrupted.stdout" 2>"$root/interrupted.stderr"; then
+    if timeout 120s "$binary" test fixture-apply >"$root/interrupted.stdout" 2>"$root/interrupted.stderr"; then
       fail "interrupted activation returned success"
     fi
     systemctl show "$service" -p ActiveState -p Result > "$root/interrupted.systemd"
