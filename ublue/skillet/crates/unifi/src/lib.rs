@@ -4,7 +4,6 @@ use skillet_podman::{self, ContainerUser, PodmanConfig, PodmanError, Volume};
 use std::{collections::BTreeMap, path::Path};
 use thiserror::Error;
 use tracing::info;
-use users::{get_group_by_gid, get_user_by_uid};
 
 const DATA_PATH: &str = "/var/lib/data/unifi";
 const CONTAINER_UID: u32 = 999;
@@ -18,10 +17,6 @@ pub enum UnifiError {
     File(#[from] FileError),
     #[error("Podman error: {0}")]
     Podman(#[from] PodmanError),
-    #[error("host has no account for UniFi container UID {CONTAINER_UID}")]
-    HostUidMissing,
-    #[error("host has no group for UniFi container GID {CONTAINER_GID}")]
-    HostGidMissing,
 }
 
 /// Configure the rootful `UniFi Network` container and its persistent state.
@@ -29,28 +24,8 @@ pub enum UnifiError {
 /// The rootful Podman service uses host networking so `UniFi` can discover and
 /// adopt devices on the LAN. The image's `unifi` user writes as UID/GID 999;
 /// match the volume root to those numeric identities without recursively
-/// changing existing application data.
+/// changing existing application data or requiring matching host accounts.
 pub fn apply<S, F>(system: &S, files: &F) -> Result<(), UnifiError>
-where
-    S: SystemResource + ?Sized,
-    F: FileResource + ?Sized,
-{
-    let owner = get_user_by_uid(CONTAINER_UID).ok_or(UnifiError::HostUidMissing)?;
-    let group = get_group_by_gid(CONTAINER_GID).ok_or(UnifiError::HostGidMissing)?;
-    apply_with_owners(
-        system,
-        files,
-        &owner.name().to_string_lossy(),
-        &group.name().to_string_lossy(),
-    )
-}
-
-fn apply_with_owners<S, F>(
-    system: &S,
-    files: &F,
-    owner: &str,
-    group: &str,
-) -> Result<(), UnifiError>
 where
     S: SystemResource + ?Sized,
     F: FileResource + ?Sized,
@@ -58,7 +33,12 @@ where
     info!("Applying UniFi Network container...");
     files.require_btrfs_subvolume_mount(Path::new("/var/lib/data"), Path::new("/var"), "/data")?;
     files.ensure_btrfs_subvolume(Path::new(DATA_PATH))?;
-    files.ensure_directory(Path::new(DATA_PATH), Some(0o750), Some(owner), Some(group))?;
+    files.ensure_directory_with_owner_ids(
+        Path::new(DATA_PATH),
+        Some(0o750),
+        CONTAINER_UID,
+        CONTAINER_GID,
+    )?;
 
     let mut extra_config = BTreeMap::new();
     extra_config.insert(
@@ -115,3 +95,7 @@ where
     )?;
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "tests.rs"]
+mod tests;

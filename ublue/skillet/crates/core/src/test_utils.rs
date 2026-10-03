@@ -176,6 +176,7 @@ pub struct MockFiles {
     pub files: Arc<Mutex<HashMap<String, Vec<u8>>>>,
     pub metadata: Arc<Mutex<HashMap<String, FileMetadata>>>,
     pub directories: Arc<Mutex<HashSet<String>>>,
+    pub directory_owner_ids: Arc<Mutex<HashMap<String, (u32, u32)>>>,
     pub fail_btrfs_mount_check: Arc<AtomicBool>,
 }
 
@@ -185,6 +186,7 @@ impl MockFiles {
             files: Arc::new(Mutex::new(HashMap::new())),
             metadata: Arc::new(Mutex::new(HashMap::new())),
             directories: Arc::new(Mutex::new(HashSet::new())),
+            directory_owner_ids: Arc::new(Mutex::new(HashMap::new())),
             fail_btrfs_mount_check: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -290,6 +292,27 @@ impl FileResource for MockFiles {
             Ok(false)
         } else {
             directories.insert(path_str);
+            Ok(true)
+        }
+    }
+
+    fn ensure_directory_with_owner_ids(
+        &self,
+        path: &Path,
+        mode: Option<u32>,
+        uid: u32,
+        gid: u32,
+    ) -> Result<bool, FileError> {
+        let changed = self.ensure_directory(path, mode, None, None)?;
+        let path_str = path.display().to_string();
+        let mut owners = self
+            .directory_owner_ids
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if owners.get(&path_str) == Some(&(uid, gid)) {
+            Ok(changed)
+        } else {
+            owners.insert(path_str, (uid, gid));
             Ok(true)
         }
     }

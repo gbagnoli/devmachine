@@ -28,10 +28,10 @@ uses rootful Podman with mandatory host networking for device discovery and
 adoption, `/var/lib/data/unifi` mounted at `/unifi`, the Chef image family,
 `Europe/Madrid`, restart-at-boot, and registry auto-update. It requires the
 shared data mount and prepares the service subvolume. The image's `unifi` user
-owns the application state as UID/GID 999; Skillet resolves host names for
-those numeric IDs and updates only the subvolume root metadata, preserving
-existing application-owned files. On rupik UID 999 is `systemd-coredump`, not
-Chef's separate UID 2666 `unifi` account.
+owns the application state as UID/GID 999; Skillet sets those numeric IDs on
+only the subvolume root and preserves existing application-owned files. The
+host does not need matching account names. Rupik UID 999 is
+`systemd-coredump`, not Chef's separate UID 2666 `unifi` account.
 
 Do not add a Caddy route or a new credential flow for UniFi. UniFi Site Manager
 at `unifi.ui.com` provides remote access to a locally running controller. The
