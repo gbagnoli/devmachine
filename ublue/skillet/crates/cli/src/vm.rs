@@ -1,6 +1,7 @@
 //! CLI presentation and legacy provider wiring. Ownership lives in `skillet_vm`.
 use super::{
-    butane_root, secret_delivery, workspace_root, VmDestroyArgs, VmListArgs, VmTargetArgs,
+    butane_root, secret_delivery, workspace_root, VmDestroyArgs, VmDirectoryArgs, VmListArgs,
+    VmTargetArgs,
 };
 use anyhow::{anyhow, Result};
 use skillet_vm::{
@@ -47,6 +48,84 @@ pub(super) fn destroy(args: &VmDestroyArgs) -> Result<()> {
 
 fn current_uid() -> u32 {
     skillet_vm::current_uid()
+}
+
+pub(super) fn ready_directory(args: &VmDirectoryArgs) -> Result<()> {
+    let butane = butane_root()?;
+    let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
+    let run = store.load_directory(&args.run_dir)?;
+    ready(&VmTargetArgs {
+        hostname: run.identity.host().into(),
+        instance: run.identity.instance().into(),
+    })
+}
+
+pub(super) fn ready(args: &VmTargetArgs) -> Result<()> {
+    let butane = butane_root()?;
+    let identity = RunIdentity::new(&args.hostname, &args.instance)?;
+    let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
+    let _lock = store.lock(&identity)?;
+    let run = store.load(&identity)?;
+    let boot = skillet_cli_common::hosts::boot_policy_for_host(identity.host())
+        .ok_or_else(|| anyhow!("unknown readiness profile: {}", identity.host()))?;
+    let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
+    backend
+        .inspect(&run)?
+        .ok_or_else(|| anyhow!("owned domain is absent"))?
+        .validate_owned(&run)?;
+    let mut run = store.import(&identity)?;
+    let mut probe = skillet_vm::transport::SshTransport::new(
+        run.ssh.clone(),
+        skillet_vm::transport::HostKeyPolicy::Enroll,
+    )?;
+    probe.timeout = std::time::Duration::from_secs(15);
+    let operations = skillet_vm::transport::SshTransport::new(
+        run.ssh.clone(),
+        skillet_vm::transport::HostKeyPolicy::Enroll,
+    )?;
+    let policy = skillet_vm::readiness::ReadinessPolicy {
+        signed_image: boot.signed_image,
+        resolver_target: "/run/NetworkManager/resolv.conf".into(),
+        masked_units: boot.masked_units.into_iter().map(String::from).collect(),
+        phase_timeout: std::time::Duration::from_mins(45),
+    };
+    skillet_vm::readiness::ready(
+        &run,
+        &store.run_dir(&identity),
+        &policy,
+        &skillet_vm::readiness::ReadinessIo {
+            probe: &probe,
+            operations: &operations,
+            ownership: &|| {
+                backend
+                    .inspect(&run)?
+                    .ok_or_else(|| {
+                        skillet_vm::Error::Invalid(
+                            "owned domain disappeared during readiness".into(),
+                        )
+                    })?
+                    .validate_owned(&run)
+            },
+        },
+        &skillet_vm::readiness::MonotonicClock::default(),
+        &mut |message| tracing::info!("{message}"),
+    )?;
+    backend
+        .inspect(&run)?
+        .ok_or_else(|| anyhow!("owned domain disappeared during readiness"))?
+        .validate_owned(&run)?;
+    run.phase = skillet_vm::Phase::Ready;
+    run.deployed.clone_from(&run.captured);
+    store.save(&run)?;
+    println!(
+        "Ready: {} on {}; SSH: {}@{}:{}",
+        identity.domain_name(),
+        run.connection.uri,
+        run.ssh.user,
+        run.ssh.address,
+        run.ssh.port
+    );
+    Ok(())
 }
 
 pub(super) fn update(args: &VmDestroyArgs) -> Result<()> {

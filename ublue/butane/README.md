@@ -86,11 +86,12 @@ create and ready:
 cargo run --release -p skillet -- test vm create clamps smoke
 cargo run --release -p skillet -- test vm list clamps
 cargo run --release -p skillet -- test vm status clamps smoke
+cargo run --release -p skillet -- test vm ready clamps smoke
 cargo run --release -p skillet -- test vm provision clamps smoke
 cargo run --release -p skillet -- test vm destroy clamps smoke
 ```
 
-`list`, `status`, `update` and `destroy` now use the Rust ownership implementation;
+`list`, `status`, `ready`, `update` and `destroy` now use the Rust ownership implementation;
 the corresponding `test-vm` commands delegate to it. Reading status does not
 import or rewrite a legacy run. Disposal creates a private versioned manifest
 while retaining original files until cleanup finishes. If the owned guest is
@@ -154,14 +155,18 @@ most two reboot attempts. The shared base unit runs
 with no app credentials. Clamps adds a separate full-apply unit gated on its
 Pi-hole and Tailscale credentials.
 
-`./bin/test-vm HOST ready INSTANCE` waits up to 45 minutes, checks the expected
-domain/disk, noninteractive SSH and sudo, signed booted deployment, successful
-Skillet unit, guest artifact SHA, enforcing SELinux, DNS, masked resolved,
+`./bin/test-vm HOST ready INSTANCE` waits up to 45 minutes per SSH/signed-boot
+phase with bounded probes, and checks the recorded domain UUID/disks,
+noninteractive SSH and sudo, signed booted deployment, successful
+Skillet unit, guest artifact SHA and metadata, enforcing SELinux, DNS,
+the profile's masked units,
 Homebrew, dotfiles links, and the complete `core` Brewfile bundle.
-It writes `domain.txt`, `disks.txt`, `final-status.json`, `final-boot-id`,
+It writes `final-status.json`, `final-boot-id`,
 `guest-skillet*.sha256`, `readiness.log`, and `user-environment.log` into the run
-directory. On timeout, it writes `failure.log` or
-`user-environment-failure.log` with relevant journals.
+directory with mode 0600. On failure, it attempts to retain relevant journals
+in those logs while preserving the original error. When ownership no longer
+matches, it refuses further guest contact. `bin/test-vm-ready RUN_DIR` remains
+a compatibility entry point to the same Rust implementation.
 For manual diagnostics, use `test-vm HOST status INSTANCE` and
 `test-vm HOST logs INSTANCE`.
 The equivalent guest SSH command is:

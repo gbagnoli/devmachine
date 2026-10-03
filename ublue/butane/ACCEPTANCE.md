@@ -1,5 +1,30 @@
 # Clamps VM acceptance log
 
+## Rust readiness migration, 2026-10-03
+
+- The CLI's `test vm ready HOST INSTANCE`, create's readiness phase,
+  `test-vm HOST ready INSTANCE` and the retained RUN_DIR helper now share
+  Rust readiness. It uses the run lock, recorded SSH target, ownership checks
+  after waits, captured binaries, bounded probes and explicit profile boot
+  expectations. It does not use embedded shell or `systemctl --wait`.
+- Preserved signed-origin, base-unit, artifact bytes/metadata, SELinux,
+  resolver/DNS, masked-unit, Homebrew and dotfiles acceptance checks. Both
+  binaries are verified again after apply. Ready/deployed state is saved only
+  after all checks and final domain ownership validation.
+- Forty-eight VM tests pass, including success/retry, SSH/signed-boot timeout,
+  bootstrap/apply failure, ownership loss, capture tampering, signed-origin
+  refusal, guest security/user-environment failures and directory-based legacy
+  identity lookup. Failure retains private diagnostic logs; ownership loss
+  refuses further guest contact. The temporary boot policy lookup remains to
+  be consolidated in workstream 2.
+- Passed static-musl `cargo fmt --all --check`, offline workspace all-target
+  Clippy with `-D warnings`, offline workspace tests/build, the routine Fedora
+  base integration (both applies; no repeat service start/restart), readiness
+  CLI help, ShellCheck for both changed helpers, and `git diff --check`.
+- Live native/Flatpak readiness, rebase and retained-run import remain
+  unverified. The user's VM and provider resources were not contacted or
+  modified. No vault unlock or workstation installation was needed.
+
 ## Retained VM update migration, 2026-10-03
 
 - Rust now builds both binaries from Cargo-reported paths, checks recorded

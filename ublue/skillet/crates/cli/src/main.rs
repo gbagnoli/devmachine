@@ -127,6 +127,11 @@ enum VmCommands {
     List(VmListArgs),
     /// Inspect the UUID and disks recorded for an owned disposable VM
     Status(VmTargetArgs),
+    /// Verify signed boot and apply the captured base/user environment
+    Ready(VmTargetArgs),
+    /// Compatibility adapter for the former `RUN_DIR` readiness helper
+    #[command(hide = true)]
+    ReadyDirectory(VmDirectoryArgs),
     /// Provision Pi-hole and enroll the disposable VM in Tailscale
     Provision(VmProvisionArgs),
     /// Install the current host binary on a retained disposable VM
@@ -145,6 +150,11 @@ struct VmCreateArgs {
 struct VmTargetArgs {
     hostname: String,
     instance: String,
+}
+
+#[derive(clap::Args, Debug)]
+struct VmDirectoryArgs {
+    run_dir: PathBuf,
 }
 
 #[derive(clap::Args, Debug)]
@@ -278,6 +288,18 @@ fn main() -> Result<()> {
         Commands::Test {
             command:
                 TestCommands::Vm {
+                    command: VmCommands::Ready(args),
+                },
+        } => vm::ready(&args)?,
+        Commands::Test {
+            command:
+                TestCommands::Vm {
+                    command: VmCommands::ReadyDirectory(args),
+                },
+        } => vm::ready_directory(&args)?,
+        Commands::Test {
+            command:
+                TestCommands::Vm {
                     command: VmCommands::Provision(args),
                 },
         } => secret_delivery::provision_vm(&args)?,
@@ -348,7 +370,10 @@ fn run_vm_create(args: &VmCreateArgs) -> Result<()> {
     )?;
 
     let run_dir = butane.join("runs").join(&name);
-    if let Err(error) = run_helper(&helper, &[&args.hostname, "ready", &args.instance]) {
+    if let Err(error) = vm::ready(&VmTargetArgs {
+        hostname: args.hostname.clone(),
+        instance: args.instance.clone(),
+    }) {
         return Err(anyhow!(
             "VM created but readiness failed; inspect it with `test-vm {} logs {}` or destroy it with `skillet test vm destroy {} {}`: {error}",
             args.hostname, args.instance, args.hostname, args.instance

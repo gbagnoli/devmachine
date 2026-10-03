@@ -12,9 +12,12 @@ listing is also in Rust. Shared Cargo JSON artifact discovery selects the exact
 reported binary and now serves the container runner and retained VM updates.
 Updates share the ownership lock and SSH transport, preserve captured hashes,
 and record deployed hashes only after verifying both installed artifacts.
-Remaining VM commands
-stay on their existing paths until their slices land. The shared SSH transport
-is implemented but not yet wired into readiness or credential delivery. Its
+Readiness now uses the same locked owner and SSH transport, with explicit
+boot expectations from the selected profile, bounded probes and private
+diagnostics. It verifies original artifacts and signed boot evidence before
+recording readiness. The interim profile boot lookup will join the canonical
+capability declaration in workstream 2. Remaining VM commands and credential
+delivery stay on their existing paths until their slices land. Transport's
 bounded I/O stays in memory; payload copies are zeroized after stdin transfer.
 
 Keep application crates as reusable recipes. Separate canonical host profiles

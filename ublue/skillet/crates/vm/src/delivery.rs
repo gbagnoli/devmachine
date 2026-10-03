@@ -63,7 +63,11 @@ pub fn deliver(
     Ok(hashes)
 }
 
-fn matches_installed(transport: &impl GuestTransport, path: &str, expected: &str) -> Result<bool> {
+pub(crate) fn matches_installed(
+    transport: &impl GuestTransport,
+    path: &str,
+    expected: &str,
+) -> Result<bool> {
     if test_path(transport, "-L", path)? {
         return Err(Error::Invalid("installed binary is a symlink".into()));
     }

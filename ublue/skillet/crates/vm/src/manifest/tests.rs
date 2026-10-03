@@ -55,6 +55,28 @@ fn legacy_read_is_non_mutating_and_preserves_original_artifacts() {
 }
 
 #[test]
+fn directory_compatibility_uses_recorded_identity_without_import_or_name_splitting() {
+    let (_tmp, store, identity) = legacy_run();
+    let dir = store.run_dir(&identity);
+    let run = store.load_directory(&dir).unwrap();
+    assert_eq!(run.identity, identity);
+    assert!(!dir.join("vm.json").exists());
+    store.import(&identity).unwrap();
+    assert_eq!(store.load_directory(&dir).unwrap(), run);
+    assert!(store.load_directory(dir.parent().unwrap()).is_err());
+    let other = RunIdentity::new("fixture-test-region", "retained-2").unwrap();
+    let other_dir = store.run_dir(&other);
+    fs::rename(&dir, &other_dir).unwrap();
+    fs::remove_file(other_dir.join("vm.json")).unwrap();
+    let config = fs::read_to_string(other_dir.join("run.conf"))
+        .unwrap()
+        .replace("host=fixture\n", "host=fixture-test-region\n")
+        .replace(&identity.domain_name(), &other.domain_name());
+    fs::write(other_dir.join("run.conf"), config).unwrap();
+    assert_eq!(store.load_directory(&other_dir).unwrap().identity, other);
+}
+
+#[test]
 fn explicit_import_is_private_repeatable_and_preserves_external_journals() {
     let (_tmp, store, identity) = legacy_run();
     let dir = store.run_dir(&identity);

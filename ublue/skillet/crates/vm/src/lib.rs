@@ -7,6 +7,7 @@ pub mod delivery;
 pub mod lifecycle;
 pub mod manifest;
 mod process;
+pub mod readiness;
 pub mod transport;
 
 pub use manifest::{

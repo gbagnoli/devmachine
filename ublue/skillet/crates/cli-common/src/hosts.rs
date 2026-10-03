@@ -23,6 +23,25 @@ pub enum ApplyPhase {
     Caddy,
 }
 
+/// Explicit guest boot expectations. Consolidated with the canonical capability
+/// declaration in refactoring workstream 2; the VM orchestrator has no host cases.
+pub struct HostBootPolicy {
+    pub signed_image: String,
+    pub masked_units: Vec<&'static str>,
+}
+
+pub fn boot_policy_for_host(hostname: &str) -> Option<HostBootPolicy> {
+    let masked_units = match hostname {
+        "clamps" => vec!["systemd-resolved.service"],
+        "beezelbot" => Vec::new(),
+        _ => return None,
+    };
+    Some(HostBootPolicy {
+        signed_image: format!("ghcr.io/gbagnoli/ucore-{hostname}"),
+        masked_units,
+    })
+}
+
 #[derive(Error, Debug)]
 pub enum ApplyError {
     #[error("System error: {0}")]
