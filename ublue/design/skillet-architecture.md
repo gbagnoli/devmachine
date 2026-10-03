@@ -15,7 +15,9 @@ and record deployed hashes only after verifying both installed artifacts.
 Readiness now uses the same locked owner and SSH transport, with explicit
 boot expectations from the selected profile, bounded probes and private
 diagnostics. It verifies original artifacts and signed boot evidence before
-recording readiness. The interim profile boot lookup will join the canonical
+recording readiness. A retry first clears the persisted Ready checkpoint and
+restores it only after acceptance. Guest operations are guarded by ownership
+checks before and after each call. The interim profile boot lookup will join the canonical
 capability declaration in workstream 2. Remaining VM commands and credential
 delivery stay on their existing paths until their slices land. Transport's
 bounded I/O stays in memory; payload copies are zeroized after stdin transfer.

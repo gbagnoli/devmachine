@@ -74,6 +74,7 @@ pub(super) fn ready(args: &VmTargetArgs) -> Result<()> {
         .ok_or_else(|| anyhow!("owned domain is absent"))?
         .validate_owned(&run)?;
     let mut run = store.import(&identity)?;
+    let ownership_run = run.clone();
     let mut probe = skillet_vm::transport::SshTransport::new(
         run.ssh.clone(),
         skillet_vm::transport::HostKeyPolicy::Enroll,
@@ -90,7 +91,8 @@ pub(super) fn ready(args: &VmTargetArgs) -> Result<()> {
         phase_timeout: std::time::Duration::from_mins(45),
     };
     skillet_vm::readiness::ready(
-        &run,
+        &mut run,
+        &store,
         &store.run_dir(&identity),
         &policy,
         &skillet_vm::readiness::ReadinessIo {
@@ -98,25 +100,18 @@ pub(super) fn ready(args: &VmTargetArgs) -> Result<()> {
             operations: &operations,
             ownership: &|| {
                 backend
-                    .inspect(&run)?
+                    .inspect(&ownership_run)?
                     .ok_or_else(|| {
                         skillet_vm::Error::Invalid(
                             "owned domain disappeared during readiness".into(),
                         )
                     })?
-                    .validate_owned(&run)
+                    .validate_owned(&ownership_run)
             },
         },
         &skillet_vm::readiness::MonotonicClock::default(),
         &mut |message| tracing::info!("{message}"),
     )?;
-    backend
-        .inspect(&run)?
-        .ok_or_else(|| anyhow!("owned domain disappeared during readiness"))?
-        .validate_owned(&run)?;
-    run.phase = skillet_vm::Phase::Ready;
-    run.deployed.clone_from(&run.captured);
-    store.save(&run)?;
     println!(
         "Ready: {} on {}; SSH: {}@{}:{}",
         identity.domain_name(),
