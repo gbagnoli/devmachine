@@ -316,8 +316,19 @@ impl ManifestStore {
     pub fn lock(&self, identity: &RunIdentity) -> Result<RunLock> {
         let dir = self.run_dir(identity);
         self.validate_directory(&dir)?;
-        let path = dir.join(".vm.lock");
-        reject_symlinks(&path)?;
+        self.lock_path(&dir.join(".vm.lock"))
+    }
+
+    /// Serialize the complete create orchestration separately from the shorter
+    /// per-step manifest mutations it invokes.
+    pub fn lock_create(&self, identity: &RunIdentity) -> Result<RunLock> {
+        let dir = self.run_dir(identity);
+        self.validate_directory(&dir)?;
+        self.lock_path(&dir.join(".vm-create.lock"))
+    }
+
+    fn lock_path(&self, path: &Path) -> Result<RunLock> {
+        reject_symlinks(path)?;
         let file = OpenOptions::new()
             .create(true)
             .truncate(false)

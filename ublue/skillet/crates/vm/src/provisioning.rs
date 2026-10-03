@@ -2,13 +2,159 @@
 use crate::{manifest::reject_symlinks, Error, ManifestStore, Phase, Result, RunIdentity, VmRun};
 use sha2::{Digest, Sha256};
 use std::{
+    ffi::OsString,
     fs::{self, File, OpenOptions},
     io::{Read, Write as _},
+    net::TcpListener,
     os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _},
-    path::Path,
+    path::{Path, PathBuf},
     process::Command,
     time::Duration,
 };
+
+/// Fail early when another local listener already owns the VM's loopback SSH
+/// forwarding port.
+pub fn validate_ssh_port(port: u16) -> Result<()> {
+    if !(2200..=2299).contains(&port) {
+        return Err(Error::Invalid(
+            "VM SSH port must be between 2200 and 2299".into(),
+        ));
+    }
+    let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).map_err(|error| {
+        Error::Preparation(format!("VM SSH port {port} is unavailable: {error}"))
+    })?;
+    drop(listener);
+    Ok(())
+}
+
+/// Resolve one supported Fedora `CoreOS` QEMU image, downloading it through the
+/// existing `CoreOS` installer container only when none is already present.
+pub fn resolve_coreos_image(images_dir: &Path, requested: Option<&Path>) -> Result<PathBuf> {
+    if let Some(image) = requested {
+        reject_symlinks(image)?;
+        if image.is_file() {
+            return fs::canonicalize(image).map_err(Into::into);
+        }
+        return Err(Error::Invalid(
+            "requested VM image is not a regular file".into(),
+        ));
+    }
+    let mut candidates = coreos_images(images_dir)?;
+    if candidates.is_empty() {
+        download_coreos_image(images_dir)?;
+        candidates = coreos_images(images_dir)?;
+    }
+    match candidates.as_slice() {
+        [image] => fs::canonicalize(image).map_err(Into::into),
+        [] => Err(Error::Invalid(
+            "CoreOS installer completed without producing a QEMU image".into(),
+        )),
+        _ => Err(Error::Invalid(format!(
+            "multiple Fedora CoreOS QEMU images exist under {}; pass --image to choose one",
+            images_dir.display()
+        ))),
+    }
+}
+
+fn coreos_images(images_dir: &Path) -> Result<Vec<PathBuf>> {
+    reject_symlinks(images_dir)?;
+    if !images_dir.is_dir() {
+        return Ok(Vec::new());
+    }
+    let mut candidates = Vec::new();
+    for entry in fs::read_dir(images_dir)? {
+        let path = entry?.path();
+        let matches_name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| {
+                name.starts_with("fedora-coreos-") && name.ends_with("-qemu.x86_64.qcow2")
+            });
+        if !matches_name {
+            continue;
+        }
+        reject_symlinks(&path)?;
+        if fs::metadata(&path)?.is_file() {
+            candidates.push(path);
+        }
+    }
+    candidates.sort();
+    Ok(candidates)
+}
+
+fn download_coreos_image(images_dir: &Path) -> Result<()> {
+    if !images_dir.is_absolute()
+        || images_dir
+            .components()
+            .any(|part| matches!(part, std::path::Component::ParentDir))
+    {
+        return Err(Error::Invalid(
+            "image directory must be an absolute safe path".into(),
+        ));
+    }
+    reject_symlinks(images_dir)?;
+    fs::create_dir_all(images_dir)?;
+    let mount_source = images_dir
+        .to_str()
+        .filter(|path| !path.contains(',') && !path.contains('\n'))
+        .ok_or_else(|| {
+            Error::Invalid("image directory is not valid for Podman mount syntax".into())
+        })?;
+    let mut command = Command::new("podman");
+    command.args([
+        "run",
+        "--pull=always",
+        "--rm",
+        "--security-opt",
+        "label=disable",
+        "--volume",
+    ]);
+    command.arg(format!("{mount_source}:/data"));
+    command.args([
+        "--workdir",
+        "/data",
+        "quay.io/coreos/coreos-installer:release",
+        "download",
+        "-s",
+        "stable",
+        "-p",
+        "qemu",
+        "-f",
+        "qcow2.xz",
+        "--decompress",
+    ]);
+    let output = crate::process::capture(command, Duration::from_mins(30))?;
+    if !output.status.success() {
+        return Err(Error::Command {
+            operation: "download Fedora CoreOS QEMU image".into(),
+            code: output.status.code(),
+        });
+    }
+    Ok(())
+}
+
+/// Return the recorded source revision used to identify a resumable run.
+pub fn source_revision(workspace: &Path) -> Result<String> {
+    let mut command = Command::new("git");
+    command.args([OsString::from("-C"), workspace.as_os_str().to_owned()]);
+    command.args(["rev-parse", "--verify", "HEAD"]);
+    let output = crate::process::capture(command, Duration::from_secs(15))?;
+    if !output.status.success() {
+        return Err(Error::Preparation(
+            "git could not identify the source revision for VM creation".into(),
+        ));
+    }
+    let revision = String::from_utf8(output.stdout)
+        .map_err(|_| Error::Invalid("git source revision is not UTF8".into()))?
+        .trim()
+        .to_owned();
+    if revision.is_empty() || !revision.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(Error::Invalid(
+            "git returned an invalid source revision".into(),
+        ));
+    }
+    Ok(revision)
+}
 
 /// Prepare the private SSH key and VM disk for a recorded, not-yet-defined run.
 /// Repeated calls reuse a matching key and image, and repair a changed disk.

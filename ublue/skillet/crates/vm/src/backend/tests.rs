@@ -106,6 +106,25 @@ fn missing_domain_requires_successful_lists_not_an_error_message() {
 }
 
 #[test]
+fn domain_name_preflight_requires_a_successful_complete_name_list() {
+    let (_tmp, store, identity) = legacy_run();
+    let run = store.load(&identity).unwrap();
+    let backend = VirshBackend::new(
+        run.connection.clone(),
+        run.owner_uid,
+        Path::new("/wrapper"),
+        executor(vec![
+            output("another-domain\nfixture-test-retained-2\n"),
+            output("another-domain\nfixture-test-retained-2\n"),
+        ]),
+    )
+    .unwrap();
+    assert!(backend.contains_name("fixture-test-retained-2").unwrap());
+    assert!(!backend.contains_name("fixture-test-other").unwrap());
+    assert!(backend.contains_name("bad;name").is_err());
+}
+
+#[test]
 fn capabilities_select_executable_x86_64_hvm_emulator() {
     let (_tmp, store, identity) = legacy_run();
     let run = store.load(&identity).unwrap();

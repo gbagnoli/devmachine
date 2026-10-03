@@ -294,6 +294,9 @@ fn shared_run_lock_is_nonblocking_and_refuses_linked_files() {
     let (tmp, store, identity) = legacy_run();
     let first = store.lock(&identity).unwrap();
     assert!(matches!(store.lock(&identity), Err(Error::Busy)));
+    let create = store.lock_create(&identity).unwrap();
+    assert!(matches!(store.lock_create(&identity), Err(Error::Busy)));
+    drop(create);
     drop(first);
     let lock_path = store.run_dir(&identity).join(".vm.lock");
     fs::remove_file(&lock_path).unwrap();
