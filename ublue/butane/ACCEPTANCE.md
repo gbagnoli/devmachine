@@ -971,3 +971,15 @@ host tool; it still uses normal command approvals.
   repeat apply did not restart, and the container was removed. Live credential
   delivery and rotation recovery on a disposable VM remain unverified because
   `/dev/kvm` is unavailable.
+
+### Cloudflare workstation provider library, 2026-10-04
+
+- Moved the Cloudflare SDK adapter, scoped account-token issuance/revocation,
+  DNS reconciliation, desired record validation, and the local HTTP fixtures
+  into `skillet_workstation::cloudflare`. The library uses a `thiserror`
+  boundary preserving SDK/JSON sources; the CLI calls the library API.
+- The 10 Cloudflare provider tests passed, including DNS reconciliation and
+  ambiguous-token retry cases. Full workspace formatting/tests/strict
+  all-target Clippy and the static-musl build passed. CI container integration
+  exited 0; both applies succeeded, repeat apply issued no restart, and its
+  disposable container was removed. No live Cloudflare API mutation was made.

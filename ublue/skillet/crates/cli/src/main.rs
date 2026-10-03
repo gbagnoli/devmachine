@@ -5,7 +5,6 @@ use std::{fs, path::PathBuf, process::Command};
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
-mod cloudflare;
 mod secret_delivery;
 mod tailscale;
 mod test_fixture;

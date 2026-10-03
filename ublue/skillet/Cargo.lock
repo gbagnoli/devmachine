@@ -2279,7 +2279,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "cloudflare",
  "hex",
  "keepass",
  "keyutils",
@@ -2466,11 +2465,15 @@ dependencies = [
 name = "skillet_workstation"
 version = "0.1.0"
 dependencies = [
+ "cloudflare",
  "hex",
  "keepass",
  "keyutils",
  "rpassword",
+ "serde",
+ "serde_json",
  "sha2 0.10.9",
+ "skillet_caddy",
  "tempfile",
  "thiserror 1.0.69",
 ]

@@ -110,7 +110,7 @@ fn deliver_caddy_from_vault(
         .get(&zone_path)?
         .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
     let zone_id = zone_id.trim();
-    crate::cloudflare::validate_zone_id(zone_id)?;
+    skillet_workstation::cloudflare::validate_zone_id(zone_id)?;
     let creator = vault
         .get("skillet/cloudflare/token-creator")?
         .ok_or_else(|| {
@@ -118,7 +118,7 @@ fn deliver_caddy_from_vault(
                 "KeePassXC Cloudflare token creator is missing: skillet/cloudflare/token-creator"
             )
         })?;
-    let cloudflare = crate::cloudflare::Cloudflare::new();
+    let cloudflare = skillet_workstation::cloudflare::Cloudflare::new();
     let zone = cloudflare.zone(&creator, zone_id)?;
     let domain = skillet_caddy::resolve_ui_domain(&zone.name, domain_prefix.as_deref())
         .context("resolving KeePassXC relative UI domain beneath its Cloudflare zone")?;
@@ -134,10 +134,13 @@ fn deliver_caddy_from_vault(
     let device =
         tailscale::find_device_by_hostname(&tailnet, &args.hostname, tailscale::SERVER_TAG)?;
     let dns_marker = format!("skillet:{environment}:{}", args.hostname);
-    let dns =
-        crate::cloudflare::desired_records(&sites.machine_hostname, &device.addresses, &sites)?;
+    let dns = skillet_workstation::cloudflare::desired_records(
+        &sites.machine_hostname,
+        &device.addresses,
+        &sites,
+    )?;
     ensure_vault_unchanged(vault)?;
-    let account_id = crate::cloudflare::Cloudflare::account_id(&zone)?;
+    let account_id = skillet_workstation::cloudflare::Cloudflare::account_id(&zone)?;
     let token = host_acme_token(args, vault, &cloudflare, &creator, zone_id, account_id)?;
     cloudflare.zone(&token, zone_id)?;
     ensure_vault_unchanged(vault)?;
@@ -170,7 +173,7 @@ fn deliver_caddy_from_vault(
 fn host_acme_token(
     args: &SecretDeliverArgs,
     vault: &mut Vault,
-    api: &crate::cloudflare::Cloudflare,
+    api: &skillet_workstation::cloudflare::Cloudflare,
     creator: &str,
     zone_id: &str,
     account_id: &str,
@@ -467,8 +470,8 @@ fn provision_vm_ui(
             )
         })?;
     let zone_id = zone_id.trim().to_string();
-    crate::cloudflare::validate_zone_id(&zone_id)?;
-    let api = crate::cloudflare::Cloudflare::new();
+    skillet_workstation::cloudflare::validate_zone_id(&zone_id)?;
+    let api = skillet_workstation::cloudflare::Cloudflare::new();
     let zone = api.zone(&creator, &zone_id)?;
     let ui_domain = skillet_caddy::resolve_ui_domain(&zone.name, domain_prefix.as_deref())
         .context("resolving test relative UI domain beneath its Cloudflare zone")?;
@@ -482,8 +485,11 @@ fn provision_vm_ui(
         },
         &host_ui.services,
     )?;
-    let dns =
-        crate::cloudflare::desired_records(&sites.machine_hostname, &device.addresses, &sites)?;
+    let dns = skillet_workstation::cloudflare::desired_records(
+        &sites.machine_hostname,
+        &device.addresses,
+        &sites,
+    )?;
     let marker = format!("skillet:test:{}:{}", args.hostname, args.instance);
     let token_name = format!("skillet:test:{}-{}", args.hostname, args.instance);
     let metadata_path = run_dir.join("cloudflare.json");
@@ -497,7 +503,7 @@ fn provision_vm_ui(
         expires_on: None,
         record_ids: Vec::new(),
     };
-    let account_id = crate::cloudflare::Cloudflare::account_id(&zone)?.to_string();
+    let account_id = skillet_workstation::cloudflare::Cloudflare::account_id(&zone)?.to_string();
     write_cloudflare_ownership(&metadata_path, &ownership)?;
     ensure_vault_unchanged(vault)?;
     let issued = api.create_zone_token(
@@ -590,7 +596,7 @@ fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<(
             "Cloudflare metadata does not match this VM identity; refusing cleanup"
         ));
     }
-    crate::cloudflare::validate_zone_id(&ownership.zone_id)?;
+    skillet_workstation::cloudflare::validate_zone_id(&ownership.zone_id)?;
     skillet_caddy::validate_domain_in_zone(&ownership.ui_domain, &ownership.ui_domain)
         .context("validating Cloudflare UI domain in VM metadata")?;
     let vault_path = args
@@ -611,9 +617,9 @@ fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<(
     if configured_zone.trim() != ownership.zone_id {
         return Err(anyhow!("test Cloudflare configuration differs from the recorded VM owner; restore the original vault values before cleanup"));
     }
-    let api = crate::cloudflare::Cloudflare::new();
+    let api = skillet_workstation::cloudflare::Cloudflare::new();
     let zone = api.zone(&creator, &ownership.zone_id)?;
-    let account_id = crate::cloudflare::Cloudflare::account_id(&zone)?.to_string();
+    let account_id = skillet_workstation::cloudflare::Cloudflare::account_id(&zone)?.to_string();
     let configured_domain =
         skillet_caddy::resolve_ui_domain(&zone.name, configured_prefix.as_deref())
             .context("resolving test UI namespace before VM cleanup")?;

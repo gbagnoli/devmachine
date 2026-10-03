@@ -1,4 +1,3 @@
-use anyhow::{anyhow, Context, Result};
 use cloudflare::framework::{
     auth::Credentials,
     client::{blocking_api::HttpApiClient, ClientConfig},
@@ -10,19 +9,64 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     collections::{BTreeMap, BTreeSet},
+    error::Error as StdError,
     net::IpAddr,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
+use thiserror::Error;
 
 const API_BASE: &str = "https://api.cloudflare.com/client/v4/";
 const RECORD_TTL: u32 = 120;
 
 #[cfg(test)]
-#[path = "cloudflare_tests.rs"]
+#[path = "tests.rs"]
 mod tests;
 
+#[derive(Debug, Error)]
+pub enum CloudflareError {
+    #[error("{context}: {source}")]
+    Source {
+        context: String,
+        #[source]
+        source: Box<dyn StdError + Send + Sync>,
+    },
+    #[error("{0}")]
+    Invalid(String),
+}
+
+pub type Result<T> = std::result::Result<T, CloudflareError>;
+
+fn source<E>(context: impl Into<String>, error: E) -> CloudflareError
+where
+    E: StdError + Send + Sync + 'static,
+{
+    CloudflareError::Source {
+        context: context.into(),
+        source: Box::new(error),
+    }
+}
+
+trait ResultContext<T> {
+    fn context(self, context: impl Into<String>) -> Result<T>;
+}
+
+impl<T, E> ResultContext<T> for std::result::Result<T, E>
+where
+    E: StdError + Send + Sync + 'static,
+{
+    fn context(self, context: impl Into<String>) -> Result<T> {
+        self.map_err(|error| source(context, error))
+    }
+}
+
+impl From<serde_json::Error> for CloudflareError {
+    fn from(error: serde_json::Error) -> Self {
+        source("Cloudflare JSON", error)
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub(crate) struct RecordRef {
+pub struct RecordRef {
     pub id: String,
     pub name: String,
     #[serde(rename = "type")]
@@ -32,43 +76,49 @@ pub(crate) struct RecordRef {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub(crate) struct IssuedToken {
+pub struct IssuedToken {
     pub id: String,
     pub value: String,
     pub expires_on: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub(crate) struct Zone {
+pub struct Zone {
     pub id: String,
     pub name: String,
     pub account: Option<ZoneAccount>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub(crate) struct ZoneAccount {
+pub struct ZoneAccount {
     pub id: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub(crate) struct OwnedDns {
+pub struct OwnedDns {
     pub marker: String,
     pub records: Vec<RecordRef>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct DesiredRecord {
+pub struct DesiredRecord {
     pub name: String,
     pub record_type: String,
     pub content: String,
 }
 
-pub(crate) struct Cloudflare {
+pub struct Cloudflare {
     base: String,
 }
 
+impl Default for Cloudflare {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Cloudflare {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             base: API_BASE.to_string(),
         }
@@ -113,7 +163,7 @@ impl Cloudflare {
         .context("building cloudflare-rs client")?;
         client
             .request(&endpoint)
-            .map_err(|error| anyhow!("Cloudflare API request failed: {error}"))
+            .map_err(|error| source("Cloudflare API request failed", error))
     }
 
     fn result(
@@ -127,7 +177,7 @@ impl Cloudflare {
         Ok(self.request(token, method, path, query, body)?.result.0)
     }
 
-    pub(crate) fn zone(&self, token: &str, zone_id: &str) -> Result<Zone> {
+    pub fn zone(&self, token: &str, zone_id: &str) -> Result<Zone> {
         validate_zone_id(zone_id)?;
         let value = self
             .result(token, Method::GET, format!("zones/{zone_id}"), None, None)
@@ -135,12 +185,16 @@ impl Cloudflare {
         serde_json::from_value(value).context("decoding Cloudflare zone")
     }
 
-    pub(crate) fn account_id(zone: &Zone) -> Result<&str> {
+    pub fn account_id(zone: &Zone) -> Result<&str> {
         zone.account
             .as_ref()
             .map(|account| account.id.as_str())
             .filter(|id| validate_token_id(id).is_ok())
-            .ok_or_else(|| anyhow!("Cloudflare zone response does not include a valid account ID"))
+            .ok_or_else(|| {
+                CloudflareError::Invalid(
+                    "Cloudflare zone response does not include a valid account ID".into(),
+                )
+            })
     }
 
     fn permission_groups(&self, token: &str, account_id: &str) -> Result<(String, String)> {
@@ -152,9 +206,9 @@ impl Cloudflare {
             Some("per_page=500".to_string()),
             None,
         ).context("discovering Cloudflare account-token permission groups; the issuer needs Account > API Tokens > Read or Write")?;
-        let groups = value
-            .as_array()
-            .ok_or_else(|| anyhow!("Cloudflare permission group response is malformed"))?;
+        let groups = value.as_array().ok_or_else(|| {
+            CloudflareError::Invalid("Cloudflare permission group response is malformed".into())
+        })?;
         let mut zone_read = None;
         let mut dns_write = None;
         for group in groups {
@@ -189,11 +243,11 @@ impl Cloudflare {
         }
         match (zone_read, dns_write) {
             (Some(read), Some(write)) => Ok((read, write)),
-            _ => Err(anyhow!("Cloudflare did not expose selectable Zone Read and DNS Write permission groups for this account")),
+            _ => Err(CloudflareError::Invalid("Cloudflare did not expose selectable Zone Read and DNS Write permission groups for this account".into())),
         }
     }
 
-    pub(crate) fn create_zone_token(
+    pub fn create_zone_token(
         &self,
         creator_token: &str,
         zone_id: &str,
@@ -224,7 +278,7 @@ impl Cloudflare {
         serde_json::from_value(value).context("decoding newly issued Cloudflare token")
     }
 
-    pub(crate) fn replace_named_zone_token(
+    pub fn replace_named_zone_token(
         &self,
         creator_token: &str,
         zone_id: &str,
@@ -241,7 +295,7 @@ impl Cloudflare {
         self.create_zone_token(creator_token, zone_id, account_id, name, lifetime)
     }
 
-    pub(crate) fn token_ids_by_name(
+    pub fn token_ids_by_name(
         &self,
         creator_token: &str,
         account_id: &str,
@@ -257,11 +311,9 @@ impl Cloudflare {
                 Some(format!("page={page}&per_page=100")),
                 None,
             )?;
-            let values = response
-                .result
-                .0
-                .as_array()
-                .ok_or_else(|| anyhow!("Cloudflare token list response is malformed"))?;
+            let values = response.result.0.as_array().ok_or_else(|| {
+                CloudflareError::Invalid("Cloudflare token list response is malformed".into())
+            })?;
             matches.extend(values.iter().filter_map(|token| {
                 (token.get("name").and_then(Value::as_str) == Some(name))
                     .then(|| token.get("id").and_then(Value::as_str))
@@ -282,7 +334,7 @@ impl Cloudflare {
         Ok(matches)
     }
 
-    pub(crate) fn revoke_token(
+    pub fn revoke_token(
         &self,
         creator_token: &str,
         account_id: &str,
@@ -391,7 +443,7 @@ impl Cloudflare {
         Ok(())
     }
 
-    pub(crate) fn reconcile_dns(
+    pub fn reconcile_dns(
         &self,
         token: &str,
         zone_id: &str,
@@ -402,7 +454,9 @@ impl Cloudflare {
         validate_zone_id(zone_id)?;
         validate_fqdn(ui_domain)?;
         if marker.is_empty() || marker.len() > 255 {
-            return Err(anyhow!("invalid Skillet DNS ownership marker"));
+            return Err(CloudflareError::Invalid(
+                "invalid Skillet DNS ownership marker".into(),
+            ));
         }
         let mut wanted: BTreeMap<(String, String), BTreeSet<String>> = BTreeMap::new();
         for record in desired {
@@ -423,10 +477,10 @@ impl Cloudflare {
             .filter(|record| desired_names.contains(&record.name.to_ascii_lowercase()))
         {
             if record.comment.as_deref() != Some(marker) {
-                return Err(anyhow!(
+                return Err(CloudflareError::Invalid(format!(
                     "DNS name {} has a record not owned by this Skillet deployment",
                     record.name
-                ));
+                )));
             }
         }
 
@@ -473,7 +527,7 @@ impl Cloudflare {
             .filter(|record| record.comment.as_deref() == Some(marker))
         {
             if stale.name != ui_domain && !stale.name.ends_with(&format!(".{ui_domain}")) {
-                return Err(anyhow!("Skillet ownership marker is present outside the configured UI domain; refusing cleanup"));
+                return Err(CloudflareError::Invalid("Skillet ownership marker is present outside the configured UI domain; refusing cleanup".into()));
             }
             if !retained_ids.contains(stale.id.as_str()) {
                 self.delete_record(token, zone_id, &stale.id)?;
@@ -492,7 +546,7 @@ impl Cloudflare {
         })
     }
 
-    pub(crate) fn remove_dns_marker(
+    pub fn remove_dns_marker(
         &self,
         token: &str,
         zone_id: &str,
@@ -508,7 +562,7 @@ impl Cloudflare {
             if !matches!(record.record_type.as_str(), "A" | "AAAA" | "CNAME")
                 || !(record.name == ui_domain || record.name.ends_with(&format!(".{ui_domain}")))
             {
-                return Err(anyhow!("Skillet ownership marker appears on an unexpected DNS record; refusing cleanup"));
+                return Err(CloudflareError::Invalid("Skillet ownership marker appears on an unexpected DNS record; refusing cleanup".into()));
             }
             self.delete_record(token, zone_id, &record.id)?;
         }
@@ -516,7 +570,7 @@ impl Cloudflare {
     }
 }
 
-pub(crate) fn desired_records(
+pub fn desired_records(
     machine_name: &str,
     addresses: &BTreeSet<String>,
     sites: &skillet_caddy::CaddySites,
@@ -538,8 +592,8 @@ pub(crate) fn desired_records(
         });
     }
     if !has_v4 || !has_v6 {
-        return Err(anyhow!(
-            "Tailscale device must have both IPv4 and IPv6 addresses before publishing DNS"
+        return Err(CloudflareError::Invalid(
+            "Tailscale device must have both IPv4 and IPv6 addresses before publishing DNS".into(),
         ));
     }
     for service in &sites.services {
@@ -559,25 +613,29 @@ pub(crate) fn desired_records(
     Ok(result)
 }
 
-pub(crate) fn validate_zone_id(id: &str) -> Result<()> {
+pub fn validate_zone_id(id: &str) -> Result<()> {
     if id.len() != 32 || !id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-        return Err(anyhow!(
-            "Cloudflare Zone ID must be 32 hexadecimal characters"
+        return Err(CloudflareError::Invalid(
+            "Cloudflare Zone ID must be 32 hexadecimal characters".into(),
         ));
     }
     Ok(())
 }
 
-pub(crate) fn validate_token_id(id: &str) -> Result<()> {
+pub fn validate_token_id(id: &str) -> Result<()> {
     if id.len() != 32 || !id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-        return Err(anyhow!("Cloudflare token ID is malformed"));
+        return Err(CloudflareError::Invalid(
+            "Cloudflare token ID is malformed".into(),
+        ));
     }
     Ok(())
 }
 
 fn validate_record_id(id: &str) -> Result<()> {
     if id.is_empty() || !id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-        return Err(anyhow!("Cloudflare DNS record ID is malformed"));
+        return Err(CloudflareError::Invalid(
+            "Cloudflare DNS record ID is malformed".into(),
+        ));
     }
     Ok(())
 }
@@ -589,30 +647,42 @@ fn validate_record_content(record_type: &str, content: &str) -> Result<()> {
                 .parse::<IpAddr>()
                 .context("invalid IP in DNS plan")?;
             if (record_type == "A") != address.is_ipv4() {
-                return Err(anyhow!("DNS record address family does not match type"));
+                return Err(CloudflareError::Invalid(
+                    "DNS record address family does not match type".into(),
+                ));
             }
         }
         "CNAME" => validate_fqdn(content)?,
-        _ => return Err(anyhow!("unsupported managed DNS record type")),
+        _ => {
+            return Err(CloudflareError::Invalid(
+                "unsupported managed DNS record type".into(),
+            ))
+        }
     }
     Ok(())
 }
 
 fn validate_fqdn(name: &str) -> Result<()> {
-    skillet_caddy::validate_domain(name).map_err(|error| anyhow!("{error}"))
+    skillet_caddy::validate_domain(name)
+        .map_err(|error| CloudflareError::Invalid(error.to_string()))
 }
 
 fn expiry_rfc3339(lifetime: Duration) -> Result<String> {
     let seconds = SystemTime::now()
         .checked_add(lifetime)
-        .ok_or_else(|| anyhow!("Cloudflare token expiry overflow"))?
-        .duration_since(UNIX_EPOCH)?
+        .ok_or_else(|| CloudflareError::Invalid("Cloudflare token expiry overflow".into()))?
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| source("calculating Cloudflare token expiry", error))?
         .as_secs();
     let days = seconds / 86_400;
     let time = seconds % 86_400;
-    let (year, month, day) = civil_from_days(i64::try_from(days)?);
+    let (year, month, day) = civil_from_days(
+        i64::try_from(days).map_err(|error| source("converting Cloudflare token expiry", error))?,
+    );
     if !(1..=9999).contains(&year) {
-        return Err(anyhow!("Cloudflare token expiry is outside RFC3339 range"));
+        return Err(CloudflareError::Invalid(
+            "Cloudflare token expiry is outside RFC3339 range".into(),
+        ));
     }
     Ok(format!(
         "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",

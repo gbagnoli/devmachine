@@ -7,10 +7,14 @@ edition = "2021"
 workspace = true
 
 [dependencies]
+cloudflare.workspace = true
 hex.workspace = true
 keepass.workspace = true
 keyutils.workspace = true
 rpassword.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 sha2.workspace = true
+skillet_caddy.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
