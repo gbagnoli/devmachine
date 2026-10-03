@@ -20,6 +20,21 @@
   creating a smoke VM in another panel; it and its artifacts were left alone.
   No vault, Cloudflare or Tailscale request was needed for this slice.
 
+## Shared SSH transport contract, 2026-10-03
+
+- Source slice: follows `67d8f54`. Added `GuestTransport` and `SshTransport`
+  for literal executable/argument requests, explicit target and host-key policy,
+  noninteractive SSH/SCP, and stdin delivery. No live SSH command was run.
+- Subprocess I/O is memory-backed with concurrent pipe readers/writer, bounded
+  output and complete-operation timeout. Tests cover a 1 MiB round trip, a
+  blocked stdin writer, unconsumed input on nonzero exit, key/target validation,
+  shell metacharacter quoting, upload traversal refusal, DNS/IPv6 targets and
+  explicit host-key enrollment versus verification. Thirty-five VM tests pass.
+- Passed static-musl workspace format, all-target pedantic Clippy,
+  workspace tests/build and the routine Fedora base container integration.
+  Readiness/delivery migration and live transport acceptance remain pending;
+  no vault unlock, provider mutation or change to the user's VM was attempted.
+
 ## Interrupted local artifact removal, 2026-10-03
 
 - Follow-up to `d799ace`: disposal now removes application artifacts before

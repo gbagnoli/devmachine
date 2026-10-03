@@ -6,6 +6,7 @@ pub mod catalog;
 pub mod lifecycle;
 pub mod manifest;
 mod process;
+pub mod transport;
 
 pub use manifest::{
     Backend, Connection, Environment, ManifestStore, Phase, RunIdentity, SshTarget, VmRun,
@@ -36,6 +37,13 @@ pub enum Error {
     Build {
         code: Option<i32>,
         diagnostic: String,
+    },
+    #[error(
+        "guest operation {operation} failed (exit {code:?}); inspect retained guest diagnostics"
+    )]
+    Guest {
+        operation: String,
+        code: Option<i32>,
     },
 }
 

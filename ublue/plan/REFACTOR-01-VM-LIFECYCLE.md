@@ -18,11 +18,15 @@ from a failed connection; UUID and disk ownership are checked before cleanup
 and again after external calls. Failed cleanup retains its manifest/journals.
 Rust also owns template/run listing. Shared Cargo JSON artifact discovery is
 implemented and used by the routine container runner; a custom target-directory
-integration check selects the reported binary. Twenty-six VM tests pass.
+integration check selects the reported binary. `GuestTransport`/`SshTransport`
+now provide explicit target/key policy, literal remote executable arguments,
+noninteractive execution and upload. Subprocess stdin/output stay in memory,
+with bounded concurrent I/O and zeroized copied stdin. Thirty-five VM tests pass.
 No live VM was changed or imported.
 
-Creation, readiness, update/reboot and SSH still use Bash. Next: shared
-transport, recoverable creation/readiness and the
+Creation, readiness, update/reboot and interactive SSH still use Bash. The
+shared transport is not yet wired into their operations or credential delivery.
+Next: migrate update/readiness to that transport, recoverable creation and the
 remaining public-helper delegation. Disposal live acceptance remains deferred. See
 [validation evidence](../butane/ACCEPTANCE.md#vm-refactoring-foundation-2026-10-03).
 

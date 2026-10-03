@@ -15,3 +15,4 @@ uuid.workspace = true
 users.workspace = true
 quick-xml.workspace = true
 nix = { workspace = true, features = ["signal", "process"] }
+zeroize = "1.9"
