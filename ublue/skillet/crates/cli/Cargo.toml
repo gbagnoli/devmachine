@@ -13,6 +13,7 @@ skillet_caddy.workspace = true
 skillet_podman.workspace = true
 skillet_core.workspace = true
 skillet_vm.workspace = true
+skillet_workstation.workspace = true
 clap.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

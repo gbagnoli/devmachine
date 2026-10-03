@@ -3,18 +3,15 @@ use super::{
     VmProvisionArgs,
 };
 use anyhow::{anyhow, Context, Result};
-use keepass::{Database, DatabaseKey};
 use serde::{Deserialize, Serialize};
+use skillet_workstation::vault::Vault;
 use std::{
     fs,
     io::{Read as _, Write as _},
-    os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _},
-    path::{Path, PathBuf},
+    os::unix::fs::PermissionsExt as _,
+    path::Path,
     process::{Command, Stdio},
-    time::{SystemTime, UNIX_EPOCH},
 };
-
-mod vault_cache;
 
 pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
     validate_delivery_service(&args.hostname, &args.service)?;
@@ -32,11 +29,11 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
             "SSH identity and recorded known-hosts file must exist"
         ));
     }
-    let mut vault = open_vault(&database, args.key_file.as_deref())?;
+    let mut vault = Vault::open(&database, args.key_file.as_deref())?;
     match args.service.as_str() {
         "pihole" => {
             let path = format!("skillet/hosts/{}/pihole/web-password", args.hostname);
-            let secret = if let Some(secret) = lookup(&vault.database, &path)? {
+            let secret = if let Some(secret) = vault.get(&path)? {
                 ensure_vault_unchanged(&vault)?;
                 secret
             } else {
@@ -46,8 +43,8 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
                     ));
                 }
                 let secret = random_password()?;
-                create_entry(&mut vault.database, &path, &secret)?;
-                save_vault(&mut vault, args.key_file.as_deref(), &path, &secret)?;
+                vault.insert(&path, &secret)?;
+                vault.save_verified(args.key_file.as_deref(), &path, &secret)?;
                 secret
             };
             let transport = credential_transport(args)?;
@@ -101,20 +98,22 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
 
 fn deliver_caddy_from_vault(
     args: &SecretDeliverArgs,
-    vault: &mut OpenVault,
+    vault: &mut Vault,
     ui_config: Option<&skillet_hosts::HostUiConfig>,
 ) -> Result<()> {
     let ui_config = ui_config.ok_or_else(|| anyhow!("missing host UI declaration"))?;
     let environment = args.environment.as_str();
     let domain_path = format!("skillet/environments/{environment}/dns/ui-domain");
-    let domain_prefix = lookup(&vault.database, &domain_path)?;
+    let domain_prefix = vault.get(&domain_path)?;
     let zone_path = format!("skillet/environments/{environment}/dns/cloudflare-zone-id");
-    let zone_id = lookup(&vault.database, &zone_path)?
+    let zone_id = vault
+        .get(&zone_path)?
         .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
     let zone_id = zone_id.trim();
     crate::cloudflare::validate_zone_id(zone_id)?;
-    let creator =
-        lookup(&vault.database, "skillet/cloudflare/token-creator")?.ok_or_else(|| {
+    let creator = vault
+        .get("skillet/cloudflare/token-creator")?
+        .ok_or_else(|| {
             anyhow!(
                 "KeePassXC Cloudflare token creator is missing: skillet/cloudflare/token-creator"
             )
@@ -170,7 +169,7 @@ fn deliver_caddy_from_vault(
 
 fn host_acme_token(
     args: &SecretDeliverArgs,
-    vault: &mut OpenVault,
+    vault: &mut Vault,
     api: &crate::cloudflare::Cloudflare,
     creator: &str,
     zone_id: &str,
@@ -181,33 +180,33 @@ fn host_acme_token(
         "skillet/environments/{environment}/hosts/{}/cloudflare/acme-token",
         args.hostname
     );
-    if let Some(token) = lookup(&vault.database, &token_path)? {
+    if let Some(token) = vault.get(&token_path)? {
         return Ok(token);
     }
     let legacy = if args.environment == UiEnvironmentName::Production {
-        lookup(
-            &vault.database,
-            &format!("skillet/hosts/{}/cloudflare/acme-token", args.hostname),
-        )?
+        vault.get(&format!(
+            "skillet/hosts/{}/cloudflare/acme-token",
+            args.hostname
+        ))?
     } else {
         None
     };
     if let Some(token) = legacy {
-        create_entry(&mut vault.database, &token_path, &token)?;
-        save_vault(vault, args.key_file.as_deref(), &token_path, &token)?;
+        vault.insert(&token_path, &token)?;
+        vault.save_verified(args.key_file.as_deref(), &token_path, &token)?;
         return Ok(token);
     }
     let token_name = format!("skillet:{environment}:{}", args.hostname);
     let issued = api.replace_named_zone_token(creator, zone_id, account_id, &token_name, None)?;
-    if let Err(error) = create_entry(&mut vault.database, &token_path, &issued.value)
-        .and_then(|()| save_vault(vault, args.key_file.as_deref(), &token_path, &issued.value))
+    if let Err(error) = vault
+        .insert(&token_path, &issued.value)
+        .and_then(|()| vault.save_verified(args.key_file.as_deref(), &token_path, &issued.value))
     {
         if let Err(revoke_error) = api.revoke_token(creator, account_id, &issued.id) {
             return Err(anyhow!("saving issued Cloudflare credential failed ({error}); revoking token {} also failed ({revoke_error})", issued.id));
         }
-        return Err(
-            error.context("saving new Cloudflare token into KeePassXC; issued token was revoked")
-        );
+        return Err(anyhow::Error::new(error)
+            .context("saving new Cloudflare token into KeePassXC; issued token was revoked"));
     }
     Ok(issued.value)
 }
@@ -219,33 +218,27 @@ pub(super) fn lock_vault(path: Option<&Path>) -> Result<()> {
     };
     // A symlink at the default XDG location points to the same cache entry as
     // an explicit path to its target.
-    let canonical = canonical_database(&path)?;
-    vault_cache::clear(&canonical)?;
+    skillet_workstation::vault::lock(Some(&path))?;
     println!("Vault unlock removed from the kernel keyring");
     Ok(())
 }
 
-fn ensure_vault_unchanged(vault: &OpenVault) -> Result<()> {
-    if fs::read(&vault.path).context("rechecking vault before delivery")? != vault.original {
-        return Err(anyhow!(
-            "KeePassXC database changed while Skillet was running; reopen it and retry"
-        ));
-    }
+fn ensure_vault_unchanged(vault: &Vault) -> Result<()> {
+    vault.ensure_unchanged()?;
     Ok(())
 }
 
-fn tailscale_credentials(vault: &OpenVault) -> Result<tailscale::OAuthCredentials> {
-    let client_id = lookup(&vault.database, "skillet/tailscale/provisioner-client-id")?
+fn tailscale_credentials(vault: &Vault) -> Result<tailscale::OAuthCredentials> {
+    let client_id = vault
+        .get("skillet/tailscale/provisioner-client-id")?
         .ok_or_else(|| {
             anyhow!("KeePassXC entry skillet/tailscale/provisioner-client-id is missing")
         })?;
-    let client_secret = lookup(
-        &vault.database,
-        "skillet/tailscale/provisioner-client-secret",
-    )?
-    .ok_or_else(|| {
-        anyhow!("KeePassXC entry skillet/tailscale/provisioner-client-secret is missing")
-    })?;
+    let client_secret = vault
+        .get("skillet/tailscale/provisioner-client-secret")?
+        .ok_or_else(|| {
+            anyhow!("KeePassXC entry skillet/tailscale/provisioner-client-secret is missing")
+        })?;
     tailscale::OAuthCredentials::new(client_id, client_secret)
 }
 
@@ -323,24 +316,7 @@ fn remote_credential_state(args: &SecretDeliverArgs) -> Result<RemoteCredentialS
 }
 
 fn default_database_path() -> Result<std::path::PathBuf> {
-    let xdg = std::env::var_os("XDG_DATA_HOME").map(std::path::PathBuf::from);
-    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
-    database_path_from(xdg.as_deref(), home.as_deref())
-}
-
-fn database_path_from(
-    xdg_data_home: Option<&Path>,
-    home: Option<&Path>,
-) -> Result<std::path::PathBuf> {
-    let data_home = if let Some(path) = xdg_data_home.filter(|path| path.is_absolute()) {
-        path.to_path_buf()
-    } else {
-        let home = home
-            .filter(|path| path.is_absolute())
-            .ok_or_else(|| anyhow!("set an absolute XDG_DATA_HOME or HOME, or pass --database"))?;
-        home.join(".local/share")
-    };
-    Ok(data_home.join("skillet/secrets.kdbx"))
+    Ok(Vault::default_path()?)
 }
 
 pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
@@ -373,7 +349,7 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
         Some(path) => path.clone(),
         None => default_database_path()?,
     };
-    let mut vault = open_vault(&vault_path, args.key_file.as_deref())?;
+    let mut vault = Vault::open(&vault_path, args.key_file.as_deref())?;
     let credentials = tailscale_credentials(&vault)?;
     let expected_hostname = name.as_str();
 
@@ -438,7 +414,7 @@ pub(super) fn remove_vm_external_resources(args: &VmDestroyArgs) -> Result<()> {
         Some(path) => path.clone(),
         None => default_database_path()?,
     };
-    let vault = open_vault(&vault_path, args.key_file.as_deref())?;
+    let vault = Vault::open(&vault_path, args.key_file.as_deref())?;
     let credentials = tailscale_credentials(&vault)?;
     if tailscale::remove_device_for_hostname(
         &credentials,
@@ -473,17 +449,19 @@ fn provision_vm_ui(
     args: &VmProvisionArgs,
     run_dir: &Path,
     ssh: &mut VmSsh<'_>,
-    vault: &mut OpenVault,
+    vault: &mut Vault,
     device: &tailscale::DeviceRecord,
 ) -> Result<()> {
     let environment = UiEnvironmentName::Test.as_str();
     let domain_path = format!("skillet/environments/{environment}/dns/ui-domain");
     let zone_path = format!("skillet/environments/{environment}/dns/cloudflare-zone-id");
-    let domain_prefix = lookup(&vault.database, &domain_path)?;
-    let zone_id = lookup(&vault.database, &zone_path)?
+    let domain_prefix = vault.get(&domain_path)?;
+    let zone_id = vault
+        .get(&zone_path)?
         .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
-    let creator =
-        lookup(&vault.database, "skillet/cloudflare/token-creator")?.ok_or_else(|| {
+    let creator = vault
+        .get("skillet/cloudflare/token-creator")?
+        .ok_or_else(|| {
             anyhow!(
                 "KeePassXC Cloudflare token creator is missing: skillet/cloudflare/token-creator"
             )
@@ -619,19 +597,17 @@ fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<(
         .database
         .clone()
         .map_or_else(default_database_path, Ok)?;
-    let vault = open_vault(&vault_path, args.key_file.as_deref())?;
-    let creator =
-        lookup(&vault.database, "skillet/cloudflare/token-creator")?.ok_or_else(|| {
+    let vault = Vault::open(&vault_path, args.key_file.as_deref())?;
+    let creator = vault
+        .get("skillet/cloudflare/token-creator")?
+        .ok_or_else(|| {
             anyhow!(
                 "KeePassXC Cloudflare token creator is missing: skillet/cloudflare/token-creator"
             )
         })?;
-    let configured_zone = lookup(
-        &vault.database,
-        "skillet/environments/test/dns/cloudflare-zone-id",
-    )?
+    let configured_zone = vault.get("skillet/environments/test/dns/cloudflare-zone-id")?
     .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: skillet/environments/test/dns/cloudflare-zone-id"))?;
-    let configured_prefix = lookup(&vault.database, "skillet/environments/test/dns/ui-domain")?;
+    let configured_prefix = vault.get("skillet/environments/test/dns/ui-domain")?;
     if configured_zone.trim() != ownership.zone_id {
         return Err(anyhow!("test Cloudflare configuration differs from the recorded VM owner; restore the original vault values before cleanup"));
     }
@@ -935,223 +911,10 @@ fn validate_tailscale_unit_config(contents: &str) -> Result<()> {
     Ok(())
 }
 
-struct OpenVault {
-    path: PathBuf,
-    original: Vec<u8>,
-    database: Database,
-    password: String,
-}
-
-fn canonical_database(path: &Path) -> Result<PathBuf> {
-    fs::canonicalize(path).with_context(|| format!(
-        "KeePassXC database is missing or unreadable at {}; place the synced vault there or pass --database",
-        path.display()
-    ))
-}
-
-fn database_key(password: &str, key_file: Option<&Path>) -> Result<DatabaseKey> {
-    let mut key = DatabaseKey::new().with_password(password);
-    if let Some(path) = key_file {
-        let mut file =
-            fs::File::open(path).context("KeePassXC key file is missing or unreadable")?;
-        key = key.with_keyfile(&mut file)?;
-    }
-    Ok(key)
-}
-
-fn open_with_password(bytes: &[u8], password: &str, key_file: Option<&Path>) -> Result<Database> {
-    let mut reader = bytes;
-    Database::open(&mut reader, database_key(password, key_file)?)
-        .context("opening KeePassXC database; check password and key file")
-}
-
-fn open_vault(path: &Path, key_file: Option<&Path>) -> Result<OpenVault> {
-    // Resolve the symlink before any eventual atomic replacement, so the
-    // Syncthing-managed target is changed instead of replacing the symlink.
-    let path = canonical_database(path)?;
-    let original = fs::read(&path).context("reading KeePassXC database")?;
-    if let Some(cached) = vault_cache::read(&path)? {
-        if let Ok(database) = open_with_password(&original, &cached, key_file) {
-            return Ok(OpenVault {
-                path,
-                original,
-                database,
-                password: cached,
-            });
-        }
-        vault_cache::clear(&path)?;
-    }
-    let password = rpassword::prompt_password("KeePassXC database password: ")
-        .context("reading database password from terminal")?;
-    let database = open_with_password(&original, &password, key_file)?;
-    vault_cache::store(&path, &password)?;
-    Ok(OpenVault {
-        path,
-        original,
-        database,
-        password,
-    })
-}
-
-fn lookup(database: &Database, path: &str) -> Result<Option<String>> {
-    let parts: Vec<_> = path.split('/').collect();
-    if parts.len() < 2 || parts.iter().any(|part| part.is_empty()) {
-        return Err(anyhow!("invalid KeePassXC entry path"));
-    }
-    let mut groups = vec![database.root().id()];
-    for part in &parts[..parts.len() - 1] {
-        groups = groups
-            .into_iter()
-            .filter_map(|id| database.group(id))
-            .flat_map(|group| group.group_ids().collect::<Vec<_>>())
-            .filter(|id| database.group(*id).is_some_and(|group| group.name == *part))
-            .collect();
-    }
-    let mut matches = groups
-        .iter()
-        .filter_map(|id| database.group(*id))
-        .flat_map(|group| group.entry_ids().collect::<Vec<_>>())
-        .filter_map(|id| database.entry(id))
-        .filter(|entry| entry.get_title() == parts.last().copied())
-        .collect::<Vec<_>>();
-    if matches.len() > 1 {
-        return Err(anyhow!("KeePassXC entry {path} is ambiguous"));
-    }
-    let Some(entry) = matches.pop() else {
-        return Ok(None);
-    };
-    let secret = entry
-        .get_password()
-        .ok_or_else(|| anyhow!("KeePassXC entry {path} has no Password field"))?;
-    if secret.is_empty() {
-        return Err(anyhow!(
-            "KeePassXC entry {path} has an empty Password field"
-        ));
-    }
-    Ok(Some(secret.to_owned()))
-}
-
 fn random_password() -> Result<String> {
     let mut bytes = [0_u8; 32];
     fs::File::open("/dev/urandom")?.read_exact(&mut bytes)?;
     Ok(hex::encode(bytes))
-}
-
-fn create_entry(database: &mut Database, path: &str, password: &str) -> Result<()> {
-    let parts: Vec<_> = path.split('/').collect();
-    if parts.len() < 2 || parts.iter().any(|part| part.is_empty()) {
-        return Err(anyhow!("invalid KeePassXC entry path"));
-    }
-    let mut parent_id = database.root().id();
-    for name in &parts[..parts.len() - 1] {
-        let parent = database
-            .group(parent_id)
-            .ok_or_else(|| anyhow!("vault group disappeared"))?;
-        let matching = parent
-            .group_ids()
-            .filter(|id| database.group(*id).is_some_and(|group| group.name == *name))
-            .collect::<Vec<_>>();
-        parent_id = match matching.as_slice() {
-            [id] => *id,
-            [] => {
-                let mut parent = database
-                    .group_mut(parent_id)
-                    .ok_or_else(|| anyhow!("vault group disappeared"))?;
-                let mut group = parent.add_group();
-                (*name).clone_into(&mut group.name);
-                group.id()
-            }
-            _ => return Err(anyhow!("KeePassXC group {name} is ambiguous")),
-        };
-    }
-    if lookup(database, path)?.is_some() {
-        return Err(anyhow!("KeePassXC entry {path} already exists"));
-    }
-    let mut parent = database
-        .group_mut(parent_id)
-        .ok_or_else(|| anyhow!("vault group disappeared"))?;
-    let mut entry = parent.add_entry();
-    entry.set_unprotected("Title", parts[parts.len() - 1]);
-    entry.set_protected("Password", password);
-    Ok(())
-}
-
-fn save_vault(
-    vault: &mut OpenVault,
-    key_file: Option<&Path>,
-    entry_path: &str,
-    secret: &str,
-) -> Result<()> {
-    let parent = vault
-        .path
-        .parent()
-        .ok_or_else(|| anyhow!("vault has no parent directory"))?;
-    let lock_path = parent.join(".skillet-vault.lock");
-    let lock = fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(false)
-        .mode(0o600)
-        .open(lock_path)
-        .context("opening vault write lock")?;
-    lock.lock().context("locking vault for update")?;
-    if fs::read(&vault.path).context("rechecking vault before write")? != vault.original {
-        return Err(anyhow!(
-            "KeePassXC database changed while Skillet was running; reopen it and retry"
-        ));
-    }
-    let mut candidate =
-        tempfile::NamedTempFile::new_in(parent).context("creating encrypted vault update")?;
-    vault
-        .database
-        .save(
-            candidate.as_file_mut(),
-            database_key(&vault.password, key_file)?,
-        )
-        .context("saving KeePassXC database")?;
-    candidate.as_file_mut().flush()?;
-    candidate
-        .as_file()
-        .set_permissions(fs::metadata(&vault.path)?.permissions())?;
-    candidate.as_file().sync_all()?;
-    let candidate_bytes = fs::read(candidate.path())?;
-    let reopened = open_with_password(&candidate_bytes, &vault.password, key_file)?;
-    if lookup(&reopened, entry_path)?.as_deref() != Some(secret) {
-        return Err(anyhow!(
-            "saved vault did not retain the generated credential"
-        ));
-    }
-    // Retain a separate encrypted copy of the previous valid vault before
-    // replacing it. KeePassXC/Syncthing can then recover from a bad write.
-    let stamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
-    let backup_name = format!(
-        "{}.skillet-{stamp}.bak",
-        vault
-            .path
-            .file_name()
-            .ok_or_else(|| anyhow!("vault has no filename"))?
-            .to_string_lossy()
-    );
-    let mut backup = tempfile::NamedTempFile::new_in(parent).context("creating vault backup")?;
-    backup.write_all(&vault.original)?;
-    backup
-        .as_file()
-        .set_permissions(fs::metadata(&vault.path)?.permissions())?;
-    backup.as_file().sync_all()?;
-    backup
-        .persist_noclobber(parent.join(backup_name))
-        .context("preserving previous encrypted vault")?;
-    if fs::read(&vault.path).context("rechecking vault before replacement")? != vault.original {
-        return Err(anyhow!(
-            "KeePassXC database changed during save; generated value was not installed"
-        ));
-    }
-    candidate
-        .persist(&vault.path)
-        .context("atomically replacing KeePassXC database")?;
-    fs::File::open(parent)?.sync_all()?;
-    vault.original = fs::read(&vault.path).context("refreshing vault snapshot after save")?;
-    Ok(())
 }
 
 #[cfg(test)]

@@ -2294,6 +2294,7 @@ dependencies = [
  "skillet_hosts",
  "skillet_podman",
  "skillet_vm",
+ "skillet_workstation",
  "tempfile",
  "thiserror 1.0.69",
  "tracing",
@@ -2459,6 +2460,19 @@ dependencies = [
  "users",
  "uuid",
  "zeroize",
+]
+
+[[package]]
+name = "skillet_workstation"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "keepass",
+ "keyutils",
+ "rpassword",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

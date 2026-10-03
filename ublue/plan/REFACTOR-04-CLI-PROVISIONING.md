@@ -91,6 +91,13 @@ and VM delivery have duplicate implementations with different validation.
   an injectable base URL. Local HTTP tests cover OAuth auth-key creation,
   tagged device lookup/removal, and API failures. Tailscale no longer shells
   out to curl.
-- Pending: workstation/vault/provider logic still lives in CLI modules; Cloudflare/token lifecycle orchestration
-  and VM state persistence remain in place pending extraction/consolidation.
-  Finish remaining sequence items and run named-VM acceptance.
+- Implemented: KeePassXC access and its named-session kernel password cache
+  live in `skillet_workstation::vault`, outside Clap and guest apply code. The
+  API encapsulates exact lookup, XDG path choice, symlink-safe atomic save,
+  conflict detection, verified encrypted replacement, recovery backup, and
+  three-hour cache/lock operations. It uses `thiserror` and does not implement
+  `Debug` for the unlocked vault value.
+- Pending: Cloudflare/Tailscale provider and lifecycle orchestration still
+  lives in CLI modules, and VM resource ownership persistence has not been
+  consolidated with the lifecycle coordinator. Finish the remaining sequence
+  items and run named-VM acceptance.

@@ -955,3 +955,19 @@ host tool; it still uses normal command approvals.
 - CI container integration exited 0: both applies succeeded, repeat apply
   issued no service restart, and the container was removed. No live Tailscale
   API request was made.
+
+### Workstation vault library, 2026-10-04
+
+- Added `skillet_workstation` and moved KeePassXC opening, exact secret lookup,
+  atomic encrypted save, backup/conflict checks, XDG location, lock operation,
+  and named-session kernel cache out of CLI code. The API returns `thiserror`
+  errors and keeps the unlocked database/password private.
+- Workstation tests passed for exact entries, XDG fallback, correct/wrong
+  KDBX passwords, symlink-target replacement and backup, concurrent-change
+  refusal, absent-vault error before prompting, and three-hour cache expiry and
+  clearing.
+- Passed workspace formatting, tests, strict all-target Clippy, and static
+  musl build. CI container integration exited 0; both applies succeeded,
+  repeat apply did not restart, and the container was removed. Live credential
+  delivery and rotation recovery on a disposable VM remain unverified because
+  `/dev/kvm` is unavailable.

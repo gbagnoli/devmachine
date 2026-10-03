@@ -15,6 +15,7 @@ members = [
     "crates/cli-common",
     "crates/vm",
     "crates/host-profiles",
+    "crates/workstation",
 ]
 
 [workspace.dependencies]
@@ -29,6 +30,7 @@ skillet_podman = { path = "crates/podman" }
 skillet_cli_common = { path = "crates/cli-common" }
 skillet_vm = { path = "crates/vm" }
 skillet_hosts = { path = "crates/host-profiles" }
+skillet_workstation = { path = "crates/workstation" }
 thiserror = "1.0"
 sha2 = "0.10"
 users = "0.11"
