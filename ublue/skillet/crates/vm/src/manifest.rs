@@ -157,6 +157,41 @@ impl ManifestStore {
         &self.root
     }
 
+    /// Compatibility entry points obtain identity from recorded fields, never
+    /// by splitting a potentially ambiguous composite directory name.
+    pub fn load_directory(&self, dir: &Path) -> Result<VmRun> {
+        if dir.parent() != Some(self.root.as_path()) {
+            return Err(Error::Invalid(
+                "run is outside the recorded artifact root".into(),
+            ));
+        }
+        self.validate_directory(dir)?;
+        let json = dir.join("vm.json");
+        reject_symlinks(&json)?;
+        let identity = if json.exists() {
+            let run: VmRun = serde_json::from_str(&read_file(&json)?)?;
+            run.identity
+        } else {
+            let config = parse_legacy(&read_file(&dir.join("run.conf"))?)?;
+            let host = config
+                .get("host")
+                .ok_or_else(|| Error::Invalid("legacy manifest lacks host".into()))?;
+            let vm = config
+                .get("vm")
+                .ok_or_else(|| Error::Invalid("legacy manifest lacks vm".into()))?;
+            let instance = vm
+                .strip_prefix(&format!("{host}-test-"))
+                .ok_or_else(|| Error::Invalid("legacy VM does not match its profile".into()))?;
+            RunIdentity::new(host, instance)?
+        };
+        if self.run_dir(&identity) != dir {
+            return Err(Error::Invalid(
+                "recorded identity differs from run directory".into(),
+            ));
+        }
+        self.load(&identity)
+    }
+
     pub fn lock(&self, identity: &RunIdentity) -> Result<RunLock> {
         let dir = self.run_dir(identity);
         self.validate_directory(&dir)?;

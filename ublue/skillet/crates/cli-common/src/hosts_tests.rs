@@ -2,6 +2,17 @@ use super::{clamps_tailscale_config, ui_config_for_host, TAILSCALE_AUTH_KEY_CRED
 use skillet_podman::SecretTarget;
 
 #[test]
+fn boot_expectations_are_profile_inputs_and_unknown_profiles_are_refused() {
+    let clamps = super::boot_policy_for_host("clamps").unwrap();
+    assert_eq!(clamps.signed_image, "ghcr.io/gbagnoli/ucore-clamps");
+    assert_eq!(clamps.masked_units, ["systemd-resolved.service"]);
+    let other = super::boot_policy_for_host("beezelbot").unwrap();
+    assert!(other.masked_units.is_empty());
+    assert!(super::boot_policy_for_host("clamps-test-smoke").is_none());
+    assert!(super::boot_policy_for_host("unknown").is_none());
+}
+
+#[test]
 fn clamps_tailscale_uses_host_network_and_persistent_state() {
     let config = clamps_tailscale_config("clamps-test-smoke", "test-auth-key".to_string());
 

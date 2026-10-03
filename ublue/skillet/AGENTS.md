@@ -104,6 +104,12 @@ tracks existing violations and their migration, not completed implementation.
 - Verify deployed artifact bytes and required metadata before recording delivery
   success. Keep original capture evidence distinct from subsequent deployments;
   a partially successful transfer must remain safely retryable.
+- Readiness verifies authoritative boot and application evidence, not only a
+  marker or successful connection. Supply profile expectations explicitly, keep
+  probes bounded and retain private failure diagnostics without replacing the
+  original error. Refuse further guest contact after ownership is lost.
+- Compatibility entry points obtain identity from validated recorded fields;
+  do not reconstruct independent identity parsers from composite resource names.
 - Remove recovery metadata only after owned artifact deletion succeeds, too.
   A recursive directory deletion must not erase its own retry journal before
   discovering that a later child cannot be removed.

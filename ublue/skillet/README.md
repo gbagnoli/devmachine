@@ -84,6 +84,11 @@ After editing host code, use
 install the current binary. `ready` reinstalls the artifact captured when the
 VM was created.
 
+Rerun boot and base/user-environment acceptance with
+`cargo run --release -p skillet -- test vm ready clamps smoke`.
+Private diagnostics are retained in the run directory; see the
+[VM commands](../butane/README.md) and [lifecycle design](../design/smoke-vms.md).
+
 When finished, remove the disposable VM, disk, SSH key, and run artifacts:
 
 ```bash
