@@ -941,3 +941,17 @@ host tool; it still uses normal command approvals.
   repeat apply did not restart a service, and the disposable test container
   was removed. VM credential rotation/recovery acceptance remains pending; no
   `/dev/kvm` is available here.
+
+### Tailscale Rust HTTP client, 2026-10-04
+
+- Replaced the curl-based Tailscale API adapter with the workspace `reqwest`
+  blocking client. The endpoint is injectable through a test-only constructor;
+  production uses the HTTPS endpoint with bounded connect/request timeouts and
+  Rustls.
+- Local HTTP fixture tests cover OAuth auth-key creation, bearer auth, tagged
+  device lookup/deletion, and a forbidden response. Full workspace
+  formatting/tests/strict Clippy passed. The static-musl CLI built with
+  `PATH=/opt/x86_64-linux-musl-cross/bin:$PATH`.
+- CI container integration exited 0: both applies succeeded, repeat apply
+  issued no service restart, and the container was removed. No live Tailscale
+  API request was made.

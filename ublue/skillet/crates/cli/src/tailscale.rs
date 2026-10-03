@@ -1,12 +1,8 @@
 use anyhow::{anyhow, Context, Result};
+use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{
-    collections::BTreeSet,
-    fmt::Write as _,
-    io::Write as _,
-    process::{Command, Stdio},
-};
+use std::{collections::BTreeSet, fmt::Write as _, time::Duration};
 
 const API_BASE: &str = "https://api.tailscale.com/api/v2";
 pub(crate) const PROVISIONER_TAG: &str = "tag:skillet-provisioner";
@@ -16,6 +12,73 @@ pub(crate) const SMOKE_TAG: &str = "tag:skillet-smoke";
 pub(crate) struct OAuthCredentials {
     client_id: String,
     client_secret: String,
+    api: ApiClient,
+}
+
+struct ApiClient {
+    base_url: String,
+    http: Client,
+}
+
+impl ApiClient {
+    fn new(base_url: &str) -> Result<Self> {
+        let base_url = base_url.trim_end_matches('/');
+        if !base_url.starts_with("http://") && !base_url.starts_with("https://") {
+            return Err(anyhow!("invalid Tailscale API base URL"));
+        }
+        let http = Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
+            .build()
+            .context("building Tailscale HTTP client")?;
+        Ok(Self {
+            base_url: base_url.to_string(),
+            http,
+        })
+    }
+
+    fn request(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        bearer: Option<&str>,
+        body: Option<(&str, &str)>,
+    ) -> Result<Value> {
+        let mut request = self
+            .http
+            .request(method, format!("{}{path}", self.base_url));
+        if let Some(token) = bearer {
+            request = request.bearer_auth(token);
+        }
+        if let Some((content_type, payload)) = body {
+            request = request
+                .header(reqwest::header::CONTENT_TYPE, content_type)
+                .body(payload.to_string());
+        }
+        let response = request.send().context("sending Tailscale API request")?;
+        let status = response.status();
+        let payload = response.text().context("reading Tailscale API response")?;
+        if !status.is_success() {
+            let message = serde_json::from_str::<Value>(&payload)
+                .ok()
+                .and_then(|value| {
+                    value
+                        .get("message")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                });
+            return Err(match message {
+                Some(message) => {
+                    anyhow!("Tailscale API returned HTTP {}: {message}", status.as_u16())
+                }
+                None => anyhow!("Tailscale API request failed with HTTP {}", status.as_u16()),
+            });
+        }
+        if payload.is_empty() {
+            return Ok(Value::Null);
+        }
+        serde_json::from_str(&payload).context("decoding Tailscale API response")
+    }
 }
 
 impl OAuthCredentials {
@@ -26,6 +89,19 @@ impl OAuthCredentials {
         Ok(Self {
             client_id,
             client_secret,
+            api: ApiClient::new(API_BASE)?,
+        })
+    }
+
+    #[cfg(test)]
+    fn with_api_base(client_id: String, client_secret: String, base_url: &str) -> Result<Self> {
+        if client_id.trim().is_empty() || client_secret.trim().is_empty() {
+            return Err(anyhow!("Tailscale OAuth credentials are empty"));
+        }
+        Ok(Self {
+            client_id,
+            client_secret,
+            api: ApiClient::new(base_url)?,
         })
     }
 
@@ -41,9 +117,9 @@ impl OAuthCredentials {
         .map(|(key, value)| format!("{}={}", form_encode(key), form_encode(value)))
         .collect::<Vec<_>>()
         .join("&");
-        let response = request(
-            "POST",
-            &format!("{API_BASE}/oauth/token"),
+        let response = self.api.request(
+            reqwest::Method::POST,
+            "/oauth/token",
             None,
             Some(("application/x-www-form-urlencoded", &form)),
         )?;
@@ -87,9 +163,9 @@ pub(crate) fn create_auth_key(
         "description": description
     });
     let body = serde_json::to_string(&payload).context("encoding Tailscale auth key request")?;
-    let response = request(
-        "POST",
-        &format!("{API_BASE}/tailnet/-/keys"),
+    let response = credentials.api.request(
+        reqwest::Method::POST,
+        "/tailnet/-/keys",
         Some(&token),
         Some(("application/json", &body)),
     )?;
@@ -112,9 +188,9 @@ pub(crate) fn find_device(
         return Err(anyhow!("invalid Tailscale device lookup constraints"));
     }
     let token = credentials.access_token("devices:core")?;
-    let response = request(
-        "GET",
-        &format!("{API_BASE}/tailnet/-/devices"),
+    let response = credentials.api.request(
+        reqwest::Method::GET,
+        "/tailnet/-/devices",
         Some(&token),
         None,
     )?;
@@ -153,9 +229,9 @@ pub(crate) fn find_device_by_hostname(
         return Err(anyhow!("invalid Tailscale device lookup constraints"));
     }
     let token = credentials.access_token("devices:core")?;
-    let response = request(
-        "GET",
-        &format!("{API_BASE}/tailnet/-/devices"),
+    let response = credentials.api.request(
+        reqwest::Method::GET,
+        "/tailnet/-/devices",
         Some(&token),
         None,
     )?;
@@ -190,9 +266,9 @@ pub(crate) fn remove_device_for_hostname(
         return Err(anyhow!("invalid Tailscale device removal constraints"));
     }
     let token = credentials.access_token("devices:core")?;
-    let response = request(
-        "GET",
-        &format!("{API_BASE}/tailnet/-/devices"),
+    let response = credentials.api.request(
+        reqwest::Method::GET,
+        "/tailnet/-/devices",
         Some(&token),
         None,
     )?;
@@ -226,9 +302,9 @@ pub(crate) fn remove_device_for_hostname(
             ));
         }
     }
-    request(
-        "DELETE",
-        &format!("{API_BASE}/device/{}", path_segment(&actual.id)?),
+    credentials.api.request(
+        reqwest::Method::DELETE,
+        &format!("/device/{}", path_segment(&actual.id)?),
         Some(&token),
         None,
     )?;
@@ -256,88 +332,6 @@ fn device_record(value: &Value, expected_tag: &str) -> Option<DeviceRecord> {
     })
 }
 
-fn request(
-    method: &str,
-    url: &str,
-    bearer: Option<&str>,
-    body: Option<(&str, &str)>,
-) -> Result<Value> {
-    let mut config = format!(
-        "url = {}\nrequest = {}\n",
-        curl_quote(url),
-        curl_quote(method)
-    );
-    if let Some(token) = bearer {
-        let _ = writeln!(
-            config,
-            "header = {}",
-            curl_quote(&format!("Authorization: Bearer {token}"))
-        );
-    }
-    if let Some((content_type, payload)) = body {
-        let _ = write!(
-            config,
-            "header = {}\ndata = {}\n",
-            curl_quote(&format!("Content-Type: {content_type}")),
-            curl_quote(payload)
-        );
-    }
-    let mut child = Command::new("curl")
-        .args([
-            "--config",
-            "-",
-            "--silent",
-            "--show-error",
-            "--fail-with-body",
-            "--connect-timeout",
-            "10",
-            "--max-time",
-            "30",
-            "--write-out",
-            "\n%{http_code}",
-        ])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .context("starting curl for Tailscale API; install curl on the workstation")?;
-    child
-        .stdin
-        .take()
-        .ok_or_else(|| anyhow!("curl stdin unavailable"))?
-        .write_all(config.as_bytes())
-        .context("sending private Tailscale API request to curl")?;
-    let output = child
-        .wait_with_output()
-        .context("waiting for Tailscale API response")?;
-    let response_text =
-        String::from_utf8(output.stdout).context("Tailscale API response was not UTF-8")?;
-    let (payload, status) = response_text
-        .rsplit_once('\n')
-        .ok_or_else(|| anyhow!("Tailscale API response omitted HTTP status"))?;
-    let status: u16 = status
-        .parse()
-        .context("Tailscale API returned an invalid HTTP status")?;
-    if !output.status.success() || !(200..300).contains(&status) {
-        let message = serde_json::from_str::<Value>(payload)
-            .ok()
-            .and_then(|value| {
-                value
-                    .get("message")
-                    .and_then(Value::as_str)
-                    .map(str::to_owned)
-            });
-        return Err(match message {
-            Some(message) => anyhow!("Tailscale API returned HTTP {status}: {message}"),
-            None => anyhow!("Tailscale API request failed with HTTP {status}"),
-        });
-    }
-    if payload.is_empty() {
-        return Ok(Value::Null);
-    }
-    serde_json::from_str(payload).context("decoding Tailscale API response")
-}
-
 fn form_encode(value: &str) -> String {
     let mut encoded = String::new();
     for byte in value.bytes() {
@@ -348,16 +342,6 @@ fn form_encode(value: &str) -> String {
         }
     }
     encoded
-}
-
-fn curl_quote(value: &str) -> String {
-    let escaped = value
-        .replace('\\', "\\\\")
-        .replace('"', "\\\"")
-        .replace('\r', "\\r")
-        .replace('\n', "\\n")
-        .replace('\t', "\\t");
-    format!("\"{escaped}\"")
 }
 
 fn path_segment(value: &str) -> Result<String> {

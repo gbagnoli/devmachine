@@ -2283,6 +2283,7 @@ dependencies = [
  "hex",
  "keepass",
  "keyutils",
+ "reqwest",
  "rpassword",
  "serde",
  "serde_json",
