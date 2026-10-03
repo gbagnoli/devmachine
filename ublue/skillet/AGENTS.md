@@ -65,6 +65,9 @@ tracks existing violations and their migration, not completed implementation.
   policy and target inputs rather than duplicating algorithms or branching on
   particular deployment names. Keep secret values off command lines and out of
   manifests, recordings, and errors.
+- Credential-capable transport keeps stdin and captured output in memory.
+  Drain stdout/stderr concurrently with stdin, bound the complete operation
+  including stream completion, and zeroize owned payload copies after transfer.
 - Use a common ownership representation for named and numeric identities.
   Model application identity, host filesystem ownership, and namespace mapping
   separately. Existing numeric ownership must not require a named host account.
