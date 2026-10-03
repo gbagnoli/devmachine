@@ -97,7 +97,11 @@ and VM delivery have duplicate implementations with different validation.
   conflict detection, verified encrypted replacement, recovery backup, and
   three-hour cache/lock operations. It uses `thiserror` and does not implement
   `Debug` for the unlocked vault value.
-- Pending: Cloudflare/Tailscale provider and lifecycle orchestration still
-  lives in CLI modules, and VM resource ownership persistence has not been
-  consolidated with the lifecycle coordinator. Finish the remaining sequence
-  items and run named-VM acceptance.
+- Implemented: the Cloudflare SDK client, token and DNS operations, domain
+  validation, and local HTTP fixtures now live in `skillet_workstation`. Its
+  library API uses `thiserror`; the CLI contains only the current orchestration
+  decisions calling that API.
+- Pending: Tailscale provider and lifecycle orchestration still live in CLI
+  modules, and VM resource ownership persistence has not been consolidated
+  with the lifecycle coordinator. Finish the remaining sequence items and run
+  named-VM acceptance.
