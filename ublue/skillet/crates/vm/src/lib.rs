@@ -4,6 +4,7 @@ pub mod artifacts;
 pub mod backend;
 pub mod catalog;
 pub mod creation;
+pub mod credential;
 pub mod delivery;
 pub mod domain_xml;
 pub mod lifecycle;

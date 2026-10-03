@@ -50,8 +50,16 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
                 save_vault(&mut vault, args.key_file.as_deref(), &path, &secret)?;
                 secret
             };
-            let mut command = ssh_command(args);
-            install(&mut command, &args.hostname, "pihole_web_password", &secret)
+            let transport = credential_transport(args)?;
+            skillet_vm::credential::install(
+                &transport,
+                &args.hostname,
+                "pihole_web_password",
+                "skillet-full-apply.service",
+                skillet_vm::credential::ActivationPolicy::StartConsumer,
+                secret.as_bytes(),
+            )?;
+            Ok(())
         }
         "tailscale" => {
             let credentials = tailscale_credentials(&vault)?;
@@ -60,13 +68,16 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
                 tailscale::SERVER_TAG,
                 &format!("Skillet {0} production host", args.hostname),
             )?;
-            let mut command = ssh_command(args);
-            install(
-                &mut command,
+            let transport = credential_transport(args)?;
+            skillet_vm::credential::install(
+                &transport,
                 &args.hostname,
                 "tailscale_auth_key",
-                &auth_key.key,
-            )
+                "skillet-full-apply.service",
+                skillet_vm::credential::ActivationPolicy::StartConsumer,
+                auth_key.key.as_bytes(),
+            )?;
+            Ok(())
         }
         "caddy" => deliver_caddy_from_vault(args, &mut vault, ui_config.as_ref()),
         _ => Err(anyhow!("unsupported secret service {}", args.service)),
@@ -138,12 +149,13 @@ fn deliver_caddy_from_vault(
         ("caddy_sites", sites.as_str()),
         ("cloudflare_acme_token", token.as_str()),
     ] {
-        install_deferred_for_unit(
-            &mut ssh_command(args),
+        skillet_vm::credential::install(
+            &credential_transport(args)?,
             &args.hostname,
             credential,
             "skillet-caddy-apply.service",
-            value,
+            skillet_vm::credential::ActivationPolicy::DeferConsumer,
+            value.as_bytes(),
         )?;
     }
     let status = ssh_command(args)
@@ -261,6 +273,25 @@ fn ssh_command(args: &SecretDeliverArgs) -> Command {
     command
 }
 
+fn credential_transport(args: &SecretDeliverArgs) -> Result<skillet_vm::transport::SshTransport> {
+    let (user, address) = args
+        .target
+        .split_once('@')
+        .filter(|(user, address)| !user.is_empty() && !address.is_empty())
+        .ok_or_else(|| anyhow!("SSH target must be USER@HOST"))?;
+    skillet_vm::transport::SshTransport::new(
+        skillet_vm::SshTarget {
+            user: user.to_string(),
+            address: address.to_string(),
+            port: args.port,
+            identity: args.identity.clone(),
+            known_hosts: args.known_hosts.clone(),
+        },
+        skillet_vm::transport::HostKeyPolicy::Verify,
+    )
+    .context("validating credential delivery SSH target")
+}
+
 #[derive(PartialEq, Eq)]
 enum RemoteCredentialState {
     Present,
@@ -268,13 +299,17 @@ enum RemoteCredentialState {
 }
 
 fn remote_credential_state(args: &SecretDeliverArgs) -> Result<RemoteCredentialState> {
-    let output = ssh_command(args)
-        .arg(format!(
-            "sudo -n /var/usrlocal/bin/skillet-{} credential state pihole_web_password",
-            args.hostname
-        ))
-        .output()
-        .context("checking host state before generating a production credential")?;
+    let transport = credential_transport(args)?;
+    let program = format!("/var/usrlocal/bin/skillet-{}", args.hostname);
+    let output = skillet_vm::transport::GuestTransport::execute(
+        &transport,
+        &skillet_vm::transport::GuestCommand {
+            program: "/usr/bin/sudo",
+            arguments: &["-n", &program, "credential", "state", "pihole_web_password"],
+        },
+        None,
+    )
+    .context("checking host state before generating a production credential")?;
     if !output.status.success() {
         return Err(anyhow!(
             "SSH host credential state check failed; no production credential was generated"
@@ -728,39 +763,28 @@ impl VmSsh<'_> {
         secret: &str,
         defer_start: bool,
     ) -> Result<()> {
-        if secret.is_empty() {
-            return Err(anyhow!("refusing to deliver an empty credential"));
-        }
-        if !unit
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-' | b'@'))
-        {
-            return Err(anyhow!("invalid credential consumer unit"));
-        }
-        let mut remote = format!(
-            "sudo -n /var/usrlocal/bin/skillet-{} credential install {name} {unit}",
-            self.host
-        );
-        if defer_start {
-            remote.push_str(" --no-start");
-        }
-        let mut child = self
-            .command(&remote)
-            .stdin(Stdio::piped())
-            .spawn()
-            .context("opening VM credential delivery")?;
-        child
-            .stdin
-            .take()
-            .ok_or_else(|| anyhow!("VM SSH stdin unavailable"))?
-            .write_all(secret.as_bytes())
-            .context("sending credential to VM over SSH")?;
-        let status = child.wait().context("waiting for VM credential delivery")?;
-        if !status.success() {
-            return Err(anyhow!(
-                "VM credential delivery or full apply failed: {status}"
-            ));
-        }
+        let transport = skillet_vm::transport::SshTransport::new(
+            skillet_vm::SshTarget {
+                user: "giacomo".to_string(),
+                address: "127.0.0.1".to_string(),
+                port: self.port,
+                identity: self.identity.to_path_buf(),
+                known_hosts: self.known_hosts.to_path_buf(),
+            },
+            skillet_vm::transport::HostKeyPolicy::Verify,
+        )?;
+        skillet_vm::credential::install(
+            &transport,
+            self.host,
+            name,
+            unit,
+            if defer_start {
+                skillet_vm::credential::ActivationPolicy::DeferConsumer
+            } else {
+                skillet_vm::credential::ActivationPolicy::StartConsumer
+            },
+            secret.as_bytes(),
+        )?;
         Ok(())
     }
 }
@@ -1127,78 +1151,6 @@ fn save_vault(
         .context("atomically replacing KeePassXC database")?;
     fs::File::open(parent)?.sync_all()?;
     vault.original = fs::read(&vault.path).context("refreshing vault snapshot after save")?;
-    Ok(())
-}
-
-fn install(command: &mut Command, host: &str, credential: &str, secret: &str) -> Result<()> {
-    install_for_unit(
-        command,
-        host,
-        credential,
-        "skillet-full-apply.service",
-        secret,
-    )
-}
-
-fn install_for_unit(
-    command: &mut Command,
-    host: &str,
-    credential: &str,
-    unit: &str,
-    secret: &str,
-) -> Result<()> {
-    install_for_unit_inner(command, host, credential, unit, secret, false)
-}
-
-fn install_deferred_for_unit(
-    command: &mut Command,
-    host: &str,
-    credential: &str,
-    unit: &str,
-    secret: &str,
-) -> Result<()> {
-    install_for_unit_inner(command, host, credential, unit, secret, true)
-}
-
-fn install_for_unit_inner(
-    command: &mut Command,
-    host: &str,
-    credential: &str,
-    unit: &str,
-    secret: &str,
-    defer_start: bool,
-) -> Result<()> {
-    if secret.is_empty() {
-        return Err(anyhow!("refusing to deliver an empty credential"));
-    }
-    if !host
-        .bytes()
-        .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
-    {
-        return Err(anyhow!("invalid host identifier"));
-    }
-    let binary = format!("/var/usrlocal/bin/skillet-{host}");
-    let mut remote = format!("sudo -n {binary} credential install {credential} {unit}");
-    if defer_start {
-        remote.push_str(" --no-start");
-    }
-    let mut child = command
-        .arg(remote)
-        .stdin(Stdio::piped())
-        .spawn()
-        .context("opening SSH credential delivery")?;
-    child
-        .stdin
-        .take()
-        .ok_or_else(|| anyhow!("SSH stdin unavailable"))?
-        .write_all(secret.as_bytes())
-        .context("sending credential to SSH")?;
-    let status = child.wait().context("waiting for credential delivery")?;
-    if !status.success() {
-        return Err(anyhow!(
-            "credential delivery or full apply failed: {status}"
-        ));
-    }
     Ok(())
 }
 
