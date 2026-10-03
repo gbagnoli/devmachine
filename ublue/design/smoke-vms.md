@@ -1,8 +1,9 @@
 # Disposable smoke VM lifecycle
 
-Decision: keep VM creation, readiness, repeatable smoke checks, and destruction
-separate. A retained VM supports inspection and repeated convergence checks;
-a fresh VM establishes that bootstrap is reproducible. The existing fixture
+Decision: keep create, readiness, repeatable smoke checks, and destruction as
+separate commands. Create includes a readiness barrier; the explicit ready
+command supports retries. A retained VM supports inspection and repeated
+convergence checks; a fresh VM establishes reproducible bootstrap. The fixture
 tests real systemd/Podman convergence. Pi-hole credential delivery,
 Tailscale enrollment/device cleanup, and opt-in Cloudflare/Caddy provisioning
 are implemented. Live staging ACME/HTTPS acceptance passed on 2026-10-02;
@@ -24,20 +25,25 @@ libvirt and the existing virt-manager Flatpak support different workstation
 OSes without installing host packages. The Flatpak runtime grants access to
 the test artifacts and uses QEMU user networking.
 
-## Planned orchestration migration
+## Rust lifecycle ownership
 
-Move VM lifecycle management from Bash to one Rust orchestrator, as recorded
-in [the architecture decision](skillet-architecture.md) and
-[the migration plan](../plan/REFACTOR-01-VM-LIFECYCLE.md). Preserve public
-commands, retained manifests, native/Flatpak support, and guest assertions.
-Listing, status, readiness, updates and destruction now delegate to Rust. Updates build
+The lifecycle owner and migration order are recorded in
+[the architecture decision](skillet-architecture.md) and
+[the migration plan](../plan/REFACTOR-01-VM-LIFECYCLE.md). Public commands,
+retained manifests, native/Flatpak support, and guest assertions are preserved.
+`bin/test-vm` is a thin argument adapter. The separate `coreos-install`
+lifecycle script and its hidden CLI bridge commands are retired. Rust selects
+and prepares the recorded runtime, builds guest artifacts, resolves/downloads
+the FCOS image, prepares and stages the run, invokes the standalone Butane
+compiler, defines/starts the guest, and runs readiness. Updates build
 both binaries, use verified recorded SSH trust, and save deployed hashes after
 checking installed bytes and metadata. Original capture evidence is retained.
 Disposal validates identity,
 cleans external resources, then removes the UUID-addressed domain and local
 artifacts. It also works with an already-absent guest; connection failures and
-partial cleanup preserve journals for retry. A per-run lock prevents concurrent
-readiness, updates and disposal. Readiness uses the selected profile's explicit
+partial cleanup preserve journals for retry. Per-run locks protect individual
+mutations, and a create-level lock serializes the full artifact, compilation,
+and boot sequence. Readiness uses the selected profile's explicit
 boot expectations and captured binaries, and records Ready only after signed
 boot, unit, SELinux, resolver and user-environment checks. Bounded probes and
 private diagnostics allow failed checks to be retried. It first persists
@@ -48,11 +54,9 @@ includes and binaries, applies VM-only Ignition changes, and records captured
 hashes and compatibility metadata. The standalone Butane compiler still builds
 Ignition. The generated UUID is part of native XML and Flatpak creation. Native
 definition and start are separate manifest phases; failed starts retain the
-defined domain for inspection and retry. Native domain XML now renders through
-the Rust XML library, preserving disk ownership, fw_cfg and passt networking.
-Backend selection, emulator discovery, libvirt define/start, and Flatpak
-`virt-install` remain in Bash. Unit/adapter checks pass; live migration
-acceptance is deferred.
+defined domain for inspection and retry. Native domain XML renders through the
+Rust XML library, preserving disk ownership, fw_cfg and passt networking. Unit
+and adapter checks pass; live migration acceptance remains deferred.
 
 ## States and recovery
 

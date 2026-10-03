@@ -824,3 +824,35 @@ host tool; it still uses normal command approvals.
   pedantic Clippy passed; formatting, ShellCheck, Bash syntax, and
   `git diff --check` passed.
 - No Flatpak VM was created. Live acceptance remains unverified on Bazzite.
+
+### Rust-owned VM create orchestration, 2026-10-03
+
+- `skillet test vm create HOST INSTANCE` now owns the full create path: backend
+  selection/runtime startup, image resolution, guest binary build, disk/key
+  preparation, Butane staging/compilation, native or Flatpak define/start, and
+  readiness. Create holds a dedicated per-run orchestration lock while calling
+  the lower-level locked operations. Repeated create skips the SSH-port
+  availability probe once a guest is already running. It preflights KVM and
+  the forwarding port before expensive preparation. `bin/test-vm` is now a
+  narrow compatibility argument adapter; the separate Bash `coreos-install`
+  and hidden preparation/staging/creation CLI commands were removed.
+- Passed `cargo fmt --all --check`, offline workspace tests (72 VM crate tests
+  plus all other workspace suites), and offline workspace all-target Clippy
+  with warnings denied. Built the static-musl CLI using
+  `PATH=/opt/x86_64-linux-musl-cross/bin:$PATH` and the configured external
+  Cargo target directory. `shellcheck -x` and `bash -n` passed for all affected
+  VM/compiler wrapper scripts. CLI create help and `git diff --check` passed.
+- Passed the CI integration command:
+  ```bash
+  CARGO_TARGET_DIR=/home/giacomo/.cache/devmachine-target \
+    /home/giacomo/.cache/devmachine-target/x86_64-unknown-linux-musl/debug/skillet \
+    test run beezelbot --phase base --image fedora:latest
+  ```
+  Both applies
+  succeeded and the repeat issued no service restart; the test container was
+  removed.
+- Live VM acceptance was not run because this workstation has no `/dev/kvm`
+  device (`stat /dev/kvm` reports “No such file or directory”). The recorded
+  `clamps/smoke` run was reported as unavailable by `test vm list`; it was not
+  altered. Native/Flatpak create, readiness, reboot, and destroy remain
+  unverified live.

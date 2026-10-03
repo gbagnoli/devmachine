@@ -79,8 +79,9 @@ hyphens. The helper records `clamps` plus `smoke` as the internal domain
 crate exist. Instance rows show the libvirt state; `missing`, `mismatch`, or
 `invalid` identify runs needing inspection. `unavailable` means the recorded
 runtime could not be queried; it does not establish that a guest is absent.
-The Skillet wrapper runs both
-create and ready:
+Rust owns VM creation, including backend selection and startup. The shell helper
+keeps the established command shape and forwards each request to Skillet; the
+Rust command is also available directly:
 
 ```bash
 cargo run --release -p skillet -- test vm create clamps smoke
@@ -91,25 +92,24 @@ cargo run --release -p skillet -- test vm provision clamps smoke
 cargo run --release -p skillet -- test vm destroy clamps smoke
 ```
 
-`list`, `status`, `ready`, `update`, `destroy`, `reboot`, `ssh` and `logs` use
-the Rust ownership implementation; the corresponding `test-vm` commands
-delegate to it. Reading status does not
+All VM lifecycle commands use the Rust ownership implementation; `bin/test-vm`
+is a compatibility argument adapter. Reading status does not
 import or rewrite a legacy run. Disposal creates a private versioned manifest
 while retaining original files until cleanup finishes. If the owned guest is
 already absent, disposal still cleans recorded external resources before
 removing local artifacts. A stopped/inaccessible libvirt runtime is reported
 as an error; retry after making its recorded connection available. An enrolled
 VM may require the normal KeePassXC unlock to remove its provider resources.
-Failed cleanup retains recovery metadata. Other helper commands are still
-being migrated; see [the roadmap](../plan/SKILLET-REFACTOR.md).
+Failed cleanup retains recovery metadata. See the
+[refactoring roadmap](../plan/SKILLET-REFACTOR.md) for remaining acceptance
+and follow-on workstreams.
 
-The helper calls `coreos-install`, which builds the generic `skillet` CLI and
-the `skillet-clamps` host binary. The lower-level launcher accepts `--artifact PATH`
-to use a specific host binary; the generic CLI is built from the workspace.
-Rust prepares the run's disk and SSH key, stages and specializes the Butane
-source tree, and records captured binary hashes in `runs/NAME/`. The standalone
-Butane compiler builds Ignition; Rust handles native and Flatpak domain
-definition and start. `test-vm ready` transfers
+Rust builds the generic `skillet` CLI and the selected host binary from Cargo's
+reported artifact paths. It prepares the run's disk and SSH key, stages and
+specializes the Butane source tree, and records captured binary hashes in
+`runs/NAME/`. The standalone Butane compiler builds Ignition; Rust selects and
+starts native libvirt or the installed Flatpak backend, then runs readiness.
+`test-vm ready` transfers
 both binaries over SSH after first boot and installs them at
 `/var/usrlocal/bin/skillet` and `/var/usrlocal/bin/skillet-clamps`. `ready`
 uses those captured binaries on every run. The shared base unit reads the

@@ -44,6 +44,9 @@
 - Give each resource lifecycle one owner. Every public entry point must use
   the same ownership validation, recovery, and cleanup policy; transport
   adapters must not provide a shortcut that bypasses those guarantees.
+- Keep shell entry points as narrow argument adapters when Rust owns a
+  lifecycle. Backend selection, resource inspection, retries, and cleanup
+  belong to the shared Rust owner rather than being duplicated in wrappers.
 - Keep host profile, environment, deployment instance, runtime identity, and
   connection target distinct. Derive conventions in one place and persist the
   resolved values needed for recovery.

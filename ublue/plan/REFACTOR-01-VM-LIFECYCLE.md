@@ -37,28 +37,18 @@ Readiness first persists `Started`, invalidating any earlier success; it saves
 `Ready` and deployed hashes only after acceptance and a final ownership check.
 Every guest command and upload checks ownership before and after the operation,
 so a change during a long service start stops subsequent guest work.
-Creation now records a Rust-owned Preparing manifest and UUID before invoking
-the still-Bash installer; native XML and Flatpak use that UUID. Definition and
-start are recorded as separate phases where the backend exposes them. A failed
-start keeps its domain and can be validated/restarted through the same create
-entry point. Installer staging can resume from a matching Preparing manifest.
-Native XML generation now uses `quick-xml`. The VM library also prepares the
-local disk atomically, records its source digest, and creates or validates the
-per-run SSH key pair; `coreos-install` delegates that operation through a
-hidden CLI command. The same library stages and specializes the Butane source
-tree and records compatibility metadata and binary hashes. The standalone
-Butane compilation still uses Bash. Native and Flatpak
-define/start, emulator discovery, UUID bookkeeping and tool-version capture
-now run through Rust lifecycle adapters. Credential delivery
-has not yet adopted the shared transport. Workstream 2 must consolidate the
-interim `boot_policy_for_host` lookup with the canonical capability
-declaration. Reboot, interactive SSH and guest diagnostics now use Rust's
-ownership-checked backend and SSH transport. The Flatpak `virt-install`
-adapter shares creation recovery and manifest updates with native libvirt.
-Next: move backend selection, runtime preparation and create orchestration
-behind Rust, leaving shell entry points as forwarding wrappers. Disposal and
-readiness live acceptance remain
-deferred. See
+Rust now selects and prepares native or Flatpak libvirt, resolves the FCOS
+image, builds its two guest artifacts, prepares the disk/key, stages and
+compiles Butane through the standalone compiler, defines/starts the guest, and
+runs readiness from one create command. Matching interrupted runs resume from
+the manifest. The shell `test-vm` interface only translates arguments; the
+independent Bash installer and hidden CLI bridge commands are retired. No
+remaining script owns VM creation, reboot, access, inspection, or disposal.
+Credential delivery has not yet adopted the shared transport. Workstream 2
+must consolidate the interim `boot_policy_for_host` lookup with the canonical
+capability declaration. Native and Flatpak adapter contract tests and
+workstation checks remain required; live create/ready/update/reboot/destroy
+and retained-run acceptance have not yet passed. See
 [creation validation](../butane/ACCEPTANCE.md#recoverable-vm-creation-intent-2026-10-03)
 and [native XML validation](../butane/ACCEPTANCE.md#native-xml-rendering-2026-10-03),
 plus [readiness validation](../butane/ACCEPTANCE.md#readiness-retry-recovery-2026-10-03).
@@ -66,7 +56,7 @@ plus [readiness validation](../butane/ACCEPTANCE.md#readiness-retry-recovery-202
 ## Read and locate
 
 - `../design/{skillet-architecture,smoke-vms,secrets,cloudflare-ui-lifecycle}.md`.
-- `../butane/bin/{test-vm,test-vm-ready,coreos-install,butane,flatpak-virt}` and
+- `../butane/bin/{test-vm,test-vm-ready,butane,flatpak-virt}` and
   the `virsh`/`virt-install` wrappers; `../butane/README.md`.
 - `../skillet/crates/cli/src/main.rs` VM dispatch and
   `secret_delivery.rs` provisioning, external ownership, cleanup, and VM SSH.
@@ -95,7 +85,7 @@ creation inspectable; readiness and target selection remain duplicated.
    `quick-xml`; Flatpak uses a focused `virt-install` adapter. Rust owns atomic
    disk preparation, per-run key creation/validation, structured Butane
    staging, backend definition/start, tool-version capture, and domain UUID
-   bookkeeping. `coreos-install` invokes the standalone Butane compiler. Build
+   bookkeeping. Rust invokes the standalone Butane compiler. Build
    artifacts through a shared Cargo helper. Validate required
    tools and SSH-port conflicts before costly provisioning. See
    [native XML validation](../butane/ACCEPTANCE.md#native-xml-rendering-2026-10-03).
