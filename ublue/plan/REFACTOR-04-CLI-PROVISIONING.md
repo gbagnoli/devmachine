@@ -101,7 +101,11 @@ and VM delivery have duplicate implementations with different validation.
   validation, and local HTTP fixtures now live in `skillet_workstation`. Its
   library API uses `thiserror`; the CLI contains only the current orchestration
   decisions calling that API.
-- Pending: Tailscale provider and lifecycle orchestration still live in CLI
-  modules, and VM resource ownership persistence has not been consolidated
-  with the lifecycle coordinator. Finish the remaining sequence items and run
-  named-VM acceptance.
+- Implemented: Tailscale's bounded HTTP client, OAuth auth-key creation,
+  tagged-device lookup/removal, and local protocol tests now live in
+  `skillet_workstation::tailscale`; the CLI no longer depends directly on
+  `reqwest` for this provider.
+- Pending: environment/host credential-delivery orchestration, durable versus
+  disposable policy, provider/VM cleanup ownership persistence, and production
+  plus named-VM acceptance remain in CLI modules. Finish the remaining sequence
+  items before closing this workstream.

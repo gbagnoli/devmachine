@@ -1,15 +1,58 @@
-use anyhow::{anyhow, Context, Result};
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{collections::BTreeSet, fmt::Write as _, time::Duration};
+use std::{collections::BTreeSet, error::Error as StdError, fmt::Write as _, time::Duration};
+use thiserror::Error;
 
 const API_BASE: &str = "https://api.tailscale.com/api/v2";
-pub(crate) const PROVISIONER_TAG: &str = "tag:skillet-provisioner";
-pub(crate) const SERVER_TAG: &str = "tag:skillet-server";
-pub(crate) const SMOKE_TAG: &str = "tag:skillet-smoke";
+pub const PROVISIONER_TAG: &str = "tag:skillet-provisioner";
+pub const SERVER_TAG: &str = "tag:skillet-server";
+pub const SMOKE_TAG: &str = "tag:skillet-smoke";
 
-pub(crate) struct OAuthCredentials {
+#[derive(Debug, Error)]
+pub enum TailscaleError {
+    #[error("{context}: {source}")]
+    Source {
+        context: String,
+        #[source]
+        source: Box<dyn StdError + Send + Sync>,
+    },
+    #[error("{0}")]
+    Invalid(String),
+}
+
+pub type Result<T> = std::result::Result<T, TailscaleError>;
+
+fn source<E>(context: impl Into<String>, error: E) -> TailscaleError
+where
+    E: StdError + Send + Sync + 'static,
+{
+    TailscaleError::Source {
+        context: context.into(),
+        source: Box::new(error),
+    }
+}
+
+trait ResultContext<T> {
+    fn context(self, context: impl Into<String>) -> Result<T>;
+}
+
+impl<T, E> ResultContext<T> for std::result::Result<T, E>
+where
+    E: StdError + Send + Sync + 'static,
+{
+    fn context(self, context: impl Into<String>) -> Result<T> {
+        self.map_err(|error| source(context, error))
+    }
+}
+
+impl From<serde_json::Error> for TailscaleError {
+    fn from(error: serde_json::Error) -> Self {
+        source("Tailscale JSON", error)
+    }
+}
+
+pub struct OAuthCredentials {
     client_id: String,
     client_secret: String,
     api: ApiClient,
@@ -24,7 +67,9 @@ impl ApiClient {
     fn new(base_url: &str) -> Result<Self> {
         let base_url = base_url.trim_end_matches('/');
         if !base_url.starts_with("http://") && !base_url.starts_with("https://") {
-            return Err(anyhow!("invalid Tailscale API base URL"));
+            return Err(TailscaleError::Invalid(
+                "invalid Tailscale API base URL".into(),
+            ));
         }
         let http = Client::builder()
             .connect_timeout(Duration::from_secs(10))
@@ -68,10 +113,14 @@ impl ApiClient {
                         .map(str::to_owned)
                 });
             return Err(match message {
-                Some(message) => {
-                    anyhow!("Tailscale API returned HTTP {}: {message}", status.as_u16())
-                }
-                None => anyhow!("Tailscale API request failed with HTTP {}", status.as_u16()),
+                Some(message) => TailscaleError::Invalid(format!(
+                    "Tailscale API returned HTTP {}: {message}",
+                    status.as_u16()
+                )),
+                None => TailscaleError::Invalid(format!(
+                    "Tailscale API request failed with HTTP {}",
+                    status.as_u16()
+                )),
             });
         }
         if payload.is_empty() {
@@ -82,9 +131,11 @@ impl ApiClient {
 }
 
 impl OAuthCredentials {
-    pub(crate) fn new(client_id: String, client_secret: String) -> Result<Self> {
+    pub fn new(client_id: String, client_secret: String) -> Result<Self> {
         if client_id.trim().is_empty() || client_secret.trim().is_empty() {
-            return Err(anyhow!("Tailscale OAuth credentials are empty"));
+            return Err(TailscaleError::Invalid(
+                "Tailscale OAuth credentials are empty".into(),
+            ));
         }
         Ok(Self {
             client_id,
@@ -96,7 +147,9 @@ impl OAuthCredentials {
     #[cfg(test)]
     fn with_api_base(client_id: String, client_secret: String, base_url: &str) -> Result<Self> {
         if client_id.trim().is_empty() || client_secret.trim().is_empty() {
-            return Err(anyhow!("Tailscale OAuth credentials are empty"));
+            return Err(TailscaleError::Invalid(
+                "Tailscale OAuth credentials are empty".into(),
+            ));
         }
         Ok(Self {
             client_id,
@@ -128,28 +181,34 @@ impl OAuthCredentials {
             .and_then(Value::as_str)
             .filter(|token| !token.is_empty())
             .map(ToOwned::to_owned)
-            .ok_or_else(|| anyhow!("Tailscale OAuth response did not contain an access token"))
+            .ok_or_else(|| {
+                TailscaleError::Invalid(
+                    "Tailscale OAuth response did not contain an access token".into(),
+                )
+            })
     }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub(crate) struct DeviceRecord {
-    pub(crate) id: String,
-    pub(crate) hostname: String,
-    pub(crate) addresses: BTreeSet<String>,
+pub struct DeviceRecord {
+    pub id: String,
+    pub hostname: String,
+    pub addresses: BTreeSet<String>,
 }
 
-pub(crate) struct AuthKey {
-    pub(crate) key: String,
+pub struct AuthKey {
+    pub key: String,
 }
 
-pub(crate) fn create_auth_key(
+pub fn create_auth_key(
     credentials: &OAuthCredentials,
     target_tag: &str,
     description: &str,
 ) -> Result<AuthKey> {
     if !matches!(target_tag, SERVER_TAG | SMOKE_TAG) {
-        return Err(anyhow!("unsupported Tailscale device tag"));
+        return Err(TailscaleError::Invalid(
+            "unsupported Tailscale device tag".into(),
+        ));
     }
     let token = credentials.access_token("auth_keys")?;
     let payload = json!({
@@ -173,19 +232,23 @@ pub(crate) fn create_auth_key(
         .get("key")
         .and_then(Value::as_str)
         .filter(|key| !key.is_empty())
-        .ok_or_else(|| anyhow!("Tailscale auth key response did not contain a key"))?
+        .ok_or_else(|| {
+            TailscaleError::Invalid("Tailscale auth key response did not contain a key".into())
+        })?
         .to_owned();
     Ok(AuthKey { key })
 }
 
-pub(crate) fn find_device(
+pub fn find_device(
     credentials: &OAuthCredentials,
     expected_hostname: &str,
     expected_tag: &str,
     addresses: &BTreeSet<String>,
 ) -> Result<DeviceRecord> {
     if !matches!(expected_tag, SERVER_TAG | SMOKE_TAG) || addresses.is_empty() {
-        return Err(anyhow!("invalid Tailscale device lookup constraints"));
+        return Err(TailscaleError::Invalid(
+            "invalid Tailscale device lookup constraints".into(),
+        ));
     }
     let token = credentials.access_token("devices:core")?;
     let response = credentials.api.request(
@@ -197,7 +260,9 @@ pub(crate) fn find_device(
     let devices = response
         .get("devices")
         .and_then(Value::as_array)
-        .ok_or_else(|| anyhow!("Tailscale device list response is malformed"))?;
+        .ok_or_else(|| {
+            TailscaleError::Invalid("Tailscale device list response is malformed".into())
+        })?;
     let matches = devices
         .iter()
         .filter_map(|device| device_record(device, expected_tag))
@@ -211,22 +276,24 @@ pub(crate) fn find_device(
         .collect::<Vec<_>>();
     match matches.as_slice() {
         [device] => Ok(device.clone()),
-        [] => Err(anyhow!(
-            "Tailscale has not registered the expected device yet"
+        [] => Err(TailscaleError::Invalid(
+            "Tailscale has not registered the expected device yet".into(),
         )),
-        _ => Err(anyhow!(
-            "multiple Tailscale devices match this VM; refusing ambiguity"
+        _ => Err(TailscaleError::Invalid(
+            "multiple Tailscale devices match this VM; refusing ambiguity".into(),
         )),
     }
 }
 
-pub(crate) fn find_device_by_hostname(
+pub fn find_device_by_hostname(
     credentials: &OAuthCredentials,
     expected_hostname: &str,
     expected_tag: &str,
 ) -> Result<DeviceRecord> {
     if !matches!(expected_tag, SERVER_TAG | SMOKE_TAG) || expected_hostname.is_empty() {
-        return Err(anyhow!("invalid Tailscale device lookup constraints"));
+        return Err(TailscaleError::Invalid(
+            "invalid Tailscale device lookup constraints".into(),
+        ));
     }
     let token = credentials.access_token("devices:core")?;
     let response = credentials.api.request(
@@ -238,7 +305,9 @@ pub(crate) fn find_device_by_hostname(
     let devices = response
         .get("devices")
         .and_then(Value::as_array)
-        .ok_or_else(|| anyhow!("Tailscale device list response is malformed"))?;
+        .ok_or_else(|| {
+            TailscaleError::Invalid("Tailscale device list response is malformed".into())
+        })?;
     let matches = devices
         .iter()
         .filter_map(|device| device_record(device, expected_tag))
@@ -246,24 +315,26 @@ pub(crate) fn find_device_by_hostname(
         .collect::<Vec<_>>();
     match matches.as_slice() {
         [device] if !device.addresses.is_empty() => Ok(device.clone()),
-        [] => Err(anyhow!(
+        [] => Err(TailscaleError::Invalid(format!(
             "Tailscale has no device named {expected_hostname} with tag {expected_tag}"
-        )),
-        [_] => Err(anyhow!("Tailscale device has no registered addresses")),
-        _ => Err(anyhow!(
+        ))),
+        [_] => Err(TailscaleError::Invalid("Tailscale device has no registered addresses".into())),
+        _ => Err(TailscaleError::Invalid(format!(
             "multiple tagged Tailscale devices have hostname {expected_hostname}; refusing ambiguity"
-        )),
+        ))),
     }
 }
 
-pub(crate) fn remove_device_for_hostname(
+pub fn remove_device_for_hostname(
     credentials: &OAuthCredentials,
     hostname: &str,
     expected_tag: &str,
     expected: Option<&DeviceRecord>,
 ) -> Result<Option<DeviceRecord>> {
     if !matches!(expected_tag, SERVER_TAG | SMOKE_TAG) || hostname.is_empty() {
-        return Err(anyhow!("invalid Tailscale device removal constraints"));
+        return Err(TailscaleError::Invalid(
+            "invalid Tailscale device removal constraints".into(),
+        ));
     }
     let token = credentials.access_token("devices:core")?;
     let response = credentials.api.request(
@@ -275,7 +346,9 @@ pub(crate) fn remove_device_for_hostname(
     let devices = response
         .get("devices")
         .and_then(Value::as_array)
-        .ok_or_else(|| anyhow!("Tailscale device list response is malformed"))?;
+        .ok_or_else(|| {
+            TailscaleError::Invalid("Tailscale device list response is malformed".into())
+        })?;
     let matches = devices
         .iter()
         .filter_map(|device| device_record(device, expected_tag))
@@ -285,9 +358,9 @@ pub(crate) fn remove_device_for_hostname(
         [] => return Ok(None),
         [actual] => actual,
         _ => {
-            return Err(anyhow!(
+            return Err(TailscaleError::Invalid(format!(
                 "multiple tagged Tailscale devices have hostname {hostname}; refusing removal"
-            ))
+            )))
         }
     };
     if let Some(expected) = expected {
@@ -297,8 +370,8 @@ pub(crate) fn remove_device_for_hostname(
                 .iter()
                 .any(|address| expected.addresses.contains(address))
         {
-            return Err(anyhow!(
-                "recorded Tailscale ID no longer matches this VM; refusing removal"
+            return Err(TailscaleError::Invalid(
+                "recorded Tailscale ID no longer matches this VM; refusing removal".into(),
             ));
         }
     }
@@ -350,11 +423,13 @@ fn path_segment(value: &str) -> Result<String> {
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
     {
-        return Err(anyhow!("invalid Tailscale device ID"));
+        return Err(TailscaleError::Invalid(
+            "invalid Tailscale device ID".into(),
+        ));
     }
     Ok(value.to_owned())
 }
 
 #[cfg(test)]
-#[path = "tailscale_tests.rs"]
+#[path = "tests.rs"]
 mod tests;
