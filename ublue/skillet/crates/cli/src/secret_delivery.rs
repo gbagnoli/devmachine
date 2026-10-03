@@ -60,9 +60,12 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
         }
         "tailscale" => {
             let credentials = tailscale_credentials(&vault)?;
+            let policy = UiEnvironmentName::Production.policy();
             let auth_key = tailscale::create_auth_key(
                 &credentials,
-                tailscale::SERVER_TAG,
+                policy.tailscale_tag(
+                    skillet_workstation::provisioning_policy::DeviceClass::ProductionHost,
+                ),
                 &format!("Skillet {0} production host", args.hostname),
             )?;
             let transport = credential_transport(args)?;
@@ -102,12 +105,13 @@ fn deliver_caddy_from_vault(
     ui_config: Option<&skillet_hosts::HostUiConfig>,
 ) -> Result<()> {
     let ui_config = ui_config.ok_or_else(|| anyhow!("missing host UI declaration"))?;
-    let environment = args.environment.as_str();
-    let domain_path = format!("skillet/environments/{environment}/dns/ui-domain");
+    let policy = args.environment.policy();
+    let environment = policy.name();
+    let domain_path = policy.ui_domain_entry();
     let domain_prefix = vault.get(&domain_path)?;
-    let zone_path = format!("skillet/environments/{environment}/dns/cloudflare-zone-id");
+    let zone_path = policy.cloudflare_zone_entry();
     let zone_id = vault
-        .get(&zone_path)?
+        .get(zone_path)?
         .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
     let zone_id = zone_id.trim();
     skillet_workstation::cloudflare::validate_zone_id(zone_id)?;
@@ -126,13 +130,16 @@ fn deliver_caddy_from_vault(
         &args.hostname,
         &skillet_caddy::UiEnvironment {
             ui_domain: domain.clone(),
-            acme_staging: args.environment.acme_staging(),
+            acme_staging: policy.acme_staging(),
         },
         &ui_config.services,
     )?;
     let tailnet = tailscale_credentials(vault)?;
-    let device =
-        tailscale::find_device_by_hostname(&tailnet, &args.hostname, tailscale::SERVER_TAG)?;
+    let device = tailscale::find_device_by_hostname(
+        &tailnet,
+        &args.hostname,
+        policy.tailscale_tag(skillet_workstation::provisioning_policy::DeviceClass::ProductionHost),
+    )?;
     let dns_marker = format!("skillet:{environment}:{}", args.hostname);
     let dns = skillet_workstation::cloudflare::desired_records(
         &sites.machine_hostname,
@@ -178,7 +185,7 @@ fn host_acme_token(
     zone_id: &str,
     account_id: &str,
 ) -> Result<String> {
-    let environment = args.environment.as_str();
+    let environment = args.environment.policy().name();
     let token_path = format!(
         "skillet/environments/{environment}/hosts/{}/cloudflare/acme-token",
         args.hostname
@@ -355,13 +362,15 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     let mut vault = Vault::open(&vault_path, args.key_file.as_deref())?;
     let credentials = tailscale_credentials(&vault)?;
     let expected_hostname = name.as_str();
+    let policy = UiEnvironmentName::Test.policy();
 
     write_pending_tailscale(&run_dir, expected_hostname)?;
     let mut addresses = vm_tailscale_addresses(&mut ssh).unwrap_or_default();
     if addresses.is_empty() {
         let auth_key = tailscale::create_auth_key(
             &credentials,
-            tailscale::SMOKE_TAG,
+            policy
+                .tailscale_tag(skillet_workstation::provisioning_policy::DeviceClass::DisposableVm),
             &format!("Skillet disposable VM {expected_hostname}"),
         )?;
         ssh.install("tailscale_auth_key", &auth_key.key)?;
@@ -380,7 +389,7 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     let record = tailscale::find_device(
         &credentials,
         expected_hostname,
-        tailscale::SMOKE_TAG,
+        policy.tailscale_tag(skillet_workstation::provisioning_policy::DeviceClass::DisposableVm),
         &addresses,
     )?;
     save_vm_tailscale_record(&run_dir, &record)?;
@@ -419,10 +428,11 @@ pub(super) fn remove_vm_external_resources(args: &VmDestroyArgs) -> Result<()> {
     };
     let vault = Vault::open(&vault_path, args.key_file.as_deref())?;
     let credentials = tailscale_credentials(&vault)?;
+    let policy = UiEnvironmentName::Test.policy();
     if tailscale::remove_device_for_hostname(
         &credentials,
         &name,
-        tailscale::SMOKE_TAG,
+        policy.tailscale_tag(skillet_workstation::provisioning_policy::DeviceClass::DisposableVm),
         expected.as_ref(),
     )?
     .is_some()
@@ -455,12 +465,13 @@ fn provision_vm_ui(
     vault: &mut Vault,
     device: &tailscale::DeviceRecord,
 ) -> Result<()> {
-    let environment = UiEnvironmentName::Test.as_str();
-    let domain_path = format!("skillet/environments/{environment}/dns/ui-domain");
-    let zone_path = format!("skillet/environments/{environment}/dns/cloudflare-zone-id");
+    let policy = UiEnvironmentName::Test.policy();
+    let environment = policy.name();
+    let domain_path = policy.ui_domain_entry();
+    let zone_path = policy.cloudflare_zone_entry();
     let domain_prefix = vault.get(&domain_path)?;
     let zone_id = vault
-        .get(&zone_path)?
+        .get(zone_path)?
         .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
     let creator = vault
         .get("skillet/cloudflare/token-creator")?
@@ -481,7 +492,7 @@ fn provision_vm_ui(
         &args.hostname,
         &skillet_caddy::UiEnvironment {
             ui_domain: ui_domain.clone(),
-            acme_staging: true,
+            acme_staging: policy.acme_staging(),
         },
         &host_ui.services,
     )?;
@@ -511,7 +522,7 @@ fn provision_vm_ui(
         &ownership.zone_id,
         &account_id,
         &ownership.token_name,
-        Some(std::time::Duration::from_hours(12)),
+        policy.cloudflare_token_lifetime(),
     )?;
     ownership.token_id = Some(issued.id.clone());
     ownership.expires_on.clone_from(&issued.expires_on);
@@ -584,7 +595,8 @@ fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<(
     let bytes = fs::read(metadata_path).context("reading Cloudflare VM ownership metadata")?;
     let ownership: CloudflareVmOwnership =
         serde_json::from_slice(&bytes).context("decoding Cloudflare VM ownership metadata")?;
-    if ownership.environment != UiEnvironmentName::Test.as_str() {
+    let policy = UiEnvironmentName::Test.policy();
+    if ownership.environment != policy.name() {
         return Err(anyhow!(
             "refusing VM cleanup for a non-test Cloudflare environment"
         ));
@@ -611,9 +623,13 @@ fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<(
                 "KeePassXC Cloudflare token creator is missing: skillet/cloudflare/token-creator"
             )
         })?;
-    let configured_zone = vault.get("skillet/environments/test/dns/cloudflare-zone-id")?
-    .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: skillet/environments/test/dns/cloudflare-zone-id"))?;
-    let configured_prefix = vault.get("skillet/environments/test/dns/ui-domain")?;
+    let configured_zone = vault.get(policy.cloudflare_zone_entry())?.ok_or_else(|| {
+        anyhow!(
+            "KeePassXC Cloudflare zone entry is missing: {}",
+            policy.cloudflare_zone_entry()
+        )
+    })?;
+    let configured_prefix = vault.get(&policy.ui_domain_entry())?;
     if configured_zone.trim() != ownership.zone_id {
         return Err(anyhow!("test Cloudflare configuration differs from the recorded VM owner; restore the original vault values before cleanup"));
     }
@@ -634,7 +650,7 @@ fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<(
         &ownership.zone_id,
         &account_id,
         &cleanup_name,
-        Some(std::time::Duration::from_mins(15)),
+        Some(policy.cleanup_token_lifetime()),
     )?;
     let cleanup = (|| {
         api.zone(&cleanup_token.value, &ownership.zone_id)?;

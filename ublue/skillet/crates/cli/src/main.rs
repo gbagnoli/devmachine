@@ -87,15 +87,12 @@ enum UiEnvironmentName {
 }
 
 impl UiEnvironmentName {
-    fn as_str(self) -> &'static str {
+    fn policy(self) -> skillet_workstation::provisioning_policy::ProvisioningPolicy {
+        use skillet_workstation::provisioning_policy::{Environment, ProvisioningPolicy};
         match self {
-            Self::Production => "production",
-            Self::Test => "test",
+            Self::Production => ProvisioningPolicy::new(Environment::Production),
+            Self::Test => ProvisioningPolicy::new(Environment::Test),
         }
-    }
-
-    fn acme_staging(self) -> bool {
-        matches!(self, Self::Test)
     }
 }
 
