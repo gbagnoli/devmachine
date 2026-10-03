@@ -18,6 +18,23 @@
   both changed helpers, CLI help, and `git diff --check`. No VM, libvirt domain,
   vault, or provider resource was contacted for this change.
 
+## Native XML rendering, 2026-10-03
+
+- Native domain XML is rendered in `skillet_vm` with `quick-xml`, written
+  atomically as a private file under the manifest's run directory, and consumed
+  by the existing `virt-xml-validate` and `virsh define` steps. The renderer
+  carries the manifest UUID, exact disk and Ignition paths, QEMU fw_cfg input,
+  passt loopback SSH forwarding, serial console, and original machine profile.
+  Attribute escaping is checked using a path containing `&`.
+- Removed the Python XML generator and the Python 3 VM preflight requirement.
+  Backend/emulator selection and subsequent define/start remain in Bash for now;
+  Flatpak still delegates VM construction to `virt-install`.
+- Passed format, offline workspace all-target Clippy (`-D warnings`), workspace
+  tests (51 VM tests), build, ShellCheck for both changed helpers, and the CI
+  Fedora repeat-apply container integration. The renderer test validates the
+  generated XML against the same name, UUID and disk ownership parser used by
+  status inspection. No VM/libvirt domain was contacted.
+
 ## Rust readiness migration, 2026-10-03
 
 - The CLI's `test vm ready HOST INSTANCE`, create's readiness phase,

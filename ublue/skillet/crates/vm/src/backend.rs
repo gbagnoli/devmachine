@@ -237,7 +237,7 @@ struct DiskSourceXml {
     file: Option<PathBuf>,
 }
 
-fn parse_domain(xml: &str, state: String) -> Result<DomainSnapshot> {
+pub(crate) fn parse_domain(xml: &str, state: String) -> Result<DomainSnapshot> {
     let domain: DomainXml = quick_xml::de::from_str(xml)?;
     let mut disks = Vec::new();
     for disk in domain.devices.disks {

@@ -130,6 +130,9 @@ enum VmCommands {
     /// Record successful VM start for the source-tree helper
     #[command(hide = true)]
     Started(VmTargetArgs),
+    /// Render a native domain definition from the recorded run
+    #[command(hide = true)]
+    RenderDomain(VmRenderDomainArgs),
     /// Destroy a disposable host VM and remove its temporary key and artifacts
     Destroy(VmDestroyArgs),
     /// List available host templates and their recorded disposable VMs
@@ -167,6 +170,14 @@ struct VmPrepareArgs {
     uri: String,
     #[arg(long, default_value_t = 2201)]
     port: u16,
+}
+
+#[derive(clap::Args, Debug)]
+struct VmRenderDomainArgs {
+    hostname: String,
+    instance: String,
+    #[arg(long)]
+    emulator: PathBuf,
 }
 
 #[derive(Clone, Copy, Debug, clap::ValueEnum)]
@@ -303,6 +314,7 @@ fn run_vm_command(command: VmCommands) -> Result<()> {
         VmCommands::Prepare(args) => run_vm_prepare(&args)?,
         VmCommands::Defined(args) => vm::record_defined(&args)?,
         VmCommands::Started(args) => vm::record_started(&args)?,
+        VmCommands::RenderDomain(args) => vm::render_domain(&args)?,
         VmCommands::Destroy(args) => run_vm_destroy(&args)?,
         VmCommands::List(args) => run_vm_list(&args)?,
         VmCommands::Status(args) => vm::status(&args)?,

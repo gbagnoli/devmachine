@@ -190,9 +190,8 @@ case "$operation" in
     select_backend
     if [[ "$backend" == native ]]; then
       command -v passt >/dev/null || { echo 'Missing native VM tool: passt' >&2; exit 1; }
-      if ! command -v python3 >/dev/null || ! command -v xmllint >/dev/null ||
-         ! command -v virt-xml-validate >/dev/null; then
-        echo 'Native VM creation needs python3, xmllint and virt-xml-validate' >&2; exit 1
+      if ! command -v xmllint >/dev/null || ! command -v virt-xml-validate >/dev/null; then
+        echo 'Native VM creation needs xmllint and virt-xml-validate' >&2; exit 1
       fi
     fi
     if [[ ! -e /dev/kvm ]]; then

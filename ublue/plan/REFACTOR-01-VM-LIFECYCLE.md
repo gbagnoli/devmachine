@@ -42,15 +42,17 @@ the still-Bash installer; native XML and Flatpak use that UUID. Definition and
 start are recorded as separate phases where the backend exposes them. A failed
 start keeps its domain and can be validated/restarted through the same create
 entry point. Installer staging can resume from a matching Preparing manifest.
-Disk/key preparation, XML generation, reboot and interactive SSH still use
+Native XML generation now uses `quick-xml`; disk/key preparation, reboot and
+interactive SSH still use
 Bash. Credential delivery has
 not yet adopted the shared transport. Workstream 2 must consolidate the interim
 `boot_policy_for_host` lookup with the canonical capability declaration.
-Next: move staging, disk/key preparation and backend creation into Rust, then
-migrate reboot and interactive SSH. Disposal and readiness live acceptance
-remain deferred. See
+Next: move staging, disk/key preparation and backend define/start into Rust,
+then migrate reboot and interactive SSH. Flatpak `virt-install` creation remains
+pending. Disposal and readiness live acceptance remain deferred. See
 [creation validation](../butane/ACCEPTANCE.md#recoverable-vm-creation-intent-2026-10-03)
-and [readiness validation](../butane/ACCEPTANCE.md#readiness-retry-recovery-2026-10-03).
+and [native XML validation](../butane/ACCEPTANCE.md#native-xml-rendering-2026-10-03),
+plus [readiness validation](../butane/ACCEPTANCE.md#readiness-retry-recovery-2026-10-03).
 
 ## Read and locate
 
@@ -80,12 +82,14 @@ creation inspectable; readiness and target selection remain duplicated.
    and Flatpak subprocess adapters invoking focused tools directly. Preserve
    current connection/runtime selection and networking behavior. Do not link
    native libvirt, embed shell, or install tools during this migration.
-4. Move list/status/create/reboot/update into Rust. Generate domain XML with
-   an XML library, stage copied templates with structured data operations, and
-   build artifacts through a shared Cargo helper. Keep the standalone Butane
-   compiler if it still only compiles configuration. Replace VM disk/key
-   preparation, Python XML generation, and lifecycle logic in `coreos-install`.
-   Validate required tools and SSH-port conflicts before costly provisioning.
+4. Move list/status/create/reboot/update into Rust. Native domain XML now uses
+   `quick-xml`; Flatpak still uses `virt-install`. Stage copied templates with
+   structured data operations and build artifacts through a shared Cargo
+   helper. Keep the standalone Butane compiler if it still only compiles
+   configuration. Replace VM disk/key preparation and remaining lifecycle
+   logic in `coreos-install`. Validate required tools and SSH-port conflicts
+   before costly provisioning. See
+   [native XML validation](../butane/ACCEPTANCE.md#native-xml-rendering-2026-10-03).
 5. Persist creation intent and a generated UUID before domain definition;
    advance through explicit recoverable phases as side effects complete.
    Failed starts retain owned state for inspect/retry/disposal. Distinguish
