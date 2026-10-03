@@ -45,7 +45,7 @@ if [[ -d "$(dirname "$input")/files" ]]; then
 fi
 
 # Host configs include the generic CLI and a host-specific credential CLI.
-# coreos-install stages freshly built artifacts for VM-only Ignition; physical
+# VM provisioning stages freshly built artifacts for VM-only Ignition; physical
 # host compilation builds them here when callers have not staged binaries.
 if rg -q -F 'includes/skillet.bu' "$input"; then
   host="$(basename "$input" .bu)"

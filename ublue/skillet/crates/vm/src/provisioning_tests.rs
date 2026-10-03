@@ -1,6 +1,50 @@
 use super::*;
 use crate::{Backend, Connection};
-use std::{fs, os::unix::fs::symlink, path::PathBuf};
+use std::{fs, net::TcpListener, os::unix::fs::symlink, path::PathBuf};
+
+#[test]
+fn ssh_forward_port_preflight_rejects_invalid_and_occupied_ports() {
+    assert!(validate_ssh_port(2199).is_err());
+    assert!(validate_ssh_port(2300).is_err());
+    let (port, listener) = (2200..=2299)
+        .find_map(|port| {
+            TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port))
+                .ok()
+                .map(|listener| (port, listener))
+        })
+        .expect("at least one test SSH port should be available");
+    assert!(validate_ssh_port(port).is_err());
+    drop(listener);
+}
+
+#[test]
+fn image_resolution_requires_one_regular_image_or_an_explicit_selection() {
+    let temp = tempfile::tempdir().unwrap();
+    let images = temp.path().join("images");
+    fs::create_dir(&images).unwrap();
+    let first = images.join("fedora-coreos-44.1-qemu.x86_64.qcow2");
+    fs::write(&first, "image").unwrap();
+    assert_eq!(resolve_coreos_image(&images, None).unwrap(), first);
+
+    let second = images.join("fedora-coreos-44.2-qemu.x86_64.qcow2");
+    fs::write(&second, "image").unwrap();
+    assert!(resolve_coreos_image(&images, None).is_err());
+    assert_eq!(
+        resolve_coreos_image(&images, Some(&second)).unwrap(),
+        second
+    );
+}
+
+#[test]
+fn image_resolution_rejects_a_matching_symlink() {
+    let temp = tempfile::tempdir().unwrap();
+    let images = temp.path().join("images");
+    fs::create_dir(&images).unwrap();
+    let target = temp.path().join("image.qcow2");
+    fs::write(&target, "image").unwrap();
+    symlink(&target, images.join("fedora-coreos-44.1-qemu.x86_64.qcow2")).unwrap();
+    assert!(resolve_coreos_image(&images, None).is_err());
+}
 
 fn preparing_run() -> (tempfile::TempDir, ManifestStore, RunIdentity, PathBuf) {
     let temp = tempfile::tempdir().unwrap();

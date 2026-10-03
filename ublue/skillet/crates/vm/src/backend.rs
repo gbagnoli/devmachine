@@ -347,6 +347,23 @@ impl<E: VirshExecutor> VirshBackend<E> {
         self.validate_connection(run)?;
         self.invoke(&["--version"])
     }
+
+    pub fn probe(&self) -> Result<()> {
+        self.invoke(&["uri"])?;
+        Ok(())
+    }
+
+    pub fn contains_name(&self, name: &str) -> Result<bool> {
+        if name.is_empty()
+            || !name
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+        {
+            return Err(Error::Invalid("invalid libvirt domain name".into()));
+        }
+        let names = self.invoke(&["list", "--all", "--name"])?;
+        Ok(names.lines().any(|line| line.trim() == name))
+    }
 }
 
 impl<E: VirshExecutor> VmBackend for VirshBackend<E> {

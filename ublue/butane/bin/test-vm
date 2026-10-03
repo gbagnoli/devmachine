@@ -1,173 +1,54 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# This source-tree helper is reviewable, but must be installed read-only outside
-# agent-writable roots before any enduring command-prefix approval is safe.
+# Compatibility command surface. VM lifecycle policy and implementation live
+# in the Rust CLI; this script only translates the long-standing argument form.
 script_dir="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-root="$(realpath -m "$script_dir/../runs")"
-uri=qemu:///session
-runtime_dir="/run/user/$(id -u)/skillet-test-libvirt"
-backend=
-vm_virsh() {
-  if [[ "$backend" == flatpak ]]; then
-    "$script_dir/virsh" -c "$uri" "$@"
-  else
-    env XDG_RUNTIME_DIR="$runtime_dir" /usr/bin/virsh -c "$uri" "$@"
-  fi
-}
-select_backend() {
-  if command -v virsh >/dev/null && command -v virtqemud >/dev/null && command -v virtstoraged >/dev/null; then
-    backend=native
-    if /usr/bin/virsh -c "$uri" uri >/dev/null 2>&1; then
-      runtime_dir="/run/user/$(id -u)"
-    fi
-  elif flatpak info org.virt_manager.virt-manager >/dev/null 2>&1 &&
-       flatpak info org.virt_manager.virt_manager.Extension.Qemu >/dev/null 2>&1; then
-    backend=flatpak
-    runtime_dir="/run/user/$(id -u)/skvm"
-    export TEST_VM_LIBVIRT_RUNTIME_DIR="$runtime_dir"
-    export PATH="$script_dir:$PATH"
-  else
-    echo 'Neither native libvirt nor Flatpak virt-manager is available.' >&2
-    exit 1
-  fi
-}
-ensure_runtime() {
-  if [[ "$backend" == native ]]; then
-    ensure_native_runtime
-  else
-    if ! flatpak info org.virt_manager.virt-manager >/dev/null 2>&1 ||
-       ! flatpak info org.virt_manager.virt_manager.Extension.Qemu >/dev/null 2>&1; then
-      echo 'Flatpak virt-manager or its QEMU extension is unavailable' >&2; exit 1
-    fi
-    [[ "$runtime_dir" == "/run/user/$(id -u)/skvm" && ! -L "$runtime_dir" ]] || {
-      echo 'Invalid Flatpak libvirt runtime path' >&2; exit 1;
-    }
-    install -d -m 0700 "$runtime_dir"
-    if [[ ! -f "$runtime_dir/flatpak.pid" ]] || ! kill -0 "$(cat "$runtime_dir/flatpak.pid")" 2>/dev/null; then
-      setsid "$script_dir/flatpak-virt" sh -c \
-        'virtlogd --timeout 0 & virtstoraged --timeout 0 & virtqemud --timeout 0 & wait' \
-        > "$runtime_dir/flatpak.log" 2>&1 < /dev/null &
-      echo "$!" > "$runtime_dir/flatpak.pid"
-    fi
-    for ((attempt=0; attempt<20; attempt++)); do
-      if [[ -S "$runtime_dir/libvirt/virtqemud-sock" && -S "$runtime_dir/libvirt/virtstoraged-sock" ]]; then
-        break
-      fi
-      sleep 1
-    done
-    [[ -S "$runtime_dir/libvirt/virtqemud-sock" && -S "$runtime_dir/libvirt/virtstoraged-sock" ]] || {
-      echo 'Flatpak libvirt daemons did not start' >&2
-      tail -30 "$runtime_dir/flatpak.log" >&2
-      exit 1
-    }
-  fi
-}
-ensure_native_runtime() {
-  if [[ "$runtime_dir" == "/run/user/$(id -u)" ]]; then
-    /usr/bin/virsh -c "$uri" uri >/dev/null || {
-      echo "Cannot access the native user libvirt session at $uri" >&2; exit 1;
-    }
-    return
-  fi
-  [[ ! -L "$runtime_dir" ]] || { echo "Symlinked libvirt runtime refused" >&2; exit 1; }
-  if [[ ! -d "$runtime_dir" ]]; then
-    mkdir -m 0700 "$runtime_dir"
-  fi
-  if [[ ! -S "$runtime_dir/libvirt/virtqemud-sock" ]]; then
-    env XDG_RUNTIME_DIR="$runtime_dir" /usr/bin/virtqemud --daemon --timeout 0
-  fi
-  if [[ ! -S "$runtime_dir/libvirt/virtstoraged-sock" ]]; then
-    env XDG_RUNTIME_DIR="$runtime_dir" /usr/bin/virtstoraged --daemon --timeout 0
-  fi
-}
+repo_dir="$(realpath "$script_dir/../..")"
+
 usage() {
-  echo "Usage: $0 [HOST] list | $0 HOST create|ready|update|status|ssh|logs|reboot|destroy INSTANCE [--port PORT for create]" >&2
+  echo "Usage: $0 [HOST] list | $0 HOST create|ready|update|status|ssh|logs|reboot|destroy INSTANCE [--port PORT] [--image IMAGE]" >&2
   exit 2
 }
+
 skillet_cli() {
   if [[ -n "${SKILLET_BINARY:-}" ]]; then
-    "$SKILLET_BINARY" "$@"
-  else
-    (cd "$script_dir/../../skillet" && cargo run --quiet --release -p skillet -- "$@")
+    exec "$SKILLET_BINARY" "$@"
   fi
+  cd "$repo_dir/skillet"
+  exec cargo run --quiet --release -p skillet -- "$@"
 }
-host_exists() {
-  [[ -f "$script_dir/../$1.bu" || -f "$script_dir/../../skillet/crates/hosts/$1/Cargo.toml" ]]
-}
-host_available() {
-  [[ -f "$script_dir/../$1.bu" && -f "$script_dir/../../skillet/crates/hosts/$1/Cargo.toml" ]]
-}
+
 if (($# == 1)) && [[ "$1" == list ]]; then
-  cd "$script_dir/../../skillet"
-  exec cargo run --quiet --release -p skillet -- test vm list
+  skillet_cli test vm list
 fi
-(($# >= 2)) || usage
+if (($# == 2)) && [[ "$2" == list ]]; then
+  skillet_cli test vm list "$1"
+fi
+(($# >= 3)) || usage
 host="$1"
 operation="$2"
-shift 2
-if [[ ! "$host" =~ ^[a-z][a-z0-9-]*$ ]] ||
-   { [[ "$operation" != destroy && "$operation" != status && "$operation" != list && "$operation" != update && "$operation" != ready ]] && ! host_exists "$host"; }; then
-  echo "Unknown host: $host" >&2
-  exit 2
-fi
-if [[ "$operation" == list ]]; then
-  (($# == 0)) || usage
-  cd "$script_dir/../../skillet"
-  exec cargo run --quiet --release -p skillet -- test vm list "$host"
-fi
-(($# >= 1)) || usage
-instance="$1"
-shift
-[[ "$instance" =~ ^[a-z0-9][a-z0-9-]*$ ]] || usage
-name="$host-test-$instance"
-run_dir="$root/$name"
-[[ ! -L "$root" && ! -L "$run_dir" ]] || { echo "Symlinked artifact path refused" >&2; exit 1; }
-# All retained-run operations use the Rust lifecycle owner.
-if [[ "$operation" == destroy || "$operation" == status || "$operation" == update || "$operation" == ready ||
-      "$operation" == reboot || "$operation" == ssh || "$operation" == logs ]]; then
-  (($# == 0)) || usage
-  cd "$script_dir/../../skillet"
-  exec cargo run --quiet --release -p skillet -- test vm "$operation" "$host" "$instance"
-fi
+instance="$3"
+shift 3
+
 case "$operation" in
   create)
-    if (($# == 0)); then
-      port=2201
-    elif (($# == 2)) && [[ "$1" == --port ]]; then
-      port="$2"
-    else
-      usage
-    fi
-    [[ "$port" =~ ^22[0-9][0-9]$ ]] || { echo "Use a port from 2200 to 2299" >&2; exit 2; }
-    host_available "$host" || { echo "Host $host needs both $host.bu and a skillet-$host crate" >&2; exit 1; }
-    select_backend
-    if [[ "$backend" == native ]]; then
-      command -v passt >/dev/null || { echo 'Missing native VM tool: passt' >&2; exit 1; }
-    fi
-    if [[ ! -e /dev/kvm ]]; then
-      echo '/dev/kvm is unavailable; enable hardware virtualization and KVM before creating a VM.' >&2
-      exit 1
-    fi
-    ensure_runtime
-    mkdir -p "$root"
-    if vm_virsh dominfo "$name" &>/dev/null && [[ ! -f "$run_dir/vm.json" ]]; then
-      echo "Domain already exists without a recorded creation intent; refusing adoption" >&2
-      exit 1
-    fi
-    if vm_virsh dominfo "$name" &>/dev/null; then
-      if [[ "$backend" == native ]]; then
-        skillet_cli test vm create-native "$host" "$instance"
-      else
-        skillet_cli test vm create-flatpak "$host" "$instance"
-      fi
-      echo "Resumed recorded VM $name"
-      exit 0
-    fi
-    prepare_args=(test vm prepare "$host" "$instance" --backend "$backend" --runtime-dir "$runtime_dir" --uri "$uri" --port "$port")
-    uuid="$(skillet_cli "${prepare_args[@]}")"
-    TEST_VM_BACKEND="$backend" TEST_VM_LIBVIRT_RUNTIME_DIR="$runtime_dir" "$script_dir/coreos-install" --name "$name" --output-dir "$run_dir" \
-      --ssh-port "$port" --libvirt-uri "$uri" --uuid "$uuid" --resume-prepared "$script_dir/../$host.bu"
-    echo "Run: $run_dir" ;;
+    args=(test vm create "$host" "$instance")
+    while (($#)); do
+      case "$1" in
+        --port|--image)
+          (($# >= 2)) || usage
+          args+=("$1" "$2")
+          shift 2
+          ;;
+        *) usage ;;
+      esac
+    done
+    skillet_cli "${args[@]}"
+    ;;
+  ready|update|status|ssh|logs|reboot|destroy)
+    (($# == 0)) || usage
+    skillet_cli test vm "$operation" "$host" "$instance"
+    ;;
   *) usage ;;
 esac

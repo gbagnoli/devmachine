@@ -1,11 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use skillet_cli_common::hosts::ApplyPhase;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::{fs, path::PathBuf, process::Command};
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
@@ -121,21 +117,6 @@ enum TestCommands {
 enum VmCommands {
     /// Provision a disposable host VM and wait for it to become ready
     Create(VmCreateArgs),
-    /// Persist a recoverable VM creation intent for the source-tree helper
-    #[command(hide = true)]
-    Prepare(VmPrepareArgs),
-    /// Prepare local image and SSH key artifacts for the source-tree helper
-    #[command(hide = true)]
-    PrepareLocal(VmPrepareLocalArgs),
-    /// Stage VM Butane inputs and captured binaries for the source-tree helper
-    #[command(hide = true)]
-    StageLocal(VmStageLocalArgs),
-    /// Define and start an owned native VM from staged artifacts
-    #[command(hide = true)]
-    CreateNative(VmTargetArgs),
-    /// Define and start an owned Flatpak-backed VM from staged artifacts
-    #[command(hide = true)]
-    CreateFlatpak(VmTargetArgs),
     /// Destroy a disposable host VM and remove its temporary key and artifacts
     Destroy(VmDestroyArgs),
     /// List available host templates and their recorded disposable VMs
@@ -165,46 +146,9 @@ struct VmCreateArgs {
     instance: String,
     #[arg(long, default_value_t = 2201)]
     port: u16,
-}
-
-#[derive(clap::Args, Debug)]
-struct VmPrepareArgs {
-    hostname: String,
-    instance: String,
-    #[arg(long, value_enum)]
-    backend: VmBackendName,
+    /// Use a specific Fedora `CoreOS` QEMU image instead of selecting the cached image
     #[arg(long)]
-    runtime_dir: PathBuf,
-    #[arg(long, default_value = "qemu:///session")]
-    uri: String,
-    #[arg(long, default_value_t = 2201)]
-    port: u16,
-}
-
-#[derive(clap::Args, Debug)]
-struct VmPrepareLocalArgs {
-    hostname: String,
-    instance: String,
-    #[arg(long)]
-    image: PathBuf,
-}
-
-#[derive(clap::Args, Debug)]
-struct VmStageLocalArgs {
-    hostname: String,
-    instance: String,
-    #[arg(long)]
-    image: PathBuf,
-    #[arg(long)]
-    host_binary: PathBuf,
-    #[arg(long)]
-    generic_binary: PathBuf,
-}
-
-#[derive(Clone, Copy, Debug, clap::ValueEnum)]
-enum VmBackendName {
-    Native,
-    Flatpak,
+    image: Option<PathBuf>,
 }
 
 #[derive(clap::Args, Debug)]
@@ -332,11 +276,6 @@ fn main() -> Result<()> {
 fn run_vm_command(command: VmCommands) -> Result<()> {
     match command {
         VmCommands::Create(args) => run_vm_create(&args)?,
-        VmCommands::Prepare(args) => run_vm_prepare(&args)?,
-        VmCommands::PrepareLocal(args) => vm::prepare_local(&args)?,
-        VmCommands::StageLocal(args) => vm::stage_local(&args)?,
-        VmCommands::CreateNative(args) => vm::create_native(&args)?,
-        VmCommands::CreateFlatpak(args) => vm::create_flatpak(&args)?,
         VmCommands::Destroy(args) => run_vm_destroy(&args)?,
         VmCommands::List(args) => run_vm_list(&args)?,
         VmCommands::Status(args) => vm::status(&args)?,
@@ -395,71 +334,7 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
 }
 
 fn run_vm_create(args: &VmCreateArgs) -> Result<()> {
-    let name = vm_name(&args.hostname, &args.instance)?;
-    if !(2200..=2299).contains(&args.port) {
-        return Err(anyhow!("VM SSH port must be between 2200 and 2299"));
-    }
-    let butane = butane_root()?;
-    let helper = butane.join("bin/test-vm");
-    let port = args.port.to_string();
-    let binary = std::env::current_exe().context("locating the running Skillet binary failed")?;
-    run_helper_with_binary(
-        &helper,
-        &[&args.hostname, "create", &args.instance, "--port", &port],
-        &binary,
-    )?;
-
-    let run_dir = butane.join("runs").join(&name);
-    if let Err(error) = vm::ready(&VmTargetArgs {
-        hostname: args.hostname.clone(),
-        instance: args.instance.clone(),
-    }) {
-        return Err(anyhow!(
-            "VM created but readiness failed; inspect it with `test-vm {} logs {}` or destroy it with `skillet test vm destroy {} {}`: {error}",
-            args.hostname, args.instance, args.hostname, args.instance
-        ));
-    }
-    info!(
-        "Disposable VM {} is ready at giacomo@127.0.0.1:{}; smoke key: {}",
-        name,
-        args.port,
-        run_dir.join("ssh/id_ed25519").display()
-    );
-    Ok(())
-}
-
-fn run_vm_prepare(args: &VmPrepareArgs) -> Result<()> {
-    let identity = skillet_vm::RunIdentity::new(&args.hostname, &args.instance)?;
-    let root = butane_root()?.join("runs");
-    let source_commit = Command::new("git")
-        .args(["-C"])
-        .arg(workspace_root()?)
-        .args(["rev-parse", "--verify", "HEAD"])
-        .output()
-        .context("reading the source revision for VM creation failed")?;
-    if !source_commit.status.success() {
-        return Err(anyhow!("git could not identify the source revision"));
-    }
-    let source_commit = String::from_utf8(source_commit.stdout)
-        .context("git returned a non-UTF-8 source revision")?
-        .trim()
-        .to_owned();
-    let backend = match args.backend {
-        VmBackendName::Native => skillet_vm::Backend::Native,
-        VmBackendName::Flatpak => skillet_vm::Backend::Flatpak,
-    };
-    let run = skillet_vm::ManifestStore::new(&root, skillet_vm::current_uid())?.prepare_intent(
-        &identity,
-        skillet_vm::Connection {
-            backend,
-            uri: args.uri.clone(),
-            runtime_dir: args.runtime_dir.clone(),
-        },
-        args.port,
-        &source_commit,
-    )?;
-    println!("{}", run.uuid);
-    Ok(())
+    vm::create(args)
 }
 
 fn run_vm_destroy(args: &VmDestroyArgs) -> Result<()> {
@@ -476,18 +351,6 @@ fn run_vm_list(args: &VmListArgs) -> Result<()> {
 
 fn vm_name(hostname: &str, instance: &str) -> Result<String> {
     Ok(skillet_vm::RunIdentity::new(hostname, instance)?.domain_name())
-}
-
-fn run_helper_with_binary(path: &Path, args: &[&str], binary: &Path) -> Result<()> {
-    let status = Command::new(path)
-        .env("SKILLET_BINARY", binary)
-        .args(args)
-        .status()
-        .with_context(|| format!("running {} failed", path.display()))?;
-    if !status.success() {
-        return Err(anyhow!("{} failed with status {status}", path.display()));
-    }
-    Ok(())
 }
 
 fn butane_root() -> Result<PathBuf> {
@@ -700,50 +563,17 @@ mod tests {
     }
 
     #[test]
-    fn vm_local_preparation_parses_profile_instance_and_image() {
+    fn vm_create_parses_identity_and_optional_image() {
         let parsed = Args::try_parse_from([
             "skillet",
             "test",
             "vm",
-            "prepare-local",
+            "create",
             "clamps",
             "smoke",
             "--image",
             "/tmp/fcos.qcow2",
         ]);
-        assert!(parsed.is_ok());
-    }
-
-    #[test]
-    fn vm_local_staging_parses_explicit_artifacts() {
-        let parsed = Args::try_parse_from([
-            "skillet",
-            "test",
-            "vm",
-            "stage-local",
-            "clamps",
-            "smoke",
-            "--image",
-            "/tmp/fcos.qcow2",
-            "--host-binary",
-            "/tmp/skillet-clamps",
-            "--generic-binary",
-            "/tmp/skillet",
-        ]);
-        assert!(parsed.is_ok());
-    }
-
-    #[test]
-    fn native_vm_lifecycle_command_parses_identity_fields() {
-        let parsed =
-            Args::try_parse_from(["skillet", "test", "vm", "create-native", "clamps", "smoke"]);
-        assert!(parsed.is_ok());
-    }
-
-    #[test]
-    fn flatpak_vm_lifecycle_command_parses_identity_fields() {
-        let parsed =
-            Args::try_parse_from(["skillet", "test", "vm", "create-flatpak", "clamps", "smoke"]);
         assert!(parsed.is_ok());
     }
 }

@@ -11,6 +11,7 @@ pub mod manifest;
 mod process;
 pub mod provisioning;
 pub mod readiness;
+pub mod runtime;
 pub mod staging;
 pub mod transport;
 
@@ -60,6 +61,14 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub use process::capture_version;
+
+/// Capture a bounded host tool invocation for workstation provisioning.
+pub fn capture_command(
+    command: std::process::Command,
+    timeout: std::time::Duration,
+) -> Result<std::process::Output> {
+    process::capture(command, timeout)
+}
 
 pub fn current_uid() -> u32 {
     users::get_current_uid()

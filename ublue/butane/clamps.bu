@@ -1,6 +1,6 @@
 variant: fcos
 version: 1.6.0
-# VM-only layout: coreos-install attaches the FCOS disk as virtio /dev/vda.
+# VM-only layout: the Skillet VM provisioner attaches FCOS as virtio /dev/vda.
 # A physical installer must use an explicitly selected hardware disk instead.
 ignition:
   config:
