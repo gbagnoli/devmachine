@@ -20,6 +20,21 @@
   creating a smoke VM in another panel; it and its artifacts were left alone.
   No vault, Cloudflare or Tailscale request was needed for this slice.
 
+## Rust catalog and Cargo artifact selection, 2026-10-03
+
+- Source slice: follows `d799ace`. Both list entry points delegate to Rust
+  catalog/inspection, without rewriting manifests. Cargo JSON selection now
+  supplies the container runner. Twenty-six VM tests cover catalog availability,
+  partial-run discovery, non-default artifact paths/profiles, missing/duplicate
+  artifacts, and existing ownership/cleanup cases.
+- Passed static-musl formatting, workspace all-target pedantic Clippy,
+  workspace tests/build, helper ShellCheck and whitespace checks. Also passed:
+  `CARGO_TARGET_DIR=/home/giacomo/.cache/devmachine-target ./target/x86_64-unknown-linux-musl/debug/skillet test run beezelbot --phase base --image fedora:latest`.
+  The runner selected the cache directory's Cargo-reported host binary rather
+  than a conventional workspace path; both applies passed and cleanup completed.
+- Live VM catalog/runtime checks and retained-run lifecycle acceptance remain
+  deferred. No VM mutation, vault prompt or external provider call was attempted.
+
 ## Rust VM inspection and disposal, 2026-10-03
 
 - Source slice: follows `544b8e5`. `test vm status` and both destroy entry

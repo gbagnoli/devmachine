@@ -88,6 +88,9 @@ tracks existing violations and their migration, not completed implementation.
 - Select build artifacts from Cargo's reported outputs and honor its target,
   profile, and configured target directory. Do not discover the new build by
   scanning potentially stale binaries at conventional paths.
+- Compilation and artifact lookup belong to one operation. Consumers use
+  that operation's reported executables and reject incomplete or ambiguous
+  results; do not rebuild in one path and rediscover binaries in another.
 - Reading retained state must not implicitly migrate it. Import legacy formats
   explicitly, preserve original evidence, and use atomic creation that cannot
   overwrite a concurrently created authoritative manifest.

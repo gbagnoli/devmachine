@@ -104,80 +104,23 @@ host_exists() {
 host_available() {
   [[ -f "$script_dir/../$1.bu" && -f "$script_dir/../../skillet/crates/hosts/$1/Cargo.toml" ]]
 }
-list_host() {
-  local listed_host="$1" availability=unavailable found=false listed_run listed_name listed_instance listed_state listed_port listed_runtime listed_backend recorded_uuid actual_uuid
-  local -a listed_virsh
-  if host_available "$listed_host"; then availability=available; fi
-  for listed_run in "$root"/"$listed_host"-test-*/run.conf; do
-    [[ -f "$listed_run" ]] || continue
-    found=true
-    run_dir="$(dirname "$listed_run")"
-    listed_name="$(basename "$run_dir")"
-    listed_instance="${listed_name#"$listed_host"-test-}"
-    listed_state=invalid
-    listed_port=-
-    if [[ ! -L "$run_dir" && ! -L "$listed_run" && "$(config_value vm)" == "$listed_name" && "$(config_value host)" == "$listed_host" && "$(config_value uri)" == "$uri" ]]; then
-      listed_port="$(config_value ssh_port)"
-      listed_runtime="$(config_value runtime_dir)"
-      listed_backend="$(config_value backend)"
-      [[ -n "$listed_backend" ]] || listed_backend=native
-      if [[ "$listed_port" =~ ^22[0-9][0-9]$ && -f "$run_dir/domain.uuid" && ( ( "$listed_backend" == flatpak && "$listed_runtime" == "/run/user/$(id -u)/skvm" ) || ( "$listed_backend" == native && ( "$listed_runtime" == "/run/user/$(id -u)" || "$listed_runtime" == /run/user/"$(id -u)"/* ) ) ) ]]; then
-        recorded_uuid="$(cat "$run_dir/domain.uuid")"
-        if [[ "$listed_backend" == flatpak ]]; then
-          listed_virsh=(env TEST_VM_LIBVIRT_RUNTIME_DIR="$listed_runtime" "$script_dir/virsh")
-        else
-          listed_virsh=(env XDG_RUNTIME_DIR="$listed_runtime" /usr/bin/virsh)
-        fi
-        if [[ "$recorded_uuid" =~ ^[0-9a-f-]{36}$ ]] && actual_uuid="$("${listed_virsh[@]}" -c "$uri" domuuid "$listed_name" 2>/dev/null)"; then
-          if [[ "$actual_uuid" == "$recorded_uuid" ]]; then
-            listed_state="$("${listed_virsh[@]}" -c "$uri" domstate "$listed_name" 2>/dev/null)" || listed_state=unknown
-          else
-            listed_state=mismatch
-          fi
-        else
-          listed_state=missing
-        fi
-      fi
-    fi
-    printf '%-12s %-12s %-16s %-12s %s\n' "$listed_host" "$availability" "$listed_instance" "$listed_state" "$listed_port"
-  done
-  if [[ "$found" == false ]]; then
-    printf '%-12s %-12s %-16s %-12s %s\n' "$listed_host" "$availability" - none -
-  fi
-}
-list_header() { printf '%-12s %-12s %-16s %-12s %s\n' HOST TEMPLATE INSTANCE STATE PORT; }
-
 if (($# == 1)) && [[ "$1" == list ]]; then
-  [[ ! -L "$root" ]] || { echo "Symlinked artifact root refused" >&2; exit 1; }
-  mapfile -t hosts < <(
-    {
-      for candidate in "$script_dir"/../*.bu; do
-        if [[ -f "$candidate" ]]; then basename "$candidate" .bu; fi
-      done
-      for candidate in "$script_dir"/../../skillet/crates/hosts/*/Cargo.toml; do
-        if [[ -f "$candidate" ]]; then basename "$(dirname "$candidate")"; fi
-      done
-    } | sort -u
-  )
-  list_header
-  for candidate in "${hosts[@]}"; do list_host "$candidate"; done
-  exit 0
+  cd "$script_dir/../../skillet"
+  exec cargo run --quiet --release -p skillet -- test vm list
 fi
 (($# >= 2)) || usage
 host="$1"
 operation="$2"
 shift 2
 if [[ ! "$host" =~ ^[a-z][a-z0-9-]*$ ]] ||
-   { [[ "$operation" != destroy && "$operation" != status ]] && ! host_exists "$host"; }; then
+   { [[ "$operation" != destroy && "$operation" != status && "$operation" != list ]] && ! host_exists "$host"; }; then
   echo "Unknown host: $host" >&2
   exit 2
 fi
 if [[ "$operation" == list ]]; then
   (($# == 0)) || usage
-  [[ ! -L "$root" ]] || { echo "Symlinked artifact root refused" >&2; exit 1; }
-  list_header
-  list_host "$host"
-  exit 0
+  cd "$script_dir/../../skillet"
+  exec cargo run --quiet --release -p skillet -- test vm list "$host"
 fi
 (($# >= 1)) || usage
 instance="$1"

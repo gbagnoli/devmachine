@@ -16,10 +16,13 @@ native/Flatpak libvirt adapter, and one locked cleanup orchestrator. Both
 public destroy paths use it. Successful lists distinguish an absent guest
 from a failed connection; UUID and disk ownership are checked before cleanup
 and again after external calls. Failed cleanup retains its manifest/journals.
-Twenty-one VM tests pass. No live VM was changed or imported.
+Rust also owns template/run listing. Shared Cargo JSON artifact discovery is
+implemented and used by the routine container runner; a custom target-directory
+integration check selects the reported binary. Twenty-six VM tests pass.
+No live VM was changed or imported.
 
-Creation, readiness, list/update/reboot and SSH still use Bash. Next: shared
-transport, catalog/artifact handling, recoverable creation/readiness and the
+Creation, readiness, update/reboot and SSH still use Bash. Next: shared
+transport, recoverable creation/readiness and the
 remaining public-helper delegation. Disposal live acceptance remains deferred. See
 [validation evidence](../butane/ACCEPTANCE.md#vm-refactoring-foundation-2026-10-03).
 
@@ -31,10 +34,9 @@ remaining public-helper delegation. Disposal live acceptance remains deferred. S
 - `../skillet/crates/cli/src/main.rs` VM dispatch and
   `secret_delivery.rs` provisioning, external ownership, cleanup, and VM SSH.
 
-Current defects: Bash destruction skips external cleanup and deletes its
-metadata; Rust destruction requires a live domain before cleanup; failed
-creation can leave artifacts without a usable lifecycle record. Readiness,
-ownership checks, manifest parsing, and target selection are duplicated.
+Review findings: disposal used to bypass external cleanup or require a live
+guest; those paths are now fixed. Remaining: failed creation can leave artifacts
+without a usable lifecycle record; readiness and target selection are duplicated.
 
 ## Implementation sequence
 

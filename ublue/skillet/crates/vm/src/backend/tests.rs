@@ -1,6 +1,6 @@
 use super::*;
 use crate::manifest::tests::legacy_run;
-use std::{cell::RefCell, collections::VecDeque};
+use std::{cell::RefCell, collections::VecDeque, time::Instant};
 
 #[derive(Default)]
 struct FakeExecutor {

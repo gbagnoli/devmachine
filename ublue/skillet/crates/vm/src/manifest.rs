@@ -147,6 +147,10 @@ impl ManifestStore {
         self.root.join(identity.domain_name())
     }
 
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
     /// Read without migrating or contacting a runtime; safe for retained runs.
     pub fn load(&self, identity: &RunIdentity) -> Result<VmRun> {
         let dir = self.run_dir(identity);
