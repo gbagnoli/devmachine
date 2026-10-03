@@ -115,6 +115,12 @@ impl HostProfile {
         self.services.iter().any(|service| service.name() == name)
     }
 
+    pub fn requires_pihole_dns_listener_policy(&self) -> bool {
+        self.services
+            .iter()
+            .any(|service| matches!(service.config, ServiceConfig::Pihole { .. }))
+    }
+
     pub fn requires_full_apply_credentials(&self) -> bool {
         self.services.iter().any(|service| {
             matches!(

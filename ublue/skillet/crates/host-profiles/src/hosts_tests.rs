@@ -80,6 +80,7 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
     assert_eq!(clamps.signed_image, Some("ghcr.io/gbagnoli/ucore-clamps"));
     assert_eq!(clamps.masked_units, ["systemd-resolved.service"]);
     assert!(clamps.requires_data_mount);
+    assert!(clamps.requires_pihole_dns_listener_policy());
     let network = clamps.service_network();
     assert!(network.options.contains(&"IPv6=true".to_string()));
     assert!(network
@@ -100,6 +101,7 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
     );
     assert!(beezelbot.masked_units.is_empty());
     assert!(beezelbot.requires_data_mount);
+    assert!(!beezelbot.requires_pihole_dns_listener_policy());
     assert_eq!(
         beezelbot.credential_consumers(),
         [

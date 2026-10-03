@@ -21,11 +21,12 @@ mechanism and LAN client resolver settings remain to be decided before those
 hosts are deployed.
 
 Pi-hole's host port 53 conflicts with Netavark's default Aardvark DNS listener.
-Skillet moves Aardvark to port 54 through Podman's rootful `dns_bind_port`,
-preserving service-name DNS while Pi-hole owns host port 53. This is global
-Podman configuration and must be verified on the target uCore release. Keep the
-bridge non-internal; alternate Aardvark ports have a known limitation on
-internal networks.
+When a host profile declares Pi-hole, host composition writes Podman's rootful
+`dns_bind_port=54` policy once before applying its services. Container recipes
+only declare their network attachments; they do not own this global setting.
+This must be verified on the target uCore release. Keep the bridge
+non-internal; alternate Aardvark ports have a known limitation on internal
+networks.
 
 Podman does not update an existing network's settings from a changed Quadlet.
 Skillet records the accepted network definition and refuses drift. Changing

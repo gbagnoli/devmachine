@@ -1,6 +1,6 @@
 # 5. Podman configuration with explicit host policy
 
-Status: planned; follows workstreams 2–4 in
+Status: in progress; follows workstreams 2–4 in
 [the prerequisite roadmap](SKILLET-REFACTOR.md).
 Further feature milestones wait for that roadmap's completion.
 
@@ -15,6 +15,17 @@ Further feature milestones wait for that roadmap's completion.
 Current defects: runtime user/network settings can come from both typed fields
 and raw directives; unused user fields misdescribe runtime identity. Per-container
 apply also owns a global DNS-port policy and converges shared networks repeatedly.
+
+## Progress
+
+- Implemented: moved the host-wide Aardvark DNS listener setting out of generic
+  container apply. The canonical host profile selects it when Pi-hole is
+  declared, and host composition writes it once before service recipes. The
+  focused Podman helper is idempotent; standalone container apply no longer
+  changes global Podman DNS policy. Named-VM validation remains pending.
+- Pending: typed process identity/mapping/volume ownership, typed container
+  network attachments and publications, shared network baseline ownership,
+  storage dependencies, and full service migration.
 
 ## Implementation sequence
 
