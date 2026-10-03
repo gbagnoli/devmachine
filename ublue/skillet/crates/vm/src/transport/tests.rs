@@ -59,6 +59,20 @@ fn enroll_policy_does_not_replace_a_recorded_host_key_and_verify_requires_it() {
 }
 
 #[test]
+fn interactive_session_inherits_a_terminal_and_uses_recorded_target() {
+    let dir = tempfile::tempdir().unwrap();
+    let transport = SshTransport::new(target(dir.path()), HostKeyPolicy::Enroll).unwrap();
+    let command = transport.interactive_command();
+    let arguments: Vec<_> = command
+        .get_args()
+        .map(|arg| arg.to_str().unwrap())
+        .collect();
+    assert!(arguments.contains(&"-tt"));
+    assert!(!arguments.contains(&"-T"));
+    assert_eq!(arguments.last(), Some(&"fixture@127.0.0.1"));
+}
+
+#[test]
 fn upload_uses_recorded_port_and_refuses_shell_or_path_traversal() {
     let dir = tempfile::tempdir().unwrap();
     let transport = SshTransport::new(target(dir.path()), HostKeyPolicy::Verify).unwrap();

@@ -2,7 +2,7 @@
 use crate::{Error, Result, SshTarget};
 use std::{
     path::Path,
-    process::{Command, Output},
+    process::{Command, ExitStatus, Output},
     time::Duration,
 };
 
@@ -152,6 +152,21 @@ impl SshTransport {
         };
         command.arg(source).arg(format!("{target}:{destination}"));
         Ok(command)
+    }
+
+    fn interactive_command(&self) -> Command {
+        let mut command = Command::new("ssh");
+        command.arg("-tt");
+        self.options(&mut command, "-p");
+        command.arg(self.remote_target());
+        command
+    }
+
+    /// Run an interactive guest shell with the caller's terminal attached.
+    /// Unlike captured guest commands this is intentionally unbounded until
+    /// the user exits, and inherits stdin/stdout/stderr directly.
+    pub fn interactive(&self) -> Result<ExitStatus> {
+        self.interactive_command().status().map_err(Error::Io)
     }
 }
 

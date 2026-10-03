@@ -248,6 +248,19 @@ fn partial_cleanup_can_load_when_owned_artifacts_are_already_absent() {
 }
 
 #[test]
+fn reboot_invalidates_readiness_before_the_backend_operation() {
+    let (_tmp, store, identity) = legacy_run();
+    let mut ready = store.import(&identity).unwrap();
+    ready.phase = Phase::Ready;
+    store.save(&ready).unwrap();
+    let ready = store.load(&identity).unwrap();
+    assert_eq!(ready.phase, Phase::Ready);
+    let rebooting = store.mark_reboot_pending(&identity).unwrap();
+    assert_eq!(rebooting.phase, Phase::Started);
+    assert_eq!(store.load(&identity).unwrap().phase, Phase::Started);
+}
+
+#[test]
 fn flatpak_and_native_connections_have_distinct_validated_runtime_paths() {
     let uid = users::get_current_uid();
     let mut connection = Connection {

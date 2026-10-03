@@ -142,6 +142,12 @@ enum VmCommands {
     List(VmListArgs),
     /// Inspect the UUID and disks recorded for an owned disposable VM
     Status(VmTargetArgs),
+    /// Reboot a retained, owned disposable VM
+    Reboot(VmTargetArgs),
+    /// Open an interactive SSH shell to a retained, owned disposable VM
+    Ssh(VmTargetArgs),
+    /// Read bootstrap and Skillet journals from a retained VM
+    Logs(VmTargetArgs),
     /// Verify signed boot and apply the captured base/user environment
     Ready(VmTargetArgs),
     /// Compatibility adapter for the former `RUN_DIR` readiness helper
@@ -334,6 +340,9 @@ fn run_vm_command(command: VmCommands) -> Result<()> {
         VmCommands::Destroy(args) => run_vm_destroy(&args)?,
         VmCommands::List(args) => run_vm_list(&args)?,
         VmCommands::Status(args) => vm::status(&args)?,
+        VmCommands::Reboot(args) => vm::reboot(&args)?,
+        VmCommands::Ssh(args) => vm::ssh(&args)?,
+        VmCommands::Logs(args) => vm::logs(&args)?,
         VmCommands::Ready(args) => vm::ready(&args)?,
         VmCommands::ReadyDirectory(args) => vm::ready_directory(&args)?,
         VmCommands::Provision(args) => secret_delivery::provision_vm(&args)?,

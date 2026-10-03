@@ -47,14 +47,16 @@ local disk atomically, records its source digest, and creates or validates the
 per-run SSH key pair; `coreos-install` delegates that operation through a
 hidden CLI command. The same library stages and specializes the Butane source
 tree and records compatibility metadata and binary hashes. The standalone
-Butane compilation, reboot and interactive SSH still use Bash. Native
+Butane compilation still uses Bash. Native
 define/start, emulator discovery, UUID bookkeeping and tool-version capture
 now run through the Rust lifecycle and selected backend. Flatpak
 `virt-install` creation and version capture remain in Bash. Credential delivery
 has not yet adopted the shared transport. Workstream 2 must consolidate the
 interim `boot_policy_for_host` lookup with the canonical capability
-declaration. Next: migrate reboot and interactive SSH, then move Flatpak
-`virt-install` creation behind a Rust adapter. Disposal and readiness live acceptance remain
+declaration. Reboot, interactive SSH and guest diagnostics now use Rust's
+ownership-checked backend and SSH transport. Next: move Flatpak
+`virt-install` creation behind a Rust adapter and make the shell create wrapper
+delegate without lifecycle decisions. Disposal and readiness live acceptance remain
 deferred. See
 [creation validation](../butane/ACCEPTANCE.md#recoverable-vm-creation-intent-2026-10-03)
 and [native XML validation](../butane/ACCEPTANCE.md#native-xml-rendering-2026-10-03),

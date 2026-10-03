@@ -5,9 +5,11 @@ use super::{
 };
 use anyhow::{anyhow, Result};
 use skillet_vm::{
-    backend::{VirshBackend, VmBackend},
-    ManifestStore, RunIdentity,
+    backend::{DomainSnapshot, VirshBackend, VmBackend},
+    transport::{GuestCommand, GuestTransport, HostKeyPolicy, SshTransport},
+    ManifestStore, Phase, RunIdentity, VmRun,
 };
+use std::io::Write as _;
 
 pub(super) fn status(args: &VmTargetArgs) -> Result<()> {
     let butane = butane_root()?;
@@ -91,6 +93,116 @@ pub(super) fn create_native(args: &VmTargetArgs) -> Result<()> {
         skillet_vm::creation::create_native(&store, &identity, &backend, &emulator, &versions)?;
     println!("Started {} ({})", identity.domain_name(), run.uuid);
     Ok(())
+}
+
+pub(super) fn reboot(args: &VmTargetArgs) -> Result<()> {
+    let (butane, store, identity) = context(args)?;
+    let _lock = store.lock(&identity)?;
+    let mut run = store.load(&identity)?;
+    if !matches!(run.phase, Phase::Started | Phase::Ready) {
+        return Err(anyhow!("VM must be started or ready before reboot"));
+    }
+    let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
+    require_owned_domain(&backend, &run)?;
+    run = store.mark_reboot_pending(&identity)?;
+    backend.reboot(&run)?;
+    require_owned_domain(&backend, &run)?;
+    println!("Reboot requested for {}", identity.domain_name());
+    Ok(())
+}
+
+pub(super) fn ssh(args: &VmTargetArgs) -> Result<()> {
+    let (butane, store, identity) = context(args)?;
+    let _lock = store.lock(&identity)?;
+    let run = store.load(&identity)?;
+    if !matches!(run.phase, Phase::Started | Phase::Ready) {
+        return Err(anyhow!("VM must be started or ready before opening SSH"));
+    }
+    let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
+    require_running_domain(&backend, &run)?;
+    let transport = SshTransport::new(run.ssh.clone(), HostKeyPolicy::Enroll)?;
+    let status = transport.interactive()?;
+    require_owned_domain(&backend, &run)?;
+    if !status.success() {
+        return Err(anyhow!(
+            "interactive SSH exited with status {:?}",
+            status.code()
+        ));
+    }
+    Ok(())
+}
+
+pub(super) fn logs(args: &VmTargetArgs) -> Result<()> {
+    let (butane, store, identity) = context(args)?;
+    let _lock = store.lock(&identity)?;
+    let run = store.load(&identity)?;
+    if !matches!(run.phase, Phase::Started | Phase::Ready) {
+        return Err(anyhow!("VM must be started or ready before reading logs"));
+    }
+    let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
+    require_running_domain(&backend, &run)?;
+    let transport = SshTransport::new(run.ssh.clone(), HostKeyPolicy::Enroll)?;
+    for command in [
+        GuestCommand {
+            program: "sudo",
+            arguments: &["-n", "rpm-ostree", "status"],
+        },
+        GuestCommand {
+            program: "sudo",
+            arguments: &[
+                "-n",
+                "journalctl",
+                "-b",
+                "-u",
+                "ucore-bootstrap.service",
+                "-u",
+                "skillet-apply.service",
+                "--no-pager",
+                "-n",
+                "200",
+            ],
+        },
+    ] {
+        require_running_domain(&backend, &run)?;
+        let output = transport.execute(&command, None)?;
+        require_owned_domain(&backend, &run)?;
+        std::io::stdout().write_all(&output.stdout)?;
+        std::io::stderr().write_all(&output.stderr)?;
+        if !output.status.success() {
+            return Err(anyhow!(
+                "guest diagnostic command {} failed with status {:?}",
+                command.program,
+                output.status.code()
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn context(args: &VmTargetArgs) -> Result<(std::path::PathBuf, ManifestStore, RunIdentity)> {
+    let butane = butane_root()?;
+    let identity = RunIdentity::new(&args.hostname, &args.instance)?;
+    let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
+    Ok((butane, store, identity))
+}
+
+fn require_owned_domain(backend: &impl VmBackend, run: &VmRun) -> Result<DomainSnapshot> {
+    let domain = backend
+        .inspect(run)?
+        .ok_or_else(|| anyhow!("owned VM domain is absent"))?;
+    domain.validate_owned(run)?;
+    Ok(domain)
+}
+
+fn require_running_domain(backend: &impl VmBackend, run: &VmRun) -> Result<DomainSnapshot> {
+    let domain = require_owned_domain(backend, run)?;
+    if domain.state != "running" {
+        return Err(anyhow!(
+            "VM is not running (libvirt state: {})",
+            domain.state
+        ));
+    }
+    Ok(domain)
 }
 
 pub(super) fn destroy(args: &VmDestroyArgs) -> Result<()> {
