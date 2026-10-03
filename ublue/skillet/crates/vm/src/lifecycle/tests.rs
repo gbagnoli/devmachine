@@ -202,3 +202,33 @@ fn concurrent_disposal_is_refused_before_effects() {
     ));
     assert!(backend.calls.borrow().is_empty());
 }
+
+#[test]
+fn partial_artifact_removal_preserves_authoritative_and_legacy_recovery_records() {
+    let (_tmp, store, identity) = legacy_run();
+    let mut run = store.import(&identity).unwrap();
+    run.phase = Phase::DomainRemoved;
+    store.save(&run).unwrap();
+    let dir = store.run_dir(&identity);
+    fs::write(dir.join("aa-artifact"), "owned data").unwrap();
+    fs::write(dir.join("zz-artifact"), "owned data").unwrap();
+    let result = remove_artifacts(&dir, |path| {
+        if path.file_name().unwrap() == "zz-artifact" {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "injected removal failure",
+            )
+            .into());
+        }
+        remove_entry(path)
+    });
+    assert!(result.is_err());
+    assert!(!dir.join("aa-artifact").exists());
+    assert!(dir.join("zz-artifact").exists());
+    assert_eq!(store.load(&identity).unwrap().phase, Phase::DomainRemoved);
+    assert!(dir.join("run.conf").exists());
+    assert!(dir.join("domain.uuid").exists());
+    assert!(dir.join("skillet.sha256").exists());
+    remove_artifacts(&dir, remove_entry).unwrap();
+    assert!(dir.join("vm.json").exists());
+}
