@@ -121,6 +121,15 @@ enum TestCommands {
 enum VmCommands {
     /// Provision a disposable host VM and wait for it to become ready
     Create(VmCreateArgs),
+    /// Persist a recoverable VM creation intent for the source-tree helper
+    #[command(hide = true)]
+    Prepare(VmPrepareArgs),
+    /// Record successful domain definition for the source-tree helper
+    #[command(hide = true)]
+    Defined(VmTargetArgs),
+    /// Record successful VM start for the source-tree helper
+    #[command(hide = true)]
+    Started(VmTargetArgs),
     /// Destroy a disposable host VM and remove its temporary key and artifacts
     Destroy(VmDestroyArgs),
     /// List available host templates and their recorded disposable VMs
@@ -144,6 +153,26 @@ struct VmCreateArgs {
     instance: String,
     #[arg(long, default_value_t = 2201)]
     port: u16,
+}
+
+#[derive(clap::Args, Debug)]
+struct VmPrepareArgs {
+    hostname: String,
+    instance: String,
+    #[arg(long, value_enum)]
+    backend: VmBackendName,
+    #[arg(long)]
+    runtime_dir: PathBuf,
+    #[arg(long, default_value = "qemu:///session")]
+    uri: String,
+    #[arg(long, default_value_t = 2201)]
+    port: u16,
+}
+
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
+enum VmBackendName {
+    Native,
+    Flatpak,
 }
 
 #[derive(clap::Args, Debug)]
@@ -262,53 +291,25 @@ fn main() -> Result<()> {
             command: TestCommands::Smoke(args),
         } => run_smoke(&args)?,
         Commands::Test {
-            command:
-                TestCommands::Vm {
-                    command: VmCommands::Create(args),
-                },
-        } => run_vm_create(&args)?,
-        Commands::Test {
-            command:
-                TestCommands::Vm {
-                    command: VmCommands::Destroy(args),
-                },
-        } => run_vm_destroy(&args)?,
-        Commands::Test {
-            command:
-                TestCommands::Vm {
-                    command: VmCommands::List(args),
-                },
-        } => run_vm_list(&args)?,
-        Commands::Test {
-            command:
-                TestCommands::Vm {
-                    command: VmCommands::Status(args),
-                },
-        } => vm::status(&args)?,
-        Commands::Test {
-            command:
-                TestCommands::Vm {
-                    command: VmCommands::Ready(args),
-                },
-        } => vm::ready(&args)?,
-        Commands::Test {
-            command:
-                TestCommands::Vm {
-                    command: VmCommands::ReadyDirectory(args),
-                },
-        } => vm::ready_directory(&args)?,
-        Commands::Test {
-            command:
-                TestCommands::Vm {
-                    command: VmCommands::Provision(args),
-                },
-        } => secret_delivery::provision_vm(&args)?,
-        Commands::Test {
-            command:
-                TestCommands::Vm {
-                    command: VmCommands::Update(args),
-                },
-        } => run_vm_update(&args)?,
+            command: TestCommands::Vm { command },
+        } => run_vm_command(command)?,
+    }
+    Ok(())
+}
+
+fn run_vm_command(command: VmCommands) -> Result<()> {
+    match command {
+        VmCommands::Create(args) => run_vm_create(&args)?,
+        VmCommands::Prepare(args) => run_vm_prepare(&args)?,
+        VmCommands::Defined(args) => vm::record_defined(&args)?,
+        VmCommands::Started(args) => vm::record_started(&args)?,
+        VmCommands::Destroy(args) => run_vm_destroy(&args)?,
+        VmCommands::List(args) => run_vm_list(&args)?,
+        VmCommands::Status(args) => vm::status(&args)?,
+        VmCommands::Ready(args) => vm::ready(&args)?,
+        VmCommands::ReadyDirectory(args) => vm::ready_directory(&args)?,
+        VmCommands::Provision(args) => secret_delivery::provision_vm(&args)?,
+        VmCommands::Update(args) => run_vm_update(&args)?,
     }
     Ok(())
 }
@@ -364,9 +365,11 @@ fn run_vm_create(args: &VmCreateArgs) -> Result<()> {
     let butane = butane_root()?;
     let helper = butane.join("bin/test-vm");
     let port = args.port.to_string();
-    run_helper(
+    let binary = std::env::current_exe().context("locating the running Skillet binary failed")?;
+    run_helper_with_binary(
         &helper,
         &[&args.hostname, "create", &args.instance, "--port", &port],
+        &binary,
     )?;
 
     let run_dir = butane.join("runs").join(&name);
@@ -388,6 +391,40 @@ fn run_vm_create(args: &VmCreateArgs) -> Result<()> {
     Ok(())
 }
 
+fn run_vm_prepare(args: &VmPrepareArgs) -> Result<()> {
+    let identity = skillet_vm::RunIdentity::new(&args.hostname, &args.instance)?;
+    let root = butane_root()?.join("runs");
+    let source_commit = Command::new("git")
+        .args(["-C"])
+        .arg(workspace_root()?)
+        .args(["rev-parse", "--verify", "HEAD"])
+        .output()
+        .context("reading the source revision for VM creation failed")?;
+    if !source_commit.status.success() {
+        return Err(anyhow!("git could not identify the source revision"));
+    }
+    let source_commit = String::from_utf8(source_commit.stdout)
+        .context("git returned a non-UTF-8 source revision")?
+        .trim()
+        .to_owned();
+    let backend = match args.backend {
+        VmBackendName::Native => skillet_vm::Backend::Native,
+        VmBackendName::Flatpak => skillet_vm::Backend::Flatpak,
+    };
+    let run = skillet_vm::ManifestStore::new(&root, skillet_vm::current_uid())?.prepare_intent(
+        &identity,
+        skillet_vm::Connection {
+            backend,
+            uri: args.uri.clone(),
+            runtime_dir: args.runtime_dir.clone(),
+        },
+        args.port,
+        &source_commit,
+    )?;
+    println!("{}", run.uuid);
+    Ok(())
+}
+
 fn run_vm_destroy(args: &VmDestroyArgs) -> Result<()> {
     vm::destroy(args)
 }
@@ -404,8 +441,9 @@ fn vm_name(hostname: &str, instance: &str) -> Result<String> {
     Ok(skillet_vm::RunIdentity::new(hostname, instance)?.domain_name())
 }
 
-fn run_helper(path: &Path, args: &[&str]) -> Result<()> {
+fn run_helper_with_binary(path: &Path, args: &[&str], binary: &Path) -> Result<()> {
     let status = Command::new(path)
+        .env("SKILLET_BINARY", binary)
         .args(args)
         .status()
         .with_context(|| format!("running {} failed", path.display()))?;

@@ -32,6 +32,36 @@ pub(super) fn status(args: &VmTargetArgs) -> Result<()> {
     Ok(())
 }
 
+pub(super) fn record_started(args: &VmTargetArgs) -> Result<()> {
+    let butane = butane_root()?;
+    let identity = RunIdentity::new(&args.hostname, &args.instance)?;
+    let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
+    let _lock = store.lock(&identity)?;
+    let run = store.load(&identity)?;
+    let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
+    backend
+        .inspect(&run)?
+        .ok_or_else(|| anyhow!("VM creation returned without an owned domain"))?
+        .validate_owned(&run)?;
+    store.mark_started(&identity)?;
+    Ok(())
+}
+
+pub(super) fn record_defined(args: &VmTargetArgs) -> Result<()> {
+    let butane = butane_root()?;
+    let identity = RunIdentity::new(&args.hostname, &args.instance)?;
+    let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
+    let _lock = store.lock(&identity)?;
+    let run = store.load(&identity)?;
+    let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
+    backend
+        .inspect(&run)?
+        .ok_or_else(|| anyhow!("VM definition returned without an owned domain"))?
+        .validate_owned(&run)?;
+    store.mark_defined(&identity)?;
+    Ok(())
+}
+
 pub(super) fn destroy(args: &VmDestroyArgs) -> Result<()> {
     let butane = butane_root()?;
     let identity = RunIdentity::new(&args.hostname, &args.instance)?;

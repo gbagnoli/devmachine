@@ -9,7 +9,8 @@ Implemented foundation: `skillet_vm` owns validated host/instance identity,
 backend/connection and SSH types, version-1 `vm.json`, atomic mode-0600 writes,
 and explicit legacy import. Reads do not rewrite retained runs. Legacy files,
 captured/deployed hashes and provider journals remain intact. The generic CLI
-uses the shared identity validator. Eight manifest regression tests pass.
+uses the shared identity validator. Manifest regressions cover strict import,
+preserved journals/hashes, permissions, ownership, and path refusal.
 
 Rust now owns status inspection and disposal through `VmBackend`, a bounded
 native/Flatpak libvirt adapter, and one locked cleanup orchestrator. Both
@@ -21,7 +22,7 @@ implemented and used by the routine container runner; a custom target-directory
 integration check selects the reported binary. `GuestTransport`/`SshTransport`
 now provide explicit target/key policy, literal remote executable arguments,
 noninteractive execution and upload. Subprocess stdin/output stay in memory,
-with bounded concurrent I/O and zeroized copied stdin. Forty-nine VM tests pass.
+with bounded concurrent I/O and zeroized copied stdin. Fifty VM tests pass.
 No live VM was changed or imported.
 
 Retained binary updates now use Rust's shared lock, ownership checks, Cargo
@@ -36,12 +37,20 @@ Readiness first persists `Started`, invalidating any earlier success; it saves
 `Ready` and deployed hashes only after acceptance and a final ownership check.
 Every guest command and upload checks ownership before and after the operation,
 so a change during a long service start stops subsequent guest work.
-Creation, reboot and interactive SSH still use Bash. Credential delivery has
+Creation now records a Rust-owned Preparing manifest and UUID before invoking
+the still-Bash installer; native XML and Flatpak use that UUID. Definition and
+start are recorded as separate phases where the backend exposes them. A failed
+start keeps its domain and can be validated/restarted through the same create
+entry point. Installer staging can resume from a matching Preparing manifest.
+Disk/key preparation, XML generation, reboot and interactive SSH still use
+Bash. Credential delivery has
 not yet adopted the shared transport. Workstream 2 must consolidate the interim
 `boot_policy_for_host` lookup with the canonical capability declaration.
-Next: recoverable creation and the remaining public-helper delegation. Disposal
-and readiness live acceptance remain deferred. See
-[validation evidence](../butane/ACCEPTANCE.md#readiness-retry-recovery-2026-10-03).
+Next: move staging, disk/key preparation and backend creation into Rust, then
+migrate reboot and interactive SSH. Disposal and readiness live acceptance
+remain deferred. See
+[creation validation](../butane/ACCEPTANCE.md#recoverable-vm-creation-intent-2026-10-03)
+and [readiness validation](../butane/ACCEPTANCE.md#readiness-retry-recovery-2026-10-03).
 
 ## Read and locate
 
@@ -52,8 +61,8 @@ and readiness live acceptance remain deferred. See
   `secret_delivery.rs` provisioning, external ownership, cleanup, and VM SSH.
 
 Review findings: disposal used to bypass external cleanup or require a live
-guest; those paths are now fixed. Remaining: failed creation can leave artifacts
-without a usable lifecycle record; readiness and target selection are duplicated.
+guest; those paths are now fixed. Persisted intent now makes interrupted
+creation inspectable; readiness and target selection remain duplicated.
 
 ## Implementation sequence
 

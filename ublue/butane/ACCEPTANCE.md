@@ -1,5 +1,23 @@
 # Clamps VM acceptance log
 
+## Recoverable VM creation intent, 2026-10-03
+
+- Creation now writes a mode-0600 Rust manifest with a generated domain UUID
+  before installer staging. Repeated preparation resumes only the same
+  `Preparing` intent with matching backend, runtime, SSH port, and source
+  revision; ambiguous and progressed directories are refused.
+- The UUID is embedded in native libvirt XML and passed to Flatpak `virt-install`.
+  Native definition is recorded as `Defined` before start. Failed start no
+  longer undefines the guest. Re-running create checks UUID and disk ownership,
+  starts a verified stopped domain, or resumes staging when no domain exists.
+  Captured hashes and `Started` are written after the helper succeeds.
+- Local regression tests cover intent reuse/conflict, private run-directory
+  permissions, and phase transitions. Passed `cargo fmt --all --check`,
+  offline workspace all-target Clippy with `-D warnings`, offline workspace
+  tests/build, the CI Fedora repeat-apply container integration, ShellCheck for
+  both changed helpers, CLI help, and `git diff --check`. No VM, libvirt domain,
+  vault, or provider resource was contacted for this change.
+
 ## Rust readiness migration, 2026-10-03
 
 - The CLI's `test vm ready HOST INSTANCE`, create's readiness phase,

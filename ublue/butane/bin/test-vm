@@ -98,6 +98,13 @@ usage() {
   exit 2
 }
 config_value() { sed -n "s/^$1=//p" "$run_dir/run.conf" | head -n 1; }
+skillet_cli() {
+  if [[ -n "${SKILLET_BINARY:-}" ]]; then
+    "$SKILLET_BINARY" "$@"
+  else
+    (cd "$script_dir/../../skillet" && cargo run --quiet --release -p skillet -- "$@")
+  fi
+}
 host_exists() {
   [[ -f "$script_dir/../$1.bu" || -f "$script_dir/../../skillet/crates/hosts/$1/Cargo.toml" ]]
 }
@@ -179,7 +186,6 @@ case "$operation" in
       usage
     fi
     [[ "$port" =~ ^22[0-9][0-9]$ ]] || { echo "Use a port from 2200 to 2299" >&2; exit 2; }
-    [[ ! -e "$run_dir" && ! -L "$run_dir" ]] || { echo "Run path already exists" >&2; exit 1; }
     host_available "$host" || { echo "Host $host needs both $host.bu and a skillet-$host crate" >&2; exit 1; }
     select_backend
     if [[ "$backend" == native ]]; then
@@ -194,13 +200,30 @@ case "$operation" in
       exit 1
     fi
     ensure_runtime
-    if vm_virsh dominfo "$name" &>/dev/null; then
-      echo "Domain already exists" >&2; exit 1
-    fi
     mkdir -p "$root"
+    if vm_virsh dominfo "$name" &>/dev/null && [[ ! -f "$run_dir/vm.json" ]]; then
+      echo "Domain already exists without a recorded creation intent; refusing adoption" >&2
+      exit 1
+    fi
+    prepare_args=(test vm prepare "$host" "$instance" --backend "$backend" --runtime-dir "$runtime_dir" --uri "$uri" --port "$port")
+    uuid="$(skillet_cli "${prepare_args[@]}")"
+    if vm_virsh dominfo "$name" &>/dev/null; then
+      skillet_cli test vm status "$host" "$instance"
+      state="$(vm_virsh domstate "$name" | tr -d '\r')"
+      if [[ "$state" == "shut off" ]]; then
+        vm_virsh start "$name"
+      elif [[ "$state" != "running" ]]; then
+        echo "Cannot resume VM in libvirt state: $state" >&2
+        exit 1
+      fi
+      skillet_cli test vm started "$host" "$instance"
+      echo "Resumed recorded VM $name"
+      exit 0
+    fi
     TEST_VM_BACKEND="$backend" TEST_VM_LIBVIRT_RUNTIME_DIR="$runtime_dir" "$script_dir/coreos-install" --name "$name" --output-dir "$run_dir" \
-      --ssh-port "$port" --libvirt-uri "$uri" "$script_dir/../$host.bu"
+      --ssh-port "$port" --libvirt-uri "$uri" --uuid "$uuid" --resume-prepared "$script_dir/../$host.bu"
     vm_virsh domuuid "$name" > "$run_dir/domain.uuid"
+    skillet_cli test vm started "$host" "$instance"
     echo "Run: $run_dir" ;;
   ssh)
     (($# == 0)) || usage
