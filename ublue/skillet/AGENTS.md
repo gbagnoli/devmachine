@@ -66,6 +66,10 @@ tracks existing violations and their migration, not completed implementation.
   workstation provisioning, and test fixtures have distinct responsibilities.
   Extract modules first and crates where dependency or deployment boundaries
   justify them; production dispatch must not include synthetic test profiles.
+- Keep workstation vault, provider-client, and host-provisioning dependencies
+  behind workstation libraries. Guest apply and credential commands must not
+  require a workstation vault, interactive unlock flow, or provisioning-only
+  API client.
 - Share delivery and lifecycle workflows across environments. Supply explicit
   policy and target inputs rather than duplicating algorithms or branching on
   particular deployment names. Keep secret values off command lines and out of

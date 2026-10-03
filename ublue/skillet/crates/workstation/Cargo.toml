@@ -1,0 +1,16 @@
+[package]
+name = "skillet_workstation"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+hex.workspace = true
+keepass.workspace = true
+keyutils.workspace = true
+rpassword.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true

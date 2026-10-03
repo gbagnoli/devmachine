@@ -9,7 +9,6 @@ use thiserror::Error;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
-mod credential;
 pub mod hosts;
 use hosts::ApplyPhase;
 
@@ -25,8 +24,8 @@ pub enum CliCommonError {
     Io(#[from] std::io::Error),
     #[error("Serialization error: {0}")]
     Yaml(#[from] serde_yml::Error),
-    #[error("Credential error: {0}")]
-    Credential(#[from] credential::CredentialError),
+    #[error("Credential installation error: {0}")]
+    CredentialInstall(#[from] skillet_core::credential_install::CredentialInstallError),
     #[error("Systemd credential error: {0}")]
     SystemdCredential(#[from] skillet_core::credentials::CredentialError),
 }
@@ -103,13 +102,13 @@ where
         HostCommands::Credential { command } => {
             match command {
                 CredentialCommands::State { name } => {
-                    println!("{}", credential::state(&name)?);
+                    println!("{}", skillet_core::credential_install::state(&name)?);
                 }
                 CredentialCommands::Install {
                     name,
                     unit,
                     no_start,
-                } => credential::install(&name, &unit, !no_start)?,
+                } => skillet_core::credential_install::install(&name, &unit, !no_start)?,
             }
             Ok(())
         }
