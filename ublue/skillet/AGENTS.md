@@ -99,8 +99,10 @@ tracks existing violations and their migration, not completed implementation.
   overwrite a concurrently created authoritative manifest.
 - Serialize lifecycle mutations per run. A successful runtime query must
   establish absence; transport failure is not absence. Revalidate ownership
-  after long external calls and address destructive runtime actions by the
-  recorded immutable identity, not only a reusable name.
+  around each bounded remote operation and after long external calls; do not
+  continue with later operations when an ownership check fails. Address
+  destructive runtime actions by the recorded immutable identity, not only a
+  reusable name.
 - Verify deployed artifact bytes and required metadata before recording delivery
   success. Keep original capture evidence distinct from subsequent deployments;
   a partially successful transfer must remain safely retryable.

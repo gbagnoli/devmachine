@@ -21,7 +21,7 @@ implemented and used by the routine container runner; a custom target-directory
 integration check selects the reported binary. `GuestTransport`/`SshTransport`
 now provide explicit target/key policy, literal remote executable arguments,
 noninteractive execution and upload. Subprocess stdin/output stay in memory,
-with bounded concurrent I/O and zeroized copied stdin. Forty-eight VM tests pass.
+with bounded concurrent I/O and zeroized copied stdin. Forty-nine VM tests pass.
 No live VM was changed or imported.
 
 Retained binary updates now use Rust's shared lock, ownership checks, Cargo
@@ -32,12 +32,15 @@ probes, captured artifact verification, explicit profile boot expectations,
 base/user-environment checks and mode-0600 diagnostics. The CLI, create path,
 `test-vm ready` and the RUN_DIR compatibility helper share that implementation.
 Identity for the compatibility helper comes from validated recorded fields.
-Ready/deployed state is saved only after acceptance and a final ownership check.
+Readiness first persists `Started`, invalidating any earlier success; it saves
+`Ready` and deployed hashes only after acceptance and a final ownership check.
+Every guest command and upload checks ownership before and after the operation,
+so a change during a long service start stops subsequent guest work.
 Creation, reboot and interactive SSH still use Bash. Credential delivery has
 not yet adopted the shared transport. Workstream 2 must consolidate the interim
 `boot_policy_for_host` lookup with the canonical capability declaration.
-Next: recoverable creation and the
-remaining public-helper delegation. Disposal live acceptance remains deferred. See
+Next: recoverable creation and the remaining public-helper delegation. Disposal
+and readiness live acceptance remain deferred. See
 [validation evidence](../butane/ACCEPTANCE.md#vm-refactoring-foundation-2026-10-03).
 
 ## Read and locate

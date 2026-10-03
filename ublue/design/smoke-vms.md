@@ -40,7 +40,9 @@ partial cleanup preserve journals for retry. A per-run lock prevents concurrent
 readiness, updates and disposal. Readiness uses the selected profile's explicit
 boot expectations and captured binaries, and records Ready only after signed
 boot, unit, SELinux, resolver and user-environment checks. Bounded probes and
-private diagnostics allow failed checks to be retried. Creation and other
+private diagnostics allow failed checks to be retried. It first persists
+Started to invalidate stale readiness, then checks ownership before and after
+each guest command/upload. Creation and other
 remaining lifecycle commands still use Bash. Unit/adapter checks pass;
 live migration acceptance is deferred while the user's VM creation runs.
 

@@ -11,7 +11,7 @@
   resolver/DNS, masked-unit, Homebrew and dotfiles acceptance checks. Both
   binaries are verified again after apply. Ready/deployed state is saved only
   after all checks and final domain ownership validation.
-- Forty-eight VM tests pass, including success/retry, SSH/signed-boot timeout,
+- Forty-nine VM tests pass, including success/retry, SSH/signed-boot timeout,
   bootstrap/apply failure, ownership loss, capture tampering, signed-origin
   refusal, guest security/user-environment failures and directory-based legacy
   identity lookup. Failure retains private diagnostic logs; ownership loss
@@ -24,6 +24,22 @@
 - Live native/Flatpak readiness, rebase and retained-run import remain
   unverified. The user's VM and provider resources were not contacted or
   modified. No vault unlock or workstation installation was needed.
+
+## Readiness retry recovery, 2026-10-03
+
+- A readiness retry now persists `Started` before guest work, so failure after
+  updating a previously `Ready` run cannot leave the prior success checkpoint
+  in place. Only full acceptance plus a final owner check persists `Ready` and
+  the captured deployed hashes.
+- A guarded transport checks domain identity before and after every guest
+  command and upload, including systemd service starts. A changed owner halts
+  the sequence before subsequent service operations or diagnostics.
+- Regression tests begin timeout/bootstrap/apply retry cases in `Ready` and
+  verify the saved phase becomes `Started`; an ownership-loss case during the
+  Brew start confirms dotfiles is not started afterward. Full validation is
+  complete: formatting, all-target offline Clippy, workspace tests/build,
+  Fedora repeat-apply integration, readiness CLI help, ShellCheck for both VM
+  wrappers and `git diff --check` pass. Live VM acceptance remains pending.
 
 ## Retained VM update migration, 2026-10-03
 

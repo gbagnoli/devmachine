@@ -3,7 +3,7 @@ use crate::{
     delivery::{checked, deliver, sha256},
     manifest::reject_symlinks,
     transport::{GuestCommand, GuestTransport},
-    Error, Phase, Result, VmRun,
+    Error, ManifestStore, Phase, Result, VmRun,
 };
 use std::{
     fs,
@@ -48,8 +48,34 @@ pub struct ReadinessIo<'a, T> {
     pub ownership: &'a dyn Fn() -> Result<()>,
 }
 
+struct OwnedTransport<'a, T> {
+    transport: &'a T,
+    ownership: &'a dyn Fn() -> Result<()>,
+}
+
+impl<T: GuestTransport> GuestTransport for OwnedTransport<'_, T> {
+    fn execute(
+        &self,
+        command: &GuestCommand<'_>,
+        input: Option<&[u8]>,
+    ) -> Result<std::process::Output> {
+        (self.ownership)()?;
+        let result = self.transport.execute(command, input);
+        (self.ownership)()?;
+        result
+    }
+
+    fn upload(&self, source: &Path, destination: &str) -> Result<()> {
+        (self.ownership)()?;
+        let result = self.transport.upload(source, destination);
+        (self.ownership)()?;
+        result
+    }
+}
+
 pub fn ready(
-    run: &VmRun,
+    run: &mut VmRun,
+    store: &ManifestStore,
     run_dir: &Path,
     policy: &ReadinessPolicy,
     io: &ReadinessIo<'_, impl GuestTransport>,
@@ -74,27 +100,40 @@ pub fn ready(
         ));
     }
     (io.ownership)()?;
+    // Readiness can replace delivered executables and restart services. Mark
+    // the old success stale before the first guest operation so a failed retry
+    // cannot leave a Ready manifest behind.
+    run.phase = Phase::Started;
+    store.save(run)?;
+    let probe = OwnedTransport {
+        transport: io.probe,
+        ownership: io.ownership,
+    };
+    let operations = OwnedTransport {
+        transport: io.operations,
+        ownership: io.ownership,
+    };
     let result = (|| {
-        wait(run, policy, io.probe, clock, report, false)?;
+        wait(run, policy, &probe, io.ownership, clock, report, false)?;
         (io.ownership)()?;
         report("Installing captured Skillet binaries");
-        deliver(run, io.operations, &host, &generic)?;
-        wait(run, policy, io.probe, clock, report, true)?;
+        deliver(run, &operations, &host, &generic)?;
+        wait(run, policy, &probe, io.ownership, clock, report, true)?;
         (io.ownership)()?;
         expect(
-            io.operations,
+            &operations,
             "cat",
             &["/etc/skillet/host"],
             run.identity.host(),
         )?;
         let status = checked(
-            io.operations,
+            &operations,
             "sudo",
             &["-n", "rpm-ostree", "status", "--json"],
         )?;
         verify_signed_origin(&status, &policy.signed_image)?;
         report("Applying the base profile and user environment");
-        let transport = io.operations;
+        let transport = &operations;
         for arguments in [
             vec!["reset-failed", "skillet-apply.service"],
             vec!["restart", "skillet-apply.service"],
@@ -114,15 +153,20 @@ pub fn ready(
     })();
     if result.is_err() && (io.ownership)().is_ok() {
         // Diagnostics are best effort; never replace the original failure.
-        let _ = diagnostics(io.probe, run_dir);
+        let _ = diagnostics(&probe, run_dir);
     }
-    result
+    result?;
+    (io.ownership)()?;
+    run.phase = Phase::Ready;
+    run.deployed.clone_from(&run.captured);
+    store.save(run)
 }
 
 fn wait(
     run: &VmRun,
     policy: &ReadinessPolicy,
     transport: &impl GuestTransport,
+    ownership: &dyn Fn() -> Result<()>,
     clock: &impl WaitClock,
     report: &mut impl FnMut(&str),
     signed: bool,
@@ -135,6 +179,9 @@ fn wait(
     let start = clock.elapsed();
     let mut next_report = Duration::from_mins(1);
     loop {
+        // The owner may have disappeared even when a failed SSH probe was an
+        // expected condition. Recheck before another probe or a backoff sleep.
+        ownership()?;
         let elapsed = clock.elapsed().saturating_sub(start);
         if elapsed >= policy.phase_timeout {
             return Err(Error::Invalid(format!("timed out waiting for {phase}")));

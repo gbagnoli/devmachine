@@ -167,13 +167,14 @@ fn fixture() -> (
 
 #[test]
 fn selected_profile_passes_signed_boot_delivery_and_user_environment_checks() {
-    let (_tmp, store, run, policy) = fixture();
+    let (_tmp, store, mut run, policy) = fixture();
     let guest = FakeGuest::default();
     let dir = store.run_dir(&run.identity);
     let clock = FakeClock::default();
     let mut messages = Vec::new();
     ready(
-        &run,
+        &mut run,
+        &store,
         &dir,
         &policy,
         &ReadinessIo {
@@ -185,6 +186,8 @@ fn selected_profile_passes_signed_boot_delivery_and_user_environment_checks() {
         &mut |message| messages.push(message.to_owned()),
     )
     .unwrap();
+    assert_eq!(run.phase, Phase::Ready);
+    assert_eq!(store.load(&run.identity).unwrap().phase, Phase::Ready);
     assert!(messages
         .iter()
         .any(|message| message.contains("fixture-test")));
@@ -205,7 +208,8 @@ fn selected_profile_passes_signed_boot_delivery_and_user_environment_checks() {
     drop(calls);
     guest.calls.borrow_mut().clear();
     ready(
-        &run,
+        &mut run,
+        &store,
         &dir,
         &policy,
         &ReadinessIo {
@@ -223,7 +227,9 @@ fn selected_profile_passes_signed_boot_delivery_and_user_environment_checks() {
 #[test]
 fn ssh_and_signed_boot_timeouts_are_bounded_and_leave_private_diagnostics() {
     for signed in [false, true] {
-        let (_tmp, store, run, policy) = fixture();
+        let (_tmp, store, mut run, policy) = fixture();
+        run.phase = Phase::Ready;
+        store.save(&run).unwrap();
         let guest = FakeGuest {
             no_ssh: !signed,
             no_signed: signed,
@@ -232,7 +238,8 @@ fn ssh_and_signed_boot_timeouts_are_bounded_and_leave_private_diagnostics() {
         let clock = FakeClock::default();
         let dir = store.run_dir(&run.identity);
         assert!(ready(
-            &run,
+            &mut run,
+            &store,
             &dir,
             &policy,
             &ReadinessIo {
@@ -267,10 +274,13 @@ fn bootstrap_apply_or_profile_failure_never_claims_ready() {
             ..FakeGuest::default()
         },
     ] {
-        let (_tmp, store, run, policy) = fixture();
+        let (_tmp, store, mut run, policy) = fixture();
+        run.phase = Phase::Ready;
+        store.save(&run).unwrap();
         let dir = store.run_dir(&run.identity);
         assert!(ready(
-            &run,
+            &mut run,
+            &store,
             &dir,
             &policy,
             &ReadinessIo {
@@ -301,9 +311,11 @@ fn changed_capture_or_cleanup_phase_refuses_all_guest_effects() {
             .unwrap();
         }
         let guest = FakeGuest::default();
+        let dir = store.run_dir(&run.identity);
         assert!(ready(
-            &run,
-            &store.run_dir(&run.identity),
+            &mut run,
+            &store,
+            &dir,
             &policy,
             &ReadinessIo {
                 probe: &guest,
@@ -348,7 +360,7 @@ fn guest_security_service_links_brew_and_artifact_assertions_fail_closed() {
     for fault in [
         "selinux", "resolver", "result", "mask", "brew", "link", "artifact",
     ] {
-        let (_tmp, store, run, policy) = fixture();
+        let (_tmp, store, mut run, policy) = fixture();
         let guest = FakeGuest {
             fault,
             ..FakeGuest::default()
@@ -356,7 +368,8 @@ fn guest_security_service_links_brew_and_artifact_assertions_fail_closed() {
         let dir = store.run_dir(&run.identity);
         assert!(
             ready(
-                &run,
+                &mut run,
+                &store,
                 &dir,
                 &policy,
                 &ReadinessIo {
@@ -377,20 +390,22 @@ fn guest_security_service_links_brew_and_artifact_assertions_fail_closed() {
 
 #[test]
 fn ownership_loss_after_wait_refuses_delivery_and_contact_for_diagnostics() {
-    let (_tmp, store, run, policy) = fixture();
+    let (_tmp, store, mut run, policy) = fixture();
     let guest = FakeGuest::default();
     let checks = Cell::new(0);
     let ownership = || {
         checks.set(checks.get() + 1);
-        if checks.get() == 1 {
+        if checks.get() <= 3 {
             Ok(())
         } else {
             Err(Error::Invalid("domain changed".into()))
         }
     };
+    let dir = store.run_dir(&run.identity);
     assert!(ready(
-        &run,
-        &store.run_dir(&run.identity),
+        &mut run,
+        &store,
+        &dir,
         &policy,
         &ReadinessIo {
             probe: &guest,
@@ -402,5 +417,45 @@ fn ownership_loss_after_wait_refuses_delivery_and_contact_for_diagnostics() {
     )
     .is_err());
     assert_eq!(guest.calls.borrow().len(), 1); // Only the initial SSH probe.
-    assert!(!store.run_dir(&run.identity).join("readiness.log").exists());
+    assert!(!dir.join("readiness.log").exists());
+}
+
+#[test]
+fn ownership_loss_after_long_brew_operation_stops_before_dotfiles_start() {
+    let (_tmp, store, mut run, policy) = fixture();
+    let guest = FakeGuest::default();
+    let ownership = || {
+        let brew_started = guest.calls.borrow().iter().any(|call| {
+            call == "sudo [\"-n\", \"systemctl\", \"start\", \"brew-install.service\"]"
+        });
+        if brew_started {
+            Err(Error::Invalid(
+                "owned domain changed during Brew install".into(),
+            ))
+        } else {
+            Ok(())
+        }
+    };
+    let dir = store.run_dir(&run.identity);
+    assert!(ready(
+        &mut run,
+        &store,
+        &dir,
+        &policy,
+        &ReadinessIo {
+            probe: &guest,
+            operations: &guest,
+            ownership: &ownership,
+        },
+        &FakeClock::default(),
+        &mut |_| {},
+    )
+    .is_err());
+    assert!(guest.calls.borrow().iter().any(|call| {
+        call == "sudo [\"-n\", \"systemctl\", \"start\", \"brew-install.service\"]"
+    }));
+    assert!(!guest.calls.borrow().iter().any(|call| {
+        call == "sudo [\"-n\", \"systemctl\", \"start\", \"dotfiles-install.service\"]"
+    }));
+    assert_eq!(store.load(&run.identity).unwrap().phase, Phase::Started);
 }
