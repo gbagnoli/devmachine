@@ -20,6 +20,22 @@
   creating a smoke VM in another panel; it and its artifacts were left alone.
   No vault, Cloudflare or Tailscale request was needed for this slice.
 
+## Rust VM inspection and disposal, 2026-10-03
+
+- Source slice: follows `544b8e5`. `test vm status` and both destroy entry
+  points use `skillet_vm`. Native and Flatpak command contracts are covered
+  without contacting libvirt. Destructive actions use the recorded UUID.
+- Twenty-one VM regression tests pass, including absent guests, failed runtime
+  queries, reused names/renamed UUIDs, wrong disks, literal subprocess arguments,
+  bounded command timeout, concurrent disposal, external cleanup failure/retry,
+  and local cleanup retry after the external phase was already completed.
+- Passed the same static-musl workspace format, all-target pedantic Clippy,
+  workspace tests/build and Fedora base integration commands listed above;
+  also passed `shellcheck -x butane/bin/test-vm` and `git diff --check`.
+- No live VM mutation, retained-run import, provider call or vault unlock was
+  attempted. Live cleanup and Flatpak runtime acceptance remain unverified.
+  The user's concurrent VM creation was left untouched.
+
 Status: clean disposable VM create, readiness, and the real Skillet smoke
 scenario passed on 2026-09-26. A subsequent fresh VM reached the signed
 deployment and installed the full user environment. Bootstrap interruption

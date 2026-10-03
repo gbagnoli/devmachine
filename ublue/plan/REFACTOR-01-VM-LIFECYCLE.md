@@ -11,10 +11,16 @@ and explicit legacy import. Reads do not rewrite retained runs. Legacy files,
 captured/deployed hashes and provider journals remain intact. The generic CLI
 uses the shared identity validator. Eight manifest regression tests pass.
 
-Creation, readiness, inspection and disposal still use existing Bash/CLI paths;
-the library does not yet replace them. No live VM was changed or imported.
-Next: backend/transport contracts and shared Rust inspection, then recoverable
-creation/readiness/disposal and public-helper delegation. See
+Rust now owns status inspection and disposal through `VmBackend`, a bounded
+native/Flatpak libvirt adapter, and one locked cleanup orchestrator. Both
+public destroy paths use it. Successful lists distinguish an absent guest
+from a failed connection; UUID and disk ownership are checked before cleanup
+and again after external calls. Failed cleanup retains its manifest/journals.
+Twenty-one VM tests pass. No live VM was changed or imported.
+
+Creation, readiness, list/update/reboot and SSH still use Bash. Next: shared
+transport, catalog/artifact handling, recoverable creation/readiness and the
+remaining public-helper delegation. Disposal live acceptance remains deferred. See
 [validation evidence](../butane/ACCEPTANCE.md#vm-refactoring-foundation-2026-10-03).
 
 ## Read and locate

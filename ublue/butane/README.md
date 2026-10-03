@@ -83,9 +83,21 @@ create and ready:
 ```bash
 cargo run --release -p skillet -- test vm create clamps smoke
 cargo run --release -p skillet -- test vm list clamps
+cargo run --release -p skillet -- test vm status clamps smoke
 cargo run --release -p skillet -- test vm provision clamps smoke
 cargo run --release -p skillet -- test vm destroy clamps smoke
 ```
+
+`status` and `destroy` now use the Rust ownership/cleanup implementation;
+the corresponding `test-vm` commands delegate to it. Reading status does not
+import or rewrite a legacy run. Disposal creates a private versioned manifest
+while retaining original files until cleanup finishes. If the owned guest is
+already absent, disposal still cleans recorded external resources before
+removing local artifacts. A stopped/inaccessible libvirt runtime is reported
+as an error; retry after making its recorded connection available. An enrolled
+VM may require the normal KeePassXC unlock to remove its provider resources.
+Failed cleanup retains recovery metadata. Other helper commands are still
+being migrated; see [the roadmap](../plan/SKILLET-REFACTOR.md).
 
 The helper calls `coreos-install`, which builds the generic `skillet` CLI and
 the `skillet-clamps` host binary. The lower-level launcher accepts `--artifact PATH`

@@ -91,6 +91,10 @@ tracks existing violations and their migration, not completed implementation.
 - Reading retained state must not implicitly migrate it. Import legacy formats
   explicitly, preserve original evidence, and use atomic creation that cannot
   overwrite a concurrently created authoritative manifest.
+- Serialize lifecycle mutations per run. A successful runtime query must
+  establish absence; transport failure is not absence. Revalidate ownership
+  after long external calls and address destructive runtime actions by the
+  recorded immutable identity, not only a reusable name.
 - Keep subprocess adapters focused: construct executable arguments and
   environments directly, observe results, and bound waits with diagnostics.
   Preserve supported workstation backends and static guest builds without

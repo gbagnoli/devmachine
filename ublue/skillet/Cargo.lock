@@ -2436,6 +2436,8 @@ dependencies = [
 name = "skillet_vm"
 version = "0.1.0"
 dependencies = [
+ "nix",
+ "quick-xml",
  "serde",
  "serde_json",
  "tempfile",

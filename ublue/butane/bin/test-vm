@@ -167,7 +167,8 @@ fi
 host="$1"
 operation="$2"
 shift 2
-if [[ ! "$host" =~ ^[a-z][a-z0-9-]*$ ]] || ! host_exists "$host"; then
+if [[ ! "$host" =~ ^[a-z][a-z0-9-]*$ ]] ||
+   { [[ "$operation" != destroy && "$operation" != status ]] && ! host_exists "$host"; }; then
   echo "Unknown host: $host" >&2
   exit 2
 fi
@@ -185,6 +186,13 @@ shift
 name="$host-test-$instance"
 run_dir="$root/$name"
 [[ ! -L "$root" && ! -L "$run_dir" ]] || { echo "Symlinked artifact path refused" >&2; exit 1; }
+# Migrate commands one slice at a time. All disposal now uses the Rust owner,
+# including provider cleanup when the owned domain has already disappeared.
+if [[ "$operation" == destroy || "$operation" == status ]]; then
+  (($# == 0)) || usage
+  cd "$script_dir/../../skillet"
+  exec cargo run --quiet --release -p skillet -- test vm "$operation" "$host" "$instance"
+fi
 inspect_owned() {
   [[ -d "$run_dir" && -f "$run_dir/run.conf" && -f "$run_dir/domain.uuid" ]] || {
     echo "Missing owned run manifest for $name" >&2; exit 1;
@@ -278,11 +286,6 @@ case "$operation" in
     sha256sum "$artifact" > "$run_dir/deployed-skillet.sha256"
     sha256sum "$generic_artifact" > "$run_dir/deployed-skillet-generic.sha256"
     echo "Updated skillet and skillet-$host in $name" ;;
-  status)
-    (($# == 0)) || usage
-    inspect_owned
-    vm_virsh dominfo "$name"
-    vm_virsh domblklist "$name" ;;
   ssh)
     (($# == 0)) || usage
     inspect_owned
@@ -298,14 +301,5 @@ case "$operation" in
     (($# == 0)) || usage
     inspect_owned
     vm_virsh reboot "$name" ;;
-  destroy)
-    (($# == 0)) || usage
-    inspect_owned
-    if [[ "$(vm_virsh domstate "$name")" != 'shut off' ]]; then
-      vm_virsh destroy "$name"
-    fi
-    vm_virsh undefine "$name"
-    [[ "$(realpath -e "$run_dir")" == "$run_dir" && "$run_dir" == "$root"/"$host"-test-* ]] || exit 1
-    rm -rf -- "$run_dir" ;;
   *) usage ;;
 esac
