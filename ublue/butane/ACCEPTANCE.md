@@ -983,3 +983,16 @@ host tool; it still uses normal command approvals.
   all-target Clippy and the static-musl build passed. CI container integration
   exited 0; both applies succeeded, repeat apply issued no restart, and its
   disposable container was removed. No live Cloudflare API mutation was made.
+
+### Tailscale workstation provider library, 2026-10-04
+
+- Moved OAuth, auth-key, tagged-device lookup, and device-removal operations
+  into `skillet_workstation::tailscale`; removed the CLI's direct `reqwest`
+  dependency. Provider errors use `thiserror` and preserve transport sources.
+- Local HTTP fixture tests passed for token/auth-key requests, tagged lookup and
+  removal, and API errors. Workspace formatting, offline tests, strict
+  all-target Clippy, and the CI container integration command passed. The
+  integration command applied the beezelbot base twice, confirmed the repeat
+  caused no service restart, and removed its disposable container.
+- Live Tailscale API/VM acceptance was not run. Lifecycle ownership and
+  production-versus-test orchestration remain pending in workstream 4.

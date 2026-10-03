@@ -1,9 +1,9 @@
 use super::{
-    butane_root, tailscale, vm_name, SecretDeliverArgs, UiEnvironmentName, VmDestroyArgs,
-    VmProvisionArgs,
+    butane_root, vm_name, SecretDeliverArgs, UiEnvironmentName, VmDestroyArgs, VmProvisionArgs,
 };
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
+use skillet_workstation::tailscale;
 use skillet_workstation::vault::Vault;
 use std::{
     fs,
@@ -242,7 +242,7 @@ fn tailscale_credentials(vault: &Vault) -> Result<tailscale::OAuthCredentials> {
         .ok_or_else(|| {
             anyhow!("KeePassXC entry skillet/tailscale/provisioner-client-secret is missing")
         })?;
-    tailscale::OAuthCredentials::new(client_id, client_secret)
+    Ok(tailscale::OAuthCredentials::new(client_id, client_secret)?)
 }
 
 fn ssh_command(args: &SecretDeliverArgs) -> Command {
