@@ -1,4 +1,5 @@
 use nix::unistd::{chown, fchown, Gid, Uid};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
 use std::io::{self, BufReader, Write};
@@ -46,6 +47,20 @@ pub enum FileError {
     Btrfs(String, String),
 }
 
+/// Owner identity can be expressed by a host account name or a numeric ID.
+/// Numeric identities do not require a matching NSS entry.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum OwnerIdentity {
+    Name(String),
+    Id(u32),
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub struct Ownership {
+    pub uid: Option<OwnerIdentity>,
+    pub gid: Option<OwnerIdentity>,
+}
+
 pub trait FileResource {
     fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError>;
     fn ensure_file(
@@ -56,20 +71,28 @@ pub trait FileResource {
         owner: Option<&str>,
         group: Option<&str>,
     ) -> Result<bool, FileError>;
+    fn ensure_directory_with_ownership(
+        &self,
+        path: &Path,
+        mode: Option<u32>,
+        ownership: &Ownership,
+    ) -> Result<bool, FileError>;
     fn ensure_directory(
         &self,
         path: &Path,
         mode: Option<u32>,
         owner: Option<&str>,
         group: Option<&str>,
-    ) -> Result<bool, FileError>;
-    fn ensure_directory_with_owner_ids(
-        &self,
-        path: &Path,
-        mode: Option<u32>,
-        uid: u32,
-        gid: u32,
-    ) -> Result<bool, FileError>;
+    ) -> Result<bool, FileError> {
+        self.ensure_directory_with_ownership(
+            path,
+            mode,
+            &Ownership {
+                uid: owner.map(|name| OwnerIdentity::Name(name.to_string())),
+                gid: group.map(|name| OwnerIdentity::Name(name.to_string())),
+            },
+        )
+    }
     fn delete_file(&self, path: &Path) -> Result<bool, FileError>;
     fn require_btrfs_subvolume_mount(
         &self,
@@ -189,6 +212,73 @@ impl LocalFileResource {
                 .map_err(|e| FileError::SetOwnership(path.display().to_string(), e.to_string()))?;
         }
 
+        Ok(())
+    }
+
+    fn identity_uid(identity: &OwnerIdentity) -> Result<u32, FileError> {
+        match identity {
+            OwnerIdentity::Name(name) => get_user_by_name(name)
+                .map(|user| user.uid())
+                .ok_or_else(|| FileError::UserNotFound(name.clone())),
+            OwnerIdentity::Id(uid) => Ok(*uid),
+        }
+    }
+
+    fn identity_gid(identity: &OwnerIdentity) -> Result<u32, FileError> {
+        match identity {
+            OwnerIdentity::Name(name) => get_group_by_name(name)
+                .map(|group| group.gid())
+                .ok_or_else(|| FileError::GroupNotFound(name.clone())),
+            OwnerIdentity::Id(gid) => Ok(*gid),
+        }
+    }
+
+    fn check_directory_metadata(
+        path: &Path,
+        mode: Option<u32>,
+        ownership: &Ownership,
+    ) -> Result<bool, FileError> {
+        let metadata = fs::metadata(path)
+            .map_err(|error| FileError::Read(path.display().to_string(), error))?;
+        let uid = ownership.uid.as_ref().map(Self::identity_uid).transpose()?;
+        let gid = ownership.gid.as_ref().map(Self::identity_gid).transpose()?;
+        Ok(
+            mode.is_some_and(|desired| metadata.permissions().mode() & 0o7777 != desired)
+                || uid.is_some_and(|desired| metadata.uid() != desired)
+                || gid.is_some_and(|desired| metadata.gid() != desired),
+        )
+    }
+
+    fn apply_directory_metadata(
+        path: &Path,
+        mode: Option<u32>,
+        ownership: &Ownership,
+    ) -> Result<(), FileError> {
+        if let Some(mode) = mode {
+            let mut permissions = fs::metadata(path)
+                .map_err(|error| FileError::Read(path.display().to_string(), error))?
+                .permissions();
+            permissions.set_mode(mode);
+            fs::set_permissions(path, permissions)
+                .map_err(|error| FileError::SetPermissions(path.display().to_string(), error))?;
+        }
+        if ownership.uid.is_some() || ownership.gid.is_some() {
+            let uid = ownership
+                .uid
+                .as_ref()
+                .map(Self::identity_uid)
+                .transpose()?
+                .map(Uid::from_raw);
+            let gid = ownership
+                .gid
+                .as_ref()
+                .map(Self::identity_gid)
+                .transpose()?
+                .map(Gid::from_raw);
+            chown(path, uid, gid).map_err(|error| {
+                FileError::SetOwnership(path.display().to_string(), error.to_string())
+            })?;
+        }
         Ok(())
     }
 
@@ -338,12 +428,11 @@ impl FileResource for LocalFileResource {
         Ok(changed)
     }
 
-    fn ensure_directory(
+    fn ensure_directory_with_ownership(
         &self,
         path: &Path,
         mode: Option<u32>,
-        owner: Option<&str>,
-        group: Option<&str>,
+        ownership: &Ownership,
     ) -> Result<bool, FileError> {
         let mut changed = false;
 
@@ -381,32 +470,12 @@ impl FileResource for LocalFileResource {
             }
         }
 
-        if path.exists() && Self::check_metadata(path, mode, owner, group)? {
-            Self::apply_metadata(path, mode, owner, group)?;
+        if path.exists() && Self::check_directory_metadata(path, mode, ownership)? {
+            Self::apply_directory_metadata(path, mode, ownership)?;
             changed = true;
             info!("Updated directory metadata for {}", path.display());
         }
 
-        Ok(changed)
-    }
-
-    fn ensure_directory_with_owner_ids(
-        &self,
-        path: &Path,
-        mode: Option<u32>,
-        uid: u32,
-        gid: u32,
-    ) -> Result<bool, FileError> {
-        let mut changed = self.ensure_directory(path, mode, None, None)?;
-        let metadata = fs::metadata(path)
-            .map_err(|error| FileError::Read(path.display().to_string(), error))?;
-        if metadata.uid() != uid || metadata.gid() != gid {
-            chown(path, Some(Uid::from_raw(uid)), Some(Gid::from_raw(gid))).map_err(|error| {
-                FileError::SetOwnership(path.display().to_string(), error.to_string())
-            })?;
-            changed = true;
-            info!("Updated directory numeric ownership for {}", path.display());
-        }
         Ok(changed)
     }
 

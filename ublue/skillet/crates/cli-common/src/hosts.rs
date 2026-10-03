@@ -1,5 +1,6 @@
 //! CLI phase parsing and compatibility forwarding to canonical host profiles.
 
+use skillet_core::credentials::CredentialInputs;
 use skillet_core::{files::FileResource, system::SystemResource};
 pub use skillet_hosts::{
     boot_policy_for_host, declared_profiles, profile_for_host, profile_for_name,
@@ -21,11 +22,12 @@ pub fn apply_host_phase(
     phase: ApplyPhase,
     system: &dyn SystemResource,
     files: &dyn FileResource,
+    credentials: &CredentialInputs,
 ) -> Result<(), ApplyError> {
     let phase = match phase {
         ApplyPhase::Base => skillet_hosts::HostApplyPhase::Base,
         ApplyPhase::Full => skillet_hosts::HostApplyPhase::Full,
         ApplyPhase::Caddy => skillet_hosts::HostApplyPhase::Caddy,
     };
-    skillet_hosts::apply_host_phase(hostname, phase, system, files)
+    skillet_hosts::apply_host_phase(hostname, phase, system, files, credentials)
 }

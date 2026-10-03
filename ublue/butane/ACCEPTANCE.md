@@ -877,3 +877,23 @@ host tool; it still uses normal command approvals.
   the test container was removed.
 - Live base/full apply on a retained VM remains unverified because `/dev/kvm`
   is absent. No VM was created, contacted, or changed in this slice.
+
+### Injected account, credential, and ownership inputs, 2026-10-04
+
+- Host composition now receives systemd credential values explicitly. The CLI
+  loads only the profile-declared credentials needed by the selected phase.
+  Account lookups use the injected system boundary. Podman reads subordinate
+  ID data via the injected file resource and refuses missing, malformed,
+  duplicate, overflowing, or undersized ranges instead of using a fixed range.
+- Directory ownership now uses one value supporting account names or numeric
+  IDs. The numeric-ID path does not require a host account, and the fake keeps
+  mode/ownership state through later existence-only checks. Tests preserve a
+  child file across repeat apply and cover file-versus-directory errors,
+  injected filesystem failures, account-ID mismatch, and mapping failures.
+- Passed offline workspace tests for core, Podman, UniFi, and full workspace;
+  pedantic Clippy with warnings denied; formatting; ShellCheck and Bash syntax
+  checks; and the CI container integration command (beezelbot base apply twice,
+  then remove the container).
+- Workstream 3 remains in progress: the remaining broad file/system trait
+  decomposition and live ownership/mount checks are outstanding. No live VM
+  was changed; `/dev/kvm` is absent on this workstation.

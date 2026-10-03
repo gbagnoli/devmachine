@@ -155,6 +155,7 @@ fn test_ensure_directory_creates_dir() {
 
 #[test]
 fn directory_numeric_owner_is_idempotent() {
+    use super::{OwnerIdentity, Ownership};
     use std::os::unix::fs::MetadataExt;
 
     let dir = tempdir().unwrap();
@@ -163,10 +164,24 @@ fn directory_numeric_owner_is_idempotent() {
     let resource = LocalFileResource::new();
 
     assert!(resource
-        .ensure_directory_with_owner_ids(&path, Some(0o750), parent.uid(), parent.gid())
+        .ensure_directory_with_ownership(
+            &path,
+            Some(0o750),
+            &Ownership {
+                uid: Some(OwnerIdentity::Id(parent.uid())),
+                gid: Some(OwnerIdentity::Id(parent.gid())),
+            },
+        )
         .unwrap());
     assert!(!resource
-        .ensure_directory_with_owner_ids(&path, Some(0o750), parent.uid(), parent.gid())
+        .ensure_directory_with_ownership(
+            &path,
+            Some(0o750),
+            &Ownership {
+                uid: Some(OwnerIdentity::Id(parent.uid())),
+                gid: Some(OwnerIdentity::Id(parent.gid())),
+            },
+        )
         .unwrap());
 
     let metadata = fs::metadata(path).unwrap();

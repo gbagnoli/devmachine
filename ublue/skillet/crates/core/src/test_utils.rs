@@ -1,5 +1,5 @@
-use crate::files::{FileError, FileResource};
-use crate::system::{SystemError, SystemResource};
+use crate::files::{FileError, FileResource, Ownership};
+use crate::system::{AccountResource, GroupIdentity, SystemError, SystemResource, UserIdentity};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -9,6 +9,8 @@ use std::sync::{Arc, Mutex};
 pub struct MockSystem {
     pub groups: Arc<Mutex<HashSet<String>>>,
     pub users: Arc<Mutex<HashSet<String>>>,
+    pub user_identities: Arc<Mutex<HashMap<String, UserIdentity>>>,
+    pub group_identities: Arc<Mutex<HashMap<String, GroupIdentity>>>,
     pub podman_secrets: Arc<Mutex<HashSet<String>>>,
     pub secret_ids: Arc<Mutex<HashMap<String, String>>>,
     pub fail_restart_once: Arc<AtomicBool>,
@@ -23,6 +25,8 @@ impl MockSystem {
         Self {
             groups: Arc::new(Mutex::new(HashSet::new())),
             users: Arc::new(Mutex::new(HashSet::new())),
+            user_identities: Arc::new(Mutex::new(HashMap::new())),
+            group_identities: Arc::new(Mutex::new(HashMap::new())),
             podman_secrets: Arc::new(Mutex::new(HashSet::new())),
             secret_ids: Arc::new(Mutex::new(HashMap::new())),
             fail_restart_once: Arc::new(AtomicBool::new(false)),
@@ -37,6 +41,36 @@ impl MockSystem {
 impl Default for MockSystem {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl AccountResource for MockSystem {
+    fn user_by_name(&self, name: &str) -> Result<Option<UserIdentity>, SystemError> {
+        Ok(self
+            .user_identities
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(name)
+            .cloned())
+    }
+
+    fn user_by_uid(&self, uid: u32) -> Result<Option<UserIdentity>, SystemError> {
+        Ok(self
+            .user_identities
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .values()
+            .find(|user| user.uid == uid)
+            .cloned())
+    }
+
+    fn group_by_name(&self, name: &str) -> Result<Option<GroupIdentity>, SystemError> {
+        Ok(self
+            .group_identities
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(name)
+            .cloned())
     }
 }
 
@@ -60,35 +94,75 @@ impl SystemResource for MockSystem {
             Some("started" | "restarted")
         ))
     }
-    fn ensure_group(&self, name: &str, _gid: Option<u32>) -> Result<bool, SystemError> {
+    fn ensure_group(&self, name: &str, gid: Option<u32>) -> Result<bool, SystemError> {
         let mut groups = self
             .groups
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if groups.contains(name) {
-            Ok(false)
-        } else {
-            groups.insert(name.to_string());
-            Ok(true)
+        let mut identities = self
+            .group_identities
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(existing) = identities.get(name) {
+            if gid.is_some_and(|desired| desired != existing.gid) {
+                return Err(SystemError::GroupCheck(format!(
+                    "Group {name} exists with GID {}, requested {gid:?}",
+                    existing.gid
+                )));
+            }
+            return Ok(false);
         }
+        groups.insert(name.to_string());
+        identities.insert(
+            name.to_string(),
+            GroupIdentity {
+                name: name.to_string(),
+                gid: gid.unwrap_or(2000),
+            },
+        );
+        Ok(true)
     }
 
     fn ensure_user(
         &self,
         name: &str,
-        _uid: Option<u32>,
-        _gid: Option<u32>,
+        uid: Option<u32>,
+        gid: Option<u32>,
     ) -> Result<bool, SystemError> {
+        if let Some(gid) = gid {
+            self.ensure_group(name, Some(gid))?;
+        }
         let mut users = self
             .users
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if users.contains(name) {
-            Ok(false)
-        } else {
-            users.insert(name.to_string());
-            Ok(true)
+        let mut identities = self
+            .user_identities
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(existing) = identities.get(name) {
+            if uid.is_some_and(|desired| desired != existing.uid)
+                || gid.is_some_and(|desired| desired != existing.primary_gid)
+            {
+                return Err(SystemError::Command(format!(
+                    "User {name} exists with UID:GID {}:{}, requested {uid:?}:{gid:?}",
+                    existing.uid, existing.primary_gid
+                )));
+            }
+            return Ok(false);
         }
+        let uid = uid.unwrap_or(2000);
+        let primary_gid = gid.unwrap_or(2000);
+        users.insert(name.to_string());
+        identities.insert(
+            name.to_string(),
+            UserIdentity {
+                name: name.to_string(),
+                uid,
+                primary_gid,
+            },
+        );
+        Ok(true)
     }
 
     fn ensure_podman_secret(&self, name: &str, payload: &str) -> Result<bool, SystemError> {
@@ -171,13 +245,17 @@ impl SystemResource for MockSystem {
 }
 
 pub type FileMetadata = (Option<u32>, Option<String>, Option<String>);
+pub type DirectoryMetadata = (Option<u32>, Ownership);
+pub type DirectoryMetadataMap = Arc<Mutex<HashMap<String, DirectoryMetadata>>>;
 
 pub struct MockFiles {
     pub files: Arc<Mutex<HashMap<String, Vec<u8>>>>,
     pub metadata: Arc<Mutex<HashMap<String, FileMetadata>>>,
     pub directories: Arc<Mutex<HashSet<String>>>,
-    pub directory_owner_ids: Arc<Mutex<HashMap<String, (u32, u32)>>>,
+    pub directory_metadata: DirectoryMetadataMap,
     pub fail_btrfs_mount_check: Arc<AtomicBool>,
+    pub fail_file_write_once: Arc<AtomicBool>,
+    pub fail_directory_once: Arc<AtomicBool>,
 }
 
 impl MockFiles {
@@ -186,8 +264,10 @@ impl MockFiles {
             files: Arc::new(Mutex::new(HashMap::new())),
             metadata: Arc::new(Mutex::new(HashMap::new())),
             directories: Arc::new(Mutex::new(HashSet::new())),
-            directory_owner_ids: Arc::new(Mutex::new(HashMap::new())),
+            directory_metadata: Arc::new(Mutex::new(HashMap::new())),
             fail_btrfs_mount_check: Arc::new(AtomicBool::new(false)),
+            fail_file_write_once: Arc::new(AtomicBool::new(false)),
+            fail_directory_once: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -237,6 +317,19 @@ impl FileResource for MockFiles {
         group: Option<&str>,
     ) -> Result<bool, FileError> {
         let path_str = path.display().to_string();
+        if self
+            .directories
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains(&path_str)
+        {
+            return Err(FileError::NotAFile(path_str));
+        }
+        if self.fail_file_write_once.swap(false, Ordering::SeqCst) {
+            return Err(FileError::Io(std::io::Error::other(
+                "injected file write failure",
+            )));
+        }
         let mut files = self
             .files
             .lock()
@@ -276,45 +369,48 @@ impl FileResource for MockFiles {
         Ok(changed)
     }
 
-    fn ensure_directory(
+    fn ensure_directory_with_ownership(
         &self,
         path: &Path,
-        _mode: Option<u32>,
-        _owner: Option<&str>,
-        _group: Option<&str>,
+        mode: Option<u32>,
+        ownership: &Ownership,
     ) -> Result<bool, FileError> {
         let path_str = path.display().to_string();
+        if self
+            .files
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains_key(&path_str)
+        {
+            return Err(FileError::NotADirectory(path_str));
+        }
+        if self.fail_directory_once.swap(false, Ordering::SeqCst) {
+            return Err(FileError::Io(std::io::Error::other(
+                "injected directory failure",
+            )));
+        }
         let mut directories = self
             .directories
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if directories.contains(&path_str) {
-            Ok(false)
-        } else {
-            directories.insert(path_str);
-            Ok(true)
-        }
-    }
-
-    fn ensure_directory_with_owner_ids(
-        &self,
-        path: &Path,
-        mode: Option<u32>,
-        uid: u32,
-        gid: u32,
-    ) -> Result<bool, FileError> {
-        let changed = self.ensure_directory(path, mode, None, None)?;
-        let path_str = path.display().to_string();
-        let mut owners = self
-            .directory_owner_ids
+        let was_present = directories.contains(&path_str);
+        directories.insert(path_str.clone());
+        drop(directories);
+        let mut metadata = self
+            .directory_metadata
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if owners.get(&path_str) == Some(&(uid, gid)) {
-            Ok(changed)
-        } else {
-            owners.insert(path_str, (uid, gid));
-            Ok(true)
-        }
+        let current = metadata.get(&path_str).cloned().unwrap_or_default();
+        let desired = (
+            mode.or(current.0),
+            Ownership {
+                uid: ownership.uid.clone().or(current.1.uid),
+                gid: ownership.gid.clone().or(current.1.gid),
+            },
+        );
+        let unchanged = was_present && metadata.get(&path_str) == Some(&desired);
+        metadata.insert(path_str, desired);
+        Ok(!unchanged)
     }
 
     fn delete_file(&self, path: &Path) -> Result<bool, FileError> {

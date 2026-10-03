@@ -3,7 +3,7 @@ use std::process::{Command, Stdio};
 use std::sync::LazyLock;
 use thiserror::Error;
 use tracing::{debug, info, warn};
-use users::{get_group_by_name, get_user_by_name};
+use users::{get_group_by_name, get_user_by_name, get_user_by_uid};
 use zbus::proxy;
 
 static SYSTEMD_UNIT_SUFFIXES: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
@@ -59,7 +59,28 @@ pub enum SystemError {
     Io(#[from] std::io::Error),
 }
 
-pub trait SystemResource {
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UserIdentity {
+    pub name: String,
+    pub uid: u32,
+    pub primary_gid: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GroupIdentity {
+    pub name: String,
+    pub gid: u32,
+}
+
+/// Account lookups needed by host and container identity configuration.
+/// Implementations are the only layer that consults NSS.
+pub trait AccountResource {
+    fn user_by_name(&self, name: &str) -> Result<Option<UserIdentity>, SystemError>;
+    fn user_by_uid(&self, uid: u32) -> Result<Option<UserIdentity>, SystemError>;
+    fn group_by_name(&self, name: &str) -> Result<Option<GroupIdentity>, SystemError>;
+}
+
+pub trait SystemResource: AccountResource {
     fn ensure_group(&self, name: &str, gid: Option<u32>) -> Result<bool, SystemError>;
     fn ensure_user(
         &self,
@@ -180,6 +201,31 @@ impl LinuxSystemResource {
 impl Default for LinuxSystemResource {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl AccountResource for LinuxSystemResource {
+    fn user_by_name(&self, name: &str) -> Result<Option<UserIdentity>, SystemError> {
+        Ok(get_user_by_name(name).map(|user| UserIdentity {
+            name: user.name().to_string_lossy().into_owned(),
+            uid: user.uid(),
+            primary_gid: user.primary_group_id(),
+        }))
+    }
+
+    fn user_by_uid(&self, uid: u32) -> Result<Option<UserIdentity>, SystemError> {
+        Ok(get_user_by_uid(uid).map(|user| UserIdentity {
+            name: user.name().to_string_lossy().into_owned(),
+            uid: user.uid(),
+            primary_gid: user.primary_group_id(),
+        }))
+    }
+
+    fn group_by_name(&self, name: &str) -> Result<Option<GroupIdentity>, SystemError> {
+        Ok(get_group_by_name(name).map(|group| GroupIdentity {
+            name: group.name().to_string_lossy().into_owned(),
+            gid: group.gid(),
+        }))
     }
 }
 

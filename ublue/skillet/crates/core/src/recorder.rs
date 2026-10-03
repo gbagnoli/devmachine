@@ -1,6 +1,6 @@
-use crate::files::{FileError, FileResource};
+use crate::files::{FileError, FileResource, Ownership};
 use crate::resource_op::ResourceOp;
-use crate::system::{SystemError, SystemResource};
+use crate::system::{AccountResource, GroupIdentity, SystemError, SystemResource, UserIdentity};
 use sha2::{Digest, Sha256};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -89,38 +89,20 @@ impl<T: FileResource> FileResource for Recorder<T> {
         self.inner.ensure_file(path, content, mode, owner, group)
     }
 
-    fn ensure_directory(
+    fn ensure_directory_with_ownership(
         &self,
         path: &Path,
         mode: Option<u32>,
-        owner: Option<&str>,
-        group: Option<&str>,
+        ownership: &Ownership,
     ) -> Result<bool, FileError> {
         self.record(ResourceOp::EnsureDirectory {
             path: path.display().to_string(),
             mode: mode.map(|m| format!("0o{m:o}")),
-            owner: owner.map(ToString::to_string),
-            group: group.map(ToString::to_string),
+            ownership: ownership.clone(),
         });
 
-        self.inner.ensure_directory(path, mode, owner, group)
-    }
-
-    fn ensure_directory_with_owner_ids(
-        &self,
-        path: &Path,
-        mode: Option<u32>,
-        uid: u32,
-        gid: u32,
-    ) -> Result<bool, FileError> {
-        self.record(ResourceOp::EnsureDirectoryWithOwnerIds {
-            path: path.display().to_string(),
-            mode: mode.map(|m| format!("0o{m:o}")),
-            uid,
-            gid,
-        });
         self.inner
-            .ensure_directory_with_owner_ids(path, mode, uid, gid)
+            .ensure_directory_with_ownership(path, mode, ownership)
     }
 
     fn delete_file(&self, path: &Path) -> Result<bool, FileError> {
@@ -210,5 +192,19 @@ impl<T: SystemResource> SystemResource for Recorder<T> {
     fn daemon_reload(&self) -> Result<(), SystemError> {
         self.record(ResourceOp::DaemonReload);
         self.inner.daemon_reload()
+    }
+}
+
+impl<T: SystemResource> AccountResource for Recorder<T> {
+    fn user_by_name(&self, name: &str) -> Result<Option<UserIdentity>, SystemError> {
+        self.inner.user_by_name(name)
+    }
+
+    fn user_by_uid(&self, uid: u32) -> Result<Option<UserIdentity>, SystemError> {
+        self.inner.user_by_uid(uid)
+    }
+
+    fn group_by_name(&self, name: &str) -> Result<Option<GroupIdentity>, SystemError> {
+        self.inner.group_by_name(name)
     }
 }

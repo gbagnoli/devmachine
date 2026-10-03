@@ -1,5 +1,5 @@
-use std::io::Read as _;
 use std::path::PathBuf;
+use std::{collections::HashMap, io::Read as _};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -10,6 +10,28 @@ pub enum CredentialError {
     InvalidName(String),
     #[error("Failed to read secret {0}: {1}")]
     ReadError(String, std::io::Error),
+    #[error("Required credential {0} was not supplied to host composition")]
+    MissingInput(String),
+}
+
+/// Credential bytes loaded at an entry point and passed explicitly into
+/// composition. Values intentionally have no Debug implementation.
+#[derive(Default)]
+pub struct CredentialInputs {
+    values: HashMap<String, String>,
+}
+
+impl CredentialInputs {
+    pub fn insert(&mut self, name: impl Into<String>, value: String) {
+        self.values.insert(name.into(), value);
+    }
+
+    pub fn require(&self, name: &str) -> Result<&str, CredentialError> {
+        self.values
+            .get(name)
+            .map(String::as_str)
+            .ok_or_else(|| CredentialError::MissingInput(name.to_string()))
+    }
 }
 
 pub struct CredentialManager {

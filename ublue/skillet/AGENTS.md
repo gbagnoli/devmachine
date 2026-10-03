@@ -50,6 +50,9 @@ tracks existing violations and their migration, not completed implementation.
   interface to inspect the live filesystem, account database, process
   environment, or runtime. Concrete adapters own those operations; load
   credentials and ambient configuration at the entry point and pass them in.
+- Keep account lookup, subordinate-ID reads, and account changes injectable.
+  Select one explicit mapping policy and report missing or invalid host
+  identity data instead of silently substituting IDs.
 - Define traits around cohesive capabilities needed by consumers. Add an
   operation to the capability that owns it, not an unrelated omnibus trait.
   Use ordinary data and functions for pure validation, rendering, and static

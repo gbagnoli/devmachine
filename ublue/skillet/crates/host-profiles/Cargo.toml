@@ -15,7 +15,6 @@ skillet_syncthing.workspace = true
 skillet_btrbk.workspace = true
 skillet_caddy.workspace = true
 skillet_podman.workspace = true
-users.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]

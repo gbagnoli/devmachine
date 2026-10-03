@@ -45,3 +45,30 @@ fn test_mock_system_services() {
         "restarted"
     );
 }
+
+#[test]
+#[cfg(feature = "test-utils")]
+fn mock_account_boundary_preserves_and_checks_numeric_identity() {
+    use super::AccountResource;
+
+    let system = MockSystem::new();
+    assert!(system
+        .ensure_user("service", Some(1042), Some(2042))
+        .unwrap());
+    assert_eq!(
+        system.user_by_name("service").unwrap(),
+        Some(super::UserIdentity {
+            name: "service".to_string(),
+            uid: 1042,
+            primary_gid: 2042,
+        })
+    );
+    assert_eq!(system.user_by_uid(1042).unwrap().unwrap().name, "service");
+    assert!(!system
+        .ensure_user("service", Some(1042), Some(2042))
+        .unwrap());
+    assert!(system
+        .ensure_user("service", Some(1043), Some(2042))
+        .is_err());
+    assert!(system.group_by_name("service").unwrap().is_some());
+}

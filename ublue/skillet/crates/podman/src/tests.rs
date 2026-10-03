@@ -174,3 +174,126 @@ fn consumed_file_change_restarts_even_when_quadlet_is_unchanged() {
     container(&system, &files, repeat).unwrap();
     assert_eq!(system.restart_count.load(Ordering::SeqCst), 2);
 }
+
+#[test]
+fn subordinate_ranges_are_read_from_injected_files_and_render_user_maps() {
+    let system = MockSystem::new();
+    system.ensure_podman_secret("dummy", "payload").unwrap();
+    system.user_identities.lock().unwrap().insert(
+        "service".to_string(),
+        skillet_core::system::UserIdentity {
+            name: "service".to_string(),
+            uid: 1234,
+            primary_gid: 2345,
+        },
+    );
+    let files = MockFiles::new();
+    files.files.lock().unwrap().insert(
+        "/etc/subuid".to_string(),
+        b"other:300000:65536\nservice:200000:65536\n".to_vec(),
+    );
+    files.files.lock().unwrap().insert(
+        "/etc/subgid".to_string(),
+        b"service:400000:65536\n".to_vec(),
+    );
+    let mut config = fixture();
+    config.user = ContainerUser {
+        container_uid: 999,
+        container_gid: 999,
+        host_user: Some(HostUser::Name("service".to_string())),
+    };
+    container(&system, &files, config).unwrap();
+    let quadlet = String::from_utf8(
+        files.files.lock().unwrap()["/etc/containers/systemd/unit-fixture.container"].clone(),
+    )
+    .unwrap();
+    assert!(quadlet.contains("User=999:999"));
+    assert!(quadlet.contains("UIDMap=0:200000:999"));
+    assert!(quadlet.contains("UIDMap=999:1234:1"));
+    assert!(quadlet.contains("GIDMap=0:400000:999"));
+    assert!(quadlet.contains("GIDMap=999:2345:1"));
+}
+
+#[test]
+fn missing_or_invalid_subordinate_ranges_fail_closed() {
+    let missing = MockFiles::new();
+    assert!(matches!(
+        discover_subid_range(&missing, "/etc/subuid", "service", "UID"),
+        Err(PodmanError::MissingSubordinateRange { kind: "UID", .. })
+    ));
+
+    let invalid = MockFiles::new();
+    invalid.files.lock().unwrap().insert(
+        "/etc/subuid".to_string(),
+        b"service:not-a-number:5\n".to_vec(),
+    );
+    assert!(matches!(
+        discover_subid_range(&invalid, "/etc/subuid", "service", "UID"),
+        Err(PodmanError::InvalidSubordinateRange { .. })
+    ));
+
+    let duplicate = MockFiles::new();
+    duplicate.files.lock().unwrap().insert(
+        "/etc/subuid".to_string(),
+        b"service:100000:65536\nservice:200000:65536\n".to_vec(),
+    );
+    assert!(matches!(
+        discover_subid_range(&duplicate, "/etc/subuid", "service", "UID"),
+        Err(PodmanError::InvalidSubordinateRange { .. })
+    ));
+}
+
+#[test]
+fn numeric_container_identity_must_fit_the_subordinate_range() {
+    assert!(matches!(
+        validate_subordinate_range(
+            SubordinateRange {
+                start: 100_000,
+                size: 999
+            },
+            "service",
+            999
+        ),
+        Err(PodmanError::SubordinateRangeTooSmall { .. })
+    ));
+}
+
+#[test]
+fn filesystem_fake_enforces_object_types_and_injected_failures() {
+    let files = MockFiles::new();
+    let file_path = std::path::Path::new("/tmp/mock-file");
+    files
+        .ensure_file(file_path, b"data", None, None, None)
+        .unwrap();
+    assert!(matches!(
+        files.ensure_directory(file_path, None, None, None),
+        Err(FileError::NotADirectory(_))
+    ));
+
+    let directory = std::path::Path::new("/tmp/mock-directory");
+    files.ensure_directory(directory, None, None, None).unwrap();
+    assert!(matches!(
+        files.ensure_file(directory, b"data", None, None, None),
+        Err(FileError::NotAFile(_))
+    ));
+
+    files.fail_file_write_once.store(true, Ordering::SeqCst);
+    assert!(files
+        .ensure_file(
+            std::path::Path::new("/tmp/failing-file"),
+            b"data",
+            None,
+            None,
+            None
+        )
+        .is_err());
+    files.fail_directory_once.store(true, Ordering::SeqCst);
+    assert!(files
+        .ensure_directory(
+            std::path::Path::new("/tmp/failing-directory"),
+            None,
+            None,
+            None
+        )
+        .is_err());
+}

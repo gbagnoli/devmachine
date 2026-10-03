@@ -1,7 +1,8 @@
 # 3. Cohesive effect interfaces and unified ownership
 
-Status: planned; follows workstream 2 in [the prerequisite roadmap](SKILLET-REFACTOR.md).
-Further feature milestones wait for that roadmap's completion.
+Status: in progress; follows workstream 2 in
+[the prerequisite roadmap](SKILLET-REFACTOR.md). Further feature milestones
+wait for that roadmap's completion.
 
 ## Read and locate
 
@@ -61,3 +62,20 @@ ownership use separate APIs; mocks do not enforce important metadata contracts.
   ownership APIs have become one contract.
 - Pass roadmap checks and affected VM ownership/mount/repeat-apply checks.
   Update the design and generic AGENTS interface rules with the finished API.
+
+## Progress
+
+- Implemented: host-profile and Podman composition use injected account
+  lookups; NSS access remains in the Linux system adapter. Podman reads
+  subordinate-ID files through `FileResource`, validates the selected single
+  range, and fails closed for missing, invalid, duplicate, or undersized ranges.
+- Implemented: directory ownership uses one `Ownership` value with named or
+  numeric UID/GID. Numeric IDs do not require matching account names. The
+  fake preserves mode and ownership across existence-only checks; the UniFi
+  repeat-apply case verifies child data survives.
+- Implemented: the guest CLI loads phase-required systemd credentials and
+  passes `CredentialInputs` to host composition. Recipes no longer inspect
+  `CREDENTIALS_DIRECTORY`; required names derive from profile consumers.
+- Pending: decompose the remaining broad file/system traits, extend fake
+  contracts for object type and failures, and run live ownership/mount
+  acceptance. This workstream is not complete.

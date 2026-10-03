@@ -1,7 +1,7 @@
 //! Canonical host profiles and their shared composition.
 
 use skillet_core::{
-    credentials::{CredentialError, CredentialManager},
+    credentials::{CredentialError, CredentialInputs},
     files::{FileError, FileResource},
     system::{SystemError, SystemResource},
 };
@@ -22,6 +22,27 @@ pub enum HostApplyPhase {
     Base,
     Full,
     Caddy,
+}
+
+pub fn credentials_for_phase(
+    hostname: &str,
+    phase: HostApplyPhase,
+) -> Result<Vec<&'static str>, ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.to_string()))?;
+    if phase == HostApplyPhase::Base {
+        return Ok(Vec::new());
+    }
+    Ok(profile
+        .credential_consumers()
+        .into_iter()
+        .filter(|consumer| match phase {
+            HostApplyPhase::Full => consumer.unit != "caddy.service",
+            HostApplyPhase::Caddy => consumer.unit == "caddy.service",
+            HostApplyPhase::Base => false,
+        })
+        .map(|consumer| consumer.credential)
+        .collect())
 }
 
 /// Explicit guest boot expectations. Consolidated with the canonical capability
@@ -66,20 +87,6 @@ pub enum ApplyError {
     FixtureInput(String),
     #[error("Unknown host profile: {0}")]
     UnknownHost(String),
-}
-
-mod user_lookup {
-    use users::{get_group_by_name, get_user_by_name};
-
-    /// Look up UID for a username, returns None if user doesn't exist
-    pub fn lookup_uid(username: &str) -> Option<u32> {
-        get_user_by_name(username).map(|user| user.uid())
-    }
-
-    /// Look up GID for a group name, returns None if group doesn't exist
-    pub fn lookup_gid(groupname: &str) -> Option<u32> {
-        get_group_by_name(groupname).map(|group| group.gid())
-    }
 }
 
 /// Shared host baseline used by both CLI entry points.
@@ -204,10 +211,11 @@ pub fn apply_host(
     hostname: &str,
     system: &dyn SystemResource,
     files: &dyn FileResource,
+    credentials: &CredentialInputs,
 ) -> Result<(), ApplyError> {
     let profile =
         profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.to_string()))?;
-    apply_profile(&profile, system, files)
+    apply_profile(&profile, system, files, credentials)
 }
 
 #[allow(clippy::similar_names)]
@@ -215,6 +223,7 @@ fn apply_profile(
     profile: &HostProfile,
     system: &dyn SystemResource,
     files: &dyn FileResource,
+    credentials: &CredentialInputs,
 ) -> Result<(), ApplyError> {
     apply_base(system, files)?;
     if profile.requires_data_mount {
@@ -227,15 +236,18 @@ fn apply_profile(
     for service in &profile.services {
         match &service.config {
             ServiceConfig::Pihole { custom_dns } => {
-                let password =
-                    CredentialManager::new()?.read_secret(PIHOLE_WEB_PASSWORD_CREDENTIAL)?;
+                let password = credentials
+                    .require(PIHOLE_WEB_PASSWORD_CREDENTIAL)?
+                    .to_string();
                 system.ensure_podman_secret(PIHOLE_WEB_PASSWORD_CREDENTIAL, &password)?;
+                let user = system.user_by_name("pihole")?;
+                let group = system.group_by_name("pihole")?;
                 skillet_pihole::apply(
                     system,
                     files,
                     &skillet_pihole::PiholeUser {
-                        uid: user_lookup::lookup_uid("pihole"),
-                        gid: user_lookup::lookup_gid("pihole"),
+                        uid: user.map(|identity| identity.uid),
+                        gid: group.map(|identity| identity.gid),
                         name: "pihole".to_string(),
                         group_name: "pihole".to_string(),
                     },
@@ -258,8 +270,9 @@ fn apply_profile(
             ServiceConfig::Syncthing { .. } => apply_syncthing(system, files, profile, service)?,
             ServiceConfig::Unifi => skillet_unifi::apply(system, files)?,
             ServiceConfig::Tailscale { state_path } => {
-                let auth_key =
-                    CredentialManager::new()?.read_secret(TAILSCALE_AUTH_KEY_CREDENTIAL)?;
+                let auth_key = credentials
+                    .require(TAILSCALE_AUTH_KEY_CREDENTIAL)?
+                    .to_string();
                 system.ensure_podman_secret(TAILSCALE_AUTH_KEY_CREDENTIAL, &auth_key)?;
                 let hostname = runtime_hostname(files, profile.id.as_str())?;
                 skillet_podman::container(
@@ -310,11 +323,12 @@ pub fn apply_host_phase(
     phase: HostApplyPhase,
     system: &dyn SystemResource,
     files: &dyn FileResource,
+    credentials: &CredentialInputs,
 ) -> Result<(), ApplyError> {
     match phase {
         HostApplyPhase::Base => apply_base(system, files),
-        HostApplyPhase::Full => apply_host(hostname, system, files),
-        HostApplyPhase::Caddy => apply_caddy_host(hostname, system, files),
+        HostApplyPhase::Full => apply_host(hostname, system, files, credentials),
+        HostApplyPhase::Caddy => apply_caddy_host(hostname, system, files, credentials),
     }
 }
 
@@ -322,6 +336,7 @@ fn apply_caddy_host(
     hostname: &str,
     system: &dyn SystemResource,
     files: &dyn FileResource,
+    credentials: &CredentialInputs,
 ) -> Result<(), ApplyError> {
     let profile =
         profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.to_string()))?;
@@ -342,13 +357,14 @@ fn apply_caddy_host(
             "/data",
         )?;
     }
-    let credentials = CredentialManager::new()?;
     let sites = skillet_caddy::CaddySites::parse(
-        &credentials.read_secret(CADDY_SITES_CREDENTIAL)?,
+        credentials.require(CADDY_SITES_CREDENTIAL)?,
         hostname,
         &ui_config.services,
     )?;
-    let token = credentials.read_secret(CLOUDFLARE_ACME_TOKEN_CREDENTIAL)?;
+    let token = credentials
+        .require(CLOUDFLARE_ACME_TOKEN_CREDENTIAL)?
+        .to_string();
     system.ensure_podman_secret(CLOUDFLARE_ACME_TOKEN_CREDENTIAL, &token)?;
     skillet_caddy::apply(system, files, &sites, ui_config.network)?;
     Ok(())
