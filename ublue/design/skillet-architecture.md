@@ -41,6 +41,8 @@ provisioning, and synthetic test fixtures. Effects need injectable capability
 boundaries covering both observations and mutations. Pure configuration and
 composition use ordinary data and functions. This makes host tests independent
 of the workstation and keeps one declaration authoritative across entry points.
+Podman runtime identity, host data ownership, and namespace mappings remain
+separate configuration concepts; see [Podman runtime configuration](podman-runtime.md).
 
 Move VM lifecycle orchestration from Bash into Rust. One orchestrator owns the
 typed manifest, identity validation, readiness, recovery, and destruction,

@@ -2,7 +2,7 @@ use skillet_core::files::{FileError, FileMutationResource, FileReadResource, Sto
 use skillet_core::system::{
     AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
 };
-use skillet_podman::{self, ContainerUser, PodmanConfig, PodmanError, PodmanNetwork, Volume};
+use skillet_podman::{self, PodmanConfig, PodmanError, PodmanNetwork, ProcessIdentity, Volume};
 use std::collections::BTreeMap;
 use std::path::Path;
 use thiserror::Error;
@@ -88,12 +88,8 @@ where
             name: "syncthing".to_string(),
             image: "docker.io/syncthing/syncthing:latest".to_string(),
             networks: vec![config.network],
-            user: ContainerUser {
-                container_uid: 0,
-                container_gid: 0,
-                host_user: None,
-            },
-            create_host_user: false,
+            process_identity: ProcessIdentity::ImageDefault,
+            namespace_mapping: None,
             volumes,
             secrets: Vec::new(),
             config_revisions: Vec::new(),

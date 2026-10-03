@@ -6,7 +6,7 @@ use skillet_core::system::{
     AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
 };
 use skillet_podman::{
-    self, ContainerUser, PodmanConfig, PodmanError, PodmanNetwork, QuadletSecret, SecretTarget,
+    self, PodmanConfig, PodmanError, PodmanNetwork, ProcessIdentity, QuadletSecret, SecretTarget,
     Volume,
 };
 use std::{collections::BTreeMap, path::Path};
@@ -315,12 +315,8 @@ where
         name: "caddy".to_string(),
         image: "ghcr.io/caddybuilds/caddy-cloudflare:2".to_string(),
         networks: vec![network],
-        user: ContainerUser {
-            container_uid: 0,
-            container_gid: 0,
-            host_user: None,
-        },
-        create_host_user: false,
+        process_identity: ProcessIdentity::ImageDefault,
+        namespace_mapping: None,
         volumes: vec![
             Volume {
                 host_path: "/etc/skillet/caddy".to_string(),

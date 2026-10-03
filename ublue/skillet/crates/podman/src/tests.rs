@@ -12,12 +12,8 @@ fn fixture() -> PodmanConfig {
         name: "unit-fixture".to_string(),
         image: "example.invalid/fixture:1".to_string(),
         networks: Vec::new(),
-        user: ContainerUser {
-            container_uid: 0,
-            container_gid: 0,
-            host_user: None,
-        },
-        create_host_user: false,
+        process_identity: ProcessIdentity::ImageDefault,
+        namespace_mapping: None,
         volumes: Vec::new(),
         secrets: vec![QuadletSecret {
             secret_name: "dummy".to_string(),
@@ -139,6 +135,63 @@ fn repeat_apply_and_stopped_service() {
     assert!(!container(&system, &files, fixture()).unwrap());
     assert_eq!(system.start_count.load(Ordering::SeqCst), 1);
     assert_eq!(system.restart_count.load(Ordering::SeqCst), 1);
+    let quadlet = String::from_utf8(
+        files.files.lock().unwrap()["/etc/containers/systemd/unit-fixture.container"].clone(),
+    )
+    .unwrap();
+    assert!(!quadlet.lines().any(|line| line.starts_with("User=")));
+}
+
+#[test]
+fn numeric_process_identity_does_not_implicitly_create_namespace_mapping() {
+    let system = MockSystem::new();
+    system.ensure_podman_secret("dummy", "first").unwrap();
+    let files = MockFiles::new();
+    let mut config = fixture();
+    config.process_identity = ProcessIdentity::Numeric {
+        uid: 1001,
+        gid: 1002,
+    };
+    container(&system, &files, config).unwrap();
+    let quadlet = String::from_utf8(
+        files.files.lock().unwrap()["/etc/containers/systemd/unit-fixture.container"].clone(),
+    )
+    .unwrap();
+    assert!(quadlet.contains("User=1001:1002"));
+    assert!(!quadlet.contains("UIDMap="));
+    assert!(!quadlet.contains("GIDMap="));
+    assert!(files.files.lock().unwrap().get("/etc/subuid").is_none());
+}
+
+#[test]
+fn named_identity_is_typed_and_conflicting_raw_identity_fails_before_effects() {
+    let system = MockSystem::new();
+    system.ensure_podman_secret("dummy", "first").unwrap();
+    let files = MockFiles::new();
+    let mut config = fixture();
+    config.process_identity = ProcessIdentity::Named {
+        user: "service-user".to_string(),
+        group: Some("service-group".to_string()),
+    };
+    container(&system, &files, config).unwrap();
+    let quadlet = String::from_utf8(
+        files.files.lock().unwrap()["/etc/containers/systemd/unit-fixture.container"].clone(),
+    )
+    .unwrap();
+    assert!(quadlet.contains("User=service-user:service-group"));
+
+    let empty_files = MockFiles::new();
+    let mut conflicting = fixture();
+    conflicting
+        .extra_config
+        .entry("Container".to_string())
+        .or_default()
+        .push("User=other".to_string());
+    assert!(matches!(
+        container(&system, &empty_files, conflicting),
+        Err(PodmanError::ConflictingIdentityDirective("User"))
+    ));
+    assert!(empty_files.files.lock().unwrap().is_empty());
 }
 
 #[test]
@@ -207,11 +260,10 @@ fn subordinate_ranges_are_read_from_injected_files_and_render_user_maps() {
         b"service:400000:65536\n".to_vec(),
     );
     let mut config = fixture();
-    config.user = ContainerUser {
-        container_uid: 999,
-        container_gid: 999,
-        host_user: Some(HostUser::Name("service".to_string())),
-    };
+    config.process_identity = ProcessIdentity::Numeric { uid: 999, gid: 999 };
+    config.namespace_mapping = Some(UserNamespaceMapping {
+        host_user: HostUser::Name("service".to_string()),
+    });
     container(&system, &files, config).unwrap();
     let quadlet = String::from_utf8(
         files.files.lock().unwrap()["/etc/containers/systemd/unit-fixture.container"].clone(),
