@@ -105,6 +105,11 @@ and VM delivery have duplicate implementations with different validation.
   tagged-device lookup/removal, and local protocol tests now live in
   `skillet_workstation::tailscale`; the CLI no longer depends directly on
   `reqwest` for this provider.
+- Implemented: `skillet_workstation::provisioning_policy` captures production
+  versus test environment names and vault paths, ACME staging, Cloudflare
+  credential lifetimes, cleanup-token lifetime, and Tailscale device tags.
+  Delivery and cleanup consume this policy; the Cloudflare zone ID uses the
+  shared `skillet/environments/dns/cloudflare-zone-id` vault entry.
 - Pending: environment/host credential-delivery orchestration, durable versus
   disposable policy, provider/VM cleanup ownership persistence, and production
   plus named-VM acceptance remain in CLI modules. Finish the remaining sequence

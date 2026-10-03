@@ -996,3 +996,14 @@ host tool; it still uses normal command approvals.
   caused no service restart, and removed its disposable container.
 - Live Tailscale API/VM acceptance was not run. Lifecycle ownership and
   production-versus-test orchestration remain pending in workstream 4.
+
+### Explicit workstation environment policy, 2026-10-04
+
+- Added typed production/test provisioning policy for UI domain lookup,
+  shared Cloudflare zone lookup, live versus staging ACME, Cloudflare token
+  lifetimes, cleanup-token lifetime, and production/disposable Tailscale tags.
+  Production UI delivery and disposable VM issue/cleanup now use that policy.
+- The two policy unit tests and full offline workspace tests passed. Strict
+  workspace all-target Clippy passed. The CI container integration exited 0:
+  both applies succeeded, the second caused no service restart, and the
+  disposable container was removed. No provider or VM resources were changed.
