@@ -1,3 +1,4 @@
+use crate::files::Ownership;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
@@ -15,14 +16,8 @@ pub enum ResourceOp {
     EnsureDirectory {
         path: String,
         mode: Option<String>,
-        owner: Option<String>,
-        group: Option<String>,
-    },
-    EnsureDirectoryWithOwnerIds {
-        path: String,
-        mode: Option<String>,
-        uid: u32,
-        gid: u32,
+        #[serde(default)]
+        ownership: Ownership,
     },
     EnsureBtrfsSubvolume {
         path: String,

@@ -1,4 +1,5 @@
 use clap::Parser;
+use skillet_core::credentials::{CredentialInputs, CredentialManager};
 use skillet_core::files::{FileResource, LocalFileResource};
 use skillet_core::recorder::Recorder;
 use skillet_core::system::{LinuxSystemResource, SystemResource};
@@ -26,6 +27,8 @@ pub enum CliCommonError {
     Yaml(#[from] serde_yml::Error),
     #[error("Credential error: {0}")]
     Credential(#[from] credential::CredentialError),
+    #[error("Systemd credential error: {0}")]
+    SystemdCredential(#[from] skillet_core::credentials::CredentialError),
 }
 
 #[derive(Parser, Debug)]
@@ -72,7 +75,12 @@ pub enum CredentialCommands {
 
 pub fn run_host<F>(hostname: &str, apply_fn: F) -> Result<(), CliCommonError>
 where
-    F: Fn(ApplyPhase, &dyn SystemResource, &dyn FileResource) -> Result<(), String>,
+    F: Fn(
+        ApplyPhase,
+        &dyn SystemResource,
+        &dyn FileResource,
+        &CredentialInputs,
+    ) -> Result<(), String>,
 {
     let args = HostArgs::parse();
 
@@ -87,9 +95,11 @@ where
     tracing::subscriber::set_global_default(subscriber)?;
 
     match args.command {
-        HostCommands::Apply { record, phase } => handle_apply(hostname, record, |system, files| {
-            apply_fn(phase, system, files)
-        }),
+        HostCommands::Apply { record, phase } => {
+            handle_host_apply(hostname, phase, record, |system, files, credentials| {
+                apply_fn(phase, system, files, credentials)
+            })
+        }
         HostCommands::Credential { command } => {
             match command {
                 CredentialCommands::State { name } => {
@@ -114,6 +124,49 @@ pub fn handle_apply<F>(
 where
     F: Fn(&dyn SystemResource, &dyn FileResource) -> Result<(), String>,
 {
+    handle_apply_with_credentials(
+        hostname,
+        record_path,
+        &CredentialInputs::default(),
+        |system, files, _| apply_fn(system, files),
+    )
+}
+
+pub fn handle_host_apply<F>(
+    hostname: &str,
+    phase: ApplyPhase,
+    record_path: Option<PathBuf>,
+    apply_fn: F,
+) -> Result<(), CliCommonError>
+where
+    F: Fn(&dyn SystemResource, &dyn FileResource, &CredentialInputs) -> Result<(), String>,
+{
+    let phase = match phase {
+        ApplyPhase::Base => skillet_hosts::HostApplyPhase::Base,
+        ApplyPhase::Full => skillet_hosts::HostApplyPhase::Full,
+        ApplyPhase::Caddy => skillet_hosts::HostApplyPhase::Caddy,
+    };
+    let required = skillet_hosts::credentials_for_phase(hostname, phase)
+        .map_err(|error| CliCommonError::Config(error.to_string()))?;
+    let mut credentials = CredentialInputs::default();
+    if !required.is_empty() {
+        let manager = CredentialManager::new()?;
+        for name in required {
+            credentials.insert(name, manager.read_secret(name)?);
+        }
+    }
+    handle_apply_with_credentials(hostname, record_path, &credentials, apply_fn)
+}
+
+fn handle_apply_with_credentials<F>(
+    hostname: &str,
+    record_path: Option<PathBuf>,
+    credentials: &CredentialInputs,
+    apply_fn: F,
+) -> Result<(), CliCommonError>
+where
+    F: Fn(&dyn SystemResource, &dyn FileResource, &CredentialInputs) -> Result<(), String>,
+{
     use std::io::Write as _;
 
     info!("Starting Skillet configuration for {}...", hostname);
@@ -125,7 +178,7 @@ where
         let recorder_system = Recorder::new(system);
         let recorder_files = Recorder::with_ops(files, recorder_system.shared_ops());
 
-        apply_fn(&recorder_system, &recorder_files).map_err(CliCommonError::Config)?;
+        apply_fn(&recorder_system, &recorder_files, credentials).map_err(CliCommonError::Config)?;
 
         let ops = recorder_system.get_ops();
         let yaml = serde_yml::to_string(&ops)?;
@@ -145,7 +198,7 @@ where
         })?;
         info!("Recording saved to {}", path.display());
     } else {
-        apply_fn(&system, &files).map_err(CliCommonError::Config)?;
+        apply_fn(&system, &files, credentials).map_err(CliCommonError::Config)?;
     }
 
     info!("Configuration applied successfully.");

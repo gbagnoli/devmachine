@@ -2395,7 +2395,6 @@ dependencies = [
  "skillet_syncthing",
  "skillet_unifi",
  "thiserror 1.0.69",
- "users",
 ]
 
 [[package]]
@@ -2421,7 +2420,6 @@ dependencies = [
  "skillet_core",
  "thiserror 1.0.69",
  "tracing",
- "users",
 ]
 
 [[package]]

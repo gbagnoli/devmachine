@@ -1,5 +1,8 @@
 use super::{apply, DATA_PATH};
-use skillet_core::test_utils::{MockFiles, MockSystem};
+use skillet_core::{
+    files::{OwnerIdentity, Ownership},
+    test_utils::{MockFiles, MockSystem},
+};
 use std::sync::atomic::Ordering;
 
 #[test]
@@ -26,8 +29,14 @@ fn unifi_uses_host_network_and_persistent_numeric_owned_data() {
     drop(quadlets);
 
     assert_eq!(
-        files.directory_owner_ids.lock().unwrap().get(DATA_PATH),
-        Some(&(999, 999))
+        files.directory_metadata.lock().unwrap().get(DATA_PATH),
+        Some(&(
+            Some(0o750),
+            Ownership {
+                uid: Some(OwnerIdentity::Id(999)),
+                gid: Some(OwnerIdentity::Id(999)),
+            }
+        ))
     );
 }
 
@@ -49,11 +58,29 @@ fn repeated_unifi_apply_does_not_restart_an_unchanged_container() {
 
     apply(&system, &files).unwrap();
     let restart_count = system.restart_count.load(Ordering::SeqCst);
+    files.files.lock().unwrap().insert(
+        format!("{DATA_PATH}/existing.db"),
+        b"preserve existing application data".to_vec(),
+    );
     apply(&system, &files).unwrap();
 
     assert_eq!(system.restart_count.load(Ordering::SeqCst), restart_count);
     assert_eq!(
-        files.directory_owner_ids.lock().unwrap().get(DATA_PATH),
-        Some(&(999, 999))
+        files.directory_metadata.lock().unwrap().get(DATA_PATH),
+        Some(&(
+            Some(0o750),
+            Ownership {
+                uid: Some(OwnerIdentity::Id(999)),
+                gid: Some(OwnerIdentity::Id(999)),
+            }
+        ))
+    );
+    assert_eq!(
+        files
+            .files
+            .lock()
+            .unwrap()
+            .get(&format!("{DATA_PATH}/existing.db")),
+        Some(&b"preserve existing application data".to_vec())
     );
 }

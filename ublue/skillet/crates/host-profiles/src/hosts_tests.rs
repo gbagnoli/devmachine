@@ -4,7 +4,9 @@ use super::{
     },
     tailscale_config, ui_config_for_host, TAILSCALE_AUTH_KEY_CREDENTIAL,
 };
-use skillet_core::{files::LocalFileResource, test_utils::MockSystem};
+use skillet_core::{
+    credentials::CredentialInputs, files::LocalFileResource, test_utils::MockSystem,
+};
 use skillet_podman::SecretTarget;
 
 #[test]
@@ -123,10 +125,44 @@ fn agent_baseline_declares_no_ui_or_credentials_and_unknown_full_profiles_fail()
     let system = MockSystem::new();
     let files = LocalFileResource::new();
     assert!(matches!(
-        super::apply_host("unknown-host", &system, &files),
+        super::apply_host(
+            "unknown-host",
+            &system,
+            &files,
+            &CredentialInputs::default()
+        ),
         Err(super::ApplyError::UnknownHost(_))
     ));
     assert!(system.podman_secrets.lock().unwrap().is_empty());
+}
+
+#[test]
+fn credential_values_are_selected_by_host_and_apply_phase() {
+    assert!(
+        super::credentials_for_phase("clamps", super::HostApplyPhase::Base)
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        super::credentials_for_phase("clamps", super::HostApplyPhase::Full).unwrap(),
+        [
+            super::PIHOLE_WEB_PASSWORD_CREDENTIAL,
+            super::TAILSCALE_AUTH_KEY_CREDENTIAL
+        ]
+    );
+    assert_eq!(
+        super::credentials_for_phase("clamps", super::HostApplyPhase::Caddy).unwrap(),
+        [
+            super::CADDY_SITES_CREDENTIAL,
+            super::CLOUDFLARE_ACME_TOKEN_CREDENTIAL
+        ]
+    );
+    assert!(
+        super::credentials_for_phase("beezelbot", super::HostApplyPhase::Full)
+            .unwrap()
+            .is_empty()
+    );
+    assert!(super::credentials_for_phase("unknown", super::HostApplyPhase::Base).is_err());
 }
 
 #[test]

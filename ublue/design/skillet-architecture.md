@@ -28,6 +28,13 @@ no-service apply profile. Synthetic smoke fixture composition lives in a
 separate test command and is not dispatched as a host identity. Retained-VM
 runtime acceptance remains pending.
 
+Workstream 3 is in progress. Account observations and subordinate-ID files
+enter composition through injected resource interfaces; missing or invalid
+subordinate ranges fail closed. Directory ownership uses one typed named or
+numeric identity contract, and entry points pass required systemd credentials
+to host composition. Remaining broad file/system traits and fake contracts
+are still scheduled for this workstream.
+
 Keep application crates as reusable recipes. Separate canonical host profiles
 and composition from guest runtime adapters, CLI parsing, workstation
 provisioning, and synthetic test fixtures. Effects need injectable capability

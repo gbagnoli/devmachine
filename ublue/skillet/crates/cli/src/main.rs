@@ -261,10 +261,21 @@ fn main() -> Result<()> {
                     .trim()
                     .to_string();
             }
-            skillet_cli_common::handle_apply(&hostname, record, |system, files| {
-                skillet_cli_common::hosts::apply_host_phase(&hostname, phase, system, files)
+            skillet_cli_common::handle_host_apply(
+                &hostname,
+                phase,
+                record,
+                |system, files, credentials| {
+                    skillet_cli_common::hosts::apply_host_phase(
+                        &hostname,
+                        phase,
+                        system,
+                        files,
+                        credentials,
+                    )
                     .map_err(|error| error.to_string())
-            })
+                },
+            )
             .map_err(|error| anyhow!("Failed to apply configuration: {error}"))?;
         }
         Commands::Test {

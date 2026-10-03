@@ -4,10 +4,9 @@ use skillet_core::files::{FileError, FileResource};
 use skillet_core::system::{SystemError, SystemResource};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
-use std::path::Path;
+use std::{path::Path, str::FromStr};
 use thiserror::Error;
 use tracing::info;
-use users::{get_user_by_name, get_user_by_uid};
 
 #[derive(Error, Debug)]
 pub enum PodmanError {
@@ -21,6 +20,14 @@ pub enum PodmanError {
     InvalidNetworkName(String),
     #[error("Network configuration changed for {0}; stop its consumers, remove the Podman network and its applied marker, then apply again")]
     NetworkConfigChanged(String),
+    #[error("No valid {kind} subordinate-ID range for account {account}")]
+    MissingSubordinateRange { kind: &'static str, account: String },
+    #[error("Invalid subordinate-ID range in {path} for account {account}")]
+    InvalidSubordinateRange { path: &'static str, account: String },
+    #[error(
+        "Subordinate-ID range for account {account} is too small for container ID {container_id}"
+    )]
+    SubordinateRangeTooSmall { account: String, container_id: u32 },
 }
 
 #[derive(Template)]
@@ -116,6 +123,7 @@ pub struct PodmanNetwork {
     pub options: Vec<String>,
 }
 
+#[allow(clippy::similar_names)]
 pub fn container<S, F>(system: &S, files: &F, config: PodmanConfig) -> Result<bool, PodmanError>
 where
     S: SystemResource + ?Sized,
@@ -180,13 +188,17 @@ where
 
     // 2. Calculate mappings
     if let Some((uid_host, gid_host, username)) = &host_info {
+        let sub_uid = discover_subid_range(files, "/etc/subuid", username, "UID")?;
+        let sub_gid = discover_subid_range(files, "/etc/subgid", username, "GID")?;
         calculate_user_mappings(
             &config.user,
             *uid_host,
             *gid_host,
             username,
+            sub_uid,
+            sub_gid,
             &mut extra_config,
-        );
+        )?;
     }
 
     // 3. Ensure volumes and secrets
@@ -282,20 +294,16 @@ fn resolve_host_user<S: SystemResource + ?Sized>(
                 if create {
                     system.ensure_user(n, None, None)?;
                 }
-                let u = get_user_by_name(n).ok_or_else(|| {
+                let u = system.user_by_name(n)?.ok_or_else(|| {
                     PodmanError::UserMapping(format!("User {n} not found on host"))
                 })?;
-                (n.clone(), u.uid(), u.primary_group_id())
+                (n.clone(), u.uid, u.primary_gid)
             }
             HostUser::Uid(u) => {
-                let u_info = get_user_by_uid(*u).ok_or_else(|| {
+                let u_info = system.user_by_uid(*u)?.ok_or_else(|| {
                     PodmanError::UserMapping(format!("UID {u} not found on host"))
                 })?;
-                (
-                    u_info.name().to_string_lossy().to_string(),
-                    *u,
-                    u_info.primary_group_id(),
-                )
+                (u_info.name, *u, u_info.primary_gid)
             }
         };
         Ok(Some((uid, gid, username)))
@@ -312,68 +320,114 @@ fn calculate_user_mappings(
     uid_host: u32,
     gid_host: u32,
     username: &str,
+    sub_uid: SubordinateRange,
+    sub_gid: SubordinateRange,
     extra_config: &mut BTreeMap<String, Vec<String>>,
-) {
+) -> Result<(), PodmanError> {
     let uid_container = user.container_uid;
     let gid_container = user.container_gid;
-
-    let (sub_uid_base, sub_uid_size) =
-        discover_subid_range("/etc/subuid", username).unwrap_or((100_000, 65_536));
-    let (sub_gid_base, sub_gid_size) =
-        discover_subid_range("/etc/subgid", username).unwrap_or((100_000, 65_536));
+    validate_subordinate_range(sub_uid, username, uid_container)?;
+    validate_subordinate_range(sub_gid, username, gid_container)?;
 
     let container_section = extra_config.entry("Container".to_string()).or_default();
     container_section.push(format!("User={uid_container}:{gid_container}"));
 
     // UIDMap
     if uid_container > 0 {
-        container_section.push(format!("UIDMap=0:{sub_uid_base}:{uid_container}"));
+        container_section.push(format!("UIDMap=0:{}:{uid_container}", sub_uid.start));
     }
     container_section.push(format!("UIDMap={uid_container}:{uid_host}:1"));
-    // Remaining subordinate UIDs after the container UID; saturating so a
-    // too-small subuid range degrades to no remainder mapping instead of
-    // panicking on underflow.
-    let rem_u = sub_uid_size.saturating_sub(uid_container).saturating_sub(1);
+    let rem_u = sub_uid.size - uid_container - 1;
     if rem_u > 0 {
         container_section.push(format!(
             "UIDMap={}:{}:{rem_u}",
             uid_container + 1,
-            sub_uid_base + uid_container + 1
+            sub_uid.start + uid_container + 1
         ));
     }
 
     // GIDMap
     if gid_container > 0 {
-        container_section.push(format!("GIDMap=0:{sub_gid_base}:{gid_container}"));
+        container_section.push(format!("GIDMap=0:{}:{gid_container}", sub_gid.start));
     }
     container_section.push(format!("GIDMap={gid_container}:{gid_host}:1"));
-    // Same underflow protection as the UID remainder above.
-    let rem_g = sub_gid_size.saturating_sub(gid_container).saturating_sub(1);
+    let rem_g = sub_gid.size - gid_container - 1;
     if rem_g > 0 {
         container_section.push(format!(
             "GIDMap={}:{}:{rem_g}",
             gid_container + 1,
-            sub_gid_base + gid_container + 1
+            sub_gid.start + gid_container + 1
         ));
+    }
+    Ok(())
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct SubordinateRange {
+    start: u32,
+    size: u32,
+}
+
+fn discover_subid_range<F: FileResource + ?Sized>(
+    files: &F,
+    path: &'static str,
+    username: &str,
+    kind: &'static str,
+) -> Result<SubordinateRange, PodmanError> {
+    let contents =
+        files
+            .read_file(Path::new(path))?
+            .ok_or_else(|| PodmanError::MissingSubordinateRange {
+                kind,
+                account: username.to_string(),
+            })?;
+    let contents =
+        std::str::from_utf8(&contents).map_err(|_| PodmanError::InvalidSubordinateRange {
+            path,
+            account: username.to_string(),
+        })?;
+    let mut matching = contents
+        .lines()
+        .filter(|line| line.split(':').next() == Some(username));
+    let line = matching
+        .next()
+        .ok_or_else(|| PodmanError::MissingSubordinateRange {
+            kind,
+            account: username.to_string(),
+        })?;
+    if matching.next().is_some() {
+        return Err(PodmanError::InvalidSubordinateRange {
+            path,
+            account: username.to_string(),
+        });
+    }
+    let mut fields = line.split(':');
+    let _name = fields.next();
+    let start = fields.next().and_then(|value| u32::from_str(value).ok());
+    let size = fields.next().and_then(|value| u32::from_str(value).ok());
+    match (start, size, fields.next()) {
+        (Some(start), Some(size), None) if size > 0 && start.checked_add(size).is_some() => {
+            Ok(SubordinateRange { start, size })
+        }
+        _ => Err(PodmanError::InvalidSubordinateRange {
+            path,
+            account: username.to_string(),
+        }),
     }
 }
 
-fn discover_subid_range(path: &str, username: &str) -> Option<(u32, u32)> {
-    use std::fs::File;
-    use std::io::{BufRead, BufReader};
-
-    let file = File::open(path).ok()?;
-    let reader = BufReader::new(file);
-
-    for line in reader.lines().map_while(Result::ok) {
-        let parts: Vec<&str> = line.split(':').collect();
-        if parts.len() == 3 && parts[0] == username {
-            let start = parts[1].parse().ok()?;
-            let size = parts[2].parse().ok()?;
-            return Some((start, size));
-        }
+fn validate_subordinate_range(
+    range: SubordinateRange,
+    account: &str,
+    container_id: u32,
+) -> Result<(), PodmanError> {
+    if range.size <= container_id {
+        return Err(PodmanError::SubordinateRangeTooSmall {
+            account: account.to_string(),
+            container_id,
+        });
     }
-    None
+    Ok(())
 }
 
 fn render_and_ensure_quadlet<S, F>(
