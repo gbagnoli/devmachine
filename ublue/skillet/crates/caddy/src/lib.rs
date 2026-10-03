@@ -2,7 +2,9 @@
 
 use serde::{Deserialize, Serialize};
 use skillet_core::files::{FileError, FileMutationResource, FileReadResource};
-use skillet_core::system::{SystemError, SystemResource};
+use skillet_core::system::{
+    AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
+};
 use skillet_podman::{
     self, ContainerUser, PodmanConfig, PodmanError, PodmanNetwork, QuadletSecret, SecretTarget,
     Volume,
@@ -271,7 +273,7 @@ pub fn apply<S, F>(
     network: PodmanNetwork,
 ) -> Result<(), CaddyError>
 where
-    S: SystemResource + ?Sized,
+    S: AccountLookupResource + AccountResource + PodmanSecretResource + ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
 {
     let caddyfile = sites.render();

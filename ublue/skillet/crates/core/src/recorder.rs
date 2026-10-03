@@ -1,6 +1,9 @@
 use crate::files::{FileError, FileMutationResource, FileReadResource, Ownership, StorageResource};
 use crate::resource_op::ResourceOp;
-use crate::system::{AccountResource, GroupIdentity, SystemError, SystemResource, UserIdentity};
+use crate::system::{
+    AccountLookupResource, AccountResource, GroupIdentity, PodmanSecretResource, ServiceResource,
+    SystemError, UserIdentity,
+};
 use sha2::{Digest, Sha256};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -118,33 +121,9 @@ impl<T: FileMutationResource> FileMutationResource for Recorder<T> {
     }
 }
 
-impl<T: SystemResource> SystemResource for Recorder<T> {
+impl<T: PodmanSecretResource> PodmanSecretResource for Recorder<T> {
     fn podman_secret_id(&self, name: &str) -> Result<String, SystemError> {
         self.inner.podman_secret_id(name)
-    }
-
-    fn service_is_active(&self, name: &str) -> Result<bool, SystemError> {
-        self.inner.service_is_active(name)
-    }
-    fn ensure_group(&self, name: &str, gid: Option<u32>) -> Result<bool, SystemError> {
-        self.record(ResourceOp::EnsureGroup {
-            name: name.to_string(),
-        });
-        self.inner.ensure_group(name, gid)
-    }
-
-    fn ensure_user(
-        &self,
-        name: &str,
-        uid: Option<u32>,
-        gid: Option<u32>,
-    ) -> Result<bool, SystemError> {
-        self.record(ResourceOp::EnsureUser {
-            name: name.to_string(),
-            uid,
-            gid,
-        });
-        self.inner.ensure_user(name, uid, gid)
     }
 
     fn ensure_podman_secret(&self, name: &str, payload: &str) -> Result<bool, SystemError> {
@@ -157,6 +136,12 @@ impl<T: SystemResource> SystemResource for Recorder<T> {
             payload_hash: hash,
         });
         self.inner.ensure_podman_secret(name, payload)
+    }
+}
+
+impl<T: ServiceResource> ServiceResource for Recorder<T> {
+    fn service_is_active(&self, name: &str) -> Result<bool, SystemError> {
+        self.inner.service_is_active(name)
     }
 
     fn service_start(&self, name: &str) -> Result<(), SystemError> {
@@ -200,7 +185,7 @@ impl<T: SystemResource> SystemResource for Recorder<T> {
     }
 }
 
-impl<T: SystemResource> AccountResource for Recorder<T> {
+impl<T: AccountLookupResource> AccountLookupResource for Recorder<T> {
     fn user_by_name(&self, name: &str) -> Result<Option<UserIdentity>, SystemError> {
         self.inner.user_by_name(name)
     }
@@ -211,5 +196,28 @@ impl<T: SystemResource> AccountResource for Recorder<T> {
 
     fn group_by_name(&self, name: &str) -> Result<Option<GroupIdentity>, SystemError> {
         self.inner.group_by_name(name)
+    }
+}
+
+impl<T: AccountResource> AccountResource for Recorder<T> {
+    fn ensure_group(&self, name: &str, gid: Option<u32>) -> Result<bool, SystemError> {
+        self.record(ResourceOp::EnsureGroup {
+            name: name.to_string(),
+        });
+        self.inner.ensure_group(name, gid)
+    }
+
+    fn ensure_user(
+        &self,
+        name: &str,
+        uid: Option<u32>,
+        gid: Option<u32>,
+    ) -> Result<bool, SystemError> {
+        self.record(ResourceOp::EnsureUser {
+            name: name.to_string(),
+            uid,
+            gid,
+        });
+        self.inner.ensure_user(name, uid, gid)
     }
 }

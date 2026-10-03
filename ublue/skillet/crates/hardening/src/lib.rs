@@ -1,6 +1,6 @@
 use sha2::{Digest, Sha256};
 use skillet_core::files::{FileError, FileMutationResource, FileReadResource};
-use skillet_core::system::{SystemError, SystemResource};
+use skillet_core::system::{ServiceResource, SystemError};
 use std::path::Path;
 use thiserror::Error;
 use tracing::info;
@@ -15,7 +15,7 @@ pub enum HardeningError {
 
 pub fn apply<S, F>(system: &S, files: &F) -> Result<(), HardeningError>
 where
-    S: SystemResource + ?Sized,
+    S: ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
 {
     info!("Applying hardening...");
@@ -49,7 +49,7 @@ fn converge_service_file<S, F>(
     ensure_active: bool,
 ) -> Result<(), HardeningError>
 where
-    S: SystemResource + ?Sized,
+    S: ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
 {
     let state_dir = Path::new("/var/lib/skillet/hardening");
@@ -75,7 +75,7 @@ where
 
 fn apply_sysctl_hardening<S, F>(system: &S, files: &F) -> Result<(), HardeningError>
 where
-    S: SystemResource + ?Sized,
+    S: ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
 {
     info!("Applying sysctl hardening...");
@@ -98,13 +98,13 @@ where
     Ok(())
 }
 
-fn apply_os_hardening<S: SystemResource + ?Sized>(_system: &S) {
+fn apply_os_hardening<S: ServiceResource + ?Sized>(_system: &S) {
     info!("(Placeholder) Applying os-hardening");
 }
 
 fn apply_ssh_hardening_server<S, F>(system: &S, files: &F) -> Result<(), HardeningError>
 where
-    S: SystemResource + ?Sized,
+    S: ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
 {
     info!("Applying ssh-hardening::server");
@@ -118,7 +118,7 @@ where
 
 fn apply_ssh_hardening_client<S, F>(_system: &S, files: &F) -> Result<(), HardeningError>
 where
-    S: SystemResource + ?Sized,
+    S: ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
 {
     info!("Applying ssh-hardening::client");

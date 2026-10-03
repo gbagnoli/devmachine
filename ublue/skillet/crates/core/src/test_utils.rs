@@ -1,5 +1,8 @@
 use crate::files::{FileError, FileMutationResource, FileReadResource, Ownership, StorageResource};
-use crate::system::{AccountResource, GroupIdentity, SystemError, SystemResource, UserIdentity};
+use crate::system::{
+    AccountLookupResource, AccountResource, GroupIdentity, PodmanSecretResource, ServiceResource,
+    SystemError, UserIdentity,
+};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -44,7 +47,7 @@ impl Default for MockSystem {
     }
 }
 
-impl AccountResource for MockSystem {
+impl AccountLookupResource for MockSystem {
     fn user_by_name(&self, name: &str) -> Result<Option<UserIdentity>, SystemError> {
         Ok(self
             .user_identities
@@ -74,26 +77,7 @@ impl AccountResource for MockSystem {
     }
 }
 
-impl SystemResource for MockSystem {
-    fn podman_secret_id(&self, name: &str) -> Result<String, SystemError> {
-        self.secret_ids
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .get(name)
-            .cloned()
-            .ok_or_else(|| SystemError::Command(format!("secret {name} missing")))
-    }
-
-    fn service_is_active(&self, name: &str) -> Result<bool, SystemError> {
-        Ok(matches!(
-            self.services
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .get(name)
-                .map(String::as_str),
-            Some("started" | "restarted")
-        ))
-    }
+impl AccountResource for MockSystem {
     fn ensure_group(&self, name: &str, gid: Option<u32>) -> Result<bool, SystemError> {
         let mut groups = self
             .groups
@@ -164,6 +148,17 @@ impl SystemResource for MockSystem {
         );
         Ok(true)
     }
+}
+
+impl PodmanSecretResource for MockSystem {
+    fn podman_secret_id(&self, name: &str) -> Result<String, SystemError> {
+        self.secret_ids
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(name)
+            .cloned()
+            .ok_or_else(|| SystemError::Command(format!("secret {name} missing")))
+    }
 
     fn ensure_podman_secret(&self, name: &str, payload: &str) -> Result<bool, SystemError> {
         let mut secrets = self
@@ -182,6 +177,19 @@ impl SystemResource for MockSystem {
             ids.insert(name.to_string(), id);
             Ok(true)
         }
+    }
+}
+
+impl ServiceResource for MockSystem {
+    fn service_is_active(&self, name: &str) -> Result<bool, SystemError> {
+        Ok(matches!(
+            self.services
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .get(name)
+                .map(String::as_str),
+            Some("started" | "restarted")
+        ))
     }
 
     fn service_start(&self, name: &str) -> Result<(), SystemError> {
