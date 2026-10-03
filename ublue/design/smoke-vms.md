@@ -42,16 +42,17 @@ boot expectations and captured binaries, and records Ready only after signed
 boot, unit, SELinux, resolver and user-environment checks. Bounded probes and
 private diagnostics allow failed checks to be retried. It first persists
 Started to invalidate stale readiness, then checks ownership before and after
-each guest command/upload. Creation still uses the Bash installer, with Rust
-persisting a private `Preparing` intent and UUID first. The generated UUID is
-now part of native XML and Flatpak creation. Native definition and start are
-separate manifest phases; failed starts retain the defined domain for
-inspection and retry. Native domain XML now renders through the Rust XML
-library, preserving the recorded UUID, disk ownership, fw_cfg and passt network
-contract. Re-running create validates and starts that owned domain, or resumes
-staging when no domain exists. Backend selection, emulator discovery, libvirt
-define/start, Flatpak `virt-install`, and staging remain in Bash. Unit/adapter
-checks pass; live migration acceptance is deferred.
+each guest command/upload. Creation persists a private `Preparing` intent and
+UUID first. Rust atomically prepares the disk and SSH key, stages host templates,
+includes and binaries, applies VM-only Ignition changes, and records captured
+hashes and compatibility metadata. The standalone Butane compiler still builds
+Ignition. The generated UUID is part of native XML and Flatpak creation. Native
+definition and start are separate manifest phases; failed starts retain the
+defined domain for inspection and retry. Native domain XML now renders through
+the Rust XML library, preserving disk ownership, fw_cfg and passt networking.
+Backend selection, emulator discovery, libvirt define/start, and Flatpak
+`virt-install` remain in Bash. Unit/adapter checks pass; live migration
+acceptance is deferred.
 
 ## States and recovery
 
@@ -64,10 +65,10 @@ required. See the [TPM encrypted-root plan](../plan/TPM-ENCRYPTED-ROOT.md).
 1. **Create:** build the generic CLI and host binary, allocate the run directory,
    and persist a `Preparing` manifest before local artifact changes. The Rust VM
    library atomically copies the selected image, records its digest, and creates
-   or validates the run's Ed25519 SSH key pair. The Bash installer currently
-   stages templates and compiles Ignition; it receives the public key from the
-   hidden `test vm prepare-local` command. Ignition contains the public SSH key
-   and base configuration. Large binaries travel over SSH because embedding them
+   or validates the run's Ed25519 SSH key pair. It stages and specializes the
+   host Butane source, shared includes, and binaries, and records their hashes.
+   The standalone Butane compiler builds Ignition from that staged tree.
+   Ignition contains the public SSH key and base configuration. Large binaries travel over SSH because embedding them
    in QEMU `fw_cfg` previously caused long boot delays.
 2. **Ready:** wait for SSH, deliver both binaries, complete unsigned then signed
    rebase, and check the booted deployment, base apply, resolver, SELinux, and

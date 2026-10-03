@@ -1,7 +1,7 @@
 //! CLI presentation and legacy provider wiring. Ownership lives in `skillet_vm`.
 use super::{
     butane_root, secret_delivery, workspace_root, VmDestroyArgs, VmDirectoryArgs, VmListArgs,
-    VmPrepareLocalArgs, VmRenderDomainArgs, VmTargetArgs,
+    VmPrepareLocalArgs, VmRenderDomainArgs, VmStageLocalArgs, VmTargetArgs,
 };
 use anyhow::{anyhow, Result};
 use skillet_vm::{
@@ -84,6 +84,23 @@ pub(super) fn prepare_local(args: &VmPrepareLocalArgs) -> Result<()> {
     let public_key =
         skillet_vm::provisioning::prepare_local_artifacts(&store, &identity, &args.image)?;
     println!("{public_key}");
+    Ok(())
+}
+
+pub(super) fn stage_local(args: &VmStageLocalArgs) -> Result<()> {
+    let butane = butane_root()?;
+    let identity = RunIdentity::new(&args.hostname, &args.instance)?;
+    let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
+    let run = store.load(&identity)?;
+    skillet_vm::staging::stage_butane_source(
+        &store,
+        &run,
+        &butane.join(format!("{}.bu", identity.host())),
+        &butane.join("includes"),
+        &args.host_binary,
+        &args.generic_binary,
+        &args.image,
+    )?;
     Ok(())
 }
 

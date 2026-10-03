@@ -754,3 +754,23 @@ host tool; it still uses normal command approvals.
 - No VM was created or changed for this slice. Template staging, Butane
   compilation and native define/start remain in the Bash installer; Flatpak
   creation and end-to-end VM acceptance remain pending.
+
+### Rust VM Butane source staging, 2026-10-03
+
+- `skillet_vm::staging` now copies the selected host config, `.bu` includes,
+  and both captured binaries into the owned run directory. It specializes the
+  guest hostname, injects the validated disposable SSH key, removes image
+  binary entries and VM-only password-expiry resources, and adds the test-only
+  sudoers file. Artifact hashes and `run.conf` compatibility metadata are
+  written atomically. Repeated staging is idempotent and requires the current
+  persisted run to remain `Preparing` while holding its run lock.
+- `coreos-install` delegates disk/key preparation and staging to hidden Rust
+  VM commands. Bash now invokes the standalone Butane compiler on the Rust-
+  staged tree. Native define/start and tool-version capture remain in Bash.
+- Formatting, workspace Clippy with warnings denied, all 134 workspace tests,
+  workspace build, `bash -n`, ShellCheck, and `git diff --check` passed. The
+  CI-style beezelbot base container scenario passed, including repeat apply
+  without service starts.
+- No VM was created or changed. The staged tree was exercised through fixture
+  tests, but a fresh VM create through the combined flow was not verified.
+  Native define/start remain in Bash; Flatpak creation is still unverified.

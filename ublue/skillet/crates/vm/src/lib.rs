@@ -10,6 +10,7 @@ pub mod manifest;
 mod process;
 pub mod provisioning;
 pub mod readiness;
+pub mod staging;
 pub mod transport;
 
 pub use manifest::{

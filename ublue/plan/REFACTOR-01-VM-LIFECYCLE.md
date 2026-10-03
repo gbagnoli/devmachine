@@ -45,13 +45,15 @@ entry point. Installer staging can resume from a matching Preparing manifest.
 Native XML generation now uses `quick-xml`. The VM library also prepares the
 local disk atomically, records its source digest, and creates or validates the
 per-run SSH key pair; `coreos-install` delegates that operation through a
-hidden CLI command. Template staging and Butane compilation, backend
-define/start, reboot and interactive SSH still use Bash. Credential delivery
-has not yet adopted the shared transport. Workstream 2 must consolidate the
+hidden CLI command. The same library stages and specializes the Butane source
+tree and records compatibility metadata and binary hashes. The standalone
+Butane compilation, backend define/start, reboot and interactive SSH still use
+Bash. Credential delivery has not yet adopted the shared transport. Workstream 2 must consolidate the
 interim `boot_policy_for_host` lookup with the canonical capability
-declaration. Next: move template staging and backend define/start into Rust,
-then migrate reboot and interactive SSH. Flatpak `virt-install` creation
-remains pending. Disposal and readiness live acceptance remain deferred. See
+declaration. Next: move native define/start and tool-version capture into Rust,
+then migrate reboot and interactive SSH. Flatpak `virt-install`
+creation remains pending. Disposal and readiness live acceptance remain
+deferred. See
 [creation validation](../butane/ACCEPTANCE.md#recoverable-vm-creation-intent-2026-10-03)
 and [native XML validation](../butane/ACCEPTANCE.md#native-xml-rendering-2026-10-03),
 plus [readiness validation](../butane/ACCEPTANCE.md#readiness-retry-recovery-2026-10-03).
@@ -86,12 +88,12 @@ creation inspectable; readiness and target selection remain duplicated.
    native libvirt, embed shell, or install tools during this migration.
 4. Move list/status/create/reboot/update into Rust. Native domain XML now uses
    `quick-xml`; Flatpak still uses `virt-install`. Rust owns atomic disk
-   preparation and per-run key creation/validation; template staging,
-   Butane compilation and native define/start remain in `coreos-install`.
-   Stage copied templates with structured data operations and build artifacts
-   through a shared Cargo helper. Keep the standalone Butane compiler if it
-   still only compiles configuration. Validate required tools and SSH-port
-   conflicts before costly provisioning. See
+   preparation, per-run key creation/validation, and structured staging of
+   host templates, includes, binaries, compatibility metadata, and captured
+   hashes. `coreos-install` now invokes the standalone Butane compiler; native
+   define/start, tool-version capture, and domain UUID bookkeeping remain
+   there. Build artifacts through a shared Cargo helper. Validate required
+   tools and SSH-port conflicts before costly provisioning. See
    [native XML validation](../butane/ACCEPTANCE.md#native-xml-rendering-2026-10-03).
 5. Persist creation intent and a generated UUID before domain definition;
    advance through explicit recoverable phases as side effects complete.

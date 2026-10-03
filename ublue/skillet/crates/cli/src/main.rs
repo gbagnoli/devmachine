@@ -127,6 +127,9 @@ enum VmCommands {
     /// Prepare local image and SSH key artifacts for the source-tree helper
     #[command(hide = true)]
     PrepareLocal(VmPrepareLocalArgs),
+    /// Stage VM Butane inputs and captured binaries for the source-tree helper
+    #[command(hide = true)]
+    StageLocal(VmStageLocalArgs),
     /// Record successful domain definition for the source-tree helper
     #[command(hide = true)]
     Defined(VmTargetArgs),
@@ -181,6 +184,18 @@ struct VmPrepareLocalArgs {
     instance: String,
     #[arg(long)]
     image: PathBuf,
+}
+
+#[derive(clap::Args, Debug)]
+struct VmStageLocalArgs {
+    hostname: String,
+    instance: String,
+    #[arg(long)]
+    image: PathBuf,
+    #[arg(long)]
+    host_binary: PathBuf,
+    #[arg(long)]
+    generic_binary: PathBuf,
 }
 
 #[derive(clap::Args, Debug)]
@@ -324,6 +339,7 @@ fn run_vm_command(command: VmCommands) -> Result<()> {
         VmCommands::Create(args) => run_vm_create(&args)?,
         VmCommands::Prepare(args) => run_vm_prepare(&args)?,
         VmCommands::PrepareLocal(args) => vm::prepare_local(&args)?,
+        VmCommands::StageLocal(args) => vm::stage_local(&args)?,
         VmCommands::Defined(args) => vm::record_defined(&args)?,
         VmCommands::Started(args) => vm::record_started(&args)?,
         VmCommands::RenderDomain(args) => vm::render_domain(&args)?,
@@ -697,6 +713,25 @@ mod tests {
             "smoke",
             "--image",
             "/tmp/fcos.qcow2",
+        ]);
+        assert!(parsed.is_ok());
+    }
+
+    #[test]
+    fn vm_local_staging_parses_explicit_artifacts() {
+        let parsed = Args::try_parse_from([
+            "skillet",
+            "test",
+            "vm",
+            "stage-local",
+            "clamps",
+            "smoke",
+            "--image",
+            "/tmp/fcos.qcow2",
+            "--host-binary",
+            "/tmp/skillet-clamps",
+            "--generic-binary",
+            "/tmp/skillet",
         ]);
         assert!(parsed.is_ok());
     }
