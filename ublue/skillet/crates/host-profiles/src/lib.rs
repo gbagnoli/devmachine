@@ -233,6 +233,9 @@ fn apply_profile(
             "/data",
         )?;
     }
+    if profile.requires_pihole_dns_listener_policy() {
+        skillet_podman::ensure_dns_listener_port(files, 54)?;
+    }
     for service in &profile.services {
         match &service.config {
             ServiceConfig::Pihole { custom_dns } => {

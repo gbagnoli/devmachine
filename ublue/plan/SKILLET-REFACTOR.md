@@ -24,7 +24,7 @@ assignments to execute concurrently against the same interfaces.
 | 2 | [Canonical host profiles](REFACTOR-02-HOST-PROFILES.md) | VM identity types from 1 | Implemented; live acceptance pending |
 | 3 | [Effect interfaces and ownership](REFACTOR-03-RESOURCE-BOUNDARIES.md) | Profile inputs from 2 | In progress; live acceptance pending |
 | 4 | [CLI/library and delivery boundaries](REFACTOR-04-CLI-PROVISIONING.md) | Interfaces from 1–3 | In progress |
-| 5 | [Podman configuration and host policy](REFACTOR-05-PODMAN-MODEL.md) | Profiles/effect interfaces from 2–4 | Planned |
+| 5 | [Podman configuration and host policy](REFACTOR-05-PODMAN-MODEL.md) | Profiles/effect interfaces from 2–4 | In progress |
 | 6 | [Convergence outcomes and recording](REFACTOR-06-CONVERGENCE-RECORDING.md) | Resource/configuration contracts from 3–5 | Planned |
 | 7 | [Test layers, fixtures, artifacts, and CI](REFACTOR-07-TEST-INFRASTRUCTURE.md) | Final interfaces from 1–6 | Planned |
 

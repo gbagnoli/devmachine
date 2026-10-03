@@ -46,7 +46,7 @@ fn clamps_network() -> PodmanNetwork {
 }
 
 #[test]
-fn shared_network_quadlet_is_written_and_attached_idempotently() {
+fn container_apply_owns_network_quadlet_but_not_host_dns_policy() {
     let system = MockSystem::new();
     let files = MockFiles::new();
     system.ensure_podman_secret("dummy", "first").unwrap();
@@ -56,10 +56,9 @@ fn shared_network_quadlet_is_written_and_attached_idempotently() {
     container(&system, &files, config).unwrap();
 
     let managed_files = files.files.lock().unwrap();
-    let dns_config = managed_files
-        .get("/etc/containers/containers.conf.d/90-skillet-aardvark.conf")
-        .unwrap();
-    assert_eq!(dns_config, b"[network]\ndns_bind_port=54\n");
+    assert!(
+        !managed_files.contains_key("/etc/containers/containers.conf.d/90-skillet-aardvark.conf")
+    );
     let network = managed_files
         .get("/etc/containers/systemd/clamps.network")
         .unwrap();
@@ -79,6 +78,17 @@ fn shared_network_quadlet_is_written_and_attached_idempotently() {
     repeated.networks.push(clamps_network());
     container(&system, &files, repeated).unwrap();
     assert_eq!(system.restart_count.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn host_dns_listener_policy_is_independently_idempotent() {
+    let files = MockFiles::new();
+    assert!(ensure_dns_listener_port(&files, 54).unwrap());
+    assert!(!ensure_dns_listener_port(&files, 54).unwrap());
+    assert_eq!(
+        files.files.lock().unwrap()["/etc/containers/containers.conf.d/90-skillet-aardvark.conf"],
+        b"[network]\ndns_bind_port=54\n"
+    );
 }
 
 #[test]

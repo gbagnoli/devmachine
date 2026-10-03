@@ -1007,3 +1007,17 @@ host tool; it still uses normal command approvals.
   workspace all-target Clippy passed. The CI container integration exited 0:
   both applies succeeded, the second caused no service restart, and the
   disposable container was removed. No provider or VM resources were changed.
+
+### Podman host-wide DNS policy, 2026-10-04
+
+- Moved Aardvark's host-wide DNS listener config out of each container apply.
+  The canonical profile selects the policy when Pi-hole is declared; host
+  composition writes it before service recipes. Container apply now only owns
+  its Quadlet and declared network.
+- Podman and host-profile tests passed, including idempotent listener config
+  and profile selection. Full offline workspace tests, strict all-target
+  Clippy, formatting, and the CI container integration passed. The CI
+  beezelbot base fixture applied twice without restart and its container was
+  removed.
+- Live Pi-hole port 53 and service-name DNS behavior was not verified; no
+  `/dev/kvm` is available on this workstation.

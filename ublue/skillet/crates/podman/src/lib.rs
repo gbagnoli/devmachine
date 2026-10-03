@@ -125,6 +125,24 @@ pub struct PodmanNetwork {
     pub options: Vec<String>,
 }
 
+/// Configure Aardvark's host-wide listener before applying services that
+/// publish DNS on the host. This policy belongs to host composition, not to
+/// each container that happens to use a bridge network.
+pub fn ensure_dns_listener_port<F: FileMutationResource + ?Sized>(
+    files: &F,
+    port: u16,
+) -> Result<bool, PodmanError> {
+    let config_dir = Path::new("/etc/containers/containers.conf.d");
+    files.ensure_directory(config_dir, Some(0o755), Some("root"), Some("root"))?;
+    Ok(files.ensure_file(
+        &config_dir.join("90-skillet-aardvark.conf"),
+        format!("[network]\ndns_bind_port={port}\n").as_bytes(),
+        Some(0o644),
+        Some("root"),
+        Some("root"),
+    )?)
+}
+
 #[allow(clippy::similar_names)]
 pub fn container<S, F>(system: &S, files: &F, config: PodmanConfig) -> Result<bool, PodmanError>
 where
@@ -137,22 +155,6 @@ where
     let mut extra_config = config.extra_config;
     let config_revisions = config.config_revisions;
     let mut network_states = Vec::new();
-
-    // Pi-hole publishes port 53 on the host. Keep Netavark's bridge DNS
-    // listener off that port while retaining its container-name DNS service.
-    // This is a global Podman setting, so only manage it when using a
-    // DNS-enabled user-defined network.
-    if !config.networks.is_empty() {
-        let config_dir = Path::new("/etc/containers/containers.conf.d");
-        files.ensure_directory(config_dir, Some(0o755), Some("root"), Some("root"))?;
-        files.ensure_file(
-            &config_dir.join("90-skillet-aardvark.conf"),
-            b"[network]\ndns_bind_port=54\n",
-            Some(0o644),
-            Some("root"),
-            Some("root"),
-        )?;
-    }
 
     // A container's reference to the network Quadlet creates the systemd
     // dependency that starts the network before the container.
