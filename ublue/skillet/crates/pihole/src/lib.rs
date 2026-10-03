@@ -4,7 +4,7 @@ use skillet_core::system::{
     AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
 };
 use skillet_podman::{
-    self, ContainerUser, PodmanConfig, PodmanError, PodmanNetwork, QuadletSecret, Volume,
+    self, PodmanConfig, PodmanError, PodmanNetwork, ProcessIdentity, QuadletSecret, Volume,
 };
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -85,12 +85,6 @@ where
     )?;
 
     // 4. Define container
-    let user = ContainerUser {
-        container_uid: 0,
-        container_gid: 0,
-        host_user: None,
-    };
-
     // SELinux relabeling (:z, shared) so the container can access these
     // host paths on enforcing systems such as uCore.
     let volumes = vec![
@@ -152,8 +146,8 @@ where
             name: "pihole".to_string(),
             image: "docker.io/pihole/pihole:latest".to_string(),
             networks: vec![network],
-            user,
-            create_host_user: false,
+            process_identity: ProcessIdentity::ImageDefault,
+            namespace_mapping: None,
             volumes,
             secrets,
             config_revisions: vec![custom_list.into_bytes()],

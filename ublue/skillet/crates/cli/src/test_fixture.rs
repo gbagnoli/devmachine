@@ -5,7 +5,7 @@ use skillet_core::{
     system::{SystemError, SystemResource},
 };
 use skillet_podman::{
-    ContainerUser, PodmanConfig, PodmanError, QuadletSecret, SecretTarget, Volume,
+    PodmanConfig, PodmanError, ProcessIdentity, QuadletSecret, SecretTarget, Volume,
 };
 use std::{collections::BTreeMap, path::Path};
 use thiserror::Error;
@@ -95,12 +95,8 @@ pub(super) fn apply(
             name: "skillet-smoke-fixture".to_string(),
             image: "docker.io/library/alpine:3.20".to_string(),
             networks: Vec::new(),
-            user: ContainerUser {
-                container_uid: 0,
-                container_gid: 0,
-                host_user: None,
-            },
-            create_host_user: false,
+            process_identity: ProcessIdentity::ImageDefault,
+            namespace_mapping: None,
             volumes: vec![
                 Volume {
                     host_path: "/etc/skillet-smoke".to_string(),

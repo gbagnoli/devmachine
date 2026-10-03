@@ -2,7 +2,7 @@ use askama::Template;
 use sha2::{Digest, Sha256};
 use skillet_core::files::{FileError, FileMutationResource, FileReadResource};
 use skillet_core::system::{
-    AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
+    AccountLookupResource, PodmanSecretResource, ServiceResource, SystemError,
 };
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -20,6 +20,8 @@ pub enum PodmanError {
     UserMapping(String),
     #[error("Invalid Podman network unit name: {0}")]
     InvalidNetworkName(String),
+    #[error("Podman directive {0} conflicts with the typed container identity")]
+    ConflictingIdentityDirective(&'static str),
     #[error("Network configuration changed for {0}; stop its consumers, remove the Podman network and its applied marker, then apply again")]
     NetworkConfigChanged(String),
     #[error("No valid {kind} subordinate-ID range for account {account}")]
@@ -38,10 +40,17 @@ struct QuadletTemplate {
     sections: BTreeMap<String, Vec<String>>,
 }
 
-pub struct ContainerUser {
-    pub container_uid: u32,
-    pub container_gid: u32,
-    pub host_user: Option<HostUser>,
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ProcessIdentity {
+    ImageDefault,
+    Numeric { uid: u32, gid: u32 },
+    Named { user: String, group: Option<String> },
+}
+
+/// Explicitly map one existing host account to the configured numeric
+/// container identity through the user's subordinate-ID ranges.
+pub struct UserNamespaceMapping {
+    pub host_user: HostUser,
 }
 
 pub enum HostUser {
@@ -107,8 +116,8 @@ pub struct PodmanConfig {
     pub name: String,
     pub image: String,
     pub networks: Vec<PodmanNetwork>,
-    pub user: ContainerUser,
-    pub create_host_user: bool,
+    pub process_identity: ProcessIdentity,
+    pub namespace_mapping: Option<UserNamespaceMapping>,
     pub volumes: Vec<Volume>,
     pub secrets: Vec<QuadletSecret>,
     /// Content consumed at container startup outside the Quadlet definition.
@@ -146,9 +155,10 @@ pub fn ensure_dns_listener_port<F: FileMutationResource + ?Sized>(
 #[allow(clippy::similar_names)]
 pub fn container<S, F>(system: &S, files: &F, config: PodmanConfig) -> Result<bool, PodmanError>
 where
-    S: AccountLookupResource + AccountResource + PodmanSecretResource + ServiceResource + ?Sized,
+    S: AccountLookupResource + PodmanSecretResource + ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
 {
+    validate_process_identity(&config)?;
     let name = &config.name;
     info!("Ensuring podman container: {name}");
 
@@ -187,23 +197,13 @@ where
             .push(format!("Network={}.network", network.unit_name));
     }
 
-    // 1. Resolve and ensure host user
-    let host_info = resolve_host_user(system, &config.user, config.create_host_user)?;
-
-    // 2. Calculate mappings
-    if let Some((uid_host, gid_host, username)) = &host_info {
-        let sub_uid = discover_subid_range(files, "/etc/subuid", username, "UID")?;
-        let sub_gid = discover_subid_range(files, "/etc/subgid", username, "GID")?;
-        calculate_user_mappings(
-            &config.user,
-            *uid_host,
-            *gid_host,
-            username,
-            sub_uid,
-            sub_gid,
-            &mut extra_config,
-        )?;
-    }
+    add_process_identity(
+        system,
+        files,
+        &config.process_identity,
+        config.namespace_mapping.as_ref(),
+        &mut extra_config,
+    )?;
 
     // 3. Ensure volumes and secrets
     let container_section = extra_config.entry("Container".to_string()).or_default();
@@ -287,49 +287,143 @@ fn render_network(network: &PodmanNetwork) -> Result<String, PodmanError> {
     Ok(content)
 }
 
-fn resolve_host_user<S: AccountLookupResource + AccountResource + ?Sized>(
+fn resolve_host_user<S: AccountLookupResource + ?Sized>(
     system: &S,
-    user: &ContainerUser,
-    create: bool,
-) -> Result<Option<(u32, u32, String)>, PodmanError> {
-    if let Some(hu) = &user.host_user {
-        let (username, uid, gid) = match hu {
-            HostUser::Name(ref n) => {
-                if create {
-                    system.ensure_user(n, None, None)?;
-                }
-                let u = system.user_by_name(n)?.ok_or_else(|| {
-                    PodmanError::UserMapping(format!("User {n} not found on host"))
-                })?;
-                (n.clone(), u.uid, u.primary_gid)
-            }
-            HostUser::Uid(u) => {
-                let u_info = system.user_by_uid(*u)?.ok_or_else(|| {
-                    PodmanError::UserMapping(format!("UID {u} not found on host"))
-                })?;
-                (u_info.name, *u, u_info.primary_gid)
-            }
-        };
-        Ok(Some((uid, gid, username)))
-    } else {
-        Ok(None)
+    mapping: &UserNamespaceMapping,
+) -> Result<(u32, u32, String), PodmanError> {
+    let (username, uid, gid) = match &mapping.host_user {
+        HostUser::Name(n) => {
+            let u = system
+                .user_by_name(n)?
+                .ok_or_else(|| PodmanError::UserMapping(format!("User {n} not found on host")))?;
+            (n.clone(), u.uid, u.primary_gid)
+        }
+        HostUser::Uid(u) => {
+            let u_info = system
+                .user_by_uid(*u)?
+                .ok_or_else(|| PodmanError::UserMapping(format!("UID {u} not found on host")))?;
+            (u_info.name, *u, u_info.primary_gid)
+        }
+    };
+    Ok((uid, gid, username))
+}
+
+fn validate_identity_component(value: &str) -> Result<(), PodmanError> {
+    if value.is_empty()
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+    {
+        return Err(PodmanError::UserMapping(
+            "invalid named container identity component".to_string(),
+        ));
     }
+    Ok(())
+}
+
+#[allow(clippy::similar_names)]
+fn add_process_identity<S, F>(
+    system: &S,
+    files: &F,
+    identity: &ProcessIdentity,
+    mapping: Option<&UserNamespaceMapping>,
+    extra_config: &mut BTreeMap<String, Vec<String>>,
+) -> Result<(), PodmanError>
+where
+    S: AccountLookupResource + ?Sized,
+    F: FileReadResource + ?Sized,
+{
+    let container = extra_config.entry("Container".to_string()).or_default();
+    match identity {
+        ProcessIdentity::Numeric { uid, gid } if mapping.is_none() => {
+            container.push(format!("User={uid}:{gid}"));
+        }
+        ProcessIdentity::ImageDefault | ProcessIdentity::Numeric { .. } => {}
+        ProcessIdentity::Named { user, group } => {
+            if let Some(group) = group {
+                container.push(format!("User={user}:{group}"));
+            } else {
+                container.push(format!("User={user}"));
+            }
+        }
+    }
+    let Some(mapping) = mapping else {
+        return Ok(());
+    };
+    let ProcessIdentity::Numeric { uid, gid } = identity else {
+        return Err(PodmanError::UserMapping(
+            "namespace mapping requires an explicit numeric container identity".to_string(),
+        ));
+    };
+    let (host_uid, host_gid, username) = resolve_host_user(system, mapping)?;
+    let sub_uid = discover_subid_range(files, "/etc/subuid", &username, "UID")?;
+    let sub_gid = discover_subid_range(files, "/etc/subgid", &username, "GID")?;
+    calculate_user_mappings(
+        UserMappingInputs {
+            uid_container: *uid,
+            gid_container: *gid,
+            uid_host: host_uid,
+            gid_host: host_gid,
+            username: &username,
+            sub_uid,
+            sub_gid,
+        },
+        extra_config,
+    )
+}
+
+fn validate_process_identity(config: &PodmanConfig) -> Result<(), PodmanError> {
+    for line in config.extra_config.get("Container").into_iter().flatten() {
+        for (key, prefix) in [
+            ("User", "User="),
+            ("UIDMap", "UIDMap="),
+            ("GIDMap", "GIDMap="),
+        ] {
+            if line.starts_with(prefix) {
+                return Err(PodmanError::ConflictingIdentityDirective(key));
+            }
+        }
+    }
+    match &config.process_identity {
+        ProcessIdentity::ImageDefault => {
+            if config.namespace_mapping.is_some() {
+                return Err(PodmanError::UserMapping(
+                    "namespace mapping requires an explicit numeric container identity".to_string(),
+                ));
+            }
+        }
+        ProcessIdentity::Numeric { .. } => {}
+        ProcessIdentity::Named { user, group } => {
+            validate_identity_component(user)?;
+            if let Some(group) = group {
+                validate_identity_component(group)?;
+            }
+            if config.namespace_mapping.is_some() {
+                return Err(PodmanError::UserMapping(
+                    "namespace mapping requires an explicit numeric container identity".to_string(),
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 // uid/gid subid ranges are intentionally parallel; the one-letter
 // difference is the whole point
 #[allow(clippy::similar_names)]
 fn calculate_user_mappings(
-    user: &ContainerUser,
-    uid_host: u32,
-    gid_host: u32,
-    username: &str,
-    sub_uid: SubordinateRange,
-    sub_gid: SubordinateRange,
+    inputs: UserMappingInputs<'_>,
     extra_config: &mut BTreeMap<String, Vec<String>>,
 ) -> Result<(), PodmanError> {
-    let uid_container = user.container_uid;
-    let gid_container = user.container_gid;
+    let UserMappingInputs {
+        uid_container,
+        gid_container,
+        uid_host,
+        gid_host,
+        username,
+        sub_uid,
+        sub_gid,
+    } = inputs;
     validate_subordinate_range(sub_uid, username, uid_container)?;
     validate_subordinate_range(sub_gid, username, gid_container)?;
 
@@ -364,6 +458,18 @@ fn calculate_user_mappings(
         ));
     }
     Ok(())
+}
+
+#[derive(Clone, Copy)]
+#[allow(clippy::struct_field_names)]
+struct UserMappingInputs<'a> {
+    uid_container: u32,
+    gid_container: u32,
+    uid_host: u32,
+    gid_host: u32,
+    username: &'a str,
+    sub_uid: SubordinateRange,
+    sub_gid: SubordinateRange,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

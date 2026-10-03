@@ -1021,3 +1021,18 @@ host tool; it still uses normal command approvals.
   removed.
 - Live Pi-hole port 53 and service-name DNS behavior was not verified; no
   `/dev/kvm` is available on this workstation.
+
+### Explicit Podman process identity, 2026-10-04
+
+- Replaced the ambiguous container UID/GID + host-user fields with explicit
+  image-default, named, and numeric identities. Namespace mapping is a separate
+  opt-in input requiring an existing host account and subordinate ranges; the
+  generic adapter no longer creates accounts. UniFi's named process user now
+  comes from the typed identity field.
+- Podman and UniFi tests passed for image-default, named, numeric, mapped
+  identity, map-range validation, and rejection of raw typed-field conflicts
+  before effects. Full offline workspace tests, strict all-target Clippy,
+  formatting, and the CI container integration passed. The container applied
+  beezelbot base twice with no restart on the second apply, then was removed.
+- No live container identity or ownership checks ran; `/dev/kvm` is unavailable
+  on this workstation.

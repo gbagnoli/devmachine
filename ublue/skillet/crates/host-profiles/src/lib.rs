@@ -6,7 +6,7 @@ use skillet_core::{
     system::{SystemError, SystemResource},
 };
 use skillet_podman::{
-    ContainerUser, PodmanConfig, PodmanNetwork, QuadletSecret, SecretTarget, Volume,
+    PodmanConfig, PodmanNetwork, ProcessIdentity, QuadletSecret, SecretTarget, Volume,
 };
 use std::collections::BTreeMap;
 use thiserror::Error;
@@ -150,12 +150,8 @@ fn tailscale_config(hostname: &str, auth_key: String, state_path: &str) -> Podma
         name: "tailscale".to_string(),
         image: "docker.io/tailscale/tailscale:stable".to_string(),
         networks: Vec::new(),
-        user: ContainerUser {
-            container_uid: 0,
-            container_gid: 0,
-            host_user: None,
-        },
-        create_host_user: false,
+        process_identity: ProcessIdentity::ImageDefault,
+        namespace_mapping: None,
         volumes: vec![Volume {
             host_path: state_path.to_string(),
             container_path: "/var/lib/tailscale".to_string(),

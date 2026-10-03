@@ -23,8 +23,13 @@ apply also owns a global DNS-port policy and converges shared networks repeatedl
   declared, and host composition writes it once before service recipes. The
   focused Podman helper is idempotent; standalone container apply no longer
   changes global Podman DNS policy. Named-VM validation remains pending.
-- Pending: typed process identity/mapping/volume ownership, typed container
-  network attachments and publications, shared network baseline ownership,
+- Implemented: replaced the ambiguous container UID/GID plus host-user fields
+  with image-default, named, and numeric process identities, and a separate
+  optional namespace mapping. Removed unused implicit host-account creation;
+  UniFi now declares its image's named process user as typed data. Invalid
+  names and raw `User`/`UIDMap`/`GIDMap` conflicts fail before file effects.
+- Pending: typed host volume ownership, typed container network attachments and
+  publications, shared network baseline ownership,
   storage dependencies, and full service migration.
 
 ## Implementation sequence
