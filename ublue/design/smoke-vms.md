@@ -46,9 +46,12 @@ each guest command/upload. Creation still uses the Bash installer, with Rust
 persisting a private `Preparing` intent and UUID first. The generated UUID is
 now part of native XML and Flatpak creation. Native definition and start are
 separate manifest phases; failed starts retain the defined domain for
-inspection and retry. Re-running create validates and starts that owned domain,
-or resumes staging when no domain exists. Unit/adapter checks pass; live
-migration acceptance is deferred while the user's VM creation runs.
+inspection and retry. Native domain XML now renders through the Rust XML
+library, preserving the recorded UUID, disk ownership, fw_cfg and passt network
+contract. Re-running create validates and starts that owned domain, or resumes
+staging when no domain exists. Backend selection, emulator discovery, libvirt
+define/start, Flatpak `virt-install`, and staging remain in Bash. Unit/adapter
+checks pass; live migration acceptance is deferred.
 
 ## States and recovery
 

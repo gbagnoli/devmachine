@@ -11,7 +11,7 @@ Design decisions: [disposable VM lifecycle](../design/smoke-vms.md) and
 `/dev/vda`, the virtio disk attached by this launcher. Do not use it as a
 physical-disk install file. The host needs Podman, `yq`, `rg`, `ssh-keygen`,
 and KVM. Native libvirt additionally needs `virsh`, `virtqemud`,
-`virtstoraged`, `passt`, Python 3, `xmllint`, and `virt-xml-validate`; the helper
+`virtstoraged`, `passt`, `xmllint`, and `virt-xml-validate`; the helper
 defines native VMs with `virsh`. The Flatpak backend uses QEMU user networking
 and an existing virt-manager with its QEMU extension.
 The shared [data storage design](../design/storage.md) is implemented by

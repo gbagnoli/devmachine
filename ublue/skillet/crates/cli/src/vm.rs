@@ -1,7 +1,7 @@
 //! CLI presentation and legacy provider wiring. Ownership lives in `skillet_vm`.
 use super::{
     butane_root, secret_delivery, workspace_root, VmDestroyArgs, VmDirectoryArgs, VmListArgs,
-    VmTargetArgs,
+    VmRenderDomainArgs, VmTargetArgs,
 };
 use anyhow::{anyhow, Result};
 use skillet_vm::{
@@ -59,6 +59,21 @@ pub(super) fn record_defined(args: &VmTargetArgs) -> Result<()> {
         .ok_or_else(|| anyhow!("VM definition returned without an owned domain"))?
         .validate_owned(&run)?;
     store.mark_defined(&identity)?;
+    Ok(())
+}
+
+pub(super) fn render_domain(args: &VmRenderDomainArgs) -> Result<()> {
+    let butane = butane_root()?;
+    let identity = RunIdentity::new(&args.hostname, &args.instance)?;
+    let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
+    let run = store.load(&identity)?;
+    if run.phase != skillet_vm::Phase::Preparing {
+        return Err(anyhow!(
+            "domain XML can only be rendered for a preparing VM"
+        ));
+    }
+    let path = skillet_vm::domain_xml::write_native_domain_xml(&store, &run, &args.emulator)?;
+    println!("{}", path.display());
     Ok(())
 }
 

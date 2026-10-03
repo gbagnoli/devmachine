@@ -4,6 +4,7 @@ pub mod artifacts;
 pub mod backend;
 pub mod catalog;
 pub mod delivery;
+pub mod domain_xml;
 pub mod lifecycle;
 pub mod manifest;
 mod process;
@@ -24,6 +25,8 @@ pub enum Error {
     Json(#[from] serde_json::Error),
     #[error("invalid libvirt XML: {0}")]
     Xml(#[from] quick_xml::DeError),
+    #[error("libvirt XML rendering failed: {0}")]
+    XmlWrite(#[from] quick_xml::Error),
     #[error("libvirt command {operation} failed (exit {code:?}); inspect the selected runtime")]
     Command {
         operation: String,

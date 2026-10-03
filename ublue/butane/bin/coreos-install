@@ -216,49 +216,15 @@ else
   emulator="$(vm_command virsh -c "$libvirt_uri" capabilities |
     xmllint --xpath "string((//guest[os_type='hvm']/arch[@name='x86_64']/emulator)[1])" -)"
   [[ -n "$emulator" && -x "$emulator" ]] || { echo 'No usable x86_64 libvirt emulator' >&2; exit 1; }
-  python3 - "$vm_name" "$vm_uuid" "$emulator" "$output_dir/$vm_name.qcow2" "$ignition" "$ssh_port" > "$output_dir/domain.xml" <<'PY'
-import sys
-import xml.etree.ElementTree as ET
-
-name, uuid, emulator, disk, ignition, port = sys.argv[1:]
-domain = ET.Element('domain', type='kvm')
-ET.SubElement(domain, 'name').text = name
-if uuid:
-    ET.SubElement(domain, 'uuid').text = uuid
-ET.SubElement(domain, 'memory', unit='MiB').text = '8192'
-ET.SubElement(domain, 'vcpu').text = '2'
-os = ET.SubElement(domain, 'os')
-ET.SubElement(os, 'type', arch='x86_64', machine='q35').text = 'hvm'
-ET.SubElement(os, 'boot', dev='hd')
-features = ET.SubElement(domain, 'features')
-ET.SubElement(features, 'acpi')
-ET.SubElement(features, 'apic')
-ET.SubElement(domain, 'cpu', mode='host-passthrough')
-sysinfo = ET.SubElement(domain, 'sysinfo', type='fwcfg')
-ET.SubElement(sysinfo, 'entry', name='opt/com.coreos/config', file=ignition)
-devices = ET.SubElement(domain, 'devices')
-ET.SubElement(devices, 'emulator').text = emulator
-for source, fmt, target, readonly in ((disk, 'qcow2', 'vda', False), (ignition, 'raw', 'vdb', True)):
-    device = ET.SubElement(devices, 'disk', type='file', device='disk')
-    ET.SubElement(device, 'driver', name='qemu', type=fmt)
-    ET.SubElement(device, 'source', file=source)
-    ET.SubElement(device, 'target', dev=target, bus='virtio')
-    if readonly:
-        ET.SubElement(device, 'readonly')
-interface = ET.SubElement(devices, 'interface', type='user')
-ET.SubElement(interface, 'backend', type='passt')
-forward = ET.SubElement(interface, 'portForward', proto='tcp', address='127.0.0.1')
-ET.SubElement(forward, 'range', start=port, to='22')
-ET.SubElement(interface, 'model', type='virtio')
-serial = ET.SubElement(devices, 'serial', type='pty')
-ET.SubElement(serial, 'target', port='0')
-console = ET.SubElement(devices, 'console', type='pty')
-ET.SubElement(console, 'target', type='serial', port='0')
-ET.indent(domain)
-ET.ElementTree(domain).write(sys.stdout, encoding='unicode', xml_declaration=True)
-PY
-  virt-xml-validate "$output_dir/domain.xml"
-  vm_command virsh -c "$libvirt_uri" define "$output_dir/domain.xml"
+  if [[ -n "${SKILLET_BINARY:-}" ]]; then
+    domain_xml="$("$SKILLET_BINARY" test vm render-domain "$host" "${vm_name#"$host-test-"}" --emulator "$emulator")"
+  else
+    domain_xml="$(cd "$repo_dir/skillet" && cargo run --quiet --release -p skillet -- \
+      test vm render-domain "$host" "${vm_name#"$host-test-"}" --emulator "$emulator")"
+  fi
+  [[ "$domain_xml" == "$output_dir/domain.xml" ]] || { echo 'Rust returned an unexpected domain XML path' >&2; exit 1; }
+  virt-xml-validate "$domain_xml"
+  vm_command virsh -c "$libvirt_uri" define "$domain_xml"
   if [[ -n "${SKILLET_BINARY:-}" ]]; then
     "$SKILLET_BINARY" test vm defined "$host" "${vm_name#"$host-test-"}"
   else
