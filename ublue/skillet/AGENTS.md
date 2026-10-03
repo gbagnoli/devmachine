@@ -98,6 +98,9 @@ tracks existing violations and their migration, not completed implementation.
   establish absence; transport failure is not absence. Revalidate ownership
   after long external calls and address destructive runtime actions by the
   recorded immutable identity, not only a reusable name.
+- Remove recovery metadata only after owned artifact deletion succeeds, too.
+  A recursive directory deletion must not erase its own retry journal before
+  discovering that a later child cannot be removed.
 - Keep subprocess adapters focused: construct executable arguments and
   environments directly, observe results, and bound waits with diagnostics.
   Preserve supported workstation backends and static guest builds without

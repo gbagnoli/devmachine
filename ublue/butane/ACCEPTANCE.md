@@ -20,6 +20,16 @@
   creating a smoke VM in another panel; it and its artifacts were left alone.
   No vault, Cloudflare or Tailscale request was needed for this slice.
 
+## Interrupted local artifact removal, 2026-10-03
+
+- Follow-up to `d799ace`: disposal now removes application artifacts before
+  deleting authoritative/legacy recovery records. A deterministic local
+  removal failure leaves both the versioned manifest and original identity/
+  hash records readable; retry finishes artifact deletion.
+- Twenty-seven VM tests, workspace tests, all-target pedantic Clippy,
+  formatting, routine Fedora container integration and whitespace checks pass.
+  This is local fault injection; live VM disposal remains deferred.
+
 ## Rust catalog and Cargo artifact selection, 2026-10-03
 
 - Source slice: follows `d799ace`. Both list entry points delegate to Rust
