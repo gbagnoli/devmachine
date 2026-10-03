@@ -5,10 +5,9 @@ use std::{
     collections::BTreeMap,
     ffi::OsString,
     fs,
-    os::unix::process::CommandExt as _,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
-    time::{Duration, Instant},
+    process::Command,
+    time::Duration,
 };
 use uuid::Uuid;
 
@@ -77,43 +76,16 @@ impl Default for ProcessExecutor {
 
 impl VirshExecutor for ProcessExecutor {
     fn execute(&self, invocation: &VirshInvocation) -> Result<VirshOutput> {
-        let stdout = tempfile::NamedTempFile::new()?;
-        let stderr = tempfile::NamedTempFile::new()?;
-        let mut child = Command::new(&invocation.program)
+        let mut command = Command::new(&invocation.program);
+        command
             .args(&invocation.arguments)
-            .envs(&invocation.environment)
-            .stdin(Stdio::null())
-            .stdout(stdout.as_file().try_clone()?)
-            .stderr(stderr.as_file().try_clone()?)
-            .process_group(0)
-            .spawn()?;
-        let deadline = Instant::now() + self.timeout;
-        let status = loop {
-            match child.try_wait() {
-                Ok(Some(status)) => break status,
-                Ok(None) if Instant::now() < deadline => {
-                    std::thread::sleep(Duration::from_millis(20));
-                }
-                result => {
-                    if let Ok(id) = i32::try_from(child.id()) {
-                        let _ = nix::sys::signal::killpg(
-                            nix::unistd::Pid::from_raw(id),
-                            nix::sys::signal::Signal::SIGKILL,
-                        );
-                    }
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return match result {
-                        Err(error) => Err(error.into()),
-                        _ => Err(Error::Timeout),
-                    };
-                }
-            }
-        };
+            .envs(&invocation.environment);
+        let output = crate::process::capture(command, self.timeout)?;
         Ok(VirshOutput {
-            success: status.success(),
-            code: status.code(),
-            stdout: fs::read_to_string(stdout.path())?,
+            success: output.status.success(),
+            code: output.status.code(),
+            stdout: String::from_utf8(output.stdout)
+                .map_err(|_| Error::Invalid("libvirt output is not UTF8".into()))?,
         })
     }
 }

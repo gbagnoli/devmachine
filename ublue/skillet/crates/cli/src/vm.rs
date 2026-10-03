@@ -1,5 +1,7 @@
 //! CLI presentation and legacy provider wiring. Ownership lives in `skillet_vm`.
-use super::{butane_root, secret_delivery, VmDestroyArgs, VmTargetArgs};
+use super::{
+    butane_root, secret_delivery, workspace_root, VmDestroyArgs, VmListArgs, VmTargetArgs,
+};
 use anyhow::{anyhow, Result};
 use skillet_vm::{
     backend::{VirshBackend, VmBackend},
@@ -45,4 +47,54 @@ pub(super) fn destroy(args: &VmDestroyArgs) -> Result<()> {
 
 fn current_uid() -> u32 {
     skillet_vm::current_uid()
+}
+
+pub(super) fn list(args: &VmListArgs) -> Result<()> {
+    let butane = butane_root()?;
+    let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
+    let mut templates = skillet_vm::catalog::templates(&butane, &workspace_root()?)?;
+    if let Some(host) = &args.hostname {
+        RunIdentity::new(host, "catalog")?;
+        let available = templates.get(host).copied();
+        if available.is_none() && skillet_vm::catalog::recorded_runs(&store, host)?.is_empty() {
+            return Err(anyhow!("unknown host: {host}"));
+        }
+        templates = std::collections::BTreeMap::from([(host.clone(), available.unwrap_or(false))]);
+    }
+    println!(
+        "{:<12} {:<12} {:<16} {:<12} PORT",
+        "HOST", "TEMPLATE", "INSTANCE", "STATE"
+    );
+    for (host, available) in templates {
+        let availability = if available {
+            "available"
+        } else {
+            "unavailable"
+        };
+        let runs = skillet_vm::catalog::recorded_runs(&store, &host)?;
+        if runs.is_empty() {
+            println!("{host:<12} {availability:<12} {:<16} {:<12} -", "-", "none");
+        }
+        for identity in runs {
+            let (state, port) = match store.load(&identity) {
+                Err(_) => ("invalid".into(), "-".into()),
+                Ok(run) => {
+                    let result = VirshBackend::for_run(&run, &butane.join("bin/virsh"))
+                        .and_then(|backend| backend.inspect(&run));
+                    let state = match result {
+                        Ok(None) => "missing".into(),
+                        Ok(Some(domain)) if domain.validate_owned(&run).is_ok() => domain.state,
+                        Ok(Some(_)) => "mismatch".into(),
+                        Err(_) => "unavailable".into(),
+                    };
+                    (state, run.ssh.port.to_string())
+                }
+            };
+            println!(
+                "{host:<12} {availability:<12} {:<16} {state:<12} {port}",
+                identity.instance()
+            );
+        }
+    }
+    Ok(())
 }

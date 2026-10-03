@@ -77,7 +77,9 @@ hyphens. The helper records `clamps` plus `smoke` as the internal domain
 
 `list` reports each host as `available` when both its Butane config and host
 crate exist. Instance rows show the libvirt state; `missing`, `mismatch`, or
-`invalid` identify runs needing inspection. The Skillet wrapper runs both
+`invalid` identify runs needing inspection. `unavailable` means the recorded
+runtime could not be queried; it does not establish that a guest is absent.
+The Skillet wrapper runs both
 create and ready:
 
 ```bash
@@ -88,7 +90,7 @@ cargo run --release -p skillet -- test vm provision clamps smoke
 cargo run --release -p skillet -- test vm destroy clamps smoke
 ```
 
-`status` and `destroy` now use the Rust ownership/cleanup implementation;
+`list`, `status` and `destroy` now use the Rust ownership/cleanup implementation;
 the corresponding `test-vm` commands delegate to it. Reading status does not
 import or rewrite a legacy run. Disposal creates a private versioned manifest
 while retaining original files until cleanup finishes. If the owned guest is

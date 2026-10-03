@@ -8,7 +8,9 @@ Status: planned; the review and plans do not establish runtime acceptance.
 Implementation progress: `skillet_vm` now supplies validated run identity and
 versioned manifests with explicit, non-destructive legacy import. Rust status
 and disposal use a focused libvirt adapter and a locked cleanup orchestrator;
-remaining VM commands stay on their existing paths until their slices land.
+listing is also in Rust. Shared Cargo JSON artifact discovery selects the exact
+reported binary and now serves the container runner. Remaining VM commands
+stay on their existing paths until their slices land.
 
 Keep application crates as reusable recipes. Separate canonical host profiles
 and composition from guest runtime adapters, CLI parsing, workstation

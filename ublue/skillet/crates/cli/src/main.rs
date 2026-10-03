@@ -384,12 +384,7 @@ fn run_vm_update(args: &VmDestroyArgs) -> Result<()> {
 }
 
 fn run_vm_list(args: &VmListArgs) -> Result<()> {
-    let helper = butane_root()?.join("bin/test-vm");
-    if let Some(hostname) = &args.hostname {
-        run_helper(&helper, &[hostname, "list"])
-    } else {
-        run_helper(&helper, &["list"])
-    }
+    vm::list(args)
 }
 
 fn vm_name(hostname: &str, instance: &str) -> Result<String> {
@@ -443,28 +438,16 @@ fn run_container_test(args: &ContainerArgs) -> Result<()> {
     }
     let root = workspace_root()?;
     let package = format!("skillet-{}", args.hostname);
-    let status = Command::new("cargo")
-        .current_dir(&root)
-        .args(["build", "--package", &package])
-        .status()
-        .context("building host binary failed")?;
-    if !status.success() {
-        return Err(anyhow!("cargo build --package {package} failed"));
-    }
-    let mut binary = None;
-    for subdir in [
-        "target/x86_64-unknown-linux-musl/debug",
-        "target/debug",
-        "target/x86_64-unknown-linux-musl/release",
-        "target/release",
-    ] {
-        let candidate = root.join(subdir).join(&package);
-        if candidate.is_file() {
-            binary = Some(fs::canonicalize(candidate)?);
-            break;
-        }
-    }
-    let binary = binary.ok_or_else(|| anyhow!("built binary {package} not found under target"))?;
+    let artifacts = skillet_vm::artifacts::build(&skillet_vm::artifacts::BuildRequest {
+        workspace: &root,
+        packages: &[&package],
+        target: "x86_64-unknown-linux-musl",
+        profile: "dev",
+    })?;
+    let binary = artifacts
+        .get(&package)
+        .ok_or_else(|| anyhow!("Cargo did not report {package}"))?;
+    info!(artifact = %binary.display(), "Using Cargo-reported host binary");
     let id = format!(
         "{}-{}",
         std::process::id(),
