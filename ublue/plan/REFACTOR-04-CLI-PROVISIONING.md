@@ -87,7 +87,10 @@ and VM delivery have duplicate implementations with different validation.
   accepts host, credential, consumer unit, activation policy, and payload as
   typed values; validates identifiers; sends secret bytes only on stdin; and
   reports sanitized guest errors. Both verify recorded SSH host keys.
-- Pending: workstation/vault/provider logic still lives in CLI modules; Tailscale
-  still uses its current curl adapter; Cloudflare/token lifecycle orchestration
+- Implemented: Tailscale API calls use a bounded `reqwest` blocking client with
+  an injectable base URL. Local HTTP tests cover OAuth auth-key creation,
+  tagged device lookup/removal, and API failures. Tailscale no longer shells
+  out to curl.
+- Pending: workstation/vault/provider logic still lives in CLI modules; Cloudflare/token lifecycle orchestration
   and VM state persistence remain in place pending extraction/consolidation.
   Finish remaining sequence items and run named-VM acceptance.
