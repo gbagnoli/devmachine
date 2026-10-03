@@ -1,10 +1,11 @@
 use crate::{Error, Result};
+use nix::fcntl::{Flock, FlockArg};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
-    fs::{self, File},
+    fs::{self, File, OpenOptions},
     io::Write as _,
-    os::unix::fs::{MetadataExt as _, PermissionsExt as _},
+    os::unix::fs::{MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _},
     path::{Path, PathBuf},
 };
 use uuid::Uuid;
@@ -127,6 +128,11 @@ pub struct ManifestStore {
     owner_uid: u32,
 }
 
+/// Held across an entire lifecycle mutation, including its external calls.
+pub struct RunLock {
+    _lock: Flock<File>,
+}
+
 impl ManifestStore {
     pub fn new(root: &Path, owner_uid: u32) -> Result<Self> {
         if !root.is_absolute()
@@ -151,6 +157,34 @@ impl ManifestStore {
         &self.root
     }
 
+    pub fn lock(&self, identity: &RunIdentity) -> Result<RunLock> {
+        let dir = self.run_dir(identity);
+        self.validate_directory(&dir)?;
+        let path = dir.join(".vm.lock");
+        reject_symlinks(&path)?;
+        let file = OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .mode(0o600)
+            .custom_flags(nix::libc::O_NOFOLLOW)
+            .open(path)?;
+        if !file.metadata()?.is_file() || file.metadata()?.uid() != self.owner_uid {
+            return Err(Error::Invalid(
+                "invalid VM lock file ownership or type".into(),
+            ));
+        }
+        let lock = Flock::lock(file, FlockArg::LockExclusiveNonblock).map_err(|(_, error)| {
+            if error == nix::errno::Errno::EWOULDBLOCK {
+                Error::Busy
+            } else {
+                Error::Io(std::io::Error::from_raw_os_error(error as i32))
+            }
+        })?;
+        Ok(RunLock { _lock: lock })
+    }
+
     /// Read without migrating or contacting a runtime; safe for retained runs.
     pub fn load(&self, identity: &RunIdentity) -> Result<VmRun> {
         let dir = self.run_dir(identity);
@@ -158,7 +192,7 @@ impl ManifestStore {
         let json = dir.join("vm.json");
         reject_symlinks(&json)?;
         let run = if json.exists() {
-            serde_json::from_reader(File::open(json)?)?
+            serde_json::from_str(&read_file(&json)?)?
         } else {
             self.read_legacy(identity, &dir)?
         };
@@ -402,6 +436,9 @@ fn read_hash(path: &Path) -> Result<String> {
 }
 fn read_file(path: &Path) -> Result<String> {
     reject_symlinks(path)?;
+    if !fs::metadata(path)?.is_file() {
+        return Err(Error::Invalid("VM metadata must be a regular file".into()));
+    }
     Ok(fs::read_to_string(path)?)
 }
 

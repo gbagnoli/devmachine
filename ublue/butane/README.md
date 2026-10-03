@@ -71,7 +71,7 @@ hyphens. The helper records `clamps` plus `smoke` as the internal domain
 ./bin/test-vm clamps ssh smoke     # interactive guest shell
 ./bin/test-vm clamps reboot smoke  # reboot the guest
 ./bin/test-vm clamps ready smoke   # rerun readiness after a reboot or repair
-./bin/test-vm clamps update smoke  # install the latest built host binary
+./bin/test-vm clamps update smoke  # build and install both current binaries
 ./bin/test-vm clamps destroy smoke # delete the VM, disk, test key, and run artifacts
 ```
 
@@ -90,7 +90,7 @@ cargo run --release -p skillet -- test vm provision clamps smoke
 cargo run --release -p skillet -- test vm destroy clamps smoke
 ```
 
-`list`, `status` and `destroy` now use the Rust ownership/cleanup implementation;
+`list`, `status`, `update` and `destroy` now use the Rust ownership implementation;
 the corresponding `test-vm` commands delegate to it. Reading status does not
 import or rewrite a legacy run. Disposal creates a private versioned manifest
 while retaining original files until cleanup finishes. If the owned guest is
@@ -109,10 +109,11 @@ both binaries over SSH after first boot and installs them at
 `/var/usrlocal/bin/skillet` and `/var/usrlocal/bin/skillet-clamps`. `ready`
 uses those captured binaries on every run. The shared base unit reads the
 stable host profile from `/etc/skillet/host`, so a test VM hostname can differ
-from its host profile. After editing Skillet, build both binaries with
-`cargo build --release --target x86_64-unknown-linux-musl -p skillet -p skillet-clamps`
-and use `cargo run --release -p skillet -- test vm update clamps smoke` to
-install them on a retained VM. `provision` delivers a disposable
+from its host profile. After editing Skillet, use
+`cargo run --release -p skillet -- test vm update clamps smoke` to build and
+install both binaries on a retained VM. This uses Cargo's reported executables,
+including a configured target directory, and verifies installed hashes and
+permissions before updating `vm.json`. `provision` delivers a disposable
 Pi-hole password and runs the credential-loaded full apply; `--rotate` replaces
 that disposable password.
 The shared uCore bootstrap script also lives in `/var/usrlocal/bin`.

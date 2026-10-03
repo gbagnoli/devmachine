@@ -186,3 +186,30 @@ fn flatpak_and_native_connections_have_distinct_validated_runtime_paths() {
     connection.uri = "qemu:///system".into();
     assert!(connection.validate(uid).is_err());
 }
+
+#[test]
+fn metadata_fifo_is_rejected_without_blocking() {
+    let (_tmp, store, identity) = legacy_run();
+    let path = store.run_dir(&identity).join("vm.json");
+    nix::unistd::mkfifo(
+        &path,
+        nix::sys::stat::Mode::S_IRUSR | nix::sys::stat::Mode::S_IWUSR,
+    )
+    .unwrap();
+    assert!(store.load(&identity).is_err());
+}
+
+#[test]
+fn shared_run_lock_is_nonblocking_and_refuses_linked_files() {
+    let (tmp, store, identity) = legacy_run();
+    let first = store.lock(&identity).unwrap();
+    assert!(matches!(store.lock(&identity), Err(Error::Busy)));
+    drop(first);
+    let lock_path = store.run_dir(&identity).join(".vm.lock");
+    fs::remove_file(&lock_path).unwrap();
+    let target = tmp.path().join("other-lock");
+    fs::write(&target, "unrelated").unwrap();
+    symlink(&target, &lock_path).unwrap();
+    assert!(store.lock(&identity).is_err());
+    assert_eq!(fs::read_to_string(target).unwrap(), "unrelated");
+}

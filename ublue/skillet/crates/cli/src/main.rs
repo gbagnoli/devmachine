@@ -368,19 +368,7 @@ fn run_vm_destroy(args: &VmDestroyArgs) -> Result<()> {
 }
 
 fn run_vm_update(args: &VmDestroyArgs) -> Result<()> {
-    vm_name(&args.hostname, &args.instance)?;
-    let root = workspace_root()?;
-    let package = format!("skillet-{}", args.hostname);
-    let status = Command::new("cargo")
-        .current_dir(&root)
-        .args(["build", "--release", "-p", &package])
-        .status()
-        .context("building host binary for VM update")?;
-    if !status.success() {
-        return Err(anyhow!("building {package} failed"));
-    }
-    let helper = butane_root()?.join("bin/test-vm");
-    run_helper(&helper, &[&args.hostname, "update", &args.instance])
+    vm::update(args)
 }
 
 fn run_vm_list(args: &VmListArgs) -> Result<()> {

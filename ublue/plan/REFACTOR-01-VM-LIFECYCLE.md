@@ -21,12 +21,15 @@ implemented and used by the routine container runner; a custom target-directory
 integration check selects the reported binary. `GuestTransport`/`SshTransport`
 now provide explicit target/key policy, literal remote executable arguments,
 noninteractive execution and upload. Subprocess stdin/output stay in memory,
-with bounded concurrent I/O and zeroized copied stdin. Thirty-five VM tests pass.
+with bounded concurrent I/O and zeroized copied stdin. Forty VM tests pass.
 No live VM was changed or imported.
 
-Creation, readiness, update/reboot and interactive SSH still use Bash. The
-shared transport is not yet wired into their operations or credential delivery.
-Next: migrate update/readiness to that transport, recoverable creation and the
+Retained binary updates now use Rust's shared lock, ownership checks, Cargo
+artifact discovery and SSH transport. Both installed artifacts are verified
+before deployed hashes are saved; original capture evidence is preserved.
+Creation, readiness, reboot and interactive SSH still use Bash. Credential
+delivery has not yet adopted the shared transport.
+Next: migrate readiness to that transport, recoverable creation and the
 remaining public-helper delegation. Disposal live acceptance remains deferred. See
 [validation evidence](../butane/ACCEPTANCE.md#vm-refactoring-foundation-2026-10-03).
 

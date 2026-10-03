@@ -30,11 +30,14 @@ Move VM lifecycle management from Bash to one Rust orchestrator, as recorded
 in [the architecture decision](skillet-architecture.md) and
 [the migration plan](../plan/REFACTOR-01-VM-LIFECYCLE.md). Preserve public
 commands, retained manifests, native/Flatpak support, and guest assertions.
-Listing, status and destruction now delegate to Rust. Disposal validates identity,
+Listing, status, updates and destruction now delegate to Rust. Updates build
+both binaries, use verified recorded SSH trust, and save deployed hashes after
+checking installed bytes and metadata. Original capture evidence is retained.
+Disposal validates identity,
 cleans external resources, then removes the UUID-addressed domain and local
 artifacts. It also works with an already-absent guest; connection failures and
 partial cleanup preserve journals for retry. A per-run lock prevents concurrent
-disposal. Remaining lifecycle commands still use Bash. Unit/adapter checks pass;
+updates and disposal. Remaining lifecycle commands still use Bash. Unit/adapter checks pass;
 live migration acceptance is deferred while the user's VM creation runs.
 
 ## States and recovery

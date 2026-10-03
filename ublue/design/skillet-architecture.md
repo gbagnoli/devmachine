@@ -9,7 +9,10 @@ Implementation progress: `skillet_vm` now supplies validated run identity and
 versioned manifests with explicit, non-destructive legacy import. Rust status
 and disposal use a focused libvirt adapter and a locked cleanup orchestrator;
 listing is also in Rust. Shared Cargo JSON artifact discovery selects the exact
-reported binary and now serves the container runner. Remaining VM commands
+reported binary and now serves the container runner and retained VM updates.
+Updates share the ownership lock and SSH transport, preserve captured hashes,
+and record deployed hashes only after verifying both installed artifacts.
+Remaining VM commands
 stay on their existing paths until their slices land. The shared SSH transport
 is implemented but not yet wired into readiness or credential delivery. Its
 bounded I/O stays in memory; payload copies are zeroized after stdin transfer.
