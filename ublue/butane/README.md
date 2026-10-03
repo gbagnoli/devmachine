@@ -105,7 +105,10 @@ being migrated; see [the roadmap](../plan/SKILLET-REFACTOR.md).
 The helper calls `coreos-install`, which builds the generic `skillet` CLI and
 the `skillet-clamps` host binary. The lower-level launcher accepts `--artifact PATH`
 to use a specific host binary; the generic CLI is built from the workspace.
-Both artifact hashes are recorded in `runs/NAME/`. `test-vm ready` transfers
+Rust prepares the run's disk and SSH key, stages and specializes the Butane
+source tree, and records captured binary hashes in `runs/NAME/`. The standalone
+Butane compiler builds Ignition; native domain definition and start are still
+handled by `coreos-install` during the migration. `test-vm ready` transfers
 both binaries over SSH after first boot and installs them at
 `/var/usrlocal/bin/skillet` and `/var/usrlocal/bin/skillet-clamps`. `ready`
 uses those captured binaries on every run. The shared base unit reads the

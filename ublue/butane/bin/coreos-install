@@ -7,10 +7,10 @@ repo_dir="$(realpath "$butane_dir/..")"
 
 usage() {
   cat <<USAGE
-Usage: $0 [--name NAME] [--output-dir DIR] [--ssh-port PORT] [--artifact FILE] [--image FILE] [--libvirt-uri URI] [--uuid UUID --resume-prepared] CONFIG.bu
+Usage: $0 --name HOST-test-INSTANCE [--output-dir DIR] [--ssh-port PORT] [--artifact FILE] [--image FILE] [--libvirt-uri URI] --uuid UUID --resume-prepared CONFIG.bu
 
-Default VM name is taken from CONFIG.bu. Generated keys, Ignition, logs and disk are kept in
-butane/runs/NAME. Existing domains and output directories are refused.
+Creation must start through test-vm so a matching Preparing manifest exists.
+Generated keys, Ignition, logs and disk are kept in butane/runs/NAME.
 USAGE
 }
 
@@ -65,6 +65,9 @@ host="$(basename "$input" .bu)"
 [[ "$host" =~ ^[a-z][a-z0-9-]*$ && "$input" == "$butane_dir/$host.bu" ]] || { echo "Use a host Butane file from $butane_dir" >&2; exit 2; }
 vm_name="${vm_name:-$host}"
 [[ "$vm_name" =~ ^[a-zA-Z][a-zA-Z0-9_-]*$ ]] || { echo "Invalid VM name" >&2; exit 2; }
+[[ "$vm_name" == "$host-test-"* ]] || {
+  echo "VM name must match the recorded host-test-instance identity" >&2; exit 2;
+}
 if [[ ! "$ssh_port" =~ ^[0-9]+$ ]] || ((ssh_port < 1024 || ssh_port > 65535)); then
   echo "Invalid SSH port" >&2
   exit 2
@@ -126,50 +129,18 @@ if [[ -z "$image" ]]; then
 fi
 [[ -f "$image" ]] || { echo "Missing FCOS image: $image" >&2; exit 1; }
 image="$(realpath "$image")"
-mkdir -p "$(dirname "$output_dir")"
-mkdir -p "$output_dir/source/includes" "$output_dir/source/files" "$output_dir/ignition"
-cp "$input" "$output_dir/source/$host.bu"
-cp "$butane_dir"/includes/*.bu "$output_dir/source/includes/"
-cp "$artifact" "$output_dir/source/files/skillet-$host"
-chmod 755 "$output_dir/source/files/skillet-$host"
-cp "$generic_artifact" "$output_dir/source/files/skillet"
-chmod 755 "$output_dir/source/files/skillet"
-# Give each test VM its own hostname so Tailscale device cleanup can verify
-# the exact node belonging to this run, even when several VMs share a host OS.
-TEST_VM_HOSTNAME="$vm_name" yq -i \
-  '(.storage.files[] | select(.path == "/etc/hostname").contents.inline) = strenv(TEST_VM_HOSTNAME)' \
-  "$output_dir/source/$host.bu"
+instance="${vm_name#"$host-test-"}"
+skillet_cli test vm prepare-local "$host" "$instance" --image "$image" >/dev/null
+skillet_cli test vm stage-local "$host" "$instance" \
+  --image "$image" --host-binary "$artifact" --generic-binary "$generic_artifact"
 # Keep the multi-megabyte static binary out of QEMU fw_cfg. Ignition reads
-# fw_cfg very slowly for large configs; test-vm-ready installs this artifact
+# fw_cfg very slowly for large configs; test-vm-ready installs the artifacts
 # over SSH after the guest has completed its first Ignition boot.
-skillet_include="$output_dir/source/includes/skillet.bu"
-[[ -f "$skillet_include" ]] || { echo "Missing shared Skillet Butane include" >&2; exit 1; }
-yq -i 'del(.storage.files[] | select(.path == "/var/usrlocal/bin/skillet"))' \
-  "$skillet_include"
-skillet_host_include="$output_dir/source/includes/skillet-$host.bu"
-[[ -f "$skillet_host_include" ]] || { echo "Missing host Skillet Butane include: $skillet_host_include" >&2; exit 1; }
-HOST="$host" yq -i 'del(.storage.files[] | select(.path == "/var/usrlocal/bin/skillet-" + strenv(HOST)))' \
-  "$skillet_host_include"
-public_key="$(skillet_cli test vm prepare-local "$host" "${vm_name#"$host-test-"}" --image "$image")"
-# The existing giacomo account survives the FCOS-to-uCore rebase. Inject the
-# disposable key into that same account and skip its interactive password
-# expiry service only in this staged VM copy.
-PUBLIC_KEY="$public_key" yq -i \
-  '(.passwd.users[] | select(.name == "giacomo") | .ssh_authorized_keys) += [strenv(PUBLIC_KEY)] |
-   del(.systemd.units[] | select(.name == "force-pw-change.service")) |
-   del(.storage.files[] | select(.path == "/usr/local/bin/force_pw_change.sh")) |
-   .storage.files += [{"path":"/etc/sudoers.d/90-skillet-vm","mode":288,"contents":{"inline":"giacomo ALL=(ALL) NOPASSWD: ALL\n"}}]' \
-  "$output_dir/source/includes/passwd.bu"
 ignition="$("$script_dir/butane" -s -o "$output_dir/ignition" "$output_dir/source/$host.bu" "$host.ign")"
 ignition_bytes="$(stat -c '%s' "$ignition")"
 if ((ignition_bytes > 1048576)); then
   echo "Warning: Ignition config is ${ignition_bytes} bytes; large QEMU fw_cfg configs can take a long time to read" >&2
 fi
-sha256sum "$output_dir/source/files/skillet-$host" > "$output_dir/skillet.sha256"
-sha256sum "$output_dir/source/files/skillet" > "$output_dir/skillet-generic.sha256"
-printf 'vm=%s\nhost=%s\nuri=%s\nssh_port=%s\nimage=%s\nartifact=%s\nruntime_dir=%s\nbackend=%s\nsource_commit=%s\n' \
-  "$vm_name" "$host" "$libvirt_uri" "$ssh_port" "$image" "$artifact" "${TEST_VM_LIBVIRT_RUNTIME_DIR:-}" "${TEST_VM_BACKEND:-native}" \
-  "$(git -C "$repo_dir" rev-parse HEAD)" > "$output_dir/run.conf"
 {
   if [[ "${TEST_VM_BACKEND:-native}" == flatpak ]]; then
     virt-install --version

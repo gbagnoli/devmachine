@@ -143,6 +143,12 @@ fn prepare_key(store: &ManifestStore, run: &VmRun) -> Result<String> {
             ));
         }
     }
+    validated_public_key(run)
+}
+
+pub(crate) fn validated_public_key(run: &VmRun) -> Result<String> {
+    let key = &run.ssh.identity;
+    let public = key.with_extension("pub");
     reject_symlinks(key)?;
     reject_symlinks(&public)?;
     let key_metadata = fs::metadata(key)?;
