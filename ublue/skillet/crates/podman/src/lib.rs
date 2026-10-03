@@ -6,7 +6,7 @@ use skillet_core::system::{
 };
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
-use std::{path::Path, str::FromStr};
+use std::{net::IpAddr, path::Path, str::FromStr};
 use thiserror::Error;
 use tracing::info;
 
@@ -22,6 +22,10 @@ pub enum PodmanError {
     InvalidNetworkName(String),
     #[error("Podman directive {0} conflicts with the typed container identity")]
     ConflictingIdentityDirective(&'static str),
+    #[error("invalid or conflicting typed Podman container directive: {0}")]
+    ConflictingContainerDirective(&'static str),
+    #[error("invalid Podman port publication")]
+    InvalidPortPublication,
     #[error("Network configuration changed for {0}; stop its consumers, remove the Podman network and its applied marker, then apply again")]
     NetworkConfigChanged(String),
     #[error("No valid {kind} subordinate-ID range for account {account}")]
@@ -115,7 +119,8 @@ impl QuadletSecret {
 pub struct PodmanConfig {
     pub name: String,
     pub image: String,
-    pub networks: Vec<PodmanNetwork>,
+    pub network_attachments: Vec<NetworkAttachment>,
+    pub port_publications: Vec<PortPublication>,
     pub process_identity: ProcessIdentity,
     pub namespace_mapping: Option<UserNamespaceMapping>,
     pub volumes: Vec<Volume>,
@@ -132,6 +137,46 @@ pub struct PodmanNetwork {
     pub unit_name: String,
     /// Options written to the unit's `[Network]` section.
     pub options: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NetworkAttachment {
+    Host,
+    Bridge(String),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PortProtocol {
+    Tcp,
+    Udp,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PortPublication {
+    pub host_address: IpAddr,
+    pub host_port: u16,
+    pub container_port: u16,
+    pub protocol: PortProtocol,
+}
+
+impl PortPublication {
+    fn to_directive(&self) -> Result<String, PodmanError> {
+        if self.host_port == 0 || self.container_port == 0 {
+            return Err(PodmanError::InvalidPortPublication);
+        }
+        let address = match self.host_address {
+            IpAddr::V4(address) => address.to_string(),
+            IpAddr::V6(address) => format!("[{address}]"),
+        };
+        let protocol = match self.protocol {
+            PortProtocol::Tcp => "tcp",
+            PortProtocol::Udp => "udp",
+        };
+        Ok(format!(
+            "PublishPort={address}:{}:{}/{}",
+            self.host_port, self.container_port, protocol
+        ))
+    }
 }
 
 /// Configure Aardvark's host-wide listener before applying services that
@@ -152,6 +197,46 @@ pub fn ensure_dns_listener_port<F: FileMutationResource + ?Sized>(
     )?)
 }
 
+pub fn ensure_network<S, F>(
+    system: &S,
+    files: &F,
+    network: &PodmanNetwork,
+) -> Result<(), PodmanError>
+where
+    S: ServiceResource + ?Sized,
+    F: FileMutationResource + FileReadResource + ?Sized,
+{
+    let content = render_network(network)?;
+    let marker_path =
+        Path::new("/var/lib/skillet/networks").join(format!("{}.applied", network.unit_name));
+    if let Some(applied) = files.read_file(&marker_path)? {
+        if applied != content.as_bytes() {
+            return Err(PodmanError::NetworkConfigChanged(network.unit_name.clone()));
+        }
+    }
+    let quadlet_dir = Path::new("/etc/containers/systemd");
+    files.ensure_directory(quadlet_dir, Some(0o755), Some("root"), Some("root"))?;
+    if files.ensure_file(
+        &quadlet_dir.join(format!("{}.network", network.unit_name)),
+        content.as_bytes(),
+        Some(0o644),
+        Some("root"),
+        Some("root"),
+    )? {
+        system.daemon_reload()?;
+    }
+    let state_dir = Path::new("/var/lib/skillet/networks");
+    files.ensure_directory(state_dir, Some(0o755), Some("root"), Some("root"))?;
+    files.ensure_file(
+        &marker_path,
+        content.as_bytes(),
+        Some(0o644),
+        Some("root"),
+        Some("root"),
+    )?;
+    Ok(())
+}
+
 #[allow(clippy::similar_names)]
 pub fn container<S, F>(system: &S, files: &F, config: PodmanConfig) -> Result<bool, PodmanError>
 where
@@ -159,42 +244,30 @@ where
     F: FileMutationResource + FileReadResource + ?Sized,
 {
     validate_process_identity(&config)?;
+    validate_container_settings(&config)?;
     let name = &config.name;
     info!("Ensuring podman container: {name}");
 
     let mut extra_config = config.extra_config;
     let config_revisions = config.config_revisions;
-    let mut network_states = Vec::new();
-
-    // A container's reference to the network Quadlet creates the systemd
-    // dependency that starts the network before the container.
-    for network in &config.networks {
-        let network_content = render_network(network)?;
-        let marker_path =
-            Path::new("/var/lib/skillet/networks").join(format!("{}.applied", network.unit_name));
-        if let Some(applied) = files.read_file(&marker_path)? {
-            if applied != network_content.as_bytes() {
-                return Err(PodmanError::NetworkConfigChanged(network.unit_name.clone()));
+    for network in &config.network_attachments {
+        let directive = match network {
+            NetworkAttachment::Host => "Network=host".to_string(),
+            NetworkAttachment::Bridge(name) => {
+                validate_network_attachment_name(name)?;
+                format!("Network={name}.network")
             }
-        }
-
-        let quadlet_dir = Path::new("/etc/containers/systemd");
-        files.ensure_directory(quadlet_dir, Some(0o755), Some("root"), Some("root"))?;
-        let network_unit_changed = files.ensure_file(
-            &quadlet_dir.join(format!("{}.network", network.unit_name)),
-            network_content.as_bytes(),
-            Some(0o644),
-            Some("root"),
-            Some("root"),
-        )?;
-        if network_unit_changed {
-            system.daemon_reload()?;
-        }
-        network_states.push((marker_path, network_content.into_bytes()));
+        };
         extra_config
             .entry("Container".to_string())
             .or_default()
-            .push(format!("Network={}.network", network.unit_name));
+            .push(directive);
+    }
+    for publication in &config.port_publications {
+        extra_config
+            .entry("Container".to_string())
+            .or_default()
+            .push(publication.to_directive()?);
     }
 
     add_process_identity(
@@ -245,21 +318,71 @@ where
         &config_revisions,
     )?;
 
-    if !network_states.is_empty() {
-        let state_dir = Path::new("/var/lib/skillet/networks");
-        files.ensure_directory(state_dir, Some(0o755), Some("root"), Some("root"))?;
-        for (marker_path, content) in network_states {
-            files.ensure_file(
-                &marker_path,
-                &content,
-                Some(0o644),
-                Some("root"),
-                Some("root"),
-            )?;
+    Ok(changed)
+}
+
+fn validate_network_attachment_name(name: &str) -> Result<(), PodmanError> {
+    let valid = !name.is_empty()
+        && name
+            .chars()
+            .next()
+            .is_some_and(|character| character.is_ascii_alphanumeric())
+        && name
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || "_.-".contains(character));
+    if valid {
+        Ok(())
+    } else {
+        Err(PodmanError::ConflictingContainerDirective("Network"))
+    }
+}
+
+fn validate_container_settings(config: &PodmanConfig) -> Result<(), PodmanError> {
+    let mut network_names = std::collections::BTreeSet::new();
+    let mut has_host_network = false;
+    for attachment in &config.network_attachments {
+        match attachment {
+            NetworkAttachment::Host => {
+                has_host_network = true;
+            }
+            NetworkAttachment::Bridge(name) => {
+                validate_network_attachment_name(name)?;
+                if !network_names.insert(name) {
+                    return Err(PodmanError::ConflictingContainerDirective("Network"));
+                }
+            }
         }
     }
-
-    Ok(changed)
+    if has_host_network && (!network_names.is_empty() || config.network_attachments.len() > 1) {
+        return Err(PodmanError::ConflictingContainerDirective("Network"));
+    }
+    let mut publications = std::collections::BTreeSet::new();
+    for publication in &config.port_publications {
+        if publication.host_port == 0 || publication.container_port == 0 {
+            return Err(PodmanError::InvalidPortPublication);
+        }
+        let key = (
+            publication.host_address,
+            publication.host_port,
+            publication.container_port,
+            match publication.protocol {
+                PortProtocol::Tcp => 0,
+                PortProtocol::Udp => 1,
+            },
+        );
+        if !publications.insert(key) {
+            return Err(PodmanError::ConflictingContainerDirective("PublishPort"));
+        }
+    }
+    for line in config.extra_config.get("Container").into_iter().flatten() {
+        if line.starts_with("Network=") {
+            return Err(PodmanError::ConflictingContainerDirective("Network"));
+        }
+        if line.starts_with("PublishPort=") {
+            return Err(PodmanError::ConflictingContainerDirective("PublishPort"));
+        }
+    }
+    Ok(())
 }
 
 fn render_network(network: &PodmanNetwork) -> Result<String, PodmanError> {

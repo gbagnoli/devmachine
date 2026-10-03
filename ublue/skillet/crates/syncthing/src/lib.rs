@@ -2,7 +2,10 @@ use skillet_core::files::{FileError, FileMutationResource, FileReadResource, Sto
 use skillet_core::system::{
     AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
 };
-use skillet_podman::{self, PodmanConfig, PodmanError, PodmanNetwork, ProcessIdentity, Volume};
+use skillet_podman::{
+    self, NetworkAttachment, PodmanConfig, PodmanError, PortProtocol, PortPublication,
+    ProcessIdentity, Volume,
+};
 use std::collections::BTreeMap;
 use std::path::Path;
 use thiserror::Error;
@@ -24,7 +27,7 @@ pub struct SyncthingConfig {
     pub data_group: String,
     pub uid: u32,
     pub gid: u32,
-    pub network: PodmanNetwork,
+    pub network_name: String,
 }
 
 pub fn apply<S, F>(system: &S, files: &F, config: SyncthingConfig) -> Result<(), SyncthingError>
@@ -58,10 +61,6 @@ where
             "ContainerName=syncthing".to_string(),
             format!("Environment=PGID={}", config.gid),
             format!("Environment=PUID={}", config.uid),
-            "PublishPort=[::]:22000:22000/tcp".to_string(),
-            "PublishPort=0.0.0.0:22000:22000/tcp".to_string(),
-            "PublishPort=[::]:22000:22000/udp".to_string(),
-            "PublishPort=0.0.0.0:22000:22000/udp".to_string(),
         ],
     );
     extra_config.insert(
@@ -87,7 +86,33 @@ where
         PodmanConfig {
             name: "syncthing".to_string(),
             image: "docker.io/syncthing/syncthing:latest".to_string(),
-            networks: vec![config.network],
+            network_attachments: vec![NetworkAttachment::Bridge(config.network_name)],
+            port_publications: vec![
+                PortPublication {
+                    host_address: std::net::Ipv6Addr::UNSPECIFIED.into(),
+                    host_port: 22000,
+                    container_port: 22000,
+                    protocol: PortProtocol::Tcp,
+                },
+                PortPublication {
+                    host_address: std::net::Ipv4Addr::UNSPECIFIED.into(),
+                    host_port: 22000,
+                    container_port: 22000,
+                    protocol: PortProtocol::Tcp,
+                },
+                PortPublication {
+                    host_address: std::net::Ipv6Addr::UNSPECIFIED.into(),
+                    host_port: 22000,
+                    container_port: 22000,
+                    protocol: PortProtocol::Udp,
+                },
+                PortPublication {
+                    host_address: std::net::Ipv4Addr::UNSPECIFIED.into(),
+                    host_port: 22000,
+                    container_port: 22000,
+                    protocol: PortProtocol::Udp,
+                },
+            ],
             process_identity: ProcessIdentity::ImageDefault,
             namespace_mapping: None,
             volumes,

@@ -11,7 +11,8 @@ fn fixture() -> PodmanConfig {
     PodmanConfig {
         name: "unit-fixture".to_string(),
         image: "example.invalid/fixture:1".to_string(),
-        networks: Vec::new(),
+        network_attachments: Vec::new(),
+        port_publications: Vec::new(),
         process_identity: ProcessIdentity::ImageDefault,
         namespace_mapping: None,
         volumes: Vec::new(),
@@ -42,13 +43,16 @@ fn clamps_network() -> PodmanNetwork {
 }
 
 #[test]
-fn container_apply_owns_network_quadlet_but_not_host_dns_policy() {
+fn shared_network_is_created_separately_and_attached_idempotently() {
     let system = MockSystem::new();
     let files = MockFiles::new();
     system.ensure_podman_secret("dummy", "first").unwrap();
 
+    ensure_network(&system, &files, &clamps_network()).unwrap();
     let mut config = fixture();
-    config.networks.push(clamps_network());
+    config
+        .network_attachments
+        .push(NetworkAttachment::Bridge("clamps".to_string()));
     container(&system, &files, config).unwrap();
 
     let managed_files = files.files.lock().unwrap();
@@ -71,7 +75,9 @@ fn container_apply_owns_network_quadlet_but_not_host_dns_policy() {
     drop(managed_files);
 
     let mut repeated = fixture();
-    repeated.networks.push(clamps_network());
+    repeated
+        .network_attachments
+        .push(NetworkAttachment::Bridge("clamps".to_string()));
     container(&system, &files, repeated).unwrap();
     assert_eq!(system.restart_count.load(Ordering::SeqCst), 1);
 }
@@ -88,14 +94,75 @@ fn host_dns_listener_policy_is_independently_idempotent() {
 }
 
 #[test]
+fn typed_network_and_dual_stack_port_publications_render_quadlet_directives() {
+    let system = MockSystem::new();
+    system.ensure_podman_secret("dummy", "first").unwrap();
+    let files = MockFiles::new();
+    let mut config = fixture();
+    config
+        .network_attachments
+        .push(NetworkAttachment::Bridge("clamps".to_string()));
+    config.port_publications = vec![
+        PortPublication {
+            host_address: std::net::Ipv6Addr::UNSPECIFIED.into(),
+            host_port: 53,
+            container_port: 53,
+            protocol: PortProtocol::Udp,
+        },
+        PortPublication {
+            host_address: std::net::Ipv4Addr::UNSPECIFIED.into(),
+            host_port: 53,
+            container_port: 53,
+            protocol: PortProtocol::Tcp,
+        },
+    ];
+    container(&system, &files, config).unwrap();
+    let quadlet = String::from_utf8(
+        files.files.lock().unwrap()["/etc/containers/systemd/unit-fixture.container"].clone(),
+    )
+    .unwrap();
+    assert!(quadlet.contains("Network=clamps.network"));
+    assert!(quadlet.contains("PublishPort=[::]:53:53/udp"));
+    assert!(quadlet.contains("PublishPort=0.0.0.0:53:53/tcp"));
+}
+
+#[test]
+fn invalid_or_conflicting_typed_container_settings_fail_before_effects() {
+    let system = MockSystem::new();
+    system.ensure_podman_secret("dummy", "first").unwrap();
+    let files = MockFiles::new();
+    let mut config = fixture();
+    config.network_attachments = vec![
+        NetworkAttachment::Host,
+        NetworkAttachment::Bridge("clamps".to_string()),
+    ];
+    assert!(matches!(
+        container(&system, &files, config),
+        Err(PodmanError::ConflictingContainerDirective("Network"))
+    ));
+    assert!(files.files.lock().unwrap().is_empty());
+
+    let mut config = fixture();
+    config.port_publications.push(PortPublication {
+        host_address: std::net::Ipv4Addr::UNSPECIFIED.into(),
+        host_port: 0,
+        container_port: 53,
+        protocol: PortProtocol::Udp,
+    });
+    assert!(matches!(
+        container(&system, &files, config),
+        Err(PodmanError::InvalidPortPublication)
+    ));
+    assert!(files.files.lock().unwrap().is_empty());
+}
+
+#[test]
 fn changing_a_created_network_fails_before_replacing_its_quadlet() {
     let system = MockSystem::new();
     let files = MockFiles::new();
     system.ensure_podman_secret("dummy", "first").unwrap();
 
-    let mut initial = fixture();
-    initial.networks.push(clamps_network());
-    container(&system, &files, initial).unwrap();
+    ensure_network(&system, &files, &clamps_network()).unwrap();
 
     let original = files
         .files
@@ -106,10 +173,8 @@ fn changing_a_created_network_fails_before_replacing_its_quadlet() {
         .unwrap();
     let mut changed = clamps_network();
     changed.options.push("Internal=true".to_string());
-    let mut config = fixture();
-    config.networks.push(changed);
     assert!(matches!(
-        container(&system, &files, config),
+        ensure_network(&system, &files, &changed),
         Err(PodmanError::NetworkConfigChanged(name)) if name == "clamps"
     ));
     assert_eq!(
@@ -120,7 +185,7 @@ fn changing_a_created_network_fails_before_replacing_its_quadlet() {
             .get("/etc/containers/systemd/clamps.network"),
         Some(&original)
     );
-    assert_eq!(system.restart_count.load(Ordering::SeqCst), 1);
+    assert_eq!(system.restart_count.load(Ordering::SeqCst), 0);
 }
 
 #[test]

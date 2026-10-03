@@ -3,7 +3,6 @@ use skillet_core::{
     system::PodmanSecretResource,
     test_utils::{MockFiles, MockSystem},
 };
-use skillet_podman::PodmanNetwork;
 use std::sync::atomic::Ordering;
 
 fn syncthing_only() -> Vec<UiService> {
@@ -13,16 +12,6 @@ fn syncthing_only() -> Vec<UiService> {
         port: 8384,
         aliases: Vec::new(),
     }]
-}
-
-fn test_network() -> PodmanNetwork {
-    PodmanNetwork {
-        unit_name: "beezelbot".to_string(),
-        options: vec![
-            "NetworkName=beezelbot".to_string(),
-            "Driver=bridge".to_string(),
-        ],
-    }
 }
 
 #[test]
@@ -41,7 +30,7 @@ fn applying_unchanged_caddy_sites_preserves_the_container() {
         &syncthing_only(),
     )
     .unwrap();
-    super::apply(&system, &files, &sites, test_network()).unwrap();
+    super::apply(&system, &files, &sites, "beezelbot").unwrap();
     let initial_restart_count = system.restart_count.load(Ordering::SeqCst);
     let initial_config = files
         .files
@@ -58,7 +47,7 @@ fn applying_unchanged_caddy_sites_preserves_the_container() {
         .unwrap()
         .contains_key("/etc/skillet/caddy/Caddyfile"));
 
-    super::apply(&system, &files, &sites, test_network()).unwrap();
+    super::apply(&system, &files, &sites, "beezelbot").unwrap();
 
     assert_eq!(
         system.restart_count.load(Ordering::SeqCst),

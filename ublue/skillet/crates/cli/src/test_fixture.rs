@@ -94,7 +94,8 @@ pub(super) fn apply(
         PodmanConfig {
             name: "skillet-smoke-fixture".to_string(),
             image: "docker.io/library/alpine:3.20".to_string(),
-            networks: Vec::new(),
+            network_attachments: Vec::new(),
+            port_publications: Vec::new(),
             process_identity: ProcessIdentity::ImageDefault,
             namespace_mapping: None,
             volumes: vec![

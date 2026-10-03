@@ -30,13 +30,19 @@ fn clamps_tailscale_uses_host_network_and_persistent_state() {
 
     assert_eq!(config.name, "tailscale");
     assert_eq!(config.image, "docker.io/tailscale/tailscale:stable");
-    assert!(config.networks.is_empty());
+    assert_eq!(
+        config.network_attachments,
+        [skillet_podman::NetworkAttachment::Host]
+    );
     assert_eq!(config.volumes.len(), 1);
     assert_eq!(config.volumes[0].host_path, "/var/lib/data/tailscale");
     assert_eq!(config.volumes[0].container_path, "/var/lib/tailscale");
     let container = &config.extra_config["Container"];
     assert!(container.contains(&"ContainerName=tailscale".to_string()));
-    assert!(container.contains(&"Network=host".to_string()));
+    assert_eq!(
+        config.network_attachments,
+        [skillet_podman::NetworkAttachment::Host]
+    );
     assert!(container.contains(&"AddCapability=NET_ADMIN".to_string()));
     assert!(container.contains(&"AddCapability=NET_RAW".to_string()));
     assert!(container.contains(&"AddDevice=/dev/net/tun:/dev/net/tun".to_string()));
@@ -178,7 +184,7 @@ fn host_ui_declarations_include_only_the_services_each_host_runs() {
             .collect::<Vec<_>>(),
         ["pihole", "syncthing"]
     );
-    assert_eq!(clamps.network.unit_name, "clamps");
+    assert_eq!(clamps.network_name, "clamps");
     assert_eq!(clamps.services[0].upstream, "pihole");
     assert_eq!(clamps.services[0].port, 8088);
     assert!(clamps.services[0].aliases.is_empty());
@@ -190,7 +196,7 @@ fn host_ui_declarations_include_only_the_services_each_host_runs() {
     assert_eq!(beezelbot.services.len(), 1);
     assert_eq!(beezelbot.services[0].name, "syncthing");
     assert_eq!(beezelbot.services[0].aliases, ["sync.{host}"]);
-    assert_eq!(beezelbot.network.unit_name, "beezelbot");
+    assert_eq!(beezelbot.network_name, "beezelbot");
     assert!(ui_config_for_host("unknown-host").is_none());
 }
 

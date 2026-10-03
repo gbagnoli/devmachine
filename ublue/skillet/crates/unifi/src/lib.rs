@@ -4,7 +4,7 @@ use skillet_core::files::{
 use skillet_core::system::{
     AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
 };
-use skillet_podman::{self, PodmanConfig, PodmanError, ProcessIdentity, Volume};
+use skillet_podman::{self, NetworkAttachment, PodmanConfig, PodmanError, ProcessIdentity, Volume};
 use std::{collections::BTreeMap, path::Path};
 use thiserror::Error;
 use tracing::info;
@@ -53,7 +53,6 @@ where
             "AutoUpdate=registry".to_string(),
             "ContainerName=unifi".to_string(),
             "Environment=TZ=Europe/Madrid".to_string(),
-            "Network=host".to_string(),
         ],
     );
     extra_config.insert("Service".to_string(), vec!["Restart=always".to_string()]);
@@ -81,7 +80,8 @@ where
         PodmanConfig {
             name: "unifi".to_string(),
             image: "docker.io/jacobalberty/unifi:latest".to_string(),
-            networks: Vec::new(),
+            network_attachments: vec![NetworkAttachment::Host],
+            port_publications: Vec::new(),
             process_identity: ProcessIdentity::Named {
                 user: "unifi".to_string(),
                 group: None,

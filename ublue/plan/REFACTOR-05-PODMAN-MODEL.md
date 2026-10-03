@@ -28,9 +28,16 @@ apply also owns a global DNS-port policy and converges shared networks repeatedl
   optional namespace mapping. Removed unused implicit host-account creation;
   UniFi now declares its image's named process user as typed data. Invalid
   names and raw `User`/`UIDMap`/`GIDMap` conflicts fail before file effects.
-- Pending: typed host volume ownership, typed container network attachments and
-  publications, shared network baseline ownership,
-  storage dependencies, and full service migration.
+- Implemented: shared bridge definitions are now created once by host
+  composition and carry change-refusal markers; containers declare named bridge
+  or host-network attachments. IPv4/IPv6 port publications are typed and
+  validated, and conflicting raw `Network`/`PublishPort` directives fail
+  before effects. Pi-hole, Syncthing, Caddy, UniFi, Tailscale, and the fixture
+  were migrated without changing their intended ports or modes.
+- Pending: typed host volume ownership, reusable storage dependency helpers,
+  application unit dependency migration, old/new Quadlet comparison, and
+  named-VM validation for process identity, DNS, service discovery, and
+  persistence.
 
 ## Implementation sequence
 

@@ -6,8 +6,8 @@ use skillet_core::system::{
     AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
 };
 use skillet_podman::{
-    self, PodmanConfig, PodmanError, PodmanNetwork, ProcessIdentity, QuadletSecret, SecretTarget,
-    Volume,
+    self, NetworkAttachment, PodmanConfig, PodmanError, PortProtocol, PortPublication,
+    ProcessIdentity, QuadletSecret, SecretTarget, Volume,
 };
 use std::{collections::BTreeMap, path::Path};
 use thiserror::Error;
@@ -270,7 +270,7 @@ pub fn apply<S, F>(
     system: &S,
     files: &F,
     sites: &CaddySites,
-    network: PodmanNetwork,
+    network_name: &str,
 ) -> Result<(), CaddyError>
 where
     S: AccountLookupResource + AccountResource + PodmanSecretResource + ServiceResource + ?Sized,
@@ -293,8 +293,6 @@ where
         vec![
             "AutoUpdate=registry".to_string(),
             "ContainerName=caddy".to_string(),
-            "PublishPort=[::]:443:443/tcp".to_string(),
-            "PublishPort=0.0.0.0:443:443/tcp".to_string(),
         ],
     );
     container.insert("Service".to_string(), vec!["Restart=always".to_string()]);
@@ -314,7 +312,19 @@ where
     let config = PodmanConfig {
         name: "caddy".to_string(),
         image: "ghcr.io/caddybuilds/caddy-cloudflare:2".to_string(),
-        networks: vec![network],
+        network_attachments: vec![NetworkAttachment::Bridge(network_name.to_string())],
+        port_publications: ["::", "0.0.0.0"]
+            .into_iter()
+            .map(|address| PortPublication {
+                host_address: match address {
+                    "::" => std::net::Ipv6Addr::UNSPECIFIED.into(),
+                    _ => std::net::Ipv4Addr::UNSPECIFIED.into(),
+                },
+                host_port: 443,
+                container_port: 443,
+                protocol: PortProtocol::Tcp,
+            })
+            .collect(),
         process_identity: ProcessIdentity::ImageDefault,
         namespace_mapping: None,
         volumes: vec![
