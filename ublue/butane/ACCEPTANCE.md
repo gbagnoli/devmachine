@@ -1229,3 +1229,21 @@ host tool; it still uses normal command approvals.
   after its 10-second stop timeout during cleanup.
 - Guest credential delivery, Caddy HTTPS acceptance, and live Cloudflare API
   behavior were not exercised here. `/dev/kvm` is unavailable.
+
+### Workstation-owned disposable Cloudflare cleanup, 2026-10-04
+
+- Moved disposable UI cleanup into `skillet_workstation::ui_provisioning`.
+  Before provider mutations, it checks the test policy, typed VM identity,
+  deterministic token/marker names, configured zone, and current relative UI
+  namespace. It removes marker-owned DNS, revokes disposable and cleanup
+  tokens, then removes the journal. Failures leave ownership state retryable;
+  malformed and symlinked state paths are refused.
+- Cleanup tests cover successful revocation and journal removal, repeated
+  cleanup with no journal, identity mismatch before mutation, and DNS failure
+  retaining the journal. State tests cover regular-file presence/removal and
+  symlink refusal. The full workspace tests, strict all-target Clippy, and
+  formatting checks passed (48 workstation tests).
+- The beezelbot Fedora base integration exited 0: both applies succeeded; the
+  repeat issued no service start/restart and the container was removed. Podman
+  needed SIGKILL after its 10-second stop timeout during cleanup.
+- No VM or live Cloudflare API was contacted. `/dev/kvm` is unavailable.

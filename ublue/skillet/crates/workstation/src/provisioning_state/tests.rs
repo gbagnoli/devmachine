@@ -51,6 +51,31 @@ fn cloudflare_ownership_is_private_atomic_json_state() {
 }
 
 #[test]
+fn cloudflare_ownership_presence_and_removal_reject_non_regular_paths() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("cloudflare.json");
+    assert!(!cloudflare_ownership_exists(&path).unwrap());
+    save_cloudflare_ownership(&path, &ownership()).unwrap();
+    assert!(cloudflare_ownership_exists(&path).unwrap());
+    remove_cloudflare_ownership(&path).unwrap();
+    assert!(!cloudflare_ownership_exists(&path).unwrap());
+
+    let target = directory.path().join("target.json");
+    fs::write(&target, b"{}").unwrap();
+    let link = directory.path().join("link.json");
+    symlink(&target, &link).unwrap();
+    assert!(matches!(
+        cloudflare_ownership_exists(&link),
+        Err(ProvisioningStateError::InvalidPath(_))
+    ));
+    assert!(matches!(
+        remove_cloudflare_ownership(&link),
+        Err(ProvisioningStateError::InvalidPath(_))
+    ));
+    assert!(target.exists());
+}
+
+#[test]
 fn legacy_cloudflare_journal_remains_readable_but_new_identity_mismatches_fail() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("cloudflare.json");

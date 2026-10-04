@@ -19,6 +19,8 @@ struct FakeCloudflare {
     run_directory: PathBuf,
     fail_dns: bool,
     issued: std::cell::Cell<usize>,
+    removed: std::cell::Cell<usize>,
+    revoked: std::cell::RefCell<Vec<String>>,
 }
 
 impl UiCloudflareProvider for FakeCloudflare {
@@ -41,9 +43,15 @@ impl UiCloudflareProvider for FakeCloudflare {
         lifetime: Option<std::time::Duration>,
     ) -> Result<IssuedToken, CloudflareError> {
         let ownership = read_ownership(&self.run_directory);
-        assert_eq!(ownership.token_name, name);
-        assert!(ownership.token_id.is_none());
-        assert_eq!(lifetime, Some(std::time::Duration::from_hours(12)));
+        assert!(
+            name == ownership.token_name || name == format!("{}:cleanup", ownership.token_name)
+        );
+        if name == ownership.token_name {
+            assert!(ownership.token_id.is_none());
+            assert_eq!(lifetime, Some(std::time::Duration::from_hours(12)));
+        } else {
+            assert_eq!(lifetime, Some(std::time::Duration::from_mins(15)));
+        }
         self.issued.set(self.issued.get() + 1);
         Ok(IssuedToken {
             id: "22222222222222222222222222222222".to_string(),
@@ -81,6 +89,49 @@ impl UiCloudflareProvider for FakeCloudflare {
                 .collect(),
         })
     }
+
+    fn remove_dns_marker(
+        &self,
+        _token: &str,
+        _zone_id: &str,
+        _marker: &str,
+        _ui_domain: &str,
+    ) -> Result<(), CloudflareError> {
+        if self.fail_dns {
+            return Err(CloudflareError::Invalid("fixture DNS failure".into()));
+        }
+        self.removed.set(self.removed.get() + 1);
+        Ok(())
+    }
+
+    fn token_ids_by_name(
+        &self,
+        _creator_token: &str,
+        _account_id: &str,
+        name: &str,
+    ) -> Result<Vec<String>, CloudflareError> {
+        Ok(vec![format!("id-for:{name}")])
+    }
+
+    fn revoke_token(
+        &self,
+        _creator_token: &str,
+        _account_id: &str,
+        token_id: &str,
+    ) -> Result<(), CloudflareError> {
+        self.revoked.borrow_mut().push(token_id.to_string());
+        Ok(())
+    }
+}
+
+fn fake_cloudflare(run_directory: &Path, fail_dns: bool) -> FakeCloudflare {
+    FakeCloudflare {
+        run_directory: run_directory.to_path_buf(),
+        fail_dns,
+        issued: std::cell::Cell::new(0),
+        removed: std::cell::Cell::new(0),
+        revoked: std::cell::RefCell::new(Vec::new()),
+    }
 }
 
 fn read_ownership(run_directory: &Path) -> CloudflareVmOwnership {
@@ -101,6 +152,28 @@ fn disposable_request<'a>(
         run_directory,
         addresses,
     }
+}
+
+fn cleanup_request(run_directory: &Path) -> DisposableUiCleanupRequest<'_> {
+    DisposableUiCleanupRequest {
+        host: "clamps",
+        instance: "smoke",
+        policy: ProvisioningPolicy::new(Environment::Test),
+        ownership_path: run_directory.join("cloudflare.json"),
+        configured_zone_id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        relative_ui_domain: Some("smoke.ui"),
+        creator_token: "dummy creator token",
+    }
+}
+
+fn create_cleanup_fixture(run_directory: &Path, provider: &FakeCloudflare) {
+    let addresses = addresses();
+    provision_disposable_ui(
+        &disposable_request(run_directory, &addresses),
+        provider,
+        || Ok(()),
+    )
+    .unwrap();
 }
 
 #[test]
@@ -215,11 +288,7 @@ fn disposable_cloudflare_ownership_precedes_token_and_dns_mutations() {
     .unwrap()
     .dns_records
     .len();
-    let provider = FakeCloudflare {
-        run_directory: run.path().to_path_buf(),
-        fail_dns: false,
-        issued: std::cell::Cell::new(0),
-    };
+    let provider = fake_cloudflare(run.path(), false);
     let guard_calls = std::cell::Cell::new(0);
 
     let provisioned = provision_disposable_ui(
@@ -253,11 +322,7 @@ fn disposable_cloudflare_ownership_precedes_token_and_dns_mutations() {
 fn disposable_cloudflare_journal_keeps_issued_token_after_dns_failure() {
     let run = tempfile::tempdir().unwrap();
     let addresses = addresses();
-    let provider = FakeCloudflare {
-        run_directory: run.path().to_path_buf(),
-        fail_dns: true,
-        issued: std::cell::Cell::new(0),
-    };
+    let provider = fake_cloudflare(run.path(), true);
 
     let result = provision_disposable_ui(
         &disposable_request(run.path(), &addresses),
@@ -279,11 +344,7 @@ fn disposable_cloudflare_journal_keeps_issued_token_after_dns_failure() {
 fn disposable_cloudflare_checks_vault_before_issuing_token() {
     let run = tempfile::tempdir().unwrap();
     let addresses = addresses();
-    let provider = FakeCloudflare {
-        run_directory: run.path().to_path_buf(),
-        fail_dns: false,
-        issued: std::cell::Cell::new(0),
-    };
+    let provider = fake_cloudflare(run.path(), false);
 
     let result = provision_disposable_ui(
         &disposable_request(run.path(), &addresses),
@@ -297,4 +358,57 @@ fn disposable_cloudflare_checks_vault_before_issuing_token() {
     assert!(error.to_string().contains("vault changed"));
     assert_eq!(provider.issued.get(), 0);
     assert!(read_ownership(run.path()).token_id.is_none());
+}
+
+#[test]
+fn disposable_cloudflare_cleanup_removes_only_journaled_owner_after_revocations() {
+    let run = tempfile::tempdir().unwrap();
+    let provider = fake_cloudflare(run.path(), false);
+    create_cleanup_fixture(run.path(), &provider);
+
+    assert!(cleanup_disposable_ui(&cleanup_request(run.path()), &provider).unwrap());
+
+    assert_eq!(provider.removed.get(), 1);
+    assert_eq!(provider.issued.get(), 2);
+    assert_eq!(
+        provider.revoked.borrow().as_slice(),
+        [
+            "id-for:skillet:test:clamps-smoke",
+            "id-for:skillet:test:clamps-smoke:cleanup"
+        ]
+    );
+    assert!(!run.path().join("cloudflare.json").exists());
+    assert!(!cleanup_disposable_ui(&cleanup_request(run.path()), &provider).unwrap());
+}
+
+#[test]
+fn disposable_cloudflare_cleanup_mismatch_has_no_provider_mutations() {
+    let run = tempfile::tempdir().unwrap();
+    let provider = fake_cloudflare(run.path(), false);
+    create_cleanup_fixture(run.path(), &provider);
+    let mut request = cleanup_request(run.path());
+    request.instance = "other";
+
+    assert!(cleanup_disposable_ui(&request, &provider).is_err());
+    assert_eq!(provider.issued.get(), 1);
+    assert_eq!(provider.removed.get(), 0);
+    assert!(provider.revoked.borrow().is_empty());
+    assert!(run.path().join("cloudflare.json").exists());
+}
+
+#[test]
+fn disposable_cloudflare_cleanup_failure_retains_journal_for_retry() {
+    let run = tempfile::tempdir().unwrap();
+    let mut provider = fake_cloudflare(run.path(), false);
+    create_cleanup_fixture(run.path(), &provider);
+    provider.fail_dns = true;
+
+    assert!(cleanup_disposable_ui(&cleanup_request(run.path()), &provider).is_err());
+    assert_eq!(provider.issued.get(), 2);
+    assert_eq!(provider.removed.get(), 0);
+    assert_eq!(
+        provider.revoked.borrow().as_slice(),
+        ["id-for:skillet:test:clamps-smoke:cleanup"]
+    );
+    assert!(run.path().join("cloudflare.json").exists());
 }

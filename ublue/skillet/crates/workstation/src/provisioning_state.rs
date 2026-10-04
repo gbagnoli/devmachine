@@ -93,6 +93,38 @@ pub fn load_cloudflare_ownership(
     read_json(path)
 }
 
+pub fn cloudflare_ownership_exists(path: &Path) -> Result<bool, ProvisioningStateError> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_file() => {
+            Err(ProvisioningStateError::InvalidPath(
+                "Cloudflare ownership state must be a regular file",
+            ))
+        }
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error.into()),
+    }
+}
+
+pub fn remove_cloudflare_ownership(path: &Path) -> Result<(), ProvisioningStateError> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_file() => {
+            Err(ProvisioningStateError::InvalidPath(
+                "Cloudflare ownership state must be a regular file",
+            ))
+        }
+        Ok(_) => {
+            fs::remove_file(path)?;
+            if let Some(parent) = path.parent() {
+                File::open(parent)?.sync_all()?;
+            }
+            Ok(())
+        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.into()),
+    }
+}
+
 /// Confirm that a Cloudflare journal belongs to the requested typed identity.
 /// Legacy journals are still validated by their exact marker and token name at
 /// the call site; new journals must match every identity field here.

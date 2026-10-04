@@ -155,7 +155,14 @@ and VM delivery have duplicate implementations with different validation.
   owner journal before token creation, verifies the vault snapshot immediately
   before mutation, saves token ownership before DNS reconciliation, and records
   owned DNS IDs afterward. Fake-provider tests cover partial failure recovery.
-- Pending: Cloudflare cleanup, guest delivery/activation and its retry policy,
-  production plus named-VM acceptance, and the remaining environment/host
-  delivery orchestration still span CLI and workstation modules. Complete the
-  remaining sequence items before closing this workstream.
+- Implemented: disposable Cloudflare cleanup now lives in
+  `skillet_workstation::ui_provisioning`. It validates the test environment,
+  recorded host/environment/instance, deterministic marker/token names, zone,
+  and resolved UI namespace before provider mutations. It removes only
+  marker-owned DNS, revokes disposable and temporary cleanup tokens, and only
+  then removes the journal. Provider failures retain the journal for retry;
+  symlinked or non-regular state paths are rejected.
+- Pending: guest delivery/activation and its retry policy, production plus
+  named-VM acceptance, and remaining environment/host delivery orchestration
+  still span CLI and workstation modules. Complete the remaining sequence
+  items before closing this workstream.
