@@ -217,7 +217,7 @@ KeePassXC entries in their Password fields:
 | Group path | Entry title | Value |
 | --- | --- | --- |
 | `skillet/environments/<environment>/dns` | `ui-domain` | Optional relative prefix; defaults to `ui` when absent |
-| `skillet/environments/<environment>/dns` | `cloudflare-zone-id` | Required Cloudflare Zone ID |
+| `skillet/environments/dns` | `cloudflare-zone-id` | Required shared Cloudflare Zone ID |
 | `skillet/cloudflare` | `token-creator` | Workstation token issuer |
 
 Select `production` or `test` for `<environment>`. Copy the Zone ID from the
