@@ -1,7 +1,8 @@
 # 1. One VM lifecycle owner; migrate Bash management to Rust
 
-Status: in progress. First workstream in [the prerequisite roadmap](SKILLET-REFACTOR.md).
-Further feature milestones wait for that roadmap's completion.
+Status: implementation complete; fresh and retained VM acceptance passed.
+Legacy-manifest live import and controlled interrupted-recovery acceptance
+remain. See the [roadmap](SKILLET-REFACTOR.md) and 2026-10-04 acceptance entry.
 
 ## Progress, 2026-10-03
 
@@ -50,7 +51,10 @@ Workstream 4 has now moved production and disposable-VM guest commands onto
 the shared verified SSH transport. Workstream 2 must consolidate the interim
 `boot_policy_for_host` lookup with the canonical capability declaration.
 Workstation provisioning state now owns provider cleanup journals separately
-from the VM manifest and local artifact ownership.
+from the VM manifest and local artifact ownership. Live create, readiness,
+provisioning, fixture smoke/reboot, external cleanup, and destroy passed on a
+fresh disposable VM. Retained-manifest compatibility and interrupted-recovery
+acceptance remain open.
 Native and Flatpak adapter contract tests and
 workstation checks remain required; live create/ready/update/reboot/destroy
 and retained-run acceptance have not yet passed. See
@@ -63,8 +67,11 @@ run manifest directly rather than invoking the compatibility wrapper and
 re-reading `run.conf`. It uses the manifest SSH target and checks immutable
 domain ownership before and after every guest operation. Destroy's external
 cleanup callback derives its run directory from the recorded identity and
-refuses CLI identity mismatches. Live VM cycle and recovery acceptance remain
-pending.
+refuses CLI identity mismatches. Fresh create/provision/destroy and retained
+readiness/provision/reboot acceptance passed. The existing retained VM uses the
+current manifest, so legacy-manifest live import remains unverified. A manual
+interruption was followed by successful retries, but a controlled recovery
+check with journal state captured before and after remains open.
 
 ## Read and locate
 

@@ -1,7 +1,8 @@
 # 3. Cohesive effect interfaces and unified ownership
 
-Status: implementation complete; named-VM ownership/mount acceptance is
-pending. This follows workstream 2 in
+Status: implementation complete; live mount/subvolume, service ownership, and
+descendant-metadata preservation checks passed. This follows
+workstream 2 in
 [the prerequisite roadmap](SKILLET-REFACTOR.md); further feature milestones
 wait for the full roadmap gate.
 
@@ -102,5 +103,10 @@ unified; remaining trait aggregates are transitional composition contexts.
 - Implemented: service state and Podman-secret idempotency/rotation contracts
   run against both `MockSystem` and its `Recorder` decorator. Unit tests do not
   mutate the workstation's real services or secrets.
-- Pending: live ownership/mount acceptance remains outstanding. Implementation
-  is complete, but the named-VM exit criterion still needs to pass.
+- Accepted: the retained clamps VM showed `/var/lib/data` on the Btrfs `data`
+  subvolume; service volumes and numeric UniFi data-root ownership matched the
+  declared paths/identity. Fixture recovery/reboot and credential rotation
+  passed with the mount.
+- Complete: induced root-ownership drift was repaired on the disposable VM; a
+  child with independent numeric ownership/mode was unchanged, and the
+  temporary probe was removed afterward.

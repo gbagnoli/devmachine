@@ -1,7 +1,9 @@
 # 4. Thin CLIs and shared workstation provisioning
 
-Status: implementation complete; named-VM and production acceptance are
-pending. This follows workstreams 1–3 in
+Status: implementation complete; disposable provisioning, credential rotation,
+and cleanup passed on fresh and retained test VMs. Controlled interrupted
+recovery remains open; production delivery is deferred. This follows
+workstreams 1–3 in
 [the prerequisite roadmap](SKILLET-REFACTOR.md); further feature milestones
 wait for the full roadmap gate.
 
@@ -193,6 +195,9 @@ and VM delivery have duplicate implementations with different validation.
   uses the recorded SSH target, and checks backend ownership before and after
   every guest operation. No compatibility script or legacy `run.conf` reader
   remains in this delivery path.
-- Pending: named-VM acceptance for disposable delivery, retry/rotation and
-  cleanup, plus production credential acceptance. Live environment checks
-  remain subject to available hardware and credentials.
+- Accepted: fresh test-VM credential delivery, Tailscale enrollment, Cloudflare
+  DNS/token lifecycle, Caddy staging issuance, denial probes, and disposable
+  cleanup passed end to end.
+- Remaining: a controlled interrupted delivery recovery with journal evidence
+  on a named test VM. Production checks require production credentials and are
+  explicitly deferred from this refactoring gate.

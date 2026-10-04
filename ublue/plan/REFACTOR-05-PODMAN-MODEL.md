@@ -1,8 +1,7 @@
 # 5. Podman configuration with explicit host policy
 
-Status: implementation complete; named-VM acceptance is pending. This follows
-workstreams 2–4 in [the prerequisite roadmap](SKILLET-REFACTOR.md); further
-feature milestones wait for the full roadmap gate.
+Status: implementation and clamps live acceptance complete. See
+workstreams 2–4 in the [prerequisite roadmap](SKILLET-REFACTOR.md).
 
 ## Read and locate
 
@@ -44,8 +43,12 @@ apply also owns a global DNS-port policy and converges shared networks repeatedl
   bytes while checking the root metadata.
 - Implemented: a representative comparison proves that adding root ownership
   metadata leaves the existing Quadlet bytes unchanged.
-- Pending: named-VM validation for process identity, DNS, service discovery,
-  and persistence.
+- Accepted: live inspection confirmed Pi-hole/Syncthing bridge networking,
+  Tailscale/UniFi host networking, UniFi's declared process identity, expected
+  persistent data paths, and healthy/running services. Repeating host
+  provisioning preserved all four service container start times. An induced
+  UniFi volume-root ownership drift was repaired without changing child
+  ownership/mode. Caddy's staging flow also served the declared UI upstreams.
 
 ## Implementation sequence
 

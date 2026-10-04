@@ -1,7 +1,8 @@
 # 2. Canonical host profiles and capabilities
 
-Status: implementation complete; retained-VM acceptance is pending. Feature
-milestones remain gated by [the prerequisite roadmap](SKILLET-REFACTOR.md).
+Status: implementation complete; retained clamps base/full apply acceptance
+passed and synthetic-profile tests cover genericity. See the
+[prerequisite roadmap](SKILLET-REFACTOR.md).
 
 ## Read and locate
 
@@ -78,5 +79,8 @@ keep the VM readiness orchestrator independent of deployment names.
   eligibility, smoke selection, and VM boot expectations query the profile.
   Unknown profiles fail closed. The smoke fixture is a separate hidden test
   command, not a synthetic host profile.
-- Pending: live retained-VM base/full apply checks and the roadmap fresh-VM
-  cycle. These remain unverified until a named VM/runtime is available.
+- Accepted: the fresh disposable clamps run selected the profile and completed
+  full UI provisioning and fixture smoke. Routine profile tests cover unknown
+  profiles and the generic baseline.
+- No additional real host is required for genericity acceptance; the synthetic
+  profile tests exercise independent identity and service declarations.
