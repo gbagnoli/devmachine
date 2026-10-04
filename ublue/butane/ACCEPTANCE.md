@@ -1087,3 +1087,18 @@ host tool; it still uses normal command approvals.
   timeout during cleanup; this did not fail the test.
 - Fresh VM activation/reboot, host-profile acceptance, and retained-run recovery
   are unverified because this workstation has no `/dev/kvm`.
+
+### Typed Podman volume-root ownership, 2026-10-04
+
+- Added optional typed host mode and ownership to each bind-volume declaration.
+  Podman applies these only to the mount root. UniFi now declares mode `0750`
+  and numeric UID/GID `999` as part of its volume; other existing volumes leave
+  ownership unspecified. Descendant data is not recursively changed.
+- The focused Podman and UniFi tests passed. The full offline workspace test
+  suite, strict all-target Clippy, formatting, and the documented beezelbot
+  Fedora container integration passed. The integration applied twice; the
+  second apply did not restart services. Podman needed SIGKILL after its
+  10-second stop timeout while removing the test container.
+- A regression test confirms the typed metadata does not change the existing
+  Quadlet bytes. VM verification of actual volume ownership, descendants, and
+  service restart behavior remains unverified because `/dev/kvm` is absent.

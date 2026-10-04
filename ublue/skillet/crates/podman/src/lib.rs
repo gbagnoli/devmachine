@@ -1,7 +1,7 @@
 use askama::Template;
 use sha2::{Digest, Sha256};
 use skillet_core::activation::{self, ActivationOutcome, ActivationRequest, ConsumerKind};
-use skillet_core::files::{FileError, FileMutationResource, FileReadResource};
+use skillet_core::files::{FileError, FileMutationResource, FileReadResource, Ownership};
 use skillet_core::system::{
     AccountLookupResource, PodmanSecretResource, ServiceResource, SystemError,
 };
@@ -75,6 +75,10 @@ pub struct Volume {
     pub host_path: String,
     pub container_path: String,
     pub options: Option<String>,
+    pub host_mode: Option<u32>,
+    /// Metadata applied only to the bind-mount root. Descendant data is never
+    /// recursively changed by generic volume convergence.
+    pub host_ownership: Option<Ownership>,
 }
 
 pub enum SecretTarget {
@@ -352,9 +356,14 @@ where
     container_section.push(format!("Image={}", config.image));
 
     for vol in config.volumes {
-        // The application owns volume metadata. Ensure only existence here so
-        // repeated applies cannot alternate ownership with its resource.
-        files.ensure_directory(Path::new(&vol.host_path), None, None, None)?;
+        // Ownership is part of this typed volume declaration and affects only
+        // the root directory. `None` preserves application-managed metadata.
+        let ownership = vol.host_ownership.unwrap_or_default();
+        files.ensure_directory_with_ownership(
+            Path::new(&vol.host_path),
+            vol.host_mode,
+            &ownership,
+        )?;
 
         let mut vol_line = format!("Volume={}:{}", vol.host_path, vol.container_path);
         if let Some(opt) = vol.options {

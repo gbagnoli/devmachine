@@ -12,8 +12,6 @@ use thiserror::Error;
 use tracing::info;
 
 const DATA_PATH: &str = "/var/lib/data/unifi";
-const CONTAINER_UID: u32 = 999;
-const CONTAINER_GID: u32 = 999;
 
 #[derive(Debug, Error)]
 pub enum UnifiError {
@@ -39,15 +37,6 @@ where
     info!("Applying UniFi Network container...");
     files.require_btrfs_subvolume_mount(Path::new("/var/lib/data"), Path::new("/var"), "/data")?;
     files.ensure_btrfs_subvolume(Path::new(DATA_PATH))?;
-    files.ensure_directory_with_ownership(
-        Path::new(DATA_PATH),
-        Some(0o750),
-        &Ownership {
-            uid: Some(OwnerIdentity::Id(CONTAINER_UID)),
-            gid: Some(OwnerIdentity::Id(CONTAINER_GID)),
-        },
-    )?;
-
     let mut extra_config = BTreeMap::new();
     extra_config.insert(
         "Container".to_string(),
@@ -89,6 +78,11 @@ where
                 host_path: DATA_PATH.to_string(),
                 container_path: "/unifi".to_string(),
                 options: Some("Z".to_string()),
+                host_mode: Some(0o750),
+                host_ownership: Some(Ownership {
+                    uid: Some(OwnerIdentity::Id(999)),
+                    gid: Some(OwnerIdentity::Id(999)),
+                }),
             }],
             secrets: Vec::new(),
             config_revisions: Vec::new(),

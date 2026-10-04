@@ -155,6 +155,8 @@ fn tailscale_config(hostname: &str, auth_key: String, state_path: &str) -> Podma
             host_path: state_path.to_string(),
             container_path: "/var/lib/tailscale".to_string(),
             options: Some("Z".to_string()),
+            host_mode: None,
+            host_ownership: None,
         }],
         secrets: vec![QuadletSecret {
             secret_name: TAILSCALE_AUTH_KEY_CREDENTIAL.to_string(),

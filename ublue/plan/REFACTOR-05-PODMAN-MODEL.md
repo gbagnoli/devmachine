@@ -37,9 +37,15 @@ apply also owns a global DNS-port policy and converges shared networks repeatedl
 - Implemented: added a reusable typed mount dependency for persistent service
   containers. Pi-hole, Syncthing, UniFi, Caddy, and Tailscale use the shared
   data mount helper; invalid mount inputs fail before container effects.
-- Pending: typed host volume ownership, old/new Quadlet comparison, and
-  named-VM validation for process identity, DNS, service discovery, and
-  persistence.
+- Implemented: typed bind volumes can declare root mode and numeric or named
+  host ownership. Podman converges those fields only on the mount root; omitted
+  metadata preserves the application's current ownership. UniFi declares its
+  `999:999` root and `0750` mode in its volume. A test preserves a child file's
+  bytes while checking the root metadata.
+- Implemented: a representative comparison proves that adding root ownership
+  metadata leaves the existing Quadlet bytes unchanged.
+- Pending: named-VM validation for process identity, DNS, service discovery,
+  and persistence.
 
 ## Implementation sequence
 
@@ -61,7 +67,8 @@ apply also owns a global DNS-port policy and converges shared networks repeatedl
 4. Add reusable storage dependency helpers for application units and shared
    data validation. Preserve the installation/runtime split: Ignition prepares
    the filesystem and graphroot; recipes validate and prepare application data.
-   Keep application-owned volume metadata out of generic volume creation.
+   Carry caller-selected root metadata as typed volume data; never recursively
+   change descendants or infer host ownership from container process identity.
 5. Migrate every existing service, including Tailscale and the smoke fixture,
    preserving images, ports, capabilities, SELinux labels, identities, paths,
    secret directives, auto-update and startup dependencies. Explain intentional
