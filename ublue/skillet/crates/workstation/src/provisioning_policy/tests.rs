@@ -6,9 +6,10 @@ fn production_policy_selects_durable_credentials_and_live_acme() {
     let policy = ProvisioningPolicy::new(Environment::Production);
 
     assert_eq!(policy.name(), "production");
+    assert_eq!(policy.vault_name(), "prod");
     assert_eq!(
         policy.ui_domain_entry(),
-        "skillet/environments/production/dns/ui-domain"
+        "skillet/environments/prod/dns/ui-domain"
     );
     assert_eq!(
         policy.cloudflare_zone_entry(),
@@ -27,6 +28,7 @@ fn disposable_policy_selects_short_lived_credentials_and_staging_acme() {
     let policy = ProvisioningPolicy::new(Environment::Test);
 
     assert_eq!(policy.name(), "test");
+    assert_eq!(policy.vault_name(), "test");
     assert_eq!(
         policy.ui_domain_entry(),
         "skillet/environments/test/dns/ui-domain"

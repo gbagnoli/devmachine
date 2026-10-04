@@ -370,7 +370,7 @@ pub fn deliver_persistent_ui(
     let account_id = crate::cloudflare::Cloudflare::account_id(&zone)?.to_string();
     let token_path = format!(
         "skillet/environments/{}/hosts/{}/cloudflare/acme-token",
-        request.policy.name(),
+        request.policy.vault_name(),
         request.host
     );
     let token_name = format!("skillet:{}:{}", request.policy.name(), request.host);

@@ -15,7 +15,7 @@ remains confined to child tokens.
 ## Configuration and access
 
 Each environment requires `skillet/environments/<environment>/dns/cloudflare-zone-id`
-in the vault's Password field (`prod` or `test`). Fetch that exact zone's domain
+in the vault's Password field (`prod` or `test`; CLI `production` maps to `prod`). Fetch that exact zone's domain
 from Cloudflare. Its optional `skillet/environments/<environment>/dns/ui-domain` is a relative
 prefix, defaulting to `ui` only when absent. Always append the zone's domain:
 `ui.whatever` in zone `example.com` resolves to `ui.whatever.example.com`.

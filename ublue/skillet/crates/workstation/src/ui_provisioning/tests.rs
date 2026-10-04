@@ -575,7 +575,7 @@ fn persistent_ui_reuses_token_and_defers_caddy_until_credential_set_is_installed
     let cloudflare = fake_cloudflare(run.path(), false);
     let mut store = FakeTokenStore::default();
     store.entries.borrow_mut().insert(
-        "skillet/environments/production/hosts/clamps/cloudflare/acme-token".into(),
+        "skillet/environments/prod/hosts/clamps/cloudflare/acme-token".into(),
         "existing ACME token".into(),
     );
     let guest = FakeGuest::default();
@@ -630,7 +630,7 @@ fn persistent_ui_mints_and_persists_token_before_dns_reconciliation() {
         store
             .entries
             .borrow()
-            .get("skillet/environments/production/hosts/clamps/cloudflare/acme-token")
+            .get("skillet/environments/prod/hosts/clamps/cloudflare/acme-token")
             .map(String::as_str),
         Some("persistent dummy token")
     );
@@ -661,7 +661,7 @@ fn persistent_ui_migrates_legacy_production_token_without_reissuing_it() {
         store
             .entries
             .borrow()
-            .get("skillet/environments/production/hosts/clamps/cloudflare/acme-token")
+            .get("skillet/environments/prod/hosts/clamps/cloudflare/acme-token")
             .map(String::as_str),
         Some("legacy ACME token")
     );

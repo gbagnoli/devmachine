@@ -33,17 +33,21 @@ impl ProvisioningPolicy {
         }
     }
 
+    pub const fn vault_name(self) -> &'static str {
+        match self.environment {
+            Environment::Production => "prod",
+            Environment::Test => "test",
+        }
+    }
+
     pub fn ui_domain_entry(self) -> String {
-        format!("skillet/environments/{}/dns/ui-domain", self.name())
+        format!("skillet/environments/{}/dns/ui-domain", self.vault_name())
     }
 
     pub fn cloudflare_zone_entry(self) -> String {
         format!(
             "skillet/environments/{}/dns/cloudflare-zone-id",
-            match self.environment {
-                Environment::Production => "prod",
-                Environment::Test => "test",
-            }
+            self.vault_name()
         )
     }
 
