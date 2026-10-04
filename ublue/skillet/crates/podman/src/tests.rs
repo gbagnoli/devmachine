@@ -195,6 +195,102 @@ fn shared_data_mount_dependency_is_rendered_and_invalid_dependency_fails_early()
 }
 
 #[test]
+fn typed_volume_ownership_changes_only_the_mount_root_metadata() {
+    use skillet_core::files::{OwnerIdentity, Ownership};
+
+    let system = MockSystem::new();
+    system.ensure_podman_secret("dummy", "first").unwrap();
+    let files = MockFiles::new();
+    let path = "/var/lib/data/owned-volume";
+    files
+        .files
+        .lock()
+        .unwrap()
+        .insert(format!("{path}/existing.db"), b"preserve".to_vec());
+
+    let mut config = fixture();
+    config.volumes.push(Volume {
+        host_path: path.to_string(),
+        container_path: "/data".to_string(),
+        options: None,
+        host_mode: Some(0o750),
+        host_ownership: Some(Ownership {
+            uid: Some(OwnerIdentity::Id(999)),
+            gid: Some(OwnerIdentity::Id(999)),
+        }),
+    });
+    container(&system, &files, config).unwrap();
+
+    assert_eq!(
+        files.directory_metadata.lock().unwrap().get(path),
+        Some(&(
+            Some(0o750),
+            Ownership {
+                uid: Some(OwnerIdentity::Id(999)),
+                gid: Some(OwnerIdentity::Id(999)),
+            }
+        ))
+    );
+    assert_eq!(
+        files
+            .files
+            .lock()
+            .unwrap()
+            .get(&format!("{path}/existing.db")),
+        Some(&b"preserve".to_vec())
+    );
+}
+
+#[test]
+fn typed_host_root_metadata_does_not_change_existing_quadlet_definition() {
+    use skillet_core::files::{OwnerIdentity, Ownership};
+
+    let mut previous = fixture();
+    previous.volumes.push(Volume {
+        host_path: "/var/lib/data/owned-volume".to_string(),
+        container_path: "/data".to_string(),
+        options: Some("Z".to_string()),
+        host_mode: None,
+        host_ownership: None,
+    });
+    let previous_system = MockSystem::new();
+    previous_system
+        .ensure_podman_secret("dummy", "first")
+        .unwrap();
+    let previous_files = MockFiles::new();
+    container(&previous_system, &previous_files, previous).unwrap();
+
+    let mut typed = fixture();
+    typed.volumes.push(Volume {
+        host_path: "/var/lib/data/owned-volume".to_string(),
+        container_path: "/data".to_string(),
+        options: Some("Z".to_string()),
+        host_mode: Some(0o750),
+        host_ownership: Some(Ownership {
+            uid: Some(OwnerIdentity::Id(999)),
+            gid: Some(OwnerIdentity::Id(999)),
+        }),
+    });
+    let typed_system = MockSystem::new();
+    typed_system.ensure_podman_secret("dummy", "first").unwrap();
+    let typed_files = MockFiles::new();
+    container(&typed_system, &typed_files, typed).unwrap();
+
+    assert_eq!(
+        previous_files
+            .files
+            .lock()
+            .unwrap()
+            .get("/etc/containers/systemd/unit-fixture.container"),
+        typed_files
+            .files
+            .lock()
+            .unwrap()
+            .get("/etc/containers/systemd/unit-fixture.container")
+    );
+}
+
+#[test]
 fn changing_a_created_network_fails_before_replacing_its_quadlet() {
     let system = MockSystem::new();
     let files = MockFiles::new();

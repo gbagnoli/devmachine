@@ -5,8 +5,10 @@ with host networking, required for device discovery/adoption, and persistent
 data under `/var/lib/data/unifi`. Preserve the current controller state when
 migrating; ordinary Skillet apply must not overwrite or import a database.
 The container runs as image user `unifi` (UID/GID 999). Skillet sets only the
-data subvolume root to those numeric IDs and preserves ownership of existing
-descendants; the host does not need matching account names.
+declared bind-mount root to those numeric IDs and preserves ownership of
+existing descendants; the host does not need matching account names. The
+ownership and mode are typed volume inputs, so generic Podman code does not
+infer identities from container configuration or recursively alter data.
 
 Use UniFi Site Manager at `unifi.ui.com` for remote access. The cloud service
 brokers access to the local controller; configuration and device management

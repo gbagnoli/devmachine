@@ -328,16 +328,22 @@ where
                 host_path: "/etc/skillet/caddy".to_string(),
                 container_path: "/etc/caddy".to_string(),
                 options: Some("ro,Z".to_string()),
+                host_mode: None,
+                host_ownership: None,
             },
             Volume {
                 host_path: "/var/lib/data/caddy/data".to_string(),
                 container_path: "/data".to_string(),
                 options: Some("Z".to_string()),
+                host_mode: None,
+                host_ownership: None,
             },
             Volume {
                 host_path: "/var/lib/data/caddy/config".to_string(),
                 container_path: "/config".to_string(),
                 options: Some("Z".to_string()),
+                host_mode: None,
+                host_ownership: None,
             },
         ],
         secrets: vec![QuadletSecret {

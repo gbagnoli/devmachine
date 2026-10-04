@@ -100,11 +100,15 @@ pub fn apply(system: &dyn SystemResource, files: &dyn FileResource) -> Result<()
                     host_path: "/etc/skillet-smoke".to_string(),
                     container_path: "/fixture".to_string(),
                     options: Some("ro,Z".to_string()),
+                    host_mode: None,
+                    host_ownership: None,
                 },
                 Volume {
                     host_path: "/var/lib/skillet-smoke/data".to_string(),
                     container_path: "/data".to_string(),
                     options: Some("Z".to_string()),
+                    host_mode: None,
+                    host_ownership: None,
                 },
             ],
             secrets: vec![QuadletSecret {

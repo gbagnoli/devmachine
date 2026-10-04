@@ -93,16 +93,22 @@ where
             host_path: etc.to_string(),
             container_path: "/etc/pihole".to_string(),
             options: Some("z".to_string()),
+            host_mode: None,
+            host_ownership: None,
         },
         Volume {
             host_path: format!("{root}/dnsmasq.d"),
             container_path: "/etc/dnsmasq.d".to_string(),
             options: Some("z".to_string()),
+            host_mode: None,
+            host_ownership: None,
         },
         Volume {
             host_path: logs.to_string(),
             container_path: "/var/log/pihole".to_string(),
             options: Some("z".to_string()),
+            host_mode: None,
+            host_ownership: None,
         },
     ];
 

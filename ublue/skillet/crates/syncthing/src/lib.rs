@@ -50,6 +50,8 @@ where
         host_path: config.data_path,
         container_path: "/var/syncthing".to_string(),
         options: Some("z".to_string()),
+        host_mode: None,
+        host_ownership: None,
     }];
 
     let mut extra_config = BTreeMap::new();
