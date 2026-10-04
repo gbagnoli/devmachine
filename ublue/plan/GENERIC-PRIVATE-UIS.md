@@ -14,13 +14,14 @@ Caddy's explicit 403 response. Remaining: denial from a separate network
 outside the tailnet and production ACME/renewal acceptance; these are grouped
 with Pi-hole LAN DNS acceptance in the [deferred live acceptance batch](CLAMPS-MIGRATION.md#deferred-live-acceptance-batch).
 
-Current revalidation (2026-10-04): the fresh disposable VM and real-runtime
-smoke passed and were cleaned up. The latest UI provisioning retry reached the
-Cloudflare setup but found no `skillet/environments/test/dns/cloudflare-zone-id`
-entry in the unlocked vault, so no Cloudflare mutation occurred. Resume live
-ACME/HTTPS acceptance after adding that test Zone ID. First-boot Tailscale
-credential activation has unit coverage, but its full credential-empty live
-sequence remains unverified.
+Current revalidation (2026-10-04): the fresh disposable VM, real-runtime smoke,
+credential-empty Tailscale enrollment, test Cloudflare lifecycle, and Caddy
+staging certificate issuance passed; `test vm destroy` cleaned the test DNS,
+token, Tailscale device, and VM. The issuer was confirmed in Caddy's guest
+journal for every declared UI name, and HTTPS tailnet-denial probes passed.
+Tailnet-client URL/DNS resolution, cryptographic certificate SAN/chain
+verification, separate-network denial, and production ACME/renewal remain
+unverified.
 
 ## Goal and fixed decisions
 

@@ -18,15 +18,17 @@
   unit receives its complete credential prerequisites. Tailscale enrollment
   now treats a confirmed absent container as unenrolled while keeping other
   Podman probe failures fail-closed. Unit coverage and all local checks pass.
-  A credential-empty fresh VM has not yet completed that entire enrollment
-  sequence end-to-end; the live run reached Cloudflare after retrying a VM with
-  partially delivered credentials.
-- The latest `test vm provision clamps generic-ui --with-ui` run enrolled the
-  VM in Tailscale but stopped before Cloudflare mutation because KeePassXC
-  lacks `skillet/environments/test/dns/cloudflare-zone-id`. The disposable VM and
-  its Tailscale device were cleaned up. Current live Caddy ACME/HTTPS
-  acceptance is blocked until that shared zone entry is present; no production
-  DNS or credentials were changed.
+- The corrected environment paths were exercised from a fresh credential-empty
+  VM. `test vm provision clamps generic-ui --with-ui` completed using the test
+  KeePass group. Caddy's guest journal confirmed successful certificate
+  issuance from `acme-staging-v02.api.letsencrypt.org-directory` for all three
+  declared UI names. The provisioning probes also received the configured 403
+  tailnet-denial response over HTTPS for the UI names.
+- `test vm destroy clamps generic-ui` completed Cloudflare ownership cleanup,
+  removed the disposable Tailscale device, and deleted the VM. No production
+  DNS or credentials were changed. A separate tailnet-client URL check,
+  cryptographic SAN/chain verification, and denial from a separate outside
+  network remain unverified; staging certificates are intentionally untrusted.
 
 ## Recoverable VM creation intent, 2026-10-03
 
