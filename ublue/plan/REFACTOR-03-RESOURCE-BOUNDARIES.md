@@ -90,5 +90,10 @@ ownership use separate APIs; mocks do not enforce important metadata contracts.
   `LocalFileResource` and `MockFiles`, checking creation, unchanged repeat,
   update, deletion, and file/directory type conflicts. This catches behavioral
   drift without relying on root privileges or Btrfs.
-- Pending: system/service adapter contract coverage and live ownership/mount
-  acceptance remain outstanding. This workstream is not complete.
+- Implemented: account lookup contract assertions run against both
+  `LinuxSystemResource` and `MockSystem`, checking name, numeric UID, and group
+  results against the current test account. This read-only adapter check avoids
+  mutating workstation users or services.
+- Pending: service and Podman-secret adapter contract coverage and live
+  ownership/mount acceptance remain outstanding. This workstream is not
+  complete.
