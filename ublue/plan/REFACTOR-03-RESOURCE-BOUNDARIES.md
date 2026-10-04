@@ -1,8 +1,9 @@
 # 3. Cohesive effect interfaces and unified ownership
 
-Status: in progress; follows workstream 2 in
-[the prerequisite roadmap](SKILLET-REFACTOR.md). Further feature milestones
-wait for that roadmap's completion.
+Status: implementation complete; named-VM ownership/mount acceptance is
+pending. This follows workstream 2 in
+[the prerequisite roadmap](SKILLET-REFACTOR.md); further feature milestones
+wait for the full roadmap gate.
 
 ## Read and locate
 
@@ -11,10 +12,10 @@ wait for that roadmap's completion.
   and the host library; ownership inputs in application crates.
 - `../design/{secrets,storage,skillet-architecture}.md` and workstreams 2 and 4.
 
-Current defects: broad file/system traits accumulate unrelated capabilities,
-but recipe code still reads live account data, subordinate-ID files and the
-credential environment outside those interfaces. Named and numeric directory
-ownership use separate APIs; mocks do not enforce important metadata contracts.
+Original defects: broad file/system traits accumulated unrelated capabilities,
+and recipe code read live account data, subordinate-ID files and the credential
+environment outside those interfaces. File and directory ownership are now
+unified; remaining trait aggregates are transitional composition contexts.
 
 ## Implementation sequence
 
@@ -69,17 +70,14 @@ ownership use separate APIs; mocks do not enforce important metadata contracts.
   lookups; NSS access remains in the Linux system adapter. Podman reads
   subordinate-ID files through `FileResource`, validates the selected single
   range, and fails closed for missing, invalid, duplicate, or undersized ranges.
-- Implemented: directory ownership uses one `Ownership` value with named or
-  numeric UID/GID. Numeric IDs do not require matching account names. The
-  fake preserves mode and ownership across existence-only checks; the UniFi
-  repeat-apply case verifies child data survives.
-- Pending local slice: the 2026-10-04 static audit found that `ensure_file`
-  still accepts separate name-only owner/group strings while directory
-  ownership accepts the shared named-or-numeric `Ownership` value. The
-  ownership-interface exit criterion is therefore not met. A proposed
-  cross-crate API migration was rejected by automatic review as a broad core
-  filesystem change; do not claim this item complete until an authorized,
-  reviewable migration is implemented and validated across every caller.
+- Implemented: file and directory mutations use the same `Ownership` value
+  with named or numeric UID/GID. Numeric IDs do not require matching account
+  names. The local adapter and fake preserve partial metadata across
+  existence-only checks; UniFi's repeat-apply case verifies child data survives.
+- Implemented: the file API, directory API, local adapter, recorder, fake,
+  templates, and all application callers share this ownership input. Recording
+  schema version 2 records named and numeric identities. Version 1 recordings
+  remain historical output and are not rewritten.
 - Implemented: the guest CLI loads phase-required systemd credentials and
   passes `CredentialInputs` to host composition. Recipes no longer inspect
   `CREDENTIALS_DIRECTORY`; required names derive from profile consumers.
@@ -104,5 +102,5 @@ ownership use separate APIs; mocks do not enforce important metadata contracts.
 - Implemented: service state and Podman-secret idempotency/rotation contracts
   run against both `MockSystem` and its `Recorder` decorator. Unit tests do not
   mutate the workstation's real services or secrets.
-- Pending: live ownership/mount acceptance remains outstanding. This
-  workstream is not complete until the named VM checks pass.
+- Pending: live ownership/mount acceptance remains outstanding. Implementation
+  is complete, but the named-VM exit criterion still needs to pass.

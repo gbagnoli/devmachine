@@ -1357,3 +1357,25 @@ host tool; it still uses normal command approvals.
 - No named VM or production vault/provider was used. `/dev/kvm` is absent, so
   named-VM delivery, cleanup, and production credential acceptance remain
   unverified.
+
+### Unified typed file ownership API, 2026-10-04
+
+- File and directory mutation APIs now accept the same `Ownership` value for
+  optional named or numeric UID/GID. Local files and directories resolve named
+  identities consistently, while numeric IDs do not require a matching NSS
+  account. Existing metadata omitted from an ownership request is preserved.
+- Recorder operations serialize this common ownership value; diagnostic
+  recording schema is now version 2. Version 1 output remains historical and
+  is not rewritten.
+- Added local filesystem tests for numeric ownership and idempotent repeat
+  apply, plus a numeric comparison test that does not perform NSS lookup.
+  Existing shared mutation contract tests continue to exercise both the local
+  and fake file adapters.
+- `cargo fmt --all -- --check`,
+  `cargo test --workspace --all-targets --offline`, and strict all-target
+  Clippy passed. The beezelbot Fedora base integration exited 0: both applies
+  succeeded, the repeat issued no service start/restart, and the disposable
+  container was removed. Podman needed SIGKILL after its 10-second stop
+  timeout during cleanup.
+- Named-VM ownership/mount acceptance remains unverified because `/dev/kvm`
+  is unavailable on this workstation.
