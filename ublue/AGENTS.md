@@ -44,6 +44,12 @@
 - Give each resource lifecycle one owner. Every public entry point must use
   the same ownership validation, recovery, and cleanup policy; transport
   adapters must not provide a shortcut that bypasses those guarantees.
+- Preserve downstream schema types when parsing and re-emitting configuration.
+  Validate staged output with the actual consumer/compiler where possible, not
+  only with a parser round trip.
+- Before activating a unit with multiple credential prerequisites, deliver the
+  complete credential set first. Cover activation from a fresh host where the
+  consumer service and its containers do not yet exist.
 - Keep shell entry points as narrow argument adapters when Rust owns a
   lifecycle. Backend selection, resource inspection, retries, and cleanup
   belong to the shared Rust owner rather than being duplicated in wrappers.

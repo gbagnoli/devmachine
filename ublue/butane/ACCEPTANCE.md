@@ -1,5 +1,33 @@
 # Clamps VM acceptance log
 
+## Refactoring and disposable UI revalidation, 2026-10-04
+
+- Passed `cargo fmt --all -- --check`, strict workspace Clippy, and
+  `cargo test --workspace --all-targets --offline`. The CI Fedora repeat-apply
+  command passed: `cargo run --offline --bin skillet -- test run beezelbot
+  --phase base --image fedora:latest`.
+- A fresh `clamps-test-generic-ui` VM was created on SSH port 2202 and reached
+  `Ready` through signed uCore boot, bootstrap, and user-environment checks.
+  `cargo run --offline --bin skillet -- test smoke clamps --instance
+  generic-ui` passed its real systemd/Podman apply, failure-recovery, and
+  reboot-persistence cases. `test vm destroy clamps generic-ui` removed the
+  disposable VM and its recorded Tailscale device.
+- Live provisioning exposed two fresh-host issues and they are fixed in code:
+  staged Butane `mode` values are normalized to numeric values before compile,
+  and Pi-hole credentials are delivered before Tailscale so the full-apply
+  unit receives its complete credential prerequisites. Tailscale enrollment
+  now treats a confirmed absent container as unenrolled while keeping other
+  Podman probe failures fail-closed. Unit coverage and all local checks pass.
+  A credential-empty fresh VM has not yet completed that entire enrollment
+  sequence end-to-end; the live run reached Cloudflare after retrying a VM with
+  partially delivered credentials.
+- The latest `test vm provision clamps generic-ui --with-ui` run enrolled the
+  VM in Tailscale but stopped before Cloudflare mutation because KeePassXC
+  lacks `skillet/environments/dns/cloudflare-zone-id`. The disposable VM and
+  its Tailscale device were cleaned up. Current live Caddy ACME/HTTPS
+  acceptance is blocked until that shared zone entry is present; no production
+  DNS or credentials were changed.
+
 ## Recoverable VM creation intent, 2026-10-03
 
 - Creation now writes a mode-0600 Rust manifest with a generated domain UUID
