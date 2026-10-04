@@ -136,6 +136,9 @@ and VM delivery have duplicate implementations with different validation.
 - Implemented: bounded enrollment polling is also in the Tailscale provider.
   The CLI supplies a guest probe and explicit timeout/interval; retry behavior
   is covered with deterministic success, transient-error, and timeout tests.
+- Implemented: a failed initial guest status command now aborts enrollment
+  before issuing an auth key. Only a successful response with no addresses is
+  treated as an unenrolled VM; transport and command failures remain errors.
 - Pending: environment/host credential-delivery orchestration, durable versus
   disposable provider sequencing, and production plus named-VM acceptance
   remain in CLI modules. Provider and VM lifecycle orchestration still has

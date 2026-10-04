@@ -341,7 +341,7 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
         &provisioning_identity,
         expected_hostname,
     )?;
-    let mut addresses = vm_tailscale_addresses(&ssh).unwrap_or_default();
+    let mut addresses = vm_tailscale_addresses(&ssh)?;
     if addresses.is_empty() {
         let auth_key = tailscale::create_auth_key(
             &credentials,
@@ -770,8 +770,17 @@ fn vm_tailscale_addresses(ssh: &VmSsh) -> Result<std::collections::BTreeSet<Stri
             "--json",
         ],
     )?;
+    parse_vm_tailscale_status(&output)
+}
+
+fn parse_vm_tailscale_status(
+    output: &std::process::Output,
+) -> Result<std::collections::BTreeSet<String>> {
     if !output.status.success() {
-        return Ok(std::collections::BTreeSet::new());
+        return Err(anyhow!(
+            "Tailscale guest status command failed with status {}; refusing to treat probe failure as an unenrolled VM",
+            output.status
+        ));
     }
     tailscale::status_addresses(&output.stdout).map_err(anyhow::Error::from)
 }
