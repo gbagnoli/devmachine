@@ -139,6 +139,10 @@ and VM delivery have duplicate implementations with different validation.
 - Implemented: a failed initial guest status command now aborts enrollment
   before issuing an auth key. Only a successful response with no addresses is
   treated as an unenrolled VM; transport and command failures remain errors.
+- Implemented: `skillet_vm::credential::install_set` validates a complete,
+  duplicate-free credential set before remote effects and applies one shared
+  consumer/activation policy. Production and disposable Caddy provisioning use
+  it to install both the sites payload and ACME token before activation.
 - Pending: environment/host credential-delivery orchestration, durable versus
   disposable provider sequencing, and production plus named-VM acceptance
   remain in CLI modules. Provider and VM lifecycle orchestration still has
