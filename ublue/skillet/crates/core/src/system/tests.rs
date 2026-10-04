@@ -72,3 +72,51 @@ fn mock_account_boundary_preserves_and_checks_numeric_identity() {
         .is_err());
     assert!(system.group_by_name("service").unwrap().is_some());
 }
+
+fn account_lookup_contract(
+    resource: &impl super::AccountLookupResource,
+    expected_user: &super::UserIdentity,
+    expected_group: &super::GroupIdentity,
+) {
+    assert_eq!(
+        resource.user_by_name(&expected_user.name).unwrap(),
+        Some(expected_user.clone())
+    );
+    assert_eq!(
+        resource.user_by_uid(expected_user.uid).unwrap(),
+        Some(expected_user.clone())
+    );
+    assert_eq!(
+        resource.group_by_name(&expected_group.name).unwrap(),
+        Some(expected_group.clone())
+    );
+}
+
+#[test]
+fn linux_and_mock_account_lookup_adapters_follow_shared_contract() {
+    use super::{GroupIdentity, LinuxSystemResource, UserIdentity};
+    use crate::{system::AccountResource, test_utils::MockSystem};
+
+    let host_user = users::get_user_by_uid(users::get_current_uid())
+        .expect("the test process must map to an account");
+    let host_group = users::get_group_by_gid(host_user.primary_group_id())
+        .expect("the test process primary group must exist");
+    let user = UserIdentity {
+        name: host_user.name().to_string_lossy().into_owned(),
+        uid: host_user.uid(),
+        primary_gid: host_user.primary_group_id(),
+    };
+    let group = GroupIdentity {
+        name: host_group.name().to_string_lossy().into_owned(),
+        gid: host_group.gid(),
+    };
+
+    let linux = LinuxSystemResource::new();
+    account_lookup_contract(&linux, &user, &group);
+
+    let mock = MockSystem::new();
+    mock.ensure_group(&group.name, Some(group.gid)).unwrap();
+    mock.ensure_user(&user.name, Some(user.uid), Some(user.primary_gid))
+        .unwrap();
+    account_lookup_contract(&mock, &user, &group);
+}
