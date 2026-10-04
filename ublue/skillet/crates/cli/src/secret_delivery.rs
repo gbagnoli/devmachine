@@ -3,6 +3,7 @@ use super::{
 };
 use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
+use skillet_vm::transport::GuestTransport as _;
 use skillet_workstation::tailscale;
 use skillet_workstation::vault::Vault;
 use std::{
@@ -167,12 +168,17 @@ fn deliver_caddy_from_vault(
             value.as_bytes(),
         )?;
     }
-    let status = ssh_command(args)
-        .arg("sudo -n systemctl start skillet-caddy-apply.service")
-        .status()
+    let output = credential_transport(args)?
+        .execute(
+            &skillet_vm::transport::GuestCommand {
+                program: "/usr/bin/sudo",
+                arguments: &["-n", "systemctl", "start", "skillet-caddy-apply.service"],
+            },
+            None,
+        )
         .context("starting Caddy apply after both credentials were delivered")?;
-    if !status.success() {
-        return Err(anyhow!("Caddy apply failed with status {status}"));
+    if !output.status.success() {
+        return Err(anyhow!("Caddy apply failed with status {}", output.status));
     }
     Ok(())
 }
@@ -252,30 +258,6 @@ fn tailscale_credentials(vault: &Vault) -> Result<tailscale::OAuthCredentials> {
     Ok(tailscale::OAuthCredentials::new(client_id, client_secret)?)
 }
 
-fn ssh_command(args: &SecretDeliverArgs) -> Command {
-    let mut command = Command::new("ssh");
-    command
-        .args([
-            "-T",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "IdentitiesOnly=yes",
-            "-o",
-            "StrictHostKeyChecking=yes",
-            "-o",
-            "ConnectTimeout=10",
-            "-o",
-        ])
-        .arg(format!("UserKnownHostsFile={}", args.known_hosts.display()))
-        .arg("-i")
-        .arg(&args.identity)
-        .arg("-p")
-        .arg(args.port.to_string())
-        .arg(&args.target);
-    command
-}
-
 fn credential_transport(args: &SecretDeliverArgs) -> Result<skillet_vm::transport::SshTransport> {
     let (user, address) = args
         .target
@@ -353,8 +335,8 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     let identity = run_dir.join("ssh/id_ed25519");
     let known_hosts = run_dir.join("ssh/known_hosts");
     let port = read_vm_port(&run_dir.join("run.conf"))?;
-    let mut ssh = VmSsh::new(&args.hostname, &identity, &known_hosts, port);
-    validate_vm_tailscale_delivery(&mut ssh)?;
+    let ssh = VmSsh::new(&args.hostname, &identity, &known_hosts, port)?;
+    validate_vm_tailscale_delivery(&ssh)?;
     let vault_path = match &args.database {
         Some(path) => path.clone(),
         None => default_database_path()?,
@@ -365,7 +347,7 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     let policy = UiEnvironmentName::Test.policy();
 
     write_pending_tailscale(&run_dir, expected_hostname)?;
-    let mut addresses = vm_tailscale_addresses(&mut ssh).unwrap_or_default();
+    let mut addresses = vm_tailscale_addresses(&ssh).unwrap_or_default();
     if addresses.is_empty() {
         let auth_key = tailscale::create_auth_key(
             &credentials,
@@ -377,15 +359,18 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     }
 
     let pihole_credential = "/etc/credstore.encrypted/skillet/pihole_web_password.cred";
-    let has_pihole_credential = vm_credential_present(&mut ssh, pihole_credential)?;
+    let has_pihole_credential = vm_credential_present(&ssh, pihole_credential)?;
     if args.rotate || !has_pihole_credential {
         let secret = random_password()?;
         ssh.install("pihole_web_password", &secret)?;
     } else {
-        ssh.run("sudo -n systemctl start skillet-full-apply.service")?;
+        ssh.run(
+            "/usr/bin/sudo",
+            &["-n", "systemctl", "start", "skillet-full-apply.service"],
+        )?;
     }
 
-    addresses = wait_for_vm_tailscale(&mut ssh)?;
+    addresses = wait_for_vm_tailscale(&ssh)?;
     let record = tailscale::find_device(
         &credentials,
         expected_hostname,
@@ -394,7 +379,7 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     )?;
     save_vm_tailscale_record(&run_dir, &record)?;
     if args.with_ui {
-        provision_vm_ui(args, &run_dir, &mut ssh, &mut vault, &record)?;
+        provision_vm_ui(args, &run_dir, &ssh, &mut vault, &record)?;
     }
     remove_pending_tailscale(&run_dir)?;
     println!("Tailscale connected VM {expected_hostname}");
@@ -461,7 +446,7 @@ struct CloudflareVmOwnership {
 fn provision_vm_ui(
     args: &VmProvisionArgs,
     run_dir: &Path,
-    ssh: &mut VmSsh<'_>,
+    ssh: &VmSsh,
     vault: &mut Vault,
     device: &tailscale::DeviceRecord,
 ) -> Result<()> {
@@ -547,7 +532,10 @@ fn provision_vm_ui(
             "skillet-caddy-apply.service",
             &issued.value,
         )?;
-        ssh.run("sudo -n systemctl start skillet-caddy-apply.service")?;
+        ssh.run(
+            "/usr/bin/sudo",
+            &["-n", "systemctl", "start", "skillet-caddy-apply.service"],
+        )?;
         verify_caddy_denies_non_tailnet_probe(ssh, &sites)?;
         for old_id in api.token_ids_by_name(&creator, &account_id, &ownership.token_name)? {
             if old_id != issued.id {
@@ -563,17 +551,30 @@ fn provision_vm_ui(
 }
 
 fn verify_caddy_denies_non_tailnet_probe(
-    ssh: &mut VmSsh<'_>,
+    ssh: &VmSsh,
     sites: &skillet_caddy::CaddySites,
 ) -> Result<()> {
     for site in &sites.services {
         for hostname in std::iter::once(&site.hostname).chain(&site.aliases) {
-            let probe = format!(
-                "curl --insecure --silent --show-error --max-time 8 --resolve '{hostname}:443:127.0.0.1' --write-out '\n%{{http_code}}' 'https://{hostname}/'"
-            );
+            let resolve = format!("{hostname}:443:127.0.0.1");
+            let url = format!("https://{hostname}/");
             let mut denied = false;
             for _ in 0..30 {
-                let output = ssh.output(&probe)?;
+                let output = ssh.output(
+                    "/usr/bin/curl",
+                    &[
+                        "--insecure",
+                        "--silent",
+                        "--show-error",
+                        "--max-time",
+                        "8",
+                        "--resolve",
+                        &resolve,
+                        "--write-out",
+                        "\n%{http_code}",
+                        &url,
+                    ],
+                )?;
                 let response = String::from_utf8_lossy(&output.stdout);
                 if output.status.success()
                     && response.trim() == "Access denied by Skillet tailnet policy\n403"
@@ -696,110 +697,88 @@ fn write_cloudflare_ownership(path: &Path, ownership: &CloudflareVmOwnership) ->
     Ok(())
 }
 
-struct VmSsh<'a> {
-    host: &'a str,
-    identity: &'a Path,
-    known_hosts: &'a Path,
-    port: u16,
+struct VmSsh {
+    host: String,
+    transport: skillet_vm::transport::SshTransport,
 }
 
-impl VmSsh<'_> {
-    fn command(&self, remote: &str) -> Command {
-        let mut command = Command::new("ssh");
-        command
-            .args([
-                "-T",
-                "-o",
-                "BatchMode=yes",
-                "-o",
-                "IdentitiesOnly=yes",
-                "-o",
-                "StrictHostKeyChecking=yes",
-                "-o",
-                "ConnectTimeout=10",
-                "-o",
-            ])
-            .arg(format!("UserKnownHostsFile={}", self.known_hosts.display()))
-            .arg("-i")
-            .arg(self.identity)
-            .arg("-p")
-            .arg(self.port.to_string())
-            .arg("giacomo@127.0.0.1")
-            .arg(remote);
-        command
+impl VmSsh {
+    fn new(host: &str, identity: &Path, known_hosts: &Path, port: u16) -> Result<Self> {
+        Ok(Self {
+            host: host.to_string(),
+            transport: skillet_vm::transport::SshTransport::new(
+                skillet_vm::SshTarget {
+                    user: "giacomo".to_string(),
+                    address: "127.0.0.1".to_string(),
+                    port,
+                    identity: identity.to_path_buf(),
+                    known_hosts: known_hosts.to_path_buf(),
+                },
+                skillet_vm::transport::HostKeyPolicy::Verify,
+            )?,
+        })
     }
 
-    fn run(&mut self, remote: &str) -> Result<()> {
-        let output = self
-            .command(remote)
-            .output()
-            .context("running command over VM SSH")?;
+    fn output(&self, program: &str, arguments: &[&str]) -> Result<std::process::Output> {
+        use skillet_vm::transport::GuestTransport as _;
+        self.transport
+            .execute(
+                &skillet_vm::transport::GuestCommand { program, arguments },
+                None,
+            )
+            .context("running command over recorded VM SSH transport")
+    }
+
+    fn run(&self, program: &str, arguments: &[&str]) -> Result<()> {
+        let output = self.output(program, arguments)?;
         if !output.status.success() {
-            return Err(anyhow!("VM command failed with status {}", output.status));
+            return Err(anyhow!(
+                "VM command {program} failed with status {}",
+                output.status
+            ));
         }
         Ok(())
     }
 
-    fn output(&mut self, remote: &str) -> Result<std::process::Output> {
-        self.command(remote)
-            .output()
-            .context("running command over VM SSH")
+    fn install(&self, name: &str, secret: &str) -> Result<()> {
+        self.install_for_unit(
+            name,
+            "skillet-full-apply.service",
+            secret,
+            skillet_vm::credential::ActivationPolicy::StartConsumer,
+        )
     }
 
-    fn install(&mut self, name: &str, secret: &str) -> Result<()> {
-        self.install_for_unit(name, "skillet-full-apply.service", secret, false)
-    }
-
-    fn install_deferred(&mut self, name: &str, unit: &str, secret: &str) -> Result<()> {
-        self.install_for_unit(name, unit, secret, true)
+    fn install_deferred(&self, name: &str, unit: &str, secret: &str) -> Result<()> {
+        self.install_for_unit(
+            name,
+            unit,
+            secret,
+            skillet_vm::credential::ActivationPolicy::DeferConsumer,
+        )
     }
 
     fn install_for_unit(
-        &mut self,
+        &self,
         name: &str,
         unit: &str,
         secret: &str,
-        defer_start: bool,
+        activation: skillet_vm::credential::ActivationPolicy,
     ) -> Result<()> {
-        let transport = skillet_vm::transport::SshTransport::new(
-            skillet_vm::SshTarget {
-                user: "giacomo".to_string(),
-                address: "127.0.0.1".to_string(),
-                port: self.port,
-                identity: self.identity.to_path_buf(),
-                known_hosts: self.known_hosts.to_path_buf(),
-            },
-            skillet_vm::transport::HostKeyPolicy::Verify,
-        )?;
         skillet_vm::credential::install(
-            &transport,
-            self.host,
+            &self.transport,
+            &self.host,
             name,
             unit,
-            if defer_start {
-                skillet_vm::credential::ActivationPolicy::DeferConsumer
-            } else {
-                skillet_vm::credential::ActivationPolicy::StartConsumer
-            },
+            activation,
             secret.as_bytes(),
         )?;
         Ok(())
     }
 }
 
-impl<'a> VmSsh<'a> {
-    fn new(host: &'a str, identity: &'a Path, known_hosts: &'a Path, port: u16) -> Self {
-        Self {
-            host,
-            identity,
-            known_hosts,
-            port,
-        }
-    }
-}
-
-fn vm_credential_present(ssh: &mut VmSsh<'_>, path: &str) -> Result<bool> {
-    let output = ssh.output(&format!("sudo -n test -s {path}"))?;
+fn vm_credential_present(ssh: &VmSsh, path: &str) -> Result<bool> {
+    let output = ssh.output("/usr/bin/sudo", &["-n", "test", "-s", path])?;
     match output.status.code() {
         Some(0) => Ok(true),
         Some(1) => Ok(false),
@@ -807,8 +786,19 @@ fn vm_credential_present(ssh: &mut VmSsh<'_>, path: &str) -> Result<bool> {
     }
 }
 
-fn vm_tailscale_addresses(ssh: &mut VmSsh<'_>) -> Result<std::collections::BTreeSet<String>> {
-    let output = ssh.output("sudo -n podman exec tailscale tailscale status --json")?;
+fn vm_tailscale_addresses(ssh: &VmSsh) -> Result<std::collections::BTreeSet<String>> {
+    let output = ssh.output(
+        "/usr/bin/sudo",
+        &[
+            "-n",
+            "podman",
+            "exec",
+            "tailscale",
+            "tailscale",
+            "status",
+            "--json",
+        ],
+    )?;
     if !output.status.success() {
         return Ok(std::collections::BTreeSet::new());
     }
@@ -838,7 +828,7 @@ fn parse_tailscale_addresses(output: &[u8]) -> Result<std::collections::BTreeSet
     Ok(addresses)
 }
 
-fn wait_for_vm_tailscale(ssh: &mut VmSsh<'_>) -> Result<std::collections::BTreeSet<String>> {
+fn wait_for_vm_tailscale(ssh: &VmSsh) -> Result<std::collections::BTreeSet<String>> {
     for _ in 0..60 {
         if let Ok(addresses) = vm_tailscale_addresses(ssh) {
             if !addresses.is_empty() {
@@ -909,9 +899,12 @@ fn read_vm_port(manifest: &Path) -> Result<u16> {
     Ok(port)
 }
 
-fn validate_vm_tailscale_delivery(ssh: &mut VmSsh<'_>) -> Result<()> {
+fn validate_vm_tailscale_delivery(ssh: &VmSsh) -> Result<()> {
     let output = ssh
-        .output("sudo -n systemctl cat skillet-full-apply.service")
+        .output(
+            "/usr/bin/sudo",
+            &["-n", "systemctl", "cat", "skillet-full-apply.service"],
+        )
         .context("checking the VM's full-apply credential configuration")?;
     if !output.status.success() {
         return Err(anyhow!(

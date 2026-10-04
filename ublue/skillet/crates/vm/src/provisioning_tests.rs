@@ -1,20 +1,20 @@
 use super::*;
 use crate::{Backend, Connection};
-use std::{fs, net::TcpListener, os::unix::fs::symlink, path::PathBuf};
+use std::{fs, os::unix::fs::symlink, path::PathBuf};
 
 #[test]
 fn ssh_forward_port_preflight_rejects_invalid_and_occupied_ports() {
     assert!(validate_ssh_port(2199).is_err());
     assert!(validate_ssh_port(2300).is_err());
-    let (port, listener) = (2200..=2299)
-        .find_map(|port| {
-            TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port))
-                .ok()
-                .map(|listener| (port, listener))
-        })
-        .expect("at least one test SSH port should be available");
-    assert!(validate_ssh_port(port).is_err());
-    drop(listener);
+    assert!(validate_ssh_port_with(2200, |_| Ok(())).is_ok());
+    assert!(validate_ssh_port_with(2200, |_| {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::AddrInUse,
+            "simulated occupied port",
+        ))
+    })
+    .is_err());
+    assert!(validate_ssh_port_with(2199, |_| panic!("invalid port must not bind")).is_err());
 }
 
 #[test]

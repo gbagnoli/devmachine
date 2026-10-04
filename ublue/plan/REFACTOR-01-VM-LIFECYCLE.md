@@ -22,7 +22,9 @@ implemented and used by the routine container runner; a custom target-directory
 integration check selects the reported binary. `GuestTransport`/`SshTransport`
 now provide explicit target/key policy, literal remote executable arguments,
 noninteractive execution and upload. Subprocess stdin/output stay in memory,
-with bounded concurrent I/O and zeroized copied stdin. Fifty VM tests pass.
+with bounded concurrent I/O and zeroized copied stdin. Seventy-five VM tests
+pass. Port preflight tests inject the bind result so test success does not
+depend on a free port in the reserved workstation range.
 No live VM was changed or imported.
 
 Retained binary updates now use Rust's shared lock, ownership checks, Cargo
@@ -44,9 +46,10 @@ runs readiness from one create command. Matching interrupted runs resume from
 the manifest. The shell `test-vm` interface only translates arguments; the
 independent Bash installer and hidden CLI bridge commands are retired. No
 remaining script owns VM creation, reboot, access, inspection, or disposal.
-Credential delivery has not yet adopted the shared transport. Workstream 2
-must consolidate the interim `boot_policy_for_host` lookup with the canonical
-capability declaration. Native and Flatpak adapter contract tests and
+Workstream 4 has now moved production and disposable-VM guest commands onto
+the shared verified SSH transport. Workstream 2 must consolidate the interim
+`boot_policy_for_host` lookup with the canonical capability declaration.
+Native and Flatpak adapter contract tests and
 workstation checks remain required; live create/ready/update/reboot/destroy
 and retained-run acceptance have not yet passed. See
 [creation validation](../butane/ACCEPTANCE.md#recoverable-vm-creation-intent-2026-10-03)
