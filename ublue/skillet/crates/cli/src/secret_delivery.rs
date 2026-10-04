@@ -370,10 +370,11 @@ pub(super) fn remove_vm_external_resources(args: &VmDestroyArgs) -> Result<()> {
     let pending = run_dir.join("tailscale-pending");
     let record_path = run_dir.join("tailscale.json");
     let cloudflare_path = run_dir.join("cloudflare.json");
-    if !pending.exists() && !record_path.exists() && !cloudflare_path.exists() {
+    let cloudflare_exists = provisioning_state::cloudflare_ownership_exists(&cloudflare_path)?;
+    if !pending.exists() && !record_path.exists() && !cloudflare_exists {
         return Ok(());
     }
-    if cloudflare_path.exists() {
+    if cloudflare_exists {
         cleanup_vm_cloudflare(args, &cloudflare_path)?;
     }
     if !pending.exists() && !record_path.exists() {
@@ -528,28 +529,7 @@ fn verify_caddy_denies_non_tailnet_probe(
 }
 
 fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<()> {
-    let ownership = provisioning_state::load_cloudflare_ownership(metadata_path)
-        .context("reading Cloudflare VM ownership metadata")?;
     let policy = UiEnvironmentName::Test.policy();
-    let expected_identity =
-        ProvisioningIdentity::new(&args.hostname, policy.name(), &args.instance);
-    provisioning_state::validate_cloudflare_identity(&ownership, &expected_identity)
-        .context("Cloudflare VM cleanup identity mismatch")?;
-    if ownership.environment != policy.name() {
-        return Err(anyhow!(
-            "refusing VM cleanup for a non-test Cloudflare environment"
-        ));
-    }
-    let expected_marker = format!("skillet:test:{}:{}", args.hostname, args.instance);
-    let expected_token_name = format!("skillet:test:{}-{}", args.hostname, args.instance);
-    if ownership.marker != expected_marker || ownership.token_name != expected_token_name {
-        return Err(anyhow!(
-            "Cloudflare metadata does not match this VM identity; refusing cleanup"
-        ));
-    }
-    skillet_workstation::cloudflare::validate_zone_id(&ownership.zone_id)?;
-    skillet_caddy::validate_domain_in_zone(&ownership.ui_domain, &ownership.ui_domain)
-        .context("validating Cloudflare UI domain in VM metadata")?;
     let vault_path = args
         .database
         .clone()
@@ -568,53 +548,20 @@ fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<(
             policy.cloudflare_zone_entry()
         )
     })?;
-    let configured_prefix = vault.get(&policy.ui_domain_entry())?;
-    if configured_zone.trim() != ownership.zone_id {
-        return Err(anyhow!("test Cloudflare configuration differs from the recorded VM owner; restore the original vault values before cleanup"));
-    }
     let api = skillet_workstation::cloudflare::Cloudflare::new();
-    let zone = api.zone(&creator, &ownership.zone_id)?;
-    let account_id = skillet_workstation::cloudflare::Cloudflare::account_id(&zone)?.to_string();
-    let configured_domain =
-        skillet_caddy::resolve_ui_domain(&zone.name, configured_prefix.as_deref())
-            .context("resolving test UI namespace before VM cleanup")?;
-    if configured_domain != ownership.ui_domain {
-        return Err(anyhow!("test Cloudflare configuration differs from the recorded VM owner; restore the original relative prefix before cleanup"));
-    }
-    skillet_caddy::validate_domain_in_zone(&ownership.ui_domain, &zone.name)
-        .context("validating recorded test UI domain against its Cloudflare zone")?;
-    let cleanup_name = format!("{}:cleanup", ownership.token_name);
-    let cleanup_token = api.create_zone_token(
-        &creator,
-        &ownership.zone_id,
-        &account_id,
-        &cleanup_name,
-        Some(policy.cleanup_token_lifetime()),
+    let configured_prefix = vault.get(&policy.ui_domain_entry())?;
+    skillet_workstation::ui_provisioning::cleanup_disposable_ui(
+        &skillet_workstation::ui_provisioning::DisposableUiCleanupRequest {
+            host: &args.hostname,
+            instance: &args.instance,
+            policy,
+            ownership_path: metadata_path.to_path_buf(),
+            configured_zone_id: &configured_zone,
+            relative_ui_domain: configured_prefix.as_deref(),
+            creator_token: &creator,
+        },
+        &api,
     )?;
-    let cleanup = (|| {
-        api.zone(&cleanup_token.value, &ownership.zone_id)?;
-        api.remove_dns_marker(
-            &cleanup_token.value,
-            &ownership.zone_id,
-            &ownership.marker,
-            &ownership.ui_domain,
-        )?;
-        for id in api.token_ids_by_name(&creator, &account_id, &ownership.token_name)? {
-            api.revoke_token(&creator, &account_id, &id)?;
-        }
-        Ok::<(), anyhow::Error>(())
-    })();
-    let revoke_cleanup = api
-        .token_ids_by_name(&creator, &account_id, &cleanup_name)
-        .and_then(|ids| {
-            for id in ids {
-                api.revoke_token(&creator, &account_id, &id)?;
-            }
-            Ok(())
-        });
-    cleanup?;
-    revoke_cleanup.context("revoking temporary Cloudflare cleanup token")?;
-    fs::remove_file(metadata_path).context("removing Cloudflare VM ownership metadata")?;
     Ok(())
 }
 

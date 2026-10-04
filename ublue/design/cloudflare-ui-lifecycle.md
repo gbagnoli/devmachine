@@ -108,11 +108,13 @@ transport; custom typed JSON endpoints use that transport for token APIs and
 DNS record comments that the crate's DNS models do not expose. Persistent
 delivery use-or-creates and saves its scoped token in KeePassXC. The
 workstation UI provisioner now persists disposable owner intent, issues and
-journals its scoped token, reconciles DNS, and records owned record IDs. Guest
-credential delivery, certificate acceptance, and disposable cleanup still run
-through the CLI and are being moved behind workstation operations. Destroy
-mints a short-lived cleanup token, deletes marker-owned DNS records, and revokes
-disposable tokens. Local tests cover the SDK transport, permission group
+journals its scoped token, reconciles DNS, records owned record IDs, and owns
+disposable cleanup. Cleanup validates the recorded identity and current
+environment configuration before mutation, removes marker-owned DNS, revokes
+the disposable and temporary cleanup tokens, and removes its journal last.
+Failures retain the journal for retry. Guest credential delivery and
+certificate acceptance still run through the CLI and are being moved behind
+workstation operations. Local tests cover the SDK transport, permission group
 discovery, scoped token payloads, address-family validation, and DNS planning.
 Live 2026-10-02 staging acceptance issued certificates for each
 declared canonical UI and alias, verified DNS and HTTPS over IPv4/IPv6, and
