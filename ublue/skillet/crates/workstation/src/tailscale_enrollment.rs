@@ -198,6 +198,25 @@ pub fn cleanup_disposable_vm(
 }
 
 fn guest_addresses(guest: &impl GuestTransport) -> Result<BTreeSet<String>, EnrollmentError> {
+    let container = guest.execute(
+        &skillet_vm::transport::GuestCommand {
+            program: "/usr/bin/sudo",
+            arguments: &["-n", "podman", "container", "exists", "tailscale"],
+        },
+        None,
+    )?;
+    if container.status.code() == Some(1) {
+        // A newly created VM has not run full apply yet. Absence is a normal
+        // unenrolled state: credential installation starts full apply, which
+        // creates and enrolls the Tailscale container.
+        return Ok(BTreeSet::new());
+    }
+    if !container.status.success() {
+        return Err(EnrollmentError::Invalid(format!(
+            "could not determine whether the Tailscale container exists (status {}); refusing to treat probe failure as an unenrolled VM",
+            container.status
+        )));
+    }
     let output = guest.execute(
         &skillet_vm::transport::GuestCommand {
             program: "/usr/bin/sudo",

@@ -204,6 +204,14 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     let credentials = tailscale_credentials(&vault)?;
     let expected_hostname = run.guest_hostname.as_str();
     let policy = UiEnvironmentName::Test.policy();
+    // The host full-apply unit requires both encrypted credentials. Deliver
+    // Pi-hole first; Tailscale delivery then starts full apply with the full
+    // credential set, which creates the Tailscale container on a fresh VM.
+    skillet_workstation::credential_delivery::ensure_disposable_pihole_credential(
+        &args.hostname,
+        args.rotate,
+        &transport,
+    )?;
     let record = skillet_workstation::tailscale_enrollment::enroll_disposable_vm(
         &skillet_workstation::tailscale_enrollment::DisposableEnrollment {
             host: &args.hostname,
@@ -213,12 +221,6 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
             policy,
         },
         &credentials,
-        &transport,
-    )?;
-
-    skillet_workstation::credential_delivery::ensure_disposable_pihole_credential(
-        &args.hostname,
-        args.rotate,
         &transport,
     )?;
 

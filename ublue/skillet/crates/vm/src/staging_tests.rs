@@ -151,6 +151,29 @@ fn staging_specializes_only_the_owned_copy_and_hashes_artifacts() {
 }
 
 #[test]
+fn staging_converts_octal_mode_strings_to_butane_numbers() {
+    let (_temp, store, run, config, includes, host_binary, generic_binary, image) = fixture();
+    fs::write(
+        &config,
+        "variant: fcos\nversion: 1.6.0\nstorage:\n  files:\n    - path: /etc/hostname\n      mode: '0644'\n      contents:\n        inline: clamps\n",
+    )
+    .unwrap();
+    stage_butane_source(
+        &store,
+        &run,
+        &config,
+        &includes,
+        &host_binary,
+        &generic_binary,
+        &image,
+    )
+    .unwrap();
+    let staged = store.run_dir(&run.identity).join("source/clamps.bu");
+    let yaml: Value = serde_yml::from_str(&fs::read_to_string(staged).unwrap()).unwrap();
+    assert_eq!(yaml["storage"]["files"][0]["mode"].as_u64(), Some(0o644));
+}
+
+#[test]
 fn staging_is_idempotent_and_refuses_progressed_runs_or_linked_sources() {
     let (_temp, store, run, config, includes, host_binary, generic_binary, image) = fixture();
     let arguments = || {

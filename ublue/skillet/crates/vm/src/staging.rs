@@ -208,7 +208,39 @@ fn path_value(path: &Path) -> Result<String> {
 fn parse_yaml(path: &Path) -> Result<Value> {
     reject_symlinks(path)?;
     let contents = fs::read_to_string(path)?;
-    serde_yml::from_str(&contents).map_err(|error| Error::Preparation(error.to_string()))
+    let mut value: Value =
+        serde_yml::from_str(&contents).map_err(|error| Error::Preparation(error.to_string()))?;
+    normalize_butane_modes(&mut value)?;
+    Ok(value)
+}
+
+/// Butane requires file modes to be numeric. `serde_yml` parses YAML values such
+/// as `0644` as strings, so convert octal mode strings before writing staged
+/// configs back out.
+fn normalize_butane_modes(value: &mut Value) -> Result<()> {
+    match value {
+        Value::Mapping(mapping) => {
+            for (key, value) in mapping.iter_mut() {
+                if key.as_str() == Some("mode") {
+                    if let Some(mode) = value.as_str() {
+                        let mode = u64::from_str_radix(mode, 8).map_err(|_| {
+                            Error::Invalid(format!("invalid octal Butane file mode: {mode}"))
+                        })?;
+                        *value = Value::Number(mode.into());
+                    }
+                } else {
+                    normalize_butane_modes(value)?;
+                }
+            }
+        }
+        Value::Sequence(values) => {
+            for value in values {
+                normalize_butane_modes(value)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 fn write_yaml_if_changed(path: &Path, value: &Value) -> Result<()> {
