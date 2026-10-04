@@ -24,7 +24,7 @@ struct FakeTokenStore {
     fail_save: Cell<bool>,
 }
 
-impl UiTokenStore for FakeTokenStore {
+impl crate::vault::SecretStore for FakeTokenStore {
     fn get(&self, path: &str) -> Result<Option<String>, VaultError> {
         Ok(self.entries.borrow().get(path).cloned())
     }

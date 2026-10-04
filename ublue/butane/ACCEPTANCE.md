@@ -1214,6 +1214,25 @@ host tool; it still uses normal command approvals.
   removed. Podman needed SIGKILL after its 10-second stop timeout.
 - No VM or live Tailscale API was contacted. `/dev/kvm` is unavailable.
 
+### Workstation-owned non-UI credential delivery, 2026-10-04
+
+- Moved production Pi-hole password reuse/use-or-create and Tailscale auth-key
+  creation/delivery into `skillet_workstation::credential_delivery`. Disposable
+  Pi-hole secret reuse/rotation now uses the same module. The shared
+  `vault::SecretStore` and `VaultSecretStore` adapter also back Caddy token
+  provisioning. The CLI now selects its typed workflow and constructs the
+  verified transport.
+- The workstation suite passed (66 tests), including missing/existing Pi-hole
+  secrets, refusal when the guest already has an untracked secret, disposable
+  reuse/rotation and inspection failure, and production-tagged Tailscale key
+  delivery. Full workspace tests, strict all-target Clippy, and formatting
+  passed.
+- The documented Fedora Podman base integration exited 0: both applies
+  succeeded; the repeat issued no service start/restart and the container was
+  removed. Podman needed SIGKILL after its 10-second stop timeout.
+- No production vault, live provider API, or named VM was used. Production
+  credential acceptance remains unverified; `/dev/kvm` is unavailable.
+
 ### Workstation-owned persistent private UI provisioning, 2026-10-04
 
 - Moved persistent Caddy provisioning into one workstation operation. It checks

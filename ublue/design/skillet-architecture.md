@@ -19,9 +19,11 @@ recording readiness. A retry first clears the persisted Ready checkpoint and
 restores it only after acceptance. Guest operations are guarded by ownership
 checks before and after each call. Production and disposable-VM credential
 delivery use the same verified guest transport and typed credential installer.
-Transport's bounded I/O stays in memory; payload copies are zeroized after
-stdin transfer. Provider and VM lifecycle orchestration still needs to move
-behind the workstation library boundary.
+Workstation modules now own host credential delivery, UI/DNS derivation,
+provider mutations, and recovery cleanup; the CLI opens the vault, constructs
+verified targets, and dispatches typed operations. Transport's bounded I/O
+stays in memory; payload copies are zeroized after stdin transfer. The named
+VM's overall provisioning dispatch and live acceptance remain pending.
 
 Workstream 2 adds `skillet_hosts` as the single host capability declaration.
 It owns host composition and supplies boot, service, network, UI, storage, and

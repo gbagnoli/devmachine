@@ -206,6 +206,39 @@ impl Vault {
     }
 }
 
+/// Minimal exact-entry persistence boundary shared by workstation provisioners.
+pub trait SecretStore {
+    fn get(&self, path: &str) -> Result<Option<String>, VaultError>;
+    fn ensure_unchanged(&self) -> Result<(), VaultError>;
+    fn save_verified(&mut self, path: &str, secret: &str) -> Result<(), VaultError>;
+}
+
+pub struct VaultSecretStore<'a> {
+    vault: &'a mut Vault,
+    key_file: Option<&'a Path>,
+}
+
+impl<'a> VaultSecretStore<'a> {
+    pub fn new(vault: &'a mut Vault, key_file: Option<&'a Path>) -> Self {
+        Self { vault, key_file }
+    }
+}
+
+impl SecretStore for VaultSecretStore<'_> {
+    fn get(&self, path: &str) -> Result<Option<String>, VaultError> {
+        self.vault.get(path)
+    }
+
+    fn ensure_unchanged(&self) -> Result<(), VaultError> {
+        self.vault.ensure_unchanged()
+    }
+
+    fn save_verified(&mut self, path: &str, secret: &str) -> Result<(), VaultError> {
+        self.vault.insert(path, secret)?;
+        self.vault.save_verified(self.key_file, path, secret)
+    }
+}
+
 pub fn lock(path: Option<&Path>) -> Result<(), VaultError> {
     let path = match path {
         Some(path) => path.to_path_buf(),
