@@ -3,7 +3,9 @@
 Decision, 2026-10-03: complete the seven refactoring workstreams before further
 service migrations, encryption implementation, or production cutover. Existing
 service behavior and unfinished acceptance requirements remain authoritative.
-Status: planned; the review and plans do not establish runtime acceptance.
+Status: implementation is complete for workstreams 1, 2, and 4–7; workstream 3
+still has an ownership API gap. Required named-VM and production acceptance has
+not passed.
 
 Implementation progress: `skillet_vm` now supplies validated run identity and
 versioned manifests with explicit, non-destructive legacy import. Rust status
@@ -20,10 +22,12 @@ restores it only after acceptance. Guest operations are guarded by ownership
 checks before and after each call. Production and disposable-VM credential
 delivery use the same verified guest transport and typed credential installer.
 Workstation modules now own host credential delivery, UI/DNS derivation,
-provider mutations, and recovery cleanup; the CLI opens the vault, constructs
-verified targets, and dispatches typed operations. Transport's bounded I/O
-stays in memory; payload copies are zeroized after stdin transfer. The named
-VM's overall provisioning dispatch and live acceptance remain pending.
+provider mutations, and recovery cleanup; the CLI opens the vault, loads the
+canonical VM manifest, and dispatches typed operations. Disposable provisioning
+holds the VM run lock and revalidates recorded backend ownership around each
+guest operation through a shared checked transport. Transport's bounded I/O
+stays in memory; payload copies are zeroized after stdin transfer. Named-VM
+and production acceptance remain pending.
 
 Workstream 2 adds `skillet_hosts` as the single host capability declaration.
 It owns host composition and supplies boot, service, network, UI, storage, and
