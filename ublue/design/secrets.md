@@ -45,7 +45,8 @@ The password key remains in the session keyring, where the process has the
 permissions needed to set its expiry. If the kernel denies expiry, Skillet
 removes the new key and continues without a cache. `skillet secret lock`
 removes a cached key early. A new workstation can unlock the copied database
-without the old one's keyring.
+without the old one's keyring. `skillet secret unlock` verifies the database and
+establishes the same session cache without coupling unlock to provisioning.
 The Cloudflare token creator is stored at `skillet/cloudflare/token-creator`.
 
 Vault paths are group paths plus an entry title; values use the Password field.

@@ -119,6 +119,22 @@ pub(super) fn lock_vault(path: Option<&Path>) -> Result<()> {
     Ok(())
 }
 
+pub(super) fn unlock_vault(path: Option<&Path>, key_file: Option<&Path>) -> Result<()> {
+    let path = match path {
+        Some(path) => path.to_path_buf(),
+        None => default_database_path()?,
+    };
+    let vault = Vault::open(&path, key_file).context("opening KeePassXC database for unlock")?;
+    if !vault.password_cached() {
+        return Err(anyhow!(
+            "KeePassXC password was verified, but the three-hour session cache could not be established; see the keyring warning above"
+        ));
+    }
+    drop(vault);
+    println!("KeePassXC vault unlocked; password cached for up to three hours");
+    Ok(())
+}
+
 fn tailscale_credentials(vault: &Vault) -> Result<tailscale::OAuthCredentials> {
     let client_id = vault
         .get("skillet/tailscale/provisioner-client-id")?

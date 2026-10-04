@@ -47,8 +47,18 @@ enum Commands {
 enum SecretCommands {
     /// Deliver credentials for a configured host service
     Deliver(SecretDeliverArgs),
+    /// Verify and cache the `KeePassXC` password for this session
+    Unlock(SecretUnlockArgs),
     /// Remove the cached vault password from the kernel keyring
     Lock(SecretLockArgs),
+}
+
+#[derive(clap::Args, Debug)]
+struct SecretUnlockArgs {
+    #[arg(long)]
+    database: Option<PathBuf>,
+    #[arg(long)]
+    key_file: Option<PathBuf>,
 }
 
 #[derive(clap::Args, Debug)]
@@ -248,6 +258,9 @@ fn main() -> Result<()> {
         } => {
             secret_delivery::deliver_from_vault(&args)?;
         }
+        Commands::Secret {
+            command: SecretCommands::Unlock(args),
+        } => secret_delivery::unlock_vault(args.database.as_deref(), args.key_file.as_deref())?,
         Commands::Secret {
             command: SecretCommands::Lock(args),
         } => secret_delivery::lock_vault(args.database.as_deref())?,
@@ -725,6 +738,26 @@ mod tests {
             "--image",
             "/tmp/fcos.qcow2",
         ]);
+        assert!(parsed.is_ok());
+    }
+
+    #[test]
+    fn secret_unlock_accepts_database_and_key_file_overrides() {
+        let parsed = Args::try_parse_from([
+            "skillet",
+            "secret",
+            "unlock",
+            "--database",
+            "/tmp/secrets.kdbx",
+            "--key-file",
+            "/tmp/secrets.keyx",
+        ]);
+        assert!(parsed.is_ok());
+    }
+
+    #[test]
+    fn secret_unlock_uses_default_database_when_no_path_is_given() {
+        let parsed = Args::try_parse_from(["skillet", "secret", "unlock"]);
         assert!(parsed.is_ok());
     }
 }
