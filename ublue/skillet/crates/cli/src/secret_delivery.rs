@@ -2,14 +2,13 @@ use super::{
     butane_root, vm_name, SecretDeliverArgs, UiEnvironmentName, VmDestroyArgs, VmProvisionArgs,
 };
 use anyhow::{anyhow, Context, Result};
-use serde::{Deserialize, Serialize};
 use skillet_vm::transport::GuestTransport as _;
+use skillet_workstation::provisioning_state::{self, CloudflareVmOwnership, ProvisioningIdentity};
 use skillet_workstation::tailscale;
 use skillet_workstation::vault::Vault;
 use std::{
     fs,
-    io::{Read as _, Write as _},
-    os::unix::fs::PermissionsExt as _,
+    io::Read as _,
     path::Path,
     process::{Command, Stdio},
 };
@@ -345,8 +344,14 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     let credentials = tailscale_credentials(&vault)?;
     let expected_hostname = name.as_str();
     let policy = UiEnvironmentName::Test.policy();
+    let provisioning_identity =
+        ProvisioningIdentity::new(&args.hostname, policy.name(), &args.instance);
 
-    write_pending_tailscale(&run_dir, expected_hostname)?;
+    provisioning_state::mark_tailscale_pending(
+        &run_dir,
+        &provisioning_identity,
+        expected_hostname,
+    )?;
     let mut addresses = vm_tailscale_addresses(&ssh).unwrap_or_default();
     if addresses.is_empty() {
         let auth_key = tailscale::create_auth_key(
@@ -377,11 +382,11 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
         policy.tailscale_tag(skillet_workstation::provisioning_policy::DeviceClass::DisposableVm),
         &addresses,
     )?;
-    save_vm_tailscale_record(&run_dir, &record)?;
+    provisioning_state::save_tailscale_record(&run_dir, &provisioning_identity, &record)?;
     if args.with_ui {
         provision_vm_ui(args, &run_dir, &ssh, &mut vault, &record)?;
     }
-    remove_pending_tailscale(&run_dir)?;
+    provisioning_state::remove_tailscale_pending(&run_dir)?;
     println!("Tailscale connected VM {expected_hostname}");
     Ok(())
 }
@@ -402,8 +407,15 @@ pub(super) fn remove_vm_external_resources(args: &VmDestroyArgs) -> Result<()> {
     if !pending.exists() && !record_path.exists() {
         return Ok(());
     }
+    let policy = UiEnvironmentName::Test.policy();
+    let provisioning_identity =
+        ProvisioningIdentity::new(&args.hostname, policy.name(), &args.instance);
     let expected = if record_path.exists() {
-        Some(read_vm_tailscale_record(&record_path)?)
+        Some(provisioning_state::load_tailscale_record(
+            &record_path,
+            &provisioning_identity,
+            &name,
+        )?)
     } else {
         None
     };
@@ -413,7 +425,6 @@ pub(super) fn remove_vm_external_resources(args: &VmDestroyArgs) -> Result<()> {
     };
     let vault = Vault::open(&vault_path, args.key_file.as_deref())?;
     let credentials = tailscale_credentials(&vault)?;
-    let policy = UiEnvironmentName::Test.policy();
     if tailscale::remove_device_for_hostname(
         &credentials,
         &name,
@@ -424,23 +435,11 @@ pub(super) fn remove_vm_external_resources(args: &VmDestroyArgs) -> Result<()> {
     {
         println!("Removed Tailscale device for {name}");
     }
-    remove_pending_tailscale(&run_dir)?;
+    provisioning_state::remove_tailscale_pending(&run_dir)?;
     if record_path.exists() {
         fs::remove_file(record_path).context("removing Tailscale VM metadata")?;
     }
     Ok(())
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct CloudflareVmOwnership {
-    environment: String,
-    marker: String,
-    zone_id: String,
-    ui_domain: String,
-    token_name: String,
-    token_id: Option<String>,
-    expires_on: Option<String>,
-    record_ids: Vec<String>,
 }
 
 fn provision_vm_ui(
@@ -471,16 +470,7 @@ fn provision_vm_ui(
     let zone = api.zone(&creator, &zone_id)?;
     let ui_domain = skillet_caddy::resolve_ui_domain(&zone.name, domain_prefix.as_deref())
         .context("resolving test relative UI domain beneath its Cloudflare zone")?;
-    let host_ui = skillet_hosts::ui_config_for_host(&args.hostname)
-        .ok_or_else(|| anyhow!("host {} has no declared UI services", args.hostname))?;
-    let sites = skillet_caddy::CaddySites::from_host(
-        &args.hostname,
-        &skillet_caddy::UiEnvironment {
-            ui_domain: ui_domain.clone(),
-            acme_staging: policy.acme_staging(),
-        },
-        &host_ui.services,
-    )?;
+    let sites = test_vm_caddy_sites(&args.hostname, &ui_domain, policy.acme_staging())?;
     let dns = skillet_workstation::cloudflare::desired_records(
         &sites.machine_hostname,
         &device.addresses,
@@ -490,6 +480,11 @@ fn provision_vm_ui(
     let token_name = format!("skillet:test:{}-{}", args.hostname, args.instance);
     let metadata_path = run_dir.join("cloudflare.json");
     let mut ownership = CloudflareVmOwnership {
+        identity: Some(ProvisioningIdentity::new(
+            &args.hostname,
+            environment,
+            &args.instance,
+        )),
         environment: environment.to_string(),
         marker,
         zone_id,
@@ -500,7 +495,7 @@ fn provision_vm_ui(
         record_ids: Vec::new(),
     };
     let account_id = skillet_workstation::cloudflare::Cloudflare::account_id(&zone)?.to_string();
-    write_cloudflare_ownership(&metadata_path, &ownership)?;
+    provisioning_state::save_cloudflare_ownership(&metadata_path, &ownership)?;
     ensure_vault_unchanged(vault)?;
     let issued = api.create_zone_token(
         &creator,
@@ -511,7 +506,7 @@ fn provision_vm_ui(
     )?;
     ownership.token_id = Some(issued.id.clone());
     ownership.expires_on.clone_from(&issued.expires_on);
-    write_cloudflare_ownership(&metadata_path, &ownership)?;
+    provisioning_state::save_cloudflare_ownership(&metadata_path, &ownership)?;
     let work = (|| {
         let owned = api.reconcile_dns(
             &issued.value,
@@ -521,7 +516,7 @@ fn provision_vm_ui(
             &dns,
         )?;
         ownership.record_ids = owned.records.into_iter().map(|record| record.id).collect();
-        write_cloudflare_ownership(&metadata_path, &ownership)?;
+        provisioning_state::save_cloudflare_ownership(&metadata_path, &ownership)?;
         ssh.install_deferred(
             "caddy_sites",
             "skillet-caddy-apply.service",
@@ -548,6 +543,23 @@ fn provision_vm_ui(
         return Err(error.context("provisioning disposable Cloudflare DNS and Caddy"));
     }
     Ok(())
+}
+
+fn test_vm_caddy_sites(
+    hostname: &str,
+    ui_domain: &str,
+    acme_staging: bool,
+) -> Result<skillet_caddy::CaddySites> {
+    let host_ui = skillet_hosts::ui_config_for_host(hostname)
+        .ok_or_else(|| anyhow!("host {hostname} has no declared UI services"))?;
+    Ok(skillet_caddy::CaddySites::from_host(
+        hostname,
+        &skillet_caddy::UiEnvironment {
+            ui_domain: ui_domain.to_string(),
+            acme_staging,
+        },
+        &host_ui.services,
+    )?)
 }
 
 fn verify_caddy_denies_non_tailnet_probe(
@@ -593,10 +605,13 @@ fn verify_caddy_denies_non_tailnet_probe(
 }
 
 fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<()> {
-    let bytes = fs::read(metadata_path).context("reading Cloudflare VM ownership metadata")?;
-    let ownership: CloudflareVmOwnership =
-        serde_json::from_slice(&bytes).context("decoding Cloudflare VM ownership metadata")?;
+    let ownership = provisioning_state::load_cloudflare_ownership(metadata_path)
+        .context("reading Cloudflare VM ownership metadata")?;
     let policy = UiEnvironmentName::Test.policy();
+    let expected_identity =
+        ProvisioningIdentity::new(&args.hostname, policy.name(), &args.instance);
+    provisioning_state::validate_cloudflare_identity(&ownership, &expected_identity)
+        .context("Cloudflare VM cleanup identity mismatch")?;
     if ownership.environment != policy.name() {
         return Err(anyhow!(
             "refusing VM cleanup for a non-test Cloudflare environment"
@@ -677,23 +692,6 @@ fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<(
     cleanup?;
     revoke_cleanup.context("revoking temporary Cloudflare cleanup token")?;
     fs::remove_file(metadata_path).context("removing Cloudflare VM ownership metadata")?;
-    Ok(())
-}
-
-fn write_cloudflare_ownership(path: &Path, ownership: &CloudflareVmOwnership) -> Result<()> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| anyhow!("Cloudflare metadata has no parent directory"))?;
-    let mut file = tempfile::NamedTempFile::new_in(parent)
-        .context("creating Cloudflare ownership metadata")?;
-    file.as_file_mut()
-        .write_all(&serde_json::to_vec(ownership)?)?;
-    file.as_file()
-        .set_permissions(fs::Permissions::from_mode(0o600))?;
-    file.as_file().sync_all()?;
-    file.persist(path)
-        .context("recording Cloudflare ownership metadata")?;
-    fs::File::open(parent)?.sync_all()?;
     Ok(())
 }
 
@@ -838,52 +836,6 @@ fn wait_for_vm_tailscale(ssh: &VmSsh) -> Result<std::collections::BTreeSet<Strin
         std::thread::sleep(std::time::Duration::from_secs(2));
     }
     Err(anyhow!("Tailscale did not connect on the VM within 120 seconds; inspect tailscale.service and its journal"))
-}
-
-fn write_pending_tailscale(run_dir: &Path, hostname: &str) -> Result<()> {
-    let path = run_dir.join("tailscale-pending");
-    if path.exists() || path.is_symlink() {
-        return Ok(());
-    }
-    let mut file = tempfile::NamedTempFile::new_in(run_dir)?;
-    file.as_file_mut().write_all(hostname.as_bytes())?;
-    file.as_file()
-        .set_permissions(fs::Permissions::from_mode(0o600))?;
-    file.as_file().sync_all()?;
-    file.persist_noclobber(path)
-        .context("recording pending Tailscale cleanup")?;
-    Ok(())
-}
-
-fn save_vm_tailscale_record(run_dir: &Path, record: &tailscale::DeviceRecord) -> Result<()> {
-    let path = run_dir.join("tailscale.json");
-    if path.is_symlink() {
-        return Err(anyhow!("refusing symlinked Tailscale VM metadata"));
-    }
-    let mut file = tempfile::NamedTempFile::new_in(run_dir)?;
-    serde_json::to_writer(file.as_file_mut(), record)?;
-    file.as_file()
-        .set_permissions(fs::Permissions::from_mode(0o600))?;
-    file.as_file().sync_all()?;
-    file.persist(&path)
-        .context("saving Tailscale VM identity")?;
-    Ok(())
-}
-
-fn read_vm_tailscale_record(path: &Path) -> Result<tailscale::DeviceRecord> {
-    let metadata = fs::symlink_metadata(path)?;
-    if !metadata.is_file() || metadata.file_type().is_symlink() {
-        return Err(anyhow!("Tailscale VM metadata is not a regular file"));
-    }
-    serde_json::from_slice(&fs::read(path)?).context("reading Tailscale VM metadata")
-}
-
-fn remove_pending_tailscale(run_dir: &Path) -> Result<()> {
-    let pending = run_dir.join("tailscale-pending");
-    if pending.exists() {
-        fs::remove_file(pending).context("removing pending Tailscale metadata")?;
-    }
-    Ok(())
 }
 
 fn read_vm_port(manifest: &Path) -> Result<u16> {

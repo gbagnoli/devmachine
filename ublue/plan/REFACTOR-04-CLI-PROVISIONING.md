@@ -116,8 +116,16 @@ and VM delivery have duplicate implementations with different validation.
   HTTP probe no longer build remote shell command strings. Both targets install
   credentials through the shared typed installer, with activation deferred
   until all related Caddy credentials are present.
+- Implemented: Cloudflare ownership JSON, Tailscale enrollment markers, and
+  enrolled-device records are persisted through
+  `skillet_workstation::provisioning_state`. The library writes atomically with
+  mode `0600`, rejects symlinked/non-regular state files, and binds a repeated
+  enrollment marker to the same typed host/environment/instance identity. New
+  journals retain those fields separately; old journal formats remain readable
+  with exact expected-hostname/marker/token-name checks. No token value is
+  persisted.
 - Pending: environment/host credential-delivery orchestration, durable versus
-  disposable policy, provider/VM cleanup ownership persistence, and production
-  plus named-VM acceptance remain in CLI modules. Provider and VM lifecycle
-  orchestration still has mixed CLI/workstation ownership. Finish the remaining
-  sequence items before closing this workstream.
+  disposable provider sequencing, and production plus named-VM acceptance
+  remain in CLI modules. Provider and VM lifecycle orchestration still has
+  mixed CLI/workstation ownership. Finish the remaining sequence items before
+  closing this workstream.

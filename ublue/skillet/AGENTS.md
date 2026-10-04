@@ -118,6 +118,10 @@ tracks existing violations and their migration, not completed implementation.
   continue with later operations when an ownership check fails. Address
   destructive runtime actions by the recorded immutable identity, not only a
   reusable name.
+- Persist external cleanup intent before provider mutations. Bind each
+  ownership journal to the complete typed host, environment, and instance
+  identity; reject mismatches on retry and preserve journals when cleanup is
+  incomplete.
 - Verify deployed artifact bytes and required metadata before recording delivery
   success. Keep original capture evidence distinct from subsequent deployments;
   a partially successful transfer must remain safely retryable.
