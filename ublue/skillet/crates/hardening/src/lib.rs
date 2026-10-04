@@ -1,4 +1,5 @@
 use sha2::{Digest, Sha256};
+use skillet_core::activation::{self, ActivationRequest, ConsumerKind};
 use skillet_core::files::{FileError, FileMutationResource, FileReadResource};
 use skillet_core::system::{ServiceResource, SystemError};
 use std::path::Path;
@@ -11,6 +12,8 @@ pub enum HardeningError {
     System(#[from] SystemError),
     #[error("File error: {0}")]
     File(#[from] FileError),
+    #[error("Activation error: {0}")]
+    Activation(#[from] skillet_core::activation::ActivationError),
 }
 
 pub fn apply<S, F>(system: &S, files: &F) -> Result<(), HardeningError>
@@ -46,7 +49,6 @@ fn converge_service_file<S, F>(
     content: &[u8],
     mode: u32,
     service: &str,
-    ensure_active: bool,
 ) -> Result<(), HardeningError>
 where
     S: ServiceResource + ?Sized,
@@ -56,20 +58,19 @@ where
     files.ensure_directory(state_dir, Some(0o755), Some("root"), Some("root"))?;
     let applied_path = state_dir.join(format!("{service}.applied"));
     let revision = hex::encode(Sha256::digest(content));
-    let pending = files.read_file(&applied_path)?.as_deref() != Some(revision.as_bytes());
     let changed = files.ensure_file(path, content, Some(mode), Some("root"), Some("root"))?;
-    if changed || pending {
-        system.service_restart(service)?;
-        files.ensure_file(
-            &applied_path,
-            revision.as_bytes(),
-            Some(0o644),
-            Some("root"),
-            Some("root"),
-        )?;
-    } else if ensure_active && !system.service_is_active(service)? {
-        system.service_start(service)?;
-    }
+    activation::activate(
+        system,
+        files,
+        &ActivationRequest {
+            service: service.to_string(),
+            state_path: applied_path,
+            revision: revision.into_bytes(),
+            definition_changed: changed,
+            reload_daemon: false,
+            consumer_kind: ConsumerKind::Persistent,
+        },
+    )?;
     Ok(())
 }
 
@@ -85,15 +86,7 @@ where
     let content = include_bytes!("../files/sysctl.boxy.conf");
     let path = sysctl_dir.join("99-hardening.conf");
 
-    converge_service_file(
-        system,
-        files,
-        &path,
-        content,
-        0o644,
-        "systemd-sysctl",
-        false,
-    )?;
+    converge_service_file(system, files, &path, content, 0o644, "systemd-sysctl")?;
 
     Ok(())
 }
@@ -111,7 +104,7 @@ where
     let content = include_bytes!("../files/sshd_config");
     let path = Path::new("/etc/ssh/sshd_config");
 
-    converge_service_file(system, files, path, content, 0o600, "sshd", true)?;
+    converge_service_file(system, files, path, content, 0o600, "sshd")?;
 
     Ok(())
 }

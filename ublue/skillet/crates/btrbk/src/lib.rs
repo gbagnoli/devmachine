@@ -1,5 +1,7 @@
+use sha2::{Digest, Sha256};
 use skillet_core::{
-    files::{FileError, FileMutationResource, StorageResource},
+    activation::{self, ActivationRequest, ConsumerKind},
+    files::{FileError, FileMutationResource, FileReadResource, StorageResource},
     system::{ServiceResource, SystemError},
 };
 use std::path::{Component, Path, PathBuf};
@@ -16,6 +18,8 @@ pub enum BtrbkError {
     File(#[from] FileError),
     #[error("System error: {0}")]
     System(#[from] SystemError),
+    #[error("Activation error: {0}")]
+    Activation(#[from] skillet_core::activation::ActivationError),
     #[error("Invalid Btrfs subvolume path '{0}': use safe relative path components beneath /var/lib/data")]
     InvalidSubvolume(String),
 }
@@ -29,7 +33,7 @@ pub struct BtrbkConfig {
 pub fn apply<S, F>(system: &S, files: &F, config: &BtrbkConfig) -> Result<(), BtrbkError>
 where
     S: ServiceResource + ?Sized,
-    F: FileMutationResource + StorageResource + ?Sized,
+    F: FileMutationResource + FileReadResource + StorageResource + ?Sized,
 {
     if config.snapshot_subvolumes.is_empty() {
         return Ok(());
@@ -81,13 +85,27 @@ where
         Some("root"),
     )?;
 
-    if config_changed || service_changed || timer_changed {
-        system.daemon_reload()?;
-    }
+    let definition_changed = config_changed || service_changed || timer_changed;
+    let mut hasher = Sha256::new();
+    hasher.update(render_config(&sources).as_bytes());
+    hasher.update(service_unit().as_bytes());
+    hasher.update(timer_unit().as_bytes());
+    let revision = hex::encode(hasher.finalize());
     system.service_enable("skillet-btrbk.timer")?;
-    if !system.service_is_active("skillet-btrbk.timer")? {
-        system.service_start("skillet-btrbk.timer")?;
-    }
+    let state_dir = Path::new("/var/lib/skillet/btrbk");
+    files.ensure_directory(state_dir, Some(0o755), Some("root"), Some("root"))?;
+    activation::activate(
+        system,
+        files,
+        &ActivationRequest {
+            service: "skillet-btrbk.timer".to_string(),
+            state_path: state_dir.join("timer.applied"),
+            revision: revision.into_bytes(),
+            definition_changed,
+            reload_daemon: true,
+            consumer_kind: ConsumerKind::Persistent,
+        },
+    )?;
     Ok(())
 }
 

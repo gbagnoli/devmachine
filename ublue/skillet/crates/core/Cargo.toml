@@ -20,6 +20,7 @@ askama.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+serde_yml.workspace = true
 
 [features]
 test-utils = []

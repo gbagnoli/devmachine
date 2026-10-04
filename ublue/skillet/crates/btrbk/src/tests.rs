@@ -104,13 +104,9 @@ fn repeated_apply_keeps_managed_state_and_timer_running() {
     apply(&system, &files, &config).unwrap();
     apply(&system, &files, &config).unwrap();
     assert_eq!(
-        system.start_count.load(std::sync::atomic::Ordering::SeqCst),
-        1
-    );
-    assert_eq!(
         system
             .restart_count
             .load(std::sync::atomic::Ordering::SeqCst),
-        0
+        1
     );
 }

@@ -1,3 +1,4 @@
+pub mod activation;
 pub mod credential_install;
 pub mod credentials;
 pub mod files;

@@ -1,4 +1,5 @@
 use clap::Parser;
+use serde::Serialize;
 use skillet_core::credentials::{CredentialInputs, CredentialManager};
 use skillet_core::files::{FileResource, LocalFileResource};
 use skillet_core::recorder::Recorder;
@@ -28,6 +29,16 @@ pub enum CliCommonError {
     CredentialInstall(#[from] skillet_core::credential_install::CredentialInstallError),
     #[error("Systemd credential error: {0}")]
     SystemdCredential(#[from] skillet_core::credentials::CredentialError),
+    #[error("Configuration apply failed: {apply}; diagnostic recording also failed: {recording}")]
+    ApplyAndRecord { apply: String, recording: String },
+}
+
+#[derive(Serialize)]
+struct DiagnosticRecording<'a> {
+    format_version: u32,
+    host: &'a str,
+    outcome: &'static str,
+    operations: Vec<skillet_core::resource_op::RecordedOperation>,
 }
 
 #[derive(Parser, Debug)]
@@ -166,36 +177,13 @@ fn handle_apply_with_credentials<F>(
 where
     F: Fn(&dyn SystemResource, &dyn FileResource, &CredentialInputs) -> Result<(), String>,
 {
-    use std::io::Write as _;
-
     info!("Starting Skillet configuration for {}...", hostname);
 
     let system = LinuxSystemResource::new();
     let files = LocalFileResource::new();
 
     if let Some(path) = record_path {
-        let recorder_system = Recorder::new(system);
-        let recorder_files = Recorder::with_ops(files, recorder_system.shared_ops());
-
-        apply_fn(&recorder_system, &recorder_files, credentials).map_err(CliCommonError::Config)?;
-
-        let ops = recorder_system.get_ops();
-        let yaml = serde_yml::to_string(&ops)?;
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        let mut temp = tempfile::NamedTempFile::new_in(
-            path.parent().unwrap_or_else(|| std::path::Path::new(".")),
-        )?;
-        temp.write_all(yaml.as_bytes())?;
-        temp.persist(&path).map_err(|e| {
-            CliCommonError::Io(std::io::Error::other(format!(
-                "Failed to persist recording to {}: {}",
-                path.display(),
-                e
-            )))
-        })?;
-        info!("Recording saved to {}", path.display());
+        handle_recorded_apply(hostname, &path, system, files, credentials, apply_fn)?;
     } else {
         apply_fn(&system, &files, credentials).map_err(CliCommonError::Config)?;
     }
@@ -203,3 +191,71 @@ where
     info!("Configuration applied successfully.");
     Ok(())
 }
+
+fn handle_recorded_apply<S, F, Apply>(
+    hostname: &str,
+    path: &std::path::Path,
+    system: S,
+    files: F,
+    credentials: &CredentialInputs,
+    apply_fn: Apply,
+) -> Result<(), CliCommonError>
+where
+    S: SystemResource,
+    F: FileResource,
+    Apply: Fn(&dyn SystemResource, &dyn FileResource, &CredentialInputs) -> Result<(), String>,
+{
+    let recorder_system = Recorder::new(system);
+    let recorder_files = Recorder::with_ops(files, recorder_system.shared_ops());
+    let apply_result = apply_fn(&recorder_system, &recorder_files, credentials);
+    let diagnostic = DiagnosticRecording {
+        format_version: 1,
+        host: hostname,
+        outcome: if apply_result.is_ok() {
+            "succeeded"
+        } else {
+            "failed"
+        },
+        operations: recorder_system.get_ops(),
+    };
+    let record_result = persist_recording(path, &diagnostic);
+    if let Err(apply) = apply_result {
+        if let Err(recording) = record_result {
+            return Err(CliCommonError::ApplyAndRecord { apply, recording });
+        }
+        return Err(CliCommonError::Config(apply));
+    }
+    record_result.map_err(CliCommonError::Config)?;
+    info!("Recording saved to {}", path.display());
+    Ok(())
+}
+
+fn persist_recording(
+    path: &std::path::Path,
+    diagnostic: &DiagnosticRecording<'_>,
+) -> Result<(), String> {
+    use std::io::Write as _;
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| std::path::Path::new("."));
+    fs::create_dir_all(parent).map_err(|error| format!("create {}: {error}", parent.display()))?;
+    let yaml = serde_yml::to_string(diagnostic).map_err(|error| format!("serialize: {error}"))?;
+    let mut temp = tempfile::NamedTempFile::new_in(parent)
+        .map_err(|error| format!("create temporary recording: {error}"))?;
+    temp.write_all(yaml.as_bytes())
+        .map_err(|error| format!("write temporary recording: {error}"))?;
+    temp.as_file()
+        .sync_all()
+        .map_err(|error| format!("sync temporary recording: {error}"))?;
+    temp.persist(path)
+        .map_err(|error| format!("persist {}: {}", path.display(), error.error))?;
+    std::fs::File::open(parent)
+        .and_then(|directory| directory.sync_all())
+        .map_err(|error| format!("sync recording directory {}: {error}", parent.display()))?;
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "recording_tests.rs"]
+mod recording_tests;

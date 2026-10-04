@@ -1,4 +1,5 @@
 use super::*;
+use skillet_core::activation::ActivationAction;
 use skillet_core::test_utils::{MockFiles, MockSystem};
 use std::sync::atomic::Ordering;
 
@@ -230,11 +231,20 @@ fn repeat_apply_and_stopped_service() {
     let system = MockSystem::new();
     let files = MockFiles::new();
     system.ensure_podman_secret("dummy", "first").unwrap();
-    assert!(container(&system, &files, fixture()).unwrap());
-    assert!(!container(&system, &files, fixture()).unwrap());
+    assert_eq!(
+        container(&system, &files, fixture()).unwrap().action,
+        ActivationAction::Restarted
+    );
+    assert_eq!(
+        container(&system, &files, fixture()).unwrap().action,
+        ActivationAction::None
+    );
     assert_eq!(system.restart_count.load(Ordering::SeqCst), 1);
     system.service_stop("unit-fixture").unwrap();
-    assert!(!container(&system, &files, fixture()).unwrap());
+    assert_eq!(
+        container(&system, &files, fixture()).unwrap().action,
+        ActivationAction::Started
+    );
     assert_eq!(system.start_count.load(Ordering::SeqCst), 1);
     assert_eq!(system.restart_count.load(Ordering::SeqCst), 1);
     let quadlet = String::from_utf8(
@@ -332,7 +342,9 @@ fn consumed_file_change_restarts_even_when_quadlet_is_unchanged() {
     container(&system, &files, first).unwrap();
     let mut second = fixture();
     second.config_revisions = vec![b"two".to_vec()];
-    assert!(!container(&system, &files, second).unwrap());
+    let changed = container(&system, &files, second).unwrap();
+    assert!(!changed.definition_changed);
+    assert_eq!(changed.action, ActivationAction::Restarted);
     assert_eq!(system.restart_count.load(Ordering::SeqCst), 2);
     let mut repeat = fixture();
     repeat.config_revisions = vec![b"two".to_vec()];
