@@ -67,6 +67,7 @@ impl EnrollmentProvider for FakeProvider {
 struct FakeGuest {
     statuses: Mutex<VecDeque<Output>>,
     installs: Mutex<Vec<CapturedInstall>>,
+    container_exists: bool,
 }
 
 type CapturedInstall = (Vec<String>, Option<Vec<u8>>);
@@ -76,6 +77,15 @@ impl FakeGuest {
         Self {
             statuses: Mutex::new(statuses.into_iter().collect()),
             installs: Mutex::new(Vec::new()),
+            container_exists: true,
+        }
+    }
+
+    fn without_tailscale_container(statuses: impl IntoIterator<Item = Output>) -> Self {
+        Self {
+            statuses: Mutex::new(statuses.into_iter().collect()),
+            installs: Mutex::new(Vec::new()),
+            container_exists: false,
         }
     }
 }
@@ -86,6 +96,16 @@ impl GuestTransport for FakeGuest {
         command: &skillet_vm::transport::GuestCommand<'_>,
         input: Option<&[u8]>,
     ) -> skillet_vm::Result<Output> {
+        if command
+            .arguments
+            .ends_with(&["container", "exists", "tailscale"])
+        {
+            let created_after_credential_delivery = !self.installs.lock().unwrap().is_empty();
+            return Ok(output(
+                self.container_exists || created_after_credential_delivery,
+                Vec::new(),
+            ));
+        }
         if command.arguments.contains(&"credential") {
             self.installs.lock().unwrap().push((
                 command
@@ -207,6 +227,19 @@ fn unenrolled_vm_receives_auth_key_before_device_lookup_and_state_is_saved() {
         .any(|argument| argument == "skillet-full-apply.service"));
     assert!(!run.path().join("tailscale-pending").exists());
     assert!(run.path().join("tailscale.json").is_file());
+}
+
+#[test]
+fn fresh_vm_without_tailscale_container_is_enrolled_after_credential_delivery() {
+    let run = tempfile::tempdir().unwrap();
+    let guest = FakeGuest::without_tailscale_container([status("Running", &["100.64.0.10"])]);
+    let provider = FakeProvider::default();
+
+    enroll_disposable_vm(&request(run.path()), &provider, &guest).unwrap();
+
+    assert_eq!(provider.keys_created.get(), 1);
+    assert_eq!(provider.devices_found.get(), 1);
+    assert_eq!(guest.installs.lock().unwrap().len(), 1);
 }
 
 #[test]
