@@ -92,6 +92,40 @@ fn account_lookup_contract(
     );
 }
 
+fn service_resource_contract(resource: &impl super::ServiceResource) {
+    assert!(!resource.service_is_active("contract.service").unwrap());
+    resource.service_start("contract.service").unwrap();
+    assert!(resource.service_is_active("contract.service").unwrap());
+    resource.service_restart("contract.service").unwrap();
+    assert!(resource.service_is_active("contract.service").unwrap());
+    resource.service_stop("contract.service").unwrap();
+    assert!(!resource.service_is_active("contract.service").unwrap());
+}
+
+fn podman_secret_resource_contract(resource: &impl super::PodmanSecretResource) {
+    assert!(resource.ensure_podman_secret("contract", "first").unwrap());
+    let first = resource.podman_secret_id("contract").unwrap();
+    assert!(!resource.ensure_podman_secret("contract", "first").unwrap());
+    assert_eq!(resource.podman_secret_id("contract").unwrap(), first);
+    assert!(resource
+        .ensure_podman_secret("contract", "rotated")
+        .unwrap());
+    assert_ne!(resource.podman_secret_id("contract").unwrap(), first);
+}
+
+#[test]
+fn mock_and_recorded_system_effects_follow_shared_contracts() {
+    use crate::{recorder::Recorder, test_utils::MockSystem};
+
+    let mock = MockSystem::new();
+    service_resource_contract(&mock);
+    podman_secret_resource_contract(&mock);
+
+    let recorder = Recorder::new(MockSystem::new());
+    service_resource_contract(&recorder);
+    podman_secret_resource_contract(&recorder);
+}
+
 #[test]
 fn linux_and_mock_account_lookup_adapters_follow_shared_contract() {
     use super::{GroupIdentity, LinuxSystemResource, UserIdentity};
