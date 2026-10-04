@@ -110,7 +110,14 @@ and VM delivery have duplicate implementations with different validation.
   credential lifetimes, cleanup-token lifetime, and Tailscale device tags.
   Delivery and cleanup consume this policy; the Cloudflare zone ID uses the
   shared `skillet/environments/dns/cloudflare-zone-id` vault entry.
+- Implemented: production credential delivery and disposable-VM provisioning
+  use `skillet_vm::SshTransport` with verified recorded host keys and literal
+  executable arguments. Caddy activation, VM status probes, and the non-tailnet
+  HTTP probe no longer build remote shell command strings. Both targets install
+  credentials through the shared typed installer, with activation deferred
+  until all related Caddy credentials are present.
 - Pending: environment/host credential-delivery orchestration, durable versus
   disposable policy, provider/VM cleanup ownership persistence, and production
-  plus named-VM acceptance remain in CLI modules. Finish the remaining sequence
-  items before closing this workstream.
+  plus named-VM acceptance remain in CLI modules. Provider and VM lifecycle
+  orchestration still has mixed CLI/workstation ownership. Finish the remaining
+  sequence items before closing this workstream.

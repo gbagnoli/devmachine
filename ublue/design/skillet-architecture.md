@@ -17,9 +17,11 @@ boot expectations from the canonical host profile, bounded probes and private
 diagnostics. It verifies original artifacts and signed boot evidence before
 recording readiness. A retry first clears the persisted Ready checkpoint and
 restores it only after acceptance. Guest operations are guarded by ownership
-checks before and after each call. Remaining VM commands and credential
-delivery stay on their existing paths until their slices land. Transport's
-bounded I/O stays in memory; payload copies are zeroized after stdin transfer.
+checks before and after each call. Production and disposable-VM credential
+delivery use the same verified guest transport and typed credential installer.
+Transport's bounded I/O stays in memory; payload copies are zeroized after
+stdin transfer. Provider and VM lifecycle orchestration still needs to move
+behind the workstation library boundary.
 
 Workstream 2 adds `skillet_hosts` as the single host capability declaration.
 It owns host composition and supplies boot, service, network, UI, storage, and

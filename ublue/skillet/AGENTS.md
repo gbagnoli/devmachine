@@ -29,6 +29,9 @@ This document defines the architectural mandates and project structure for `skil
 - **Verification**: Always run both:
     - **Unit Tests**: `cargo test --workspace --all-targets`.
     - **Runtime Smoke**: Run `integration_tests/smoke-ssh.sh` against an explicitly named disposable VM with real systemd and Podman for affected container resources. Record the guest state snapshots and failure diagnostics.
+- Tests for host-dependent observations must inject or simulate those
+  observations. Do not require a particular workstation port, account, service,
+  or external resource to happen to be available for a unit test.
 
 ## Local musl toolchain
 
@@ -75,6 +78,9 @@ tracks existing violations and their migration, not completed implementation.
   particular deployment names. Keep secret values off command lines and out of
   manifests, recordings, and errors.
 - Credential-capable transport keeps stdin and captured output in memory.
+  Use the shared verified guest transport for production and VM delivery; pass
+  executable names and arguments as separate values rather than assembling
+  remote command strings in callers.
   Drain stdout/stderr concurrently with stdin, bound the complete operation
   including stream completion, and zeroize owned payload copies after transfer.
 - Use a common ownership representation for named and numeric identities.

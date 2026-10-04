@@ -15,16 +15,19 @@ use std::{
 /// Fail early when another local listener already owns the VM's loopback SSH
 /// forwarding port.
 pub fn validate_ssh_port(port: u16) -> Result<()> {
+    validate_ssh_port_with(port, |port| {
+        TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).map(drop)
+    })
+}
+
+fn validate_ssh_port_with(port: u16, bind: impl FnOnce(u16) -> std::io::Result<()>) -> Result<()> {
     if !(2200..=2299).contains(&port) {
         return Err(Error::Invalid(
             "VM SSH port must be between 2200 and 2299".into(),
         ));
     }
-    let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).map_err(|error| {
-        Error::Preparation(format!("VM SSH port {port} is unavailable: {error}"))
-    })?;
-    drop(listener);
-    Ok(())
+    bind(port)
+        .map_err(|error| Error::Preparation(format!("VM SSH port {port} is unavailable: {error}")))
 }
 
 /// Resolve one supported Fedora `CoreOS` QEMU image, downloading it through the
