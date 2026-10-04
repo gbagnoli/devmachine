@@ -13,6 +13,7 @@ fn fixture() -> PodmanConfig {
         image: "example.invalid/fixture:1".to_string(),
         network_attachments: Vec::new(),
         port_publications: Vec::new(),
+        storage_dependency: None,
         process_identity: ProcessIdentity::ImageDefault,
         namespace_mapping: None,
         volumes: Vec::new(),
@@ -154,6 +155,42 @@ fn invalid_or_conflicting_typed_container_settings_fail_before_effects() {
         Err(PodmanError::InvalidPortPublication)
     ));
     assert!(files.files.lock().unwrap().is_empty());
+}
+
+#[test]
+fn shared_data_mount_dependency_is_rendered_and_invalid_dependency_fails_early() {
+    let system = MockSystem::new();
+    system.ensure_podman_secret("dummy", "first").unwrap();
+    let files = MockFiles::new();
+    let mut config = fixture();
+    config.storage_dependency = Some(MountDependency::shared_service_data());
+    container(&system, &files, config).unwrap();
+    let quadlet = String::from_utf8(
+        files.files.lock().unwrap()["/etc/containers/systemd/unit-fixture.container"].clone(),
+    )
+    .unwrap();
+    for directive in [
+        "Requires=skillet-data-prepare.service",
+        "After=skillet-data-prepare.service",
+        "BindsTo=var-lib-data.mount",
+        "After=var-lib-data.mount",
+        "AssertPathIsMountPoint=/var/lib/data",
+    ] {
+        assert!(quadlet.contains(directive), "missing {directive}");
+    }
+
+    let empty_files = MockFiles::new();
+    let mut invalid = fixture();
+    invalid.storage_dependency = Some(MountDependency {
+        mount_path: std::path::PathBuf::from("/var/lib/data/../other"),
+        mount_unit: "var-lib-data.mount".to_string(),
+        prepare_unit: None,
+    });
+    assert!(matches!(
+        container(&system, &empty_files, invalid),
+        Err(PodmanError::InvalidStorageDependency("mount path"))
+    ));
+    assert!(empty_files.files.lock().unwrap().is_empty());
 }
 
 #[test]

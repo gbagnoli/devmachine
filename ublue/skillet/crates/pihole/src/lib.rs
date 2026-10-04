@@ -4,8 +4,8 @@ use skillet_core::system::{
     AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
 };
 use skillet_podman::{
-    self, NetworkAttachment, PodmanConfig, PodmanError, PortProtocol, PortPublication,
-    ProcessIdentity, QuadletSecret, Volume,
+    self, MountDependency, NetworkAttachment, PodmanConfig, PodmanError, PortProtocol,
+    PortPublication, ProcessIdentity, QuadletSecret, Volume,
 };
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -124,11 +124,6 @@ where
         vec![
             "Description=Pi. Hole".to_string(),
             "After=network-online.target".to_string(),
-            "Requires=skillet-data-prepare.service".to_string(),
-            "After=skillet-data-prepare.service".to_string(),
-            "BindsTo=var-lib-data.mount".to_string(),
-            "After=var-lib-data.mount".to_string(),
-            "AssertPathIsMountPoint=/var/lib/data".to_string(),
         ],
     );
     extra_config.insert(
@@ -144,6 +139,7 @@ where
             image: "docker.io/pihole/pihole:latest".to_string(),
             network_attachments: vec![NetworkAttachment::Bridge(network_name)],
             port_publications: dns_port_publications(),
+            storage_dependency: Some(MountDependency::shared_service_data()),
             process_identity: ProcessIdentity::ImageDefault,
             namespace_mapping: None,
             volumes,

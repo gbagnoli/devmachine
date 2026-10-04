@@ -96,6 +96,7 @@ pub(super) fn apply(
             image: "docker.io/library/alpine:3.20".to_string(),
             network_attachments: Vec::new(),
             port_publications: Vec::new(),
+            storage_dependency: None,
             process_identity: ProcessIdentity::ImageDefault,
             namespace_mapping: None,
             volumes: vec![

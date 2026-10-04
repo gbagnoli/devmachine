@@ -6,7 +6,11 @@ use skillet_core::system::{
 };
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
-use std::{net::IpAddr, path::Path, str::FromStr};
+use std::{
+    net::IpAddr,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 use thiserror::Error;
 use tracing::info;
 
@@ -26,6 +30,8 @@ pub enum PodmanError {
     ConflictingContainerDirective(&'static str),
     #[error("invalid Podman port publication")]
     InvalidPortPublication,
+    #[error("invalid Podman storage dependency: {0}")]
+    InvalidStorageDependency(&'static str),
     #[error("Network configuration changed for {0}; stop its consumers, remove the Podman network and its applied marker, then apply again")]
     NetworkConfigChanged(String),
     #[error("No valid {kind} subordinate-ID range for account {account}")]
@@ -121,6 +127,7 @@ pub struct PodmanConfig {
     pub image: String,
     pub network_attachments: Vec<NetworkAttachment>,
     pub port_publications: Vec<PortPublication>,
+    pub storage_dependency: Option<MountDependency>,
     pub process_identity: ProcessIdentity,
     pub namespace_mapping: Option<UserNamespaceMapping>,
     pub volumes: Vec<Volume>,
@@ -157,6 +164,55 @@ pub struct PortPublication {
     pub host_port: u16,
     pub container_port: u16,
     pub protocol: PortProtocol,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MountDependency {
+    pub mount_path: PathBuf,
+    pub mount_unit: String,
+    pub prepare_unit: Option<String>,
+}
+
+impl MountDependency {
+    pub fn shared_service_data() -> Self {
+        Self {
+            mount_path: PathBuf::from("/var/lib/data"),
+            mount_unit: "var-lib-data.mount".to_string(),
+            prepare_unit: Some("skillet-data-prepare.service".to_string()),
+        }
+    }
+
+    fn validate(&self) -> Result<(), PodmanError> {
+        if !self.mount_path.is_absolute()
+            || self.mount_path == Path::new("/")
+            || self
+                .mount_path
+                .components()
+                .any(|component| matches!(component, std::path::Component::ParentDir))
+        {
+            return Err(PodmanError::InvalidStorageDependency("mount path"));
+        }
+        validate_unit_name(&self.mount_unit, "mount unit")?;
+        if let Some(unit) = &self.prepare_unit {
+            validate_unit_name(unit, "prepare unit")?;
+        }
+        Ok(())
+    }
+
+    fn unit_directives(&self) -> Vec<String> {
+        let mut directives = Vec::new();
+        if let Some(prepare) = &self.prepare_unit {
+            directives.push(format!("Requires={prepare}"));
+            directives.push(format!("After={prepare}"));
+        }
+        directives.push(format!("BindsTo={}", self.mount_unit));
+        directives.push(format!("After={}", self.mount_unit));
+        directives.push(format!(
+            "AssertPathIsMountPoint={}",
+            self.mount_path.display()
+        ));
+        directives
+    }
 }
 
 impl PortPublication {
@@ -268,6 +324,12 @@ where
             .entry("Container".to_string())
             .or_default()
             .push(publication.to_directive()?);
+    }
+    if let Some(dependency) = &config.storage_dependency {
+        extra_config
+            .entry("Unit".to_string())
+            .or_default()
+            .extend(dependency.unit_directives());
     }
 
     add_process_identity(
@@ -382,7 +444,26 @@ fn validate_container_settings(config: &PodmanConfig) -> Result<(), PodmanError>
             return Err(PodmanError::ConflictingContainerDirective("PublishPort"));
         }
     }
+    if let Some(dependency) = &config.storage_dependency {
+        dependency.validate()?;
+    }
     Ok(())
+}
+
+fn validate_unit_name(value: &str, context: &'static str) -> Result<(), PodmanError> {
+    let valid = !value.is_empty()
+        && value
+            .chars()
+            .next()
+            .is_some_and(|character| character.is_ascii_alphanumeric())
+        && value
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || "_.-@".contains(character));
+    if valid {
+        Ok(())
+    } else {
+        Err(PodmanError::InvalidStorageDependency(context))
+    }
 }
 
 fn render_network(network: &PodmanNetwork) -> Result<String, PodmanError> {

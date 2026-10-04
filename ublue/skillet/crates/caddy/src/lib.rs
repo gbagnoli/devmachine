@@ -6,8 +6,8 @@ use skillet_core::system::{
     AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
 };
 use skillet_podman::{
-    self, NetworkAttachment, PodmanConfig, PodmanError, PortProtocol, PortPublication,
-    ProcessIdentity, QuadletSecret, SecretTarget, Volume,
+    self, MountDependency, NetworkAttachment, PodmanConfig, PodmanError, PortProtocol,
+    PortPublication, ProcessIdentity, QuadletSecret, SecretTarget, Volume,
 };
 use std::{collections::BTreeMap, path::Path};
 use thiserror::Error;
@@ -301,11 +301,6 @@ where
         vec![
             "Description=Caddy private UI reverse proxy".to_string(),
             "After=network-online.target".to_string(),
-            "Requires=skillet-data-prepare.service".to_string(),
-            "After=skillet-data-prepare.service".to_string(),
-            "BindsTo=var-lib-data.mount".to_string(),
-            "After=var-lib-data.mount".to_string(),
-            "AssertPathIsMountPoint=/var/lib/data".to_string(),
         ],
     );
 
@@ -325,6 +320,7 @@ where
                 protocol: PortProtocol::Tcp,
             })
             .collect(),
+        storage_dependency: Some(MountDependency::shared_service_data()),
         process_identity: ProcessIdentity::ImageDefault,
         namespace_mapping: None,
         volumes: vec![

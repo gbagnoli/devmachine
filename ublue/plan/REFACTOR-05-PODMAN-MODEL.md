@@ -34,8 +34,10 @@ apply also owns a global DNS-port policy and converges shared networks repeatedl
   validated, and conflicting raw `Network`/`PublishPort` directives fail
   before effects. Pi-hole, Syncthing, Caddy, UniFi, Tailscale, and the fixture
   were migrated without changing their intended ports or modes.
-- Pending: typed host volume ownership, reusable storage dependency helpers,
-  application unit dependency migration, old/new Quadlet comparison, and
+- Implemented: added a reusable typed mount dependency for persistent service
+  containers. Pi-hole, Syncthing, UniFi, Caddy, and Tailscale use the shared
+  data mount helper; invalid mount inputs fail before container effects.
+- Pending: typed host volume ownership, old/new Quadlet comparison, and
   named-VM validation for process identity, DNS, service discovery, and
   persistence.
 

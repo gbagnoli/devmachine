@@ -1049,3 +1049,17 @@ host tool; it still uses normal command approvals.
   without a restart on the repeat and its container was removed.
 - No named-VM DNS/discovery or service networking test ran; `/dev/kvm` is not
   available here.
+
+### Shared service-data mount dependency, 2026-10-04
+
+- Added a reusable typed Podman mount dependency that renders preparation,
+  bind, ordering, and mountpoint assertion directives. Persistent Pi-hole,
+  Syncthing, UniFi, Caddy, and Tailscale containers use it. Ignition still owns
+  filesystem and graphroot preparation; applications own their child data
+  directories and ownership.
+- The dependency rendering/rejection tests and full workspace tests passed.
+  Strict all-target Clippy and the CI container integration passed; both
+  beezelbot base applies succeeded with no restart on the second apply and the
+  disposable container was removed.
+- Live mount/boot-order checks need a named VM and remain unverified because
+  `/dev/kvm` is unavailable here.

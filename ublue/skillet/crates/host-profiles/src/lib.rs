@@ -148,6 +148,7 @@ fn tailscale_config(hostname: &str, auth_key: String, state_path: &str) -> Podma
         image: "docker.io/tailscale/tailscale:stable".to_string(),
         network_attachments: vec![skillet_podman::NetworkAttachment::Host],
         port_publications: Vec::new(),
+        storage_dependency: Some(skillet_podman::MountDependency::shared_service_data()),
         process_identity: ProcessIdentity::ImageDefault,
         namespace_mapping: None,
         volumes: vec![Volume {
