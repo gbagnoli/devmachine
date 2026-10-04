@@ -1,7 +1,4 @@
-use super::{
-    parse_tailscale_addresses, read_vm_port, validate_delivery_service,
-    validate_tailscale_unit_config,
-};
+use super::{read_vm_port, validate_delivery_service, validate_tailscale_unit_config};
 
 #[test]
 fn vm_port_requires_manifest_range() {
@@ -11,15 +8,6 @@ fn vm_port_requires_manifest_range() {
     assert_eq!(read_vm_port(&file).unwrap(), 2201);
     std::fs::write(&file, "ssh_port=22\n").unwrap();
     assert!(read_vm_port(&file).is_err());
-}
-
-#[test]
-fn tailscale_status_returns_only_running_valid_ip_addresses() {
-    let output = br#"{"BackendState":"Running","Self":{"TailscaleIPs":["100.64.0.5","fd7a:115c:a1e0::5","bad"]}}"#;
-    let addresses = parse_tailscale_addresses(output).unwrap();
-    assert_eq!(addresses.len(), 2);
-    let offline = br#"{"BackendState":"NeedsLogin","Self":{"TailscaleIPs":[]}}"#;
-    assert!(parse_tailscale_addresses(offline).unwrap().is_empty());
 }
 
 #[test]

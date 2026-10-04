@@ -129,6 +129,10 @@ and VM delivery have duplicate implementations with different validation.
   environment policy, Cloudflare zone domain, optional relative UI prefix, and
   Tailscale addresses. Production delivery and disposable VM provisioning use
   this shared plan, removing duplicate derivation and host-specific UI logic.
+- Implemented: the Tailscale provider parses guest status JSON and validates
+  running state and IP addresses. VM orchestration now supplies the response
+  bytes and handles retry timing; provider protocol interpretation and its
+  malformed-response tests live with the Tailscale adapter.
 - Pending: environment/host credential-delivery orchestration, durable versus
   disposable provider sequencing, and production plus named-VM acceptance
   remain in CLI modules. Provider and VM lifecycle orchestration still has
