@@ -23,7 +23,7 @@
   partially delivered credentials.
 - The latest `test vm provision clamps generic-ui --with-ui` run enrolled the
   VM in Tailscale but stopped before Cloudflare mutation because KeePassXC
-  lacks `skillet/environments/dns/cloudflare-zone-id`. The disposable VM and
+  lacks `skillet/environments/test/dns/cloudflare-zone-id`. The disposable VM and
   its Tailscale device were cleaned up. Current live Caddy ACME/HTTPS
   acceptance is blocked until that shared zone entry is present; no production
   DNS or credentials were changed.

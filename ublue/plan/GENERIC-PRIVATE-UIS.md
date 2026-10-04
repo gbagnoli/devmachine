@@ -16,9 +16,9 @@ with Pi-hole LAN DNS acceptance in the [deferred live acceptance batch](CLAMPS-M
 
 Current revalidation (2026-10-04): the fresh disposable VM and real-runtime
 smoke passed and were cleaned up. The latest UI provisioning retry reached the
-Cloudflare setup but found no `skillet/environments/dns/cloudflare-zone-id`
+Cloudflare setup but found no `skillet/environments/test/dns/cloudflare-zone-id`
 entry in the unlocked vault, so no Cloudflare mutation occurred. Resume live
-ACME/HTTPS acceptance after adding that shared Zone ID. First-boot Tailscale
+ACME/HTTPS acceptance after adding that test Zone ID. First-boot Tailscale
 credential activation has unit coverage, but its full credential-empty live
 sequence remains unverified.
 
@@ -49,7 +49,7 @@ the Password field, following the existing exact-lookup convention:
 | `skillet/environments/<environment>/dns/ui-domain` | Optional relative prefix; absent means `ui` |
 | `skillet/environments/<environment>/hosts/<host>/cloudflare/acme-token` | Durable token for a persistent host |
 | `skillet/cloudflare/token-creator` | Workstation-only token issuer |
-| `skillet/environments/dns/cloudflare-zone-id` | Shared Cloudflare Zone ID of the authorized existing zone |
+| `skillet/environments/<environment>/dns/cloudflare-zone-id` | Environment-specific Cloudflare Zone ID of the authorized existing zone (`prod` or `test`) |
 
 Production and test are environment names, not distinct implementations.
 Fetch the mandatory Zone ID's domain from Cloudflare and always append it to

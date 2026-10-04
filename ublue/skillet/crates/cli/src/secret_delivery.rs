@@ -76,7 +76,7 @@ fn deliver_caddy_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Resu
     let domain_prefix = vault.get(&domain_path)?;
     let zone_path = policy.cloudflare_zone_entry();
     let zone_id = vault
-        .get(zone_path)?
+        .get(&zone_path)?
         .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
     let zone_id = zone_id.trim().to_string();
     let creator = vault
@@ -291,7 +291,7 @@ fn provision_vm_ui(
     let zone_path = policy.cloudflare_zone_entry();
     let domain_prefix = vault.get(&domain_path)?;
     let zone_id = vault
-        .get(zone_path)?
+        .get(&zone_path)?
         .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
     let creator = vault
         .get("skillet/cloudflare/token-creator")?
@@ -342,12 +342,10 @@ fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<(
                 "KeePassXC Cloudflare token creator is missing: skillet/cloudflare/token-creator"
             )
         })?;
-    let configured_zone = vault.get(policy.cloudflare_zone_entry())?.ok_or_else(|| {
-        anyhow!(
-            "KeePassXC Cloudflare zone entry is missing: {}",
-            policy.cloudflare_zone_entry()
-        )
-    })?;
+    let zone_path = policy.cloudflare_zone_entry();
+    let configured_zone = vault
+        .get(&zone_path)?
+        .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
     let api = skillet_workstation::cloudflare::Cloudflare::new();
     let configured_prefix = vault.get(&policy.ui_domain_entry())?;
     skillet_workstation::ui_provisioning::cleanup_disposable_ui(

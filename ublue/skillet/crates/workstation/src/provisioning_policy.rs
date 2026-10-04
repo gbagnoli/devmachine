@@ -37,8 +37,14 @@ impl ProvisioningPolicy {
         format!("skillet/environments/{}/dns/ui-domain", self.name())
     }
 
-    pub fn cloudflare_zone_entry(self) -> &'static str {
-        "skillet/environments/dns/cloudflare-zone-id"
+    pub fn cloudflare_zone_entry(self) -> String {
+        format!(
+            "skillet/environments/{}/dns/cloudflare-zone-id",
+            match self.environment {
+                Environment::Production => "prod",
+                Environment::Test => "test",
+            }
+        )
     }
 
     pub const fn acme_staging(self) -> bool {

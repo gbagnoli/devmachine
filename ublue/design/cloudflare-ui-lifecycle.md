@@ -14,9 +14,9 @@ remains confined to child tokens.
 
 ## Configuration and access
 
-The shared zone requires `skillet/environments/dns/cloudflare-zone-id` in the
-vault's Password field. Fetch that exact zone's domain from Cloudflare. Each
-environment's optional `skillet/environments/<environment>/dns/ui-domain` is a relative
+Each environment requires `skillet/environments/<environment>/dns/cloudflare-zone-id`
+in the vault's Password field (`prod` or `test`). Fetch that exact zone's domain
+from Cloudflare. Its optional `skillet/environments/<environment>/dns/ui-domain` is a relative
 prefix, defaulting to `ui` only when absent. Always append the zone's domain:
 `ui.whatever` in zone `example.com` resolves to `ui.whatever.example.com`.
 This removes redundant full-domain configuration and keeps namespaces within

@@ -110,7 +110,8 @@ and VM delivery have duplicate implementations with different validation.
   versus test environment names and vault paths, ACME staging, Cloudflare
   credential lifetimes, cleanup-token lifetime, and Tailscale device tags.
   Delivery and cleanup consume this policy; the Cloudflare zone ID uses the
-  shared `skillet/environments/dns/cloudflare-zone-id` vault entry.
+  environment-specific `skillet/environments/<environment>/dns/cloudflare-zone-id`
+  vault entry.
 - Implemented: production credential delivery and disposable-VM provisioning
   use `skillet_vm::SshTransport` with verified recorded host keys and literal
   executable arguments. Caddy activation, VM status probes, and the non-tailnet

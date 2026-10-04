@@ -12,7 +12,7 @@ fn production_policy_selects_durable_credentials_and_live_acme() {
     );
     assert_eq!(
         policy.cloudflare_zone_entry(),
-        "skillet/environments/dns/cloudflare-zone-id"
+        "skillet/environments/prod/dns/cloudflare-zone-id"
     );
     assert_eq!(policy.cloudflare_token_lifetime(), None);
     assert!(!policy.acme_staging());
@@ -30,6 +30,10 @@ fn disposable_policy_selects_short_lived_credentials_and_staging_acme() {
     assert_eq!(
         policy.ui_domain_entry(),
         "skillet/environments/test/dns/ui-domain"
+    );
+    assert_eq!(
+        policy.cloudflare_zone_entry(),
+        "skillet/environments/test/dns/cloudflare-zone-id"
     );
     assert_eq!(
         policy.cloudflare_token_lifetime(),
