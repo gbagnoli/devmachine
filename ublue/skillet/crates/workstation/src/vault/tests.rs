@@ -99,6 +99,7 @@ fn verified_save_updates_symlink_target_and_keeps_recovery_copy() {
         original,
         database,
         password: password.to_string(),
+        password_cached: false,
     };
     let entry_path = "skillet/hosts/clamps/pihole/web-password";
     vault.insert(entry_path, "generated test value").unwrap();
@@ -139,6 +140,7 @@ fn verified_save_refuses_a_concurrent_vault_change() {
         original,
         database,
         password: password.to_string(),
+        password_cached: false,
     };
     vault.insert("skillet/new-token", "dummy").unwrap();
     std::fs::write(&path, b"external update").unwrap();
@@ -152,10 +154,10 @@ fn session_password_cache_uses_three_hour_expiry_and_can_be_cleared() {
     assert_eq!(CACHE_LIFETIME, std::time::Duration::from_hours(3));
     let directory = tempfile::tempdir().unwrap();
     let database = directory.path().join("secrets.kdbx");
-    cache_store(&database, "dummy vault password").unwrap();
+    let cached = cache_store(&database, "dummy vault password").unwrap();
     assert_eq!(
         cache_read(&database).unwrap().as_deref(),
-        Some("dummy vault password")
+        cached.then_some("dummy vault password")
     );
     cache_clear(&database).unwrap();
     assert_eq!(cache_read(&database).unwrap(), None);

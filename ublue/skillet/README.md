@@ -131,6 +131,18 @@ three hours. It does not write decrypted values to a file. Run
 `cargo run --release -p skillet -- secret lock` to clear the cache early.
 If the kernel denies key expiry, Skillet reports that it could not cache the
 unlock and asks for the password on the next command.
+
+To unlock the database and verify the three-hour session cache without
+provisioning a host or VM, run:
+
+```bash
+cargo run --release -p skillet -- secret unlock
+```
+
+Use `--database PATH` for a non-default database or `--key-file PATH` when the
+database uses a key file. The command verifies the database, then exits; it
+does not change the vault. It reports an error if the password is valid but
+the kernel session cache could not be established.
 Skillet looks for `$XDG_DATA_HOME/skillet/secrets.kdbx`, falling back to
 `$HOME/.local/share/skillet/secrets.kdbx`. Point that location at your
 Syncthing-synced database, for example:

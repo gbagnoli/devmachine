@@ -1379,3 +1379,18 @@ host tool; it still uses normal command approvals.
   timeout during cleanup.
 - Named-VM ownership/mount acceptance remains unverified because `/dev/kvm`
   is unavailable on this workstation.
+
+### Standalone KeePassXC unlock, 2026-10-04
+
+- Added `skillet secret unlock` to verify the configured KeePassXC database
+  and establish the existing three-hour session-keyring cache without starting
+  host or VM provisioning. `--database` and `--key-file` override the defaults.
+- The command exits with an error if the vault opens but the cache cannot be
+  established. CLI parsing tests cover the default path and both overrides;
+  the vault cache tests cover the three-hour expiry and the cache result.
+- `cargo fmt --all -- --check`, offline workspace all-target tests, and strict
+  offline all-target Clippy passed. The beezelbot Fedora base integration
+  exited 0: both applies succeeded, the repeat issued no service start/restart,
+  and Podman removed the disposable container after its stop timeout.
+- Interactive validation against the user's vault was not run because the
+  password must be entered by the user.

@@ -45,6 +45,7 @@ pub struct Vault {
     original: Vec<u8>,
     database: Database,
     password: String,
+    password_cached: bool,
 }
 
 impl Vault {
@@ -72,6 +73,7 @@ impl Vault {
                     original,
                     database,
                     password: cached,
+                    password_cached: true,
                 });
             }
             cache_clear(&path)?;
@@ -79,13 +81,19 @@ impl Vault {
         let password = rpassword::prompt_password("KeePassXC database password: ")
             .map_err(|error| source("reading database password from terminal", error))?;
         let database = open_with_password(&original, &password, key_file)?;
-        cache_store(&path, &password)?;
+        let password_cached = cache_store(&path, &password)?;
         Ok(Self {
             path,
             original,
             database,
             password,
+            password_cached,
         })
+    }
+
+    /// Whether the verified password is currently stored in the session keyring.
+    pub fn password_cached(&self) -> bool {
+        self.password_cached
     }
 
     pub fn get(&self, path: &str) -> Result<Option<String>, VaultError> {
@@ -425,25 +433,26 @@ fn cache_read(database: &Path) -> Result<Option<String>, VaultError> {
     .map_err(|error| source("decoding cached vault password", error))
 }
 
-fn cache_store(database: &Path, password: &str) -> Result<(), VaultError> {
+fn cache_store(database: &Path, password: &str) -> Result<bool, VaultError> {
     let mut ring = match session_keyring() {
         Ok(ring) => ring,
         Err(error) => {
             eprintln!("Vault password was not cached: Linux session keyring unavailable: {error}");
-            return Ok(());
+            return Ok(false);
         }
     };
     let Ok(mut key) = ring.add_key::<User, _, _>(cache_description(database), password.as_bytes())
     else {
         eprintln!("Vault password was not cached: could not add a kernel key");
-        return Ok(());
+        return Ok(false);
     };
     if key.set_timeout(CACHE_LIFETIME).is_err() {
         ring.unlink_key(&key)
             .map_err(|error| source("removing a vault key whose expiry could not be set", error))?;
         eprintln!("Vault password was not cached: kernel denied the three-hour expiry");
+        return Ok(false);
     }
-    Ok(())
+    Ok(true)
 }
 
 fn cache_clear(database: &Path) -> Result<(), VaultError> {
