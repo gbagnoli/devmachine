@@ -1394,3 +1394,20 @@ host tool; it still uses normal command approvals.
   and Podman removed the disposable container after its stop timeout.
 - Interactive validation against the user's vault was not run because the
   password must be entered by the user.
+
+### Retained clamps smoke VM readiness and fixture, 2026-10-04
+
+- The retained `clamps-test-smoke` VM was running but its local run state was
+  not marked ready. The first readiness attempt reached signed boot and base
+  apply, then found `uv` missing from the cloned dotfiles Brewfile. Installed
+  the missing dependency inside the disposable VM with its existing Brewfile;
+  no workstation packages were installed.
+- Retried `cargo run --offline --bin skillet -- test vm ready clamps smoke`;
+  it passed signed boot, base apply, Homebrew bundle, and user-environment
+  checks. `cargo run --offline --bin skillet -- test smoke clamps` then passed
+  all fixture cases, including its reboot phase. Guest snapshots and journals
+  are under `/var/lib/skillet-smoke/`; the VM remains running for inspection.
+- Vault-backed Caddy/Cloudflare provisioning was not attempted. Although the
+  user unlocked the vault interactively, the assistant execution process could
+  not read that session keyring entry and has no interactive password input.
+  No provider mutations were made by this attempt.
