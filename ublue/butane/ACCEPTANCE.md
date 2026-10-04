@@ -1102,3 +1102,21 @@ host tool; it still uses normal command approvals.
 - A regression test confirms the typed metadata does not change the existing
   Quadlet bytes. VM verification of actual volume ownership, descendants, and
   service restart behavior remains unverified because `/dev/kvm` is absent.
+
+### Workstation-owned disposable provisioning state, 2026-10-04
+
+- Moved Cloudflare ownership JSON, Tailscale pending-enrollment markers, and
+  enrolled-device records from the CLI into
+  `skillet_workstation::provisioning_state`. Filenames are unchanged. New
+  journals include separate host/environment/instance identity fields; readers
+  accept the prior JSON and hostname-only marker formats with exact identity
+  checks. Writes are atomic and mode `0600`; reads and writes reject
+  symlinks/non-regular files. Retrying with another VM identity fails closed.
+- Workspace all-target tests, strict Clippy, and formatting passed. State tests
+  cover private file mode, state round trips, symlink refusal, idempotent marker
+  writes, typed identity conflict refusal, legacy state compatibility, and
+  marker cleanup. The documented
+  beezelbot Fedora container integration passed twice without a restart on the
+  second apply; cleanup escalated to SIGKILL after its 10-second timeout.
+- No provider resources or live VMs were changed. Full enrollment/cleanup
+  acceptance remains pending; `/dev/kvm` is absent.

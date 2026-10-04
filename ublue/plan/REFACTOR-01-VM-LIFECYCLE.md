@@ -49,6 +49,8 @@ remaining script owns VM creation, reboot, access, inspection, or disposal.
 Workstream 4 has now moved production and disposable-VM guest commands onto
 the shared verified SSH transport. Workstream 2 must consolidate the interim
 `boot_policy_for_host` lookup with the canonical capability declaration.
+Workstation provisioning state now owns provider cleanup journals separately
+from the VM manifest and local artifact ownership.
 Native and Flatpak adapter contract tests and
 workstation checks remain required; live create/ready/update/reboot/destroy
 and retained-run acceptance have not yet passed. See

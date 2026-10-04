@@ -58,6 +58,16 @@ defined domain for inspection and retry. Native domain XML renders through the
 Rust XML library, preserving disk ownership, fw_cfg and passt networking. Unit
 and adapter checks pass; live migration acceptance remains deferred.
 
+Tailscale enrollment intent, enrolled-device identity, and Cloudflare DNS/token
+ownership metadata are persisted by `skillet_workstation::provisioning_state`.
+Writes are atomic and mode `0600`; readers reject symlinks and non-regular
+files. An existing pending enrollment marker must match the same VM identity,
+so retry cannot silently claim another VM's cleanup journal.
+New journals keep host, environment, and instance as separate fields. Legacy
+smoke-run records remain readable and are checked against the exact expected
+guest hostname, ownership marker, and token name rather than parsed into a new
+identity.
+
 ## States and recovery
 
 Planned encrypted-root tests add a software TPM2 and UEFI/Secure Boot profile.
