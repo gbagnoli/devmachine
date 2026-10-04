@@ -12,6 +12,35 @@ struct FakeProvider {
     devices_found: Cell<usize>,
 }
 
+#[derive(Default)]
+struct FakeCleanupProvider {
+    removed: Cell<usize>,
+    fail: Cell<bool>,
+    expected_id: Mutex<Option<String>>,
+}
+
+impl DeviceCleanupProvider for FakeCleanupProvider {
+    fn remove_device(
+        &self,
+        hostname: &str,
+        expected_tag: &str,
+        expected: Option<&DeviceRecord>,
+    ) -> tailscale::Result<Option<DeviceRecord>> {
+        self.removed.set(self.removed.get() + 1);
+        assert_eq!(expected_tag, tailscale::SMOKE_TAG);
+        *self.expected_id.lock().unwrap() = expected.map(|device| device.id.clone());
+        if self.fail.get() {
+            return Err(tailscale::TailscaleError::Invalid(
+                "fixture removal failure".into(),
+            ));
+        }
+        Ok(expected.cloned().map(|mut device| {
+            device.hostname = hostname.to_string();
+            device
+        }))
+    }
+}
+
 impl EnrollmentProvider for FakeProvider {
     fn create_auth_key(&self, _tag: &str, _description: &str) -> tailscale::Result<AuthKey> {
         self.keys_created.set(self.keys_created.get() + 1);
@@ -113,6 +142,24 @@ fn request(run_directory: &std::path::Path) -> DisposableEnrollment<'_> {
     }
 }
 
+fn cleanup_request(run_directory: &std::path::Path) -> DisposableCleanup<'_> {
+    DisposableCleanup {
+        host: "clamps",
+        instance: "smoke",
+        vm_hostname: "clamps-test-smoke",
+        run_directory,
+        policy: ProvisioningPolicy::new(Environment::Test),
+    }
+}
+
+fn recorded_device() -> DeviceRecord {
+    DeviceRecord {
+        id: "device-id".to_string(),
+        hostname: "clamps-test-smoke".to_string(),
+        addresses: BTreeSet::from(["100.64.0.10".to_string()]),
+    }
+}
+
 #[test]
 fn already_enrolled_vm_is_recorded_without_creating_an_auth_key() {
     let run = tempfile::tempdir().unwrap();
@@ -190,4 +237,52 @@ fn production_policy_is_rejected_before_guest_or_provider_effects() {
     assert_eq!(provider.keys_created.get(), 0);
     assert!(guest.installs.lock().unwrap().is_empty());
     assert!(!run.path().join("tailscale-pending").exists());
+}
+
+#[test]
+fn disposable_cleanup_removes_verified_device_then_local_recovery_state() {
+    let run = tempfile::tempdir().unwrap();
+    let identity = ProvisioningIdentity::new("clamps", "test", "smoke");
+    provisioning_state::save_tailscale_record(run.path(), &identity, &recorded_device()).unwrap();
+    provisioning_state::mark_tailscale_pending(run.path(), &identity, "clamps-test-smoke").unwrap();
+    let provider = FakeCleanupProvider::default();
+
+    assert!(cleanup_disposable_vm(&cleanup_request(run.path()), &provider).unwrap());
+
+    assert_eq!(provider.removed.get(), 1);
+    assert_eq!(
+        provider.expected_id.lock().unwrap().as_deref(),
+        Some("device-id")
+    );
+    assert!(!run.path().join("tailscale.json").exists());
+    assert!(!run.path().join("tailscale-pending").exists());
+    assert!(!cleanup_disposable_vm(&cleanup_request(run.path()), &provider).unwrap());
+}
+
+#[test]
+fn provider_failure_preserves_tailscale_cleanup_journal_for_retry() {
+    let run = tempfile::tempdir().unwrap();
+    let identity = ProvisioningIdentity::new("clamps", "test", "smoke");
+    provisioning_state::save_tailscale_record(run.path(), &identity, &recorded_device()).unwrap();
+    let provider = FakeCleanupProvider::default();
+    provider.fail.set(true);
+
+    assert!(cleanup_disposable_vm(&cleanup_request(run.path()), &provider).is_err());
+    assert!(run.path().join("tailscale.json").is_file());
+
+    provider.fail.set(false);
+    assert!(cleanup_disposable_vm(&cleanup_request(run.path()), &provider).unwrap());
+    assert!(!run.path().join("tailscale.json").exists());
+}
+
+#[test]
+fn tailscale_cleanup_identity_mismatch_stops_before_provider_mutation() {
+    let run = tempfile::tempdir().unwrap();
+    let wrong = ProvisioningIdentity::new("other-host", "test", "smoke");
+    provisioning_state::save_tailscale_record(run.path(), &wrong, &recorded_device()).unwrap();
+    let provider = FakeCleanupProvider::default();
+
+    assert!(cleanup_disposable_vm(&cleanup_request(run.path()), &provider).is_err());
+    assert_eq!(provider.removed.get(), 0);
+    assert!(run.path().join("tailscale.json").is_file());
 }

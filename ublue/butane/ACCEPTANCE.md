@@ -1247,3 +1247,19 @@ host tool; it still uses normal command approvals.
   repeat issued no service start/restart and the container was removed. Podman
   needed SIGKILL after its 10-second stop timeout during cleanup.
 - No VM or live Cloudflare API was contacted. `/dev/kvm` is unavailable.
+
+### Workstation-owned disposable Tailscale cleanup, 2026-10-04
+
+- Moved test-device cleanup into `skillet_workstation::tailscale_enrollment`.
+  The operation validates the disposable environment and typed host/instance/
+  VM hostname, verifies ownership journals, asks the provider to remove only
+  the recorded tagged device, and removes recovery files after provider success
+  or an already-absent device response. Provider errors retain the journal.
+- The workstation crate tests passed (51 tests), including provider failure
+  retry, recorded-device identity verification, local journal cleanup, and
+  identity mismatch refusal before provider calls. Full workspace tests,
+  strict all-target Clippy, and formatting also passed.
+- The beezelbot Fedora base integration exited 0: both applies succeeded; the
+  repeat issued no service start/restart and the container was removed. Podman
+  needed SIGKILL after its 10-second stop timeout during cleanup.
+- No VM or live Tailscale API was contacted. `/dev/kvm` is unavailable.

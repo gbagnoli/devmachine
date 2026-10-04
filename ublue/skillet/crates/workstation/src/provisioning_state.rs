@@ -176,6 +176,47 @@ pub fn load_tailscale_record(
     Ok(legacy)
 }
 
+pub fn tailscale_record_exists(run_directory: &Path) -> Result<bool, ProvisioningStateError> {
+    regular_file_exists(
+        &run_directory.join("tailscale.json"),
+        "Tailscale ownership state",
+    )
+}
+
+pub fn remove_tailscale_record(run_directory: &Path) -> Result<(), ProvisioningStateError> {
+    remove_regular_file(
+        &run_directory.join("tailscale.json"),
+        "Tailscale ownership state",
+    )
+}
+
+pub fn tailscale_pending_exists(run_directory: &Path) -> Result<bool, ProvisioningStateError> {
+    regular_file_exists(
+        &run_directory.join("tailscale-pending"),
+        "pending Tailscale state",
+    )
+}
+
+pub fn validate_tailscale_pending(
+    run_directory: &Path,
+    expected_identity: &ProvisioningIdentity,
+    expected_hostname: &str,
+) -> Result<bool, ProvisioningStateError> {
+    let path = run_directory.join("tailscale-pending");
+    if !regular_file_exists(&path, "pending Tailscale state")? {
+        return Ok(false);
+    }
+    let contents = fs::read(path)?;
+    if let Ok(pending) = serde_json::from_slice::<PendingTailscaleIdentity>(&contents) {
+        if pending.identity != *expected_identity || pending.hostname != expected_hostname {
+            return Err(ProvisioningStateError::IdentityMismatch);
+        }
+    } else if String::from_utf8_lossy(&contents) != expected_hostname {
+        return Err(ProvisioningStateError::IdentityMismatch);
+    }
+    Ok(true)
+}
+
 /// Persist cleanup intent before creating a disposable Tailscale device.
 /// Repeated calls must describe the same VM identity.
 pub fn mark_tailscale_pending(
@@ -250,13 +291,30 @@ pub fn mark_tailscale_pending(
 
 pub fn remove_tailscale_pending(run_directory: &Path) -> Result<(), ProvisioningStateError> {
     let path = run_directory.join("tailscale-pending");
-    match fs::symlink_metadata(&path) {
-        Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_file() => Err(
-            ProvisioningStateError::InvalidPath("pending Tailscale state must be a regular file"),
-        ),
+    remove_regular_file(&path, "pending Tailscale state")
+}
+
+fn regular_file_exists(path: &Path, label: &'static str) -> Result<bool, ProvisioningStateError> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_file() => {
+            Err(ProvisioningStateError::InvalidPath(label))
+        }
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error.into()),
+    }
+}
+
+fn remove_regular_file(path: &Path, label: &'static str) -> Result<(), ProvisioningStateError> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_file() => {
+            Err(ProvisioningStateError::InvalidPath(label))
+        }
         Ok(_) => {
             fs::remove_file(path)?;
-            File::open(run_directory)?.sync_all()?;
+            if let Some(parent) = path.parent() {
+                File::open(parent)?.sync_all()?;
+            }
             Ok(())
         }
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),

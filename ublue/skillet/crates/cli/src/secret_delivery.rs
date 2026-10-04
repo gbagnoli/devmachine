@@ -3,7 +3,7 @@ use super::{
 };
 use anyhow::{anyhow, Context, Result};
 use skillet_vm::transport::GuestTransport as _;
-use skillet_workstation::provisioning_state::{self, ProvisioningIdentity};
+use skillet_workstation::provisioning_state;
 use skillet_workstation::tailscale;
 use skillet_workstation::vault::Vault;
 use std::{
@@ -367,51 +367,39 @@ pub(super) fn remove_vm_external_resources(args: &VmDestroyArgs) -> Result<()> {
     let name = vm_name(&args.hostname, &args.instance)?;
     let butane = butane_root()?;
     let run_dir = butane.join("runs").join(&name);
-    let pending = run_dir.join("tailscale-pending");
-    let record_path = run_dir.join("tailscale.json");
     let cloudflare_path = run_dir.join("cloudflare.json");
     let cloudflare_exists = provisioning_state::cloudflare_ownership_exists(&cloudflare_path)?;
-    if !pending.exists() && !record_path.exists() && !cloudflare_exists {
+    let tailscale_pending = provisioning_state::tailscale_pending_exists(&run_dir)?;
+    let tailscale_record = provisioning_state::tailscale_record_exists(&run_dir)?;
+    if !tailscale_pending && !tailscale_record && !cloudflare_exists {
         return Ok(());
     }
     if cloudflare_exists {
         cleanup_vm_cloudflare(args, &cloudflare_path)?;
     }
-    if !pending.exists() && !record_path.exists() {
+    if !provisioning_state::tailscale_pending_exists(&run_dir)?
+        && !provisioning_state::tailscale_record_exists(&run_dir)?
+    {
         return Ok(());
     }
     let policy = UiEnvironmentName::Test.policy();
-    let provisioning_identity =
-        ProvisioningIdentity::new(&args.hostname, policy.name(), &args.instance);
-    let expected = if record_path.exists() {
-        Some(provisioning_state::load_tailscale_record(
-            &record_path,
-            &provisioning_identity,
-            &name,
-        )?)
-    } else {
-        None
-    };
     let vault_path = match &args.database {
         Some(path) => path.clone(),
         None => default_database_path()?,
     };
     let vault = Vault::open(&vault_path, args.key_file.as_deref())?;
     let credentials = tailscale_credentials(&vault)?;
-    if tailscale::remove_device_for_hostname(
+    skillet_workstation::tailscale_enrollment::cleanup_disposable_vm(
+        &skillet_workstation::tailscale_enrollment::DisposableCleanup {
+            host: &args.hostname,
+            instance: &args.instance,
+            vm_hostname: &name,
+            run_directory: &run_dir,
+            policy,
+        },
         &credentials,
-        &name,
-        policy.tailscale_tag(skillet_workstation::provisioning_policy::DeviceClass::DisposableVm),
-        expected.as_ref(),
-    )?
-    .is_some()
-    {
-        println!("Removed Tailscale device for {name}");
-    }
-    provisioning_state::remove_tailscale_pending(&run_dir)?;
-    if record_path.exists() {
-        fs::remove_file(record_path).context("removing Tailscale VM metadata")?;
-    }
+    )?;
+    println!("Cleaned Tailscale ownership for {name}");
     Ok(())
 }
 
