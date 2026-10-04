@@ -56,7 +56,7 @@ The prefix is consistently singular, `skillet`:
 | --- | --- |
 | `skillet/hosts/clamps/pihole/web-password` | `pihole_web_password` |
 | `skillet/environments/<environment>/dns/ui-domain` | Optional relative UI prefix; defaults to `ui`, appended to the fetched zone domain |
-| `skillet/environments/dns/cloudflare-zone-id` | Shared Cloudflare Zone ID lookup |
+| `skillet/environments/<environment>/dns/cloudflare-zone-id` | Environment-specific Cloudflare Zone ID lookup (`prod` or `test`) |
 | `skillet/environments/<environment>/hosts/<host>/cloudflare/acme-token` | Persistent `cloudflare_acme_token`, created on first Caddy delivery |
 | `skillet/hosts/<host>/cloudflare/acme-token` | Legacy production credential migrated on first delivery |
 | `skillet/cloudflare/token-creator` | Workstation only |
