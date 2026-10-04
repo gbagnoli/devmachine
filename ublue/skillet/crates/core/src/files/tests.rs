@@ -44,7 +44,7 @@ fn test_ensure_file_creates_file() {
     let resource = LocalFileResource::new();
 
     let changed = resource
-        .ensure_file(&file_path, content, None, None, None)
+        .ensure_file(&file_path, content, None, &Ownership::default())
         .unwrap();
     assert!(changed);
     assert!(file_path.exists());
@@ -60,13 +60,13 @@ fn test_ensure_file_idempotent() {
 
     // First write
     let changed = resource
-        .ensure_file(&file_path, content, None, None, None)
+        .ensure_file(&file_path, content, None, &Ownership::default())
         .unwrap();
     assert!(changed);
 
     // Second write (same content)
     let changed_again = resource
-        .ensure_file(&file_path, content, None, None, None)
+        .ensure_file(&file_path, content, None, &Ownership::default())
         .unwrap();
     assert!(!changed_again);
 }
@@ -78,11 +78,11 @@ fn test_ensure_file_updates_content() {
     let resource = LocalFileResource::new();
 
     resource
-        .ensure_file(&file_path, b"initial", None, None, None)
+        .ensure_file(&file_path, b"initial", None, &Ownership::default())
         .unwrap();
 
     let changed = resource
-        .ensure_file(&file_path, b"updated", None, None, None)
+        .ensure_file(&file_path, b"updated", None, &Ownership::default())
         .unwrap();
     assert!(changed);
     assert_eq!(fs::read(&file_path).unwrap(), b"updated");
@@ -97,12 +97,12 @@ fn test_ensure_file_metadata() {
 
     // 1. Create with default meta
     resource
-        .ensure_file(&file_path, content, None, None, None)
+        .ensure_file(&file_path, content, None, &Ownership::default())
         .unwrap();
 
     // 2. Change mode
     let changed = resource
-        .ensure_file(&file_path, content, Some(0o644), None, None)
+        .ensure_file(&file_path, content, Some(0o644), &Ownership::default())
         .unwrap();
     assert!(changed);
     let meta = fs::metadata(&file_path).unwrap();
@@ -110,7 +110,7 @@ fn test_ensure_file_metadata() {
 
     // 3. Idempotent mode change
     let changed_again = resource
-        .ensure_file(&file_path, content, Some(0o644), None, None)
+        .ensure_file(&file_path, content, Some(0o644), &Ownership::default())
         .unwrap();
     assert!(!changed_again);
 
@@ -130,7 +130,7 @@ fn test_ensure_file_replaces_symlink() {
     let resource = LocalFileResource::new();
     let content = b"new content";
     let changed = resource
-        .ensure_file(&link_path, content, None, None, None)
+        .ensure_file(&link_path, content, None, &Ownership::default())
         .unwrap();
 
     assert!(changed);
@@ -146,7 +146,7 @@ fn test_ensure_directory_creates_dir() {
     let resource = LocalFileResource::new();
 
     let changed = resource
-        .ensure_directory(&sub_dir, Some(0o755), None, None)
+        .ensure_directory(&sub_dir, Some(0o755), &Ownership::default())
         .unwrap();
     assert!(changed);
     assert!(sub_dir.exists());
@@ -164,7 +164,7 @@ fn directory_numeric_owner_is_idempotent() {
     let resource = LocalFileResource::new();
 
     assert!(resource
-        .ensure_directory_with_ownership(
+        .ensure_directory(
             &path,
             Some(0o750),
             &Ownership {
@@ -174,7 +174,7 @@ fn directory_numeric_owner_is_idempotent() {
         )
         .unwrap());
     assert!(!resource
-        .ensure_directory_with_ownership(
+        .ensure_directory(
             &path,
             Some(0o750),
             &Ownership {
@@ -192,13 +192,61 @@ fn directory_numeric_owner_is_idempotent() {
 }
 
 #[test]
+fn file_numeric_owner_is_idempotent_and_does_not_need_name_lookup() {
+    use std::os::unix::fs::MetadataExt;
+
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("numeric-owner-file");
+    let parent = fs::metadata(dir.path()).unwrap();
+    let resource = LocalFileResource::new();
+    let ownership = Ownership {
+        uid: Some(OwnerIdentity::Id(parent.uid())),
+        gid: Some(OwnerIdentity::Id(parent.gid())),
+    };
+
+    assert!(resource
+        .ensure_file(&path, b"numeric owner", Some(0o640), &ownership)
+        .unwrap());
+    assert!(!resource
+        .ensure_file(&path, b"numeric owner", Some(0o640), &ownership)
+        .unwrap());
+
+    let metadata = fs::metadata(path).unwrap();
+    assert_eq!(
+        (metadata.uid(), metadata.gid()),
+        (parent.uid(), parent.gid())
+    );
+}
+
+#[test]
+fn numeric_file_owner_comparison_does_not_require_an_nss_entry() {
+    use std::os::unix::fs::MetadataExt;
+
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("unmapped-numeric-owner");
+    fs::write(&path, b"fixture").unwrap();
+    let metadata = fs::metadata(&path).unwrap();
+    let unmatched_uid = metadata.uid().wrapping_add(1);
+
+    assert!(LocalFileResource::check_metadata(
+        &path,
+        None,
+        &Ownership {
+            uid: Some(OwnerIdentity::Id(unmatched_uid)),
+            gid: None,
+        },
+    )
+    .unwrap());
+}
+
+#[test]
 fn test_ensure_directory_fails_if_file() {
     let dir = tempdir().unwrap();
     let file_path = dir.path().join("file.txt");
     fs::write(&file_path, b"not a dir").unwrap();
     let resource = LocalFileResource::new();
 
-    let result = resource.ensure_directory(&file_path, None, None, None);
+    let result = resource.ensure_directory(&file_path, None, &Ownership::default());
     assert!(result.is_err());
     match result {
         Err(FileError::NotADirectory(p)) => assert_eq!(p, file_path.display().to_string()),
@@ -217,7 +265,7 @@ fn test_ensure_directory_follows_symlink() {
 
     let resource = LocalFileResource::new();
     let changed = resource
-        .ensure_directory(&link_path, None, None, None)
+        .ensure_directory(&link_path, None, &Ownership::default())
         .unwrap();
 
     // target_dir already exists, and we follow the symlink link_path to it.

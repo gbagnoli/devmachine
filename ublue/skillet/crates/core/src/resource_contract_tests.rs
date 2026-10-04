@@ -1,5 +1,5 @@
 use crate::{
-    files::{FileMutationResource, FileReadResource, LocalFileResource},
+    files::{FileMutationResource, FileReadResource, LocalFileResource, Ownership},
     test_utils::MockFiles,
 };
 use std::path::Path;
@@ -7,14 +7,14 @@ use std::path::Path;
 fn file_mutation_contract(resource: &(impl FileMutationResource + FileReadResource), path: &Path) {
     assert_eq!(resource.read_file(path).unwrap(), None);
     assert!(resource
-        .ensure_file(path, b"initial", Some(0o640), None, None)
+        .ensure_file(path, b"initial", Some(0o640), &Ownership::default())
         .unwrap());
     assert_eq!(resource.read_file(path).unwrap(), Some(b"initial".to_vec()));
     assert!(!resource
-        .ensure_file(path, b"initial", Some(0o640), None, None)
+        .ensure_file(path, b"initial", Some(0o640), &Ownership::default())
         .unwrap());
     assert!(resource
-        .ensure_file(path, b"updated", Some(0o640), None, None)
+        .ensure_file(path, b"updated", Some(0o640), &Ownership::default())
         .unwrap());
     assert_eq!(resource.read_file(path).unwrap(), Some(b"updated".to_vec()));
     assert!(resource.delete_file(path).unwrap());
@@ -45,13 +45,15 @@ fn local_and_mock_file_resources_reject_file_directory_conflicts() {
     let mock = MockFiles::new();
 
     local
-        .ensure_file(&local_path, b"file", None, None, None)
+        .ensure_file(&local_path, b"file", None, &Ownership::default())
         .unwrap();
-    mock.ensure_file(&mock_path, b"file", None, None, None)
+    mock.ensure_file(&mock_path, b"file", None, &Ownership::default())
         .unwrap();
 
     assert!(local
-        .ensure_directory(&local_path, None, None, None)
+        .ensure_directory(&local_path, None, &Ownership::default())
         .is_err());
-    assert!(mock.ensure_directory(&mock_path, None, None, None).is_err());
+    assert!(mock
+        .ensure_directory(&mock_path, None, &Ownership::default())
+        .is_err());
 }

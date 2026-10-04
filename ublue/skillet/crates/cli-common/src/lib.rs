@@ -209,7 +209,7 @@ where
     let recorder_files = Recorder::with_ops(files, recorder_system.shared_ops());
     let apply_result = apply_fn(&recorder_system, &recorder_files, credentials);
     let diagnostic = DiagnosticRecording {
-        format_version: 1,
+        format_version: 2,
         host: hostname,
         outcome: if apply_result.is_ok() {
             "succeeded"

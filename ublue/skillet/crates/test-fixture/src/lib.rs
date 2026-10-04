@@ -1,7 +1,7 @@
 //! Disposable application used only by the real-runtime acceptance fixture.
 
 use skillet_core::{
-    files::{FileError, FileResource},
+    files::{FileError, FileResource, Ownership},
     system::{SystemError, SystemResource},
 };
 use skillet_podman::{
@@ -39,28 +39,24 @@ pub fn apply(system: &dyn SystemResource, files: &dyn FileResource) -> Result<()
     files.ensure_directory(
         Path::new("/etc/skillet-smoke"),
         Some(0o755),
-        Some("root"),
-        Some("root"),
+        &Ownership::named(Some("root"), Some("root")),
     )?;
     files.ensure_directory(
         Path::new("/var/lib/skillet-smoke/data"),
         Some(0o755),
-        Some("root"),
-        Some("root"),
+        &Ownership::named(Some("root"), Some("root")),
     )?;
     files.ensure_file(
         Path::new(CONFIG_PATH),
         &config,
         Some(0o644),
-        Some("root"),
-        Some("root"),
+        &Ownership::named(Some("root"), Some("root")),
     )?;
     files.ensure_file(
         Path::new("/etc/skillet-smoke/entrypoint.sh"),
         ENTRYPOINT,
         Some(0o644),
-        Some("root"),
-        Some("root"),
+        &Ownership::named(Some("root"), Some("root")),
     )?;
     system.ensure_podman_secret(SECRET_NAME, &secret)?;
 

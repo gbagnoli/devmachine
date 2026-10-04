@@ -1,4 +1,6 @@
-use skillet_core::files::{FileError, FileMutationResource, FileReadResource, StorageResource};
+use skillet_core::files::{
+    FileError, FileMutationResource, FileReadResource, Ownership, StorageResource,
+};
 use skillet_core::system::{
     AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
 };
@@ -42,8 +44,7 @@ where
     files.ensure_directory(
         data_path,
         Some(0o755),
-        Some(&config.data_owner),
-        Some(&config.data_group),
+        &Ownership::named(Some(&config.data_owner), Some(&config.data_group)),
     )?;
 
     let volumes = vec![Volume {

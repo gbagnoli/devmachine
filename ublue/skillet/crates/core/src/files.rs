@@ -61,6 +61,15 @@ pub struct Ownership {
     pub gid: Option<OwnerIdentity>,
 }
 
+impl Ownership {
+    pub fn named(uid: Option<&str>, gid: Option<&str>) -> Self {
+        Self {
+            uid: uid.map(|name| OwnerIdentity::Name(name.to_string())),
+            gid: gid.map(|name| OwnerIdentity::Name(name.to_string())),
+        }
+    }
+}
+
 pub trait FileReadResource {
     fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError>;
 }
@@ -71,31 +80,14 @@ pub trait FileMutationResource {
         path: &Path,
         content: &[u8],
         mode: Option<u32>,
-        owner: Option<&str>,
-        group: Option<&str>,
-    ) -> Result<bool, FileError>;
-    fn ensure_directory_with_ownership(
-        &self,
-        path: &Path,
-        mode: Option<u32>,
         ownership: &Ownership,
     ) -> Result<bool, FileError>;
     fn ensure_directory(
         &self,
         path: &Path,
         mode: Option<u32>,
-        owner: Option<&str>,
-        group: Option<&str>,
-    ) -> Result<bool, FileError> {
-        self.ensure_directory_with_ownership(
-            path,
-            mode,
-            &Ownership {
-                uid: owner.map(|name| OwnerIdentity::Name(name.to_string())),
-                gid: group.map(|name| OwnerIdentity::Name(name.to_string())),
-            },
-        )
-    }
+        ownership: &Ownership,
+    ) -> Result<bool, FileError>;
     fn delete_file(&self, path: &Path) -> Result<bool, FileError>;
 }
 
@@ -126,8 +118,7 @@ impl LocalFileResource {
     fn check_metadata(
         path: &Path,
         mode: Option<u32>,
-        owner: Option<&str>,
-        group: Option<&str>,
+        ownership: &Ownership,
     ) -> Result<bool, FileError> {
         let metadata =
             fs::metadata(path).map_err(|e| FileError::Read(path.display().to_string(), e))?;
@@ -139,20 +130,12 @@ impl LocalFileResource {
             }
         }
 
-        if let Some(desired_user) = owner {
-            let user = get_user_by_name(desired_user)
-                .ok_or_else(|| FileError::UserNotFound(desired_user.to_string()))?;
-            if metadata.uid() != user.uid() {
-                changed = true;
-            }
-        }
-
-        if let Some(desired_group) = group {
-            let grp = get_group_by_name(desired_group)
-                .ok_or_else(|| FileError::GroupNotFound(desired_group.to_string()))?;
-            if metadata.gid() != grp.gid() {
-                changed = true;
-            }
+        let uid = ownership.uid.as_ref().map(Self::identity_uid).transpose()?;
+        let gid = ownership.gid.as_ref().map(Self::identity_gid).transpose()?;
+        if uid.is_some_and(|desired| metadata.uid() != desired)
+            || gid.is_some_and(|desired| metadata.gid() != desired)
+        {
+            changed = true;
         }
 
         Ok(changed)
@@ -161,8 +144,7 @@ impl LocalFileResource {
     fn apply_metadata_to_file(
         file: &File,
         mode: Option<u32>,
-        owner: Option<&str>,
-        group: Option<&str>,
+        ownership: &Ownership,
     ) -> Result<(), FileError> {
         use std::os::unix::io::AsRawFd;
 
@@ -172,18 +154,19 @@ impl LocalFileResource {
             file.set_permissions(perms).map_err(FileError::Io)?;
         }
 
-        if owner.is_some() || group.is_some() {
-            let uid = owner
-                .map(|u| get_user_by_name(u).ok_or_else(|| FileError::UserNotFound(u.to_string())))
+        if ownership.uid.is_some() || ownership.gid.is_some() {
+            let uid = ownership
+                .uid
+                .as_ref()
+                .map(Self::identity_uid)
                 .transpose()?
-                .map(|u| Uid::from_raw(u.uid()));
-
-            let gid = group
-                .map(|g| {
-                    get_group_by_name(g).ok_or_else(|| FileError::GroupNotFound(g.to_string()))
-                })
+                .map(Uid::from_raw);
+            let gid = ownership
+                .gid
+                .as_ref()
+                .map(Self::identity_gid)
                 .transpose()?
-                .map(|g| Gid::from_raw(g.gid()));
+                .map(Gid::from_raw);
 
             fchown(file.as_raw_fd(), uid, gid)
                 .map_err(|e| FileError::SetOwnership("temp file".to_string(), e.to_string()))?;
@@ -195,8 +178,7 @@ impl LocalFileResource {
     fn apply_metadata(
         path: &Path,
         mode: Option<u32>,
-        owner: Option<&str>,
-        group: Option<&str>,
+        ownership: &Ownership,
     ) -> Result<(), FileError> {
         if let Some(desired_mode) = mode {
             let mut perms = fs::metadata(path)
@@ -207,18 +189,19 @@ impl LocalFileResource {
                 .map_err(|e| FileError::SetPermissions(path.display().to_string(), e))?;
         }
 
-        if owner.is_some() || group.is_some() {
-            let uid = owner
-                .map(|u| get_user_by_name(u).ok_or_else(|| FileError::UserNotFound(u.to_string())))
+        if ownership.uid.is_some() || ownership.gid.is_some() {
+            let uid = ownership
+                .uid
+                .as_ref()
+                .map(Self::identity_uid)
                 .transpose()?
-                .map(|u| Uid::from_raw(u.uid()));
-
-            let gid = group
-                .map(|g| {
-                    get_group_by_name(g).ok_or_else(|| FileError::GroupNotFound(g.to_string()))
-                })
+                .map(Uid::from_raw);
+            let gid = ownership
+                .gid
+                .as_ref()
+                .map(Self::identity_gid)
                 .transpose()?
-                .map(|g| Gid::from_raw(g.gid()));
+                .map(Gid::from_raw);
 
             chown(path, uid, gid)
                 .map_err(|e| FileError::SetOwnership(path.display().to_string(), e.to_string()))?;
@@ -383,8 +366,7 @@ impl FileMutationResource for LocalFileResource {
         path: &Path,
         content: &[u8],
         mode: Option<u32>,
-        owner: Option<&str>,
-        group: Option<&str>,
+        ownership: &Ownership,
     ) -> Result<bool, FileError> {
         // 1. Check parent directory
         let parent = path
@@ -427,7 +409,7 @@ impl FileMutationResource for LocalFileResource {
             let mut temp_file = NamedTempFile::new_in(parent)?;
             temp_file.write_all(content)?;
             // Apply metadata to temp file before persist
-            Self::apply_metadata_to_file(temp_file.as_file(), mode, owner, group)?;
+            Self::apply_metadata_to_file(temp_file.as_file(), mode, ownership)?;
             temp_file
                 .persist(path)
                 .map_err(|e| FileError::Persist(path.display().to_string(), e.error))?;
@@ -435,8 +417,8 @@ impl FileMutationResource for LocalFileResource {
             info!("Updated file content for {}", path.display());
         } else {
             // Even if content didn't change, we might need to update metadata
-            if path.exists() && Self::check_metadata(path, mode, owner, group)? {
-                Self::apply_metadata(path, mode, owner, group)?;
+            if path.exists() && Self::check_metadata(path, mode, ownership)? {
+                Self::apply_metadata(path, mode, ownership)?;
                 changed = true;
                 info!("Updated file metadata for {}", path.display());
             }
@@ -445,7 +427,7 @@ impl FileMutationResource for LocalFileResource {
         Ok(changed)
     }
 
-    fn ensure_directory_with_ownership(
+    fn ensure_directory(
         &self,
         path: &Path,
         mode: Option<u32>,

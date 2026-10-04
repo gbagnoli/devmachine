@@ -1,5 +1,7 @@
 use askama::Template;
-use skillet_core::files::{FileError, FileMutationResource, FileReadResource, StorageResource};
+use skillet_core::files::{
+    FileError, FileMutationResource, FileReadResource, Ownership, StorageResource,
+};
 use skillet_core::system::{
     AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
 };
@@ -63,10 +65,18 @@ where
     system.ensure_user(&user_config.name, user_config.uid, user_config.gid)?;
 
     // 2. Ensure directories
-    files.ensure_directory(Path::new(root), Some(0o755), Some("root"), Some("root"))?;
-    files.ensure_directory(Path::new(etc), Some(0o755), None, None)?;
-    files.ensure_directory(&Path::new(root).join("dnsmasq.d"), Some(0o755), None, None)?;
-    files.ensure_directory(Path::new(logs), Some(0o755), None, None)?;
+    files.ensure_directory(
+        Path::new(root),
+        Some(0o755),
+        &Ownership::named(Some("root"), Some("root")),
+    )?;
+    files.ensure_directory(Path::new(etc), Some(0o755), &Ownership::default())?;
+    files.ensure_directory(
+        &Path::new(root).join("dnsmasq.d"),
+        Some(0o755),
+        &Ownership::default(),
+    )?;
+    files.ensure_directory(Path::new(logs), Some(0o755), &Ownership::default())?;
 
     // 3. Custom list template (records supplied by the host)
     let template = CustomListTemplate {
@@ -81,8 +91,7 @@ where
         &Path::new(etc).join("custom.list"),
         custom_list.as_bytes(),
         Some(0o640),
-        None,
-        None,
+        &Ownership::default(),
     )?;
 
     // 4. Define container

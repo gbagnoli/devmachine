@@ -94,30 +94,26 @@ impl<T: FileMutationResource> FileMutationResource for Recorder<T> {
         path: &Path,
         content: &[u8],
         mode: Option<u32>,
-        owner: Option<&str>,
-        group: Option<&str>,
+        ownership: &Ownership,
     ) -> Result<bool, FileError> {
-        let result = self.inner.ensure_file(path, content, mode, owner, group);
+        let result = self.inner.ensure_file(path, content, mode, ownership);
         self.record(
             ResourceOp::EnsureFile {
                 path: path.display().to_string(),
                 mode: mode.map(|m| format!("0o{m:o}")),
-                owner: owner.map(ToString::to_string),
-                group: group.map(ToString::to_string),
+                ownership: ownership.clone(),
             },
             changed(&result),
         );
         result
     }
-    fn ensure_directory_with_ownership(
+    fn ensure_directory(
         &self,
         path: &Path,
         mode: Option<u32>,
         ownership: &Ownership,
     ) -> Result<bool, FileError> {
-        let result = self
-            .inner
-            .ensure_directory_with_ownership(path, mode, ownership);
+        let result = self.inner.ensure_directory(path, mode, ownership);
         self.record(
             ResourceOp::EnsureDirectory {
                 path: path.display().to_string(),

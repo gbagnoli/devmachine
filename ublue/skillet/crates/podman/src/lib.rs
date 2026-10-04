@@ -250,13 +250,16 @@ pub fn ensure_dns_listener_port<F: FileMutationResource + ?Sized>(
     port: u16,
 ) -> Result<bool, PodmanError> {
     let config_dir = Path::new("/etc/containers/containers.conf.d");
-    files.ensure_directory(config_dir, Some(0o755), Some("root"), Some("root"))?;
+    files.ensure_directory(
+        config_dir,
+        Some(0o755),
+        &Ownership::named(Some("root"), Some("root")),
+    )?;
     Ok(files.ensure_file(
         &config_dir.join("90-skillet-aardvark.conf"),
         format!("[network]\ndns_bind_port={port}\n").as_bytes(),
         Some(0o644),
-        Some("root"),
-        Some("root"),
+        &Ownership::named(Some("root"), Some("root")),
     )?)
 }
 
@@ -278,24 +281,30 @@ where
         }
     }
     let quadlet_dir = Path::new("/etc/containers/systemd");
-    files.ensure_directory(quadlet_dir, Some(0o755), Some("root"), Some("root"))?;
+    files.ensure_directory(
+        quadlet_dir,
+        Some(0o755),
+        &Ownership::named(Some("root"), Some("root")),
+    )?;
     if files.ensure_file(
         &quadlet_dir.join(format!("{}.network", network.unit_name)),
         content.as_bytes(),
         Some(0o644),
-        Some("root"),
-        Some("root"),
+        &Ownership::named(Some("root"), Some("root")),
     )? {
         system.daemon_reload()?;
     }
     let state_dir = Path::new("/var/lib/skillet/networks");
-    files.ensure_directory(state_dir, Some(0o755), Some("root"), Some("root"))?;
+    files.ensure_directory(
+        state_dir,
+        Some(0o755),
+        &Ownership::named(Some("root"), Some("root")),
+    )?;
     files.ensure_file(
         &marker_path,
         content.as_bytes(),
         Some(0o644),
-        Some("root"),
-        Some("root"),
+        &Ownership::named(Some("root"), Some("root")),
     )?;
     Ok(())
 }
@@ -359,11 +368,7 @@ where
         // Ownership is part of this typed volume declaration and affects only
         // the root directory. `None` preserves application-managed metadata.
         let ownership = vol.host_ownership.unwrap_or_default();
-        files.ensure_directory_with_ownership(
-            Path::new(&vol.host_path),
-            vol.host_mode,
-            &ownership,
-        )?;
+        files.ensure_directory(Path::new(&vol.host_path), vol.host_mode, &ownership)?;
 
         let mut vol_line = format!("Volume={}:{}", vol.host_path, vol.container_path);
         if let Some(opt) = vol.options {
@@ -791,19 +796,26 @@ where
     }
     let revision = hex::encode(hasher.finalize());
     let state_dir = Path::new("/var/lib/skillet/containers");
-    files.ensure_directory(state_dir, Some(0o755), Some("root"), Some("root"))?;
+    files.ensure_directory(
+        state_dir,
+        Some(0o755),
+        &Ownership::named(Some("root"), Some("root")),
+    )?;
     let applied_path = state_dir.join(format!("{name}.applied"));
 
     let quadlet_dir = Path::new("/etc/containers/systemd");
-    files.ensure_directory(quadlet_dir, Some(0o755), Some("root"), Some("root"))?;
+    files.ensure_directory(
+        quadlet_dir,
+        Some(0o755),
+        &Ownership::named(Some("root"), Some("root")),
+    )?;
 
     let quadlet_path = quadlet_dir.join(format!("{name}.container"));
     let changed = files.ensure_file(
         &quadlet_path,
         content.as_bytes(),
         Some(0o644),
-        Some("root"),
-        Some("root"),
+        &Ownership::named(Some("root"), Some("root")),
     )?;
 
     let outcome = activation::activate(

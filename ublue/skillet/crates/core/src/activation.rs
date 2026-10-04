@@ -77,8 +77,7 @@ where
             &request.state_path,
             &request.revision,
             Some(0o644),
-            Some("root"),
-            Some("root"),
+            &crate::files::Ownership::named(Some("root"), Some("root")),
         )?;
     }
 
