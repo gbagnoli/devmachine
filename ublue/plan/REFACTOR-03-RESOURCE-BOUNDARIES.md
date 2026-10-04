@@ -73,6 +73,13 @@ ownership use separate APIs; mocks do not enforce important metadata contracts.
   numeric UID/GID. Numeric IDs do not require matching account names. The
   fake preserves mode and ownership across existence-only checks; the UniFi
   repeat-apply case verifies child data survives.
+- Pending local slice: the 2026-10-04 static audit found that `ensure_file`
+  still accepts separate name-only owner/group strings while directory
+  ownership accepts the shared named-or-numeric `Ownership` value. The
+  ownership-interface exit criterion is therefore not met. A proposed
+  cross-crate API migration was rejected by automatic review as a broad core
+  filesystem change; do not claim this item complete until an authorized,
+  reviewable migration is implemented and validated across every caller.
 - Implemented: the guest CLI loads phase-required systemd credentials and
   passes `CredentialInputs` to host composition. Recipes no longer inspect
   `CREDENTIALS_DIRECTORY`; required names derive from profile consumers.

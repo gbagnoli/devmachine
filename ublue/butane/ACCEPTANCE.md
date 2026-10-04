@@ -1214,6 +1214,20 @@ host tool; it still uses normal command approvals.
   removed. Podman needed SIGKILL after its 10-second stop timeout.
 - No VM or live Tailscale API was contacted. `/dev/kvm` is unavailable.
 
+### Workstream 3 ownership API audit, 2026-10-04
+
+- Static search found no `/etc/subuid` or `/etc/subgid` reads outside the
+  Podman adapter and no recipe reads of `CREDENTIALS_DIRECTORY`; account/NSS
+  lookups remain in the system adapter. File, systemd, and Btrfs observations
+  remain inside their declared core adapters.
+- The ownership contract still has a concrete gap: file mutation accepts
+  separate name-only owner/group arguments while directory mutation accepts
+  the shared named-or-numeric `Ownership` type. A proposed broad core API
+  migration was rejected by automatic review because it affects filesystem
+  behavior across recipes. No source changes were made for that rejected
+  migration. `/dev/kvm` is absent, so privileged ownership and mount checks
+  remain unavailable.
+
 ### Workstation-owned non-UI credential delivery, 2026-10-04
 
 - Moved production Pi-hole password reuse/use-or-create and Tailscale auth-key

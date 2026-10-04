@@ -38,8 +38,10 @@ Workstream 3 is in progress. Account observations and subordinate-ID files
 enter composition through injected resource interfaces; missing or invalid
 subordinate ranges fail closed. Directory ownership uses one typed named or
 numeric identity contract, and entry points pass required systemd credentials
-to host composition. Remaining broad file/system traits and fake contracts
-are still scheduled for this workstream.
+to host composition. File ownership is not fully unified yet: file mutations
+still accept separate name-only owner/group strings, while directory
+mutations accept the typed named-or-numeric ownership value. Host composition
+also retains aggregate effect interfaces during migration.
 
 Keep application crates as reusable recipes. Separate canonical host profiles
 and composition from guest runtime adapters, CLI parsing, workstation
