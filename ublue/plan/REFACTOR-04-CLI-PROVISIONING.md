@@ -143,8 +143,14 @@ and VM delivery have duplicate implementations with different validation.
   duplicate-free credential set before remote effects and applies one shared
   consumer/activation policy. Production and disposable Caddy provisioning use
   it to install both the sites payload and ACME token before activation.
-- Pending: environment/host credential-delivery orchestration, durable versus
-  disposable provider sequencing, and production plus named-VM acceptance
-  remain in CLI modules. Provider and VM lifecycle orchestration still has
-  mixed CLI/workstation ownership. Finish the remaining sequence items before
-  closing this workstream.
+- Implemented: disposable Tailscale enrollment sequencing now lives in
+  `skillet_workstation::tailscale_enrollment`. The typed operation receives
+  host, environment policy, VM instance/hostname, state directory, provider,
+  and verified guest transport separately. It persists intent before effects,
+  reuses an already-joined VM, installs a one-use key only after a successful
+  empty status observation, verifies the tagged device, and records/removes
+  recovery state. Cleanup and Cloudflare issuance/reconciliation remain in CLI.
+- Pending: Cloudflare token/DNS issuance and disposable cleanup sequencing,
+  production plus named-VM acceptance, and the remaining environment/host
+  delivery orchestration still span CLI and workstation modules. Complete the
+  remaining sequence items before closing this workstream.
