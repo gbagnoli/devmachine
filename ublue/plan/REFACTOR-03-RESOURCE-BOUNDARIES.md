@@ -94,6 +94,8 @@ ownership use separate APIs; mocks do not enforce important metadata contracts.
   `LinuxSystemResource` and `MockSystem`, checking name, numeric UID, and group
   results against the current test account. This read-only adapter check avoids
   mutating workstation users or services.
-- Pending: service and Podman-secret adapter contract coverage and live
-  ownership/mount acceptance remain outstanding. This workstream is not
-  complete.
+- Implemented: service state and Podman-secret idempotency/rotation contracts
+  run against both `MockSystem` and its `Recorder` decorator. Unit tests do not
+  mutate the workstation's real services or secrets.
+- Pending: live ownership/mount acceptance remains outstanding. This
+  workstream is not complete until the named VM checks pass.
