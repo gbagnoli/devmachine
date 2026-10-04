@@ -149,7 +149,12 @@ and VM delivery have duplicate implementations with different validation.
   and verified guest transport separately. It persists intent before effects,
   reuses an already-joined VM, installs a one-use key only after a successful
   empty status observation, verifies the tagged device, and records/removes
-  recovery state. Tailscale cleanup remains in CLI.
+  recovery state.
+- Implemented: disposable Tailscale cleanup now lives beside enrollment in
+  `skillet_workstation::tailscale_enrollment`. It validates the test policy and
+  typed identity, verifies both current and legacy recovery records, removes
+  only the expected tagged device, and clears local journals afterward. A
+  provider failure leaves recovery state available for retry.
 - Implemented: disposable Cloudflare UI issuance and DNS reconciliation now
   live in `skillet_workstation::ui_provisioning`. The operation writes its
   owner journal before token creation, verifies the vault snapshot immediately

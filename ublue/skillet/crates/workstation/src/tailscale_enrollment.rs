@@ -32,6 +32,17 @@ pub trait EnrollmentProvider {
     ) -> tailscale::Result<DeviceRecord>;
 }
 
+/// Device removal is kept separate from enrollment so callers and tests only
+/// provide the provider capability used by a particular lifecycle action.
+pub trait DeviceCleanupProvider {
+    fn remove_device(
+        &self,
+        hostname: &str,
+        expected_tag: &str,
+        expected: Option<&DeviceRecord>,
+    ) -> tailscale::Result<Option<DeviceRecord>>;
+}
+
 impl EnrollmentProvider for OAuthCredentials {
     fn create_auth_key(&self, tag: &str, description: &str) -> tailscale::Result<AuthKey> {
         tailscale::create_auth_key(self, tag, description)
@@ -44,6 +55,17 @@ impl EnrollmentProvider for OAuthCredentials {
         addresses: &BTreeSet<String>,
     ) -> tailscale::Result<DeviceRecord> {
         tailscale::find_device(self, expected_hostname, expected_tag, addresses)
+    }
+}
+
+impl DeviceCleanupProvider for OAuthCredentials {
+    fn remove_device(
+        &self,
+        hostname: &str,
+        expected_tag: &str,
+        expected: Option<&DeviceRecord>,
+    ) -> tailscale::Result<Option<DeviceRecord>> {
+        tailscale::remove_device_for_hostname(self, hostname, expected_tag, expected)
     }
 }
 
@@ -115,6 +137,64 @@ pub fn enroll_disposable_vm(
     provisioning_state::save_tailscale_record(request.run_directory, &identity, &record)?;
     provisioning_state::remove_tailscale_pending(request.run_directory)?;
     Ok(record)
+}
+
+pub struct DisposableCleanup<'a> {
+    pub host: &'a str,
+    pub instance: &'a str,
+    pub vm_hostname: &'a str,
+    pub run_directory: &'a Path,
+    pub policy: ProvisioningPolicy,
+}
+
+/// Remove the provider device verified by its ownership journal, then remove
+/// local recovery records. If local cleanup fails after provider removal, a
+/// retry safely observes the absent provider device and finishes journal cleanup.
+pub fn cleanup_disposable_vm(
+    request: &DisposableCleanup<'_>,
+    provider: &impl DeviceCleanupProvider,
+) -> Result<bool, EnrollmentError> {
+    if request.policy.environment() != Environment::Test {
+        return Err(EnrollmentError::Invalid(
+            "disposable Tailscale cleanup requires the test environment policy".into(),
+        ));
+    }
+    let profile = skillet_hosts::profile_for_name(request.host).ok_or_else(|| {
+        EnrollmentError::Invalid(format!("unknown host profile {}", request.host))
+    })?;
+    if !profile.supports_service("tailscale") {
+        return Err(EnrollmentError::Invalid(format!(
+            "host {} does not declare Tailscale",
+            request.host
+        )));
+    }
+    let identity = ProvisioningIdentity::new(request.host, request.policy.name(), request.instance);
+    let record_exists = provisioning_state::tailscale_record_exists(request.run_directory)?;
+    let pending_exists = provisioning_state::validate_tailscale_pending(
+        request.run_directory,
+        &identity,
+        request.vm_hostname,
+    )?;
+    if !record_exists && !pending_exists {
+        return Ok(false);
+    }
+    let expected = if record_exists {
+        Some(provisioning_state::load_tailscale_record(
+            &request.run_directory.join("tailscale.json"),
+            &identity,
+            request.vm_hostname,
+        )?)
+    } else {
+        None
+    };
+    provider.remove_device(
+        request.vm_hostname,
+        request.policy.tailscale_tag(DeviceClass::DisposableVm),
+        expected.as_ref(),
+    )?;
+    provisioning_state::remove_tailscale_record(request.run_directory)?;
+    provisioning_state::remove_tailscale_pending(request.run_directory)?;
+    Ok(true)
 }
 
 fn guest_addresses(guest: &impl GuestTransport) -> Result<BTreeSet<String>, EnrollmentError> {
