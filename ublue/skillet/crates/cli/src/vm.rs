@@ -366,8 +366,8 @@ pub(super) fn destroy(args: &VmDestroyArgs) -> Result<()> {
     let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
     let run = store.load(&identity)?;
     let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
-    skillet_vm::lifecycle::destroy(&store, &identity, &backend, |_| {
-        secret_delivery::remove_vm_external_resources(args)
+    skillet_vm::lifecycle::destroy(&store, &identity, &backend, |run| {
+        secret_delivery::remove_vm_external_resources(args, run)
             .map_err(|error| skillet_vm::Error::ExternalCleanup(error.to_string()))
     })?;
     println!("Disposed {}", identity.domain_name());

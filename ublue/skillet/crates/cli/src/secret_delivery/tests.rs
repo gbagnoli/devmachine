@@ -1,14 +1,4 @@
-use super::{read_vm_port, validate_delivery_service, validate_tailscale_unit_config};
-
-#[test]
-fn vm_port_requires_manifest_range() {
-    let dir = tempfile::tempdir().unwrap();
-    let file = dir.path().join("run.conf");
-    std::fs::write(&file, "ssh_port=2201\n").unwrap();
-    assert_eq!(read_vm_port(&file).unwrap(), 2201);
-    std::fs::write(&file, "ssh_port=22\n").unwrap();
-    assert!(read_vm_port(&file).is_err());
-}
+use super::{validate_delivery_service, validate_tailscale_unit_config};
 
 #[test]
 fn rejects_vm_without_tailscale_systemd_credential() {
