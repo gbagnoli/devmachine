@@ -1214,6 +1214,26 @@ host tool; it still uses normal command approvals.
   removed. Podman needed SIGKILL after its 10-second stop timeout.
 - No VM or live Tailscale API was contacted. `/dev/kvm` is unavailable.
 
+### Workstation-owned persistent private UI provisioning, 2026-10-04
+
+- Moved persistent Caddy provisioning into one workstation operation. It checks
+  the host profile, resolves the tagged Tailscale device, builds the shared UI
+  plan, reuses or mints a zone-scoped ACME token, migrates the prior production
+  KeePass entry when present, reconciles owned DNS, installs both Caddy
+  credentials before activation, and uses the existing verified guest
+  transport. Failed encrypted vault persistence revokes the newly issued
+  token. The CLI now supplies inputs and dispatches the operation.
+- Fake store/provider/guest tests cover token reuse, issuance-before-DNS,
+  legacy migration, vault conflict refusal, failed-save revocation, and
+  deferred activation after the full credential set. Full workspace tests,
+  strict all-target Clippy, and formatting passed (56 workstation tests).
+- The beezelbot Fedora base integration exited 0: both applies succeeded; the
+  repeat issued no service start/restart and the container was removed. Podman
+  needed SIGKILL after its 10-second stop timeout during cleanup.
+- No vault or live provider credentials were used here. Caddy certificate
+  acceptance and Tailscale device lookup on a named production host remain
+  unverified; `/dev/kvm` is unavailable.
+
 ### Workstation-owned disposable Cloudflare UI transaction, 2026-10-04
 
 - Moved disposable UI token issuance and DNS reconciliation into

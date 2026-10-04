@@ -6,10 +6,101 @@ use crate::{
     },
     provisioning_state::CloudflareVmOwnership,
 };
+use std::os::unix::process::ExitStatusExt;
 use std::{
-    collections::BTreeSet,
+    cell::{Cell, RefCell},
+    collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
+    process::{ExitStatus, Output},
+    sync::Mutex,
 };
+
+#[derive(Default)]
+struct FakeTokenStore {
+    entries: RefCell<BTreeMap<String, String>>,
+    saves: Cell<usize>,
+    unchanged_checks: Cell<usize>,
+    changed: Cell<bool>,
+    fail_save: Cell<bool>,
+}
+
+impl UiTokenStore for FakeTokenStore {
+    fn get(&self, path: &str) -> Result<Option<String>, VaultError> {
+        Ok(self.entries.borrow().get(path).cloned())
+    }
+
+    fn ensure_unchanged(&self) -> Result<(), VaultError> {
+        self.unchanged_checks.set(self.unchanged_checks.get() + 1);
+        if self.changed.get() {
+            Err(VaultError::Invalid("fixture vault conflict".into()))
+        } else {
+            Ok(())
+        }
+    }
+
+    fn save_verified(&mut self, path: &str, token: &str) -> Result<(), VaultError> {
+        self.saves.set(self.saves.get() + 1);
+        if self.fail_save.get() {
+            return Err(VaultError::Invalid("fixture save failure".into()));
+        }
+        self.entries
+            .borrow_mut()
+            .insert(path.to_string(), token.to_string());
+        Ok(())
+    }
+}
+
+struct FakeTailnet;
+
+impl UiTailscaleProvider for FakeTailnet {
+    fn find_device_by_hostname(
+        &self,
+        hostname: &str,
+        _tag: &str,
+    ) -> Result<crate::tailscale::DeviceRecord, crate::tailscale::TailscaleError> {
+        Ok(crate::tailscale::DeviceRecord {
+            id: "device-id".into(),
+            hostname: hostname.to_string(),
+            addresses: addresses(),
+        })
+    }
+}
+
+#[derive(Default)]
+struct FakeGuest {
+    calls: Mutex<Vec<CapturedGuestCall>>,
+}
+
+type CapturedGuestCall = (Vec<String>, Option<Vec<u8>>);
+
+impl GuestTransport for FakeGuest {
+    fn execute(
+        &self,
+        command: &skillet_vm::transport::GuestCommand<'_>,
+        input: Option<&[u8]>,
+    ) -> skillet_vm::Result<Output> {
+        self.calls.lock().unwrap().push((
+            std::iter::once(command.program.to_string())
+                .chain(
+                    command
+                        .arguments
+                        .iter()
+                        .map(std::string::ToString::to_string),
+                )
+                .collect(),
+            input.map(<[u8]>::to_vec),
+        ));
+        Ok(Output {
+            status: ExitStatus::from_raw(0),
+            stdout: Vec::new(),
+            stderr: Vec::new(),
+        })
+    }
+
+    fn upload(&self, _source: &Path, _destination: &str) -> skillet_vm::Result<()> {
+        Ok(())
+    }
+}
 
 fn addresses() -> BTreeSet<String> {
     BTreeSet::from(["100.64.0.10".to_string(), "fd7a:115c:a1e0::10".to_string()])
@@ -21,6 +112,7 @@ struct FakeCloudflare {
     issued: std::cell::Cell<usize>,
     removed: std::cell::Cell<usize>,
     revoked: std::cell::RefCell<Vec<String>>,
+    reconciled: std::cell::Cell<usize>,
 }
 
 impl UiCloudflareProvider for FakeCloudflare {
@@ -60,6 +152,22 @@ impl UiCloudflareProvider for FakeCloudflare {
         })
     }
 
+    fn replace_named_zone_token(
+        &self,
+        _creator_token: &str,
+        _zone_id: &str,
+        _account_id: &str,
+        _name: &str,
+        _lifetime: Option<std::time::Duration>,
+    ) -> Result<IssuedToken, CloudflareError> {
+        self.issued.set(self.issued.get() + 1);
+        Ok(IssuedToken {
+            id: "33333333333333333333333333333333".to_string(),
+            value: "persistent dummy token".to_string(),
+            expires_on: None,
+        })
+    }
+
     fn reconcile_dns(
         &self,
         _token: &str,
@@ -68,9 +176,16 @@ impl UiCloudflareProvider for FakeCloudflare {
         _ui_domain: &str,
         desired: &[DesiredRecord],
     ) -> Result<OwnedDns, CloudflareError> {
-        let ownership = read_ownership(&self.run_directory);
-        assert!(ownership.token_id.is_some());
-        assert_eq!(ownership.marker, marker);
+        if provisioning_state::cloudflare_ownership_exists(
+            &self.run_directory.join("cloudflare.json"),
+        )
+        .unwrap()
+        {
+            let ownership = read_ownership(&self.run_directory);
+            assert!(ownership.token_id.is_some());
+            assert_eq!(ownership.marker, marker);
+        }
+        self.reconciled.set(self.reconciled.get() + 1);
         if self.fail_dns {
             return Err(CloudflareError::Invalid("fixture DNS failure".into()));
         }
@@ -131,6 +246,7 @@ fn fake_cloudflare(run_directory: &Path, fail_dns: bool) -> FakeCloudflare {
         issued: std::cell::Cell::new(0),
         removed: std::cell::Cell::new(0),
         revoked: std::cell::RefCell::new(Vec::new()),
+        reconciled: std::cell::Cell::new(0),
     }
 }
 
@@ -162,6 +278,16 @@ fn cleanup_request(run_directory: &Path) -> DisposableUiCleanupRequest<'_> {
         ownership_path: run_directory.join("cloudflare.json"),
         configured_zone_id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         relative_ui_domain: Some("smoke.ui"),
+        creator_token: "dummy creator token",
+    }
+}
+
+fn persistent_request() -> PersistentUiDelivery<'static> {
+    PersistentUiDelivery {
+        host: "clamps",
+        policy: ProvisioningPolicy::new(Environment::Production),
+        zone_id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        relative_ui_domain: Some("ui"),
         creator_token: "dummy creator token",
     }
 }
@@ -411,4 +537,144 @@ fn disposable_cloudflare_cleanup_failure_retains_journal_for_retry() {
         ["id-for:skillet:test:clamps-smoke:cleanup"]
     );
     assert!(run.path().join("cloudflare.json").exists());
+}
+
+#[test]
+fn persistent_ui_reuses_token_and_defers_caddy_until_credential_set_is_installed() {
+    let run = tempfile::tempdir().unwrap();
+    let cloudflare = fake_cloudflare(run.path(), false);
+    let mut store = FakeTokenStore::default();
+    store.entries.borrow_mut().insert(
+        "skillet/environments/production/hosts/clamps/cloudflare/acme-token".into(),
+        "existing ACME token".into(),
+    );
+    let guest = FakeGuest::default();
+
+    let sites = deliver_persistent_ui(
+        &persistent_request(),
+        &mut store,
+        &cloudflare,
+        &FakeTailnet,
+        &guest,
+    )
+    .unwrap();
+
+    assert_eq!(sites.host, "clamps");
+    assert_eq!(cloudflare.issued.get(), 0);
+    assert_eq!(cloudflare.reconciled.get(), 1);
+    let calls = guest.calls.lock().unwrap();
+    assert_eq!(calls.len(), 3);
+    assert!(calls[0]
+        .1
+        .as_ref()
+        .is_some_and(|bytes| { serde_json::from_slice::<CaddySites>(bytes).is_ok() }));
+    assert_eq!(
+        calls[1].1.as_deref(),
+        Some(b"existing ACME token".as_slice())
+    );
+    assert_eq!(
+        calls[2].0.last().map(String::as_str),
+        Some("skillet-caddy-apply.service")
+    );
+}
+
+#[test]
+fn persistent_ui_mints_and_persists_token_before_dns_reconciliation() {
+    let run = tempfile::tempdir().unwrap();
+    let cloudflare = fake_cloudflare(run.path(), false);
+    let mut store = FakeTokenStore::default();
+
+    deliver_persistent_ui(
+        &persistent_request(),
+        &mut store,
+        &cloudflare,
+        &FakeTailnet,
+        &FakeGuest::default(),
+    )
+    .unwrap();
+
+    assert_eq!(cloudflare.issued.get(), 1);
+    assert_eq!(store.saves.get(), 1);
+    assert_eq!(cloudflare.reconciled.get(), 1);
+    assert_eq!(
+        store
+            .entries
+            .borrow()
+            .get("skillet/environments/production/hosts/clamps/cloudflare/acme-token")
+            .map(String::as_str),
+        Some("persistent dummy token")
+    );
+}
+
+#[test]
+fn persistent_ui_migrates_legacy_production_token_without_reissuing_it() {
+    let run = tempfile::tempdir().unwrap();
+    let cloudflare = fake_cloudflare(run.path(), false);
+    let mut store = FakeTokenStore::default();
+    store.entries.borrow_mut().insert(
+        "skillet/hosts/clamps/cloudflare/acme-token".into(),
+        "legacy ACME token".into(),
+    );
+
+    deliver_persistent_ui(
+        &persistent_request(),
+        &mut store,
+        &cloudflare,
+        &FakeTailnet,
+        &FakeGuest::default(),
+    )
+    .unwrap();
+
+    assert_eq!(cloudflare.issued.get(), 0);
+    assert_eq!(store.saves.get(), 1);
+    assert_eq!(
+        store
+            .entries
+            .borrow()
+            .get("skillet/environments/production/hosts/clamps/cloudflare/acme-token")
+            .map(String::as_str),
+        Some("legacy ACME token")
+    );
+}
+
+#[test]
+fn persistent_ui_vault_conflict_prevents_token_issuance() {
+    let run = tempfile::tempdir().unwrap();
+    let cloudflare = fake_cloudflare(run.path(), false);
+    let mut store = FakeTokenStore::default();
+    store.changed.set(true);
+
+    assert!(deliver_persistent_ui(
+        &persistent_request(),
+        &mut store,
+        &cloudflare,
+        &FakeTailnet,
+        &FakeGuest::default(),
+    )
+    .is_err());
+    assert_eq!(cloudflare.issued.get(), 0);
+    assert_eq!(cloudflare.reconciled.get(), 0);
+}
+
+#[test]
+fn persistent_ui_failed_vault_save_revokes_just_issued_token() {
+    let run = tempfile::tempdir().unwrap();
+    let cloudflare = fake_cloudflare(run.path(), false);
+    let mut store = FakeTokenStore::default();
+    store.fail_save.set(true);
+
+    assert!(deliver_persistent_ui(
+        &persistent_request(),
+        &mut store,
+        &cloudflare,
+        &FakeTailnet,
+        &FakeGuest::default(),
+    )
+    .is_err());
+    assert_eq!(cloudflare.issued.get(), 1);
+    assert_eq!(cloudflare.reconciled.get(), 0);
+    assert_eq!(
+        cloudflare.revoked.borrow().as_slice(),
+        ["33333333333333333333333333333333"]
+    );
 }
