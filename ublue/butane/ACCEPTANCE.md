@@ -1137,3 +1137,18 @@ host tool; it still uses normal command approvals.
 - This exercised derivation and the existing base container fixture only. No
   Cloudflare mutation, credential delivery, or live VM check was performed.
   `/dev/kvm` is unavailable on this workstation.
+
+### Tailscale guest status parsing boundary, 2026-10-04
+
+- Moved guest `tailscale status --json` interpretation from CLI orchestration
+  into `skillet_workstation::tailscale`. The provider returns no addresses
+  until its backend is running and rejects malformed or incomplete running
+  responses; the CLI retains only remote invocation and bounded retry policy.
+- All seven Tailscale provider tests passed, including running/non-running,
+  invalid-address filtering, malformed JSON, and missing address arrays. The
+  full workspace tests, strict all-target Clippy, and formatter check passed.
+- The documented beezelbot container integration built its target executable
+  but produced no runtime output for over 45 seconds. No matching Skillet or
+  Podman worker appeared in the process listing; the command was interrupted.
+  Treat this integration as unverified for this slice.
+- No VM or live provider API was contacted. `/dev/kvm` remains unavailable.

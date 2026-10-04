@@ -1,7 +1,30 @@
 use super::{
     create_auth_key, device_record, find_device_by_hostname, form_encode,
-    remove_device_for_hostname, OAuthCredentials, SMOKE_TAG,
+    remove_device_for_hostname, status_addresses, OAuthCredentials, SMOKE_TAG,
 };
+
+#[test]
+fn guest_status_addresses_require_running_backend_and_filter_invalid_values() {
+    assert!(status_addresses(br#"{"BackendState":"NeedsLogin"}"#)
+        .expect("waiting state")
+        .is_empty());
+    assert_eq!(
+        status_addresses(
+            br#"{"BackendState":"Running","Self":{"TailscaleIPs":["100.64.0.10","fd7a:115c:a1e0::10","bad"]}}"#
+        )
+        .expect("running status"),
+        std::collections::BTreeSet::from([
+            "100.64.0.10".to_string(),
+            "fd7a:115c:a1e0::10".to_string()
+        ])
+    );
+}
+
+#[test]
+fn guest_status_addresses_reject_malformed_or_incomplete_running_responses() {
+    assert!(status_addresses(b"not json").is_err());
+    assert!(status_addresses(br#"{"BackendState":"Running"}"#).is_err());
+}
 use serde_json::json;
 use std::{
     io::{Read, Write},

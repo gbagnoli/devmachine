@@ -773,30 +773,7 @@ fn vm_tailscale_addresses(ssh: &VmSsh) -> Result<std::collections::BTreeSet<Stri
     if !output.status.success() {
         return Ok(std::collections::BTreeSet::new());
     }
-    parse_tailscale_addresses(&output.stdout)
-}
-
-fn parse_tailscale_addresses(output: &[u8]) -> Result<std::collections::BTreeSet<String>> {
-    let status: serde_json::Value =
-        serde_json::from_slice(output).context("decoding Tailscale status returned by the VM")?;
-    if status
-        .get("BackendState")
-        .and_then(serde_json::Value::as_str)
-        != Some("Running")
-    {
-        return Ok(std::collections::BTreeSet::new());
-    }
-    let addresses = status
-        .get("Self")
-        .and_then(|value| value.get("TailscaleIPs"))
-        .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| anyhow!("Tailscale status has no self addresses"))?
-        .iter()
-        .filter_map(serde_json::Value::as_str)
-        .filter(|address| address.parse::<std::net::IpAddr>().is_ok())
-        .map(ToOwned::to_owned)
-        .collect::<std::collections::BTreeSet<_>>();
-    Ok(addresses)
+    tailscale::status_addresses(&output.stdout).map_err(anyhow::Error::from)
 }
 
 fn wait_for_vm_tailscale(ssh: &VmSsh) -> Result<std::collections::BTreeSet<String>> {

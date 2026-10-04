@@ -196,6 +196,27 @@ pub struct DeviceRecord {
     pub addresses: BTreeSet<String>,
 }
 
+/// Parse the local `tailscale status --json` response used by the guest
+/// enrollment probe. A non-running backend has no usable addresses yet.
+pub fn status_addresses(output: &[u8]) -> Result<BTreeSet<String>> {
+    let status: Value = serde_json::from_slice(output)
+        .map_err(|error| source("decoding Tailscale status", error))?;
+    if status.get("BackendState").and_then(Value::as_str) != Some("Running") {
+        return Ok(BTreeSet::new());
+    }
+    let addresses = status
+        .get("Self")
+        .and_then(|value| value.get("TailscaleIPs"))
+        .and_then(Value::as_array)
+        .ok_or_else(|| TailscaleError::Invalid("Tailscale status has no self addresses".into()))?
+        .iter()
+        .filter_map(Value::as_str)
+        .filter(|address| address.parse::<std::net::IpAddr>().is_ok())
+        .map(ToOwned::to_owned)
+        .collect();
+    Ok(addresses)
+}
+
 pub struct AuthKey {
     pub key: String,
 }
