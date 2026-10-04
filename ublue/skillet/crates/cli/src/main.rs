@@ -497,10 +497,6 @@ fn run_vm_list(args: &VmListArgs) -> Result<()> {
     vm::list(args)
 }
 
-fn vm_name(hostname: &str, instance: &str) -> Result<String> {
-    Ok(skillet_vm::RunIdentity::new(hostname, instance)?.domain_name())
-}
-
 fn butane_root() -> Result<PathBuf> {
     let root = workspace_root()?;
     let butane = root

@@ -1,15 +1,16 @@
-use super::{
-    butane_root, vm_name, SecretDeliverArgs, UiEnvironmentName, VmDestroyArgs, VmProvisionArgs,
-};
+use super::{butane_root, SecretDeliverArgs, UiEnvironmentName, VmDestroyArgs, VmProvisionArgs};
 use anyhow::{anyhow, Context, Result};
+use skillet_vm::{
+    backend::{VirshBackend, VmBackend},
+    transport::{
+        GuestCommand, GuestTransport, HostKeyPolicy, OwnershipCheckedTransport, SshTransport,
+    },
+    Environment, ManifestStore, Phase, RunIdentity, VmRun,
+};
 use skillet_workstation::provisioning_state;
 use skillet_workstation::tailscale;
 use skillet_workstation::vault::Vault;
-use std::{
-    fs,
-    path::Path,
-    process::{Command, Stdio},
-};
+use std::path::Path;
 
 pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
     validate_delivery_service(&args.hostname, &args.service)?;
@@ -164,30 +165,28 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
             args.hostname
         ));
     }
-    let name = vm_name(&args.hostname, &args.instance)?;
     let butane = butane_root()?;
-    let helper = butane.join("bin/test-vm");
-    let status = Command::new(&helper)
-        .args([&args.hostname, "status", &args.instance])
-        .stdout(Stdio::null())
-        .status()
-        .context("validating owned VM")?;
-    if !status.success() {
-        return Err(anyhow!("VM ownership or status validation failed"));
+    let run_identity = RunIdentity::new(&args.hostname, &args.instance)?;
+    let store = ManifestStore::new(&butane.join("runs"), skillet_vm::current_uid())?;
+    let _lock = store.lock(&run_identity)?;
+    let run = store.load(&run_identity)?;
+    if run.environment != Environment::Test || !matches!(run.phase, Phase::Started | Phase::Ready) {
+        return Err(anyhow!("VM must be a started test run before provisioning"));
     }
-    let run_dir = butane.join("runs").join(&name);
-    let identity = run_dir.join("ssh/id_ed25519");
-    let known_hosts = run_dir.join("ssh/known_hosts");
-    let port = read_vm_port(&run_dir.join("run.conf"))?;
-    let ssh = VmSsh::new(&identity, &known_hosts, port)?;
-    validate_vm_tailscale_delivery(&ssh)?;
+    let run_dir = store.run_dir(&run_identity);
+    let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
+    let base_transport = SshTransport::new(run.ssh.clone(), HostKeyPolicy::Verify)?;
+    let verify_ownership = || verify_running_vm(&backend, &run);
+    verify_ownership()?;
+    let transport = OwnershipCheckedTransport::new(&base_transport, &verify_ownership);
+    validate_vm_tailscale_delivery(&transport)?;
     let vault_path = match &args.database {
         Some(path) => path.clone(),
         None => default_database_path()?,
     };
     let mut vault = Vault::open(&vault_path, args.key_file.as_deref())?;
     let credentials = tailscale_credentials(&vault)?;
-    let expected_hostname = name.as_str();
+    let expected_hostname = run.guest_hostname.as_str();
     let policy = UiEnvironmentName::Test.policy();
     let record = skillet_workstation::tailscale_enrollment::enroll_disposable_vm(
         &skillet_workstation::tailscale_enrollment::DisposableEnrollment {
@@ -198,27 +197,31 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
             policy,
         },
         &credentials,
-        &ssh.transport,
+        &transport,
     )?;
 
     skillet_workstation::credential_delivery::ensure_disposable_pihole_credential(
         &args.hostname,
         args.rotate,
-        &ssh.transport,
+        &transport,
     )?;
 
     if args.with_ui {
-        provision_vm_ui(args, &run_dir, &ssh, &mut vault, &record)?;
+        provision_vm_ui(args, &run_dir, &transport, &mut vault, &record)?;
     }
     provisioning_state::remove_tailscale_pending(&run_dir)?;
     println!("Tailscale connected VM {expected_hostname}");
     Ok(())
 }
 
-pub(super) fn remove_vm_external_resources(args: &VmDestroyArgs) -> Result<()> {
-    let name = vm_name(&args.hostname, &args.instance)?;
+pub(super) fn remove_vm_external_resources(args: &VmDestroyArgs, run: &VmRun) -> Result<()> {
+    if run.identity.host() != args.hostname || run.identity.instance() != args.instance {
+        return Err(anyhow!(
+            "destroy arguments do not match the recorded VM identity"
+        ));
+    }
     let butane = butane_root()?;
-    let run_dir = butane.join("runs").join(&name);
+    let run_dir = butane.join("runs").join(run.identity.domain_name());
     let cloudflare_path = run_dir.join("cloudflare.json");
     let cloudflare_exists = provisioning_state::cloudflare_ownership_exists(&cloudflare_path)?;
     let tailscale_pending = provisioning_state::tailscale_pending_exists(&run_dir)?;
@@ -245,20 +248,23 @@ pub(super) fn remove_vm_external_resources(args: &VmDestroyArgs) -> Result<()> {
         &skillet_workstation::tailscale_enrollment::DisposableCleanup {
             host: &args.hostname,
             instance: &args.instance,
-            vm_hostname: &name,
+            vm_hostname: &run.identity.domain_name(),
             run_directory: &run_dir,
             policy,
         },
         &credentials,
     )?;
-    println!("Cleaned Tailscale ownership for {name}");
+    println!(
+        "Cleaned Tailscale ownership for {}",
+        run.identity.domain_name()
+    );
     Ok(())
 }
 
 fn provision_vm_ui(
     args: &VmProvisionArgs,
     run_dir: &Path,
-    ssh: &VmSsh,
+    guest: &impl GuestTransport,
     vault: &mut Vault,
     device: &tailscale::DeviceRecord,
 ) -> Result<()> {
@@ -297,7 +303,7 @@ fn provision_vm_ui(
         &provisioned,
         &creator,
         &api,
-        &ssh.transport,
+        guest,
         std::time::Duration::from_mins(1),
         std::time::Duration::from_secs(2),
     )?;
@@ -341,55 +347,28 @@ fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<(
     Ok(())
 }
 
-struct VmSsh {
-    transport: skillet_vm::transport::SshTransport,
+fn verify_running_vm(backend: &impl VmBackend, run: &VmRun) -> skillet_vm::Result<()> {
+    let domain = backend
+        .inspect(run)?
+        .ok_or_else(|| skillet_vm::Error::Invalid("owned VM domain is absent".into()))?;
+    domain.validate_owned(run)?;
+    if domain.state != "running" {
+        return Err(skillet_vm::Error::Invalid(format!(
+            "VM is not running (libvirt state: {})",
+            domain.state
+        )));
+    }
+    Ok(())
 }
 
-impl VmSsh {
-    fn new(identity: &Path, known_hosts: &Path, port: u16) -> Result<Self> {
-        Ok(Self {
-            transport: skillet_vm::transport::SshTransport::new(
-                skillet_vm::SshTarget {
-                    user: "giacomo".to_string(),
-                    address: "127.0.0.1".to_string(),
-                    port,
-                    identity: identity.to_path_buf(),
-                    known_hosts: known_hosts.to_path_buf(),
-                },
-                skillet_vm::transport::HostKeyPolicy::Verify,
-            )?,
-        })
-    }
-
-    fn output(&self, program: &str, arguments: &[&str]) -> Result<std::process::Output> {
-        use skillet_vm::transport::GuestTransport as _;
-        self.transport
-            .execute(
-                &skillet_vm::transport::GuestCommand { program, arguments },
-                None,
-            )
-            .context("running command over recorded VM SSH transport")
-    }
-}
-
-fn read_vm_port(manifest: &Path) -> Result<u16> {
-    let contents = fs::read_to_string(manifest)?;
-    let value = contents
-        .lines()
-        .find_map(|line| line.strip_prefix("ssh_port="))
-        .ok_or_else(|| anyhow!("VM manifest has no SSH port"))?;
-    let port: u16 = value.parse().context("invalid VM SSH port")?;
-    if !(2200..=2299).contains(&port) {
-        return Err(anyhow!("VM SSH port is outside the test range"));
-    }
-    Ok(port)
-}
-
-fn validate_vm_tailscale_delivery(ssh: &VmSsh) -> Result<()> {
-    let output = ssh
-        .output(
-            "/usr/bin/sudo",
-            &["-n", "systemctl", "cat", "skillet-full-apply.service"],
+fn validate_vm_tailscale_delivery(guest: &impl GuestTransport) -> Result<()> {
+    let output = guest
+        .execute(
+            &GuestCommand {
+                program: "/usr/bin/sudo",
+                arguments: &["-n", "systemctl", "cat", "skillet-full-apply.service"],
+            },
+            None,
         )
         .context("checking the VM's full-apply credential configuration")?;
     if !output.status.success() {

@@ -2,7 +2,7 @@
 use crate::{
     delivery::{checked, deliver, sha256},
     manifest::reject_symlinks,
-    transport::{GuestCommand, GuestTransport},
+    transport::{GuestCommand, GuestTransport, OwnershipCheckedTransport},
     Error, ManifestStore, Phase, Result, VmRun,
 };
 use std::{
@@ -48,31 +48,6 @@ pub struct ReadinessIo<'a, T> {
     pub ownership: &'a dyn Fn() -> Result<()>,
 }
 
-struct OwnedTransport<'a, T> {
-    transport: &'a T,
-    ownership: &'a dyn Fn() -> Result<()>,
-}
-
-impl<T: GuestTransport> GuestTransport for OwnedTransport<'_, T> {
-    fn execute(
-        &self,
-        command: &GuestCommand<'_>,
-        input: Option<&[u8]>,
-    ) -> Result<std::process::Output> {
-        (self.ownership)()?;
-        let result = self.transport.execute(command, input);
-        (self.ownership)()?;
-        result
-    }
-
-    fn upload(&self, source: &Path, destination: &str) -> Result<()> {
-        (self.ownership)()?;
-        let result = self.transport.upload(source, destination);
-        (self.ownership)()?;
-        result
-    }
-}
-
 pub fn ready(
     run: &mut VmRun,
     store: &ManifestStore,
@@ -105,14 +80,8 @@ pub fn ready(
     // cannot leave a Ready manifest behind.
     run.phase = Phase::Started;
     store.save(run)?;
-    let probe = OwnedTransport {
-        transport: io.probe,
-        ownership: io.ownership,
-    };
-    let operations = OwnedTransport {
-        transport: io.operations,
-        ownership: io.ownership,
-    };
+    let probe = OwnershipCheckedTransport::new(io.probe, io.ownership);
+    let operations = OwnershipCheckedTransport::new(io.operations, io.ownership);
     let result = (|| {
         wait(run, policy, &probe, io.ownership, clock, report, false)?;
         (io.ownership)()?;

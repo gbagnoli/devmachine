@@ -16,6 +16,39 @@ pub trait GuestTransport {
     fn upload(&self, source: &Path, destination: &str) -> Result<()>;
 }
 
+/// Check that the target is still owned immediately before and after each
+/// remote operation. Lifecycle callers keep their run lock for the wrapper's
+/// lifetime and supply the ownership check for the selected backend.
+pub struct OwnershipCheckedTransport<'a, T> {
+    transport: &'a T,
+    ownership: &'a dyn Fn() -> Result<()>,
+}
+
+impl<'a, T> OwnershipCheckedTransport<'a, T> {
+    pub fn new(transport: &'a T, ownership: &'a dyn Fn() -> Result<()>) -> Self {
+        Self {
+            transport,
+            ownership,
+        }
+    }
+}
+
+impl<T: GuestTransport> GuestTransport for OwnershipCheckedTransport<'_, T> {
+    fn execute(&self, command: &GuestCommand<'_>, input: Option<&[u8]>) -> Result<Output> {
+        (self.ownership)()?;
+        let result = self.transport.execute(command, input);
+        (self.ownership)()?;
+        result
+    }
+
+    fn upload(&self, source: &Path, destination: &str) -> Result<()> {
+        (self.ownership)()?;
+        let result = self.transport.upload(source, destination);
+        (self.ownership)()?;
+        result
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HostKeyPolicy {
     Enroll,

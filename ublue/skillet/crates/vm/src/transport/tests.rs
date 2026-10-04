@@ -1,5 +1,77 @@
 use super::*;
-use std::{fs, os::unix::fs::symlink};
+use std::{
+    fs,
+    os::unix::fs::symlink,
+    sync::{Arc, Mutex},
+};
+
+struct FakeTransport(Arc<Mutex<Vec<&'static str>>>);
+
+impl GuestTransport for FakeTransport {
+    fn execute(&self, _: &GuestCommand<'_>, _: Option<&[u8]>) -> Result<Output> {
+        self.0.lock().unwrap().push("execute");
+        Ok(std::process::Command::new("true").output().unwrap())
+    }
+
+    fn upload(&self, _: &Path, _: &str) -> Result<()> {
+        self.0.lock().unwrap().push("upload");
+        Ok(())
+    }
+}
+
+#[test]
+fn ownership_checked_transport_checks_before_and_after_each_remote_operation() {
+    let operations = Arc::new(Mutex::new(Vec::new()));
+    let transport = FakeTransport(operations.clone());
+    let checks = std::cell::Cell::new(0);
+    let ownership = || checks.set(checks.get() + 1);
+    let validate = || {
+        ownership();
+        Ok(())
+    };
+    let checked = OwnershipCheckedTransport::new(&transport, &validate);
+    checked
+        .execute(
+            &GuestCommand {
+                program: "true",
+                arguments: &[],
+            },
+            None,
+        )
+        .unwrap();
+    checked
+        .upload(Path::new("unused"), "/var/tmp/file")
+        .unwrap();
+    assert_eq!(checks.get(), 4);
+    assert_eq!(*operations.lock().unwrap(), ["execute", "upload"]);
+}
+
+#[test]
+fn ownership_loss_after_operation_is_reported() {
+    let operations = Arc::new(Mutex::new(Vec::new()));
+    let transport = FakeTransport(operations.clone());
+    let checks = std::cell::Cell::new(0);
+    let validate = || {
+        checks.set(checks.get() + 1);
+        if checks.get() == 2 {
+            return Err(Error::Invalid("ownership changed".into()));
+        }
+        Ok(())
+    };
+    let checked = OwnershipCheckedTransport::new(&transport, &validate);
+    let result = checked.execute(
+        &GuestCommand {
+            program: "true",
+            arguments: &[],
+        },
+        None,
+    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("ownership changed"));
+    assert_eq!(*operations.lock().unwrap(), ["execute"]);
+}
 
 fn target(dir: &Path) -> SshTarget {
     let identity = dir.join("id_ed25519");
