@@ -4,7 +4,9 @@ use skillet_core::files::{
 use skillet_core::system::{
     AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
 };
-use skillet_podman::{self, NetworkAttachment, PodmanConfig, PodmanError, ProcessIdentity, Volume};
+use skillet_podman::{
+    self, MountDependency, NetworkAttachment, PodmanConfig, PodmanError, ProcessIdentity, Volume,
+};
 use std::{collections::BTreeMap, path::Path};
 use thiserror::Error;
 use tracing::info;
@@ -62,11 +64,6 @@ where
             "Description=UniFi Network application".to_string(),
             "After=network-online.target".to_string(),
             "Wants=network-online.target".to_string(),
-            "Requires=skillet-data-prepare.service".to_string(),
-            "After=skillet-data-prepare.service".to_string(),
-            "BindsTo=var-lib-data.mount".to_string(),
-            "After=var-lib-data.mount".to_string(),
-            "AssertPathIsMountPoint=/var/lib/data".to_string(),
         ],
     );
     extra_config.insert(
@@ -82,6 +79,7 @@ where
             image: "docker.io/jacobalberty/unifi:latest".to_string(),
             network_attachments: vec![NetworkAttachment::Host],
             port_publications: Vec::new(),
+            storage_dependency: Some(MountDependency::shared_service_data()),
             process_identity: ProcessIdentity::Named {
                 user: "unifi".to_string(),
                 group: None,
