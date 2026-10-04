@@ -1152,3 +1152,17 @@ host tool; it still uses normal command approvals.
   Podman worker appeared in the process listing; the command was interrupted.
   Treat this integration as unverified for this slice.
 - No VM or live provider API was contacted. `/dev/kvm` remains unavailable.
+
+### Shared Tailscale guest enrollment retry, 2026-10-04
+
+- Moved the bounded retry loop into `skillet_workstation::tailscale` while
+  keeping the guest SSH probe in the CLI. Empty status and transient probe
+  errors retry until the supplied timeout; tests cover delayed success and
+  timeout without sleeping.
+- All 9 Tailscale provider tests passed. Workspace format, all-target tests,
+  and strict all-target Clippy passed.
+- The beezelbot Fedora base integration exited 0: both applies succeeded and
+  the repeated apply issued no service start/restart. The disposable container
+  needed SIGKILL after Podman's 10-second stop timeout during cleanup. This
+  successful retry supersedes the stalled integration attempt recorded above.
+- No VM or provider API was contacted. `/dev/kvm` remains unavailable.
