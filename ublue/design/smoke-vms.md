@@ -61,8 +61,11 @@ and adapter checks pass; live migration acceptance remains deferred.
 Tailscale enrollment intent, enrolled-device identity, and Cloudflare DNS/token
 ownership metadata are persisted by `skillet_workstation::provisioning_state`.
 Writes are atomic and mode `0600`; readers reject symlinks and non-regular
-files. An existing pending enrollment marker must match the same VM identity,
-so retry cannot silently claim another VM's cleanup journal.
+files. `skillet_workstation::tailscale_enrollment` owns enrollment sequencing:
+it persists intent before provider or guest mutations, treats a failed guest
+probe as an error, and removes intent only after the tagged device identity is
+recorded. An existing pending marker must match the same VM identity, so retry
+cannot silently claim another VM's cleanup journal.
 New journals keep host, environment, and instance as separate fields. Legacy
 smoke-run records remain readable and are checked against the exact expected
 guest hostname, ownership marker, and token name rather than parsed into a new
@@ -94,10 +97,13 @@ required. See the [TPM encrypted-root plan](../plan/TPM-ENCRYPTED-ROOT.md).
    builds and installs current shared and host code on a retained VM, recording deployed hashes
    separately while preserving the original creation snapshot.
 3. **Provision applications:** `test vm provision` unlocks the workstation
-   KeePassXC database, reads the Tailscale OAuth client, mints a one-use smoke
-   tagged key, and delivers it through the [shared secret mechanism](secrets.md).
-   It waits for the VM to join and records its device identity before delivering
-   a generated Pi-hole credential and running full apply. Repeated provisioning
+   KeePassXC database and supplies the Tailscale OAuth client, test policy,
+   VM identity, and verified guest transport to
+   `skillet_workstation::tailscale_enrollment`. That workflow reuses an existing
+   enrollment or mints and delivers a one-use smoke-tagged key through the
+   [shared secret mechanism](secrets.md), waits for the VM to join, and records
+   its device identity. The CLI then delivers a generated Pi-hole credential
+   and runs full apply. Repeated provisioning
    reuses the Tailscale identity and installed Pi-hole credential; `--rotate`
    replaces the latter. `--with-ui` also creates a 12-hour zone-scoped
    Cloudflare token, reconciles tailnet A/AAAA and UI/alias CNAME records,

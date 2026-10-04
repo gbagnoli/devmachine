@@ -331,24 +331,17 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     let credentials = tailscale_credentials(&vault)?;
     let expected_hostname = name.as_str();
     let policy = UiEnvironmentName::Test.policy();
-    let provisioning_identity =
-        ProvisioningIdentity::new(&args.hostname, policy.name(), &args.instance);
-
-    provisioning_state::mark_tailscale_pending(
-        &run_dir,
-        &provisioning_identity,
-        expected_hostname,
+    let record = skillet_workstation::tailscale_enrollment::enroll_disposable_vm(
+        &skillet_workstation::tailscale_enrollment::DisposableEnrollment {
+            host: &args.hostname,
+            instance: &args.instance,
+            vm_hostname: expected_hostname,
+            run_directory: &run_dir,
+            policy,
+        },
+        &credentials,
+        &ssh.transport,
     )?;
-    let mut addresses = vm_tailscale_addresses(&ssh)?;
-    if addresses.is_empty() {
-        let auth_key = tailscale::create_auth_key(
-            &credentials,
-            policy
-                .tailscale_tag(skillet_workstation::provisioning_policy::DeviceClass::DisposableVm),
-            &format!("Skillet disposable VM {expected_hostname}"),
-        )?;
-        ssh.install("tailscale_auth_key", &auth_key.key)?;
-    }
 
     let pihole_credential = "/etc/credstore.encrypted/skillet/pihole_web_password.cred";
     let has_pihole_credential = vm_credential_present(&ssh, pihole_credential)?;
@@ -362,14 +355,6 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
         )?;
     }
 
-    addresses = wait_for_vm_tailscale(&ssh)?;
-    let record = tailscale::find_device(
-        &credentials,
-        expected_hostname,
-        policy.tailscale_tag(skillet_workstation::provisioning_policy::DeviceClass::DisposableVm),
-        &addresses,
-    )?;
-    provisioning_state::save_tailscale_record(&run_dir, &provisioning_identity, &record)?;
     if args.with_ui {
         provision_vm_ui(args, &run_dir, &ssh, &mut vault, &record)?;
     }
@@ -745,43 +730,6 @@ fn vm_credential_present(ssh: &VmSsh, path: &str) -> Result<bool> {
         Some(1) => Ok(false),
         _ => Err(anyhow!("could not inspect VM credential state")),
     }
-}
-
-fn vm_tailscale_addresses(ssh: &VmSsh) -> Result<std::collections::BTreeSet<String>> {
-    let output = ssh.output(
-        "/usr/bin/sudo",
-        &[
-            "-n",
-            "podman",
-            "exec",
-            "tailscale",
-            "tailscale",
-            "status",
-            "--json",
-        ],
-    )?;
-    parse_vm_tailscale_status(&output)
-}
-
-fn parse_vm_tailscale_status(
-    output: &std::process::Output,
-) -> Result<std::collections::BTreeSet<String>> {
-    if !output.status.success() {
-        return Err(anyhow!(
-            "Tailscale guest status command failed with status {}; refusing to treat probe failure as an unenrolled VM",
-            output.status
-        ));
-    }
-    tailscale::status_addresses(&output.stdout).map_err(anyhow::Error::from)
-}
-
-fn wait_for_vm_tailscale(ssh: &VmSsh) -> Result<std::collections::BTreeSet<String>> {
-    tailscale::wait_for_addresses(
-        || vm_tailscale_addresses(ssh),
-        std::time::Duration::from_mins(2),
-        std::time::Duration::from_secs(2),
-    )
-    .map_err(|error| anyhow!("{error}; inspect tailscale.service and its journal"))
 }
 
 fn read_vm_port(manifest: &Path) -> Result<u16> {

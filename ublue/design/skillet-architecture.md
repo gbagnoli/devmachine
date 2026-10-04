@@ -27,7 +27,9 @@ Workstream 2 adds `skillet_hosts` as the single host capability declaration.
 It owns host composition and supplies boot, service, network, UI, storage, and
 credential policy to entry points. The explicit `agent` baseline is the generic
 no-service apply profile. Synthetic smoke fixture composition lives in a
-separate test command and is not dispatched as a host identity. Retained-VM
+separate test command and is not dispatched as a host identity. Workstation
+Tailscale enrollment now accepts provider, profile/environment, VM identity,
+state path, and guest transport as explicit inputs. Retained-VM
 runtime acceptance remains pending.
 
 Workstream 3 is in progress. Account observations and subordinate-ID files

@@ -1195,3 +1195,21 @@ host tool; it still uses normal command approvals.
   removed. Podman needed SIGKILL after its 10-second stop timeout.
 - No VM credential delivery or live provider API was run; `/dev/kvm` is
   unavailable.
+
+### Workstation-owned disposable Tailscale enrollment, 2026-10-04
+
+- Moved the test VM enrollment transaction into
+  `skillet_workstation::tailscale_enrollment`. The CLI supplies typed host,
+  environment, instance, VM hostname, run directory, provider credentials, and
+  verified guest transport. The workflow persists intent, reuses an existing
+  enrollment, refuses failed status probes before auth-key creation, delivers a
+  one-use key only after a successful empty observation, verifies the tagged
+  device, and saves the ownership record before removing pending state.
+- Four orchestration tests passed with fake guest transport and provider:
+  existing enrollment, new enrollment/key delivery, failed-probe recovery
+  state, and refusal of production policy. Full workspace tests, strict
+  all-target Clippy, and formatting passed.
+- The beezelbot Fedora base integration exited 0: both applies succeeded, the
+  repeat issued no service start/restart, and the disposable container was
+  removed. Podman needed SIGKILL after its 10-second stop timeout.
+- No VM or live Tailscale API was contacted. `/dev/kvm` is unavailable.
