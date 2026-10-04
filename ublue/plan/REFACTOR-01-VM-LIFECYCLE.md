@@ -58,6 +58,14 @@ and retained-run acceptance have not yet passed. See
 and [native XML validation](../butane/ACCEPTANCE.md#native-xml-rendering-2026-10-03),
 plus [readiness validation](../butane/ACCEPTANCE.md#readiness-retry-recovery-2026-10-03).
 
+Progress, 2026-10-04: disposable provisioning now loads and locks the validated
+run manifest directly rather than invoking the compatibility wrapper and
+re-reading `run.conf`. It uses the manifest SSH target and checks immutable
+domain ownership before and after every guest operation. Destroy's external
+cleanup callback derives its run directory from the recorded identity and
+refuses CLI identity mismatches. Live VM cycle and recovery acceptance remain
+pending.
+
 ## Read and locate
 
 - `../design/{skillet-architecture,smoke-vms,secrets,cloudflare-ui-lifecycle}.md`.

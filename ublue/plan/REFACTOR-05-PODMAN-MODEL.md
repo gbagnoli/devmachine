@@ -1,8 +1,8 @@
 # 5. Podman configuration with explicit host policy
 
-Status: in progress; follows workstreams 2–4 in
-[the prerequisite roadmap](SKILLET-REFACTOR.md).
-Further feature milestones wait for that roadmap's completion.
+Status: implementation complete; named-VM acceptance is pending. This follows
+workstreams 2–4 in [the prerequisite roadmap](SKILLET-REFACTOR.md); further
+feature milestones wait for the full roadmap gate.
 
 ## Read and locate
 

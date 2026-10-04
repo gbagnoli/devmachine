@@ -1,8 +1,9 @@
 # 4. Thin CLIs and shared workstation provisioning
 
-Status: in progress; follows workstreams 1–3 in
-[the prerequisite roadmap](SKILLET-REFACTOR.md).
-Further feature milestones wait for that roadmap's completion.
+Status: implementation complete; named-VM and production acceptance are
+pending. This follows workstreams 1–3 in
+[the prerequisite roadmap](SKILLET-REFACTOR.md); further feature milestones
+wait for the full roadmap gate.
 
 ## Read and locate
 
@@ -185,6 +186,12 @@ and VM delivery have duplicate implementations with different validation.
   Missing Pi-hole values require a successful guest absence check before
   generating and encrypting a replacement; disposable Pi-hole reuse and
   rotation use the same workstation module.
-- Pending: production and named-VM acceptance, plus review of the final CLI
-  lifecycle dispatch against the typed workstation operations. Live
-  environment checks remain subject to available hardware and credentials.
+- Reviewed the remaining CLI dispatch: it opens the vault, selects explicit
+  environment/host/instance inputs, loads the canonical VM run, and sequences
+  workstation operations. Disposable provisioning now holds the per-run lock,
+  uses the recorded SSH target, and checks backend ownership before and after
+  every guest operation. No compatibility script or legacy `run.conf` reader
+  remains in this delivery path.
+- Pending: named-VM acceptance for disposable delivery, retry/rotation and
+  cleanup, plus production credential acceptance. Live environment checks
+  remain subject to available hardware and credentials.

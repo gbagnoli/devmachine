@@ -47,6 +47,10 @@
 - Keep shell entry points as narrow argument adapters when Rust owns a
   lifecycle. Backend selection, resource inspection, retries, and cleanup
   belong to the shared Rust owner rather than being duplicated in wrappers.
+- VM guest operations hold the per-run lock and revalidate the recorded domain
+  identity immediately before and after each remote operation. Consumers load
+  target details from the typed manifest; they do not launch compatibility
+  wrappers for status checks or reparse legacy run files.
 - Keep host profile, environment, deployment instance, runtime identity, and
   connection target distinct. Derive conventions in one place and persist the
   resolved values needed for recovery.

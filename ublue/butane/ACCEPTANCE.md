@@ -1333,3 +1333,27 @@ host tool; it still uses normal command approvals.
   repeat issued no service start/restart and the container was removed. Podman
   needed SIGKILL after its 10-second stop timeout during cleanup.
 - No VM or live Tailscale API was contacted. `/dev/kvm` is unavailable.
+
+### Manifest-backed disposable provisioning transport, 2026-10-04
+
+- Removed the disposable provisioner's call through the `test-vm` compatibility
+  wrapper and its parser for legacy `run.conf`. It now loads the typed run
+  manifest, holds the per-run lock, uses its recorded SSH target, and validates
+  the expected running domain before and after each guest operation.
+- Destroy's provider cleanup callback now receives the validated run identity
+  from the lifecycle orchestrator, checks it against the CLI request, and
+  derives the cleanup journal path from that recorded identity.
+- Extracted `OwnershipCheckedTransport` from readiness so both readiness and
+  workstation provisioning use the same pre/post ownership-check contract.
+  Transport tests cover both checks around execution/upload and report ownership
+  loss after a remote operation.
+- `cargo fmt --all -- --check`, `cargo test --workspace --all-targets --offline`,
+  and `cargo clippy --workspace --all-targets --offline -- -D warnings` passed.
+  The workspace suite includes 66 workstation tests.
+- `cargo run --offline --bin skillet -- test run beezelbot --phase base --image
+  fedora:latest` exited 0. Both applies succeeded and the repeat issued no
+  service start/restart; Podman needed SIGKILL after its 10-second stop timeout
+  during cleanup.
+- No named VM or production vault/provider was used. `/dev/kvm` is absent, so
+  named-VM delivery, cleanup, and production credential acceptance remain
+  unverified.
