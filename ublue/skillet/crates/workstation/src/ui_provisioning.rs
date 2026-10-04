@@ -237,6 +237,134 @@ pub struct DisposableUiCredentials {
     pub token_name: String,
 }
 
+/// Install the complete disposable Caddy input, activate it, verify the
+/// non-tailnet rejection response, and then remove superseded named tokens.
+pub fn deliver_disposable_ui(
+    host: &str,
+    credentials: &DisposableUiCredentials,
+    creator_token: &str,
+    provider: &impl UiCloudflareProvider,
+    guest: &impl GuestTransport,
+    acceptance_timeout: Duration,
+    acceptance_interval: Duration,
+) -> Result<(), UiProvisioningError> {
+    if credentials.sites.host != host {
+        return Err(UiProvisioningError::Invalid(
+            "Caddy payload host does not match the requested guest".into(),
+        ));
+    }
+    let sites_payload = serde_json::to_vec(&credentials.sites)
+        .map_err(|error| UiProvisioningError::Invalid(format!("encoding Caddy sites: {error}")))?;
+    skillet_vm::credential::install_set(
+        guest,
+        host,
+        "skillet-caddy-apply.service",
+        skillet_vm::credential::ActivationPolicy::DeferConsumer,
+        &[
+            ("caddy_sites", &sites_payload),
+            ("cloudflare_acme_token", credentials.token.value.as_bytes()),
+        ],
+    )?;
+    run_guest(
+        guest,
+        host,
+        &["-n", "systemctl", "start", "skillet-caddy-apply.service"],
+        "activating Caddy after installing its credentials",
+    )?;
+    verify_non_tailnet_denial(
+        guest,
+        &credentials.sites,
+        acceptance_timeout,
+        acceptance_interval,
+    )?;
+    for old_id in provider.token_ids_by_name(
+        creator_token,
+        &credentials.account_id,
+        &credentials.token_name,
+    )? {
+        if old_id != credentials.token.id {
+            provider.revoke_token(creator_token, &credentials.account_id, &old_id)?;
+        }
+    }
+    Ok(())
+}
+
+fn run_guest(
+    guest: &impl GuestTransport,
+    host: &str,
+    arguments: &[&str],
+    description: &str,
+) -> Result<(), UiProvisioningError> {
+    let output = guest.execute(
+        &skillet_vm::transport::GuestCommand {
+            program: "/usr/bin/sudo",
+            arguments,
+        },
+        None,
+    )?;
+    if !output.status.success() {
+        return Err(UiProvisioningError::Invalid(format!(
+            "{description} failed for {host} with status {}",
+            output.status
+        )));
+    }
+    Ok(())
+}
+
+fn verify_non_tailnet_denial(
+    guest: &impl GuestTransport,
+    sites: &CaddySites,
+    timeout: Duration,
+    interval: Duration,
+) -> Result<(), UiProvisioningError> {
+    let mut verified_names = 0;
+    for site in &sites.services {
+        for hostname in std::iter::once(&site.hostname).chain(&site.aliases) {
+            let started = std::time::Instant::now();
+            let resolve = format!("{hostname}:443:127.0.0.1");
+            let url = format!("https://{hostname}/");
+            loop {
+                let output = guest.execute(
+                    &skillet_vm::transport::GuestCommand {
+                        program: "/usr/bin/curl",
+                        arguments: &[
+                            "--insecure",
+                            "--silent",
+                            "--show-error",
+                            "--max-time",
+                            "8",
+                            "--resolve",
+                            &resolve,
+                            "--write-out",
+                            "\\n%{http_code}",
+                            &url,
+                        ],
+                    },
+                    None,
+                )?;
+                if output.status.success()
+                    && output.stdout == b"Access denied by Skillet tailnet policy\n403"
+                {
+                    verified_names += 1;
+                    break;
+                }
+                if started.elapsed() >= timeout {
+                    return Err(UiProvisioningError::Invalid(format!(
+                        "Caddy did not return its explicit tailnet-denial response for UI name {hostname}"
+                    )));
+                }
+                std::thread::sleep(interval);
+            }
+        }
+    }
+    if verified_names == 0 {
+        return Err(UiProvisioningError::Invalid(
+            "Caddy payload declares no hostnames to verify".into(),
+        ));
+    }
+    Ok(())
+}
+
 pub struct PersistentUiDelivery<'a> {
     pub host: &'a str,
     pub policy: ProvisioningPolicy,

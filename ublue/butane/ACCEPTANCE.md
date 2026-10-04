@@ -1234,6 +1234,23 @@ host tool; it still uses normal command approvals.
   acceptance and Tailscale device lookup on a named production host remain
   unverified; `/dev/kvm` is unavailable.
 
+### Workstation-owned disposable Caddy guest delivery, 2026-10-04
+
+- Moved disposable Caddy credential-set installation, activation, per-name
+  non-tailnet denial probes, and superseded-token revocation into
+  `skillet_workstation::ui_provisioning`. Retry timing is bounded per hostname.
+  Old tokens are retained until guest activation and every canonical UI/alias
+  probe succeeds.
+- Fake guest/provider tests cover deferred credential delivery, all-name probe
+  arguments, revocation after success, and retaining older credentials when
+  the denial response fails. Full workspace tests, strict all-target Clippy,
+  and formatting passed (58 workstation tests).
+- The beezelbot Fedora base integration exited 0: both applies succeeded; the
+  repeat issued no service start/restart and the container was removed. Podman
+  needed SIGKILL after its 10-second stop timeout during cleanup.
+- No VM, vault, or live provider API was used. Live Caddy ACME/HTTPS acceptance
+  remains pending because `/dev/kvm` is unavailable.
+
 ### Workstation-owned disposable Cloudflare UI transaction, 2026-10-04
 
 - Moved disposable UI token issuance and DNS reconciliation into

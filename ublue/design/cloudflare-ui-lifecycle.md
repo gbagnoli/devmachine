@@ -115,8 +115,10 @@ DNS reconciliation, complete credential-set delivery, and deferred Caddy
 activation. Cleanup validates the recorded identity and current
 environment configuration before mutation, removes marker-owned DNS, revokes
 the disposable and temporary cleanup tokens, and removes its journal last.
-Failures retain the journal for retry. Disposable guest credential delivery
-and certificate acceptance still run through the CLI. Local
+Failures retain the journal for retry. Disposable guest delivery now installs
+both credentials before Caddy activation, checks the explicit non-tailnet
+denial response for every canonical UI and alias, and only then revokes older
+tokens with the same deterministic name. Local
 tests cover the SDK transport, permission group
 discovery, scoped token payloads, address-family validation, and DNS planning.
 Live 2026-10-02 staging acceptance issued certificates for each

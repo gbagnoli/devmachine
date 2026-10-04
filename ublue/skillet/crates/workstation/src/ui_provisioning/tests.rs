@@ -69,6 +69,7 @@ impl UiTailscaleProvider for FakeTailnet {
 #[derive(Default)]
 struct FakeGuest {
     calls: Mutex<Vec<CapturedGuestCall>>,
+    denies_curl: Cell<bool>,
 }
 
 type CapturedGuestCall = (Vec<String>, Option<Vec<u8>>);
@@ -90,9 +91,16 @@ impl GuestTransport for FakeGuest {
                 .collect(),
             input.map(<[u8]>::to_vec),
         ));
+        let stdout = if command.program == "/usr/bin/curl" && self.denies_curl.get() {
+            b"Access denied by Skillet tailnet policy\n403".to_vec()
+        } else if command.program == "/usr/bin/curl" {
+            b"unexpected response".to_vec()
+        } else {
+            Vec::new()
+        };
         Ok(Output {
             status: ExitStatus::from_raw(0),
-            stdout: Vec::new(),
+            stdout,
             stderr: Vec::new(),
         })
     }
@@ -289,6 +297,28 @@ fn persistent_request() -> PersistentUiDelivery<'static> {
         zone_id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         relative_ui_domain: Some("ui"),
         creator_token: "dummy creator token",
+    }
+}
+
+fn disposable_credentials() -> DisposableUiCredentials {
+    let addresses = addresses();
+    let plan = build_ui_provisioning_plan(
+        "clamps",
+        ProvisioningPolicy::new(Environment::Test),
+        "example.invalid",
+        Some("smoke.ui"),
+        &addresses,
+    )
+    .unwrap();
+    DisposableUiCredentials {
+        sites: plan.sites,
+        token: IssuedToken {
+            id: "44444444444444444444444444444444".to_string(),
+            value: "disposable ACME token".to_string(),
+            expires_on: Some("2030-01-01T00:00:00Z".to_string()),
+        },
+        account_id: "11111111111111111111111111111111".to_string(),
+        token_name: "skillet:test:clamps-smoke".to_string(),
     }
 }
 
@@ -677,4 +707,61 @@ fn persistent_ui_failed_vault_save_revokes_just_issued_token() {
         cloudflare.revoked.borrow().as_slice(),
         ["33333333333333333333333333333333"]
     );
+}
+
+#[test]
+fn disposable_ui_delivery_installs_both_inputs_activates_probes_all_names_then_retires_old_tokens()
+{
+    let run = tempfile::tempdir().unwrap();
+    let provider = fake_cloudflare(run.path(), false);
+    let credentials = disposable_credentials();
+    let guest = FakeGuest::default();
+    guest.denies_curl.set(true);
+
+    deliver_disposable_ui(
+        "clamps",
+        &credentials,
+        "dummy creator token",
+        &provider,
+        &guest,
+        std::time::Duration::from_secs(1),
+        std::time::Duration::ZERO,
+    )
+    .unwrap();
+
+    let calls = guest.calls.lock().unwrap();
+    assert!(serde_json::from_slice::<CaddySites>(calls[0].1.as_deref().unwrap()).is_ok());
+    assert_eq!(
+        calls[1].1.as_deref(),
+        Some(b"disposable ACME token".as_slice())
+    );
+    assert!(calls.iter().any(|call| {
+        call.0
+            .first()
+            .is_some_and(|program| program == "/usr/bin/curl")
+            && call.0.iter().any(|argument| argument == "--resolve")
+    }));
+    assert_eq!(
+        provider.revoked.borrow().as_slice(),
+        ["id-for:skillet:test:clamps-smoke"]
+    );
+}
+
+#[test]
+fn disposable_ui_denial_failure_keeps_old_token_until_guest_acceptance_passes() {
+    let run = tempfile::tempdir().unwrap();
+    let provider = fake_cloudflare(run.path(), false);
+    let credentials = disposable_credentials();
+
+    assert!(deliver_disposable_ui(
+        "clamps",
+        &credentials,
+        "dummy creator token",
+        &provider,
+        &FakeGuest::default(),
+        std::time::Duration::ZERO,
+        std::time::Duration::ZERO,
+    )
+    .is_err());
+    assert!(provider.revoked.borrow().is_empty());
 }

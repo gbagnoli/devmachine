@@ -359,79 +359,15 @@ fn provision_vm_ui(
         &api,
         || vault.ensure_unchanged(),
     )?;
-    let sites = provisioned.sites;
-    let issued = provisioned.token;
-    let account_id = provisioned.account_id;
-    let token_name = provisioned.token_name;
-    let work = (|| {
-        let sites_payload = serde_json::to_string(&sites)?;
-        skillet_vm::credential::install_set(
-            &ssh.transport,
-            &args.hostname,
-            "skillet-caddy-apply.service",
-            skillet_vm::credential::ActivationPolicy::DeferConsumer,
-            &[
-                ("caddy_sites", sites_payload.as_bytes()),
-                ("cloudflare_acme_token", issued.value.as_bytes()),
-            ],
-        )?;
-        ssh.run(
-            "/usr/bin/sudo",
-            &["-n", "systemctl", "start", "skillet-caddy-apply.service"],
-        )?;
-        verify_caddy_denies_non_tailnet_probe(ssh, &sites)?;
-        for old_id in api.token_ids_by_name(&creator, &account_id, &token_name)? {
-            if old_id != issued.id {
-                api.revoke_token(&creator, &account_id, &old_id)?;
-            }
-        }
-        Ok::<(), anyhow::Error>(())
-    })();
-    if let Err(error) = work {
-        return Err(error.context("provisioning disposable Cloudflare DNS and Caddy"));
-    }
-    Ok(())
-}
-
-fn verify_caddy_denies_non_tailnet_probe(
-    ssh: &VmSsh,
-    sites: &skillet_caddy::CaddySites,
-) -> Result<()> {
-    for site in &sites.services {
-        for hostname in std::iter::once(&site.hostname).chain(&site.aliases) {
-            let resolve = format!("{hostname}:443:127.0.0.1");
-            let url = format!("https://{hostname}/");
-            let mut denied = false;
-            for _ in 0..30 {
-                let output = ssh.output(
-                    "/usr/bin/curl",
-                    &[
-                        "--insecure",
-                        "--silent",
-                        "--show-error",
-                        "--max-time",
-                        "8",
-                        "--resolve",
-                        &resolve,
-                        "--write-out",
-                        "\n%{http_code}",
-                        &url,
-                    ],
-                )?;
-                let response = String::from_utf8_lossy(&output.stdout);
-                if output.status.success()
-                    && response.trim() == "Access denied by Skillet tailnet policy\n403"
-                {
-                    denied = true;
-                    break;
-                }
-                std::thread::sleep(std::time::Duration::from_secs(2));
-            }
-            if !denied {
-                return Err(anyhow!("Caddy did not return its explicit access-denied response to a non-tailnet probe"));
-            }
-        }
-    }
+    skillet_workstation::ui_provisioning::deliver_disposable_ui(
+        &args.hostname,
+        &provisioned,
+        &creator,
+        &api,
+        &ssh.transport,
+        std::time::Duration::from_mins(1),
+        std::time::Duration::from_secs(2),
+    )?;
     Ok(())
 }
 
