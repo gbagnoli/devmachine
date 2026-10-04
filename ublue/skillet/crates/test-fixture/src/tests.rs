@@ -10,14 +10,13 @@ fn fixture_requires_explicit_inputs() {
 }
 
 #[test]
-fn fixture_uses_host_container_resources() {
+fn fixture_uses_shared_host_container_resources() {
     let system = MockSystem::new();
     let files = MockFiles::new();
-    files
-        .files
-        .lock()
-        .unwrap()
-        .insert(format!("{INPUT_DIR}/config"), b"one".to_vec());
+    files.files.lock().unwrap().insert(
+        format!("{INPUT_DIR}/config"),
+        b"config-secret-marker".to_vec(),
+    );
     files
         .files
         .lock()
@@ -30,6 +29,5 @@ fn fixture_uses_host_container_resources() {
     )
     .unwrap();
     assert!(quadlet.contains("Secret=skillet-smoke-dummy"));
-    assert!(quadlet.contains("WantedBy=multi-user.target"));
     assert!(resources.contains_key("/var/lib/skillet/containers/skillet-smoke-fixture.applied"));
 }

@@ -73,8 +73,10 @@ cargo run --release -p skillet -- test smoke clamps
 
 The smoke command defaults to that target, port, and generated key. Override
 them with `--target`, `--port`, and `--identity` when using a separately
-provisioned VM. It takes the generic binary from the running executable and
-uses the `skillet-clamps` binary installed by VM creation. Shared systemd
+provisioned VM. It builds a separate `skillet-smoke-fixture` executable from
+Cargo's reported artifact for the running Skillet target and profile. Before
+running it, the guest verifies the fixture transfer and confirms both installed
+Skillet binaries match the ready VM manifest. Shared systemd
 apply units use the generic binary and the stable host profile in
 `/etc/skillet/host`. Repeated smoke runs
 reset only the namespaced `/var/lib/skillet-smoke` fixture and its managed
@@ -300,6 +302,19 @@ permissions. Live ACME and HTTPS acceptance remains pending. See the
 [VM lifecycle](../design/smoke-vms.md).
 
 ## Development checks
+
+- Workspace checks: `cargo fmt --all -- --check`,
+  `cargo clippy --workspace --all-targets -- -D warnings`, and
+  `cargo test --workspace --all-targets`.
+- Container integration: `cargo run --bin skillet -- test run beezelbot
+  --phase base --image fedora:latest` (also run for `clamps` after changing
+  shared container behavior).
+- ShellCheck covers `*.sh` plus the extensionless scripts named in the CI
+  workflow, including VM and workstation helpers.
+- `apply --record PATH` writes version 1 YAML with host, overall result, and
+  per-operation outcomes. It stores no content, hashes, secret values, or raw
+  effect errors, and is written after failed applies as well. Older unversioned
+  operation arrays remain diagnostic artifacts and are never loaded as state.
 
 - **Error Handling**: Use `thiserror` in library crates; `anyhow` is reserved for CLI binaries. No `unwrap()` or `expect()` in library code.
 - **Idempotency**: All modules must ensure system state idempotently.

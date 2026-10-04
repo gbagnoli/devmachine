@@ -2,7 +2,7 @@
 set -euo pipefail
 
 phase=${1:?phase required}
-binary=/var/usrlocal/bin/skillet-smoke
+binary=/var/usrlocal/bin/skillet-smoke-fixture
 host_binary=${2:?host binary path required}
 credentials_required=${3:?credential capability required}
 root=/var/lib/skillet-smoke

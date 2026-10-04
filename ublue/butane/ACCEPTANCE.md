@@ -1063,3 +1063,27 @@ host tool; it still uses normal command approvals.
   disposable container was removed.
 - Live mount/boot-order checks need a named VM and remain unverified because
   `/dev/kvm` is unavailable here.
+
+### Shared activation, sanitized recording, and test fixture split, 2026-10-04
+
+- Added shared activation/revision handling to hardening, Podman containers,
+  and the btrbk timer. Unit tests verify changed definitions, stopped services,
+  no-ops, oneshot semantics, and recovery after failed reload/start/restart.
+- `apply --record` now writes versioned YAML atomically after both successful
+  and failed applies. Records include operation outcomes, omit content and
+  secret fingerprints, and do not retain raw effect error messages. Tests cover
+  failed applies and combined apply/record persistence failure.
+- Extracted `skillet-smoke-fixture` from production host/CLI dispatch and moved
+  its guest entrypoint to a standalone shell file. Cargo-reported artifact
+  selection follows the invoked Skillet target/profile. The smoke runner
+  verifies the fixture transfer and the installed generic/host binaries against
+  the expected recorded hashes. CI includes Butane and helper paths, all-target
+  formatting/Clippy/tests, extensionless shell helpers, and the Fedora
+  container integration command.
+- Local full workspace tests, strict all-target Clippy, formatting, ShellCheck,
+  and the CI container integration passed. The beezelbot base phase applied
+  twice; the repeat issued no service start/restart and the disposable container
+  was removed. The container runtime needed SIGKILL after its 10-second stop
+  timeout during cleanup; this did not fail the test.
+- Fresh VM activation/reboot, host-profile acceptance, and retained-run recovery
+  are unverified because this workstation has no `/dev/kvm`.

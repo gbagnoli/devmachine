@@ -47,8 +47,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run ShellCheck
         run: |
-          find . -name "*.sh" -not -path "./.venv/*" -not -path "./berks-cookbooks/*" -exec shellcheck -x {} +
-          shellcheck -x run
+          find . -type f \
+            \( -name '*.sh' -o -name run -o -name butane -o -name flatpak-virt \
+               -o -name test-vm -o -name test-vm-ready -o -name virsh -o -name virt-install \
+               -o -name setup-llama-server -o -name update-llama \) \
+            -not -path './.git/*' -not -path './.venv/*' -not -path './berks-cookbooks/*' \
+            -not -path '*/target/*' -exec shellcheck -x {} +
 
   skillet-checks:
     runs-on: ubuntu-latest
@@ -60,6 +64,9 @@ jobs:
           filters: |
             rust:
               - 'ublue/skillet/**'
+              - 'ublue/butane/**'
+              - 'ublue/AGENTS.md'
+              - '.github/workflows/ci.yml'
       
       - name: Set up Rust
         if: steps.filter.outputs.rust == 'true'
@@ -76,17 +83,18 @@ jobs:
 
       - name: Run Clippy
         if: steps.filter.outputs.rust == 'true'
-        run: cd ublue/skillet && cargo clippy -- -D warnings
+        run: cd ublue/skillet && cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Check formatting
+        if: steps.filter.outputs.rust == 'true'
+        run: cd ublue/skillet && cargo fmt --all -- --check
 
       - name: Run Unit Tests
         if: steps.filter.outputs.rust == 'true'
-        run: cd ublue/skillet && cargo test
+        run: cd ublue/skillet && cargo test --workspace --all-targets
 
       - name: Run Integration Tests
         if: steps.filter.outputs.rust == 'true'
         run: |
           cd ublue/skillet
-          # Build binary explicitly for the test runner to find it
-          # (default target is x86_64-unknown-linux-musl, see .cargo/config.toml)
-          cargo build
-          ./target/x86_64-unknown-linux-musl/debug/skillet test run beezelbot --phase base --image fedora:latest
+          cargo run --bin skillet -- test run beezelbot --phase base --image fedora:latest

@@ -6,7 +6,6 @@ use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 mod secret_delivery;
-mod test_fixture;
 mod vm;
 
 #[derive(Parser, Debug)]
@@ -102,9 +101,6 @@ enum TestCommands {
     Run(ContainerArgs),
     /// Exercise the real-systemd VM scenario using an explicit disposable SSH target
     Smoke(SmokeArgs),
-    /// Apply the disposable fixture used by the VM acceptance script
-    #[command(hide = true)]
-    FixtureApply,
     /// Create or destroy a disposable host VM
     Vm {
         #[command(subcommand)]
@@ -222,6 +218,18 @@ struct SmokeArgs {
     identity: Option<PathBuf>,
 }
 
+struct SmokeInvocation<'a> {
+    target: &'a str,
+    port: u16,
+    host: &'a str,
+    credentials_required: bool,
+    fixture_binary: &'a std::path::Path,
+    fixture_sha256: &'a str,
+    host_binary: String,
+    identity: &'a std::path::Path,
+    deployed_hashes: &'a skillet_vm::manifest::ArtifactHashes,
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
     let subscriber = FmtSubscriber::builder()
@@ -280,12 +288,6 @@ fn main() -> Result<()> {
             command: TestCommands::Smoke(args),
         } => run_smoke(&args)?,
         Commands::Test {
-            command: TestCommands::FixtureApply,
-        } => skillet_cli_common::handle_apply("smoke fixture", None, |system, files| {
-            test_fixture::apply(system, files).map_err(|error| error.to_string())
-        })
-        .map_err(|error| anyhow!("Failed to apply smoke fixture: {error}"))?,
-        Commands::Test {
             command: TestCommands::Vm { command },
         } => run_vm_command(command)?,
     }
@@ -330,6 +332,9 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
             args.instance
         ));
     }
+    let deployed_hashes = run.deployed.as_ref().ok_or_else(|| {
+        anyhow!("ready VM has no recorded deployed artifact hashes; rerun `test vm ready`")
+    })?;
     let target = format!("{}@{}", run.ssh.user, run.ssh.address);
     if args
         .target
@@ -370,25 +375,64 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
     let host_binary = format!("/var/usrlocal/bin/skillet-{}", run.identity.host());
     let credentials_required = profile.requires_full_apply_credentials();
     let binary = std::env::current_exe().context("locating the running Skillet binary failed")?;
+    let (fixture_artifact, fixture_hash, cargo_target, cargo_profile) =
+        build_smoke_fixture(&root, &binary)?;
+    info!(
+        target = cargo_target,
+        profile = cargo_profile,
+        generic_sha256 = deployed_hashes.generic,
+        host_sha256 = deployed_hashes.host,
+        fixture_sha256 = fixture_hash,
+        "Resolved smoke binaries"
+    );
     let script = root.join("integration_tests/smoke-ssh.sh");
     if !script.is_file() {
         return Err(anyhow!("smoke runner not found at {}", script.display()));
     }
+    run_smoke_runner(
+        &script,
+        SmokeInvocation {
+            target: &target,
+            port: run.ssh.port,
+            host: run.identity.host(),
+            credentials_required,
+            fixture_binary: &fixture_artifact,
+            fixture_sha256: &fixture_hash,
+            host_binary,
+            identity: &identity,
+            deployed_hashes,
+        },
+    )
+}
+
+fn run_smoke_runner(script: &std::path::Path, invocation: SmokeInvocation<'_>) -> Result<()> {
     let status = std::process::Command::new("bash")
         .arg(script)
-        .args(["--target", &target, "--disposable-target", "--port"])
-        .arg(run.ssh.port.to_string())
-        .args(["--host", run.identity.host()])
+        .args([
+            "--target",
+            invocation.target,
+            "--disposable-target",
+            "--port",
+        ])
+        .arg(invocation.port.to_string())
+        .args(["--host", invocation.host])
         .args([
             "--credentials-required",
-            if credentials_required { "yes" } else { "no" },
+            if invocation.credentials_required {
+                "yes"
+            } else {
+                "no"
+            },
         ])
-        .args(["--binary"])
-        .arg(&binary)
+        .args(["--fixture-binary"])
+        .arg(invocation.fixture_binary)
+        .args(["--fixture-sha256", invocation.fixture_sha256])
+        .args(["--generic-sha256", &invocation.deployed_hashes.generic])
+        .args(["--host-sha256", &invocation.deployed_hashes.host])
         .args(["--host-binary"])
-        .arg(host_binary)
+        .arg(invocation.host_binary)
         .args(["--identity"])
-        .arg(&identity)
+        .arg(invocation.identity)
         .status()
         .context("starting disposable-VM smoke runner failed")?;
     if !status.success() {
@@ -397,6 +441,44 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+fn artifact_target_profile(binary: &std::path::Path) -> Result<(&str, &str)> {
+    let profile_directory = binary
+        .parent()
+        .ok_or_else(|| anyhow!("running binary has no parent directory"))?;
+    let profile_name = profile_directory
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| anyhow!("cannot infer Cargo profile from running binary path"))?;
+    let profile = if profile_name == "debug" {
+        "dev"
+    } else {
+        profile_name
+    };
+    let target = profile_directory
+        .parent()
+        .and_then(|path| path.file_name())
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| anyhow!("cannot infer Cargo target from running binary path"))?;
+    Ok((target, profile))
+}
+
+fn build_smoke_fixture<'a>(
+    workspace: &std::path::Path,
+    running_binary: &'a std::path::Path,
+) -> Result<(PathBuf, String, &'a str, &'a str)> {
+    let (target, profile) = artifact_target_profile(running_binary)?;
+    let binary = skillet_vm::artifacts::build(&skillet_vm::artifacts::BuildRequest {
+        workspace,
+        packages: &["skillet-smoke-fixture"],
+        target,
+        profile,
+    })?
+    .remove("skillet-smoke-fixture")
+    .ok_or_else(|| anyhow!("Cargo did not report the smoke fixture executable"))?;
+    let hash = skillet_vm::delivery::sha256(&binary)?;
+    Ok((binary, hash, target, profile))
 }
 
 fn run_vm_create(args: &VmCreateArgs) -> Result<()> {
@@ -650,3 +732,7 @@ mod tests {
         assert!(parsed.is_ok());
     }
 }
+
+#[cfg(test)]
+#[path = "smoke_artifact_tests.rs"]
+mod smoke_artifact_tests;

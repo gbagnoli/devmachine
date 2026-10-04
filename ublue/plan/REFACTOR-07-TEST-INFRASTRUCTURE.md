@@ -1,8 +1,7 @@
 # 7. Test layers, fixtures, build artifacts and CI
 
-Status: planned; final workstream in [the prerequisite roadmap](SKILLET-REFACTOR.md).
-Earlier slices still validate their changes as they land. Further feature
-milestones wait for the full roadmap's completion.
+Status: implementation complete; fresh-VM acceptance pending. Earlier slices
+remain gated by [the prerequisite roadmap](SKILLET-REFACTOR.md).
 
 ## Read and locate
 
@@ -13,10 +12,29 @@ milestones wait for the full roadmap's completion.
 - `../../.github/workflows/ci.yml`, `../butane/tests/bootstrap.sh`, both READMEs,
   `../design/smoke-vms.md` and `../butane/ACCEPTANCE.md`.
 
-Current defects: fixture smoke, host acceptance and mocked container checks
-are conflated; target/artifact selection assumes default paths/instances; fakes
-disagree with adapter behavior; extensionless helpers and Butane-only changes
-miss relevant CI. A shell program remains embedded in a production Rust fixture.
+Original defects: fixture smoke, host acceptance and mocked container checks
+were conflated; target/artifact selection assumed default paths/instances; fakes
+disagreed with adapter behavior; extensionless helpers and Butane-only changes
+missed relevant CI. Shell code was embedded in a production Rust fixture.
+
+## Progress, 2026-10-04
+
+- Moved the synthetic application out of the production CLI module into the
+  dedicated `skillet-smoke-fixture` package and binary. Its guest entrypoint is
+  a standalone `integration_tests/fixture-entrypoint.sh` file. The hidden
+  production CLI fixture command was removed; the guest SSH smoke installs the
+  fixture binary explicitly.
+- Smoke derives Cargo target/profile from the invoked executable, builds the
+  fixture through Cargo JSON artifact reporting, and refuses an unreported or
+  missing executable. It verifies the fixture transfer and both installed
+  guest binaries against SHA-256 values recorded in the VM manifest. A unit
+  test covers custom target and release/debug selection. Existing VM identity,
+  instance, manifest SSH target, and port remain separately validated.
+- CI now selects Rust validation when Skillet, Butane, its helpers, or the
+  workflow changes; it runs workspace formatting, all-target strict Clippy,
+  all-target tests, and the named Fedora container integration command. Shell
+  lint explicitly includes current extensionless scripts. Local commands pass;
+  `/dev/kvm` is absent, so fresh-VM acceptance is unverified.
 
 ## Implementation sequence
 

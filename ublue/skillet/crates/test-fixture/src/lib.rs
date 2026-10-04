@@ -1,4 +1,4 @@
-//! Disposable integration-test fixture; it is not a host profile or apply path.
+//! Disposable application used only by the real-runtime acceptance fixture.
 
 use skillet_core::{
     files::{FileError, FileResource},
@@ -13,10 +13,10 @@ use thiserror::Error;
 const INPUT_DIR: &str = "/var/lib/skillet-smoke/desired";
 const CONFIG_PATH: &str = "/etc/skillet-smoke/config";
 const SECRET_NAME: &str = "skillet-smoke-dummy";
-const ENTRYPOINT: &[u8] = b"#!/bin/sh\nset -eu\ncp /fixture/config /data/observed-config\nsha256sum /run/secrets/skillet-smoke-dummy | cut -d' ' -f1 > /data/observed-secret-sha\nwhile :; do sleep 3600; done\n";
+const ENTRYPOINT: &[u8] = include_bytes!("../../../integration_tests/fixture-entrypoint.sh");
 
 #[derive(Debug, Error)]
-pub(super) enum FixtureError {
+pub enum FixtureError {
     #[error("System error: {0}")]
     System(#[from] SystemError),
     #[error("File error: {0}")]
@@ -27,10 +27,7 @@ pub(super) enum FixtureError {
     Input(String),
 }
 
-pub(super) fn apply(
-    system: &dyn SystemResource,
-    files: &dyn FileResource,
-) -> Result<(), FixtureError> {
+pub fn apply(system: &dyn SystemResource, files: &dyn FileResource) -> Result<(), FixtureError> {
     let config = files
         .read_file(&Path::new(INPUT_DIR).join("config"))?
         .ok_or_else(|| FixtureError::Input("missing desired config".to_string()))?;
@@ -39,7 +36,6 @@ pub(super) fn apply(
         .ok_or_else(|| FixtureError::Input("missing desired dummy secret".to_string()))?;
     let secret = String::from_utf8(secret)
         .map_err(|_| FixtureError::Input("dummy secret must be UTF-8".to_string()))?;
-
     files.ensure_directory(
         Path::new("/etc/skillet-smoke"),
         Some(0o755),
@@ -128,5 +124,5 @@ pub(super) fn apply(
 }
 
 #[cfg(test)]
-#[path = "test_fixture_tests.rs"]
+#[path = "tests.rs"]
 mod tests;
