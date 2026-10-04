@@ -54,6 +54,9 @@
 - Keep host profile, environment, deployment instance, runtime identity, and
   connection target distinct. Derive conventions in one place and persist the
   resolved values needed for recovery.
+- File and directory mutations use the same typed ownership contract for
+  named and numeric UID/GID values. Numeric ownership must not require a host
+  account lookup; preserve omitted metadata fields on existing paths.
 - Persist ownership before mutations and preserve it across partial failures.
   Cleanup must tolerate already-absent owned resources while refusing ambiguous
   or unrelated resources. Remove recovery metadata only after cleanup completes.

@@ -3,9 +3,9 @@
 Decision, 2026-10-03: complete the seven refactoring workstreams before further
 service migrations, encryption implementation, or production cutover. Existing
 service behavior and unfinished acceptance requirements remain authoritative.
-Status: implementation is complete for workstreams 1, 2, and 4–7; workstream 3
-still has an ownership API gap. Required named-VM and production acceptance has
-not passed.
+Status: implementation is complete for workstreams 1–7. Workstream 3's named-VM
+ownership and mount acceptance remains pending; required named-VM and production
+acceptance has not passed.
 
 Implementation progress: `skillet_vm` now supplies validated run identity and
 versioned manifests with explicit, non-destructive legacy import. Rust status
@@ -38,14 +38,14 @@ Tailscale enrollment now accepts provider, profile/environment, VM identity,
 state path, and guest transport as explicit inputs. Retained-VM
 runtime acceptance remains pending.
 
-Workstream 3 is in progress. Account observations and subordinate-ID files
-enter composition through injected resource interfaces; missing or invalid
-subordinate ranges fail closed. Directory ownership uses one typed named or
-numeric identity contract, and entry points pass required systemd credentials
-to host composition. File ownership is not fully unified yet: file mutations
-still accept separate name-only owner/group strings, while directory
-mutations accept the typed named-or-numeric ownership value. Host composition
-also retains aggregate effect interfaces during migration.
+Workstream 3 implementation is complete. Account observations and
+subordinate-ID files enter composition through injected resource interfaces;
+missing or invalid subordinate ranges fail closed. File and directory
+mutations share the typed named-or-numeric `Ownership` contract, including
+numeric IDs that do not require a matching host account. Entry points pass
+required systemd credentials to host composition. Host composition retains
+aggregate effect interfaces during migration. Named-VM ownership and mount
+acceptance remains pending.
 
 Keep application crates as reusable recipes. Separate canonical host profiles
 and composition from guest runtime adapters, CLI parsing, workstation
