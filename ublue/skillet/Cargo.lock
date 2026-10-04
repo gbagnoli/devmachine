@@ -2489,6 +2489,7 @@ dependencies = [
  "sha2 0.10.9",
  "skillet_caddy",
  "skillet_hosts",
+ "skillet_vm",
  "tempfile",
  "thiserror 1.0.69",
 ]
