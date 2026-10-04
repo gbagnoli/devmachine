@@ -1,8 +1,7 @@
 # 6. Explicit convergence outcomes and failure-safe recording
 
-Status: planned; follows workstreams 3–5 in
-[the prerequisite roadmap](SKILLET-REFACTOR.md).
-Further feature milestones wait for that roadmap's completion.
+Status: implementation complete; named-VM acceptance pending. Feature
+milestones remain gated by [the prerequisite roadmap](SKILLET-REFACTOR.md).
 
 ## Read and locate
 
@@ -13,9 +12,27 @@ Further feature milestones wait for that roadmap's completion.
 - `../design/{skillet-architecture,smoke-vms}.md` and existing failure-recovery
   unit/VM fixture tests.
 
-Current defects: activation markers are implemented separately in hardening
-and Podman; returned booleans can describe only file changes despite a restart.
-Recordings are saved only after successful apply and lack results/complete inputs.
+Original defects: activation markers were implemented separately in hardening
+and Podman; returned booleans described file changes despite restarts.
+Recordings were saved only after successful apply and exposed payload hashes.
+
+## Progress, 2026-10-04
+
+- Implemented one shared activation helper for hardening, Podman containers,
+  and the btrbk timer. It reports definition changes, starts/restarts, and
+  recovery of pending activation; marker state is committed only after a
+  successful service action. Persistent services are restarted after desired
+  changes, stopped unchanged services are started, and completed oneshots are
+  not rerun just because they are inactive.
+- Implemented version 1 diagnostic recordings with overall outcome and
+  per-operation success/change/failure. Recording omits file contents, content
+  hashes, secret payload fingerprints, and raw operation errors. Writes use a
+  synced temporary file and atomic replacement. Failed applies are recorded;
+  if recording also fails, the returned error retains both causes.
+- Focused tests cover changed/no-op/stopped states, reload/start/restart
+  interruption and retry, oneshots, secret redaction, failed apply recording,
+  and simultaneous apply/record failure. Full VM-level failure/reboot acceptance
+  remains pending.
 
 ## Implementation sequence
 

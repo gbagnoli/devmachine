@@ -2324,6 +2324,8 @@ dependencies = [
 name = "skillet_btrbk"
 version = "0.1.0"
 dependencies = [
+ "hex",
+ "sha2 0.10.9",
  "skillet_core",
  "thiserror 1.0.69",
 ]
@@ -2362,6 +2364,7 @@ dependencies = [
  "hex",
  "nix",
  "serde",
+ "serde_yml",
  "sha2 0.10.9",
  "tempfile",
  "thiserror 1.0.69",

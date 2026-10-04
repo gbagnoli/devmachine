@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 pub enum ResourceOp {
     EnsureFile {
         path: String,
-        content_hash: String,
         mode: Option<String>,
         owner: Option<String>,
         group: Option<String>,
@@ -24,6 +23,7 @@ pub enum ResourceOp {
     },
     EnsureGroup {
         name: String,
+        gid: Option<u32>,
     },
     EnsureUser {
         name: String,
@@ -32,7 +32,6 @@ pub enum ResourceOp {
     },
     EnsurePodmanSecret {
         name: String,
-        payload_hash: String,
     },
     ServiceStart {
         name: String,
@@ -50,4 +49,18 @@ pub enum ResourceOp {
         name: String,
     },
     DaemonReload,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
+#[serde(tag = "status", content = "changed", rename_all = "snake_case")]
+pub enum EffectResult {
+    Changed(bool),
+    Succeeded,
+    Failed,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
+pub struct RecordedOperation {
+    pub operation: ResourceOp,
+    pub result: EffectResult,
 }

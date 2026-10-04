@@ -17,6 +17,7 @@ pub struct MockSystem {
     pub podman_secrets: Arc<Mutex<HashSet<String>>>,
     pub secret_ids: Arc<Mutex<HashMap<String, String>>>,
     pub fail_restart_once: Arc<AtomicBool>,
+    pub fail_start_once: Arc<AtomicBool>,
     pub fail_reload_once: Arc<AtomicBool>,
     pub restart_count: Arc<AtomicUsize>,
     pub start_count: Arc<AtomicUsize>,
@@ -33,6 +34,7 @@ impl MockSystem {
             podman_secrets: Arc::new(Mutex::new(HashSet::new())),
             secret_ids: Arc::new(Mutex::new(HashMap::new())),
             fail_restart_once: Arc::new(AtomicBool::new(false)),
+            fail_start_once: Arc::new(AtomicBool::new(false)),
             fail_reload_once: Arc::new(AtomicBool::new(false)),
             restart_count: Arc::new(AtomicUsize::new(0)),
             start_count: Arc::new(AtomicUsize::new(0)),
@@ -194,6 +196,9 @@ impl ServiceResource for MockSystem {
 
     fn service_start(&self, name: &str) -> Result<(), SystemError> {
         self.start_count.fetch_add(1, Ordering::SeqCst);
+        if self.fail_start_once.swap(false, Ordering::SeqCst) {
+            return Err(SystemError::Command("injected start failure".to_string()));
+        }
         self.services
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)

@@ -1,5 +1,6 @@
 use askama::Template;
 use sha2::{Digest, Sha256};
+use skillet_core::activation::{self, ActivationOutcome, ActivationRequest, ConsumerKind};
 use skillet_core::files::{FileError, FileMutationResource, FileReadResource};
 use skillet_core::system::{
     AccountLookupResource, PodmanSecretResource, ServiceResource, SystemError,
@@ -20,6 +21,8 @@ pub enum PodmanError {
     System(#[from] SystemError),
     #[error("File error: {0}")]
     File(#[from] FileError),
+    #[error("Activation error: {0}")]
+    Activation(#[from] skillet_core::activation::ActivationError),
     #[error("User mapping error: {0}")]
     UserMapping(String),
     #[error("Invalid Podman network unit name: {0}")]
@@ -294,7 +297,11 @@ where
 }
 
 #[allow(clippy::similar_names)]
-pub fn container<S, F>(system: &S, files: &F, config: PodmanConfig) -> Result<bool, PodmanError>
+pub fn container<S, F>(
+    system: &S,
+    files: &F,
+    config: PodmanConfig,
+) -> Result<ActivationOutcome, PodmanError>
 where
     S: AccountLookupResource + PodmanSecretResource + ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
@@ -751,7 +758,7 @@ fn render_and_ensure_quadlet<S, F>(
     sections: BTreeMap<String, Vec<String>>,
     secret_ids: &[String],
     config_revisions: &[Vec<u8>],
-) -> Result<bool, PodmanError>
+) -> Result<ActivationOutcome, PodmanError>
 where
     S: ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
@@ -777,8 +784,6 @@ where
     let state_dir = Path::new("/var/lib/skillet/containers");
     files.ensure_directory(state_dir, Some(0o755), Some("root"), Some("root"))?;
     let applied_path = state_dir.join(format!("{name}.applied"));
-    let applied = files.read_file(&applied_path)?;
-    let pending = applied.as_deref() != Some(revision.as_bytes());
 
     let quadlet_dir = Path::new("/etc/containers/systemd");
     files.ensure_directory(quadlet_dir, Some(0o755), Some("root"), Some("root"))?;
@@ -792,24 +797,19 @@ where
         Some("root"),
     )?;
 
-    if changed || pending {
-        info!("Quadlet activation pending, triggering daemon-reload");
-        system.daemon_reload()?;
-        info!("Restarting {name} to consume the desired definition and secrets");
-        system.service_restart(name)?;
-        files.ensure_file(
-            &applied_path,
-            revision.as_bytes(),
-            Some(0o644),
-            Some("root"),
-            Some("root"),
-        )?;
-    } else if !system.service_is_active(name)? {
-        info!("Starting inactive {name}");
-        system.service_start(name)?;
-    }
-
-    Ok(changed)
+    let outcome = activation::activate(
+        system,
+        files,
+        &ActivationRequest {
+            service: name.to_string(),
+            state_path: applied_path,
+            revision: revision.into_bytes(),
+            definition_changed: changed,
+            reload_daemon: true,
+            consumer_kind: ConsumerKind::Persistent,
+        },
+    )?;
+    Ok(outcome)
 }
 
 #[cfg(test)]
