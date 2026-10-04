@@ -109,12 +109,15 @@ DNS record comments that the crate's DNS models do not expose. Persistent
 delivery use-or-creates and saves its scoped token in KeePassXC. The
 workstation UI provisioner now persists disposable owner intent, issues and
 journals its scoped token, reconciles DNS, records owned record IDs, and owns
-disposable cleanup. Cleanup validates the recorded identity and current
+disposable cleanup. Persistent delivery also owns tailnet device lookup,
+ACME-token reuse or issuance, migration of the legacy production entry,
+DNS reconciliation, complete credential-set delivery, and deferred Caddy
+activation. Cleanup validates the recorded identity and current
 environment configuration before mutation, removes marker-owned DNS, revokes
 the disposable and temporary cleanup tokens, and removes its journal last.
-Failures retain the journal for retry. Guest credential delivery and
-certificate acceptance still run through the CLI and are being moved behind
-workstation operations. Local tests cover the SDK transport, permission group
+Failures retain the journal for retry. Disposable guest credential delivery
+and certificate acceptance still run through the CLI. Local
+tests cover the SDK transport, permission group
 discovery, scoped token payloads, address-family validation, and DNS planning.
 Live 2026-10-02 staging acceptance issued certificates for each
 declared canonical UI and alias, verified DNS and HTTPS over IPv4/IPv6, and

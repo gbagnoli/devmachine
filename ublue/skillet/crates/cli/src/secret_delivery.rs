@@ -2,7 +2,6 @@ use super::{
     butane_root, vm_name, SecretDeliverArgs, UiEnvironmentName, VmDestroyArgs, VmProvisionArgs,
 };
 use anyhow::{anyhow, Context, Result};
-use skillet_vm::transport::GuestTransport as _;
 use skillet_workstation::provisioning_state;
 use skillet_workstation::tailscale;
 use skillet_workstation::vault::Vault;
@@ -96,15 +95,13 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
 
 fn deliver_caddy_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Result<()> {
     let policy = args.environment.policy();
-    let environment = policy.name();
     let domain_path = policy.ui_domain_entry();
     let domain_prefix = vault.get(&domain_path)?;
     let zone_path = policy.cloudflare_zone_entry();
     let zone_id = vault
         .get(zone_path)?
         .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
-    let zone_id = zone_id.trim();
-    skillet_workstation::cloudflare::validate_zone_id(zone_id)?;
+    let zone_id = zone_id.trim().to_string();
     let creator = vault
         .get("skillet/cloudflare/token-creator")?
         .ok_or_else(|| {
@@ -112,105 +109,27 @@ fn deliver_caddy_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Resu
                 "KeePassXC Cloudflare token creator is missing: skillet/cloudflare/token-creator"
             )
         })?;
-    let cloudflare = skillet_workstation::cloudflare::Cloudflare::new();
-    let zone = cloudflare.zone(&creator, zone_id)?;
     let tailnet = tailscale_credentials(vault)?;
-    let device = tailscale::find_device_by_hostname(
-        &tailnet,
-        &args.hostname,
-        policy.tailscale_tag(skillet_workstation::provisioning_policy::DeviceClass::ProductionHost),
-    )?;
-    let ui_plan = skillet_workstation::ui_provisioning::build_ui_provisioning_plan(
-        &args.hostname,
-        policy,
-        &zone.name,
-        domain_prefix.as_deref(),
-        &device.addresses,
-    )?;
-    let sites = ui_plan.sites;
-    let dns_marker = format!("skillet:{environment}:{}", args.hostname);
-    ensure_vault_unchanged(vault)?;
-    let account_id = skillet_workstation::cloudflare::Cloudflare::account_id(&zone)?;
-    let token = host_acme_token(args, vault, &cloudflare, &creator, zone_id, account_id)?;
-    cloudflare.zone(&token, zone_id)?;
-    ensure_vault_unchanged(vault)?;
-    cloudflare.reconcile_dns(
-        &token,
-        zone_id,
-        &dns_marker,
-        &sites.ui_domain,
-        &ui_plan.dns_records,
-    )?;
-    ensure_vault_unchanged(vault)?;
-    let sites = serde_json::to_string(&sites)?;
     let transport = credential_transport(args)?;
-    skillet_vm::credential::install_set(
-        &transport,
-        &args.hostname,
-        "skillet-caddy-apply.service",
-        skillet_vm::credential::ActivationPolicy::DeferConsumer,
-        &[
-            ("caddy_sites", sites.as_bytes()),
-            ("cloudflare_acme_token", token.as_bytes()),
-        ],
-    )?;
-    let output = transport
-        .execute(
-            &skillet_vm::transport::GuestCommand {
-                program: "/usr/bin/sudo",
-                arguments: &["-n", "systemctl", "start", "skillet-caddy-apply.service"],
-            },
-            None,
-        )
-        .context("starting Caddy apply after both credentials were delivered")?;
-    if !output.status.success() {
-        return Err(anyhow!("Caddy apply failed with status {}", output.status));
-    }
-    Ok(())
-}
-
-fn host_acme_token(
-    args: &SecretDeliverArgs,
-    vault: &mut Vault,
-    api: &skillet_workstation::cloudflare::Cloudflare,
-    creator: &str,
-    zone_id: &str,
-    account_id: &str,
-) -> Result<String> {
-    let environment = args.environment.policy().name();
-    let token_path = format!(
-        "skillet/environments/{environment}/hosts/{}/cloudflare/acme-token",
-        args.hostname
+    let cloudflare = skillet_workstation::cloudflare::Cloudflare::new();
+    let mut token_store = skillet_workstation::ui_provisioning::VaultUiTokenStore::new(
+        vault,
+        args.key_file.as_deref(),
     );
-    if let Some(token) = vault.get(&token_path)? {
-        return Ok(token);
-    }
-    let legacy = if args.environment == UiEnvironmentName::Production {
-        vault.get(&format!(
-            "skillet/hosts/{}/cloudflare/acme-token",
-            args.hostname
-        ))?
-    } else {
-        None
-    };
-    if let Some(token) = legacy {
-        vault.insert(&token_path, &token)?;
-        vault.save_verified(args.key_file.as_deref(), &token_path, &token)?;
-        return Ok(token);
-    }
-    let token_name = format!("skillet:{environment}:{}", args.hostname);
-    let issued = api.replace_named_zone_token(creator, zone_id, account_id, &token_name, None)?;
-    if let Err(error) = vault
-        .insert(&token_path, &issued.value)
-        .and_then(|()| vault.save_verified(args.key_file.as_deref(), &token_path, &issued.value))
-    {
-        if let Err(revoke_error) = api.revoke_token(creator, account_id, &issued.id) {
-            return Err(anyhow!("saving issued Cloudflare credential failed ({error}); revoking token {} also failed ({revoke_error})", issued.id));
-        }
-        return Err(anyhow::Error::new(error)
-            .context("saving new Cloudflare token into KeePassXC; issued token was revoked"));
-    }
-    Ok(issued.value)
+    skillet_workstation::ui_provisioning::deliver_persistent_ui(
+        &skillet_workstation::ui_provisioning::PersistentUiDelivery {
+            host: &args.hostname,
+            policy,
+            zone_id: &zone_id,
+            relative_ui_domain: domain_prefix.as_deref(),
+            creator_token: &creator,
+        },
+        &mut token_store,
+        &cloudflare,
+        &tailnet,
+        &transport,
+    )?;
+    Ok(())
 }
 
 pub(super) fn lock_vault(path: Option<&Path>) -> Result<()> {

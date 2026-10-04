@@ -4,9 +4,11 @@ use crate::{
     cloudflare::{self, CloudflareError, DesiredRecord, IssuedToken, OwnedDns, Zone},
     provisioning_policy::{Environment, ProvisioningPolicy},
     provisioning_state::{self, CloudflareVmOwnership, ProvisioningIdentity},
-    vault::VaultError,
+    tailscale::{self, OAuthCredentials, TailscaleError},
+    vault::{Vault, VaultError},
 };
 use skillet_caddy::{CaddyError, CaddySites, UiEnvironment};
+use skillet_vm::transport::GuestTransport;
 use std::{collections::BTreeSet, path::Path, time::Duration};
 use thiserror::Error;
 
@@ -22,7 +24,11 @@ pub enum UiProvisioningError {
     State(#[from] provisioning_state::ProvisioningStateError),
     #[error(transparent)]
     Vault(#[from] VaultError),
-    #[error("invalid disposable UI provisioning request: {0}")]
+    #[error(transparent)]
+    Tailscale(#[from] TailscaleError),
+    #[error(transparent)]
+    Guest(#[from] skillet_vm::Error),
+    #[error("invalid UI provisioning request: {0}")]
     Invalid(String),
 }
 
@@ -37,6 +43,14 @@ pub struct UiProvisioningPlan {
 pub trait UiCloudflareProvider {
     fn zone(&self, token: &str, zone_id: &str) -> Result<Zone, CloudflareError>;
     fn create_zone_token(
+        &self,
+        creator_token: &str,
+        zone_id: &str,
+        account_id: &str,
+        name: &str,
+        lifetime: Option<Duration>,
+    ) -> Result<IssuedToken, CloudflareError>;
+    fn replace_named_zone_token(
         &self,
         creator_token: &str,
         zone_id: &str,
@@ -96,6 +110,24 @@ impl UiCloudflareProvider for cloudflare::Cloudflare {
         )
     }
 
+    fn replace_named_zone_token(
+        &self,
+        creator_token: &str,
+        zone_id: &str,
+        account_id: &str,
+        name: &str,
+        lifetime: Option<Duration>,
+    ) -> Result<IssuedToken, CloudflareError> {
+        cloudflare::Cloudflare::replace_named_zone_token(
+            self,
+            creator_token,
+            zone_id,
+            account_id,
+            name,
+            lifetime,
+        )
+    }
+
     fn reconcile_dns(
         &self,
         token: &str,
@@ -136,6 +168,57 @@ impl UiCloudflareProvider for cloudflare::Cloudflare {
     }
 }
 
+/// The vault operations required to reuse or persist a host ACME token.
+pub trait UiTokenStore {
+    fn get(&self, path: &str) -> Result<Option<String>, VaultError>;
+    fn ensure_unchanged(&self) -> Result<(), VaultError>;
+    fn save_verified(&mut self, path: &str, token: &str) -> Result<(), VaultError>;
+}
+
+pub struct VaultUiTokenStore<'a> {
+    vault: &'a mut Vault,
+    key_file: Option<&'a Path>,
+}
+
+impl<'a> VaultUiTokenStore<'a> {
+    pub fn new(vault: &'a mut Vault, key_file: Option<&'a Path>) -> Self {
+        Self { vault, key_file }
+    }
+}
+
+impl UiTokenStore for VaultUiTokenStore<'_> {
+    fn get(&self, path: &str) -> Result<Option<String>, VaultError> {
+        self.vault.get(path)
+    }
+
+    fn ensure_unchanged(&self) -> Result<(), VaultError> {
+        self.vault.ensure_unchanged()
+    }
+
+    fn save_verified(&mut self, path: &str, token: &str) -> Result<(), VaultError> {
+        self.vault.insert(path, token)?;
+        self.vault.save_verified(self.key_file, path, token)
+    }
+}
+
+pub trait UiTailscaleProvider {
+    fn find_device_by_hostname(
+        &self,
+        hostname: &str,
+        tag: &str,
+    ) -> Result<tailscale::DeviceRecord, TailscaleError>;
+}
+
+impl UiTailscaleProvider for OAuthCredentials {
+    fn find_device_by_hostname(
+        &self,
+        hostname: &str,
+        tag: &str,
+    ) -> Result<tailscale::DeviceRecord, TailscaleError> {
+        tailscale::find_device_by_hostname(self, hostname, tag)
+    }
+}
+
 pub struct DisposableUiRequest<'a> {
     pub host: &'a str,
     pub instance: &'a str,
@@ -152,6 +235,125 @@ pub struct DisposableUiCredentials {
     pub token: IssuedToken,
     pub account_id: String,
     pub token_name: String,
+}
+
+pub struct PersistentUiDelivery<'a> {
+    pub host: &'a str,
+    pub policy: ProvisioningPolicy,
+    pub zone_id: &'a str,
+    pub relative_ui_domain: Option<&'a str>,
+    pub creator_token: &'a str,
+}
+
+/// Resolve production or named-host UI configuration, reconcile its DNS, and
+/// deliver both Caddy credentials before activating the consumer.
+pub fn deliver_persistent_ui(
+    request: &PersistentUiDelivery<'_>,
+    token_store: &mut impl UiTokenStore,
+    cloudflare: &impl UiCloudflareProvider,
+    tailnet: &impl UiTailscaleProvider,
+    guest: &impl GuestTransport,
+) -> Result<CaddySites, UiProvisioningError> {
+    let profile = skillet_hosts::profile_for_name(request.host)
+        .ok_or_else(|| UiProvisioningError::NoUiServices(request.host.to_string()))?;
+    if profile.ui_services().is_empty() {
+        return Err(UiProvisioningError::NoUiServices(request.host.to_string()));
+    }
+    cloudflare::validate_zone_id(request.zone_id)?;
+    let zone = cloudflare.zone(request.creator_token, request.zone_id)?;
+    let tag = request
+        .policy
+        .tailscale_tag(crate::provisioning_policy::DeviceClass::ProductionHost);
+    let device = tailnet.find_device_by_hostname(request.host, tag)?;
+    let plan = build_ui_provisioning_plan(
+        request.host,
+        request.policy,
+        &zone.name,
+        request.relative_ui_domain,
+        &device.addresses,
+    )?;
+    let account_id = crate::cloudflare::Cloudflare::account_id(&zone)?.to_string();
+    let token_path = format!(
+        "skillet/environments/{}/hosts/{}/cloudflare/acme-token",
+        request.policy.name(),
+        request.host
+    );
+    let token_name = format!("skillet:{}:{}", request.policy.name(), request.host);
+    let token = if let Some(token) = token_store.get(&token_path)? {
+        token
+    } else {
+        let legacy_path = format!("skillet/hosts/{}/cloudflare/acme-token", request.host);
+        let legacy = if request.policy.environment() == Environment::Production {
+            token_store.get(&legacy_path)?
+        } else {
+            None
+        };
+        if let Some(token) = legacy {
+            token_store.ensure_unchanged()?;
+            token_store.save_verified(&token_path, &token)?;
+            token
+        } else {
+            token_store.ensure_unchanged()?;
+            let issued = cloudflare.replace_named_zone_token(
+                request.creator_token,
+                request.zone_id,
+                &account_id,
+                &token_name,
+                request.policy.cloudflare_token_lifetime(),
+            )?;
+            if let Err(save_error) = token_store.save_verified(&token_path, &issued.value) {
+                return match cloudflare.revoke_token(
+                    request.creator_token,
+                    &account_id,
+                    &issued.id,
+                ) {
+                    Ok(()) => Err(UiProvisioningError::Vault(save_error)),
+                    Err(revoke_error) => Err(UiProvisioningError::Invalid(format!(
+                        "saving issued token failed ({save_error}); revoking token {} also failed ({revoke_error})",
+                        issued.id
+                    ))),
+                };
+            }
+            issued.value
+        }
+    };
+    cloudflare.zone(&token, request.zone_id)?;
+    token_store.ensure_unchanged()?;
+    let marker = format!("skillet:{}:{}", request.policy.name(), request.host);
+    cloudflare.reconcile_dns(
+        &token,
+        request.zone_id,
+        &marker,
+        &plan.sites.ui_domain,
+        &plan.dns_records,
+    )?;
+    token_store.ensure_unchanged()?;
+    let sites_payload = serde_json::to_vec(&plan.sites)
+        .map_err(|error| UiProvisioningError::Invalid(format!("encoding Caddy sites: {error}")))?;
+    skillet_vm::credential::install_set(
+        guest,
+        request.host,
+        "skillet-caddy-apply.service",
+        skillet_vm::credential::ActivationPolicy::DeferConsumer,
+        &[
+            ("caddy_sites", &sites_payload),
+            ("cloudflare_acme_token", token.as_bytes()),
+        ],
+    )?;
+    let output = guest.execute(
+        &skillet_vm::transport::GuestCommand {
+            program: "/usr/bin/sudo",
+            arguments: &["-n", "systemctl", "start", "skillet-caddy-apply.service"],
+        },
+        None,
+    )?;
+    if !output.status.success() {
+        return Err(UiProvisioningError::Invalid(format!(
+            "Caddy apply failed with status {}",
+            output.status
+        )));
+    }
+    Ok(plan.sites)
 }
 
 pub struct DisposableUiCleanupRequest<'a> {

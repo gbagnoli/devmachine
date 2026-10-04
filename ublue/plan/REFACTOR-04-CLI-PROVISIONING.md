@@ -167,7 +167,13 @@ and VM delivery have duplicate implementations with different validation.
   marker-owned DNS, revokes disposable and temporary cleanup tokens, and only
   then removes the journal. Provider failures retain the journal for retry;
   symlinked or non-regular state paths are rejected.
-- Pending: guest delivery/activation and its retry policy, production plus
-  named-VM acceptance, and remaining environment/host delivery orchestration
-  still span CLI and workstation modules. Complete the remaining sequence
-  items before closing this workstream.
+- Implemented: persistent UI provisioning now shares one workstation
+  transaction for tailnet device lookup, shared site/DNS derivation, ACME-token
+  reuse or scoped issuance, legacy production-token migration, DNS
+  reconciliation, complete Caddy credential-set delivery, and deferred
+  activation. The CLI supplies its parsed host/environment, vault, provider
+  credentials, and verified SSH transport.
+- Pending: disposable Caddy guest delivery/activation and its retry policy,
+  production plus named-VM acceptance, and the remaining non-UI production
+  credential workflows still need coverage or extraction. Complete the
+  remaining sequence items before closing this workstream.
