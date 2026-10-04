@@ -1,6 +1,6 @@
 use sha2::{Digest, Sha256};
 use skillet_core::activation::{self, ActivationRequest, ConsumerKind};
-use skillet_core::files::{FileError, FileMutationResource, FileReadResource};
+use skillet_core::files::{FileError, FileMutationResource, FileReadResource, Ownership};
 use skillet_core::system::{ServiceResource, SystemError};
 use std::path::Path;
 use thiserror::Error;
@@ -31,7 +31,11 @@ where
 
     // Common setup for SSH
     let ssh_dir = Path::new("/etc/ssh");
-    files.ensure_directory(ssh_dir, Some(0o755), Some("root"), Some("root"))?;
+    files.ensure_directory(
+        ssh_dir,
+        Some(0o755),
+        &Ownership::named(Some("root"), Some("root")),
+    )?;
 
     // 3. Include 'ssh-hardening::server'
     apply_ssh_hardening_server(system, files)?;
@@ -55,10 +59,19 @@ where
     F: FileMutationResource + FileReadResource + ?Sized,
 {
     let state_dir = Path::new("/var/lib/skillet/hardening");
-    files.ensure_directory(state_dir, Some(0o755), Some("root"), Some("root"))?;
+    files.ensure_directory(
+        state_dir,
+        Some(0o755),
+        &Ownership::named(Some("root"), Some("root")),
+    )?;
     let applied_path = state_dir.join(format!("{service}.applied"));
     let revision = hex::encode(Sha256::digest(content));
-    let changed = files.ensure_file(path, content, Some(mode), Some("root"), Some("root"))?;
+    let changed = files.ensure_file(
+        path,
+        content,
+        Some(mode),
+        &Ownership::named(Some("root"), Some("root")),
+    )?;
     activation::activate(
         system,
         files,
@@ -81,7 +94,11 @@ where
 {
     info!("Applying sysctl hardening...");
     let sysctl_dir = Path::new("/etc/sysctl.d");
-    files.ensure_directory(sysctl_dir, Some(0o755), Some("root"), Some("root"))?;
+    files.ensure_directory(
+        sysctl_dir,
+        Some(0o755),
+        &Ownership::named(Some("root"), Some("root")),
+    )?;
 
     let content = include_bytes!("../files/sysctl.boxy.conf");
     let path = sysctl_dir.join("99-hardening.conf");
@@ -118,7 +135,12 @@ where
     let content = include_bytes!("../files/ssh_config");
     let path = Path::new("/etc/ssh/ssh_config");
 
-    files.ensure_file(path, content, Some(0o644), Some("root"), Some("root"))?;
+    files.ensure_file(
+        path,
+        content,
+        Some(0o644),
+        &Ownership::named(Some("root"), Some("root")),
+    )?;
 
     Ok(())
 }

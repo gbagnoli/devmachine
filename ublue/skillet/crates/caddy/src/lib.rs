@@ -1,7 +1,7 @@
 //! Caddy reverse proxy for administrative interfaces.
 
 use serde::{Deserialize, Serialize};
-use skillet_core::files::{FileError, FileMutationResource, FileReadResource};
+use skillet_core::files::{FileError, FileMutationResource, FileReadResource, Ownership};
 use skillet_core::system::{
     AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
 };
@@ -278,13 +278,16 @@ where
 {
     let caddyfile = sites.render();
     let config_dir = Path::new("/etc/skillet/caddy");
-    files.ensure_directory(config_dir, Some(0o755), Some("root"), Some("root"))?;
+    files.ensure_directory(
+        config_dir,
+        Some(0o755),
+        &Ownership::named(Some("root"), Some("root")),
+    )?;
     files.ensure_file(
         &config_dir.join("Caddyfile"),
         caddyfile.as_bytes(),
         Some(0o644),
-        Some("root"),
-        Some("root"),
+        &Ownership::named(Some("root"), Some("root")),
     )?;
 
     let mut container = BTreeMap::new();
@@ -358,7 +361,11 @@ where
     // Preserve the caller's network configuration and let Podman create its
     // persistent directories on the shared data filesystem.
     for path in ["/var/lib/data/caddy/data", "/var/lib/data/caddy/config"] {
-        files.ensure_directory(Path::new(path), Some(0o755), Some("root"), Some("root"))?;
+        files.ensure_directory(
+            Path::new(path),
+            Some(0o755),
+            &Ownership::named(Some("root"), Some("root")),
+        )?;
     }
     skillet_podman::container(system, files, config)?;
     Ok(())

@@ -535,17 +535,19 @@ fn filesystem_fake_enforces_object_types_and_injected_failures() {
     let files = MockFiles::new();
     let file_path = std::path::Path::new("/tmp/mock-file");
     files
-        .ensure_file(file_path, b"data", None, None, None)
+        .ensure_file(file_path, b"data", None, &Ownership::default())
         .unwrap();
     assert!(matches!(
-        files.ensure_directory(file_path, None, None, None),
+        files.ensure_directory(file_path, None, &Ownership::default()),
         Err(FileError::NotADirectory(_))
     ));
 
     let directory = std::path::Path::new("/tmp/mock-directory");
-    files.ensure_directory(directory, None, None, None).unwrap();
+    files
+        .ensure_directory(directory, None, &Ownership::default())
+        .unwrap();
     assert!(matches!(
-        files.ensure_file(directory, b"data", None, None, None),
+        files.ensure_file(directory, b"data", None, &Ownership::default()),
         Err(FileError::NotAFile(_))
     ));
 
@@ -555,8 +557,7 @@ fn filesystem_fake_enforces_object_types_and_injected_failures() {
             std::path::Path::new("/tmp/failing-file"),
             b"data",
             None,
-            None,
-            None
+            &Ownership::default()
         )
         .is_err());
     files.fail_directory_once.store(true, Ordering::SeqCst);
@@ -564,8 +565,7 @@ fn filesystem_fake_enforces_object_types_and_injected_failures() {
         .ensure_directory(
             std::path::Path::new("/tmp/failing-directory"),
             None,
-            None,
-            None
+            &Ownership::default()
         )
         .is_err());
 }

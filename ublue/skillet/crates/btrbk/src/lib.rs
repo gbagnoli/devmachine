@@ -1,7 +1,7 @@
 use sha2::{Digest, Sha256};
 use skillet_core::{
     activation::{self, ActivationRequest, ConsumerKind},
-    files::{FileError, FileMutationResource, FileReadResource, StorageResource},
+    files::{FileError, FileMutationResource, FileReadResource, Ownership, StorageResource},
     system::{ServiceResource, SystemError},
 };
 use std::path::{Component, Path, PathBuf};
@@ -47,7 +47,7 @@ where
         let source = Path::new(DATA_MOUNT).join(relative);
         files.require_btrfs_subvolume(&source)?;
         let snapshot_dir = Path::new(DATA_MOUNT).join("snapshots").join(relative);
-        files.ensure_directory(&snapshot_dir, Some(0o755), None, None)?;
+        files.ensure_directory(&snapshot_dir, Some(0o755), &Ownership::default())?;
         sources.push((
             relative,
             snapshot_dir
@@ -60,29 +60,25 @@ where
     files.ensure_directory(
         Path::new("/etc/btrbk"),
         Some(0o755),
-        Some("root"),
-        Some("root"),
+        &Ownership::named(Some("root"), Some("root")),
     )?;
     let config_changed = files.ensure_file(
         Path::new(CONFIG_PATH),
         render_config(&sources).as_bytes(),
         Some(0o644),
-        Some("root"),
-        Some("root"),
+        &Ownership::named(Some("root"), Some("root")),
     )?;
     let service_changed = files.ensure_file(
         Path::new(SERVICE_PATH),
         service_unit().as_bytes(),
         Some(0o644),
-        Some("root"),
-        Some("root"),
+        &Ownership::named(Some("root"), Some("root")),
     )?;
     let timer_changed = files.ensure_file(
         Path::new(TIMER_PATH),
         timer_unit().as_bytes(),
         Some(0o644),
-        Some("root"),
-        Some("root"),
+        &Ownership::named(Some("root"), Some("root")),
     )?;
 
     let definition_changed = config_changed || service_changed || timer_changed;
@@ -93,7 +89,11 @@ where
     let revision = hex::encode(hasher.finalize());
     system.service_enable("skillet-btrbk.timer")?;
     let state_dir = Path::new("/var/lib/skillet/btrbk");
-    files.ensure_directory(state_dir, Some(0o755), Some("root"), Some("root"))?;
+    files.ensure_directory(
+        state_dir,
+        Some(0o755),
+        &Ownership::named(Some("root"), Some("root")),
+    )?;
     activation::activate(
         system,
         files,

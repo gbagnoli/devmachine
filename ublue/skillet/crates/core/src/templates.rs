@@ -1,4 +1,4 @@
-use crate::files::{FileError, FileResource};
+use crate::files::{FileError, FileResource, Ownership};
 use askama::Template;
 use std::path::Path;
 
@@ -7,8 +7,7 @@ pub fn ensure_templated_file<T, F>(
     path: &Path,
     template: &T,
     mode: Option<u32>,
-    owner: Option<&str>,
-    group: Option<&str>,
+    ownership: &Ownership,
 ) -> Result<bool, FileError>
 where
     T: Template,
@@ -20,5 +19,5 @@ where
         )))
     })?;
 
-    files.ensure_file(path, content.as_bytes(), mode, owner, group)
+    files.ensure_file(path, content.as_bytes(), mode, ownership)
 }

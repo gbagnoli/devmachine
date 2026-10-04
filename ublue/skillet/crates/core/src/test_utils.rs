@@ -257,7 +257,7 @@ impl ServiceResource for MockSystem {
     }
 }
 
-pub type FileMetadata = (Option<u32>, Option<String>, Option<String>);
+pub type FileMetadata = (Option<u32>, Ownership);
 pub type DirectoryMetadata = (Option<u32>, Ownership);
 pub type DirectoryMetadataMap = Arc<Mutex<HashMap<String, DirectoryMetadata>>>;
 
@@ -310,7 +310,7 @@ impl StorageResource for MockFiles {
     }
 
     fn ensure_btrfs_subvolume(&self, path: &Path) -> Result<bool, FileError> {
-        FileMutationResource::ensure_directory(self, path, None, None, None)
+        FileMutationResource::ensure_directory(self, path, None, &Ownership::default())
     }
 }
 
@@ -331,8 +331,7 @@ impl FileMutationResource for MockFiles {
         path: &Path,
         content: &[u8],
         mode: Option<u32>,
-        owner: Option<&str>,
-        group: Option<&str>,
+        ownership: &Ownership,
     ) -> Result<bool, FileError> {
         let path_str = path.display().to_string();
         if self
@@ -369,25 +368,22 @@ impl FileMutationResource for MockFiles {
             changed = true;
         }
 
-        let new_meta = (
-            mode,
-            owner.map(ToString::to_string),
-            group.map(ToString::to_string),
+        let current = metadata.get(&path_str).cloned().unwrap_or_default();
+        let desired = (
+            mode.or(current.0),
+            Ownership {
+                uid: ownership.uid.clone().or(current.1.uid),
+                gid: ownership.gid.clone().or(current.1.gid),
+            },
         );
-        if let Some(existing_meta) = metadata.get(&path_str) {
-            if existing_meta != &new_meta {
-                metadata.insert(path_str, new_meta);
-                changed = true;
-            }
-        } else {
-            metadata.insert(path_str, new_meta);
-            changed = true;
-        }
+        let unchanged = !changed && metadata.get(&path_str) == Some(&desired);
+        metadata.insert(path_str, desired);
+        changed |= !unchanged;
 
         Ok(changed)
     }
 
-    fn ensure_directory_with_ownership(
+    fn ensure_directory(
         &self,
         path: &Path,
         mode: Option<u32>,

@@ -8,7 +8,7 @@ fn diagnostic_recording_is_versioned_and_contains_only_sanitized_results() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("nested/apply.yml");
     let diagnostic = DiagnosticRecording {
-        format_version: 1,
+        format_version: 2,
         host: "fixture-host",
         outcome: "failed",
         operations: vec![RecordedOperation {
@@ -20,7 +20,7 @@ fn diagnostic_recording_is_versioned_and_contains_only_sanitized_results() {
     };
     persist_recording(&path, &diagnostic).unwrap();
     let output = fs::read_to_string(path).unwrap();
-    assert!(output.contains("format_version: 1"));
+    assert!(output.contains("format_version: 2"));
     assert!(output.contains("outcome: failed"));
     assert!(output.contains("status: failed"));
     assert!(!output.contains("payload"));

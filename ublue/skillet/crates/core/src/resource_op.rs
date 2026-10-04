@@ -6,8 +6,8 @@ pub enum ResourceOp {
     EnsureFile {
         path: String,
         mode: Option<String>,
-        owner: Option<String>,
-        group: Option<String>,
+        #[serde(default)]
+        ownership: Ownership,
     },
     DeleteFile {
         path: String,
