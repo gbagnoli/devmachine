@@ -1441,3 +1441,67 @@ host tool; it still uses normal command approvals.
   user unlocked the vault interactively, the assistant execution process could
   not read that session keyring entry and has no interactive password input.
   No provider mutations were made by this attempt.
+
+### Fresh disposable UI and roadmap acceptance, 2026-10-04
+
+- After the environment-scoped vault paths were corrected, a fresh
+  `clamps-test-generic-ui` VM completed create, signed readiness, and
+  `test vm provision clamps generic-ui --with-ui`. Provisioning used the test
+  vault entries, enrolled the disposable VM in Tailscale, reconciled owned
+  Cloudflare DNS, delivered credentials, and activated Caddy.
+- Guest Caddy logs confirmed successful Let's Encrypt staging ACME issuance
+  for every declared UI name. The in-guest HTTPS loopback denial probes returned
+  the expected 403 for each name. The fixture smoke passed, including its
+  failure-recovery and reboot cases. Destroy removed the journaled DNS/token
+  and Tailscale resources before deleting the VM. No production credential or
+  production issuer was used.
+- Local validation on this runner: `cargo fmt --all -- --check`, strict
+  all-target Clippy, and all workspace/all-target tests (244 passed) passed for
+  the configured musl target. The CI integration command
+  `cargo run --bin skillet -- test run beezelbot --phase base --image
+  fedora:latest` passed both applies; repeat apply caused no service
+  start/restart. Workflow-wide ShellCheck and
+  `bash ublue/butane/tests/bootstrap.sh` passed. A supplementary GNU-target
+  suite and integration also passed. The integration container needed SIGKILL
+  after its 10-second stop timeout.
+- At this checkpoint, retained-host repeat apply, live process/network/storage
+  assertions, credential rotation, and post-rotation reboot were outstanding.
+  They were completed in the following retained-VM acceptance entry. Remaining
+  live gaps are listed there.
+
+### Retained clamps VM apply, storage, and repeat-apply acceptance, 2026-10-04
+
+- Host-context verification confirmed `/dev/kvm` and the running retained
+  `clamps-test-smoke` VM. `test vm ready clamps smoke` passed, including signed
+  boot, captured-binary delivery, base apply, and user-environment checks.
+- `test vm provision clamps smoke` completed twice after one manually
+  interrupted attempt. The successful retries enrolled/verified the test VM in
+  Tailscale, delivered Pi-hole credentials, and completed the declared clamps
+  application. No Caddy or Cloudflare operation was requested in this run.
+- The fixture smoke passed after provisioning, including pre-reboot failure
+  recovery and post-reboot checks. `test vm status clamps smoke` confirmed the
+  recorded domain remained running and owned after the cycle.
+- Guest inspection through `test vm ssh` confirmed `/var/lib/data` is the
+  Btrfs `data` subvolume mounted from the VM disk; Podman graph storage and
+  Pi-hole, Syncthing, Tailscale, and UniFi use the expected paths under it.
+  Pi-hole and Syncthing use the bridge network; Tailscale and UniFi use host
+  networking. UniFi's container user and data-root ownership resolved to the
+  declared numeric identity. All four service containers were running, and
+  UniFi reported healthy.
+- A further full provisioning apply left the recorded Podman start timestamps
+  unchanged for all four service containers, confirming no restart on repeat.
+- `test vm provision clamps smoke --rotate` succeeded. Pi-hole's container
+  restarted with the new generated test credential; Syncthing, Tailscale, and
+  UniFi start times did not change. A normal apply afterward left all four
+  start times unchanged. After another fixture reboot, all four services and
+  the fixture container were running, the encrypted Pi-hole credential file
+  was present, and `skillet-full-apply.service` reported `Result=success`.
+- For the ownership check, created a temporary child with UID/GID `12345:12345`
+  and mode `0600`, then changed only its managed UniFi volume root to
+  `12345:12345`/`0700`. Host apply restored the volume root to `999:999`/`0750`
+  and preserved the child's UID/GID/mode. The temporary file was removed,
+  UniFi was healthy, and `systemctl --failed` was empty afterward.
+- Remaining: a controlled interrupted-provisioning recovery with its journal
+  captured before and after, and a legacy-manifest live import (no legacy VM
+  run is available). Production delivery/renewal and outside-tailnet denial
+  remain separate deferred acceptance.

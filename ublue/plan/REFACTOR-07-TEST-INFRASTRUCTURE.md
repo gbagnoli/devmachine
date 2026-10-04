@@ -1,7 +1,8 @@
 # 7. Test layers, fixtures, build artifacts and CI
 
-Status: implementation complete; fresh-VM acceptance pending. Earlier slices
-remain gated by [the prerequisite roadmap](SKILLET-REFACTOR.md).
+Status: implementation complete; CI checks and fresh/retained VM acceptance
+passed. Legacy-manifest import and controlled interrupted-recovery acceptance
+remain open; see the [prerequisite roadmap](SKILLET-REFACTOR.md).
 
 ## Read and locate
 
@@ -33,8 +34,9 @@ missed relevant CI. Shell code was embedded in a production Rust fixture.
 - CI now selects Rust validation when Skillet, Butane, its helpers, or the
   workflow changes; it runs workspace formatting, all-target strict Clippy,
   all-target tests, and the named Fedora container integration command. Shell
-  lint explicitly includes current extensionless scripts. Local commands pass;
-  `/dev/kvm` is absent, so fresh-VM acceptance is unverified.
+  lint explicitly includes current extensionless scripts. The fresh disposable
+  VM fixture and reboot passed; legacy-manifest compatibility and controlled
+  interrupted recovery remain unverified live.
 
 ## Implementation sequence
 
@@ -90,11 +92,10 @@ missed relevant CI. Shell code was embedded in a production Rust fixture.
 - CI selection includes relevant Butane/helper changes, all executable shell
   helpers are linted, and format/Clippy/unit/bootstrap/container commands pass
   locally. Update AGENTS with exact final commands and general coverage rules.
-- A named fresh VM passes create/ready/provision, real convergence fixture,
-  profile-selected host acceptance, reboot, repeat apply and cleanup. Record
-  artifact versions and outcomes; external resources created for this run are
-  removed through the single orchestrator. Prove retained-run compatibility
-  and interrupted recovery as required by workstream 1.
+- A named fresh VM passed create/ready/provision, real convergence fixture,
+  reboot, and external cleanup. A retained VM passed readiness, full
+  provisioning, repeat apply, fixture failure recovery, and reboot. Remaining:
+  legacy-manifest import and controlled interrupted recovery.
 - Finish only after earlier workstreams' exit criteria also pass. Update the
   roadmap gate and migration entry point so the next agent can resume feature
   work without losing deferred acceptance requirements.

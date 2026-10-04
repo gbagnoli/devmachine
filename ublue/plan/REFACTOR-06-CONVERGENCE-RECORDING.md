@@ -1,7 +1,8 @@
 # 6. Explicit convergence outcomes and failure-safe recording
 
-Status: implementation complete; named-VM acceptance pending. Feature
-milestones remain gated by [the prerequisite roadmap](SKILLET-REFACTOR.md).
+Status: implementation complete; fixture failure-recovery/reboot, host
+credential rotation, and unchanged repeat-apply acceptance passed. See the
+[prerequisite roadmap](SKILLET-REFACTOR.md).
 
 ## Read and locate
 
@@ -31,8 +32,9 @@ Recordings were saved only after successful apply and exposed payload hashes.
   if recording also fails, the returned error retains both causes.
 - Focused tests cover changed/no-op/stopped states, reload/start/restart
   interruption and retry, oneshots, secret redaction, failed apply recording,
-  and simultaneous apply/record failure. Full VM-level failure/reboot acceptance
-  remains pending.
+  and simultaneous apply/record failure. The fresh VM fixture passed its
+  failure-recovery and reboot cases. A further full host apply preserved the
+  service containers' start timestamps, confirming unchanged repeat apply.
 
 ## Implementation sequence
 
