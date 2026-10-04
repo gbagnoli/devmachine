@@ -46,8 +46,8 @@ the Password field, following the existing exact-lookup convention:
 
 | Entry | Purpose |
 | --- | --- |
-| `skillet/environments/<environment>/dns/ui-domain` | Optional relative prefix; absent means `ui` |
-| `skillet/environments/<environment>/hosts/<host>/cloudflare/acme-token` | Durable token for a persistent host |
+| `skillet/environments/<environment>/dns/ui-domain` | Optional relative prefix; absent means `ui` (`<environment>` is `prod` or `test`) |
+| `skillet/environments/<environment>/hosts/<host>/cloudflare/acme-token` | Durable token for a persistent host (`<environment>` is `prod` or `test`) |
 | `skillet/cloudflare/token-creator` | Workstation-only token issuer |
 | `skillet/environments/<environment>/dns/cloudflare-zone-id` | Environment-specific Cloudflare Zone ID of the authorized existing zone (`prod` or `test`) |
 

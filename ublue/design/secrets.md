@@ -51,6 +51,8 @@ The Cloudflare token creator is stored at `skillet/cloudflare/token-creator`.
 
 Vault paths are group paths plus an entry title; values use the Password field.
 The prefix is consistently singular, `skillet`:
+KeePassXC environment groups are named `prod` and `test`; the CLI's `production`
+policy maps to the `prod` group.
 
 | Vault entry | Host credential and Podman secret name |
 | --- | --- |

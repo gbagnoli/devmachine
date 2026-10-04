@@ -220,7 +220,8 @@ KeePassXC entries in their Password fields:
 | `skillet/environments/<environment>/dns` | `cloudflare-zone-id` | Required Zone ID for `prod` or `test` |
 | `skillet/cloudflare` | `token-creator` | Workstation token issuer |
 
-Select `production` or `test` for `<environment>`. Copy the Zone ID from the
+Select `production` or `test` for the CLI environment; use `prod` or `test` as
+the KeePassXC environment group name. Copy the Zone ID from the
 selected zone's Cloudflare Overview page. Skillet fetches the zone's domain
 and always appends it to the relative prefix. For zone `example.com`, an
 absent entry produces `ui.example.com`; `ui.whatever` produces
