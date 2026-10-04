@@ -86,5 +86,9 @@ ownership use separate APIs; mocks do not enforce important metadata contracts.
   service, and backup crates request their required capabilities; host
   composition retains the aggregate during migration. Recorder and mock
   adapters implement the narrow contracts.
-- Pending: shared adapter contract tests still need review, and live
-  ownership/mount acceptance is outstanding. This workstream is not complete.
+- Implemented: a shared file mutation contract runs against both
+  `LocalFileResource` and `MockFiles`, checking creation, unchanged repeat,
+  update, deletion, and file/directory type conflicts. This catches behavioral
+  drift without relying on root privileges or Btrfs.
+- Pending: system/service adapter contract coverage and live ownership/mount
+  acceptance remain outstanding. This workstream is not complete.
