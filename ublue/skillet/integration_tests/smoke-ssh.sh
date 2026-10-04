@@ -2,7 +2,10 @@
 set -euo pipefail
 
 target=
-binary=
+fixture_binary=
+fixture_sha256=
+generic_sha256=
+host_sha256=
 host_binary=
 host=
 credentials_required=
@@ -12,7 +15,10 @@ disposable=false
 while (($#)); do
   case "$1" in
     --target) target=${2:?}; shift 2 ;;
-    --binary) binary=${2:?}; shift 2 ;;
+    --fixture-binary) fixture_binary=${2:?}; shift 2 ;;
+    --fixture-sha256) fixture_sha256=${2:?}; shift 2 ;;
+    --generic-sha256) generic_sha256=${2:?}; shift 2 ;;
+    --host-sha256) host_sha256=${2:?}; shift 2 ;;
     --host-binary) host_binary=${2:?}; shift 2 ;;
     --host) host=${2:?}; shift 2 ;;
     --credentials-required) credentials_required=${2:?}; shift 2 ;;
@@ -23,8 +29,8 @@ while (($#)); do
   esac
 done
 
-if [[ -z $target || -z $binary || -z $host_binary || -z $host || -z $credentials_required || $disposable != true ]]; then
-  echo 'usage: smoke-ssh.sh --target USER@DISPOSABLE_VM --host HOST --credentials-required yes|no [--port PORT] [--identity PRIVATE_KEY] --disposable-target --binary LOCAL_SKILLET --host-binary REMOTE_SKILLET_HOST' >&2
+if [[ -z $target || -z $fixture_binary || -z $fixture_sha256 || -z $generic_sha256 || -z $host_sha256 || -z $host_binary || -z $host || -z $credentials_required || $disposable != true ]]; then
+  echo 'usage: smoke-ssh.sh --target USER@DISPOSABLE_VM --host HOST --credentials-required yes|no [--port PORT] [--identity PRIVATE_KEY] --disposable-target --fixture-binary LOCAL_FIXTURE --fixture-sha256 HASH --generic-sha256 HASH --host-sha256 HASH --host-binary REMOTE_SKILLET_HOST' >&2
   exit 2
 fi
 if [[ ! $target =~ ^[A-Za-z0-9_.-]+@[A-Za-z0-9_.-]+$ ]]; then
@@ -40,7 +46,7 @@ if [[ $target == *@"$host" || $target == *@"$host".* ]] ||
   echo "refusing the production host identity $host or a local SSH service on port 22" >&2
   exit 2
 fi
-if [[ ! -f $binary || $host_binary != /* || ! $host_binary =~ ^/[A-Za-z0-9_./-]+$ ]]; then
+if [[ ! -f $fixture_binary || ! $fixture_sha256 =~ ^[a-f0-9]{64}$ || ! $generic_sha256 =~ ^[a-f0-9]{64}$ || ! $host_sha256 =~ ^[a-f0-9]{64}$ || $host_binary != /* || ! $host_binary =~ ^/[A-Za-z0-9_./-]+$ ]]; then
   echo 'binary paths must name a local file and an absolute remote path' >&2
   exit 2
 fi
@@ -61,9 +67,25 @@ if [[ -n $identity ]]; then
   ssh_opts+=(-i "$identity" -o IdentitiesOnly=yes -o UserKnownHostsFile="$known_hosts")
   scp_opts+=(-i "$identity" -o IdentitiesOnly=yes -o UserKnownHostsFile="$known_hosts")
 fi
-scp -O "${scp_opts[@]}" "$binary" "$target:/var/tmp/skillet-smoke"
+scp -O "${scp_opts[@]}" "$fixture_binary" "$target:/var/tmp/skillet-smoke-fixture"
 scp -O "${scp_opts[@]}" "$script_dir/smoke-guest.sh" "$target:/var/tmp/skillet-smoke-guest.sh"
-ssh "${ssh_opts[@]}" "$target" 'sudo install -m 0755 /var/tmp/skillet-smoke /var/usrlocal/bin/skillet-smoke'
+ssh "${ssh_opts[@]}" "$target" 'sudo install -m 0755 /var/tmp/skillet-smoke-fixture /var/usrlocal/bin/skillet-smoke-fixture'
+fixture_remote_sha256=$(ssh "${ssh_opts[@]}" "$target" 'sha256sum /var/usrlocal/bin/skillet-smoke-fixture | cut -d " " -f 1')
+if [[ $fixture_remote_sha256 != "$fixture_sha256" ]]; then
+  echo 'transferred fixture binary does not match the selected Cargo artifact' >&2
+  exit 1
+fi
+generic_remote_sha256=$(ssh "${ssh_opts[@]}" "$target" 'sha256sum /var/usrlocal/bin/skillet | cut -d " " -f 1')
+if [[ $generic_remote_sha256 != "$generic_sha256" ]]; then
+  echo 'installed generic binary does not match the ready VM manifest' >&2
+  exit 1
+fi
+# shellcheck disable=SC2029
+host_remote_sha256=$(ssh "${ssh_opts[@]}" "$target" "sha256sum '$host_binary' | cut -d ' ' -f 1")
+if [[ $host_remote_sha256 != "$host_sha256" ]]; then
+  echo 'installed host binary does not match the ready VM manifest' >&2
+  exit 1
+fi
 boot_before=$(ssh "${ssh_opts[@]}" "$target" 'cat /proc/sys/kernel/random/boot_id')
 # The remote path is validated above and intentionally expanded on the client.
 # shellcheck disable=SC2029

@@ -11,7 +11,9 @@ if [ ! -x "$mock/systemctl" ]; then
 set -eu
 printf '%s\n' "$*" >> /tmp/skillet-test.systemctl.log
 case "$1" in
-  is-active) [ -f "/tmp/skillet-test-state/active-$3" ] ;;
+  is-active)
+    if [ -f "/tmp/skillet-test-state/active-$3" ]; then exit 0; else exit 3; fi
+    ;;
   start|restart) touch "/tmp/skillet-test-state/active-$2" ;;
   enable|daemon-reload|stop|reload) exit 0 ;;
   *) exit 2 ;;

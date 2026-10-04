@@ -27,7 +27,7 @@ This document defines the architectural mandates and project structure for `skil
 ### 4. Quality Control & Validation
 - **Formatting & Linting**: Always run `cargo fmt` and `cargo clippy` after making changes to ensure code quality and consistency. **Clippy MUST be run with `pedantic` lints enabled (configured in `Cargo.toml`).**
 - **Verification**: Always run both:
-    - **Unit Tests**: `cargo test` across the workspace.
+    - **Unit Tests**: `cargo test --workspace --all-targets`.
     - **Runtime Smoke**: Run `integration_tests/smoke-ssh.sh` against an explicitly named disposable VM with real systemd and Podman for affected container resources. Record the guest state snapshots and failure diagnostics.
 
 ## Local musl toolchain

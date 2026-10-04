@@ -2321,6 +2321,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "skillet-smoke-fixture"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "skillet_cli_common",
+ "skillet_core",
+ "skillet_podman",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "skillet_btrbk"
 version = "0.1.0"
 dependencies = [

@@ -13,6 +13,7 @@ members = [
     "crates/hosts/beezelbot",
     "crates/hosts/clamps",
     "crates/cli-common",
+    "crates/test-fixture",
     "crates/vm",
     "crates/host-profiles",
     "crates/workstation",
