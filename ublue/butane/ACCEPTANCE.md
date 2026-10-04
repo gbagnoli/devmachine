@@ -1166,3 +1166,16 @@ host tool; it still uses normal command approvals.
   needed SIGKILL after Podman's 10-second stop timeout during cleanup. This
   successful retry supersedes the stalled integration attempt recorded above.
 - No VM or provider API was contacted. `/dev/kvm` remains unavailable.
+
+### Fail-closed Tailscale enrollment probe, 2026-10-04
+
+- Initial enrollment now propagates SSH/status command errors rather than
+  interpreting them as an empty device state. The new regression test confirms
+  a failed guest status command refuses enrollment even when stdout resembles
+  a valid `NeedsLogin` response.
+- The focused regression test, full offline workspace tests, strict all-target
+  Clippy, and format check passed. The beezelbot Fedora base integration exited
+  0; both applies succeeded, and the repeat issued no service start/restart.
+  Podman needed SIGKILL after its 10-second stop timeout while cleaning up the
+  disposable container.
+- No live VM or provider API was used. `/dev/kvm` remains unavailable.

@@ -1,4 +1,7 @@
-use super::{read_vm_port, validate_delivery_service, validate_tailscale_unit_config};
+use super::{
+    parse_vm_tailscale_status, read_vm_port, validate_delivery_service,
+    validate_tailscale_unit_config,
+};
 
 #[test]
 fn vm_port_requires_manifest_range() {
@@ -18,6 +21,21 @@ fn rejects_vm_without_tailscale_systemd_credential() {
 
     let current_unit = "LoadCredentialEncrypted=tailscale_auth_key:/etc/credstore.encrypted/skillet/tailscale_auth_key.cred";
     assert!(validate_tailscale_unit_config(current_unit).is_ok());
+}
+
+#[test]
+fn failed_tailscale_status_command_does_not_mean_no_existing_enrollment() {
+    use std::os::unix::process::ExitStatusExt;
+
+    let output = std::process::Output {
+        status: std::process::ExitStatus::from_raw(1 << 8),
+        stdout: br#"{"BackendState":"NeedsLogin"}"#.to_vec(),
+        stderr: b"permission denied".to_vec(),
+    };
+    let error = parse_vm_tailscale_status(&output).unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("refusing to treat probe failure"));
 }
 
 #[test]
