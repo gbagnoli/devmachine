@@ -143,20 +143,18 @@ fn deliver_caddy_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Resu
     )?;
     ensure_vault_unchanged(vault)?;
     let sites = serde_json::to_string(&sites)?;
-    for (credential, value) in [
-        ("caddy_sites", sites.as_str()),
-        ("cloudflare_acme_token", token.as_str()),
-    ] {
-        skillet_vm::credential::install(
-            &credential_transport(args)?,
-            &args.hostname,
-            credential,
-            "skillet-caddy-apply.service",
-            skillet_vm::credential::ActivationPolicy::DeferConsumer,
-            value.as_bytes(),
-        )?;
-    }
-    let output = credential_transport(args)?
+    let transport = credential_transport(args)?;
+    skillet_vm::credential::install_set(
+        &transport,
+        &args.hostname,
+        "skillet-caddy-apply.service",
+        skillet_vm::credential::ActivationPolicy::DeferConsumer,
+        &[
+            ("caddy_sites", sites.as_bytes()),
+            ("cloudflare_acme_token", token.as_bytes()),
+        ],
+    )?;
+    let output = transport
         .execute(
             &skillet_vm::transport::GuestCommand {
                 program: "/usr/bin/sudo",
@@ -507,15 +505,16 @@ fn provision_vm_ui(
         )?;
         ownership.record_ids = owned.records.into_iter().map(|record| record.id).collect();
         provisioning_state::save_cloudflare_ownership(&metadata_path, &ownership)?;
-        ssh.install_deferred(
-            "caddy_sites",
+        let sites_payload = serde_json::to_string(&sites)?;
+        skillet_vm::credential::install_set(
+            &ssh.transport,
+            &args.hostname,
             "skillet-caddy-apply.service",
-            &serde_json::to_string(&sites)?,
-        )?;
-        ssh.install_deferred(
-            "cloudflare_acme_token",
-            "skillet-caddy-apply.service",
-            &issued.value,
+            skillet_vm::credential::ActivationPolicy::DeferConsumer,
+            &[
+                ("caddy_sites", sites_payload.as_bytes()),
+                ("cloudflare_acme_token", issued.value.as_bytes()),
+            ],
         )?;
         ssh.run(
             "/usr/bin/sudo",
@@ -717,15 +716,6 @@ impl VmSsh {
             "skillet-full-apply.service",
             secret,
             skillet_vm::credential::ActivationPolicy::StartConsumer,
-        )
-    }
-
-    fn install_deferred(&self, name: &str, unit: &str, secret: &str) -> Result<()> {
-        self.install_for_unit(
-            name,
-            unit,
-            secret,
-            skillet_vm::credential::ActivationPolicy::DeferConsumer,
         )
     }
 

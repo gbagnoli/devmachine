@@ -1,4 +1,4 @@
-use super::{install, ActivationPolicy};
+use super::{install, install_set, ActivationPolicy};
 use crate::{
     transport::{GuestCommand, GuestTransport},
     Error, Result,
@@ -77,6 +77,51 @@ fn rejects_invalid_names_and_empty_payload_before_transport() {
             unit,
             ActivationPolicy::StartConsumer,
             payload,
+        )
+        .is_err());
+    }
+    assert!(transport.calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn credential_set_validates_all_entries_then_defers_each_install() {
+    let transport = FakeTransport::default();
+    install_set(
+        &transport,
+        "clamps",
+        "skillet-caddy-apply.service",
+        ActivationPolicy::DeferConsumer,
+        &[
+            ("caddy_sites", b"sites payload"),
+            ("cloudflare_acme_token", b"token payload"),
+        ],
+    )
+    .unwrap();
+    let calls = transport.calls.lock().unwrap();
+    assert_eq!(calls.len(), 2);
+    assert!(calls
+        .iter()
+        .all(|call| call.1.last().map(String::as_str) == Some("--no-start")));
+    assert_eq!(calls[0].2.as_deref(), Some(b"sites payload".as_slice()));
+    assert_eq!(calls[1].2.as_deref(), Some(b"token payload".as_slice()));
+}
+
+#[test]
+fn credential_set_rejects_invalid_or_duplicate_entries_before_any_mutation() {
+    let transport = FakeTransport::default();
+    for credentials in [
+        vec![("caddy_sites", b"sites".as_slice()), ("bad;name", b"token")],
+        vec![
+            ("caddy_sites", b"sites".as_slice()),
+            ("caddy_sites", b"again"),
+        ],
+    ] {
+        assert!(install_set(
+            &transport,
+            "clamps",
+            "skillet-caddy-apply.service",
+            ActivationPolicy::DeferConsumer,
+            &credentials,
         )
         .is_err());
     }

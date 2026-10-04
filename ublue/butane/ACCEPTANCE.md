@@ -1179,3 +1179,19 @@ host tool; it still uses normal command approvals.
   Podman needed SIGKILL after its 10-second stop timeout while cleaning up the
   disposable container.
 - No live VM or provider API was used. `/dev/kvm` remains unavailable.
+
+### Shared deferred credential-set delivery, 2026-10-04
+
+- Added `skillet_vm::credential::install_set`, which validates the full
+  duplicate-free credential set before any guest mutation and applies a single
+  consumer/activation policy. Production and disposable Caddy flows install
+  `caddy_sites` and `cloudflare_acme_token` as one deferred set, then activate
+  Caddy after successful delivery.
+- Credential delivery tests passed for stdin-only payloads, deferred
+  activation, complete-set validation, duplicate refusal, and guest failure.
+  Workspace formatting, all-target tests, and strict all-target Clippy passed.
+- The beezelbot Fedora base integration exited 0: two applies succeeded, the
+  repeat issued no service start/restart, and the disposable container was
+  removed. Podman needed SIGKILL after its 10-second stop timeout.
+- No VM credential delivery or live provider API was run; `/dev/kvm` is
+  unavailable.
