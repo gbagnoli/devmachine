@@ -1213,3 +1213,19 @@ host tool; it still uses normal command approvals.
   repeat issued no service start/restart, and the disposable container was
   removed. Podman needed SIGKILL after its 10-second stop timeout.
 - No VM or live Tailscale API was contacted. `/dev/kvm` is unavailable.
+
+### Workstation-owned disposable Cloudflare UI transaction, 2026-10-04
+
+- Moved disposable UI token issuance and DNS reconciliation into
+  `skillet_workstation::ui_provisioning`. It persists intent before token
+  creation, checks the vault snapshot immediately before issuing, saves token
+  ID/expiry before DNS changes, and saves owned record IDs after reconciliation.
+- Six UI provisioning tests passed, including write-ahead ordering, vault
+  change refusal, and retaining token ownership when DNS reconciliation fails.
+- The full workspace tests, strict all-target Clippy, and formatting checks
+  passed (44 workstation tests in the workspace run).
+- The documented beezelbot Fedora base integration exited 0: both applies
+  succeeded; the repeat issued no service start/restart. Podman needed SIGKILL
+  after its 10-second stop timeout during cleanup.
+- Guest credential delivery, Caddy HTTPS acceptance, and live Cloudflare API
+  behavior were not exercised here. `/dev/kvm` is unavailable.

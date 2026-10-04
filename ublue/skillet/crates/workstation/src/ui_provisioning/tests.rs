@@ -1,9 +1,106 @@
 use super::*;
 use crate::provisioning_policy::{Environment, ProvisioningPolicy};
-use std::collections::BTreeSet;
+use crate::{
+    cloudflare::{
+        CloudflareError, DesiredRecord, IssuedToken, OwnedDns, RecordRef, Zone, ZoneAccount,
+    },
+    provisioning_state::CloudflareVmOwnership,
+};
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
 
 fn addresses() -> BTreeSet<String> {
     BTreeSet::from(["100.64.0.10".to_string(), "fd7a:115c:a1e0::10".to_string()])
+}
+
+struct FakeCloudflare {
+    run_directory: PathBuf,
+    fail_dns: bool,
+    issued: std::cell::Cell<usize>,
+}
+
+impl UiCloudflareProvider for FakeCloudflare {
+    fn zone(&self, _token: &str, zone_id: &str) -> Result<Zone, CloudflareError> {
+        Ok(Zone {
+            id: zone_id.to_string(),
+            name: "example.invalid".to_string(),
+            account: Some(ZoneAccount {
+                id: "11111111111111111111111111111111".to_string(),
+            }),
+        })
+    }
+
+    fn create_zone_token(
+        &self,
+        _creator_token: &str,
+        _zone_id: &str,
+        _account_id: &str,
+        name: &str,
+        lifetime: Option<std::time::Duration>,
+    ) -> Result<IssuedToken, CloudflareError> {
+        let ownership = read_ownership(&self.run_directory);
+        assert_eq!(ownership.token_name, name);
+        assert!(ownership.token_id.is_none());
+        assert_eq!(lifetime, Some(std::time::Duration::from_hours(12)));
+        self.issued.set(self.issued.get() + 1);
+        Ok(IssuedToken {
+            id: "22222222222222222222222222222222".to_string(),
+            value: "dummy token value".to_string(),
+            expires_on: Some("2030-01-01T00:00:00Z".to_string()),
+        })
+    }
+
+    fn reconcile_dns(
+        &self,
+        _token: &str,
+        _zone_id: &str,
+        marker: &str,
+        _ui_domain: &str,
+        desired: &[DesiredRecord],
+    ) -> Result<OwnedDns, CloudflareError> {
+        let ownership = read_ownership(&self.run_directory);
+        assert!(ownership.token_id.is_some());
+        assert_eq!(ownership.marker, marker);
+        if self.fail_dns {
+            return Err(CloudflareError::Invalid("fixture DNS failure".into()));
+        }
+        Ok(OwnedDns {
+            marker: marker.to_string(),
+            records: desired
+                .iter()
+                .enumerate()
+                .map(|(index, desired)| RecordRef {
+                    id: format!("{index:032x}"),
+                    name: desired.name.clone(),
+                    record_type: desired.record_type.clone(),
+                    content: desired.content.clone(),
+                    comment: Some(marker.to_string()),
+                })
+                .collect(),
+        })
+    }
+}
+
+fn read_ownership(run_directory: &Path) -> CloudflareVmOwnership {
+    serde_json::from_slice(&std::fs::read(run_directory.join("cloudflare.json")).unwrap()).unwrap()
+}
+
+fn disposable_request<'a>(
+    run_directory: &'a Path,
+    addresses: &'a BTreeSet<String>,
+) -> DisposableUiRequest<'a> {
+    DisposableUiRequest {
+        host: "clamps",
+        instance: "smoke",
+        policy: ProvisioningPolicy::new(Environment::Test),
+        zone_id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        relative_ui_domain: Some("smoke.ui"),
+        creator_token: "dummy creator token",
+        run_directory,
+        addresses,
+    }
 }
 
 #[test]
@@ -102,4 +199,102 @@ fn profiles_without_ui_and_incomplete_address_families_fail_closed() {
         ),
         Err(UiProvisioningError::Cloudflare(_))
     ));
+}
+
+#[test]
+fn disposable_cloudflare_ownership_precedes_token_and_dns_mutations() {
+    let run = tempfile::tempdir().unwrap();
+    let addresses = addresses();
+    let expected_record_count = build_ui_provisioning_plan(
+        "clamps",
+        ProvisioningPolicy::new(Environment::Test),
+        "example.invalid",
+        Some("smoke.ui"),
+        &addresses,
+    )
+    .unwrap()
+    .dns_records
+    .len();
+    let provider = FakeCloudflare {
+        run_directory: run.path().to_path_buf(),
+        fail_dns: false,
+        issued: std::cell::Cell::new(0),
+    };
+    let guard_calls = std::cell::Cell::new(0);
+
+    let provisioned = provision_disposable_ui(
+        &disposable_request(run.path(), &addresses),
+        &provider,
+        || {
+            guard_calls.set(guard_calls.get() + 1);
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    assert_eq!(guard_calls.get(), 1);
+    assert_eq!(provider.issued.get(), 1);
+    assert_eq!(provisioned.sites.host, "clamps");
+    assert_eq!(provisioned.token.value, "dummy token value");
+    assert_eq!(provisioned.token_name, "skillet:test:clamps-smoke");
+    let ownership = read_ownership(run.path());
+    assert_eq!(
+        ownership.identity,
+        Some(ProvisioningIdentity::new("clamps", "test", "smoke"))
+    );
+    assert_eq!(
+        ownership.token_id.as_deref(),
+        Some("22222222222222222222222222222222")
+    );
+    assert_eq!(ownership.record_ids.len(), expected_record_count);
+}
+
+#[test]
+fn disposable_cloudflare_journal_keeps_issued_token_after_dns_failure() {
+    let run = tempfile::tempdir().unwrap();
+    let addresses = addresses();
+    let provider = FakeCloudflare {
+        run_directory: run.path().to_path_buf(),
+        fail_dns: true,
+        issued: std::cell::Cell::new(0),
+    };
+
+    let result = provision_disposable_ui(
+        &disposable_request(run.path(), &addresses),
+        &provider,
+        || Ok(()),
+    );
+    let Err(error) = result else {
+        panic!("fixture DNS failure unexpectedly succeeded")
+    };
+
+    assert!(error.to_string().contains("fixture DNS failure"));
+    assert_eq!(provider.issued.get(), 1);
+    let ownership = read_ownership(run.path());
+    assert!(ownership.token_id.is_some());
+    assert!(ownership.record_ids.is_empty());
+}
+
+#[test]
+fn disposable_cloudflare_checks_vault_before_issuing_token() {
+    let run = tempfile::tempdir().unwrap();
+    let addresses = addresses();
+    let provider = FakeCloudflare {
+        run_directory: run.path().to_path_buf(),
+        fail_dns: false,
+        issued: std::cell::Cell::new(0),
+    };
+
+    let result = provision_disposable_ui(
+        &disposable_request(run.path(), &addresses),
+        &provider,
+        || Err(VaultError::Invalid("vault changed".into())),
+    );
+    let Err(error) = result else {
+        panic!("changed vault unexpectedly issued a token")
+    };
+
+    assert!(error.to_string().contains("vault changed"));
+    assert_eq!(provider.issued.get(), 0);
+    assert!(read_ownership(run.path()).token_id.is_none());
 }
