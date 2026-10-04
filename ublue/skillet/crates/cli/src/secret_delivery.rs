@@ -3,7 +3,7 @@ use super::{
 };
 use anyhow::{anyhow, Context, Result};
 use skillet_vm::transport::GuestTransport as _;
-use skillet_workstation::provisioning_state::{self, CloudflareVmOwnership, ProvisioningIdentity};
+use skillet_workstation::provisioning_state::{self, ProvisioningIdentity};
 use skillet_workstation::tailscale;
 use skillet_workstation::vault::Vault;
 use std::{
@@ -422,7 +422,6 @@ fn provision_vm_ui(
     device: &tailscale::DeviceRecord,
 ) -> Result<()> {
     let policy = UiEnvironmentName::Test.policy();
-    let environment = policy.name();
     let domain_path = policy.ui_domain_entry();
     let zone_path = policy.cloudflare_zone_entry();
     let domain_prefix = vault.get(&domain_path)?;
@@ -437,59 +436,26 @@ fn provision_vm_ui(
             )
         })?;
     let zone_id = zone_id.trim().to_string();
-    skillet_workstation::cloudflare::validate_zone_id(&zone_id)?;
     let api = skillet_workstation::cloudflare::Cloudflare::new();
-    let zone = api.zone(&creator, &zone_id)?;
-    let ui_plan = skillet_workstation::ui_provisioning::build_ui_provisioning_plan(
-        &args.hostname,
-        policy,
-        &zone.name,
-        domain_prefix.as_deref(),
-        &device.addresses,
+    let provisioned = skillet_workstation::ui_provisioning::provision_disposable_ui(
+        &skillet_workstation::ui_provisioning::DisposableUiRequest {
+            host: &args.hostname,
+            instance: &args.instance,
+            policy,
+            zone_id: &zone_id,
+            relative_ui_domain: domain_prefix.as_deref(),
+            creator_token: &creator,
+            run_directory: run_dir,
+            addresses: &device.addresses,
+        },
+        &api,
+        || vault.ensure_unchanged(),
     )?;
-    let sites = ui_plan.sites;
-    let ui_domain = sites.ui_domain.clone();
-    let marker = format!("skillet:test:{}:{}", args.hostname, args.instance);
-    let token_name = format!("skillet:test:{}-{}", args.hostname, args.instance);
-    let metadata_path = run_dir.join("cloudflare.json");
-    let mut ownership = CloudflareVmOwnership {
-        identity: Some(ProvisioningIdentity::new(
-            &args.hostname,
-            environment,
-            &args.instance,
-        )),
-        environment: environment.to_string(),
-        marker,
-        zone_id,
-        ui_domain,
-        token_name,
-        token_id: None,
-        expires_on: None,
-        record_ids: Vec::new(),
-    };
-    let account_id = skillet_workstation::cloudflare::Cloudflare::account_id(&zone)?.to_string();
-    provisioning_state::save_cloudflare_ownership(&metadata_path, &ownership)?;
-    ensure_vault_unchanged(vault)?;
-    let issued = api.create_zone_token(
-        &creator,
-        &ownership.zone_id,
-        &account_id,
-        &ownership.token_name,
-        policy.cloudflare_token_lifetime(),
-    )?;
-    ownership.token_id = Some(issued.id.clone());
-    ownership.expires_on.clone_from(&issued.expires_on);
-    provisioning_state::save_cloudflare_ownership(&metadata_path, &ownership)?;
+    let sites = provisioned.sites;
+    let issued = provisioned.token;
+    let account_id = provisioned.account_id;
+    let token_name = provisioned.token_name;
     let work = (|| {
-        let owned = api.reconcile_dns(
-            &issued.value,
-            &ownership.zone_id,
-            &ownership.marker,
-            &ownership.ui_domain,
-            &ui_plan.dns_records,
-        )?;
-        ownership.record_ids = owned.records.into_iter().map(|record| record.id).collect();
-        provisioning_state::save_cloudflare_ownership(&metadata_path, &ownership)?;
         let sites_payload = serde_json::to_string(&sites)?;
         skillet_vm::credential::install_set(
             &ssh.transport,
@@ -506,7 +472,7 @@ fn provision_vm_ui(
             &["-n", "systemctl", "start", "skillet-caddy-apply.service"],
         )?;
         verify_caddy_denies_non_tailnet_probe(ssh, &sites)?;
-        for old_id in api.token_ids_by_name(&creator, &account_id, &ownership.token_name)? {
+        for old_id in api.token_ids_by_name(&creator, &account_id, &token_name)? {
             if old_id != issued.id {
                 api.revoke_token(&creator, &account_id, &old_id)?;
             }

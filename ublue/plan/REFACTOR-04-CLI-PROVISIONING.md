@@ -149,8 +149,13 @@ and VM delivery have duplicate implementations with different validation.
   and verified guest transport separately. It persists intent before effects,
   reuses an already-joined VM, installs a one-use key only after a successful
   empty status observation, verifies the tagged device, and records/removes
-  recovery state. Cleanup and Cloudflare issuance/reconciliation remain in CLI.
-- Pending: Cloudflare token/DNS issuance and disposable cleanup sequencing,
+  recovery state. Tailscale cleanup remains in CLI.
+- Implemented: disposable Cloudflare UI issuance and DNS reconciliation now
+  live in `skillet_workstation::ui_provisioning`. The operation writes its
+  owner journal before token creation, verifies the vault snapshot immediately
+  before mutation, saves token ownership before DNS reconciliation, and records
+  owned DNS IDs afterward. Fake-provider tests cover partial failure recovery.
+- Pending: Cloudflare cleanup, guest delivery/activation and its retry policy,
   production plus named-VM acceptance, and the remaining environment/host
   delivery orchestration still span CLI and workstation modules. Complete the
   remaining sequence items before closing this workstream.
