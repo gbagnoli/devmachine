@@ -1,7 +1,12 @@
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{collections::BTreeSet, error::Error as StdError, fmt::Write as _, time::Duration};
+use std::{
+    collections::BTreeSet,
+    error::Error as StdError,
+    fmt::Write as _,
+    time::{Duration, Instant},
+};
 use thiserror::Error;
 
 const API_BASE: &str = "https://api.tailscale.com/api/v2";
@@ -215,6 +220,31 @@ pub fn status_addresses(output: &[u8]) -> Result<BTreeSet<String>> {
         .map(ToOwned::to_owned)
         .collect();
     Ok(addresses)
+}
+
+/// Poll a guest status probe until it reports at least one address or times
+/// out. Probe errors and empty status are transient during enrollment.
+pub fn wait_for_addresses<E>(
+    mut probe: impl FnMut() -> std::result::Result<BTreeSet<String>, E>,
+    timeout: Duration,
+    interval: Duration,
+) -> Result<BTreeSet<String>> {
+    let started = Instant::now();
+    loop {
+        if let Ok(addresses) = probe() {
+            if !addresses.is_empty() {
+                return Ok(addresses);
+            }
+        }
+        let elapsed = started.elapsed();
+        if elapsed >= timeout {
+            break;
+        }
+        std::thread::sleep(interval.min(timeout.saturating_sub(elapsed)));
+    }
+    Err(TailscaleError::Invalid(
+        "Tailscale did not connect on the VM before the enrollment timeout".into(),
+    ))
 }
 
 pub struct AuthKey {

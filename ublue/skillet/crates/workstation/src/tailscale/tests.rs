@@ -1,6 +1,6 @@
 use super::{
     create_auth_key, device_record, find_device_by_hostname, form_encode,
-    remove_device_for_hostname, status_addresses, OAuthCredentials, SMOKE_TAG,
+    remove_device_for_hostname, status_addresses, wait_for_addresses, OAuthCredentials, SMOKE_TAG,
 };
 
 #[test]
@@ -24,6 +24,44 @@ fn guest_status_addresses_require_running_backend_and_filter_invalid_values() {
 fn guest_status_addresses_reject_malformed_or_incomplete_running_responses() {
     assert!(status_addresses(b"not json").is_err());
     assert!(status_addresses(br#"{"BackendState":"Running"}"#).is_err());
+}
+
+#[test]
+fn guest_enrollment_wait_retries_transient_probe_errors_and_empty_status() {
+    let mut probes = 0;
+    let addresses = wait_for_addresses(
+        || {
+            probes += 1;
+            match probes {
+                1 => Err("SSH is not ready"),
+                2 => Ok(std::collections::BTreeSet::new()),
+                _ => Ok(std::collections::BTreeSet::from(
+                    ["100.64.0.10".to_string()],
+                )),
+            }
+        },
+        std::time::Duration::from_secs(1),
+        std::time::Duration::ZERO,
+    )
+    .expect("eventually connected");
+    assert_eq!(probes, 3);
+    assert_eq!(addresses, ["100.64.0.10".to_string()].into());
+}
+
+#[test]
+fn guest_enrollment_wait_reports_timeout_after_a_final_probe() {
+    let probes = std::cell::Cell::new(0);
+    let error = wait_for_addresses(
+        || {
+            probes.set(probes.get() + 1);
+            Ok::<_, &str>(std::collections::BTreeSet::new())
+        },
+        std::time::Duration::ZERO,
+        std::time::Duration::ZERO,
+    )
+    .unwrap_err();
+    assert_eq!(probes.get(), 1);
+    assert!(error.to_string().contains("enrollment timeout"));
 }
 use serde_json::json;
 use std::{

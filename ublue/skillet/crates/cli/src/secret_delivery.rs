@@ -777,15 +777,12 @@ fn vm_tailscale_addresses(ssh: &VmSsh) -> Result<std::collections::BTreeSet<Stri
 }
 
 fn wait_for_vm_tailscale(ssh: &VmSsh) -> Result<std::collections::BTreeSet<String>> {
-    for _ in 0..60 {
-        if let Ok(addresses) = vm_tailscale_addresses(ssh) {
-            if !addresses.is_empty() {
-                return Ok(addresses);
-            }
-        }
-        std::thread::sleep(std::time::Duration::from_secs(2));
-    }
-    Err(anyhow!("Tailscale did not connect on the VM within 120 seconds; inspect tailscale.service and its journal"))
+    tailscale::wait_for_addresses(
+        || vm_tailscale_addresses(ssh),
+        std::time::Duration::from_mins(2),
+        std::time::Duration::from_secs(2),
+    )
+    .map_err(|error| anyhow!("{error}; inspect tailscale.service and its journal"))
 }
 
 fn read_vm_port(manifest: &Path) -> Result<u16> {

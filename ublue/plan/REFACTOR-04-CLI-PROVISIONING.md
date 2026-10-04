@@ -133,6 +133,9 @@ and VM delivery have duplicate implementations with different validation.
   running state and IP addresses. VM orchestration now supplies the response
   bytes and handles retry timing; provider protocol interpretation and its
   malformed-response tests live with the Tailscale adapter.
+- Implemented: bounded enrollment polling is also in the Tailscale provider.
+  The CLI supplies a guest probe and explicit timeout/interval; retry behavior
+  is covered with deterministic success, transient-error, and timeout tests.
 - Pending: environment/host credential-delivery orchestration, durable versus
   disposable provider sequencing, and production plus named-VM acceptance
   remain in CLI modules. Provider and VM lifecycle orchestration still has
