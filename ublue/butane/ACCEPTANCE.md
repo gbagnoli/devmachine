@@ -1120,3 +1120,20 @@ host tool; it still uses normal command approvals.
   second apply; cleanup escalated to SIGKILL after its 10-second timeout.
 - No provider resources or live VMs were changed. Full enrollment/cleanup
   acceptance remains pending; `/dev/kvm` is absent.
+
+### Shared private UI provisioning plan, 2026-10-04
+
+- Added `skillet_workstation::ui_provisioning` as the shared derivation for
+  profile-declared Caddy sites and Cloudflare A/AAAA/CNAME records. Production
+  and disposable VM delivery now use the same plan and explicit environment
+  policy. It reads the services from the canonical host profile, including
+  rendered aliases, without host-specific UI code in the delivery path.
+- The three focused UI plan tests passed, followed by all workspace tests
+  (including 33 workstation tests), strict all-target Clippy, and format check.
+- `cargo run --offline --manifest-path skillet/Cargo.toml --bin skillet --
+  test run beezelbot --phase base --image fedora:latest` exited 0. Both applies
+  succeeded; the repeat issued no service start/restart. Podman needed SIGKILL
+  after its 10-second stop timeout during test-container cleanup.
+- This exercised derivation and the existing base container fixture only. No
+  Cloudflare mutation, credential delivery, or live VM check was performed.
+  `/dev/kvm` is unavailable on this workstation.

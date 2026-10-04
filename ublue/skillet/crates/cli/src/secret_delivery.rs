@@ -15,11 +15,6 @@ use std::{
 
 pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
     validate_delivery_service(&args.hostname, &args.service)?;
-    let ui_config = if args.service == "caddy" {
-        skillet_hosts::ui_config_for_host(&args.hostname)
-    } else {
-        None
-    };
     let database = match &args.database {
         Some(path) => path.clone(),
         None => default_database_path()?,
@@ -79,7 +74,7 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
             )?;
             Ok(())
         }
-        "caddy" => deliver_caddy_from_vault(args, &mut vault, ui_config.as_ref()),
+        "caddy" => deliver_caddy_from_vault(args, &mut vault),
         _ => Err(anyhow!("unsupported secret service {}", args.service)),
     }
 }
@@ -99,12 +94,7 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
     }
 }
 
-fn deliver_caddy_from_vault(
-    args: &SecretDeliverArgs,
-    vault: &mut Vault,
-    ui_config: Option<&skillet_hosts::HostUiConfig>,
-) -> Result<()> {
-    let ui_config = ui_config.ok_or_else(|| anyhow!("missing host UI declaration"))?;
+fn deliver_caddy_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Result<()> {
     let policy = args.environment.policy();
     let environment = policy.name();
     let domain_path = policy.ui_domain_entry();
@@ -124,34 +114,33 @@ fn deliver_caddy_from_vault(
         })?;
     let cloudflare = skillet_workstation::cloudflare::Cloudflare::new();
     let zone = cloudflare.zone(&creator, zone_id)?;
-    let domain = skillet_caddy::resolve_ui_domain(&zone.name, domain_prefix.as_deref())
-        .context("resolving KeePassXC relative UI domain beneath its Cloudflare zone")?;
-    let sites = skillet_caddy::CaddySites::from_host(
-        &args.hostname,
-        &skillet_caddy::UiEnvironment {
-            ui_domain: domain.clone(),
-            acme_staging: policy.acme_staging(),
-        },
-        &ui_config.services,
-    )?;
     let tailnet = tailscale_credentials(vault)?;
     let device = tailscale::find_device_by_hostname(
         &tailnet,
         &args.hostname,
         policy.tailscale_tag(skillet_workstation::provisioning_policy::DeviceClass::ProductionHost),
     )?;
-    let dns_marker = format!("skillet:{environment}:{}", args.hostname);
-    let dns = skillet_workstation::cloudflare::desired_records(
-        &sites.machine_hostname,
+    let ui_plan = skillet_workstation::ui_provisioning::build_ui_provisioning_plan(
+        &args.hostname,
+        policy,
+        &zone.name,
+        domain_prefix.as_deref(),
         &device.addresses,
-        &sites,
     )?;
+    let sites = ui_plan.sites;
+    let dns_marker = format!("skillet:{environment}:{}", args.hostname);
     ensure_vault_unchanged(vault)?;
     let account_id = skillet_workstation::cloudflare::Cloudflare::account_id(&zone)?;
     let token = host_acme_token(args, vault, &cloudflare, &creator, zone_id, account_id)?;
     cloudflare.zone(&token, zone_id)?;
     ensure_vault_unchanged(vault)?;
-    cloudflare.reconcile_dns(&token, zone_id, &dns_marker, &domain, &dns)?;
+    cloudflare.reconcile_dns(
+        &token,
+        zone_id,
+        &dns_marker,
+        &sites.ui_domain,
+        &ui_plan.dns_records,
+    )?;
     ensure_vault_unchanged(vault)?;
     let sites = serde_json::to_string(&sites)?;
     for (credential, value) in [
@@ -468,14 +457,15 @@ fn provision_vm_ui(
     skillet_workstation::cloudflare::validate_zone_id(&zone_id)?;
     let api = skillet_workstation::cloudflare::Cloudflare::new();
     let zone = api.zone(&creator, &zone_id)?;
-    let ui_domain = skillet_caddy::resolve_ui_domain(&zone.name, domain_prefix.as_deref())
-        .context("resolving test relative UI domain beneath its Cloudflare zone")?;
-    let sites = test_vm_caddy_sites(&args.hostname, &ui_domain, policy.acme_staging())?;
-    let dns = skillet_workstation::cloudflare::desired_records(
-        &sites.machine_hostname,
+    let ui_plan = skillet_workstation::ui_provisioning::build_ui_provisioning_plan(
+        &args.hostname,
+        policy,
+        &zone.name,
+        domain_prefix.as_deref(),
         &device.addresses,
-        &sites,
     )?;
+    let sites = ui_plan.sites;
+    let ui_domain = sites.ui_domain.clone();
     let marker = format!("skillet:test:{}:{}", args.hostname, args.instance);
     let token_name = format!("skillet:test:{}-{}", args.hostname, args.instance);
     let metadata_path = run_dir.join("cloudflare.json");
@@ -513,7 +503,7 @@ fn provision_vm_ui(
             &ownership.zone_id,
             &ownership.marker,
             &ownership.ui_domain,
-            &dns,
+            &ui_plan.dns_records,
         )?;
         ownership.record_ids = owned.records.into_iter().map(|record| record.id).collect();
         provisioning_state::save_cloudflare_ownership(&metadata_path, &ownership)?;
@@ -543,23 +533,6 @@ fn provision_vm_ui(
         return Err(error.context("provisioning disposable Cloudflare DNS and Caddy"));
     }
     Ok(())
-}
-
-fn test_vm_caddy_sites(
-    hostname: &str,
-    ui_domain: &str,
-    acme_staging: bool,
-) -> Result<skillet_caddy::CaddySites> {
-    let host_ui = skillet_hosts::ui_config_for_host(hostname)
-        .ok_or_else(|| anyhow!("host {hostname} has no declared UI services"))?;
-    Ok(skillet_caddy::CaddySites::from_host(
-        hostname,
-        &skillet_caddy::UiEnvironment {
-            ui_domain: ui_domain.to_string(),
-            acme_staging,
-        },
-        &host_ui.services,
-    )?)
 }
 
 fn verify_caddy_denies_non_tailnet_probe(

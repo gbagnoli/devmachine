@@ -124,6 +124,11 @@ and VM delivery have duplicate implementations with different validation.
   journals retain those fields separately; old journal formats remain readable
   with exact expected-hostname/marker/token-name checks. No token value is
   persisted.
+- Implemented: `skillet_workstation::ui_provisioning` derives Caddy sites and
+  machine/service/alias DNS records from the canonical host profile, explicit
+  environment policy, Cloudflare zone domain, optional relative UI prefix, and
+  Tailscale addresses. Production delivery and disposable VM provisioning use
+  this shared plan, removing duplicate derivation and host-specific UI logic.
 - Pending: environment/host credential-delivery orchestration, durable versus
   disposable provider sequencing, and production plus named-VM acceptance
   remain in CLI modules. Provider and VM lifecycle orchestration still has
