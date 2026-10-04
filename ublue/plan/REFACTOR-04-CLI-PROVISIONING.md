@@ -173,7 +173,13 @@ and VM delivery have duplicate implementations with different validation.
   reconciliation, complete Caddy credential-set delivery, and deferred
   activation. The CLI supplies its parsed host/environment, vault, provider
   credentials, and verified SSH transport.
-- Pending: disposable Caddy guest delivery/activation and its retry policy,
-  production plus named-VM acceptance, and the remaining non-UI production
-  credential workflows still need coverage or extraction. Complete the
-  remaining sequence items before closing this workstream.
+- Implemented: disposable Caddy guest delivery now installs the complete
+  credential set before activation, probes every canonical UI/alias for the
+  explicit non-tailnet denial response with a bounded retry per name, and only
+  then revokes superseded named tokens. The guest step is separately retryable
+  after DNS/token ownership has been journaled.
+- Pending: production plus named-VM acceptance and the remaining non-UI
+  production credential workflows still need coverage or extraction. Guest
+  delivery and cleanup paths should remain behind the shared lifecycle
+  operations. Complete the remaining sequence items before closing this
+  workstream.
