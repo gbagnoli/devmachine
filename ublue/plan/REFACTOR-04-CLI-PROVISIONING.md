@@ -178,8 +178,13 @@ and VM delivery have duplicate implementations with different validation.
   explicit non-tailnet denial response with a bounded retry per name, and only
   then revokes superseded named tokens. The guest step is separately retryable
   after DNS/token ownership has been journaled.
-- Pending: production plus named-VM acceptance and the remaining non-UI
-  production credential workflows still need coverage or extraction. Guest
-  delivery and cleanup paths should remain behind the shared lifecycle
-  operations. Complete the remaining sequence items before closing this
-  workstream.
+- Implemented: host Pi-hole password reuse/use-or-create and production
+  Tailscale auth-key delivery now live in
+  `skillet_workstation::credential_delivery`. They share the verified guest
+  credential installer and vault `SecretStore` adapter with Caddy provisioning.
+  Missing Pi-hole values require a successful guest absence check before
+  generating and encrypting a replacement; disposable Pi-hole reuse and
+  rotation use the same workstation module.
+- Pending: production and named-VM acceptance, plus review of the final CLI
+  lifecycle dispatch against the typed workstation operations. Live
+  environment checks remain subject to available hardware and credentials.

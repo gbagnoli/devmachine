@@ -1,6 +1,7 @@
 //! Workstation-only provisioning capabilities.
 
 pub mod cloudflare;
+pub mod credential_delivery;
 pub mod provisioning_policy;
 pub mod provisioning_state;
 pub mod tailscale;

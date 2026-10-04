@@ -7,7 +7,6 @@ use skillet_workstation::tailscale;
 use skillet_workstation::vault::Vault;
 use std::{
     fs,
-    io::Read as _,
     path::Path,
     process::{Command, Stdio},
 };
@@ -26,50 +25,27 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
     let mut vault = Vault::open(&database, args.key_file.as_deref())?;
     match args.service.as_str() {
         "pihole" => {
-            let path = format!("skillet/hosts/{}/pihole/web-password", args.hostname);
-            let secret = if let Some(secret) = vault.get(&path)? {
-                ensure_vault_unchanged(&vault)?;
-                secret
-            } else {
-                if remote_credential_state(args)? != RemoteCredentialState::Absent {
-                    return Err(anyhow!(
-                        "host already has a Pi-hole credential; restore the missing KeePassXC entry instead of creating a replacement"
-                    ));
-                }
-                let secret = random_password()?;
-                vault.insert(&path, &secret)?;
-                vault.save_verified(args.key_file.as_deref(), &path, &secret)?;
-                secret
-            };
             let transport = credential_transport(args)?;
-            skillet_vm::credential::install(
-                &transport,
+            let mut store = skillet_workstation::vault::VaultSecretStore::new(
+                &mut vault,
+                args.key_file.as_deref(),
+            );
+            skillet_workstation::credential_delivery::deliver_pihole_credential(
                 &args.hostname,
-                "pihole_web_password",
-                "skillet-full-apply.service",
-                skillet_vm::credential::ActivationPolicy::StartConsumer,
-                secret.as_bytes(),
+                &mut store,
+                &transport,
             )?;
             Ok(())
         }
         "tailscale" => {
             let credentials = tailscale_credentials(&vault)?;
             let policy = UiEnvironmentName::Production.policy();
-            let auth_key = tailscale::create_auth_key(
-                &credentials,
-                policy.tailscale_tag(
-                    skillet_workstation::provisioning_policy::DeviceClass::ProductionHost,
-                ),
-                &format!("Skillet {0} production host", args.hostname),
-            )?;
             let transport = credential_transport(args)?;
-            skillet_vm::credential::install(
-                &transport,
+            skillet_workstation::credential_delivery::deliver_tailscale_credential(
                 &args.hostname,
-                "tailscale_auth_key",
-                "skillet-full-apply.service",
-                skillet_vm::credential::ActivationPolicy::StartConsumer,
-                auth_key.key.as_bytes(),
+                policy,
+                &credentials,
+                &transport,
             )?;
             Ok(())
         }
@@ -112,10 +88,8 @@ fn deliver_caddy_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Resu
     let tailnet = tailscale_credentials(vault)?;
     let transport = credential_transport(args)?;
     let cloudflare = skillet_workstation::cloudflare::Cloudflare::new();
-    let mut token_store = skillet_workstation::ui_provisioning::VaultUiTokenStore::new(
-        vault,
-        args.key_file.as_deref(),
-    );
+    let mut token_store =
+        skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref());
     skillet_workstation::ui_provisioning::deliver_persistent_ui(
         &skillet_workstation::ui_provisioning::PersistentUiDelivery {
             host: &args.hostname,
@@ -141,11 +115,6 @@ pub(super) fn lock_vault(path: Option<&Path>) -> Result<()> {
     // an explicit path to its target.
     skillet_workstation::vault::lock(Some(&path))?;
     println!("Vault unlock removed from the kernel keyring");
-    Ok(())
-}
-
-fn ensure_vault_unchanged(vault: &Vault) -> Result<()> {
-    vault.ensure_unchanged()?;
     Ok(())
 }
 
@@ -182,36 +151,6 @@ fn credential_transport(args: &SecretDeliverArgs) -> Result<skillet_vm::transpor
     .context("validating credential delivery SSH target")
 }
 
-#[derive(PartialEq, Eq)]
-enum RemoteCredentialState {
-    Present,
-    Absent,
-}
-
-fn remote_credential_state(args: &SecretDeliverArgs) -> Result<RemoteCredentialState> {
-    let transport = credential_transport(args)?;
-    let program = format!("/var/usrlocal/bin/skillet-{}", args.hostname);
-    let output = skillet_vm::transport::GuestTransport::execute(
-        &transport,
-        &skillet_vm::transport::GuestCommand {
-            program: "/usr/bin/sudo",
-            arguments: &["-n", &program, "credential", "state", "pihole_web_password"],
-        },
-        None,
-    )
-    .context("checking host state before generating a production credential")?;
-    if !output.status.success() {
-        return Err(anyhow!(
-            "SSH host credential state check failed; no production credential was generated"
-        ));
-    }
-    match output.stdout.as_slice() {
-        b"present\n" => Ok(RemoteCredentialState::Present),
-        b"absent\n" => Ok(RemoteCredentialState::Absent),
-        _ => Err(anyhow!("host returned an unrecognized credential state")),
-    }
-}
-
 fn default_database_path() -> Result<std::path::PathBuf> {
     Ok(Vault::default_path()?)
 }
@@ -240,7 +179,7 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     let identity = run_dir.join("ssh/id_ed25519");
     let known_hosts = run_dir.join("ssh/known_hosts");
     let port = read_vm_port(&run_dir.join("run.conf"))?;
-    let ssh = VmSsh::new(&args.hostname, &identity, &known_hosts, port)?;
+    let ssh = VmSsh::new(&identity, &known_hosts, port)?;
     validate_vm_tailscale_delivery(&ssh)?;
     let vault_path = match &args.database {
         Some(path) => path.clone(),
@@ -262,17 +201,11 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
         &ssh.transport,
     )?;
 
-    let pihole_credential = "/etc/credstore.encrypted/skillet/pihole_web_password.cred";
-    let has_pihole_credential = vm_credential_present(&ssh, pihole_credential)?;
-    if args.rotate || !has_pihole_credential {
-        let secret = random_password()?;
-        ssh.install("pihole_web_password", &secret)?;
-    } else {
-        ssh.run(
-            "/usr/bin/sudo",
-            &["-n", "systemctl", "start", "skillet-full-apply.service"],
-        )?;
-    }
+    skillet_workstation::credential_delivery::ensure_disposable_pihole_credential(
+        &args.hostname,
+        args.rotate,
+        &ssh.transport,
+    )?;
 
     if args.with_ui {
         provision_vm_ui(args, &run_dir, &ssh, &mut vault, &record)?;
@@ -409,14 +342,12 @@ fn cleanup_vm_cloudflare(args: &VmDestroyArgs, metadata_path: &Path) -> Result<(
 }
 
 struct VmSsh {
-    host: String,
     transport: skillet_vm::transport::SshTransport,
 }
 
 impl VmSsh {
-    fn new(host: &str, identity: &Path, known_hosts: &Path, port: u16) -> Result<Self> {
+    fn new(identity: &Path, known_hosts: &Path, port: u16) -> Result<Self> {
         Ok(Self {
-            host: host.to_string(),
             transport: skillet_vm::transport::SshTransport::new(
                 skillet_vm::SshTarget {
                     user: "giacomo".to_string(),
@@ -438,53 +369,6 @@ impl VmSsh {
                 None,
             )
             .context("running command over recorded VM SSH transport")
-    }
-
-    fn run(&self, program: &str, arguments: &[&str]) -> Result<()> {
-        let output = self.output(program, arguments)?;
-        if !output.status.success() {
-            return Err(anyhow!(
-                "VM command {program} failed with status {}",
-                output.status
-            ));
-        }
-        Ok(())
-    }
-
-    fn install(&self, name: &str, secret: &str) -> Result<()> {
-        self.install_for_unit(
-            name,
-            "skillet-full-apply.service",
-            secret,
-            skillet_vm::credential::ActivationPolicy::StartConsumer,
-        )
-    }
-
-    fn install_for_unit(
-        &self,
-        name: &str,
-        unit: &str,
-        secret: &str,
-        activation: skillet_vm::credential::ActivationPolicy,
-    ) -> Result<()> {
-        skillet_vm::credential::install(
-            &self.transport,
-            &self.host,
-            name,
-            unit,
-            activation,
-            secret.as_bytes(),
-        )?;
-        Ok(())
-    }
-}
-
-fn vm_credential_present(ssh: &VmSsh, path: &str) -> Result<bool> {
-    let output = ssh.output("/usr/bin/sudo", &["-n", "test", "-s", path])?;
-    match output.status.code() {
-        Some(0) => Ok(true),
-        Some(1) => Ok(false),
-        _ => Err(anyhow!("could not inspect VM credential state")),
     }
 }
 
@@ -526,12 +410,6 @@ fn validate_tailscale_unit_config(contents: &str) -> Result<()> {
         ));
     }
     Ok(())
-}
-
-fn random_password() -> Result<String> {
-    let mut bytes = [0_u8; 32];
-    fs::File::open("/dev/urandom")?.read_exact(&mut bytes)?;
-    Ok(hex::encode(bytes))
 }
 
 #[cfg(test)]

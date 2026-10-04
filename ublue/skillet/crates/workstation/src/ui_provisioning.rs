@@ -5,7 +5,7 @@ use crate::{
     provisioning_policy::{Environment, ProvisioningPolicy},
     provisioning_state::{self, CloudflareVmOwnership, ProvisioningIdentity},
     tailscale::{self, OAuthCredentials, TailscaleError},
-    vault::{Vault, VaultError},
+    vault::{SecretStore, VaultError},
 };
 use skillet_caddy::{CaddyError, CaddySites, UiEnvironment};
 use skillet_vm::transport::GuestTransport;
@@ -165,39 +165,6 @@ impl UiCloudflareProvider for cloudflare::Cloudflare {
         token_id: &str,
     ) -> Result<(), CloudflareError> {
         cloudflare::Cloudflare::revoke_token(self, creator_token, account_id, token_id)
-    }
-}
-
-/// The vault operations required to reuse or persist a host ACME token.
-pub trait UiTokenStore {
-    fn get(&self, path: &str) -> Result<Option<String>, VaultError>;
-    fn ensure_unchanged(&self) -> Result<(), VaultError>;
-    fn save_verified(&mut self, path: &str, token: &str) -> Result<(), VaultError>;
-}
-
-pub struct VaultUiTokenStore<'a> {
-    vault: &'a mut Vault,
-    key_file: Option<&'a Path>,
-}
-
-impl<'a> VaultUiTokenStore<'a> {
-    pub fn new(vault: &'a mut Vault, key_file: Option<&'a Path>) -> Self {
-        Self { vault, key_file }
-    }
-}
-
-impl UiTokenStore for VaultUiTokenStore<'_> {
-    fn get(&self, path: &str) -> Result<Option<String>, VaultError> {
-        self.vault.get(path)
-    }
-
-    fn ensure_unchanged(&self) -> Result<(), VaultError> {
-        self.vault.ensure_unchanged()
-    }
-
-    fn save_verified(&mut self, path: &str, token: &str) -> Result<(), VaultError> {
-        self.vault.insert(path, token)?;
-        self.vault.save_verified(self.key_file, path, token)
     }
 }
 
@@ -377,7 +344,7 @@ pub struct PersistentUiDelivery<'a> {
 /// deliver both Caddy credentials before activating the consumer.
 pub fn deliver_persistent_ui(
     request: &PersistentUiDelivery<'_>,
-    token_store: &mut impl UiTokenStore,
+    token_store: &mut impl SecretStore,
     cloudflare: &impl UiCloudflareProvider,
     tailnet: &impl UiTailscaleProvider,
     guest: &impl GuestTransport,
