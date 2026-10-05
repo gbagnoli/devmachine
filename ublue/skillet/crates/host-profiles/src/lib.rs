@@ -181,8 +181,8 @@ fn apply_syncthing(
         data_path,
         data_owner,
         data_group,
-        uid,
-        gid,
+        container_uid,
+        container_gid,
     } = service.config
     else {
         return Err(ApplyError::FixtureInput(
@@ -196,8 +196,8 @@ fn apply_syncthing(
             data_path: data_path.to_string(),
             data_owner: data_owner.to_string(),
             data_group: data_group.to_string(),
-            uid,
-            gid,
+            container_uid,
+            container_gid,
             network_name: profile.id.as_str().to_string(),
         },
     )?;

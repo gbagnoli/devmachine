@@ -1,15 +1,16 @@
 # 7. Test layers, fixtures, build artifacts and CI
 
-Status: implementation and named fixture acceptance passed; remote CI and a
-Syncthing ownership divergence found during repeat application acceptance
-remain open, 2026-10-05. Rust-owned smoke, storage/service fake contracts,
+Status: implementation and named fixture acceptance passed; remote CI and live
+Syncthing acceptance after correcting the declared host/container identity
+mapping remain open, 2026-10-05. Rust-owned smoke, storage/service fake contracts,
 bootstrap CI execution, and capability-selected application acceptance are
 implemented. The named fixture smoke and retained update passed. Scripted
 interrupted-reboot recovery passed; see the
 [acceptance log](../butane/ACCEPTANCE.md#interrupted-reboot-checkpoint-recovery-2026-10-05).
-An optional repeated application check found `/var/lib/data/syncthing` owned by
-`core:core` after reboot rather than its declared `giacomo:giacomo`; resolve it
-before treating application acceptance as stable. See the
+An optional repeated application check exposed a mismatch between the host
+account owning `/var/lib/data/syncthing` and Syncthing's container identity.
+The profile now declares the container UID/GID separately and maps them to the
+host owner; live acceptance after this change remains. See the
 [follow-up plan](REFACTOR-FOLLOWUP.md).
 Live legacy import and controlled interrupted-provisioning recovery passed;
 see the [prerequisite roadmap](SKILLET-REFACTOR.md).

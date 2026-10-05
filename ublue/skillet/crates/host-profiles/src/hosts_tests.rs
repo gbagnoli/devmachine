@@ -314,8 +314,8 @@ fn synthetic_profile_derives_network_and_ui_from_its_identity() {
                 data_path: "/srv/sync",
                 data_owner: "sync",
                 data_group: "sync",
-                uid: 1234,
-                gid: 1234,
+                container_uid: 1000,
+                container_gid: 1000,
             },
             ui: Some(UiServiceDeclaration {
                 name: "sync",
