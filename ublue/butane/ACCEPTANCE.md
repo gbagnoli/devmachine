@@ -19,9 +19,8 @@
   permission denied opening its config lock. The profile now separates the
   host data owner from container UID/GID 1000 and maps that container identity
   to the host account through Podman's typed namespace mapping. Regression
-  coverage is added; live acceptance of this fix remains pending. The current
-  workstation shell cannot access the selected Flatpak libvirt backend because
-  `flatpak` is unavailable in this execution environment.
+  coverage is added; live acceptance of this fix is parked until workstation
+  access to the Flatpak libvirt backend returns.
 - Passed workspace formatting check, `cargo test -p skillet --no-run`,
   `cargo clippy -p skillet --all-targets -- -D warnings`, ShellCheck for the
   recovery script, and `git diff --check`. The complete workspace suite and
