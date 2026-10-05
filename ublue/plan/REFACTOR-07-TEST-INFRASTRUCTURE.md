@@ -10,7 +10,8 @@ interrupted-reboot recovery passed; see the
 An optional repeated application check exposed a mismatch between the host
 account owning `/var/lib/data/syncthing` and Syncthing's container identity.
 The profile now declares the container UID/GID separately and maps them to the
-host owner; live acceptance after this change remains. See the
+host owner; live acceptance after this change is parked until Flatpak libvirt
+access returns. See the
 [follow-up plan](REFACTOR-FOLLOWUP.md).
 Live legacy import and controlled interrupted-provisioning recovery passed;
 see the [prerequisite roadmap](SKILLET-REFACTOR.md).
