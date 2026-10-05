@@ -303,39 +303,105 @@ pub(super) fn logs(args: &VmTargetArgs) -> Result<()> {
     let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
     require_running_domain(&backend, &run)?;
     let transport = SshTransport::new(run.ssh.clone(), HostKeyPolicy::Enroll)?;
-    for command in [
-        GuestCommand {
-            program: "sudo",
-            arguments: &["-n", "rpm-ostree", "status"],
-        },
-        GuestCommand {
-            program: "sudo",
-            arguments: &[
+    for (description, command) in [
+        (
+            "deployment status",
+            GuestCommand {
+                program: "sudo",
+                arguments: &["-n", "rpm-ostree", "status"],
+            },
+        ),
+        (
+            "bootstrap and base-apply journal",
+            GuestCommand {
+                program: "sudo",
+                arguments: &[
+                    "-n",
+                    "journalctl",
+                    "-b",
+                    "-u",
+                    "ucore-bootstrap.service",
+                    "-u",
+                    "skillet-apply.service",
+                    "--no-pager",
+                    "-n",
+                    "200",
+                ],
+            },
+        ),
+    ] {
+        print_vm_diagnostic(&backend, &run, &transport, &command, description)?;
+    }
+
+    if let Some(profile) = skillet_hosts::profile_for_name(identity.host()) {
+        let plan = profile.acceptance_plan();
+        let credential_consumers = profile.credential_consumers();
+        for service in plan
+            .services
+            .iter()
+            .filter(|service| service.container.is_some())
+            .filter(|service| {
+                !credential_consumers
+                    .iter()
+                    .any(|consumer| consumer.unit == service.unit)
+            })
+        {
+            let arguments = [
                 "-n",
                 "journalctl",
                 "-b",
                 "-u",
-                "ucore-bootstrap.service",
-                "-u",
-                "skillet-apply.service",
+                service.unit.as_str(),
                 "--no-pager",
                 "-n",
-                "200",
-            ],
-        },
-    ] {
-        require_running_domain(&backend, &run)?;
-        let output = transport.execute(&command, None)?;
-        require_owned_domain(&backend, &run)?;
-        std::io::stdout().write_all(&output.stdout)?;
-        std::io::stderr().write_all(&output.stderr)?;
-        if !output.status.success() {
-            return Err(anyhow!(
-                "guest diagnostic command {} failed with status {:?}",
-                command.program,
-                output.status.code()
-            ));
+                "120",
+            ];
+            let command = GuestCommand {
+                program: "sudo",
+                arguments: &arguments,
+            };
+            print_vm_diagnostic(
+                &backend,
+                &run,
+                &transport,
+                &command,
+                &format!("{} journal", service.unit),
+            )?;
         }
+    }
+
+    let command = GuestCommand {
+        program: "sudo",
+        arguments: &[
+            "-n",
+            "podman",
+            "ps",
+            "-a",
+            "--format",
+            "{{.Names}}|{{.Status}}|{{.Image}}",
+        ],
+    };
+    print_vm_diagnostic(&backend, &run, &transport, &command, "Podman containers")?;
+    Ok(())
+}
+
+fn print_vm_diagnostic(
+    backend: &VirshBackend,
+    run: &VmRun,
+    transport: &impl GuestTransport,
+    command: &GuestCommand<'_>,
+    description: &str,
+) -> Result<()> {
+    require_running_domain(backend, run)?;
+    let output = transport.execute(command, None)?;
+    require_owned_domain(backend, run)?;
+    std::io::stdout().write_all(&output.stdout)?;
+    std::io::stderr().write_all(&output.stderr)?;
+    if !output.status.success() {
+        return Err(anyhow!(
+            "guest diagnostic {description} failed with status {:?}",
+            output.status.code()
+        ));
     }
     Ok(())
 }
