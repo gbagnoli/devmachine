@@ -10,6 +10,13 @@ use std::collections::BTreeMap;
 fn pihole_uses_dual_stack_dns_network_and_registry_updates() {
     let system = MockSystem::new();
     let files = MockFiles::new();
+    files.record_btrfs_mount(std::path::Path::new("/var"), "/dev/test", "/", "btrfs");
+    files.record_btrfs_mount(
+        std::path::Path::new("/var/lib/data"),
+        "/dev/test",
+        "/data",
+        "btrfs",
+    );
     system
         .ensure_podman_secret("pihole_web_password", "dummy")
         .unwrap();
