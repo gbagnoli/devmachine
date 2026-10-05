@@ -15,9 +15,13 @@
 - The optional `--with-applications` variant also reached the injected
   interruption and recovered readiness, but its final application check
   failed because `/var/lib/data/syncthing` was `core:core` after reboot while
-  the profile declares `giacomo:giacomo`. Readiness restored the VM to
-  `Ready`. Investigate this ownership divergence before treating another live
-  application acceptance run as passing.
+  the profile declares `giacomo:giacomo`. Syncthing's journal also showed
+  permission denied opening its config lock. The profile now separates the
+  host data owner from container UID/GID 1000 and maps that container identity
+  to the host account through Podman's typed namespace mapping. Regression
+  coverage is added; live acceptance of this fix remains pending. The current
+  workstation shell cannot access the selected Flatpak libvirt backend because
+  `flatpak` is unavailable in this execution environment.
 - Passed workspace formatting check, `cargo test -p skillet --no-run`,
   `cargo clippy -p skillet --all-targets -- -D warnings`, ShellCheck for the
   recovery script, and `git diff --check`. The complete workspace suite and

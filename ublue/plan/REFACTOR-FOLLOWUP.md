@@ -3,10 +3,10 @@
 Status: implementation and local VM acceptance substantially complete,
 2026-10-05. Code and local regression coverage for all six findings are in
 place. Rust-owned fixture smoke, retained-VM update, and scripted interrupted
-reboot recovery passed on the named clamps VM. A repeat application check
-exposed Syncthing data ownership diverging after reboot; investigate that before
-considering live application acceptance stable. Remote CI evidence remains
-pending. Keep the refactoring gate open until these items are resolved.
+reboot recovery passed on the named clamps VM. Syncthing now declares its host
+owner separately from its container UID/GID and maps them with the shared
+Podman user-namespace API. Its live application acceptance must be rerun before
+considering this finding resolved. Remote CI evidence remains pending.
 
 ## Progress
 
@@ -16,7 +16,7 @@ pending. Keep the refactoring gate open until these items are resolved.
 | 2. Update delivery guard | Implemented; ownership-loss/retry tests and retained-VM update passed | None locally; remote CI pending |
 | 3. Fake contracts | Implemented; workspace regression suite passes | None locally; remote CI pending |
 | 4. Bootstrap CI | Implemented; CI runs state regressions and local command passes | Observe remote CI after push |
-| 5. Host application acceptance | Implemented from canonical profile capabilities; prior named-VM acceptance passed | Repeat acceptance found `/var/lib/data/syncthing` owned by `core:core` after reboot, versus declared `giacomo:giacomo`; diagnose and rerun |
+| 5. Host application acceptance | Implemented from canonical profile capabilities; Syncthing host/container identity mapping corrected with regression coverage | Named-VM Syncthing apply, repeat apply, and reboot acceptance after the mapping change |
 | 6. Documentation | Updated implementation, commands, design status, and fault-injection evidence | Final review and remote CI result |
 
 ## Start here
