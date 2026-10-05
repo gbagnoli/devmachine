@@ -3,9 +3,10 @@
 Decision, 2026-10-03: complete the seven refactoring workstreams before further
 service migrations, encryption implementation, or production cutover. Existing
 service behavior and unfinished acceptance requirements remain authoritative.
-Status: follow-up implementation is complete; interrupted-reboot fault
-injection, fully provisioned host acceptance, and remote CI remain pending.
-Rust-owned fixture smoke and retained VM update passed locally; see the
+Status: follow-up implementation and fully provisioned host acceptance are
+complete; interrupted-reboot fault injection and remote CI remain pending.
+Rust-owned fixture smoke, retained VM update, and capability-selected
+application acceptance passed locally; see the
 [follow-up plan](../plan/REFACTOR-FOLLOWUP.md) and
 [acceptance log](../butane/ACCEPTANCE.md). Production acceptance remains
 explicitly deferred.
@@ -32,8 +33,8 @@ guest operation through a shared checked transport. Transport's bounded I/O
 stays in memory; payload copies are zeroized after stdin transfer. Earlier
 fixture and provisioning acceptance passed. Rust now owns smoke reboot and
 capability-selected application acceptance. The latter has passing injected
-tests; the final live pass still requires test UI credentials delivered after
-KeePassXC is unlocked. Production acceptance remains deferred.
+tests and a named-VM repeat-apply/reboot acceptance. Production acceptance
+remains deferred.
 
 Workstream 2 adds `skillet_hosts` as the single host capability declaration.
 It owns host composition and supplies boot, service, network, UI, storage, and

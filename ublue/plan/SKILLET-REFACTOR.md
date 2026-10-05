@@ -1,8 +1,8 @@
 # Skillet refactoring prerequisite
 
-Status: reopened, 2026-10-05. The implementation follow-up is in place;
-interrupted-reboot fault injection, fully provisioned application acceptance,
-and remote CI evidence remain open. Track them in
+Status: reopened, 2026-10-05. The implementation follow-up and named fully
+provisioned application acceptance are complete; interrupted-reboot fault
+injection and remote CI evidence remain open. Track them in
 [the six-point follow-up](REFACTOR-FOLLOWUP.md) before resuming migrations.
 Previous routine validation and fresh/retained VM runs remain evidence. The live
 legacy-manifest import and controlled interrupted-provisioning recovery are
