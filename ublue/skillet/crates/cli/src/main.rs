@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use skillet_cli_common::hosts::ApplyPhase;
-use std::{fs, path::PathBuf, process::Command};
+use std::{fs, io::Write as _, path::PathBuf, process::Command};
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
@@ -217,7 +217,7 @@ struct SmokeArgs {
     /// Recorded disposable VM instance
     #[arg(long, default_value = "smoke")]
     instance: String,
-    /// Explicit disposable SSH target, USER@HOST
+    /// Optional target override; must match the recorded disposable VM
     #[arg(long)]
     target: Option<String>,
     /// SSH port
@@ -226,18 +226,9 @@ struct SmokeArgs {
     /// SSH private key (defaults to the key generated for `test vm create`)
     #[arg(long)]
     identity: Option<PathBuf>,
-}
-
-struct SmokeInvocation<'a> {
-    target: &'a str,
-    port: u16,
-    host: &'a str,
-    credentials_required: bool,
-    fixture_binary: &'a std::path::Path,
-    fixture_sha256: &'a str,
-    host_binary: String,
-    identity: &'a std::path::Path,
-    deployed_hashes: &'a skillet_vm::manifest::ArtifactHashes,
+    /// Also verify and repeat-apply the selected host's provisioned applications
+    #[arg(long)]
+    with_applications: bool,
 }
 
 fn main() -> Result<()> {
@@ -337,6 +328,7 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
     let butane = butane_root()?;
     let run_identity = skillet_vm::RunIdentity::new(&args.hostname, &args.instance)?;
     let store = skillet_vm::ManifestStore::new(&butane.join("runs"), skillet_vm::current_uid())?;
+    let _lock = store.lock(&run_identity)?;
     let run = store.load(&run_identity)?;
     if run.phase != skillet_vm::Phase::Ready {
         return Err(anyhow!(
@@ -398,59 +390,583 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
         fixture_sha256 = fixture_hash,
         "Resolved smoke binaries"
     );
-    let script = root.join("integration_tests/smoke-ssh.sh");
-    if !script.is_file() {
-        return Err(anyhow!("smoke runner not found at {}", script.display()));
+    let guest_script = root.join("integration_tests/smoke-guest.sh");
+    if !guest_script.is_file() {
+        return Err(anyhow!(
+            "smoke guest assertions not found at {}",
+            guest_script.display()
+        ));
     }
-    run_smoke_runner(
-        &script,
-        SmokeInvocation {
-            target: &target,
-            port: run.ssh.port,
-            host: run.identity.host(),
-            credentials_required,
-            fixture_binary: &fixture_artifact,
-            fixture_sha256: &fixture_hash,
-            host_binary,
-            identity: &identity,
-            deployed_hashes,
-        },
+    SmokeLifecycle {
+        butane: &butane,
+        store: &store,
+        run: &run,
+        fixture: &fixture_artifact,
+        fixture_hash: &fixture_hash,
+        guest_script: &guest_script,
+        host_binary: &host_binary,
+        credentials_required,
+        with_applications: args.with_applications,
+    }
+    .run()
+}
+
+struct SmokeLifecycle<'a> {
+    butane: &'a std::path::Path,
+    store: &'a skillet_vm::ManifestStore,
+    run: &'a skillet_vm::VmRun,
+    fixture: &'a std::path::Path,
+    fixture_hash: &'a str,
+    guest_script: &'a std::path::Path,
+    host_binary: &'a str,
+    credentials_required: bool,
+    with_applications: bool,
+}
+
+impl SmokeLifecycle<'_> {
+    fn run(&self) -> Result<()> {
+        use skillet_vm::{
+            backend::{VirshBackend, VmBackend},
+            transport::{HostKeyPolicy, OwnershipCheckedTransport},
+        };
+        let backend = VirshBackend::for_run(self.run, &self.butane.join("bin/virsh"))?;
+        let ownership_run = self.run.clone();
+        let ownership = || -> skillet_vm::Result<()> {
+            backend
+                .inspect(&ownership_run)?
+                .ok_or_else(|| skillet_vm::Error::Invalid("owned VM domain is absent".into()))?
+                .validate_owned(&ownership_run)
+        };
+        ownership()?;
+
+        let base =
+            skillet_vm::transport::SshTransport::new(self.run.ssh.clone(), HostKeyPolicy::Verify)?;
+        let transport = OwnershipCheckedTransport::new(&base, &ownership);
+        self.install_and_verify(&transport)?;
+        let boot_before = guest_text(&transport, "cat", &["/proc/sys/kernel/random/boot_id"])?;
+        if self.with_applications {
+            self.write_persistence_marker(&transport)?;
+        }
+        self.run_guest_phase(&transport, "before-reboot")?;
+
+        let run = self.store.mark_reboot_pending(&self.run.identity)?;
+        ownership()?;
+        backend.reboot(&run)?;
+        ownership()?;
+        Self::wait_for_new_boot(&run, &ownership, &boot_before)?;
+        self.run_guest_phase(&transport, "after-reboot")?;
+
+        if self.with_applications {
+            self.check_applications(&transport, &ownership)?;
+            smoke_guest_command(
+                &transport,
+                "sudo",
+                &["-n", "rm", "-f", "--", &self.persistence_marker_path()],
+            )?;
+        }
+
+        vm::ready_locked(self.butane, self.store, &self.run.identity)?;
+        if self.store.load(&self.run.identity)?.phase != skillet_vm::Phase::Ready {
+            return Err(anyhow!(
+                "VM readiness did not restore the Ready phase after smoke"
+            ));
+        }
+        Ok(())
+    }
+
+    fn install_and_verify(
+        &self,
+        transport: &impl skillet_vm::transport::GuestTransport,
+    ) -> Result<()> {
+        for (source, destination) in [
+            (self.fixture, "/var/tmp/skillet-smoke-fixture"),
+            (self.guest_script, "/var/tmp/skillet-smoke-guest.sh"),
+        ] {
+            transport.upload(source, destination)?;
+        }
+        smoke_guest_command(
+            transport,
+            "sudo",
+            &[
+                "-n",
+                "install",
+                "-m",
+                "0755",
+                "/var/tmp/skillet-smoke-fixture",
+                "/var/usrlocal/bin/skillet-smoke-fixture",
+            ],
+        )?;
+        verify_guest_hash(
+            transport,
+            "/var/usrlocal/bin/skillet-smoke-fixture",
+            self.fixture_hash,
+        )?;
+        let deployed = self
+            .run
+            .deployed
+            .as_ref()
+            .ok_or_else(|| anyhow!("VM has no deployed artifact hashes"))?;
+        verify_guest_hash(transport, "/var/usrlocal/bin/skillet", &deployed.generic)?;
+        verify_guest_hash(
+            transport,
+            &format!("/var/usrlocal/bin/skillet-{}", self.run.identity.host()),
+            &deployed.host,
+        )
+    }
+
+    fn run_guest_phase(
+        &self,
+        transport: &impl skillet_vm::transport::GuestTransport,
+        phase: &str,
+    ) -> Result<()> {
+        let credentials = if self.credentials_required {
+            "yes"
+        } else {
+            "no"
+        };
+        smoke_guest_command(
+            transport,
+            "sudo",
+            &[
+                "-n",
+                "bash",
+                "/var/tmp/skillet-smoke-guest.sh",
+                phase,
+                self.host_binary,
+                credentials,
+            ],
+        )
+    }
+
+    fn persistence_marker_path(&self) -> String {
+        format!(
+            "/var/lib/data/.skillet-smoke-{}-{}.marker",
+            self.run.identity.host(),
+            self.run.identity.instance()
+        )
+    }
+
+    fn write_persistence_marker(
+        &self,
+        transport: &impl skillet_vm::transport::GuestTransport,
+    ) -> Result<()> {
+        use skillet_vm::transport::GuestCommand;
+        const MARKER: &[u8] = b"skillet disposable application persistence check\n";
+        smoke_guest_command(
+            transport,
+            "sudo",
+            &["-n", "rm", "-f", "--", &self.persistence_marker_path()],
+        )?;
+        let output = transport.execute(
+            &GuestCommand {
+                program: "sudo",
+                arguments: &["-n", "tee", &self.persistence_marker_path()],
+            },
+            Some(MARKER),
+        )?;
+        if !output.status.success() {
+            return Err(anyhow!("writing disposable persistence marker failed"));
+        }
+        Ok(())
+    }
+
+    fn verify_persistence_marker(
+        &self,
+        transport: &impl skillet_vm::transport::GuestTransport,
+    ) -> Result<()> {
+        use sha2::{Digest as _, Sha256};
+        let expected = hex::encode(Sha256::digest(
+            b"skillet disposable application persistence check\n",
+        ));
+        verify_guest_hash(transport, &self.persistence_marker_path(), &expected)
+    }
+
+    fn check_applications(
+        &self,
+        transport: &impl skillet_vm::transport::GuestTransport,
+        ownership: &dyn Fn() -> skillet_vm::Result<()>,
+    ) -> Result<()> {
+        let profile = skillet_hosts::profile_for_name(self.run.identity.host())
+            .ok_or_else(|| anyhow!("unknown host acceptance profile"))?;
+        let plan = profile.acceptance_plan();
+        if plan.requires_data_mount {
+            let mount = guest_text(
+                transport,
+                "findmnt",
+                &["-n", "-o", "FSTYPE,FSROOT", "--mountpoint", "/var/lib/data"],
+            )?;
+            require_data_mount(&mount)?;
+        }
+        self.verify_persistence_marker(transport)?;
+        let first = application_snapshot(transport, ownership, &plan)?;
+        self.repeat_host_apply(transport, &profile)?;
+        let second = application_snapshot(transport, ownership, &plan)?;
+        if first != second {
+            return Err(anyhow!(
+                "repeat host apply changed declared application runtime state"
+            ));
+        }
+        tracing::info!(
+            services = ?plan.services.iter().map(|service| service.unit.as_str()).collect::<Vec<_>>(),
+            "Host application acceptance passed"
+        );
+        println!(
+            "Application acceptance passed for: {}",
+            plan.services
+                .iter()
+                .map(|service| service.unit.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        Ok(())
+    }
+
+    fn repeat_host_apply(
+        &self,
+        transport: &impl skillet_vm::transport::GuestTransport,
+        profile: &skillet_hosts::HostProfile,
+    ) -> Result<()> {
+        if profile.requires_full_apply_credentials() {
+            smoke_guest_command(
+                transport,
+                "sudo",
+                &["-n", "systemctl", "restart", "skillet-full-apply.service"],
+            )?;
+        } else {
+            smoke_guest_command(
+                transport,
+                "sudo",
+                &["-n", self.host_binary, "apply", "--phase", "full"],
+            )?;
+        }
+        if profile.services.iter().any(|service| service.ui.is_some()) {
+            smoke_guest_command(
+                transport,
+                "sudo",
+                &["-n", "systemctl", "restart", "skillet-caddy-apply.service"],
+            )?;
+        }
+        Ok(())
+    }
+
+    fn wait_for_new_boot(
+        run: &skillet_vm::VmRun,
+        ownership: &dyn Fn() -> skillet_vm::Result<()>,
+        boot_before: &str,
+    ) -> Result<()> {
+        use skillet_vm::transport::{HostKeyPolicy, OwnershipCheckedTransport};
+        use std::time::{Duration, Instant};
+        let mut probe =
+            skillet_vm::transport::SshTransport::new(run.ssh.clone(), HostKeyPolicy::Verify)?;
+        probe.timeout = Duration::from_secs(15);
+        let checked = OwnershipCheckedTransport::new(&probe, ownership);
+        let deadline = Instant::now() + Duration::from_mins(4);
+        loop {
+            ownership()?;
+            match guest_text(&checked, "cat", &["/proc/sys/kernel/random/boot_id"]) {
+                Ok(boot_after) if boot_after != boot_before => return Ok(()),
+                Ok(_) | Err(_) if Instant::now() < deadline => {
+                    std::thread::sleep(Duration::from_secs(5));
+                }
+                Ok(_) => return Err(anyhow!("VM did not return from reboot within 240 seconds")),
+                Err(error) => {
+                    ownership()?;
+                    if Instant::now() >= deadline {
+                        return Err(anyhow!(
+                            "VM did not return from reboot within 240 seconds: {error}"
+                        ));
+                    }
+                    std::thread::sleep(Duration::from_secs(5));
+                }
+            }
+        }
+    }
+}
+
+fn application_snapshot(
+    transport: &impl skillet_vm::transport::GuestTransport,
+    ownership: &dyn Fn() -> skillet_vm::Result<()>,
+    plan: &skillet_hosts::HostAcceptancePlan,
+) -> Result<Vec<String>> {
+    application_snapshot_with_probe_timeout(
+        transport,
+        ownership,
+        plan,
+        std::time::Duration::from_mins(2),
     )
 }
 
-fn run_smoke_runner(script: &std::path::Path, invocation: SmokeInvocation<'_>) -> Result<()> {
-    let status = std::process::Command::new("bash")
-        .arg(script)
-        .args([
-            "--target",
-            invocation.target,
-            "--disposable-target",
-            "--port",
-        ])
-        .arg(invocation.port.to_string())
-        .args(["--host", invocation.host])
-        .args([
-            "--credentials-required",
-            if invocation.credentials_required {
-                "yes"
-            } else {
-                "no"
+fn application_snapshot_with_probe_timeout(
+    transport: &impl skillet_vm::transport::GuestTransport,
+    ownership: &dyn Fn() -> skillet_vm::Result<()>,
+    plan: &skillet_hosts::HostAcceptancePlan,
+    probe_timeout: std::time::Duration,
+) -> Result<Vec<String>> {
+    let mut snapshot = Vec::new();
+    for service in &plan.services {
+        ownership()?;
+        let unit_state = check_unit_active(transport, &service.unit, probe_timeout)?;
+        if unit_state != "active" {
+            return Err(anyhow!(
+                "declared service unit {} is not active",
+                service.unit
+            ));
+        }
+        snapshot.push(format!("unit:{}:{unit_state}", service.unit));
+        if let Some(container) = &service.container {
+            snapshot.push(check_container(transport, service, container)?);
+        }
+        for listener in &service.listeners {
+            check_listener(transport, *listener, probe_timeout)?;
+            snapshot.push(format!(
+                "listener:{:?}:{}",
+                listener.protocol, listener.port
+            ));
+        }
+        if let Some(health) = check_health(transport, service.health_probe)? {
+            snapshot.push(health);
+        }
+    }
+    Ok(snapshot)
+}
+
+fn check_unit_active(
+    transport: &impl skillet_vm::transport::GuestTransport,
+    unit: &str,
+    timeout: std::time::Duration,
+) -> Result<String> {
+    use std::time::{Duration, Instant};
+    let deadline = Instant::now() + timeout;
+    loop {
+        let output = transport.execute(
+            &skillet_vm::transport::GuestCommand {
+                program: "systemctl",
+                arguments: &["is-active", unit],
             },
-        ])
-        .args(["--fixture-binary"])
-        .arg(invocation.fixture_binary)
-        .args(["--fixture-sha256", invocation.fixture_sha256])
-        .args(["--generic-sha256", &invocation.deployed_hashes.generic])
-        .args(["--host-sha256", &invocation.deployed_hashes.host])
-        .args(["--host-binary"])
-        .arg(invocation.host_binary)
-        .args(["--identity"])
-        .arg(invocation.identity)
-        .status()
-        .context("starting disposable-VM smoke runner failed")?;
-    if !status.success() {
+            None,
+        )?;
+        let last_state = String::from_utf8(output.stdout)
+            .context("systemd service state was not UTF-8")?
+            .trim()
+            .to_string();
+        if output.status.success() && last_state == "active" {
+            return Ok(last_state);
+        }
+        if Instant::now() >= deadline {
+            return Err(anyhow!(
+                "declared service unit {unit} did not become active within 120 seconds (last state: {last_state})"
+            ));
+        }
+        std::thread::sleep(Duration::from_secs(2));
+    }
+}
+
+fn require_data_mount(observed: &str) -> Result<()> {
+    if observed != "btrfs /data" {
         return Err(anyhow!(
-            "disposable-VM smoke scenario failed with status {status}"
+            "host data mount differs from the profile expectation"
+        ));
+    }
+    Ok(())
+}
+
+fn check_container(
+    transport: &impl skillet_vm::transport::GuestTransport,
+    service: &skillet_hosts::AcceptanceService,
+    container: &str,
+) -> Result<String> {
+    use std::fmt::Write as _;
+    let inspect = guest_text(
+        transport,
+        "sudo",
+        &[
+            "-n",
+            "podman",
+            "inspect",
+            "--format",
+            "{{.State.Running}}|{{.HostConfig.NetworkMode}}|{{.Id}}|{{json .NetworkSettings.Networks}}|{{range .Mounts}}{{.Source}};{{end}}",
+            container,
+        ],
+    )?;
+    let fields = inspect.splitn(5, '|').collect::<Vec<_>>();
+    if fields.len() != 5 || fields[0] != "true" {
+        return Err(anyhow!("declared container {container} is not running"));
+    }
+    if let Some(expected) = &service.network_mode {
+        let actual_networks: serde_json::Value = serde_json::from_str(fields[3])
+            .context("Podman returned invalid network inspection JSON")?;
+        let network_matches = if expected == "host" {
+            fields[1] == "host"
+        } else {
+            actual_networks
+                .as_object()
+                .is_some_and(|networks| networks.contains_key(expected))
+        };
+        if !network_matches {
+            return Err(anyhow!(
+                "container {container} has an unexpected network attachment"
+            ));
+        }
+    }
+    let mut state = format!(
+        "container:{container}:{}:{}:{}",
+        fields[1], fields[2], fields[3]
+    );
+    for path in &service.bind_paths {
+        if !fields[4].split(';').any(|source| source == path) {
+            return Err(anyhow!(
+                "container {container} does not mount declared path {path}"
+            ));
+        }
+        if let Some(owner_expectation) = &service.owner {
+            use skillet_hosts::AcceptanceOwner;
+            let (format, expected) = match owner_expectation {
+                AcceptanceOwner::Named { user, group } => ("%U:%G", format!("{user}:{group}")),
+                AcceptanceOwner::Numeric { uid, gid } => ("%u:%g", format!("{uid}:{gid}")),
+            };
+            let owner = guest_text(transport, "stat", &["-c", format, path])?;
+            if owner != expected {
+                return Err(anyhow!(
+                    "data path ownership differs from declaration: {path} (expected {expected}, found {owner})"
+                ));
+            }
+            write!(state, ";bind:{path}:{owner}")?;
+        }
+    }
+    let unit_name = service
+        .unit
+        .strip_suffix(".service")
+        .ok_or_else(|| anyhow!("container service unit has an invalid name"))?;
+    let config_path = format!("/etc/containers/systemd/{unit_name}.container");
+    let config_hash = guest_text(transport, "sha256sum", &[&config_path])?;
+    write!(state, ";config:{config_hash}")?;
+    Ok(state)
+}
+
+fn check_listener(
+    transport: &impl skillet_vm::transport::GuestTransport,
+    listener: skillet_hosts::AcceptanceListener,
+    timeout: std::time::Duration,
+) -> Result<()> {
+    use skillet_hosts::ListenerProtocol;
+    use std::time::{Duration, Instant};
+    let protocol = match listener.protocol {
+        ListenerProtocol::Tcp => "-lnt",
+        ListenerProtocol::Udp => "-lnu",
+    };
+    let port = format!(":{}", listener.port);
+    let deadline = Instant::now() + timeout;
+    loop {
+        let listening = guest_text(
+            transport,
+            "sudo",
+            &["-n", "ss", "-H", protocol, "sport", "=", &port],
+        )?;
+        if !listening.is_empty() {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            return Err(anyhow!(
+                "declared listener on port {} did not appear within 120 seconds",
+                listener.port
+            ));
+        }
+        std::thread::sleep(Duration::from_secs(2));
+    }
+}
+
+fn check_health(
+    transport: &impl skillet_vm::transport::GuestTransport,
+    probe: Option<skillet_hosts::HealthProbe>,
+) -> Result<Option<String>> {
+    use skillet_hosts::HealthProbe;
+    match probe {
+        Some(HealthProbe::Pihole) => {
+            smoke_guest_command(
+                transport,
+                "sudo",
+                &["-n", "podman", "exec", "pihole", "pihole", "status"],
+            )?;
+            Ok(Some("health:pihole:running".into()))
+        }
+        Some(HealthProbe::Tailscale) => {
+            let status = guest_text(
+                transport,
+                "sudo",
+                &[
+                    "-n",
+                    "podman",
+                    "exec",
+                    "tailscale",
+                    "tailscale",
+                    "status",
+                    "--json",
+                ],
+            )?;
+            let status: serde_json::Value =
+                serde_json::from_str(&status).context("Tailscale returned invalid status JSON")?;
+            if status
+                .get("BackendState")
+                .and_then(serde_json::Value::as_str)
+                != Some("Running")
+            {
+                return Err(anyhow!("Tailscale is not connected"));
+            }
+            Ok(Some("health:tailscale:running".into()))
+        }
+        None => Ok(None),
+    }
+}
+
+fn smoke_guest_command(
+    transport: &impl skillet_vm::transport::GuestTransport,
+    program: &str,
+    arguments: &[&str],
+) -> Result<()> {
+    let output = transport.execute(
+        &skillet_vm::transport::GuestCommand { program, arguments },
+        None,
+    )?;
+    std::io::stdout().write_all(&output.stdout)?;
+    std::io::stderr().write_all(&output.stderr)?;
+    if !output.status.success() {
+        return Err(anyhow!(
+            "guest smoke command {program} failed with status {:?}",
+            output.status.code()
+        ));
+    }
+    Ok(())
+}
+
+fn guest_text(
+    transport: &impl skillet_vm::transport::GuestTransport,
+    program: &str,
+    arguments: &[&str],
+) -> Result<String> {
+    let output = transport.execute(
+        &skillet_vm::transport::GuestCommand { program, arguments },
+        None,
+    )?;
+    if !output.status.success() {
+        return Err(anyhow!(
+            "guest probe {program} failed with status {:?}",
+            output.status.code()
+        ));
+    }
+    String::from_utf8(output.stdout)
+        .context("guest probe output was not UTF-8")
+        .map(|value| value.trim().to_owned())
+}
+
+fn verify_guest_hash(
+    transport: &impl skillet_vm::transport::GuestTransport,
+    path: &str,
+    expected: &str,
+) -> Result<()> {
+    let output = guest_text(transport, "sha256sum", &[path])?;
+    if output.split_whitespace().next() != Some(expected) {
+        return Err(anyhow!(
+            "guest artifact at {path} does not match the recorded SHA-256"
         ));
     }
     Ok(())
@@ -722,6 +1238,7 @@ mod tests {
             "clamps",
             "--target",
             "core@192.0.2.5",
+            "--with-applications",
         ]);
         assert!(parsed.is_ok());
     }
@@ -765,3 +1282,7 @@ mod tests {
 #[cfg(test)]
 #[path = "smoke_artifact_tests.rs"]
 mod smoke_artifact_tests;
+
+#[cfg(test)]
+#[path = "application_acceptance_tests.rs"]
+mod application_acceptance_tests;

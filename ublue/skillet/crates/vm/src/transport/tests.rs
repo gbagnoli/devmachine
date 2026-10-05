@@ -73,6 +73,36 @@ fn ownership_loss_after_operation_is_reported() {
     assert_eq!(*operations.lock().unwrap(), ["execute"]);
 }
 
+#[test]
+fn ownership_loss_between_delivery_operations_blocks_the_next_operation() {
+    let operations = Arc::new(Mutex::new(Vec::new()));
+    let transport = FakeTransport(operations.clone());
+    let checks = std::cell::Cell::new(0);
+    let validate = || {
+        checks.set(checks.get() + 1);
+        if checks.get() >= 3 {
+            return Err(Error::Invalid("ownership changed".into()));
+        }
+        Ok(())
+    };
+    let checked = OwnershipCheckedTransport::new(&transport, &validate);
+    checked
+        .execute(
+            &GuestCommand {
+                program: "install",
+                arguments: &[],
+            },
+            None,
+        )
+        .unwrap();
+    let result = checked.upload(Path::new("unused"), "/var/tmp/file");
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("ownership changed"));
+    assert_eq!(*operations.lock().unwrap(), ["execute"]);
+}
+
 fn target(dir: &Path) -> SshTarget {
     let identity = dir.join("id_ed25519");
     let known_hosts = dir.join("known_hosts");

@@ -393,7 +393,17 @@ pub(super) fn ready(args: &VmTargetArgs) -> Result<()> {
     let identity = RunIdentity::new(&args.hostname, &args.instance)?;
     let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
     let _lock = store.lock(&identity)?;
-    let run = store.load(&identity)?;
+    ready_locked(&butane, &store, &identity)
+}
+
+/// Run readiness while the caller holds the run lock. Smoke uses this after
+/// reboot so it can keep the same lock across the complete lifecycle.
+pub(super) fn ready_locked(
+    butane: &std::path::Path,
+    store: &ManifestStore,
+    identity: &RunIdentity,
+) -> Result<()> {
+    let run = store.load(identity)?;
     let boot = skillet_hosts::boot_policy_for_host(identity.host())
         .ok_or_else(|| anyhow!("unknown readiness profile: {}", identity.host()))?;
     let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
@@ -401,7 +411,7 @@ pub(super) fn ready(args: &VmTargetArgs) -> Result<()> {
         .inspect(&run)?
         .ok_or_else(|| anyhow!("owned domain is absent"))?
         .validate_owned(&run)?;
-    let mut run = store.import(&identity)?;
+    let mut run = store.import(identity)?;
     let ownership_run = run.clone();
     let mut probe = skillet_vm::transport::SshTransport::new(
         run.ssh.clone(),
@@ -420,8 +430,8 @@ pub(super) fn ready(args: &VmTargetArgs) -> Result<()> {
     };
     skillet_vm::readiness::ready(
         &mut run,
-        &store,
-        &store.run_dir(&identity),
+        store,
+        &store.run_dir(identity),
         &policy,
         &skillet_vm::readiness::ReadinessIo {
             probe: &probe,
@@ -489,11 +499,20 @@ pub(super) fn update(args: &VmDestroyArgs) -> Result<()> {
         skillet_vm::transport::HostKeyPolicy::Verify,
     )?;
     run = store.import(&identity)?;
-    backend
-        .inspect(&run)?
-        .ok_or_else(|| anyhow!("owned domain disappeared during the build"))?
-        .validate_owned(&run)?;
-    let hashes = skillet_vm::delivery::deliver(&run, &transport, host, generic)?;
+    let ownership_run = run.clone();
+    let ownership = || -> skillet_vm::Result<()> {
+        backend
+            .inspect(&ownership_run)?
+            .ok_or_else(|| {
+                skillet_vm::Error::Invalid("owned domain disappeared during update".into())
+            })?
+            .validate_owned(&ownership_run)
+    };
+    ownership()?;
+    let checked_transport =
+        skillet_vm::transport::OwnershipCheckedTransport::new(&transport, &ownership);
+    let hashes = skillet_vm::delivery::deliver(&run, &checked_transport, host, generic)?;
+    ownership()?;
     run.deployed = Some(hashes);
     store.save(&run)?;
     println!(

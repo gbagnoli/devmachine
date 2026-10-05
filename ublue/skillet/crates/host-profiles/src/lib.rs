@@ -11,8 +11,9 @@ use thiserror::Error;
 
 pub mod profile;
 pub use profile::{
-    declared_profiles, profile_for_host, profile_for_name, CredentialConsumer, HostId, HostProfile,
-    HostService, ServiceConfig, UiServiceDeclaration,
+    declared_profiles, profile_for_host, profile_for_name, AcceptanceListener, AcceptanceOwner,
+    AcceptanceService, CredentialConsumer, HealthProbe, HostAcceptancePlan, HostId, HostProfile,
+    HostService, ListenerProtocol, ServiceConfig, UiServiceDeclaration,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
