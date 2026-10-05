@@ -1,8 +1,8 @@
 # 7. Test layers, fixtures, build artifacts and CI
 
-Status: implementation complete; CI checks and fresh/retained VM acceptance
-passed. Legacy-manifest import and controlled interrupted-recovery acceptance
-remain open; see the [prerequisite roadmap](SKILLET-REFACTOR.md).
+Status: implementation and required CI/fresh/retained VM acceptance complete.
+Live legacy import and controlled interrupted-recovery checks passed; see the
+[prerequisite roadmap](SKILLET-REFACTOR.md).
 
 ## Read and locate
 
@@ -34,9 +34,10 @@ missed relevant CI. Shell code was embedded in a production Rust fixture.
 - CI now selects Rust validation when Skillet, Butane, its helpers, or the
   workflow changes; it runs workspace formatting, all-target strict Clippy,
   all-target tests, and the named Fedora container integration command. Shell
-  lint explicitly includes current extensionless scripts. The fresh disposable
-  VM fixture and reboot passed; legacy-manifest compatibility and controlled
-  interrupted recovery remain unverified live.
+  lint explicitly includes current extensionless scripts. Fresh/retained VM
+  fixture and reboot passed. The live legacy-manifest import and controlled
+  interrupted-provisioning recovery also passed; evidence is in the
+  2026-10-05 acceptance entry.
 
 ## Implementation sequence
 
@@ -94,8 +95,8 @@ missed relevant CI. Shell code was embedded in a production Rust fixture.
   locally. Update AGENTS with exact final commands and general coverage rules.
 - A named fresh VM passed create/ready/provision, real convergence fixture,
   reboot, and external cleanup. A retained VM passed readiness, full
-  provisioning, repeat apply, fixture failure recovery, and reboot. Remaining:
-  legacy-manifest import and controlled interrupted recovery.
+  provisioning, repeat apply, fixture failure recovery, and reboot. Live
+  legacy-manifest import and controlled interrupted provisioning also passed.
 - Finish only after earlier workstreams' exit criteria also pass. Update the
   roadmap gate and migration entry point so the next agent can resume feature
   work without losing deferred acceptance requirements.

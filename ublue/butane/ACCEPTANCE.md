@@ -1501,7 +1501,36 @@ host tool; it still uses normal command approvals.
   `12345:12345`/`0700`. Host apply restored the volume root to `999:999`/`0750`
   and preserved the child's UID/GID/mode. The temporary file was removed,
   UniFi was healthy, and `systemctl --failed` was empty afterward.
-- Remaining: a controlled interrupted-provisioning recovery with its journal
-  captured before and after, and a legacy-manifest live import (no legacy VM
-  run is available). Production delivery/renewal and outside-tailnet denial
-  remain separate deferred acceptance.
+- At this checkpoint, controlled interrupted recovery and legacy-manifest
+  import remained open. Both passed in the following acceptance entry.
+  Production delivery/renewal and outside-tailnet denial remain separate
+  deferred acceptance.
+
+### Legacy manifest import and interrupted provisioning recovery, 2026-10-05
+
+- Legacy import: on the running retained `clamps-test-smoke` VM, temporarily
+  moved the current `vm.json` aside and ran
+  `skillet test vm ready clamps smoke --verbose`. Skillet read the legacy
+  `run.conf`, validated its UUID and disk against the live libvirt domain,
+  imported the state, reapplied signed-boot/readiness checks, and returned
+  success. The resulting `vm.json` was mode `0600`, phase `ready`, and retained
+  the captured/deployed artifact hashes. `run.conf` had the same SHA-256 before
+  and after; the original manifest backup was removed after verification.
+- Interrupted recovery: created the disposable `clamps-test-recovery` VM on
+  port 2202 and completed readiness. Started
+  `skillet test vm provision clamps recovery --verbose`, then sent Ctrl-C only
+  after `tailscale-pending` existed. Before and after interruption the marker
+  was mode `0600` with the expected test host/environment/instance identity;
+  `tailscale.json` was absent and the VM manifest remained `ready` with the
+  same UUID. The command exited on interruption without removing ownership
+  state.
+- Retried the same provision command. It delivered the Tailscale credential,
+  completed full service apply and enrollment, wrote `tailscale.json`, and
+  removed `tailscale-pending`. `skillet test smoke clamps --instance recovery`
+  passed all fixture cases, including reboot. `skillet test vm destroy clamps
+  recovery --verbose` removed the journaled Tailscale ownership and disposed
+  the VM. A final VM list showed only the retained `clamps-test-smoke`; its
+  libvirt domain and disk were untouched.
+- No production credentials, production DNS, or Cloudflare APIs were used for
+  this recovery check. Production delivery/renewal and outside-tailnet denial
+  remain deferred from the refactoring gate.

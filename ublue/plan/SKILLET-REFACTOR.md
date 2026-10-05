@@ -1,11 +1,11 @@
 # Skillet refactoring prerequisite
 
-Status: implementation complete; acceptance gate partially complete,
-2026-10-04. The seven refactoring slices are implemented and routine local
-validation has passed. A fresh disposable clamps VM completed provisioning,
-fixture smoke/reboot, staging ACME issuance, and cleanup. Remaining acceptance
-is listed in the table and slice plans; keep feature milestones gated until
-those checks are resolved or explicitly deferred with evidence.
+Status: complete, 2026-10-05. All seven refactoring slices, routine local
+validation, and required fresh/retained VM acceptance have passed. The live
+legacy-manifest import and controlled interrupted-provisioning recovery are
+recorded in the [acceptance log](../butane/ACCEPTANCE.md#legacy-manifest-import-and-interrupted-provisioning-recovery-2026-10-05).
+Production delivery/renewal and outside-tailnet denial remain explicitly
+deferred from this refactor gate.
 
 Read `../AGENTS.md`, `../skillet/AGENTS.md`, and
 [the architecture decision](../design/skillet-architecture.md) first. Then read
@@ -21,13 +21,13 @@ assignments to execute concurrently against the same interfaces.
 
 | Order | Workstream | Depends on | Status |
 | --- | --- | --- | --- |
-| 1 | [VM lifecycle and Bash-to-Rust migration](REFACTOR-01-VM-LIFECYCLE.md) | Current lifecycle/secret designs | Fresh and retained VM cycles passed; legacy-manifest import and controlled interrupted-recovery acceptance remain |
-| 2 | [Canonical host profiles](REFACTOR-02-HOST-PROFILES.md) | VM identity types from 1 | Retained clamps base/full apply passed; canonical-profile and synthetic-profile checks pass |
-| 3 | [Effect interfaces and ownership](REFACTOR-03-RESOURCE-BOUNDARIES.md) | Profile inputs from 2 | Live Btrfs mount/subvolume, service ownership, and descendant-preservation checks passed |
-| 4 | [CLI/library and delivery boundaries](REFACTOR-04-CLI-PROVISIONING.md) | Interfaces from 1–3 | Disposable provisioning, credential rotation, retry, delivery, and cleanup passed; controlled interrupted recovery remains |
-| 5 | [Podman configuration and host policy](REFACTOR-05-PODMAN-MODEL.md) | Profiles/effect interfaces from 2–4 | Live service networks/identity, volume ownership preservation, credential rotation, and unchanged repeat-apply passed on clamps |
+| 1 | [VM lifecycle and Bash-to-Rust migration](REFACTOR-01-VM-LIFECYCLE.md) | Current lifecycle/secret designs | Fresh/retained cycles, live legacy import, and controlled recovery passed |
+| 2 | [Canonical host profiles](REFACTOR-02-HOST-PROFILES.md) | VM identity types from 1 | Retained apply and synthetic-profile genericity checks passed |
+| 3 | [Effect interfaces and ownership](REFACTOR-03-RESOURCE-BOUNDARIES.md) | Profile inputs from 2 | Live Btrfs, service ownership, and descendant-preservation checks passed |
+| 4 | [CLI/library and delivery boundaries](REFACTOR-04-CLI-PROVISIONING.md) | Interfaces from 1–3 | Delivery, rotation, interrupted retry, provider cleanup, and VM cleanup passed |
+| 5 | [Podman configuration and host policy](REFACTOR-05-PODMAN-MODEL.md) | Profiles/effect interfaces from 2–4 | Live service-network, identity, ownership, rotation, and repeat-apply checks passed |
 | 6 | [Convergence outcomes and recording](REFACTOR-06-CONVERGENCE-RECORDING.md) | Resource/configuration contracts from 3–5 | Fixture recovery/reboot and host repeat-apply passed |
-| 7 | [Test layers, fixtures, artifacts, and CI](REFACTOR-07-TEST-INFRASTRUCTURE.md) | Final interfaces from 1–6 | CI and fresh/retained VM acceptance passed; legacy import and controlled interruption remain |
+| 7 | [Test layers, fixtures, artifacts, and CI](REFACTOR-07-TEST-INFRASTRUCTURE.md) | Final interfaces from 1–6 | CI and fresh/retained VM acceptance passed |
 
 Each earlier slice includes its own regression checks; testing does not wait
 for workstream 7. Workstream 1 creates the minimal VM/transport contracts used
@@ -58,13 +58,10 @@ public command syntax unless a required change is documented with migration.
   honestly. Do not push without authorization. Update this table and each
   workstream's progress, design decisions, README usage, and general AGENTS
   prevention rules in the corresponding implementation slice.
-- Completion requires all seven exit criteria. Fresh and retained clamps VM
-  cycles, real service/storage inspection, staging Caddy acceptance, fixture
-  recovery/reboot, provider cleanup, and unchanged host repeat apply have passed.
-  The remaining required checks are a legacy-manifest live import and a
-  controlled interrupted-provisioning recovery with journal evidence. There is
-  no retained legacy VM to import, so close that item only with a suitable
-  legacy run or explicit migration-test and inventory evidence. Production
+- Completion evidence includes fresh and retained clamps VM cycles, real
+  service/storage inspection, staging Caddy acceptance, fixture recovery and
+  reboot, provider cleanup, unchanged host repeat apply, legacy-manifest import,
+  and controlled interrupted-provisioning recovery. Production
   delivery/renewal and outside-tailnet denial are explicitly deferred from this
   refactor gate; routine CI remains credential-free.
 

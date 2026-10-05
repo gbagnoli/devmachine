@@ -19,10 +19,10 @@ back to the baseline, and UI presence is used as a proxy for service eligibility
 
 ## Implementation sequence
 
-Workstream 1 introduced explicit boot expectations in
-`cli-common::hosts::boot_policy_for_host`. Fold this interim lookup into the
-canonical profile declaration alongside composition and service capabilities;
-keep the VM readiness orchestrator independent of deployment names.
+Workstream 1 introduced explicit boot expectations, now derived from the
+canonical `skillet_hosts::HostProfile` alongside composition and service
+capabilities. VM readiness receives the selected profile's expectations and
+remains independent of deployment names.
 
 1. Add canonical library `skillet_hosts` and move host definitions/composition
    out of `cli-common`. Define a validated `HostId` and `HostProfile` carrying
