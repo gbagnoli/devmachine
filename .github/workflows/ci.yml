@@ -102,3 +102,7 @@ jobs:
         run: |
           cd ublue/skillet
           cargo run --bin skillet -- test run beezelbot --phase base --image fedora:latest
+
+      - name: Run bootstrap state regressions
+        if: steps.filter.outputs.rust == 'true'
+        run: bash ublue/butane/tests/bootstrap.sh
