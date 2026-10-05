@@ -3,10 +3,11 @@
 Decision, 2026-10-03: complete the seven refactoring workstreams before further
 service migrations, encryption implementation, or production cutover. Existing
 service behavior and unfinished acceptance requirements remain authoritative.
-Status: follow-up implementation and fully provisioned host acceptance are
-complete; interrupted-reboot fault injection and remote CI remain pending.
-Rust-owned fixture smoke, retained VM update, and capability-selected
-application acceptance passed locally; see the
+Status: follow-up implementation and scripted interrupted-reboot recovery are
+complete; remote CI and a Syncthing data ownership divergence found during
+repeat application acceptance remain open. Rust-owned fixture smoke, retained
+VM update, and the earlier capability-selected application acceptance passed
+locally; see the
 [follow-up plan](../plan/REFACTOR-FOLLOWUP.md) and
 [acceptance log](../butane/ACCEPTANCE.md). Production acceptance remains
 explicitly deferred.

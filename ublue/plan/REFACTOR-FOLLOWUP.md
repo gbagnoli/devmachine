@@ -1,22 +1,23 @@
 # Refactor follow-up: close the completion audit gaps
 
-Status: implementation and named-VM acceptance substantially complete,
+Status: implementation and local VM acceptance substantially complete,
 2026-10-05. Code and local regression coverage for all six findings are in
-place. Rust-owned fixture smoke, retained-VM update, and capability-selected
-application acceptance passed on the named clamps VM. Interrupted-reboot fault
-injection and remote CI evidence remain pending. Keep the refactoring gate open
-until those checks are recorded.
+place. Rust-owned fixture smoke, retained-VM update, and scripted interrupted
+reboot recovery passed on the named clamps VM. A repeat application check
+exposed Syncthing data ownership diverging after reboot; investigate that before
+considering live application acceptance stable. Remote CI evidence remains
+pending. Keep the refactoring gate open until these items are resolved.
 
 ## Progress
 
 | Step | Implementation | Evidence still needed |
 | --- | --- | --- |
-| 1. Rust-owned smoke lifecycle | Implemented; named `clamps/smoke` fixture and reboot acceptance passed | Interrupted-reboot recovery fault scenario |
+| 1. Rust-owned smoke lifecycle | Implemented; named `clamps/smoke` fixture/reboot and scripted interrupted-checkpoint recovery passed | None locally; remote CI pending |
 | 2. Update delivery guard | Implemented; ownership-loss/retry tests and retained-VM update passed | None locally; remote CI pending |
 | 3. Fake contracts | Implemented; workspace regression suite passes | None locally; remote CI pending |
 | 4. Bootstrap CI | Implemented; CI runs state regressions and local command passes | Observe remote CI after push |
-| 5. Host application acceptance | Implemented from canonical profile capabilities; unit and named fully provisioned VM repeat-apply/reboot acceptance passed | None locally; remote CI pending |
-| 6. Documentation | Reconciled implementation, commands, design status, and acceptance evidence | Final review and remote CI result |
+| 5. Host application acceptance | Implemented from canonical profile capabilities; prior named-VM acceptance passed | Repeat acceptance found `/var/lib/data/syncthing` owned by `core:core` after reboot, versus declared `giacomo:giacomo`; diagnose and rerun |
+| 6. Documentation | Updated implementation, commands, design status, and fault-injection evidence | Final review and remote CI result |
 
 ## Start here
 

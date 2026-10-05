@@ -1,5 +1,28 @@
 # Clamps VM acceptance log
 
+## Interrupted reboot checkpoint recovery, 2026-10-05
+
+- Added `bash ../skillet/integration_tests/interrupted-reboot-recovery.sh HOST INSTANCE`
+  to exercise the persisted checkpoint and recovery across separate Skillet
+  processes. The first smoke run intentionally exits after recording
+  `Started`, before asking libvirt to reboot; the script verifies that phase,
+  runs `test vm ready`, verifies `Ready`, then runs an ordinary fixture smoke
+  reboot. The fault point is hidden from normal CLI help and is only available
+  to the disposable-VM smoke command.
+- Passed on the existing `clamps/smoke` VM without the optional application
+  check. The interrupted run remained `Started`; separate readiness restored
+  `Ready`; the normal fixture reboot passed and the VM returned to `Ready`.
+- The optional `--with-applications` variant also reached the injected
+  interruption and recovered readiness, but its final application check
+  failed because `/var/lib/data/syncthing` was `core:core` after reboot while
+  the profile declares `giacomo:giacomo`. Readiness restored the VM to
+  `Ready`. Investigate this ownership divergence before treating another live
+  application acceptance run as passing.
+- Passed workspace formatting check, `cargo test -p skillet --no-run`,
+  `cargo clippy -p skillet --all-targets -- -D warnings`, ShellCheck for the
+  recovery script, and `git diff --check`. The complete workspace suite and
+  remote CI have not been rerun for this change.
+
 ## Refactor follow-up, 2026-10-05
 
 - The first live UI retry exposed a host/Podman rootless networking mismatch:

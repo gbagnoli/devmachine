@@ -1,8 +1,9 @@
 # Skillet refactoring prerequisite
 
-Status: reopened, 2026-10-05. The implementation follow-up and named fully
-provisioned application acceptance are complete; interrupted-reboot fault
-injection and remote CI evidence remain open. Track them in
+Status: reopened, 2026-10-05. The implementation follow-up and scripted
+interrupted-reboot recovery are complete. Repeat application acceptance
+exposed a Syncthing data ownership divergence after reboot, and remote CI
+evidence remains open. Track them in
 [the six-point follow-up](REFACTOR-FOLLOWUP.md) before resuming migrations.
 Previous routine validation and fresh/retained VM runs remain evidence. The live
 legacy-manifest import and controlled interrupted-provisioning recovery are
@@ -12,8 +13,9 @@ deferred from this refactor gate.
 
 The workstream table below records earlier acceptance, not closure of the
 follow-up acceptance gate. Lifecycle and fake-contract corrections are now
-implemented; workstream 7 still requires a fully provisioned application run
-and remote CI. Documentation reconciliation spans all workstreams.
+implemented; workstream 7 still requires investigation of repeat application
+ownership after reboot and remote CI. Documentation reconciliation spans all
+workstreams.
 
 Read `../AGENTS.md`, `../skillet/AGENTS.md`, and
 [the architecture decision](../design/skillet-architecture.md) first. Then read

@@ -87,6 +87,23 @@ services declared by that host profile. This checks service units, container
 state/network/mounts, configured listeners, available service health probes,
 unchanged runtime/configuration after repeat apply, and a data marker across
 reboot. The default command checks the synthetic fixture only.
+
+To exercise recovery when Skillet stops after saving the pre-reboot checkpoint,
+run the scripted interruption, readiness recovery, and normal reboot cycle:
+
+```bash
+bash integration_tests/interrupted-reboot-recovery.sh clamps smoke
+```
+
+The script expects an existing, ready disposable VM. It deliberately expects
+the first smoke command to exit at the injected checkpoint, verifies the
+manifest is no longer `Ready`, runs readiness in a separate process, verifies
+`Ready` is restored, then runs the regular smoke reboot and acceptance. Add
+`--with-applications` for hosts with provisioned services. On clamps, the
+current application check has a known Syncthing ownership divergence after
+reboot; see the [acceptance log](../butane/ACCEPTANCE.md#interrupted-reboot-checkpoint-recovery-2026-10-05)
+before enabling that option.
+
 After editing host code, use
 `cargo run --release -p skillet -- test vm update clamps smoke` to rebuild and
 install the current binary. `ready` reinstalls the artifact captured when the
