@@ -284,11 +284,12 @@ fn verify_non_tailnet_denial(
     timeout: Duration,
     interval: Duration,
 ) -> Result<(), UiProvisioningError> {
+    let caddy_address = caddy_container_address(guest)?;
     let mut verified_names = 0;
     for site in &sites.services {
         for hostname in std::iter::once(&site.hostname).chain(&site.aliases) {
             let started = std::time::Instant::now();
-            let resolve = format!("{hostname}:443:127.0.0.1");
+            let resolve = format!("{hostname}:443:{caddy_address}");
             let url = format!("https://{hostname}/");
             loop {
                 let output = guest.execute(
@@ -330,6 +331,38 @@ fn verify_non_tailnet_denial(
         ));
     }
     Ok(())
+}
+
+fn caddy_container_address(
+    guest: &impl GuestTransport,
+) -> Result<std::net::Ipv4Addr, UiProvisioningError> {
+    let output = guest.execute(
+        &skillet_vm::transport::GuestCommand {
+            program: "/usr/bin/sudo",
+            arguments: &[
+                "-n",
+                "podman",
+                "inspect",
+                "--format",
+                "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
+                "caddy",
+            ],
+        },
+        None,
+    )?;
+    if !output.status.success() {
+        return Err(UiProvisioningError::Invalid(
+            "could not inspect the Caddy container address for the local denial probe".into(),
+        ));
+    }
+    let address = String::from_utf8(output.stdout).map_err(|error| {
+        UiProvisioningError::Invalid(format!("Caddy address is not UTF-8: {error}"))
+    })?;
+    address.trim().parse().map_err(|error| {
+        UiProvisioningError::Invalid(format!(
+            "Caddy returned an invalid container IPv4 address: {error}"
+        ))
+    })
 }
 
 pub struct PersistentUiDelivery<'a> {
