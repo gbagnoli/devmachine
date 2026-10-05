@@ -21,7 +21,7 @@ pub struct MockSystem {
     pub fail_reload_once: Arc<AtomicBool>,
     pub restart_count: Arc<AtomicUsize>,
     pub start_count: Arc<AtomicUsize>,
-    pub services: Arc<Mutex<HashMap<String, String>>>, // name -> state (started, stopped, restarted)
+    pub services: Arc<Mutex<HashMap<String, String>>>, // name -> state
 }
 
 impl MockSystem {
@@ -190,7 +190,7 @@ impl ServiceResource for MockSystem {
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .get(name)
                 .map(String::as_str),
-            Some("started" | "restarted")
+            Some("started" | "restarted" | "reloaded")
         ))
     }
 
@@ -227,11 +227,20 @@ impl ServiceResource for MockSystem {
     }
 
     fn service_reload(&self, name: &str) -> Result<(), SystemError> {
-        self.services
+        let mut services = self
+            .services
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(name.to_string(), "reloaded".to_string());
-        Ok(())
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        match services.get(name).map(String::as_str) {
+            Some("started" | "restarted" | "reloaded") => {
+                services.insert(name.to_string(), "reloaded".to_string());
+                Ok(())
+            }
+            Some(state) => Err(SystemError::Command(format!(
+                "cannot reload inactive service {name} (state: {state})"
+            ))),
+            None => Err(SystemError::Command(format!("service {name} is missing"))),
+        }
     }
 
     fn service_enable(&self, name: &str) -> Result<(), SystemError> {
@@ -260,11 +269,21 @@ impl ServiceResource for MockSystem {
 pub type FileMetadata = (Option<u32>, Ownership);
 pub type DirectoryMetadata = (Option<u32>, Ownership);
 pub type DirectoryMetadataMap = Arc<Mutex<HashMap<String, DirectoryMetadata>>>;
+pub type BtrfsMountMap = Arc<Mutex<HashMap<String, BtrfsMount>>>;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BtrfsMount {
+    pub device: String,
+    pub root: String,
+    pub filesystem: String,
+}
 
 pub struct MockFiles {
     pub files: Arc<Mutex<HashMap<String, Vec<u8>>>>,
     pub metadata: Arc<Mutex<HashMap<String, FileMetadata>>>,
     pub directories: Arc<Mutex<HashSet<String>>>,
+    pub btrfs_mounts: BtrfsMountMap,
+    pub btrfs_subvolumes: Arc<Mutex<HashSet<String>>>,
     pub directory_metadata: DirectoryMetadataMap,
     pub fail_btrfs_mount_check: Arc<AtomicBool>,
     pub fail_file_write_once: Arc<AtomicBool>,
@@ -277,6 +296,8 @@ impl MockFiles {
             files: Arc::new(Mutex::new(HashMap::new())),
             metadata: Arc::new(Mutex::new(HashMap::new())),
             directories: Arc::new(Mutex::new(HashSet::new())),
+            btrfs_mounts: Arc::new(Mutex::new(HashMap::new())),
+            btrfs_subvolumes: Arc::new(Mutex::new(HashSet::new())),
             directory_metadata: Arc::new(Mutex::new(HashMap::new())),
             fail_btrfs_mount_check: Arc::new(AtomicBool::new(false)),
             fail_file_write_once: Arc::new(AtomicBool::new(false)),
@@ -291,26 +312,135 @@ impl Default for MockFiles {
     }
 }
 
+impl MockFiles {
+    /// Declare a mount-table entry for storage contract tests.
+    pub fn record_btrfs_mount(&self, path: &Path, device: &str, root: &str, filesystem: &str) {
+        let path = path.display().to_string();
+        self.directories
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(path.clone());
+        self.btrfs_mounts
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(
+                path,
+                BtrfsMount {
+                    device: device.to_string(),
+                    root: root.to_string(),
+                    filesystem: filesystem.to_string(),
+                },
+            );
+    }
+
+    /// Declare an existing Btrfs subvolume, including its directory ancestors.
+    pub fn record_btrfs_subvolume(&self, path: &Path) {
+        let path = path.display().to_string();
+        self.btrfs_subvolumes
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(path.clone());
+        let mut directories = self
+            .directories
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut current = Path::new(&path);
+        while let Some(parent) = current.parent() {
+            directories.insert(parent.display().to_string());
+            current = parent;
+        }
+        directories.insert(path);
+    }
+}
+
 impl StorageResource for MockFiles {
     fn require_btrfs_subvolume_mount(
         &self,
         path: &Path,
-        _backing_mount: &Path,
-        _subvolume_root: &str,
+        backing_mount: &Path,
+        subvolume_root: &str,
     ) -> Result<(), FileError> {
         if self.fail_btrfs_mount_check.load(Ordering::SeqCst) {
             Err(FileError::WrongMount(path.display().to_string()))
         } else {
-            Ok(())
+            let mounts = self
+                .btrfs_mounts
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let path_text = path.display().to_string();
+            let mount = mounts
+                .get(&path_text)
+                .ok_or_else(|| FileError::MountMissing(path_text.clone()))?;
+            let backing = mounts.get(&backing_mount.display().to_string());
+            if mount.filesystem == "btrfs"
+                && mount.root == subvolume_root
+                && backing.is_some_and(|backing| {
+                    backing.device == mount.device && backing.filesystem == "btrfs"
+                })
+            {
+                Ok(())
+            } else {
+                Err(FileError::WrongMount(path_text))
+            }
         }
     }
 
-    fn require_btrfs_subvolume(&self, _path: &Path) -> Result<(), FileError> {
-        Ok(())
+    fn require_btrfs_subvolume(&self, path: &Path) -> Result<(), FileError> {
+        if self
+            .btrfs_subvolumes
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains(&path.display().to_string())
+        {
+            Ok(())
+        } else {
+            Err(FileError::NotASubvolume(path.display().to_string()))
+        }
     }
 
     fn ensure_btrfs_subvolume(&self, path: &Path) -> Result<bool, FileError> {
-        FileMutationResource::ensure_directory(self, path, None, &Ownership::default())
+        let path_text = path.display().to_string();
+        if self
+            .btrfs_subvolumes
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains(&path_text)
+        {
+            return Ok(false);
+        }
+        if self
+            .directories
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains(&path_text)
+            || self
+                .files
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .contains_key(&path_text)
+        {
+            return Err(FileError::NotASubvolume(path_text));
+        }
+        let parent = path
+            .parent()
+            .ok_or_else(|| FileError::InvalidPath(path_text.clone()))?;
+        if !self
+            .directories
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains(&parent.display().to_string())
+        {
+            return Err(FileError::ParentMissing(path_text));
+        }
+        self.btrfs_subvolumes
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(path_text.clone());
+        self.directories
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(path_text);
+        Ok(true)
     }
 }
 

@@ -96,10 +96,24 @@ fn service_resource_contract(resource: &impl super::ServiceResource) {
     assert!(!resource.service_is_active("contract.service").unwrap());
     resource.service_start("contract.service").unwrap();
     assert!(resource.service_is_active("contract.service").unwrap());
+    resource.service_reload("contract.service").unwrap();
+    assert!(resource.service_is_active("contract.service").unwrap());
     resource.service_restart("contract.service").unwrap();
     assert!(resource.service_is_active("contract.service").unwrap());
     resource.service_stop("contract.service").unwrap();
     assert!(!resource.service_is_active("contract.service").unwrap());
+}
+
+#[test]
+fn mock_reload_preserves_active_state_and_rejects_inactive_or_missing_units() {
+    use crate::{system::ServiceResource, test_utils::MockSystem};
+    let system = MockSystem::new();
+    assert!(system.service_reload("missing.service").is_err());
+    system.service_enable("inactive.service").unwrap();
+    assert!(system.service_reload("inactive.service").is_err());
+    system.service_start("active.service").unwrap();
+    system.service_reload("active.service").unwrap();
+    assert!(system.service_is_active("active.service").unwrap());
 }
 
 fn podman_secret_resource_contract(resource: &impl super::PodmanSecretResource) {

@@ -9,6 +9,7 @@ use std::sync::atomic::Ordering;
 fn unifi_uses_host_network_and_persistent_numeric_owned_data() {
     let system = MockSystem::new();
     let files = MockFiles::new();
+    setup_data_mount(&files);
 
     apply(&system, &files).unwrap();
 
@@ -44,17 +45,30 @@ fn unifi_uses_host_network_and_persistent_numeric_owned_data() {
 fn unifi_rejects_a_missing_data_mount_before_writing_state() {
     let system = MockSystem::new();
     let files = MockFiles::new();
+    setup_data_mount(&files);
     files.fail_btrfs_mount_check.store(true, Ordering::SeqCst);
+    let initial_directories = files.directories.lock().unwrap().clone();
 
     assert!(apply(&system, &files).is_err());
-    assert!(files.directories.lock().unwrap().is_empty());
+    assert_eq!(*files.directories.lock().unwrap(), initial_directories);
     assert!(files.files.lock().unwrap().is_empty());
+}
+
+fn setup_data_mount(files: &MockFiles) {
+    files.record_btrfs_mount(std::path::Path::new("/var"), "/dev/test", "/", "btrfs");
+    files.record_btrfs_mount(
+        std::path::Path::new("/var/lib/data"),
+        "/dev/test",
+        "/data",
+        "btrfs",
+    );
 }
 
 #[test]
 fn repeated_unifi_apply_does_not_restart_an_unchanged_container() {
     let system = MockSystem::new();
     let files = MockFiles::new();
+    setup_data_mount(&files);
 
     apply(&system, &files).unwrap();
     let restart_count = system.restart_count.load(Ordering::SeqCst);

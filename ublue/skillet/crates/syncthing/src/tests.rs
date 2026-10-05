@@ -5,6 +5,7 @@ use skillet_core::test_utils::{MockFiles, MockSystem};
 fn syncthing_uses_persistent_data_and_shared_dns_network() {
     let system = MockSystem::new();
     let files = MockFiles::new();
+    setup_data_mount(&files);
 
     apply(
         &system,
@@ -44,5 +45,15 @@ fn syncthing_uses_persistent_data_and_shared_dns_network() {
             .lines()
             .any(|line| line.starts_with("PublishPort=") && line.contains("8384")),
         "the GUI must only be reachable through the private reverse proxy"
+    );
+}
+
+fn setup_data_mount(files: &MockFiles) {
+    files.record_btrfs_mount(std::path::Path::new("/var"), "/dev/test", "/", "btrfs");
+    files.record_btrfs_mount(
+        std::path::Path::new("/var/lib/data"),
+        "/dev/test",
+        "/data",
+        "btrfs",
     );
 }
