@@ -91,7 +91,10 @@ impl GuestTransport for FakeGuest {
                 .collect(),
             input.map(<[u8]>::to_vec),
         ));
-        let stdout = if command.program == "/usr/bin/curl" && self.denies_curl.get() {
+        let stdout = if command.program == "/usr/bin/sudo" && command.arguments.contains(&"inspect")
+        {
+            b"172.26.26.5\n".to_vec()
+        } else if command.program == "/usr/bin/curl" && self.denies_curl.get() {
             b"Access denied by Skillet tailnet policy\n403".to_vec()
         } else if command.program == "/usr/bin/curl" {
             b"unexpected response".to_vec()
@@ -740,6 +743,10 @@ fn disposable_ui_delivery_installs_both_inputs_activates_probes_all_names_then_r
             .first()
             .is_some_and(|program| program == "/usr/bin/curl")
             && call.0.iter().any(|argument| argument == "--resolve")
+            && call
+                .0
+                .iter()
+                .any(|argument| argument.ends_with(":172.26.26.5"))
     }));
     assert_eq!(
         provider.revoked.borrow().as_slice(),
