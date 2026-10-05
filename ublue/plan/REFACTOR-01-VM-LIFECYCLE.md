@@ -1,8 +1,8 @@
 # 1. One VM lifecycle owner; migrate Bash management to Rust
 
-Status: implementation complete; fresh and retained VM acceptance passed.
-Legacy-manifest live import and controlled interrupted-recovery acceptance
-remain. See the [roadmap](SKILLET-REFACTOR.md) and 2026-10-04 acceptance entry.
+Status: implementation and required VM acceptance complete. Fresh/retained
+cycles, live legacy-manifest import, and interrupted provisioning recovery
+passed. See the [roadmap](SKILLET-REFACTOR.md) and 2026-10-05 acceptance entry.
 
 ## Progress, 2026-10-03
 
@@ -47,31 +47,27 @@ runs readiness from one create command. Matching interrupted runs resume from
 the manifest. The shell `test-vm` interface only translates arguments; the
 independent Bash installer and hidden CLI bridge commands are retired. No
 remaining script owns VM creation, reboot, access, inspection, or disposal.
-Workstream 4 has now moved production and disposable-VM guest commands onto
-the shared verified SSH transport. Workstream 2 must consolidate the interim
-`boot_policy_for_host` lookup with the canonical capability declaration.
-Workstation provisioning state now owns provider cleanup journals separately
-from the VM manifest and local artifact ownership. Live create, readiness,
-provisioning, fixture smoke/reboot, external cleanup, and destroy passed on a
-fresh disposable VM. Retained-manifest compatibility and interrupted-recovery
-acceptance remain open.
-Native and Flatpak adapter contract tests and
-workstation checks remain required; live create/ready/update/reboot/destroy
-and retained-run acceptance have not yet passed. See
+Workstream 4 moved production and disposable-VM guest commands onto the shared
+verified SSH transport. Boot expectations are resolved by the canonical host
+profile. Workstation provisioning state owns provider cleanup journals
+separately from the VM manifest and local artifact ownership. Fresh and
+retained VM create/readiness/provision/smoke/reboot/cleanup checks passed. See
 [creation validation](../butane/ACCEPTANCE.md#recoverable-vm-creation-intent-2026-10-03)
 and [native XML validation](../butane/ACCEPTANCE.md#native-xml-rendering-2026-10-03),
 plus [readiness validation](../butane/ACCEPTANCE.md#readiness-retry-recovery-2026-10-03).
 
-Progress, 2026-10-04: disposable provisioning now loads and locks the validated
-run manifest directly rather than invoking the compatibility wrapper and
-re-reading `run.conf`. It uses the manifest SSH target and checks immutable
-domain ownership before and after every guest operation. Destroy's external
-cleanup callback derives its run directory from the recorded identity and
-refuses CLI identity mismatches. Fresh create/provision/destroy and retained
-readiness/provision/reboot acceptance passed. The existing retained VM uses the
-current manifest, so legacy-manifest live import remains unverified. A manual
-interruption was followed by successful retries, but a controlled recovery
-check with journal state captured before and after remains open.
+Progress, 2026-10-05: on the retained clamps VM, temporarily withheld `vm.json`
+and ran `test vm ready clamps smoke --verbose`. Skillet imported the legacy
+`run.conf`, validated the recorded UUID and disk against the live domain,
+reapplied readiness, and wrote a mode-0600 versioned manifest. The legacy file
+and its SHA-256 remained unchanged.
+
+On a fresh `clamps-test-recovery` VM, interrupted first-time provisioning after
+the mode-0600 Tailscale pending journal was written but before a completed
+device record existed. The journal and owned VM identity remained intact after
+Ctrl-C. Retrying provisioning wrote the device record and removed the pending
+marker; fixture smoke/reboot passed, and destroy removed the journaled Tailscale
+device and VM artifacts. See the 2026-10-05 acceptance entry.
 
 ## Read and locate
 
@@ -82,8 +78,9 @@ check with journal state captured before and after remains open.
   `secret_delivery.rs` provisioning, external ownership, cleanup, and VM SSH.
 
 Review findings: disposal used to bypass external cleanup or require a live
-guest; those paths are now fixed. Persisted intent now makes interrupted
-creation inspectable; readiness and target selection remain duplicated.
+guest; those paths are fixed. Persisted intent makes interrupted creation
+inspectable, and the canonical host profile supplies readiness expectations.
+Fresh creation, readiness, interrupted retry, and cleanup have passed live.
 
 ## Implementation sequence
 

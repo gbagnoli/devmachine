@@ -1,8 +1,8 @@
 # 4. Thin CLIs and shared workstation provisioning
 
-Status: implementation complete; disposable provisioning, credential rotation,
-and cleanup passed on fresh and retained test VMs. Controlled interrupted
-recovery remains open; production delivery is deferred. This follows
+Status: implementation and disposable VM acceptance complete, including
+credential rotation, interrupted recovery, and cleanup. Production delivery
+is deferred. This follows
 workstreams 1–3 in
 [the prerequisite roadmap](SKILLET-REFACTOR.md); further feature milestones
 wait for the full roadmap gate.
@@ -198,6 +198,9 @@ and VM delivery have duplicate implementations with different validation.
 - Accepted: fresh test-VM credential delivery, Tailscale enrollment, Cloudflare
   DNS/token lifecycle, Caddy staging issuance, denial probes, and disposable
   cleanup passed end to end.
-- Remaining: a controlled interrupted delivery recovery with journal evidence
-  on a named test VM. Production checks require production credentials and are
-  explicitly deferred from this refactoring gate.
+- Accepted: a first-time disposable Tailscale credential delivery was
+  interrupted after its durable pending journal was written. Retry reused that
+  journal, completed service apply and enrollment, wrote the ownership record,
+  and cleared pending state. Destroy then removed the journaled provider
+  device. Production checks require production credentials and are explicitly
+  deferred from this refactoring gate.
