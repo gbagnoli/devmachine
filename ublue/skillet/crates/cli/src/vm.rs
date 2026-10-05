@@ -26,8 +26,14 @@ pub(super) fn status(args: &VmTargetArgs) -> Result<()> {
     })?;
     domain.validate_owned(&run)?;
     println!(
-        "Name: {}\nUUID: {}\nState: {}\nSSH: {}@{}:{}",
-        domain.name, domain.uuid, domain.state, run.ssh.user, run.ssh.address, run.ssh.port
+        "Name: {}\nUUID: {}\nState: {}\nLifecycle: {:?}\nSSH: {}@{}:{}",
+        domain.name,
+        domain.uuid,
+        domain.state,
+        run.phase,
+        run.ssh.user,
+        run.ssh.address,
+        run.ssh.port
     );
     for disk in domain.disks {
         println!("Disk: {}", disk.display());

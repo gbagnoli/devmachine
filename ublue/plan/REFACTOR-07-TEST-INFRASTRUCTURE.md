@@ -1,11 +1,16 @@
 # 7. Test layers, fixtures, build artifacts and CI
 
-Status: implementation and named application acceptance passed, remote CI and
-interrupted-reboot fault injection remain open, 2026-10-05. Rust-owned smoke,
-storage/service fake contracts, bootstrap CI execution, and capability-selected
-application acceptance are implemented. The named fixture smoke, retained
-update, and fully provisioned application acceptance passed; interrupted-reboot
-fault injection remains open in the [follow-up plan](REFACTOR-FOLLOWUP.md).
+Status: implementation and named fixture acceptance passed; remote CI and a
+Syncthing ownership divergence found during repeat application acceptance
+remain open, 2026-10-05. Rust-owned smoke, storage/service fake contracts,
+bootstrap CI execution, and capability-selected application acceptance are
+implemented. The named fixture smoke and retained update passed. Scripted
+interrupted-reboot recovery passed; see the
+[acceptance log](../butane/ACCEPTANCE.md#interrupted-reboot-checkpoint-recovery-2026-10-05).
+An optional repeated application check found `/var/lib/data/syncthing` owned by
+`core:core` after reboot rather than its declared `giacomo:giacomo`; resolve it
+before treating application acceptance as stable. See the
+[follow-up plan](REFACTOR-FOLLOWUP.md).
 Live legacy import and controlled interrupted-provisioning recovery passed;
 see the [prerequisite roadmap](SKILLET-REFACTOR.md).
 
@@ -39,6 +44,10 @@ missed relevant CI. Shell code was embedded in a production Rust fixture.
 - Workspace formatting, strict Clippy, workspace tests, the Fedora container
   integration, bootstrap state tests, and workflow ShellCheck passed locally.
   Remote CI is pending until push.
+- A scripted interruption after persisting the pre-reboot checkpoint was
+  recovered by a separate readiness process, then ordinary fixture reboot
+  acceptance passed. The optional application variant exposed a Syncthing data
+  ownership mismatch after reboot; the VM was restored to Ready.
 
 ## Earlier progress, 2026-10-04
 

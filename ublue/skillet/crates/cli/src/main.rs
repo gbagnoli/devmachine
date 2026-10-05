@@ -229,6 +229,9 @@ struct SmokeArgs {
     /// Also verify and repeat-apply the selected host's provisioned applications
     #[arg(long)]
     with_applications: bool,
+    /// Stop after persisting the pre-reboot checkpoint to exercise recovery
+    #[arg(long, hide = true)]
+    interrupt_before_reboot: bool,
 }
 
 fn main() -> Result<()> {
@@ -407,6 +410,7 @@ fn run_smoke(args: &SmokeArgs) -> Result<()> {
         host_binary: &host_binary,
         credentials_required,
         with_applications: args.with_applications,
+        interrupt_before_reboot: args.interrupt_before_reboot,
     }
     .run()
 }
@@ -421,6 +425,7 @@ struct SmokeLifecycle<'a> {
     host_binary: &'a str,
     credentials_required: bool,
     with_applications: bool,
+    interrupt_before_reboot: bool,
 }
 
 impl SmokeLifecycle<'_> {
@@ -450,6 +455,11 @@ impl SmokeLifecycle<'_> {
         self.run_guest_phase(&transport, "before-reboot")?;
 
         let run = self.store.mark_reboot_pending(&self.run.identity)?;
+        if self.interrupt_before_reboot {
+            return Err(anyhow!(
+                "injected interruption after persisting the pre-reboot checkpoint"
+            ));
+        }
         ownership()?;
         backend.reboot(&run)?;
         ownership()?;
@@ -1239,6 +1249,7 @@ mod tests {
             "--target",
             "core@192.0.2.5",
             "--with-applications",
+            "--interrupt-before-reboot",
         ]);
         assert!(parsed.is_ok());
     }
