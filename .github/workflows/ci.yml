@@ -75,6 +75,10 @@ jobs:
           components: clippy, rustfmt
           targets: x86_64-unknown-linux-musl
 
+      - name: Install musl linker
+        if: steps.filter.outputs.rust == 'true'
+        run: sudo apt-get update && sudo apt-get install --yes musl-tools
+
       - name: Rust Cache
         if: steps.filter.outputs.rust == 'true'
         uses: Swatinem/rust-cache@v2
