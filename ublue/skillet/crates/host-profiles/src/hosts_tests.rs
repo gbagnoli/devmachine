@@ -218,7 +218,7 @@ fn application_acceptance_tracks_each_profiles_declared_services() {
             "tailscale.service",
             "syncthing.service",
             "unifi.service",
-            "btrbk.timer",
+            "skillet-btrbk.timer",
             "caddy.service"
         ]
     );

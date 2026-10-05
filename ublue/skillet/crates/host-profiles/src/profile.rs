@@ -348,7 +348,7 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
             health_probe: Some(HealthProbe::Tailscale),
         },
         ServiceConfig::Btrbk { .. } => AcceptanceService {
-            unit: "btrbk.timer".into(),
+            unit: "skillet-btrbk.timer".into(),
             container: None,
             network_mode: None,
             bind_paths: Vec::new(),
