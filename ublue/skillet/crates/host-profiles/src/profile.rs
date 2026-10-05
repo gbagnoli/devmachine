@@ -110,7 +110,66 @@ pub struct HostProfile {
     pub services: Vec<HostService>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct HostAcceptancePlan {
+    pub requires_data_mount: bool,
+    pub services: Vec<AcceptanceService>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AcceptanceService {
+    pub unit: String,
+    pub container: Option<String>,
+    pub network_mode: Option<String>,
+    pub bind_paths: Vec<String>,
+    pub owner: Option<AcceptanceOwner>,
+    pub listeners: Vec<AcceptanceListener>,
+    pub health_probe: Option<HealthProbe>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AcceptanceOwner {
+    Named { user: String, group: String },
+    Numeric { uid: u32, gid: u32 },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AcceptanceListener {
+    pub port: u16,
+    pub protocol: ListenerProtocol,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ListenerProtocol {
+    Tcp,
+    Udp,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum HealthProbe {
+    Pihole,
+    Tailscale,
+}
+
 impl HostProfile {
+    /// Runtime checks follow the services and UI capabilities declared by
+    /// this profile, so fixture acceptance cannot stand in for application
+    /// acceptance.
+    pub fn acceptance_plan(&self) -> HostAcceptancePlan {
+        let mut services = self
+            .services
+            .iter()
+            .map(|service| acceptance_service(self.id.as_str(), service))
+            .collect::<Vec<_>>();
+        if self.services.iter().any(|service| service.ui.is_some()) {
+            services.push(caddy_acceptance(self.id.as_str()));
+        }
+        HostAcceptancePlan {
+            requires_data_mount: self.requires_data_mount,
+            services,
+        }
+    }
+
     pub fn supports_service(&self, name: &str) -> bool {
         self.services.iter().any(|service| service.name() == name)
     }
@@ -208,6 +267,110 @@ impl HostProfile {
                 }),
                 _ => None,
             })
+    }
+}
+
+fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService {
+    match service.config {
+        ServiceConfig::Pihole { .. } => AcceptanceService {
+            unit: "pihole.service".into(),
+            container: Some("pihole".into()),
+            network_mode: Some(profile.into()),
+            bind_paths: vec![
+                "/var/lib/data/pihole/etc".into(),
+                "/var/lib/data/pihole/log".into(),
+            ],
+            // Pi-hole may change ownership of its writable bind directories
+            // during startup. The host profile does not declare numeric
+            // ownership for these paths, so acceptance validates their mounts
+            // and runtime without inventing an owner contract.
+            owner: None,
+            listeners: [ListenerProtocol::Tcp, ListenerProtocol::Udp]
+                .map(|protocol| AcceptanceListener { port: 53, protocol })
+                .into(),
+            health_probe: Some(HealthProbe::Pihole),
+        },
+        ServiceConfig::Syncthing {
+            data_path,
+            data_owner,
+            data_group,
+            ..
+        } => AcceptanceService {
+            unit: "syncthing.service".into(),
+            container: Some("syncthing".into()),
+            network_mode: Some(profile.into()),
+            bind_paths: vec![data_path.into()],
+            owner: Some(AcceptanceOwner::Named {
+                user: data_owner.into(),
+                group: data_group.into(),
+            }),
+            listeners: [ListenerProtocol::Tcp, ListenerProtocol::Udp]
+                .map(|protocol| AcceptanceListener {
+                    port: 22000,
+                    protocol,
+                })
+                .into(),
+            health_probe: None,
+        },
+        ServiceConfig::Unifi => AcceptanceService {
+            unit: "unifi.service".into(),
+            container: Some("unifi".into()),
+            network_mode: Some("host".into()),
+            bind_paths: vec!["/var/lib/data/unifi".into()],
+            owner: Some(AcceptanceOwner::Numeric { uid: 999, gid: 999 }),
+            listeners: vec![
+                AcceptanceListener {
+                    port: 8080,
+                    protocol: ListenerProtocol::Tcp,
+                },
+                AcceptanceListener {
+                    port: 8443,
+                    protocol: ListenerProtocol::Tcp,
+                },
+                AcceptanceListener {
+                    port: 3478,
+                    protocol: ListenerProtocol::Udp,
+                },
+                AcceptanceListener {
+                    port: 10001,
+                    protocol: ListenerProtocol::Udp,
+                },
+            ],
+            health_probe: None,
+        },
+        ServiceConfig::Tailscale { state_path } => AcceptanceService {
+            unit: "tailscale.service".into(),
+            container: Some("tailscale".into()),
+            network_mode: Some("host".into()),
+            bind_paths: vec![state_path.into()],
+            owner: None,
+            listeners: Vec::new(),
+            health_probe: Some(HealthProbe::Tailscale),
+        },
+        ServiceConfig::Btrbk { .. } => AcceptanceService {
+            unit: "btrbk.timer".into(),
+            container: None,
+            network_mode: None,
+            bind_paths: Vec::new(),
+            owner: None,
+            listeners: Vec::new(),
+            health_probe: None,
+        },
+    }
+}
+
+fn caddy_acceptance(profile: &str) -> AcceptanceService {
+    AcceptanceService {
+        unit: "caddy.service".into(),
+        container: Some("caddy".into()),
+        network_mode: Some(profile.into()),
+        bind_paths: vec!["/var/lib/data/caddy/data".into()],
+        owner: None,
+        listeners: vec![AcceptanceListener {
+            port: 443,
+            protocol: ListenerProtocol::Tcp,
+        }],
+        health_probe: None,
     }
 }
 

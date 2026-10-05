@@ -1,6 +1,7 @@
 use super::{
     profile::{
-        HostId, HostProfile, HostService, NetworkPolicy, ServiceConfig, UiServiceDeclaration,
+        AcceptanceOwner, HostId, HostProfile, HostService, NetworkPolicy, ServiceConfig,
+        UiServiceDeclaration,
     },
     tailscale_config, ui_config_for_host, TAILSCALE_AUTH_KEY_CREDENTIAL,
 };
@@ -198,6 +199,75 @@ fn host_ui_declarations_include_only_the_services_each_host_runs() {
     assert_eq!(beezelbot.services[0].aliases, ["sync.{host}"]);
     assert_eq!(beezelbot.network_name, "beezelbot");
     assert!(ui_config_for_host("unknown-host").is_none());
+}
+
+#[test]
+fn application_acceptance_tracks_each_profiles_declared_services() {
+    use super::{profile_for_name, HealthProbe, ListenerProtocol};
+
+    let clamps = profile_for_name("clamps").unwrap().acceptance_plan();
+    let clamps_names = clamps
+        .services
+        .iter()
+        .map(|service| service.unit.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        clamps_names,
+        [
+            "pihole.service",
+            "tailscale.service",
+            "syncthing.service",
+            "unifi.service",
+            "btrbk.timer",
+            "caddy.service"
+        ]
+    );
+    let pihole = clamps
+        .services
+        .iter()
+        .find(|service| service.unit == "pihole.service")
+        .unwrap();
+    assert_eq!(pihole.health_probe, Some(HealthProbe::Pihole));
+    assert_eq!(pihole.owner, None);
+    assert!(pihole
+        .listeners
+        .iter()
+        .any(|listener| listener.port == 53 && listener.protocol == ListenerProtocol::Udp));
+    let syncthing = clamps
+        .services
+        .iter()
+        .find(|service| service.unit == "syncthing.service")
+        .unwrap();
+    assert_eq!(
+        syncthing.owner,
+        Some(AcceptanceOwner::Named {
+            user: "giacomo".into(),
+            group: "giacomo".into()
+        })
+    );
+    let unifi = clamps
+        .services
+        .iter()
+        .find(|service| service.unit == "unifi.service")
+        .unwrap();
+    assert_eq!(
+        unifi.owner,
+        Some(AcceptanceOwner::Numeric { uid: 999, gid: 999 })
+    );
+
+    let beezelbot = profile_for_name("beezelbot").unwrap().acceptance_plan();
+    assert_eq!(
+        beezelbot
+            .services
+            .iter()
+            .map(|service| service.unit.as_str())
+            .collect::<Vec<_>>(),
+        ["syncthing.service", "caddy.service"]
+    );
+    assert!(beezelbot
+        .services
+        .iter()
+        .all(|service| service.network_mode.as_deref() == Some("beezelbot")));
 }
 
 #[test]
