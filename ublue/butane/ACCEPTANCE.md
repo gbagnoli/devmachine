@@ -1,5 +1,35 @@
 # Clamps VM acceptance log
 
+## Refactor follow-up, 2026-10-05
+
+- Passed `cargo fmt --all -- --check`, strict workspace Clippy, workspace
+  all-target tests, the CI Fedora container command
+  (`cargo run --bin skillet -- test run beezelbot --phase base --image
+  fedora:latest`), bootstrap state regressions, and the workflow ShellCheck
+  command. Exact commands are in `../AGENTS.md` and `../skillet/AGENTS.md`.
+- Existing `clamps/smoke` ownership was verified with
+  `cargo run --release -p skillet -- test vm status clamps smoke`. `test vm
+  update clamps smoke` delivered current binaries, and `test vm ready clamps
+  smoke` passed. Then `cargo run --release -p skillet -- test smoke clamps
+  --instance smoke` passed fixture convergence, pre/post-reboot assertions,
+  new boot detection, captured binary verification, and readiness recovery.
+- The opt-in profile acceptance implementation has injected coverage for
+  active services, container network, bind paths, named versus numeric host
+  ownership, listeners, health probes, repeat-apply identity, data mount, and
+  reboot persistence. Live attempts exposed incorrect assumptions that were
+  corrected: Pi-hole owns its writable directories at runtime, and Syncthing's
+  declared host account differs from its container UID. The final live
+  `--with-applications` pass remains pending because the current VM lacks
+  credential-dependent Caddy provisioning. Reprovisioning reached the
+  KeePassXC password prompt; it was stopped without entering a password or
+  making provider changes. Resume after unlocking KeePassXC, then rerun
+  `cargo run --release -p skillet -- test vm provision clamps smoke --with-ui`
+  followed by `cargo run --release -p skillet -- test smoke clamps --instance
+  smoke --with-applications`.
+- Remote CI is pending until these working-tree changes are pushed. Production
+  renewal, external-network denial, and interrupted-reboot fault injection
+  remain outside this local acceptance result.
+
 ## Refactoring and disposable UI revalidation, 2026-10-04
 
 - Passed `cargo fmt --all -- --check`, strict workspace Clippy, and

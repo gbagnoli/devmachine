@@ -56,7 +56,11 @@ Ignition. The generated UUID is part of native XML and Flatpak creation. Native
 definition and start are separate manifest phases; failed starts retain the
 defined domain for inspection and retry. Native domain XML renders through the
 Rust XML library, preserving disk ownership, fw_cfg and passt networking. Unit
-and adapter checks pass; live migration acceptance remains deferred.
+and adapter checks pass. Rust now owns fixture smoke delivery, guarded guest
+operations, reboot detection, and readiness recovery. The named fixture smoke
+and retained update passed on 2026-10-05. Fully provisioned application
+acceptance remains pending in the [follow-up plan](../plan/REFACTOR-FOLLOWUP.md)
+and [acceptance log](../butane/ACCEPTANCE.md).
 
 Tailscale enrollment intent, enrolled-device identity, and Cloudflare DNS/token
 ownership metadata are persisted by `skillet_workstation::provisioning_state`.

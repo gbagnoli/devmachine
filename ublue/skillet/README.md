@@ -71,16 +71,22 @@ Then run the clamps smoke scenario:
 cargo run --release -p skillet -- test smoke clamps
 ```
 
-The smoke command defaults to that target, port, and generated key. Override
-them with `--target`, `--port`, and `--identity` when using a separately
-provisioned VM. It builds a separate `skillet-smoke-fixture` executable from
-Cargo's reported artifact for the running Skillet target and profile. Before
-running it, the guest verifies the fixture transfer and confirms both installed
-Skillet binaries match the ready VM manifest. Shared systemd
+The smoke command reads the target, port, key and recorded host key from the
+selected VM manifest. Optional `--target`, `--port`, and `--identity` values
+must match that manifest; they cannot select another machine. It builds a
+separate `skillet-smoke-fixture` executable from Cargo's reported artifact for
+the running Skillet target and profile. Before running it, the guest verifies
+the fixture transfer and confirms both installed Skillet binaries match the
+ready VM manifest. Shared systemd
 apply units use the generic binary and the stable host profile in
 `/etc/skillet/host`. Repeated smoke runs
 reset only the namespaced `/var/lib/skillet-smoke` fixture and its managed
 files. The VM remains available for inspection and reruns.
+Add `--with-applications` to require a provisioned VM and check the actual
+services declared by that host profile. This checks service units, container
+state/network/mounts, configured listeners, available service health probes,
+unchanged runtime/configuration after repeat apply, and a data marker across
+reboot. The default command checks the synthetic fixture only.
 After editing host code, use
 `cargo run --release -p skillet -- test vm update clamps smoke` to rebuild and
 install the current binary. `ready` reinstalls the artifact captured when the
@@ -311,7 +317,8 @@ requires `curl` on the workstation. See the
 Cloudflare credentials and DNS records are removed before the smoke Tailscale
 device and VM are destroyed. Keep the Cloudflare token creator on the
 workstation; Tailscale enrollment needs no Cloudflare or Tailscale DNS
-permissions. Live ACME and HTTPS acceptance remains pending. See the
+permissions. Staging ACME and HTTPS acceptance passed on 2026-10-02; production
+renewal and access checks from outside the tailnet remain deferred. See the
 [VM lifecycle](../design/smoke-vms.md).
 
 ## Development checks
@@ -322,9 +329,11 @@ permissions. Live ACME and HTTPS acceptance remains pending. See the
 - Container integration: `cargo run --bin skillet -- test run beezelbot
   --phase base --image fedora:latest` (also run for `clamps` after changing
   shared container behavior).
+- Bootstrap state regressions: `bash ublue/butane/tests/bootstrap.sh` from the
+  repository root.
 - ShellCheck covers `*.sh` plus the extensionless scripts named in the CI
   workflow, including VM and workstation helpers.
-- `apply --record PATH` writes version 1 YAML with host, overall result, and
+- `apply --record PATH` writes version 2 YAML with host, overall result, and
   per-operation outcomes. It stores no content, hashes, secret values, or raw
   effect errors, and is written after failed applies as well. Older unversioned
   operation arrays remain diagnostic artifacts and are never loaded as state.

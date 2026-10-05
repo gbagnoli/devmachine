@@ -81,6 +81,9 @@
   from `.github/workflows/ci.yml`. For shell changes, run the workflow's
   ShellCheck commands; for Python or Chef changes, run the corresponding
   Ruff/Mypy or Cookstyle commands.
+- When Butane bootstrap inputs or tests change, also run
+  `bash ublue/butane/tests/bootstrap.sh` from the repository root. CI must
+  execute state-regression scripts as tests, not only lint their source.
 - For changes to container behavior, also run the affected host's real-runtime
   smoke test against a named disposable VM as required by `skillet/AGENTS.md`.
 - If a required check cannot run because a tool, runtime, or external service

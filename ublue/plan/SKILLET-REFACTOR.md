@@ -1,11 +1,19 @@
 # Skillet refactoring prerequisite
 
-Status: complete, 2026-10-05. All seven refactoring slices, routine local
-validation, and required fresh/retained VM acceptance have passed. The live
+Status: reopened, 2026-10-05. The implementation follow-up is in place;
+interrupted-reboot fault injection, fully provisioned application acceptance,
+and remote CI evidence remain open. Track them in
+[the six-point follow-up](REFACTOR-FOLLOWUP.md) before resuming migrations.
+Previous routine validation and fresh/retained VM runs remain evidence. The live
 legacy-manifest import and controlled interrupted-provisioning recovery are
 recorded in the [acceptance log](../butane/ACCEPTANCE.md#legacy-manifest-import-and-interrupted-provisioning-recovery-2026-10-05).
 Production delivery/renewal and outside-tailnet denial remain explicitly
 deferred from this refactor gate.
+
+The workstream table below records earlier acceptance, not closure of the
+follow-up acceptance gate. Lifecycle and fake-contract corrections are now
+implemented; workstream 7 still requires a fully provisioned application run
+and remote CI. Documentation reconciliation spans all workstreams.
 
 Read `../AGENTS.md`, `../skillet/AGENTS.md`, and
 [the architecture decision](../design/skillet-architecture.md) first. Then read
