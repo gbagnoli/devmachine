@@ -28,7 +28,9 @@ impl GuestTransport for AcceptanceTransport {
                 )
                 .into_bytes()
             }
-            ("stat", ["-c", "%U:%G", _]) => format!("{}\n", self.owner).into_bytes(),
+            ("id", ["-u", "giacomo"]) => b"1042\n".to_vec(),
+            ("getent", ["group", "giacomo"]) => b"giacomo:x:2047:\n".to_vec(),
+            ("stat", ["-c", "%u:%g", _]) => format!("{}\n", self.owner).into_bytes(),
             ("sudo", ["-n", "ss", "-H", _, "sport", "=", port])
                 if self.missing_listener != port.trim_start_matches(':').parse().ok() =>
             {
@@ -55,7 +57,7 @@ fn transport() -> AcceptanceTransport {
         active: true,
         network: "beezelbot".into(),
         missing_listener: None,
-        owner: "giacomo:giacomo".into(),
+        owner: "1042:2047".into(),
         container_id: "container-id".into(),
     }
 }
@@ -116,7 +118,7 @@ fn application_snapshot_rejects_wrong_network_and_missing_listener() {
 fn application_snapshot_rejects_wrong_data_ownership_and_changed_identity() {
     let plan = profile_for_name("beezelbot").unwrap().acceptance_plan();
     let mut wrong_owner = transport();
-    wrong_owner.owner = "core:core".into();
+    wrong_owner.owner = "1000:1000".into();
     assert!(application_snapshot(&wrong_owner, &|| Ok(()), &plan)
         .unwrap_err()
         .to_string()

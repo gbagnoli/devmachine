@@ -612,8 +612,15 @@ impl SmokeLifecycle<'_> {
         self.repeat_host_apply(transport, &profile)?;
         let second = application_snapshot(transport, ownership, &plan)?;
         if first != second {
+            let changed = first
+                .iter()
+                .zip(&second)
+                .filter(|(before, after)| before != after)
+                .map(|(before, _)| application_state_label(before))
+                .collect::<Vec<_>>();
             return Err(anyhow!(
-                "repeat host apply changed declared application runtime state"
+                "repeat host apply changed declared application runtime state: {}",
+                changed.join(", ")
             ));
         }
         tracing::info!(
@@ -690,6 +697,17 @@ impl SmokeLifecycle<'_> {
                 }
             }
         }
+    }
+}
+
+fn application_state_label(state: &str) -> &str {
+    let mut fields = state.split(':');
+    match fields.next() {
+        Some("container" | "unit" | "config" | "bind" | "listener") => {
+            fields.next().unwrap_or("unknown")
+        }
+        Some(name) => name,
+        None => "unknown",
     }
 }
 
@@ -831,7 +849,19 @@ fn check_container(
         if let Some(owner_expectation) = &service.owner {
             use skillet_hosts::AcceptanceOwner;
             let (format, expected) = match owner_expectation {
-                AcceptanceOwner::Named { user, group } => ("%U:%G", format!("{user}:{group}")),
+                AcceptanceOwner::Named { user, group } => {
+                    let uid = guest_text(transport, "id", &["-u", user])?
+                        .parse::<u32>()
+                        .context("resolving declared data owner UID")?;
+                    let group_record = guest_text(transport, "getent", &["group", group])?;
+                    let gid = group_record
+                        .split(':')
+                        .nth(2)
+                        .ok_or_else(|| anyhow!("resolving declared data owner group GID"))?
+                        .parse::<u32>()
+                        .context("parsing declared data owner group GID")?;
+                    ("%u:%g", format!("{uid}:{gid}"))
+                }
                 AcceptanceOwner::Numeric { uid, gid } => ("%u:%g", format!("{uid}:{gid}")),
             };
             let owner = guest_text(transport, "stat", &["-c", format, path])?;
@@ -958,9 +988,19 @@ fn guest_text(
         None,
     )?;
     if !output.status.success() {
+        let detail = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+        let command = std::iter::once(program)
+            .chain(arguments.iter().copied())
+            .collect::<Vec<_>>()
+            .join(" ");
         return Err(anyhow!(
-            "guest probe {program} failed with status {:?}",
-            output.status.code()
+            "guest probe `{command}` failed with status {:?}{}",
+            output.status.code(),
+            if detail.is_empty() {
+                String::new()
+            } else {
+                format!(": {detail}")
+            }
         ));
     }
     String::from_utf8(output.stdout)
