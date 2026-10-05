@@ -1,12 +1,16 @@
 # 7. Test layers, fixtures, build artifacts and CI
 
-Status: implementation and required CI/fresh/retained VM acceptance complete.
-Live legacy import and controlled interrupted-recovery checks passed; see the
-[prerequisite roadmap](SKILLET-REFACTOR.md).
+Status: follow-up implementation complete, live acceptance remains open,
+2026-10-05. Rust-owned smoke, storage/service fake contracts, bootstrap CI
+execution, and capability-selected application acceptance are implemented.
+The named fixture smoke and retained update passed; fully provisioned
+application acceptance and interrupted-reboot fault injection remain open in
+the [follow-up plan](REFACTOR-FOLLOWUP.md). Live legacy import and controlled
+interrupted-provisioning recovery passed; see the [prerequisite roadmap](SKILLET-REFACTOR.md).
 
 ## Read and locate
 
-- `../skillet/integration_tests/{smoke-ssh,smoke-guest}.sh`, the synthetic host
+- `../skillet/integration_tests/smoke-guest.sh`, the synthetic host
   fixture, CLI container runner and `src/test_entrypoint.sh`.
 - Revised resource fakes, VM manifest/transport, profiles, provisioning and
   recording interfaces from workstreams 1–6.
@@ -18,7 +22,24 @@ were conflated; target/artifact selection assumed default paths/instances; fakes
 disagreed with adapter behavior; extensionless helpers and Butane-only changes
 missed relevant CI. Shell code was embedded in a production Rust fixture.
 
-## Progress, 2026-10-04
+## Follow-up progress, 2026-10-05
+
+- Rust now owns the complete fixture smoke sequence under one VM lock and
+  checked transport. A named `clamps/smoke` run passed fixture convergence,
+  reboot detection, captured artifact verification, and readiness recovery.
+- Update delivery uses ownership-checked transport. The named retained VM
+  accepted a current binary update and subsequent readiness check.
+- Storage/service fakes distinguish Btrfs mounts/subvolumes and preserve
+  service reload state. Bootstrap regressions run in CI and passed locally.
+- Capability-selected application acceptance and injected failure tests are
+  implemented. Live checks corrected ownership expectations: Syncthing data
+  uses its declared host account; its numeric container UID is separate. A
+  final live application pass awaits test UI provisioning through KeePassXC.
+- Workspace formatting, strict Clippy, workspace tests, the Fedora container
+  integration, bootstrap state tests, and workflow ShellCheck passed locally.
+  Remote CI is pending until push.
+
+## Earlier progress, 2026-10-04
 
 - Moved the synthetic application out of the production CLI module into the
   dedicated `skillet-smoke-fixture` package and binary. Its guest entrypoint is

@@ -4,7 +4,8 @@ UI provisioning reads a mandatory Cloudflare Zone ID and optional relative
 UI prefix from the selected environment in KeePassXC, fetches the zone domain,
 and derives service names from the host's declarations,
 and uses shared credential delivery. Cloudflare token issuance, DNS lifecycle,
-and smoke VM cleanup are implemented; live ACME acceptance remains pending.
+and smoke VM cleanup are implemented. Staging ACME and HTTPS acceptance passed
+on 2026-10-02; production renewal remains pending.
 See the [generic UI plan](../plan/GENERIC-PRIVATE-UIS.md).
 
 Decision: use KeePassXC for durable secrets and read and write its KDBX database
@@ -137,7 +138,8 @@ unique test names prevent record collisions, not access to other records. On
 destroy, Skillet issues a short-lived cleanup token, removes only records with
 the instance ownership marker, and revokes disposable tokens. Keep literal
 zone names and records outside this public repository. The token creator
-remains on the workstation. Live ACME and HTTPS acceptance is still pending.
+remains on the workstation. Staging ACME and HTTPS acceptance passed on
+2026-10-02; production renewal and external access remain pending.
 
 VM Pi-hole secrets use the same SSH, systemd, and Podman delivery path. Keep token IDs,
 expiry, and owned record IDs in run metadata, without token values. Existing

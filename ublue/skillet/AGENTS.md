@@ -28,7 +28,7 @@ This document defines the architectural mandates and project structure for `skil
 - **Formatting & Linting**: Always run `cargo fmt` and `cargo clippy` after making changes to ensure code quality and consistency. **Clippy MUST be run with `pedantic` lints enabled (configured in `Cargo.toml`).**
 - **Verification**: Always run both:
     - **Unit Tests**: `cargo test --workspace --all-targets`.
-    - **Runtime Smoke**: Run `integration_tests/smoke-ssh.sh` against an explicitly named disposable VM with real systemd and Podman for affected container resources. Record the guest state snapshots and failure diagnostics.
+    - **Runtime Smoke**: Run `cargo run --release -p skillet -- test smoke <HOST> --instance <INSTANCE>` against an explicitly named disposable VM with real systemd and Podman for affected container resources. Record the guest state snapshots and failure diagnostics.
 - Tests for host-dependent observations must inject or simulate those
   observations. Do not require a particular workstation port, account, service,
   or external resource to happen to be available for a unit test.
@@ -118,6 +118,10 @@ tracks existing violations and their migration, not completed implementation.
   continue with later operations when an ownership check fails. Address
   destructive runtime actions by the recorded immutable identity, not only a
   reusable name.
+- Every VM guest-operation entry point uses the same per-run lock and validates
+  recorded UUID/disk ownership before and after each remote operation. Guest
+  assertion scripts may inspect application state, but lifecycle orchestration,
+  SSH, reboot, retries, and readiness remain with the Rust owner.
 - Persist external cleanup intent before provider mutations. Bind each
   ownership journal to the complete typed host, environment, and instance
   identity; reject mismatches on retry and preserve journals when cleanup is
@@ -148,7 +152,7 @@ Skillet uses a multi-layered testing approach to ensure reliability and idempote
 
 1.  **Trait-based Abstraction**: Core resources (`FileResource`, `SystemResource`) are defined as traits. This allows for easy mocking using `MockFiles` and `MockSystem` in unit tests.
 2.  **Diagnostic Recorder**: `apply --record PATH` can capture attempted resource operations for investigation. Recording equality is not an acceptance check.
-3.  **Real Runtime Smoke**: The disposable VM check exercises generated Quadlets, systemd startup, Podman secrets, configuration changes, repeated apply, failure recovery and reboot persistence. It compares managed bytes and metadata plus container identity and observed application state.
+3.  **Real Runtime Smoke**: `test smoke` exercises the namespaced synthetic fixture; `--with-applications` additionally checks the actual services selected from the canonical host profile. The Rust lifecycle owner guards SSH, upload, reboot, retry, and readiness. Application mode compares managed configuration and metadata, runtime identity, declared network/listeners, and a data marker across repeat apply and reboot.
 
 ## Project Structure
 
@@ -157,29 +161,25 @@ The project is organized as a Cargo workspace:
 ```text
 skillet/
 ├── Cargo.toml          # Workspace configuration
-├── AGENTS.md           # This file (Project mandates)
+├── AGENTS.md           # Project mandates
 └── crates/
-    ├── core/           # skillet_core: Low-level idempotent primitives
-    │   ├── src/
-    │   │   ├── lib.rs
-    │   │   ├── files.rs      # File management (Traits + Impl)
-    │   │   ├── files/
-    │   │   │   └── tests.rs  # Unit tests for files
-    │   │   ├── system.rs     # User/Group management
-    │   │   └── system/
-    │   │       └── tests.rs  # Unit tests for system
-    │   └── tests/            # Integration tests
-    ├── hardening/      # skillet_hardening: Configuration logic (modules)
-    │   ├── src/
-    │   │   ├── lib.rs        # Hardening logic using core primitives
-    │   │   └── tests.rs      # Unit tests for hardening logic
-    │   └── tests/
-    ├── cli/            # skillet: The main binary executable
-    │   └── src/
-    │       └── main.rs       # CLI entry point (uses anyhow, clap)
-    ├── cli-common/     # skillet_cli_common: Shared CLI logic
+    ├── core/           # Effect interfaces and idempotent primitives
+    ├── host-profiles/  # Canonical host capabilities and composition
+    ├── vm/             # Manifest, backend, transport and lifecycle
+    ├── workstation/    # Vault, provider, delivery and enrollment
+    ├── podman/         # Typed Podman configuration/runtime model
+    ├── btrbk/          # Caller-selected Btrfs snapshot configuration
+    ├── caddy/          # Private UI routes and reverse proxy configuration
+    ├── pihole/         # Pi-hole service configuration
+    ├── syncthing/      # Syncthing service configuration
+    ├── unifi/          # UniFi service configuration
+    ├── hardening/      # Shared baseline configuration
+    ├── test-fixture/   # Synthetic smoke-only host binary
+    ├── cli-common/     # Shared guest apply/credential handling
+    ├── cli/            # Workstation and guest CLI entry point
     └── hosts/
-        └── beezelbot/  # skillet-beezelbot: Host-specific binary for beezelbot
+        ├── clamps/     # skillet-clamps host entry point
+        └── beezelbot/  # skillet-beezelbot host entry point
 ```
 
 ## Module Design

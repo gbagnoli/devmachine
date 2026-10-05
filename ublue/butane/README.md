@@ -26,15 +26,15 @@ executables for a normal host install. The VM launcher removes the two large
 file entries from its temporary Ignition copy and delivers those same binaries
 over SSH after the first boot.
 
-On Bazzite, the helper uses the existing Flatpak virt-manager installation
-when native libvirt is absent. The `bin/virsh` and `bin/virt-install` wrappers
-run those tools in the Flatpak sandbox. The helper starts separate Flatpak
-libvirt daemons under `/run/user/UID/skvm`, grants them access to `butane/`,
-and uses QEMU user networking to forward the selected localhost SSH port.
-The selected backend is recorded in `runs/NAME/run.conf`. Check that `/dev/kvm`
-is accessible on the host. Native libvirt uses the existing `qemu:///session`
-connection when available, so those VMs appear in virt-manager's user session.
-The helper does not install host software.
+The VM command selects native user-session libvirt when its tools and daemons
+are available, then uses the existing Flatpak virt-manager runtime otherwise.
+Flatpak libvirt daemons use `/run/user/UID/skvm` and QEMU user networking to
+forward the selected localhost SSH port. The selected backend, connection URI,
+and runtime directory are recorded in `runs/NAME/vm.json`. Use
+`test vm status HOST INSTANCE` to inspect the selected connection. Native runs
+normally use `qemu:///session`; a fallback runtime directory is also recorded
+in the manifest. Check that `/dev/kvm` is accessible on the host. The helper
+does not install host software.
 
 On Rocky Linux, if QEMU startup reports `cannot limit core file size ... to
 18446744073709551615`, set `max_core = 0` in
@@ -131,15 +131,10 @@ the default is `images/coreos.qcow2` when present. Both VM backends forward
 the SSH port on `127.0.0.1`; native libvirt uses passt and Flatpak uses QEMU
 user networking.
 
-When native libvirt is available, `bin/test-vm` starts a separate user daemon
-with `XDG_RUNTIME_DIR=/run/user/UID/skillet-test-libvirt`. For manual virsh
-inspection of a native helper-created VM, set that variable on each call.
-For Flatpak runs, use the same isolated runtime when invoking `virsh` by hand:
-
-```bash
-TEST_VM_LIBVIRT_RUNTIME_DIR="/run/user/$(id -u)/skvm" \
-  ./bin/virsh -c qemu:///session list --all
-```
+Use `skillet test vm status HOST INSTANCE` and `skillet test vm logs HOST
+INSTANCE` for supported VM inspection. The run manifest is the authority for
+the libvirt URI and runtime directory; do not guess these values from the VM
+name.
 
 Connect with:
 
@@ -184,11 +179,9 @@ ssh -i runs/NAME/ssh/id_ed25519 -p PORT giacomo@127.0.0.1 \
 Other commands check the recorded host, domain UUID, and disk before acting.
 `destroy` removes only the selected test-owned resources.
 
-The VM and its disk remain available after readiness checks. Cleanup is
-explicit: inspect the domain and disk, then call
-`./bin/test-vm clamps destroy example` for a helper-created run. For a
-plain launcher run, shut down and undefine the named test domain with virsh,
-then remove only its recorded `runs/NAME` directory after checking `domblklist`.
+The VM and its disk remain available after readiness checks. Destroy runs with
+`skillet test vm destroy HOST INSTANCE` so external enrollment/DNS cleanup and
+the owned libvirt resources follow the recorded recovery journal.
 
 Run the local bootstrap state regression checks with `bash tests/bootstrap.sh`.
 They exercise mocked deployment states and do not create or modify a VM.

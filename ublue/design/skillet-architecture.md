@@ -3,9 +3,12 @@
 Decision, 2026-10-03: complete the seven refactoring workstreams before further
 service migrations, encryption implementation, or production cutover. Existing
 service behavior and unfinished acceptance requirements remain authoritative.
-Status: implementation is complete for workstreams 1–7. Workstream 3's named-VM
-ownership and mount acceptance remains pending; required named-VM and production
-acceptance has not passed.
+Status: follow-up implementation is complete; interrupted-reboot fault
+injection, fully provisioned host acceptance, and remote CI remain pending.
+Rust-owned fixture smoke and retained VM update passed locally; see the
+[follow-up plan](../plan/REFACTOR-FOLLOWUP.md) and
+[acceptance log](../butane/ACCEPTANCE.md). Production acceptance remains
+explicitly deferred.
 
 Implementation progress: `skillet_vm` now supplies validated run identity and
 versioned manifests with explicit, non-destructive legacy import. Rust status
@@ -26,8 +29,11 @@ provider mutations, and recovery cleanup; the CLI opens the vault, loads the
 canonical VM manifest, and dispatches typed operations. Disposable provisioning
 holds the VM run lock and revalidates recorded backend ownership around each
 guest operation through a shared checked transport. Transport's bounded I/O
-stays in memory; payload copies are zeroized after stdin transfer. Named-VM
-and production acceptance remain pending.
+stays in memory; payload copies are zeroized after stdin transfer. Earlier
+fixture and provisioning acceptance passed. Rust now owns smoke reboot and
+capability-selected application acceptance. The latter has passing injected
+tests; the final live pass still requires test UI credentials delivered after
+KeePassXC is unlocked. Production acceptance remains deferred.
 
 Workstream 2 adds `skillet_hosts` as the single host capability declaration.
 It owns host composition and supplies boot, service, network, UI, storage, and
@@ -44,8 +50,9 @@ missing or invalid subordinate ranges fail closed. File and directory
 mutations share the typed named-or-numeric `Ownership` contract, including
 numeric IDs that do not require a matching host account. Entry points pass
 required systemd credentials to host composition. Host composition retains
-aggregate effect interfaces during migration. Named-VM ownership and mount
-acceptance remains pending.
+aggregate effect interfaces during migration. The completion audit added
+stricter Btrfs and service-state behavior to the fakes; those contract
+corrections are tracked by the [follow-up plan](../plan/REFACTOR-FOLLOWUP.md).
 
 Keep application crates as reusable recipes. Separate canonical host profiles
 and composition from guest runtime adapters, CLI parsing, workstation

@@ -87,8 +87,9 @@ restrictions. Shared Butane units call the generic `skillet` CLI and read the
 stable host profile from `/etc/skillet/host`; VM hostnames remain independent.
 Host-specific apply units and credential gates live in host-specific Butane
 includes. Manual delivery accepts production or test environments.
-Cloudflare token/DNS lifecycle and opt-in VM provisioning are implemented;
-real ACME and HTTPS acceptance remain pending. See the
+Cloudflare token/DNS lifecycle and opt-in VM provisioning are implemented.
+Staging ACME and HTTPS acceptance passed on 2026-10-02; production renewal and
+outside-tailnet access remain pending. See the
 [implementation plan](../plan/GENERIC-PRIVATE-UIS.md).
 
 Skillet configures host-network Tailscale and manages tagged enrollment and
