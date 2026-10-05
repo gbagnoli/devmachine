@@ -1,12 +1,13 @@
 # 7. Test layers, fixtures, build artifacts and CI
 
-Status: follow-up implementation complete, live acceptance remains open,
-2026-10-05. Rust-owned smoke, storage/service fake contracts, bootstrap CI
-execution, and capability-selected application acceptance are implemented.
-The named fixture smoke and retained update passed; fully provisioned
-application acceptance and interrupted-reboot fault injection remain open in
-the [follow-up plan](REFACTOR-FOLLOWUP.md). Live legacy import and controlled
-interrupted-provisioning recovery passed; see the [prerequisite roadmap](SKILLET-REFACTOR.md).
+Status: implementation and named application acceptance passed, remote CI and
+interrupted-reboot fault injection remain open, 2026-10-05. Rust-owned smoke,
+storage/service fake contracts, bootstrap CI execution, and capability-selected
+application acceptance are implemented. The named fixture smoke, retained
+update, and fully provisioned application acceptance passed; interrupted-reboot
+fault injection remains open in the [follow-up plan](REFACTOR-FOLLOWUP.md).
+Live legacy import and controlled interrupted-provisioning recovery passed;
+see the [prerequisite roadmap](SKILLET-REFACTOR.md).
 
 ## Read and locate
 
@@ -33,8 +34,8 @@ missed relevant CI. Shell code was embedded in a production Rust fixture.
   service reload state. Bootstrap regressions run in CI and passed locally.
 - Capability-selected application acceptance and injected failure tests are
   implemented. Live checks corrected ownership expectations: Syncthing data
-  uses its declared host account; its numeric container UID is separate. A
-  final live application pass awaits test UI provisioning through KeePassXC.
+  uses its declared host account; its numeric container UID is separate. The
+  fully provisioned named-VM application, repeat-apply, and reboot checks pass.
 - Workspace formatting, strict Clippy, workspace tests, the Fedora container
   integration, bootstrap state tests, and workflow ShellCheck passed locally.
   Remote CI is pending until push.
