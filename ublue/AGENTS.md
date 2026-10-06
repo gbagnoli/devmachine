@@ -46,6 +46,11 @@
 - Shared helpers receive identity and configuration from validated inputs or
   declarations. Keep deployment-specific assumptions in the selected profile;
   do not bake them into generic readiness, delivery, or lifecycle code.
+- Keep clear configuration policy in reviewed source templates and secret
+  leaves in the vault. Resolve secrets through typed references at the
+  workstation boundary; do not store whole configuration documents in the
+  vault or interpolate secret text into configuration strings. Record template
+  behavior and schema changes in the relevant design document.
 - Give each resource lifecycle one owner. Every public entry point must use
   the same ownership validation, recovery, and cleanup policy; transport
   adapters must not provide a shortcut that bypasses those guarantees.

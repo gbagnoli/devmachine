@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "services": {
+    "ddns": {
+      "default": {
+        "version": 1,
+        "records": [
+          {
+            "name": {
+              "$secret": "skillet/environments/{environment}/hosts/{host}/cloudflare/ddns-dns-name"
+            },
+            "proxied": false
+          }
+        ],
+        "takeover_existing": false
+      },
+      "hosts": {}
+    }
+  }
+}

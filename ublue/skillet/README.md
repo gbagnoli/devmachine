@@ -345,10 +345,16 @@ In KeePassXC's Password fields, set:
 
 - `skillet/environments/prod/dns/cloudflare-zone-id`: the existing environment
   zone ID.
-- `skillet/environments/prod/hosts/<host>/cloudflare/ddns-config`: JSON such as
-  `{"version":1,"records":[{"name":"edge","proxied":false}]}`. Names are relative
-  to the zone itself. Use the approved record names and proxy state.
+- `skillet/environments/prod/hosts/<host>/cloudflare/ddns-dns-name`: one
+  approved relative record name, without the zone suffix.
 - `skillet/cloudflare/token-creator`: the account token described above.
+
+The clear JSON policy is in
+`crates/workstation/src/configuration-templates.json`. Its shared DDNS template
+reads the record name through a typed `$secret` reference. A host-specific
+template in that catalog replaces the complete shared template when needed.
+Change template policy in source and rebuild Skillet; do not store the JSON
+configuration in KeePassXC.
 
 Skillet creates `skillet/environments/prod/hosts/<host>/cloudflare/ddns-token`
 automatically. Close KeePassXC before delivery. With the prior DNS writer stopped
@@ -360,12 +366,14 @@ cargo run --release -p skillet -- secret deliver clamps ddns \
   --known-hosts /path/to/known_hosts
 ```
 
-To adopt an existing public A record, add `"takeover_existing":true` to the
-config JSON after reviewing it. Conflicting records and other Skillet owners
+To adopt an existing public A record, set `takeover_existing` to `true` in the
+source template after reviewing it. Conflicting records and other Skillet owners
 remain protected. Repeat delivery reuses the child token; edit its vault entry
 deliberately and redeliver for rotation. On the host,
 `systemctl start skillet-ddns-apply.service` reuses the encrypted credential.
-Test-environment DDNS delivery is currently disabled. See the
+Use `test vm provision <host> <instance> --with-ddns` for disposable DDNS. Its
+record/token ownership is cleaned up by `test vm destroy`; do not use direct
+`secret deliver` with test policy. See the
 [DDNS design](../design/cloudflare-ddns.md) and
 [remaining lifecycle plan](../plan/CLAMPS-CLOUDFLARE-DDNS.md).
 

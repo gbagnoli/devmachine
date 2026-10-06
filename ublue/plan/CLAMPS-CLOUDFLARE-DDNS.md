@@ -2,15 +2,25 @@
 
 Status: slices 1–3 and disposable test provisioning/cleanup implementation
 complete, 2026-10-06. Shared DDNS crate, caller selection, separate apply
-phase/unit, validated private config, token use-or-create, production encrypted
-delivery, and journaled test-only DNS/token ownership are implemented. Routine
+phase/unit, validated rendered config, token use-or-create, production encrypted
+delivery, embedded templates with typed KeePassXC references, and journaled
+test-only DNS/token ownership are implemented. Routine
 and fake-provider tests cover cleanup. Live DDNS DNS ownership acceptance is
-parked because the test vault has no `ddns-config` entry. The disposable VM was
+parked until the test `ddns-dns-name` entry is configured. The disposable VM was
 created, reached signed boot, partially provisioned, and destroyed with its
 Tailscale identity removed; no DDNS token or DNS record was created. Syncthing
 live acceptance remains parked and remote CI evidence is pending.
 
+Template review validation, 2026-10-06: six resolver tests cover environment
+paths, complete host overrides, nested references, safe JSON string escaping,
+malformed/missing references, and downstream DDNS schema validation. All 282
+workspace tests, formatting, pedantic Clippy, and the CI Fedora base container
+scenario passed locally on the musl target. The container scenario confirmed
+two successful applies with no service start/restart on repeat apply. These
+checks used dummy values; live DDNS ownership acceptance remains parked.
+
 Read `../AGENTS.md`, `../skillet/AGENTS.md`, `../design/cloudflare-ddns.md`,
+`../design/configuration-templates.md`,
 `../design/secrets.md`, `../design/cloudflare-ui-lifecycle.md`, and
 `../design/smoke-vms.md`. Install nothing on the workstation. Use Rust
 resources/crates for orchestration and provider APIs; never embed shell programs.
@@ -29,7 +39,7 @@ The live image version, polling cadence, full record/proxy configuration, and
 any second updater on Rupik need private inventory before production activation.
 The legacy `rupik::network` cron is not selected by the default include path.
 
-## 1. Establish the private config and image contract
+## 1. Establish the configuration template and image contract
 
 Implemented: upstream 2.2.0, index digest
 `sha256:5f2471be9efd9f0c95f973645cc87f05d501020ded94d380a2120fbfdf812d3d`.
@@ -45,11 +55,11 @@ duplicates and unsupported policies. Private live inventory remains pending.
   `skillet/environments/<environment>/dns/cloudflare-zone-id`. Verify the retained
   DDNS records actually belong to it; an additional zone needs an explicit schema
   extension, never automatic token-scope broadening.
-- Planned host config entry:
-  `skillet/environments/<environment>/hosts/<host>/cloudflare/ddns-config`.
-  Define a versioned JSON schema with relative record names and explicit approved
-  proxy state; initial address/TTL/purge policy matches Chef. Resolve record names
-  directly below the selected zone, independently of `dns/ui-domain`.
+- The embedded workstation template defines versioned JSON with relative record
+  names and explicit proxy state; KeePassXC contains the individual
+  `skillet/environments/<environment>/hosts/<host>/cloudflare/ddns-dns-name`
+  leaf. Resolve record names directly below the selected zone, independently of
+  `dns/ui-domain`.
 - Validate names, duplicate/conflicting records, and overlap with the host's UI
   records before token issuance or delivery. Existing unrelated records require
   an explicit takeover decision. Do not populate production values in this repo.
@@ -72,7 +82,8 @@ Ordinary application acceptance excludes the separately provisioned DNS writer;
   values. Service/UI/credential eligibility derives from that same declaration.
   The host binary explicitly selects the shared DDNS crate/service; having an
   environment zone in KeePassXC must never implicitly enable it. Reuse the
-  existing environment zone entry, with private record names in `ddns-config`.
+  existing environment zone entry, with host/environment-specific values in
+  typed template references.
 - Add an independently credential-gated DDNS apply phase/unit, following the
   existing Caddy separation. Base/full convergence must continue to work before
   DDNS credentials exist; declaring the service must not add its credential to
@@ -98,7 +109,7 @@ Routine CI requires no vault, external IP discovery, Cloudflare, or hypervisor.
 ## 3. Issue and deliver the DDNS credential
 
 Production implemented: `secret deliver <host> ddns` uses the environment zone,
-private `ddns-config` JSON and persistent `ddns-token`. Caddy and DDNS share the
+rendered workstation template and persistent `ddns-token`. Caddy and DDNS share the
 atomic use-or-create helper. JSON may include `takeover_existing: true` to approve
 adopting an existing public A record; UI namespace and other Skillet ownership
 remain protected. New records receive a DDNS-specific ownership comment.
@@ -142,7 +153,7 @@ the deletion set.
   DNS-policy compatible, leaves unrelated A/AAAA/CNAME/TXT records untouched,
   survives repeat apply/reboot, and reuses its credential. Test credential rotation
   and disposal without printing private values. Park live DDNS record checks
-  until `skillet/environments/test/hosts/<host>/cloudflare/ddns-config` is
+  until `skillet/environments/test/hosts/<host>/cloudflare/ddns-dns-name` is
   present in KeePassXC. Record results in
   `../butane/ACCEPTANCE.md`.
 - Before production: privately inventory Rupik's exact records, TTL/proxy state,

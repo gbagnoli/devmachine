@@ -28,7 +28,9 @@ fn ddns_commands_parse_and_test_delivery_refuses_before_vault_access() {
         panic!("wrong parsed command");
     };
     let error = super::deliver_from_vault(&args).unwrap_err();
-    assert!(error.to_string().contains("disposable DDNS is not enabled"));
+    assert!(error
+        .to_string()
+        .contains("test DDNS must be provisioned through an owned disposable VM"));
     assert!(crate::Args::try_parse_from([
         "skillet", "apply", "--host", "clamps", "--phase", "ddns"
     ])

@@ -61,7 +61,7 @@ policy maps to the `prod` group.
 | `skillet/environments/<environment>/dns/ui-domain` | Optional relative UI prefix; defaults to `ui`, appended to the fetched zone domain |
 | `skillet/environments/<environment>/dns/cloudflare-zone-id` | Environment-specific Cloudflare Zone ID lookup (`prod` or `test`) |
 | `skillet/environments/<environment>/hosts/<host>/cloudflare/acme-token` | Persistent `cloudflare_acme_token`, created on first Caddy delivery |
-| `skillet/environments/<environment>/hosts/<host>/cloudflare/ddns-config` | Private versioned record configuration, used to compose `cloudflare_ddns_config` |
+| `skillet/environments/<environment>/hosts/<host>/cloudflare/ddns-dns-name` | Private relative record name consumed by the shared DDNS configuration template |
 | `skillet/environments/prod/hosts/<host>/cloudflare/ddns-token` | Persistent child token, created on first DDNS delivery; distinct from ACME |
 | `skillet/hosts/<host>/cloudflare/acme-token` | Legacy production credential migrated on first delivery |
 | `skillet/cloudflare/token-creator` | Workstation only |
@@ -79,6 +79,12 @@ the host has either one or its state cannot be checked, Skillet refuses to
 create a replacement. Production values persist across workstation
 changes; rotation is an explicit vault edit and redelivery. Normal host
 re-apply can reuse credentials already installed on that host.
+
+## Configuration templates
+
+Use the generic [configuration template design](configuration-templates.md)
+when service configuration combines clear policy with KeePassXC values. The
+DDNS template is the first implementation.
 
 ## Delivery and consumption
 
@@ -113,11 +119,13 @@ Podman's default secret storage persists a copy on the guest disk; systemd's
 credential encryption does not encrypt that copy.
 
 Optional DDNS uses the same encrypted delivery path and a separate apply unit.
-The workstation composes its complete JSON in memory, combining private record
-config with a zone-scoped child token. The guest mounts the Podman secret as
+The workstation renders the shared configuration template, resolves its typed
+KeePassXC references, and combines it in memory with a zone-scoped child token.
+The guest mounts the Podman secret as
 `/config.json`, root-only. The master token is never delivered. Production
-delivery is implemented; disposable DDNS delivery is intentionally unavailable
-until ownership/cleanup is added. See [DDNS design](cloudflare-ddns.md).
+delivery and journaled disposable ownership/cleanup are implemented; live
+disposable DNS acceptance awaits its test name entry. See
+[DDNS design](cloudflare-ddns.md).
 
 ## Disposable credentials
 
