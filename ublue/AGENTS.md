@@ -72,6 +72,9 @@
 
 ## Local validation before commit
 
+- Compare CI and local Rust/Clippy versions when diagnosing lint failures.
+  Validate fixes with CI's toolchain version; an older local toolchain passing
+  does not verify lints added in a newer release.
 - Before committing, run the CI checks that apply to the changed paths locally
   and resolve failures first. For Skillet changes, run
   `cargo fmt --all -- --check`,
