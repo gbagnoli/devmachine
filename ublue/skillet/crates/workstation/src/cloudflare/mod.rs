@@ -352,7 +352,7 @@ impl Cloudflare {
         Ok(())
     }
 
-    fn list_records(&self, token: &str, zone_id: &str) -> Result<Vec<RecordRef>> {
+    pub fn list_records(&self, token: &str, zone_id: &str) -> Result<Vec<RecordRef>> {
         validate_zone_id(zone_id)?;
         let mut records = Vec::new();
         for page in 1..=100_u32 {

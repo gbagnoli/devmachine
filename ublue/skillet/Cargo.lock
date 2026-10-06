@@ -2385,6 +2385,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "skillet_ddns"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "skillet_core",
+ "skillet_podman",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "skillet_hardening"
 version = "0.1.0"
 dependencies = [
@@ -2403,6 +2414,7 @@ dependencies = [
  "skillet_btrbk",
  "skillet_caddy",
  "skillet_core",
+ "skillet_ddns",
  "skillet_hardening",
  "skillet_pihole",
  "skillet_podman",
@@ -2488,6 +2500,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "skillet_caddy",
+ "skillet_ddns",
  "skillet_hosts",
  "skillet_vm",
  "tempfile",

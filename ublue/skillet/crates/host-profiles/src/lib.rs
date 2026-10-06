@@ -21,6 +21,7 @@ pub enum HostApplyPhase {
     Base,
     Full,
     Caddy,
+    Ddns,
 }
 
 pub fn credentials_for_phase(
@@ -36,8 +37,11 @@ pub fn credentials_for_phase(
         .credential_consumers()
         .into_iter()
         .filter(|consumer| match phase {
-            HostApplyPhase::Full => consumer.unit != "caddy.service",
+            HostApplyPhase::Full => {
+                !matches!(consumer.unit, "caddy.service" | "cloudflare-ddns.service")
+            }
             HostApplyPhase::Caddy => consumer.unit == "caddy.service",
+            HostApplyPhase::Ddns => consumer.unit == "cloudflare-ddns.service",
             HostApplyPhase::Base => false,
         })
         .map(|consumer| consumer.credential)
@@ -80,6 +84,8 @@ pub enum ApplyError {
     Btrbk(#[from] skillet_btrbk::BtrbkError),
     #[error("Caddy apply error: {0}")]
     Caddy(#[from] skillet_caddy::CaddyError),
+    #[error("DDNS apply error: {0}")]
+    Ddns(#[from] skillet_ddns::DdnsError),
     #[error("Podman error: {0}")]
     Podman(#[from] skillet_podman::PodmanError),
     #[error("Fixture input error: {0}")]
@@ -104,6 +110,7 @@ pub const TAILSCALE_AUTH_KEY_CREDENTIAL: &str = "tailscale_auth_key";
 pub const CADDY_SITES_CREDENTIAL: &str = "caddy_sites";
 /// Cloudflare token used only by Caddy's DNS-01 challenge provider.
 pub const CLOUDFLARE_ACME_TOKEN_CREDENTIAL: &str = "cloudflare_acme_token";
+pub const CLOUDFLARE_DDNS_CONFIG_CREDENTIAL: &str = skillet_ddns::CREDENTIAL;
 
 /// UI services declared by a host. This is the canonical input used by Caddy
 /// both on the workstation (to build delivery payloads) and on the host (to
@@ -239,6 +246,8 @@ fn apply_profile(
     }
     for service in &profile.services {
         match &service.config {
+            // Independently credential-gated optional services have their own phase.
+            ServiceConfig::Ddns => {}
             ServiceConfig::Pihole { custom_dns } => {
                 let password = credentials
                     .require(PIHOLE_WEB_PASSWORD_CREDENTIAL)?
@@ -333,7 +342,34 @@ pub fn apply_host_phase(
         HostApplyPhase::Base => apply_base(system, files),
         HostApplyPhase::Full => apply_host(hostname, system, files, credentials),
         HostApplyPhase::Caddy => apply_caddy_host(hostname, system, files, credentials),
+        HostApplyPhase::Ddns => apply_ddns_host(hostname, system, files, credentials),
     }
+}
+
+fn apply_ddns_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.to_string()))?;
+    if !profile.supports_service("ddns") {
+        return Err(ApplyError::FixtureInput(
+            "host does not declare DDNS".into(),
+        ));
+    }
+    let payload = credentials.require(CLOUDFLARE_DDNS_CONFIG_CREDENTIAL)?;
+    // Reject malformed secret input before any network or container mutation.
+    skillet_ddns::config::Payload::parse(payload).map_err(skillet_ddns::DdnsError::from)?;
+    files.require_btrfs_subvolume_mount(
+        std::path::Path::new("/var/lib/data"),
+        std::path::Path::new("/var"),
+        "/data",
+    )?;
+    skillet_podman::ensure_network(system, files, &profile.service_network())?;
+    skillet_ddns::apply(system, files, payload, profile.id.as_str())?;
+    Ok(())
 }
 
 fn apply_caddy_host(

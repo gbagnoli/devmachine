@@ -42,3 +42,20 @@ systemd:
 
         [Install]
         WantedBy=multi-user.target
+    - name: skillet-ddns-apply.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Apply Skillet optional Cloudflare DDNS configuration
+        Requires=skillet-apply.service skillet-data-prepare.service
+        After=skillet-apply.service skillet-data-prepare.service
+        AssertPathIsMountPoint=/var/lib/data
+        ConditionPathExists=/etc/credstore.encrypted/skillet/cloudflare_ddns_config.cred
+
+        [Service]
+        Type=oneshot
+        LoadCredentialEncrypted=cloudflare_ddns_config:/etc/credstore.encrypted/skillet/cloudflare_ddns_config.cred
+        ExecStart=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase ddns
+
+        [Install]
+        WantedBy=multi-user.target

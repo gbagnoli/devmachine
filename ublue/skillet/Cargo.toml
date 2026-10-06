@@ -8,6 +8,7 @@ members = [
     "crates/syncthing",
     "crates/btrbk",
     "crates/caddy",
+    "crates/ddns",
     "crates/podman",
     "crates/cli",
     "crates/hosts/beezelbot",
@@ -27,6 +28,7 @@ skillet_unifi = { path = "crates/unifi" }
 skillet_syncthing = { path = "crates/syncthing" }
 skillet_btrbk = { path = "crates/btrbk" }
 skillet_caddy = { path = "crates/caddy" }
+skillet_ddns = { path = "crates/ddns" }
 skillet_podman = { path = "crates/podman" }
 skillet_cli_common = { path = "crates/cli-common" }
 skillet_vm = { path = "crates/vm" }

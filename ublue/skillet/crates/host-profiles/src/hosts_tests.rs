@@ -68,7 +68,7 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
             .iter()
             .map(HostService::name)
             .collect::<Vec<_>>(),
-        ["pihole", "tailscale", "syncthing", "unifi", "btrbk"]
+        ["pihole", "tailscale", "syncthing", "unifi", "ddns", "btrbk"]
     );
     let credentials = clamps.credential_consumers();
     assert!(credentials.iter().any(|use_| {
@@ -154,6 +154,10 @@ fn agent_baseline_declares_no_ui_or_credentials_and_unknown_full_profiles_fail()
 #[test]
 fn credential_values_are_selected_by_host_and_apply_phase() {
     assert_eq!(
+        super::credentials_for_phase("clamps", super::HostApplyPhase::Ddns).unwrap(),
+        [super::CLOUDFLARE_DDNS_CONFIG_CREDENTIAL]
+    );
+    assert_eq!(
         super::credentials_for_phase("clamps", super::HostApplyPhase::Base).unwrap(),
         Vec::<&str>::new()
     );
@@ -176,6 +180,46 @@ fn credential_values_are_selected_by_host_and_apply_phase() {
         Vec::<&str>::new()
     );
     assert!(super::credentials_for_phase("unknown", super::HostApplyPhase::Base).is_err());
+}
+
+#[test]
+fn ddns_is_caller_selected_and_independently_credential_gated() {
+    let system = MockSystem::new();
+    let files = skillet_core::test_utils::MockFiles::new();
+    let credentials = CredentialInputs::default();
+    assert!(super::apply_host_phase(
+        "clamps",
+        super::HostApplyPhase::Ddns,
+        &system,
+        &files,
+        &credentials
+    )
+    .is_err());
+    assert!(super::apply_host_phase(
+        "beezelbot",
+        super::HostApplyPhase::Ddns,
+        &system,
+        &files,
+        &credentials
+    )
+    .is_err());
+    assert!(system.podman_secrets.lock().unwrap().is_empty());
+    assert!(files.files.lock().unwrap().is_empty());
+    let profile = super::profile_for_name("clamps").unwrap();
+    assert!(profile.supports_service("ddns"));
+    assert!(!profile
+        .acceptance_plan()
+        .services
+        .iter()
+        .any(|service| service.unit == "cloudflare-ddns.service"));
+    assert!(profile
+        .acceptance_plan_with_ddns(true)
+        .services
+        .iter()
+        .any(|service| service.unit == "cloudflare-ddns.service"));
+    assert!(!super::profile_for_name("beezelbot")
+        .unwrap()
+        .supports_service("ddns"));
 }
 
 #[test]

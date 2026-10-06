@@ -38,6 +38,11 @@
 
 ## Shared infrastructure boundaries
 
+- Optional services require explicit selection in the canonical host caller
+  declaration. Shared baseline services retain their common defaults; the
+  presence of environment configuration or credentials must not enable an
+  optional service implicitly.
+
 - Shared helpers receive identity and configuration from validated inputs or
   declarations. Keep deployment-specific assumptions in the selected profile;
   do not bake them into generic readiness, delivery, or lifecycle code.

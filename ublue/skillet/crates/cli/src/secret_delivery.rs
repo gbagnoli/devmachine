@@ -14,6 +14,14 @@ use std::path::Path;
 
 pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
     validate_delivery_service(&args.hostname, &args.service)?;
+    if args.service == "ddns"
+        && args.environment.policy().environment()
+            != skillet_workstation::provisioning_policy::Environment::Production
+    {
+        return Err(anyhow!(
+            "disposable DDNS is not enabled until record ownership and cleanup are implemented"
+        ));
+    }
     let database = match &args.database {
         Some(path) => path.clone(),
         None => default_database_path()?,
@@ -51,6 +59,7 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
             Ok(())
         }
         "caddy" => deliver_caddy_from_vault(args, &mut vault),
+        "ddns" => deliver_ddns_from_vault(args, &mut vault),
         _ => Err(anyhow!("unsupported secret service {}", args.service)),
     }
 }
@@ -59,15 +68,58 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
     let profile = skillet_hosts::profile_for_name(hostname)
         .ok_or_else(|| anyhow!("unknown host profile: {hostname}"))?;
     match service {
-        "pihole" | "tailscale" if !profile.supports_service(service) => Err(anyhow!(
+        "pihole" | "tailscale" | "ddns" if !profile.supports_service(service) => Err(anyhow!(
             "host {hostname} does not declare {service} credential delivery"
         )),
         "caddy" if profile.ui_services().is_empty() => {
             Err(anyhow!("host {hostname} declares no UI services"))
         }
-        "pihole" | "tailscale" | "caddy" => Ok(profile),
+        "pihole" | "tailscale" | "caddy" | "ddns" => Ok(profile),
         unsupported => Err(anyhow!("unsupported secret service {unsupported}")),
     }
+}
+
+fn deliver_ddns_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Result<()> {
+    let policy = args.environment.policy();
+    if policy.environment() != skillet_workstation::provisioning_policy::Environment::Production {
+        return Err(anyhow!(
+            "disposable DDNS is not enabled until record ownership and cleanup are implemented"
+        ));
+    }
+    let zone_path = policy.cloudflare_zone_entry();
+    let zone_id = vault
+        .get(&zone_path)?
+        .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
+    let config_path = format!(
+        "skillet/environments/{}/hosts/{}/cloudflare/ddns-config",
+        policy.vault_name(),
+        args.hostname
+    );
+    let config = vault
+        .get(&config_path)?
+        .ok_or_else(|| anyhow!("KeePassXC DDNS config is missing: {config_path}"))?;
+    let creator = vault
+        .get("skillet/cloudflare/token-creator")?
+        .ok_or_else(|| anyhow!("KeePassXC Cloudflare token creator is missing"))?;
+    let prefix = vault.get(&policy.ui_domain_entry())?;
+    let transport = credential_transport(args)?;
+    let provider = skillet_workstation::cloudflare::Cloudflare::new();
+    let mut store =
+        skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref());
+    skillet_workstation::ddns_provisioning::deliver_persistent_ddns(
+        &skillet_workstation::ddns_provisioning::DdnsDelivery {
+            host: &args.hostname,
+            policy,
+            zone_id: zone_id.trim(),
+            relative_ui_domain: prefix.as_deref(),
+            config: &config,
+            creator_token: &creator,
+        },
+        &mut store,
+        &provider,
+        &transport,
+    )?;
+    Ok(())
 }
 
 fn deliver_caddy_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Result<()> {

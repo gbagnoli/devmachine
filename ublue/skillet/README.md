@@ -338,6 +338,37 @@ permissions. Staging ACME and HTTPS acceptance passed on 2026-10-02; production
 renewal and access checks from outside the tailnet remain deferred. See the
 [VM lifecycle](../design/smoke-vms.md).
 
+### Optional Cloudflare DDNS
+
+The selected host profile must declare DDNS. Clamps currently enables it.
+In KeePassXC's Password fields, set:
+
+- `skillet/environments/prod/dns/cloudflare-zone-id`: the existing environment
+  zone ID.
+- `skillet/environments/prod/hosts/<host>/cloudflare/ddns-config`: JSON such as
+  `{"version":1,"records":[{"name":"edge","proxied":false}]}`. Names are relative
+  to the zone itself. Use the approved record names and proxy state.
+- `skillet/cloudflare/token-creator`: the account token described above.
+
+Skillet creates `skillet/environments/prod/hosts/<host>/cloudflare/ddns-token`
+automatically. Close KeePassXC before delivery. With the prior DNS writer stopped
+and the selected record set approved, run:
+
+```bash
+cargo run --release -p skillet -- secret deliver clamps ddns \
+  --target giacomo@clamps --identity /path/to/ssh-key \
+  --known-hosts /path/to/known_hosts
+```
+
+To adopt an existing public A record, add `"takeover_existing":true` to the
+config JSON after reviewing it. Conflicting records and other Skillet owners
+remain protected. Repeat delivery reuses the child token; edit its vault entry
+deliberately and redeliver for rotation. On the host,
+`systemctl start skillet-ddns-apply.service` reuses the encrypted credential.
+Test-environment DDNS delivery is currently disabled. See the
+[DDNS design](../design/cloudflare-ddns.md) and
+[remaining lifecycle plan](../plan/CLAMPS-CLOUDFLARE-DDNS.md).
+
 ## Development checks
 
 - Workspace checks: `cargo fmt --all -- --check`,

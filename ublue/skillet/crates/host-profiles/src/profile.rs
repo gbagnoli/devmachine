@@ -52,6 +52,7 @@ pub enum ServiceConfig {
         container_gid: u32,
     },
     Unifi,
+    Ddns,
     Tailscale {
         state_path: &'static str,
     },
@@ -72,6 +73,7 @@ impl HostService {
             ServiceConfig::Pihole { .. } => "pihole",
             ServiceConfig::Syncthing { .. } => "syncthing",
             ServiceConfig::Unifi => "unifi",
+            ServiceConfig::Ddns => "ddns",
             ServiceConfig::Tailscale { .. } => "tailscale",
             ServiceConfig::Btrbk { .. } => "btrbk",
         }
@@ -79,6 +81,10 @@ impl HostService {
 
     pub fn credential_consumers(&self) -> Vec<CredentialConsumer> {
         match self.config {
+            ServiceConfig::Ddns => vec![CredentialConsumer {
+                credential: super::CLOUDFLARE_DDNS_CONFIG_CREDENTIAL,
+                unit: "cloudflare-ddns.service",
+            }],
             ServiceConfig::Pihole { .. } => vec![CredentialConsumer {
                 credential: super::PIHOLE_WEB_PASSWORD_CREDENTIAL,
                 unit: "pihole.service",
@@ -156,9 +162,16 @@ impl HostProfile {
     /// this profile, so fixture acceptance cannot stand in for application
     /// acceptance.
     pub fn acceptance_plan(&self) -> HostAcceptancePlan {
+        self.acceptance_plan_with_ddns(false)
+    }
+
+    /// Public-address updates require a separate opt-in acceptance scenario;
+    /// ordinary application checks must not start an external DNS writer.
+    pub fn acceptance_plan_with_ddns(&self, with_ddns: bool) -> HostAcceptancePlan {
         let mut services = self
             .services
             .iter()
+            .filter(|service| with_ddns || !matches!(service.config, ServiceConfig::Ddns))
             .map(|service| acceptance_service(self.id.as_str(), service))
             .collect::<Vec<_>>();
         if self.services.iter().any(|service| service.ui.is_some()) {
@@ -184,7 +197,9 @@ impl HostProfile {
         self.services.iter().any(|service| {
             matches!(
                 service.config,
-                ServiceConfig::Pihole { .. } | ServiceConfig::Syncthing { .. }
+                ServiceConfig::Pihole { .. }
+                    | ServiceConfig::Syncthing { .. }
+                    | ServiceConfig::Ddns
             ) || service.ui.is_some()
         })
     }
@@ -272,6 +287,15 @@ impl HostProfile {
 
 fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService {
     match service.config {
+        ServiceConfig::Ddns => AcceptanceService {
+            unit: "cloudflare-ddns.service".into(),
+            container: Some("cloudflare-ddns".into()),
+            network_mode: Some(profile.into()),
+            bind_paths: Vec::new(),
+            owner: None,
+            listeners: Vec::new(),
+            health_probe: None,
+        },
         ServiceConfig::Pihole { .. } => AcceptanceService {
             unit: "pihole.service".into(),
             container: Some("pihole".into()),
@@ -425,6 +449,10 @@ fn clamps() -> HostProfile {
             },
             HostService {
                 config: ServiceConfig::Unifi,
+                ui: None,
+            },
+            HostService {
+                config: ServiceConfig::Ddns,
                 ui: None,
             },
             HostService {

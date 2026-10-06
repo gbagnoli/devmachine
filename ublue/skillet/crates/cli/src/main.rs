@@ -70,13 +70,13 @@ struct SecretLockArgs {
 #[derive(clap::Args, Debug)]
 struct SecretDeliverArgs {
     hostname: String,
-    #[arg(value_parser = ["pihole", "tailscale", "caddy"])]
+    #[arg(value_parser = ["pihole", "tailscale", "caddy", "ddns"])]
     service: String,
     #[arg(long)]
     database: Option<PathBuf>,
     #[arg(long)]
     key_file: Option<PathBuf>,
-    /// `KeePassXC` environment to use for private UI configuration
+    /// `KeePassXC` environment to use for service configuration
     #[arg(long, value_enum, default_value_t = UiEnvironmentName::Production)]
     environment: UiEnvironmentName,
     #[arg(long)]
@@ -1205,6 +1205,7 @@ fn run_twice_and_check(name: &str, phase: ApplyPhase, inspect: bool) -> Result<(
         ApplyPhase::Base => "base",
         ApplyPhase::Full => "full",
         ApplyPhase::Caddy => "caddy",
+        ApplyPhase::Ddns => "ddns",
     };
     for round in ["first", "second"] {
         let status = Command::new("podman")

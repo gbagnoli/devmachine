@@ -1,5 +1,31 @@
 # Clamps VM acceptance log
 
+## DDNS local implementation checks, 2026-10-06
+
+- Evaluated upstream 2.2.0 (source revision
+  `7c6d5b43c1d400f4977f2b25bd44d784bb601ae3`) and its multi-platform image index
+  `sha256:5f2471be9efd9f0c95f973645cc87f05d501020ded94d380a2120fbfdf812d3d`.
+  Image inspect confirmed `/cloudflare-ddns --repeat`, working directory `/`,
+  and default root identity. Ran the exact image as `0:0`, `--network=none`,
+  `--dry-run` with a dummy JSON Podman secret at `/config.json`, mode `0400`.
+  The binary accepted the config and skipped updates after IP discovery failed,
+  as expected without networking. The container and dummy secret were removed.
+  This verifies consumer parsing/mount access, not DNS updates or rootful uCore.
+- DDNS and canonical profile tests cover caller selection, phase credentials,
+  missing storage/input, no published ports, no plaintext config files, repeat
+  apply, rotation, and failed-activation retry. Fake provider/transport tests
+  cover persistent token reuse, vault conflicts, saving/revocation failure,
+  interrupted delivery retry and record takeover/namespace protection. Routine
+  CI uses no vault, live Cloudflare, IP-discovery service or hypervisor.
+- Workspace musl tests, pedantic Clippy and formatting passed with Rust 1.99.
+  Fedora base integration applied twice without repeat service actions and
+  removed its container. Bootstrap regression tests passed all eight cases.
+- PARKED: rootful DDNS on a named uCore VM, actual public-address records,
+  reboot persistence and disposal acceptance. Flatpak libvirt remains unavailable
+  by the user's prior instruction. Disposable DDNS issuance/ownership/cleanup
+  is not implemented and test-policy delivery is refused. No vault read, live
+  provider mutation, production activation or old-writer handover was attempted.
+
 ## CI lint recovery, 2026-10-06
 
 - [CI run 37440317671](https://github.com/gbagnoli/devmachine/actions/runs/37440317671)
