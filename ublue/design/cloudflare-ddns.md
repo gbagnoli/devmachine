@@ -4,8 +4,9 @@ Decision, 2026-10-06: retain Rupik's public-address DDNS capability. Plan to
 reuse the existing Chef image family in a rootful Quadlet container, with
 caller opt-in and private configuration supplied through Skillet credentials.
 This preserves the existing updater instead of introducing another guest
-Cloudflare API client. Guest convergence and production credential delivery are
-implemented; disposable lifecycle and live DNS acceptance remain pending.
+Cloudflare API client. Guest convergence, production credential delivery, and
+journaled disposable token/record cleanup are implemented. Live disposable DNS
+acceptance remains pending the test-only private DDNS config entry.
 
 The host caller explicitly opts into the shared DDNS crate/service. Installing
 Skillet or configuring an environment zone does not enable DDNS. Reuse
@@ -54,12 +55,17 @@ Production delivery reuses or creates a separate persistent child token through
 the same atomic token-persistence helper used by Caddy. New tokens are revoked
 when vault saving fails; deterministic token names support retry recovery.
 The dedicated DDNS apply phase leaves ordinary full apply independent of this
-credential. Test-policy delivery is refused until disposable ownership and
-cleanup are implemented; ordinary application smoke checks exclude DDNS.
+credential. Test-policy delivery is opt-in through the disposable VM provision
+flow. It journals exact test record names, ownership markers, record IDs, and
+bounded token identities before mutation; cleanup validates this state against
+the recorded VM and deletes only records that still match. Ordinary application
+smoke checks exclude DDNS.
 
 Source contract: [upstream 2.2.0](https://github.com/timothymiller/cloudflare-ddns/tree/7c6d5b43c1d400f4977f2b25bd44d784bb601ae3).
 
 Disposable tests use explicitly isolated record names and bounded credentials.
 Journal and clean only test-owned resources; disposal never removes retained
-production DDNS records. See the [implementation plan](../plan/CLAMPS-CLOUDFLARE-DDNS.md)
-and [existing token/DNS lifecycle](cloudflare-ui-lifecycle.md).
+production DDNS records. The first VM attempt was parked before Cloudflare
+mutation because the test `ddns-config` vault entry was absent. See the
+[implementation plan](../plan/CLAMPS-CLOUDFLARE-DDNS.md) and [token/DNS
+lifecycle](cloudflare-ui-lifecycle.md).

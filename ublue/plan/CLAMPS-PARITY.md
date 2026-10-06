@@ -18,7 +18,7 @@ Sources: `roles/rupik.rb` includes `role[server]`, `server::wol`, and `rupik`.
 | btrbk | Caller-selected Syncthing snapshots, hourly timer, retention and restore accepted | Off-machine backup policy and physical cutover acceptance; nested source subvolumes unsupported |
 | UniFi | Rootful host-network container; numeric application data ownership; empty-controller/repeat-apply acceptance | Isolated backup restore, version compatibility, adoption and Site Manager access; see `CLAMPS-UNIFI.md` |
 | Tailscale | Host network, persistent state, OAuth enrollment, disposable identity cleanup, DNS acceptance disabled | Chef advertises an exit node; current Skillet declaration does not. Add caller-controlled production exit-node behavior and prove forwarding/firewall/client routing |
-| Cloudflare DDNS | Caller-selected rootful updater, validated secret config and production child-token delivery implemented; separate from UI DNS publication | Disposable lifecycle, live DNS acceptance, private record/proxy inventory and one-writer cutover; see `CLAMPS-CLOUDFLARE-DDNS.md` |
+| Cloudflare DDNS | Caller-selected rootful updater, validated secret config, production delivery, and journaled disposable token/record cleanup implemented; separate from UI DNS publication | Live disposable DNS acceptance (test config missing), private record/proxy inventory and one-writer cutover; see `CLAMPS-CLOUDFLARE-DDNS.md` |
 | Datadog | Retained by user decision, 2026-10-06; not implemented | Port metrics/process/network monitoring and retained checks; replace nginx-specific check as appropriate. Later local metrics/Grafana is separate work |
 | EternalTerminal | Common image installs `et` and enables `et.service` | Physical service/listener/access validation |
 | Wake-on-LAN | Common image installs `wol`; Chef emitted per-target helper scripts | Determine needed target shortcuts and supply MACs privately; package availability alone is not shortcut parity |
@@ -36,9 +36,9 @@ exists. Additional private run-list recipes remain an inventory question.
 
 ## Work order
 
-1. DDNS: the implementation-ready plan is the next service slice after the
-   applicable refactor validation gate; do not mutate production DNS now.
-2. Datadog port, then isolated UniFi backup/restore planning and execution.
+1. Complete live disposable DDNS acceptance once the test-only config exists;
+   do not mutate production DNS.
+2. Port Datadog, then handle isolated UniFi backup/restore planning and execution.
 3. Close exit-node and remaining host-baseline gaps before cutover.
 4. Run the parked VM and deferred network/production acceptance when their
    required infrastructure is available; transfer state only with a recovery path.

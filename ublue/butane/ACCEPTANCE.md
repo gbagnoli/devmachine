@@ -1,5 +1,39 @@
 # Clamps VM acceptance log
 
+## Disposable DDNS attempt and cleanup, 2026-10-06
+
+- Built the current Skillet CLI with Rust 1.99 and created a separate
+  `clamps-test-ddns` VM on the native session libvirt runtime, leaving the
+  retained `clamps-test-smoke` VM untouched. The guest completed signed boot
+  and Skillet readiness.
+- Ran `skillet test vm provision clamps ddns --with-ddns`. Pi-hole and
+  Tailscale provisioning completed, then DDNS preflight stopped because the
+  test KeePassXC entry
+  `skillet/environments/test/hosts/clamps/cloudflare/ddns-config` is absent.
+  The failure occurred before Cloudflare mutation: no DDNS child token,
+  ownership journal, or DNS record was created.
+- Ran `skillet test vm destroy clamps ddns`. Skillet removed the recorded
+  Tailscale identity and disposed the VM and its temporary SSH material. No
+  production DNS or other VM was touched.
+- Live DDNS record creation, updater convergence, and exact-record cleanup are
+  still parked until the test-only DDNS config entry is added to KeePassXC.
+  The disposable ownership/create/cleanup paths are covered by workstation
+  fake-provider tests; this attempt is not live DDNS ownership acceptance.
+
+## DDNS lifecycle local validation, 2026-10-06
+
+- Passed `cargo fmt --all -- --check`, `git diff --check`, strict workspace
+  Clippy, and `cargo test --workspace --all-targets --offline` using Rust 1.99
+  and the configured x86_64 musl target. The full suite passed; workstation
+  coverage now includes 77 tests.
+- Added a Cloudflare API fixture regression proving cleanup refuses an extra,
+  unjournaled record carrying the disposable marker before sending any DELETE.
+  Disposable provisioning tests cover bounded credentials, exact configured
+  names, journal identity, mismatch refusal, cleanup/retry and safe errors.
+- Did not run live DDNS container/record acceptance: test configuration was
+  missing, so no DDNS guest credential or service was activated. The VM attempt
+  and recorded Tailscale cleanup are described above.
+
 ## DDNS local implementation checks, 2026-10-06
 
 - Evaluated upstream 2.2.0 (source revision
@@ -20,11 +54,10 @@
 - Workspace musl tests, pedantic Clippy and formatting passed with Rust 1.99.
   Fedora base integration applied twice without repeat service actions and
   removed its container. Bootstrap regression tests passed all eight cases.
-- PARKED: rootful DDNS on a named uCore VM, actual public-address records,
-  reboot persistence and disposal acceptance. Flatpak libvirt remains unavailable
-  by the user's prior instruction. Disposable DDNS issuance/ownership/cleanup
-  is not implemented and test-policy delivery is refused. No vault read, live
-  provider mutation, production activation or old-writer handover was attempted.
+- Superseded by the later disposable DDNS attempt recorded above. That attempt
+  created and disposed a named uCore VM using the native session libvirt runtime;
+  test-only config was missing, so live DDNS records and provider cleanup remain
+  unverified. No production activation or old-writer handover was attempted.
 
 ## CI lint recovery, 2026-10-06
 

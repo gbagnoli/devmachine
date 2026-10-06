@@ -1,11 +1,14 @@
 # Cloudflare DDNS port
 
-Status: slices 1–2 and production portion of slice 3 implemented, 2026-10-06.
-Shared DDNS crate, caller selection, separate apply phase/unit, validated private
-config, token use-or-create and production encrypted delivery exist. Disposable
-DDNS provisioning/cleanup and live DNS acceptance remain pending. Refactor implementation is committed;
-Syncthing live acceptance is parked and remote CI evidence is pending. Planning
-can proceed; keep unavailable runtime acceptance explicit during implementation.
+Status: slices 1–3 and disposable test provisioning/cleanup implementation
+complete, 2026-10-06. Shared DDNS crate, caller selection, separate apply
+phase/unit, validated private config, token use-or-create, production encrypted
+delivery, and journaled test-only DNS/token ownership are implemented. Routine
+and fake-provider tests cover cleanup. Live DDNS DNS ownership acceptance is
+parked because the test vault has no `ddns-config` entry. The disposable VM was
+created, reached signed boot, partially provisioned, and destroyed with its
+Tailscale identity removed; no DDNS token or DNS record was created. Syncthing
+live acceptance remains parked and remote CI evidence is pending.
 
 Read `../AGENTS.md`, `../skillet/AGENTS.md`, `../design/cloudflare-ddns.md`,
 `../design/secrets.md`, `../design/cloudflare-ui-lifecycle.md`, and
@@ -100,9 +103,8 @@ atomic use-or-create helper. JSON may include `takeover_existing: true` to appro
 adopting an existing public A record; UI namespace and other Skillet ownership
 remain protected. New records receive a DDNS-specific ownership comment.
 Fake-provider/transport tests cover token reuse, failed delivery retry, explicit
-vault token rotation, failed saving/revocation and collisions. Test policy is
-refused before unlocking the vault; its bounded issuance/journal belongs to
-slice 4. No production DNS writes or guest activation were performed here.
+vault token rotation, failed saving/revocation and collisions. Test policy uses
+an opt-in VM flow with bounded issuance and a mode-0600 ownership journal.
 
 - Reuse the workstation Cloudflare SDK/account-token issuer and atomic KDBX writer.
   Planned token path:
@@ -126,22 +128,23 @@ workstation issuer.
 
 ## 4. Disposable acceptance and production handover
 
-- Make test DDNS activation opt-in. Use only explicitly configured test record
-  names and the test environment zone; refuse production config on a disposable
-  VM. Journal ownership before writes, detect record collisions, and use a
-  bounded-lifetime token. Zone tokens cannot enforce per-record scope; allowlisting
-  and ownership validation belong to provisioning and the updater's config.
-- Keep DDNS record ownership separate from the UI lifecycle. The workstation may
-  preflight/journal test records, but the DDNS runtime is their continuing writer.
-  Cleanup verifies recorded identity and records, then deletes only test-owned
-  records and revokes the DDNS token. Persistent disposal never deletes production
-  records. If the image cannot preserve reliable ownership metadata, design the
-  record-journaling interface before permitting test record creation.
+Implementation complete; live DNS acceptance remains parked. The disposable
+provisioner persists VM/environment/zone identity, a unique test ownership
+marker, exact configured record names, token identity and cleanup-token state
+before provider mutation. It records created record IDs after verifying the
+updater has published its marked A records. Disposal revalidates the journal
+against the exact test VM and configured name allowlist, deletes only records
+that still match the ownership marker and recorded IDs, then revokes the
+bounded DDNS and cleanup tokens. A mismatch aborts cleanup without broadening
+the deletion set.
+
 - On a named VM verify a record receives the discovered public IPv4, stays
   DNS-policy compatible, leaves unrelated A/AAAA/CNAME/TXT records untouched,
   survives repeat apply/reboot, and reuses its credential. Test credential rotation
-  and disposal without printing private values. Park these checks while Flatpak
-  libvirt is unavailable; record results in `../butane/ACCEPTANCE.md` later.
+  and disposal without printing private values. Park live DDNS record checks
+  until `skillet/environments/test/hosts/<host>/cloudflare/ddns-config` is
+  present in KeePassXC. Record results in
+  `../butane/ACCEPTANCE.md`.
 - Before production: privately inventory Rupik's exact records, TTL/proxy state,
   image/version/cadence, and active updater services/cron. Approve the takeover
   record set; stop the old writer, activate Clamps, verify records and services,
