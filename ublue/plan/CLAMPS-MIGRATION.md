@@ -6,7 +6,7 @@ Existing acceptance evidence and deferred tasks remain applicable.
 
 Status: reconciled against source and acceptance evidence, 2026-10-06.
 Refactor implementation is committed; Syncthing live validation is parked and
-remote CI evidence is pending. Parity auditing and DDNS planning proceed while
+remote CI evidence is pending. Parity auditing and DDNS implementation proceed while
 that check is parked. Skillet convergence and disposable VM bootstrap exist.
 Runtime evidence and outstanding bootstrap checks are recorded in
 [ACCEPTANCE.md](../butane/ACCEPTANCE.md).
@@ -129,7 +129,7 @@ Each row is a separate implementation and validation step. Adjust order for depe
 | 3 | UniFi (implemented; empty-controller/repeat-apply acceptance passed) | Follow the [UniFi port plan](CLAMPS-UNIFI.md): rootful host-network container, persistent data, and isolated backup restore/version compatibility before cutover. No Caddy route. |
 | 4 | Tailscale (implemented; smoke enrollment and cleanup accepted) | Host network, state, OAuth enrollment, and cleanup exist. Chef's exit-node advertisement is missing in the current declaration; add caller-controlled behavior and validate production forwarding. UI names use Cloudflare DNS-only records. |
 | 5 | Private UI access with Caddy + ACME (implemented; staging accepted) | Generic declarations/aliases, encrypted delivery, scoped account tokens, A/AAAA/CNAME reconciliation and cleanup exist. Staging ACME/HTTPS passed. Production renewal, real-client resolution and separate-network denial remain; see [UI plan](GENERIC-PRIVATE-UIS.md). |
-| 6 | Cloudflare DDNS (next service plan) | Follow [DDNS plan](CLAMPS-CLOUDFLARE-DDNS.md); public-address record ownership is separate from UI DNS; no competing production writer |
+| 6 | Cloudflare DDNS | Guest service and production credential delivery implemented; disposable lifecycle and live acceptance remain in [DDNS plan](CLAMPS-CLOUDFLARE-DDNS.md); no competing production writer |
 | 7 | Datadog and remaining host baseline | Keep Datadog for now; port after DDNS. Audit hardening, users, SSH/sudo, ET and WOL targets against the [parity checklist](CLAMPS-PARITY.md) |
 
 For each service: inspect effective Chef inputs, settle its open decisions, add only needed Skillet support, migrate a copy of state, validate functionality and repeat convergence. Account for ARM-to-x86 application/image and data compatibility. Avoid activating duplicate production identities or DNS writers during testing.

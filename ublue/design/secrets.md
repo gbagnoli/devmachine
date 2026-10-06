@@ -61,6 +61,8 @@ policy maps to the `prod` group.
 | `skillet/environments/<environment>/dns/ui-domain` | Optional relative UI prefix; defaults to `ui`, appended to the fetched zone domain |
 | `skillet/environments/<environment>/dns/cloudflare-zone-id` | Environment-specific Cloudflare Zone ID lookup (`prod` or `test`) |
 | `skillet/environments/<environment>/hosts/<host>/cloudflare/acme-token` | Persistent `cloudflare_acme_token`, created on first Caddy delivery |
+| `skillet/environments/<environment>/hosts/<host>/cloudflare/ddns-config` | Private versioned record configuration, used to compose `cloudflare_ddns_config` |
+| `skillet/environments/prod/hosts/<host>/cloudflare/ddns-token` | Persistent child token, created on first DDNS delivery; distinct from ACME |
 | `skillet/hosts/<host>/cloudflare/acme-token` | Legacy production credential migrated on first delivery |
 | `skillet/cloudflare/token-creator` | Workstation only |
 | `skillet/tailscale/provisioner-client-id` | Workstation only; OAuth Client ID |
@@ -109,6 +111,13 @@ rejected; redeliver after updating the environment entries. The first
 production delivery migrates a legacy per-host token into the environment path.
 Podman's default secret storage persists a copy on the guest disk; systemd's
 credential encryption does not encrypt that copy.
+
+Optional DDNS uses the same encrypted delivery path and a separate apply unit.
+The workstation composes its complete JSON in memory, combining private record
+config with a zone-scoped child token. The guest mounts the Podman secret as
+`/config.json`, root-only. The master token is never delivered. Production
+delivery is implemented; disposable DDNS delivery is intentionally unavailable
+until ownership/cleanup is added. See [DDNS design](cloudflare-ddns.md).
 
 ## Disposable credentials
 

@@ -1,5 +1,5 @@
 [package]
-name = "skillet_hosts"
+name = "skillet_ddns"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,14 +8,9 @@ workspace = true
 
 [dependencies]
 skillet_core.workspace = true
-skillet_hardening.workspace = true
-skillet_pihole.workspace = true
-skillet_unifi.workspace = true
-skillet_syncthing.workspace = true
-skillet_btrbk.workspace = true
-skillet_caddy.workspace = true
-skillet_ddns.workspace = true
 skillet_podman.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]

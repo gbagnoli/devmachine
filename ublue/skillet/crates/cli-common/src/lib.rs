@@ -155,6 +155,7 @@ where
         ApplyPhase::Base => skillet_hosts::HostApplyPhase::Base,
         ApplyPhase::Full => skillet_hosts::HostApplyPhase::Full,
         ApplyPhase::Caddy => skillet_hosts::HostApplyPhase::Caddy,
+        ApplyPhase::Ddns => skillet_hosts::HostApplyPhase::Ddns,
     };
     let required = skillet_hosts::credentials_for_phase(hostname, phase)
         .map_err(|error| CliCommonError::Config(error.to_string()))?;

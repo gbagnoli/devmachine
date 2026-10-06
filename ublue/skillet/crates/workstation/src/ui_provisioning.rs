@@ -24,6 +24,8 @@ pub enum UiProvisioningError {
     State(#[from] provisioning_state::ProvisioningStateError),
     #[error(transparent)]
     Vault(#[from] VaultError),
+    #[error("Cloudflare token persistence failed: {0}")]
+    Token(#[from] crate::zone_token::TokenError),
     #[error(transparent)]
     Tailscale(#[from] TailscaleError),
     #[error(transparent)]
@@ -421,28 +423,20 @@ pub fn deliver_persistent_ui(
             token_store.save_verified(&token_path, &token)?;
             token
         } else {
-            token_store.ensure_unchanged()?;
-            let issued = cloudflare.replace_named_zone_token(
-                request.creator_token,
-                request.zone_id,
-                &account_id,
-                &token_name,
-                request.policy.cloudflare_token_lifetime(),
-            )?;
-            if let Err(save_error) = token_store.save_verified(&token_path, &issued.value) {
-                return match cloudflare.revoke_token(
-                    request.creator_token,
-                    &account_id,
-                    &issued.id,
-                ) {
-                    Ok(()) => Err(UiProvisioningError::Vault(save_error)),
-                    Err(revoke_error) => Err(UiProvisioningError::Invalid(format!(
-                        "saving issued token failed ({save_error}); revoking token {} also failed ({revoke_error})",
-                        issued.id
-                    ))),
-                };
-            }
-            issued.value
+            crate::zone_token::use_or_create(
+                token_store,
+                &token_path,
+                || {
+                    cloudflare.replace_named_zone_token(
+                        request.creator_token,
+                        request.zone_id,
+                        &account_id,
+                        &token_name,
+                        request.policy.cloudflare_token_lifetime(),
+                    )
+                },
+                |id| cloudflare.revoke_token(request.creator_token, &account_id, id),
+            )?
         }
     };
     cloudflare.zone(&token, request.zone_id)?;

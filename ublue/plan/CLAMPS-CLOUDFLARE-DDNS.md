@@ -1,8 +1,9 @@
 # Cloudflare DDNS port
 
-Status: planned, 2026-10-06. Next missing Clamps service from the
-[parity audit](CLAMPS-PARITY.md). No DDNS service, vault schema, or delivery command
-described below is implemented yet. Refactor implementation is committed;
+Status: slices 1–2 and production portion of slice 3 implemented, 2026-10-06.
+Shared DDNS crate, caller selection, separate apply phase/unit, validated private
+config, token use-or-create and production encrypted delivery exist. Disposable
+DDNS provisioning/cleanup and live DNS acceptance remain pending. Refactor implementation is committed;
 Syncthing live acceptance is parked and remote CI evidence is pending. Planning
 can proceed; keep unavailable runtime acceptance explicit during implementation.
 
@@ -27,6 +28,12 @@ The legacy `rupik::network` cron is not selected by the default include path.
 
 ## 1. Establish the private config and image contract
 
+Implemented: upstream 2.2.0, index digest
+`sha256:5f2471be9efd9f0c95f973645cc87f05d501020ded94d380a2120fbfdf812d3d`.
+Actual image accepted a Podman secret at `/config.json`, mode `0400`, UID/GID 0,
+with dummy credentials and no network. Schema v1 rejects malformed names,
+duplicates and unsupported policies. Private live inventory remains pending.
+
 - Inspect official image source/docs for the selected version, JSON schema,
   config-file access, refresh cadence, runtime identity, and credential support.
   Pin an evaluated image version/digest in the implementation; do not invent its
@@ -50,9 +57,19 @@ work. Private source inventory remains explicit if the host is unavailable.
 
 ## 2. Declare the service and compose its Quadlet
 
+Implemented: `ServiceConfig::Ddns` selects `skillet_ddns`; Clamps opts in.
+`--phase ddns` and generic `skillet-ddns-apply.service` consume only
+`cloudflare_ddns_config`. Full apply skips DDNS. Tests cover opt-in, missing
+credentials/storage, root-only secret mount, no ports, no-op, rotation and retry.
+Ordinary application acceptance excludes the separately provisioned DNS writer;
+`acceptance_plan_with_ddns(true)` supplies its checks for the future live scenario.
+
 - Add a DDNS capability and credential consumer to the canonical host profile;
   Clamps opts in, other callers may opt in. Keep declarations free of real DNS
   values. Service/UI/credential eligibility derives from that same declaration.
+  The host binary explicitly selects the shared DDNS crate/service; having an
+  environment zone in KeePassXC must never implicitly enable it. Reuse the
+  existing environment zone entry, with private record names in `ddns-config`.
 - Add an independently credential-gated DDNS apply phase/unit, following the
   existing Caddy separation. Base/full convergence must continue to work before
   DDNS credentials exist; declaring the service must not add its credential to
@@ -76,6 +93,16 @@ missing data mount, no-op repeat apply, rotation, and failed-activation retry.
 Routine CI requires no vault, external IP discovery, Cloudflare, or hypervisor.
 
 ## 3. Issue and deliver the DDNS credential
+
+Production implemented: `secret deliver <host> ddns` uses the environment zone,
+private `ddns-config` JSON and persistent `ddns-token`. Caddy and DDNS share the
+atomic use-or-create helper. JSON may include `takeover_existing: true` to approve
+adopting an existing public A record; UI namespace and other Skillet ownership
+remain protected. New records receive a DDNS-specific ownership comment.
+Fake-provider/transport tests cover token reuse, failed delivery retry, explicit
+vault token rotation, failed saving/revocation and collisions. Test policy is
+refused before unlocking the vault; its bounded issuance/journal belongs to
+slice 4. No production DNS writes or guest activation were performed here.
 
 - Reuse the workstation Cloudflare SDK/account-token issuer and atomic KDBX writer.
   Planned token path:
