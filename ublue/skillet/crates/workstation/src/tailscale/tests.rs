@@ -5,9 +5,10 @@ use super::{
 
 #[test]
 fn guest_status_addresses_require_running_backend_and_filter_invalid_values() {
-    assert!(status_addresses(br#"{"BackendState":"NeedsLogin"}"#)
-        .expect("waiting state")
-        .is_empty());
+    assert_eq!(
+        status_addresses(br#"{"BackendState":"NeedsLogin"}"#).expect("waiting state"),
+        std::collections::BTreeSet::<String>::new()
+    );
     assert_eq!(
         status_addresses(
             br#"{"BackendState":"Running","Self":{"TailscaleIPs":["100.64.0.10","fd7a:115c:a1e0::10","bad"]}}"#

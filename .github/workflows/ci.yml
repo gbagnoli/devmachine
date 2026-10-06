@@ -52,7 +52,10 @@ jobs:
                -o -name test-vm -o -name test-vm-ready -o -name virsh -o -name virt-install \
                -o -name setup-llama-server -o -name update-llama \) \
             -not -path './.git/*' -not -path './.venv/*' -not -path './berks-cookbooks/*' \
-            -not -path '*/target/*' -exec shellcheck -x {} +
+            -not -path '*/target/*' -not -path './ublue/llama/files/update-llama' \
+            -exec shellcheck -x {} +
+          # This desktop helper intentionally ignores a failed best-effort stop.
+          shellcheck -x --exclude=SC2015 ublue/llama/files/update-llama
 
   skillet-checks:
     runs-on: ubuntu-latest

@@ -496,7 +496,7 @@ fn disposable_cloudflare_journal_keeps_issued_token_after_dns_failure() {
     assert_eq!(provider.issued.get(), 1);
     let ownership = read_ownership(run.path());
     assert!(ownership.token_id.is_some());
-    assert!(ownership.record_ids.is_empty());
+    assert_eq!(ownership.record_ids, Vec::<String>::new());
 }
 
 #[test]

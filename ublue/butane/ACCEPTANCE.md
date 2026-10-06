@@ -1,5 +1,27 @@
 # Clamps VM acceptance log
 
+## CI lint recovery, 2026-10-06
+
+- [CI run 37440317671](https://github.com/gbagnoli/devmachine/actions/runs/37440317671)
+  at `c8f5d7e` failed strict Rust 1.99 Clippy's `assert_is_empty` lint and
+  ShellCheck SC2015 on the desktop llama helper's intentional best-effort stop.
+  Replaced affected collection assertions with equality assertions that expose
+  actual values on failure. The workflow excludes only SC2015 for that helper
+  and still runs its other ShellCheck checks; desktop runtime files are unchanged.
+- After the user updated local Rust to 1.99, passed the musl-target commands
+  `cargo fmt --all -- --check`,
+  `cargo clippy --workspace --all-targets --offline -- -D warnings`,
+  `cargo test --workspace --all-targets --offline`, and
+  `cargo run --bin skillet -- test run beezelbot --phase base --image fedora:latest`.
+  Used the existing cross compiler on PATH and existing Cargo build cache.
+  The Fedora container applied successfully twice without repeat service actions
+  and was removed afterward. The complete workspace suite, including provider
+  HTTP fixtures, passed outside the sandbox's localhost-listener restrictions.
+- The exact updated workflow ShellCheck command and
+  `bash ublue/butane/tests/bootstrap.sh` passed. Remote CI must rerun after push;
+  Syncthing live VM acceptance remains parked. No vault/provider/VM contact was
+  required by these local checks.
+
 ## Migration documentation audit, 2026-10-06
 
 - Reconciled the refactor/migration status against current source and recorded

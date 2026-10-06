@@ -11,7 +11,7 @@ fn stdin_and_large_output_are_memory_backed_and_do_not_deadlock() {
     .unwrap();
     assert!(output.status.success());
     assert_eq!(output.stdout, input);
-    assert!(output.stderr.is_empty());
+    assert_eq!(output.stderr, Vec::<u8>::new());
 }
 
 #[test]

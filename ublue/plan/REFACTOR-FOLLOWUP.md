@@ -9,11 +9,12 @@ Podman user-namespace API. Its live application acceptance is parked until
 Flatpak libvirt access returns; then rerun named-VM apply, repeat-apply, and
 reboot acceptance. Remote CI evidence remains pending.
 
-Latest ownership-fix checks: formatting, strict workspace Clippy, and the
-Syncthing/host-profile/Podman tests passed using the native GNU target. The full
-workspace run hit 10 provider-fixture failures because this sandbox forbids
-local HTTP listener sockets. Earlier successful workspace runs remain evidence;
-the latest restricted run is not a new full-suite pass.
+Latest local checks, 2026-10-06: musl formatting, strict workspace Clippy,
+all-target workspace tests, Fedora base/repeat-apply integration, ShellCheck,
+and bootstrap regressions passed under Rust 1.99. Checks ran outside the sandbox
+restrictions that previously blocked provider HTTP fixtures. GitHub's last run
+failed Rust 1.99 collection-assertion lints and an intentional desktop helper's
+ShellCheck warning; fixes are verified locally and await a new remote run.
 
 ## Progress
 

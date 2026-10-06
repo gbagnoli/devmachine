@@ -16,7 +16,7 @@ fn boot_expectations_are_profile_inputs_and_unknown_profiles_are_refused() {
     assert_eq!(clamps.signed_image, "ghcr.io/gbagnoli/ucore-clamps");
     assert_eq!(clamps.masked_units, ["systemd-resolved.service"]);
     let other = super::boot_policy_for_host("beezelbot").unwrap();
-    assert!(other.masked_units.is_empty());
+    assert_eq!(other.masked_units, [] as [&str; 0]);
     assert!(super::boot_policy_for_host("clamps-test-smoke").is_none());
     assert!(super::boot_policy_for_host("unknown").is_none());
 }
@@ -106,7 +106,7 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
         beezelbot.signed_image,
         Some("ghcr.io/gbagnoli/ucore-beezelbot")
     );
-    assert!(beezelbot.masked_units.is_empty());
+    assert_eq!(beezelbot.masked_units, [] as [&str; 0]);
     assert!(beezelbot.requires_data_mount);
     assert!(!beezelbot.requires_pihole_dns_listener_policy());
     assert_eq!(
@@ -127,9 +127,15 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
 #[test]
 fn agent_baseline_declares_no_ui_or_credentials_and_unknown_full_profiles_fail() {
     let baseline = super::profile_for_name("agent").unwrap();
-    assert!(baseline.services.is_empty());
-    assert!(baseline.ui_services().is_empty());
-    assert!(baseline.credential_consumers().is_empty());
+    assert_eq!(baseline.services, Vec::<HostService>::new());
+    assert_eq!(
+        baseline.ui_services(),
+        Vec::<skillet_caddy::UiService>::new()
+    );
+    assert_eq!(
+        baseline.credential_consumers(),
+        Vec::<super::CredentialConsumer>::new()
+    );
     assert!(super::ui_config_for_host("agent").is_none());
     let system = MockSystem::new();
     let files = LocalFileResource::new();
@@ -147,10 +153,9 @@ fn agent_baseline_declares_no_ui_or_credentials_and_unknown_full_profiles_fail()
 
 #[test]
 fn credential_values_are_selected_by_host_and_apply_phase() {
-    assert!(
-        super::credentials_for_phase("clamps", super::HostApplyPhase::Base)
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        super::credentials_for_phase("clamps", super::HostApplyPhase::Base).unwrap(),
+        Vec::<&str>::new()
     );
     assert_eq!(
         super::credentials_for_phase("clamps", super::HostApplyPhase::Full).unwrap(),
@@ -166,10 +171,9 @@ fn credential_values_are_selected_by_host_and_apply_phase() {
             super::CLOUDFLARE_ACME_TOKEN_CREDENTIAL
         ]
     );
-    assert!(
-        super::credentials_for_phase("beezelbot", super::HostApplyPhase::Full)
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        super::credentials_for_phase("beezelbot", super::HostApplyPhase::Full).unwrap(),
+        Vec::<&str>::new()
     );
     assert!(super::credentials_for_phase("unknown", super::HostApplyPhase::Base).is_err());
 }
@@ -188,7 +192,7 @@ fn host_ui_declarations_include_only_the_services_each_host_runs() {
     assert_eq!(clamps.network_name, "clamps");
     assert_eq!(clamps.services[0].upstream, "pihole");
     assert_eq!(clamps.services[0].port, 8088);
-    assert!(clamps.services[0].aliases.is_empty());
+    assert_eq!(clamps.services[0].aliases, Vec::<String>::new());
     assert_eq!(clamps.services[1].upstream, "syncthing");
     assert_eq!(clamps.services[1].port, 8384);
     assert_eq!(clamps.services[1].aliases, ["sync.{host}"]);
@@ -351,7 +355,10 @@ fn a_credential_service_remains_eligible_when_its_ui_is_not_exposed() {
             ui: None,
         }],
     };
-    assert!(profile.ui_services().is_empty());
+    assert_eq!(
+        profile.ui_services(),
+        Vec::<skillet_caddy::UiService>::new()
+    );
     assert_eq!(
         profile.credential_consumers(),
         [super::CredentialConsumer {
