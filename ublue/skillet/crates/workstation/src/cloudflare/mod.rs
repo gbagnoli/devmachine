@@ -379,6 +379,79 @@ impl Cloudflare {
         Ok(records)
     }
 
+    /// Return only records carrying this DDNS instance marker at its exact
+    /// pre-journaled names. Any marker outside that set is an ownership error.
+    pub fn list_owned_ddns_records(
+        &self,
+        token: &str,
+        zone_id: &str,
+        marker: &str,
+        names: &[String],
+    ) -> Result<Vec<RecordRef>> {
+        validate_zone_id(zone_id)?;
+        if marker.is_empty() || names.is_empty() {
+            return Err(CloudflareError::Invalid(
+                "invalid DDNS ownership scope".into(),
+            ));
+        }
+        let names = names
+            .iter()
+            .map(|name| name.to_ascii_lowercase())
+            .collect::<BTreeSet<_>>();
+        let mut owned = Vec::new();
+        for record in self.list_records(token, zone_id)? {
+            if record.comment.as_deref() != Some(marker) {
+                continue;
+            }
+            if record.record_type != "A" || !names.contains(&record.name.to_ascii_lowercase()) {
+                return Err(CloudflareError::Invalid(
+                    "DDNS ownership marker appears outside the recorded A-record names".into(),
+                ));
+            }
+            owned.push(record);
+        }
+        Ok(owned)
+    }
+
+    /// Remove only exact test-owned DDNS records after checking both the
+    /// caller's allowlist and the immutable record IDs captured by the journal.
+    pub fn remove_owned_ddns_records(
+        &self,
+        token: &str,
+        zone_id: &str,
+        marker: &str,
+        names: &[String],
+        recorded_ids: &[String],
+    ) -> Result<()> {
+        let owned = self.list_owned_ddns_records(token, zone_id, marker, names)?;
+        let current = self.list_records(token, zone_id)?;
+        for record in &owned {
+            if !recorded_ids.is_empty() && !recorded_ids.contains(&record.id) {
+                return Err(CloudflareError::Invalid(
+                    "test DDNS record identity changed; refusing cleanup".into(),
+                ));
+            }
+        }
+        for id in recorded_ids {
+            if let Some(record) = current.iter().find(|record| &record.id == id) {
+                if record.comment.as_deref() != Some(marker)
+                    || record.record_type != "A"
+                    || !names
+                        .iter()
+                        .any(|name| name.eq_ignore_ascii_case(&record.name))
+                {
+                    return Err(CloudflareError::Invalid(
+                        "journaled DDNS record no longer matches its recorded owner".into(),
+                    ));
+                }
+            }
+        }
+        for record in owned {
+            self.delete_record(token, zone_id, &record.id)?;
+        }
+        Ok(())
+    }
+
     fn create_record(
         &self,
         token: &str,

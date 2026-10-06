@@ -417,6 +417,36 @@ fn dns_cleanup_retry_finishes_after_a_partial_delete_failure() {
     server.join().expect("server thread");
 }
 
+#[test]
+fn ddns_cleanup_refuses_an_unjournaled_owned_record_before_deleting() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+    let address = listener.local_addr().expect("address");
+    let server = thread::spawn(move || {
+        let records = json!([
+            {"id":"11111111111111111111111111111111", "name":"host.example.test", "type":"A", "content":"203.0.113.10", "comment":"skillet-ddns:test:clamps-ddns"},
+            {"id":"22222222222222222222222222222222", "name":"host.example.test", "type":"A", "content":"203.0.113.11", "comment":"skillet-ddns:test:clamps-ddns"}
+        ]);
+        for _ in 0..2 {
+            let (mut stream, _) = listener.accept().expect("client");
+            let request = read_request(&mut stream);
+            assert!(request.starts_with("GET /client/v4/zones/"));
+            send_json(&mut stream, 200, &json!({"result": records}));
+        }
+    });
+    let api = Cloudflare::with_base(&format!("http://{address}/client/v4/"));
+    let error = api
+        .remove_owned_ddns_records(
+            "child-token",
+            "0123456789abcdef0123456789abcdef",
+            "skillet-ddns:test:clamps-ddns",
+            &["host.example.test".into()],
+            &["11111111111111111111111111111111".into()],
+        )
+        .expect_err("unrecorded duplicate must prevent cleanup");
+    assert!(error.to_string().contains("identity changed"));
+    server.join().expect("server thread");
+}
+
 fn send_json(stream: &mut std::net::TcpStream, status: u16, value: &Value) {
     let success = (200..300).contains(&status);
     let body = json!({

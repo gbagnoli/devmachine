@@ -68,6 +68,42 @@ pub struct CloudflareVmOwnership {
     pub record_ids: Vec<String>,
 }
 
+/// Ownership for public DDNS records created by one disposable VM.
+/// The configured names are private; this file remains mode 0600 under runs/.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct DdnsVmOwnership {
+    pub identity: ProvisioningIdentity,
+    pub zone_id: String,
+    pub marker: String,
+    pub token_name: String,
+    pub token_id: Option<String>,
+    pub expires_on: Option<String>,
+    pub record_names: Vec<String>,
+    #[serde(default)]
+    pub record_ids: Vec<String>,
+    pub cleanup_token_name: String,
+    pub cleanup_token_id: Option<String>,
+}
+
+pub fn save_ddns_ownership(
+    path: &Path,
+    ownership: &DdnsVmOwnership,
+) -> Result<(), ProvisioningStateError> {
+    write_json_atomically(path, ownership)
+}
+
+pub fn load_ddns_ownership(path: &Path) -> Result<DdnsVmOwnership, ProvisioningStateError> {
+    read_json(path)
+}
+
+pub fn ddns_ownership_exists(path: &Path) -> Result<bool, ProvisioningStateError> {
+    regular_file_exists(path, "DDNS ownership state must be a regular file")
+}
+
+pub fn remove_ddns_ownership(path: &Path) -> Result<(), ProvisioningStateError> {
+    remove_regular_file(path, "DDNS ownership state must be a regular file")
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 struct TailscaleVmOwnership {
     identity: ProvisioningIdentity,
