@@ -233,6 +233,9 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
             args.hostname
         ));
     }
+    if args.with_ddns && !profile.supports_service("ddns") {
+        return Err(anyhow!("host {} does not declare DDNS", args.hostname));
+    }
     let butane = butane_root()?;
     let run_identity = RunIdentity::new(&args.hostname, &args.instance)?;
     let store = ManifestStore::new(&butane.join("runs"), skillet_vm::current_uid())?;
@@ -279,6 +282,9 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     if args.with_ui {
         provision_vm_ui(args, &run_dir, &transport, &mut vault, &record)?;
     }
+    if args.with_ddns {
+        provision_vm_ddns(args, &run_dir, &transport, &mut vault)?;
+    }
     provisioning_state::remove_tailscale_pending(&run_dir)?;
     println!("Tailscale connected VM {expected_hostname}");
     Ok(())
@@ -293,14 +299,19 @@ pub(super) fn remove_vm_external_resources(args: &VmDestroyArgs, run: &VmRun) ->
     let butane = butane_root()?;
     let run_dir = butane.join("runs").join(run.identity.domain_name());
     let cloudflare_path = run_dir.join("cloudflare.json");
+    let ddns_path = run_dir.join("ddns.json");
     let cloudflare_exists = provisioning_state::cloudflare_ownership_exists(&cloudflare_path)?;
+    let ddns_exists = provisioning_state::ddns_ownership_exists(&ddns_path)?;
     let tailscale_pending = provisioning_state::tailscale_pending_exists(&run_dir)?;
     let tailscale_record = provisioning_state::tailscale_record_exists(&run_dir)?;
-    if !tailscale_pending && !tailscale_record && !cloudflare_exists {
+    if !tailscale_pending && !tailscale_record && !cloudflare_exists && !ddns_exists {
         return Ok(());
     }
     if cloudflare_exists {
         cleanup_vm_cloudflare(args, &cloudflare_path)?;
+    }
+    if ddns_exists {
+        cleanup_vm_ddns(args, &ddns_path)?;
     }
     if !provisioning_state::tailscale_pending_exists(&run_dir)?
         && !provisioning_state::tailscale_record_exists(&run_dir)?
@@ -376,6 +387,78 @@ fn provision_vm_ui(
         guest,
         std::time::Duration::from_mins(1),
         std::time::Duration::from_secs(2),
+    )?;
+    Ok(())
+}
+
+fn provision_vm_ddns(
+    args: &VmProvisionArgs,
+    run_dir: &Path,
+    guest: &impl GuestTransport,
+    vault: &mut Vault,
+) -> Result<()> {
+    let policy = UiEnvironmentName::Test.policy();
+    let zone_path = policy.cloudflare_zone_entry();
+    let zone_id = vault
+        .get(&zone_path)?
+        .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
+    let config_path = format!(
+        "skillet/environments/{}/hosts/{}/cloudflare/ddns-config",
+        policy.vault_name(),
+        args.hostname
+    );
+    let config = vault
+        .get(&config_path)?
+        .ok_or_else(|| anyhow!("KeePassXC DDNS config is missing: {config_path}"))?;
+    let creator = vault
+        .get("skillet/cloudflare/token-creator")?
+        .ok_or_else(|| anyhow!("KeePassXC Cloudflare token creator is missing"))?;
+    let prefix = vault.get(&policy.ui_domain_entry())?;
+    let api = skillet_workstation::cloudflare::Cloudflare::new();
+    skillet_workstation::ddns_provisioning::provision_disposable_ddns(
+        &skillet_workstation::ddns_provisioning::DisposableDdnsRequest {
+            host: &args.hostname,
+            instance: &args.instance,
+            policy,
+            zone_id: zone_id.trim(),
+            relative_ui_domain: prefix.as_deref(),
+            config: &config,
+            creator_token: &creator,
+            run_directory: run_dir,
+        },
+        &api,
+        guest,
+        std::time::Duration::from_mins(5),
+        std::time::Duration::from_secs(5),
+    )?;
+    Ok(())
+}
+
+fn cleanup_vm_ddns(args: &VmDestroyArgs, metadata_path: &Path) -> Result<()> {
+    let policy = UiEnvironmentName::Test.policy();
+    let vault_path = args
+        .database
+        .clone()
+        .map_or_else(default_database_path, Ok)?;
+    let vault = Vault::open(&vault_path, args.key_file.as_deref())?;
+    let creator = vault
+        .get("skillet/cloudflare/token-creator")?
+        .ok_or_else(|| anyhow!("KeePassXC Cloudflare token creator is missing"))?;
+    let zone_path = policy.cloudflare_zone_entry();
+    let zone_id = vault
+        .get(&zone_path)?
+        .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
+    let api = skillet_workstation::cloudflare::Cloudflare::new();
+    skillet_workstation::ddns_provisioning::cleanup_disposable_ddns(
+        &skillet_workstation::ddns_provisioning::DisposableDdnsCleanup {
+            host: &args.hostname,
+            instance: &args.instance,
+            policy,
+            ownership_path: metadata_path,
+            configured_zone_id: zone_id.trim(),
+            creator_token: &creator,
+        },
+        &api,
     )?;
     Ok(())
 }

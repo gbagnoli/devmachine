@@ -45,6 +45,8 @@ struct Provider {
     revoked: Cell<usize>,
     records: Vec<RecordRef>,
     fail_revoke: bool,
+    owned_calls: Cell<usize>,
+    removed_records: Cell<usize>,
 }
 impl DdnsProvider for Provider {
     fn zone(&self, _token: &str, zone: &str) -> Result<Zone, CloudflareError> {
@@ -65,11 +67,13 @@ impl DdnsProvider for Provider {
         zone: &str,
         account: &str,
         name: &str,
+        lifetime: Option<std::time::Duration>,
     ) -> Result<IssuedToken, CloudflareError> {
         assert_eq!(creator, "dummy-master-token");
         assert_eq!(zone, ZONE);
         assert_eq!(account, ZONE);
         assert_eq!(name, "skillet:production:clamps:ddns");
+        assert_eq!(lifetime, None);
         self.issued.set(self.issued.get() + 1);
         Ok(IssuedToken {
             id: "dummy-id".into(),
@@ -78,13 +82,77 @@ impl DdnsProvider for Provider {
         })
     }
     fn revoke(&self, _creator: &str, _account: &str, id: &str) -> Result<(), CloudflareError> {
-        assert_eq!(id, "dummy-id");
+        assert!(id == "dummy-id" || id == "abcdefabcdefabcdefabcdefabcdefab");
         self.revoked.set(self.revoked.get() + 1);
         if self.fail_revoke {
             Err(CloudflareError::Invalid("revoke failed".into()))
         } else {
             Ok(())
         }
+    }
+
+    fn replace(
+        &self,
+        _creator: &str,
+        _zone: &str,
+        _account: &str,
+        name: &str,
+        lifetime: Option<std::time::Duration>,
+    ) -> Result<IssuedToken, CloudflareError> {
+        assert!(name.starts_with("skillet:test:clamps-") && name.contains(":ddns"));
+        assert!(lifetime.is_some());
+        self.issued.set(self.issued.get() + 1);
+        Ok(IssuedToken {
+            id: "abcdefabcdefabcdefabcdefabcdefab".into(),
+            value: "dummy-child-token".into(),
+            expires_on: Some("2030-01-01T00:00:00Z".into()),
+        })
+    }
+    fn owned_test_records(
+        &self,
+        _token: &str,
+        _zone: &str,
+        marker: &str,
+        names: &[String],
+    ) -> Result<Vec<RecordRef>, CloudflareError> {
+        let call = self.owned_calls.get();
+        self.owned_calls.set(call + 1);
+        if call == 0 {
+            return Ok(Vec::new());
+        }
+        Ok(names
+            .iter()
+            .map(|name| RecordRef {
+                id: "1234567890abcdef1234567890abcdef".into(),
+                name: name.clone(),
+                record_type: "A".into(),
+                content: "8.8.8.8".into(),
+                comment: Some(marker.into()),
+            })
+            .collect())
+    }
+    fn remove_test_records(
+        &self,
+        _token: &str,
+        _zone: &str,
+        marker: &str,
+        names: &[String],
+        ids: &[String],
+    ) -> Result<(), CloudflareError> {
+        assert!(marker.starts_with("skillet-ddns:test:"));
+        assert_ne!(ids.len(), 0);
+        assert_eq!(names.len(), ids.len());
+        self.removed_records.set(ids.len());
+        Ok(())
+    }
+    fn token_ids(
+        &self,
+        _creator: &str,
+        _account: &str,
+        name: &str,
+    ) -> Result<Vec<String>, CloudflareError> {
+        assert!(name.contains(":ddns"));
+        Ok(vec!["abcdefabcdefabcdefabcdefabcdefab".into()])
     }
 }
 
@@ -238,6 +306,89 @@ fn only_explicit_single_public_a_record_takeover_is_allowed() {
     ] {
         assert!(validate_takeover(&config, "example.com", MARKER, &records).is_err());
     }
+}
+
+#[test]
+fn disposable_provision_and_cleanup_are_journaled_and_identity_bound() {
+    let directory = tempfile::tempdir().unwrap();
+    let provider = Provider::default();
+    let guest = Guest::default();
+    let policy = ProvisioningPolicy::new(Environment::Test);
+    let request = DisposableDdnsRequest {
+        host: "clamps",
+        instance: "ddns-smoke",
+        policy,
+        zone_id: ZONE,
+        relative_ui_domain: Some("ui"),
+        config: CONFIG,
+        creator_token: "dummy-master-token",
+        run_directory: directory.path(),
+    };
+    provision_disposable_ddns(
+        &request,
+        &provider,
+        &guest,
+        std::time::Duration::ZERO,
+        std::time::Duration::ZERO,
+    )
+    .unwrap();
+    let path = directory.path().join("ddns.json");
+    let owner = crate::provisioning_state::load_ddns_ownership(&path).unwrap();
+    assert_eq!(owner.identity.host, "clamps");
+    assert_eq!(owner.identity.environment, "test");
+    assert_eq!(owner.record_names, ["edge.example.com"]);
+    assert_eq!(owner.record_ids, ["1234567890abcdef1234567890abcdef"]);
+    let cleanup = DisposableDdnsCleanup {
+        host: "clamps",
+        instance: "ddns-smoke",
+        policy,
+        ownership_path: &path,
+        configured_zone_id: ZONE,
+        creator_token: "dummy-master-token",
+    };
+    assert!(cleanup_disposable_ddns(&cleanup, &provider).unwrap());
+    assert_eq!(provider.removed_records.get(), 1);
+    assert!(!crate::provisioning_state::ddns_ownership_exists(&path).unwrap());
+    assert!(!cleanup_disposable_ddns(&cleanup, &provider).unwrap());
+}
+
+#[test]
+fn disposable_cleanup_refuses_identity_and_zone_mismatches_before_api_changes() {
+    let directory = tempfile::tempdir().unwrap();
+    let provider = Provider::default();
+    let policy = ProvisioningPolicy::new(Environment::Test);
+    let request = DisposableDdnsRequest {
+        host: "clamps",
+        instance: "ddns-smoke",
+        policy,
+        zone_id: ZONE,
+        relative_ui_domain: None,
+        config: CONFIG,
+        creator_token: "dummy-master-token",
+        run_directory: directory.path(),
+    };
+    provision_disposable_ddns(
+        &request,
+        &provider,
+        &Guest::default(),
+        std::time::Duration::ZERO,
+        std::time::Duration::ZERO,
+    )
+    .unwrap();
+    let path = directory.path().join("ddns.json");
+    let wrong = DisposableDdnsCleanup {
+        host: "clamps",
+        instance: "another",
+        policy,
+        ownership_path: &path,
+        configured_zone_id: ZONE,
+        creator_token: "dummy-master-token",
+    };
+    assert!(cleanup_disposable_ddns(&wrong, &provider).is_err());
+    assert_eq!(provider.removed_records.get(), 0);
+    assert!(!public_ipv4("100.64.0.2"));
+    assert!(!public_ipv4("192.0.2.1"));
+    assert!(public_ipv4("8.8.8.8"));
 }
 
 #[test]

@@ -184,6 +184,9 @@ struct VmProvisionArgs {
     /// Also provision private UI DNS, Caddy, and disposable Cloudflare credentials
     #[arg(long)]
     with_ui: bool,
+    /// Provision public DDNS records from test-environment `KeePassXC` config
+    #[arg(long)]
+    with_ddns: bool,
     #[arg(long)]
     database: Option<PathBuf>,
     #[arg(long)]

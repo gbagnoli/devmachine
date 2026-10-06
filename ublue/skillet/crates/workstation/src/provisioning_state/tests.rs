@@ -29,6 +29,33 @@ fn identity() -> ProvisioningIdentity {
 }
 
 #[test]
+fn ddns_ownership_journal_is_private_and_removable() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("ddns.json");
+    let owner = DdnsVmOwnership {
+        identity: identity(),
+        zone_id: "0123456789abcdef0123456789abcdef".into(),
+        marker: "skillet-ddns:test:host:instance".into(),
+        token_name: "skillet:test:host-instance:ddns".into(),
+        token_id: Some("abcdef0123456789abcdef0123456789".into()),
+        expires_on: Some("2030-01-01T00:00:00Z".into()),
+        record_names: vec!["edge.example.invalid".into()],
+        record_ids: vec!["abcdef0123456789abcdef0123456789".into()],
+        cleanup_token_name: "skillet:test:host-instance:ddns:cleanup".into(),
+        cleanup_token_id: None,
+    };
+    save_ddns_ownership(&path, &owner).unwrap();
+    assert_eq!(load_ddns_ownership(&path).unwrap(), owner);
+    assert_eq!(
+        fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+        PRIVATE_FILE_MODE
+    );
+    assert!(ddns_ownership_exists(&path).unwrap());
+    remove_ddns_ownership(&path).unwrap();
+    assert!(!ddns_ownership_exists(&path).unwrap());
+}
+
+#[test]
 fn cloudflare_ownership_is_private_atomic_json_state() {
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("cloudflare.json");
