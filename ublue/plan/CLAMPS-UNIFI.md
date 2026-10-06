@@ -59,9 +59,11 @@ for the controller's UI account.
    and device connectivity, and retain rupik plus an independent backup for
    rollback. Do not run two controllers against the same devices concurrently.
 
-Add routine CI coverage for caller opt-in, Quadlet rendering, data-mount
-dependency, and idempotent state. This coverage and the disposable VM runtime
-acceptance are pending. Record commands and results in `butane/ACCEPTANCE.md`.
+Routine tests already cover host-network Quadlet rendering, numeric data-root
+ownership, mount refusal, repeated apply, and preservation of existing files;
+the canonical profile selects UniFi for Clamps. Empty-controller runtime
+acceptance passed on 2026-10-03. Backup restore and production/device acceptance
+remain pending. Record new commands and results in `butane/ACCEPTANCE.md`.
 Device migration stays unverified until a backup restore or deliberate
 re-adoption succeeds.
 
