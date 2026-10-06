@@ -19,7 +19,7 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
             != skillet_workstation::provisioning_policy::Environment::Production
     {
         return Err(anyhow!(
-            "disposable DDNS is not enabled until record ownership and cleanup are implemented"
+            "test DDNS must be provisioned through an owned disposable VM"
         ));
     }
     let database = match &args.database {
@@ -83,21 +83,19 @@ fn deliver_ddns_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Resul
     let policy = args.environment.policy();
     if policy.environment() != skillet_workstation::provisioning_policy::Environment::Production {
         return Err(anyhow!(
-            "disposable DDNS is not enabled until record ownership and cleanup are implemented"
+            "test DDNS must be provisioned through an owned disposable VM"
         ));
     }
     let zone_path = policy.cloudflare_zone_entry();
     let zone_id = vault
         .get(&zone_path)?
         .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
-    let config_path = format!(
-        "skillet/environments/{}/hosts/{}/cloudflare/ddns-config",
+    let config = skillet_workstation::configuration_templates::render(
+        "ddns",
+        &args.hostname,
         policy.vault_name(),
-        args.hostname
-    );
-    let config = vault
-        .get(&config_path)?
-        .ok_or_else(|| anyhow!("KeePassXC DDNS config is missing: {config_path}"))?;
+        vault,
+    )?;
     let creator = vault
         .get("skillet/cloudflare/token-creator")?
         .ok_or_else(|| anyhow!("KeePassXC Cloudflare token creator is missing"))?;
@@ -402,14 +400,12 @@ fn provision_vm_ddns(
     let zone_id = vault
         .get(&zone_path)?
         .ok_or_else(|| anyhow!("KeePassXC Cloudflare zone entry is missing: {zone_path}"))?;
-    let config_path = format!(
-        "skillet/environments/{}/hosts/{}/cloudflare/ddns-config",
+    let config = skillet_workstation::configuration_templates::render(
+        "ddns",
+        &args.hostname,
         policy.vault_name(),
-        args.hostname
-    );
-    let config = vault
-        .get(&config_path)?
-        .ok_or_else(|| anyhow!("KeePassXC DDNS config is missing: {config_path}"))?;
+        vault,
+    )?;
     let creator = vault
         .get("skillet/cloudflare/token-creator")?
         .ok_or_else(|| anyhow!("KeePassXC Cloudflare token creator is missing"))?;

@@ -6,13 +6,14 @@ caller opt-in and private configuration supplied through Skillet credentials.
 This preserves the existing updater instead of introducing another guest
 Cloudflare API client. Guest convergence, production credential delivery, and
 journaled disposable token/record cleanup are implemented. Live disposable DNS
-acceptance remains pending the test-only private DDNS config entry.
+acceptance remains pending the test-only DDNS record-name entry.
 
 The host caller explicitly opts into the shared DDNS crate/service. Installing
 Skillet or configuring an environment zone does not enable DDNS. Reuse
 `skillet/environments/<environment>/dns/cloudflare-zone-id`; no separate DDNS
-zone entry is needed. Private record configuration remains in KeePassXC, rather
-than embedding production DNS names in the host binary.
+zone entry is needed. The public JSON policy is an embedded workstation
+configuration template. KeePassXC contains only each environment/host's
+relative DDNS record name; see the [configuration template design](configuration-templates.md).
 
 The DDNS container owns only its explicitly configured public-address records.
 The existing workstation UI lifecycle owns tailnet machine records and UI
@@ -43,8 +44,10 @@ registry auto-update from changing this evaluated contract.
 Its legacy API path reads one page of 100 A records; provisioning refuses a
 zone that would exceed that limit after adding the declared records.
 
-Private config is version 1, with relative `records` and explicit `proxied`
-booleans. `takeover_existing` defaults to false. Production preflight rejects
+The version 1 DDNS JSON template has relative `records` and explicit `proxied`
+booleans. Its `$secret` marker resolves the `ddns-dns-name` vault leaf, and
+`takeover_existing` defaults to false. A per-host template replaces the shared
+template completely. Production preflight rejects
 the whole UI namespace, duplicates, and incompatible records. Existing public
 A records need explicit takeover approval; records owned by other Skillet
 consumers cannot be adopted. The updater writes a distinct
@@ -66,6 +69,7 @@ Source contract: [upstream 2.2.0](https://github.com/timothymiller/cloudflare-dd
 Disposable tests use explicitly isolated record names and bounded credentials.
 Journal and clean only test-owned resources; disposal never removes retained
 production DDNS records. The first VM attempt was parked before Cloudflare
-mutation because the test `ddns-config` vault entry was absent. See the
+mutation because its then-required private JSON config entry was missing. Live
+acceptance now requires the test `ddns-dns-name` leaf. See the
 [implementation plan](../plan/CLAMPS-CLOUDFLARE-DDNS.md) and [token/DNS
 lifecycle](cloudflare-ui-lifecycle.md).

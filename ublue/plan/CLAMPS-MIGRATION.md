@@ -27,7 +27,7 @@ production/network acceptance, and remaining rebase/bootstrap checks stay open.
 The [source parity checklist](CLAMPS-PARITY.md) records retained behavior and
 deliberate changes. [Cloudflare DDNS](CLAMPS-CLOUDFLARE-DDNS.md) has its guest
 service, production delivery, and disposable ownership/cleanup implementation.
-Live disposable DNS acceptance awaits the private test config; production
+Live disposable DNS acceptance awaits the private test DDNS name entry; production
 cutover remains separate. Datadog is retained by user decision; its port and
 UniFi backup/restore are the next implementation milestones.
 
