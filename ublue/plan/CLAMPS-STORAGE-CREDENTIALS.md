@@ -28,8 +28,8 @@ permission and cross-invocation behavior were verified with a dummy key on
 2026-09-28. Credential persistence passed an updated signed image deployment
 and explicit digest-pinned rebase. Recovery after atomic credential install and
 full-apply failure passed; a disconnect during streaming or encryption remains
-untested. Production TPM assessment and Cloudflare creator migration remain
-open.
+untested. Production TPM assessment remains open. The Cloudflare creator uses
+the implemented KDBX/account-token path; DDNS is a separate planned consumer.
 
 ## Split into two small steps
 

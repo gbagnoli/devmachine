@@ -9,6 +9,12 @@ Podman user-namespace API. Its live application acceptance is parked until
 Flatpak libvirt access returns; then rerun named-VM apply, repeat-apply, and
 reboot acceptance. Remote CI evidence remains pending.
 
+Latest ownership-fix checks: formatting, strict workspace Clippy, and the
+Syncthing/host-profile/Podman tests passed using the native GNU target. The full
+workspace run hit 10 provider-fixture failures because this sandbox forbids
+local HTTP listener sockets. Earlier successful workspace runs remain evidence;
+the latest restricted run is not a new full-suite pass.
+
 ## Progress
 
 | Step | Implementation | Evidence still needed |

@@ -1,5 +1,23 @@
 # Clamps VM acceptance log
 
+## Migration documentation audit, 2026-10-06
+
+- Reconciled the refactor/migration status against current source and recorded
+  acceptance. Refactor code is committed; Syncthing ownership-fix VM acceptance
+  stays parked until Flatpak libvirt access returns. Remote CI remains pending.
+- Added the source-level Rupik parity checklist and DDNS implementation plan.
+  The active Chef path includes DDNS and Datadog. Chef's Tailscale exit-node
+  advertisement has no corresponding option in current Skillet composition.
+  The legacy NAT/second updater recipe is outside the default include path;
+  its effective live state remains unknown.
+- Recorded the user's decision to retain Datadog. DDNS remains planned;
+  Datadog port and isolated UniFi backup/restore follow it. No provider mutation,
+  guest operation, production data transfer, or new runtime acceptance occurred.
+- Prior ownership-fix validation passed formatting, GNU-target strict workspace
+  Clippy, and Syncthing/host-profile/Podman tests. The full workspace run had 10
+  provider-fixture failures (`Operation not permitted` creating local HTTP
+  listeners) in this sandbox. Do not treat that run as a full-suite pass.
+
 ## Interrupted reboot checkpoint recovery, 2026-10-05
 
 - Added `bash ../skillet/integration_tests/interrupted-reboot-recovery.sh HOST INSTANCE`

@@ -4,8 +4,10 @@ Prerequisite: complete [the Skillet refactoring roadmap](SKILLET-REFACTOR.md)
 before proceeding with the remaining feature milestones in this plan.
 Existing acceptance evidence and deferred tasks remain applicable.
 
-Status: remaining work, 2026-09-27. Skillet convergence and disposable VM
-bootstrap are implemented; their completed agent assignments have been removed.
+Status: reconciled against source and acceptance evidence, 2026-10-06.
+Refactor implementation is committed; Syncthing live validation is parked and
+remote CI evidence is pending. Parity auditing and DDNS planning proceed while
+that check is parked. Skillet convergence and disposable VM bootstrap exist.
 Runtime evidence and outstanding bootstrap checks are recorded in
 [ACCEPTANCE.md](../butane/ACCEPTANCE.md).
 
@@ -18,8 +20,14 @@ checks, temporary VM SSH keys, binary delivery, resolver configuration, signed
 bootstrap, user environment, exact KeePassXC reads, and encrypted Pi-hole
 credential delivery, and the shared Btrfs data layout. A dummy-credential
 Pi-hole container runs in the VM with data and Podman storage under
-`/var/lib/data`; service networking, live ACME, final disk selection, and
-post-provision rebase checks remain open.
+`/var/lib/data`. Shared service networking, test Cloudflare lifecycle, and
+staging ACME/HTTPS have passed named-VM acceptance. Final physical disk,
+production/network acceptance, and remaining rebase/bootstrap checks stay open.
+
+The [source parity checklist](CLAMPS-PARITY.md) records retained behavior and
+deliberate changes. The next missing service is
+[Cloudflare DDNS](CLAMPS-CLOUDFLARE-DDNS.md). Datadog is retained by user
+decision; its port and UniFi backup/restore follow the DDNS milestone.
 
 After the refactoring prerequisite: complete Pi-hole LAN acceptance and configure
 the actual custom DNS
@@ -116,13 +124,13 @@ Each row is a separate implementation and validation step. Adjust order for depe
 
 | Order | Capability | Behavior and state to preserve |
 | --- | --- | --- |
-| 1 | Syncthing (implemented; disposable VM service and repeat-apply checks passed) | Data, device identity, folder configuration, UID/GID, required ports |
+| 1 | Syncthing (implemented; ownership correction committed; live retry parked) | Data, device identity, folder configuration, UID/GID, required ports; production peer and state transfer remain |
 | 2 | btrbk (implemented and verified) | Follow the [btrbk milestone](CLAMPS-BTRBK.md): real Btrfs subvolume, hourly snapshots, Chef retention policy, and restore exercise. Local snapshots are not an independent backup. |
-| 3 | UniFi (implementation added; acceptance pending) | Follow the [UniFi port plan](CLAMPS-UNIFI.md): rootful host-network container for discovery/adoption, persistent data, and supported backup restore/version compatibility before cutover. No Caddy route. |
-| 4 | Tailscale (implemented; smoke enrollment and cleanup accepted 2026-09-30) | Host-network container, persistent state, KeePassXC OAuth client, one-use tagged key delivery, and smoke device cleanup are implemented. Production forwarding remains to validate. UI names use Cloudflare DNS-only records; Tailscale DNS management is not required. |
-| 5 | Private UI access with Caddy + ACME (implementation started) | Caddy's credential-gated Quadlet config proxies the Pi-hole and Syncthing UIs by bridge DNS name; Syncthing's host-published GUI port is removed. Next wire smoke-specific KeePassXC values, mint per-VM zone-scoped tokens and manage DNS-only A/AAAA records through the workstation Cloudflare token creator. Validate tailnet-only access, ACME staging, certificate persistence/renewal, record/token cleanup, repeated runs and interruption recovery. |
-| 6 | Cloudflare DDNS | Required records and token delivery; reconcile the legacy updater before enabling competing writers |
-| 7 | Monitoring and remaining host baseline | Explicit keep/drop decision for Datadog; required hardening, users, SSH/sudo, ET and WOL behavior |
+| 3 | UniFi (implemented; empty-controller/repeat-apply acceptance passed) | Follow the [UniFi port plan](CLAMPS-UNIFI.md): rootful host-network container, persistent data, and isolated backup restore/version compatibility before cutover. No Caddy route. |
+| 4 | Tailscale (implemented; smoke enrollment and cleanup accepted) | Host network, state, OAuth enrollment, and cleanup exist. Chef's exit-node advertisement is missing in the current declaration; add caller-controlled behavior and validate production forwarding. UI names use Cloudflare DNS-only records. |
+| 5 | Private UI access with Caddy + ACME (implemented; staging accepted) | Generic declarations/aliases, encrypted delivery, scoped account tokens, A/AAAA/CNAME reconciliation and cleanup exist. Staging ACME/HTTPS passed. Production renewal, real-client resolution and separate-network denial remain; see [UI plan](GENERIC-PRIVATE-UIS.md). |
+| 6 | Cloudflare DDNS (next service plan) | Follow [DDNS plan](CLAMPS-CLOUDFLARE-DDNS.md); public-address record ownership is separate from UI DNS; no competing production writer |
+| 7 | Datadog and remaining host baseline | Keep Datadog for now; port after DDNS. Audit hardening, users, SSH/sudo, ET and WOL targets against the [parity checklist](CLAMPS-PARITY.md) |
 
 For each service: inspect effective Chef inputs, settle its open decisions, add only needed Skillet support, migrate a copy of state, validate functionality and repeat convergence. Account for ARM-to-x86 application/image and data compatibility. Avoid activating duplicate production identities or DNS writers during testing.
 
@@ -152,7 +160,8 @@ Done when: all retained capabilities and data work on clamps, routine convergenc
   OS rebase acceptance. The disposable VM mount-failure and graphroot checks
   passed.
 - Credentials: production TPM/rebase policy and protection of Podman's on-disk copy; portable storage and delivery are decided in the secret design.
-- Services: actual DNS records, domains/routes, Tailscale enrollment, Nebula Sync, Datadog and legacy networking.
+- Services: actual DNS/DDNS records, retained cross-host routes, exit-node operation,
+  Nebula Sync, and legacy networking. Datadog retention is decided; its port is pending.
 - Cutover: address/identity transitions, outage window and rollback duration.
 
 ## Technical references

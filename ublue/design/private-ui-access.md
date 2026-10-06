@@ -74,8 +74,8 @@ planes. The names and tailnet IPs are public DNS data.
 ## Status and references
 
 The [Cloudflare ownership lifecycle](cloudflare-ui-lifecycle.md) now issues
-credentials automatically and cleans DNS after token expiry. Live ACME
-acceptance remains pending; no manually created VM token is required.
+credentials automatically and cleans owned DNS even when a disposable token has
+expired. Staging ACME acceptance passed; no manually created VM token is required.
 
 Host UI service declarations now drive a shared versioned Caddy payload.
 Provisioning derives `<service>.<host>.<ui-domain>` from the selected
@@ -98,9 +98,10 @@ on 2026-09-30. Caddy now has a generic Quadlet configuration for the UI
 services declared by the host, using bridge DNS, persistent certificate storage, Cloudflare
 DNS-01, and source-address restrictions for Tailscale's IPv4 and IPv6 ranges.
 Its hostname and token credentials are separate from normal full apply.
-Syncthing no longer publishes its GUI port on the host. Caddy, ACME staging,
-DNS record lifecycle, client reachability, certificate renewal, and interrupted
-recovery still need live VM acceptance.
+Syncthing no longer publishes its GUI port on the host. Staging Caddy/ACME and
+disposable token/DNS cleanup passed live acceptance. Real-client DNS/HTTPS,
+production renewal, and denial from a separate network remain open in the UI
+plan. The Syncthing ownership-fix runtime check is separately parked.
 
 References: [Tailscale DNS](https://tailscale.com/docs/reference/dns-in-tailscale/),
 [Cloudflare DNS-only records](https://developers.cloudflare.com/dns/proxy-status/),

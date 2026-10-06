@@ -1,10 +1,13 @@
 # Skillet refactoring prerequisite
 
-Status: reopened, 2026-10-05. The implementation follow-up and scripted
-interrupted-reboot recovery are complete. Repeat application acceptance
-exposed a Syncthing data ownership divergence after reboot, and remote CI
-evidence remains open. Track them in
-[the six-point follow-up](REFACTOR-FOLLOWUP.md) before resuming migrations.
+Status: implementation complete; validation gate remains open, 2026-10-06.
+The six follow-ups and scripted interrupted-reboot recovery are implemented.
+The Syncthing identity fix is committed as `43438e3`, CLI diagnostics as
+`126004f`. Its live apply/repeat/reboot check is PARKED until Flatpak libvirt
+access returns; remote CI evidence remains pending. Track these in
+[the six-point follow-up](REFACTOR-FOLLOWUP.md). Migration documentation,
+parity auditing, and DDNS planning proceed by user instruction while the check
+is parked; this does not constitute new runtime acceptance.
 Previous routine validation and fresh/retained VM runs remain evidence. The live
 legacy-manifest import and controlled interrupted-provisioning recovery are
 recorded in the [acceptance log](../butane/ACCEPTANCE.md#legacy-manifest-import-and-interrupted-provisioning-recovery-2026-10-05).
@@ -13,9 +16,9 @@ deferred from this refactor gate.
 
 The workstream table below records earlier acceptance, not closure of the
 follow-up acceptance gate. Lifecycle and fake-contract corrections are now
-implemented; workstream 7 still requires investigation of repeat application
-ownership after reboot and remote CI. Documentation reconciliation spans all
-workstreams.
+implemented; workstream 7 still requires live verification of the committed
+Syncthing ownership correction and remote CI. No additional refactor slice is
+currently planned.
 
 Read `../AGENTS.md`, `../skillet/AGENTS.md`, and
 [the architecture decision](../design/skillet-architecture.md) first. Then read
@@ -37,7 +40,7 @@ assignments to execute concurrently against the same interfaces.
 | 4 | [CLI/library and delivery boundaries](REFACTOR-04-CLI-PROVISIONING.md) | Interfaces from 1–3 | Delivery, rotation, interrupted retry, provider cleanup, and VM cleanup passed |
 | 5 | [Podman configuration and host policy](REFACTOR-05-PODMAN-MODEL.md) | Profiles/effect interfaces from 2–4 | Live service-network, identity, ownership, rotation, and repeat-apply checks passed |
 | 6 | [Convergence outcomes and recording](REFACTOR-06-CONVERGENCE-RECORDING.md) | Resource/configuration contracts from 3–5 | Fixture recovery/reboot and host repeat-apply passed |
-| 7 | [Test layers, fixtures, artifacts, and CI](REFACTOR-07-TEST-INFRASTRUCTURE.md) | Final interfaces from 1–6 | CI and fresh/retained VM acceptance passed |
+| 7 | [Test layers, fixtures, artifacts, and CI](REFACTOR-07-TEST-INFRASTRUCTURE.md) | Final interfaces from 1–6 | Implementation/fixture acceptance passed; Syncthing live retry parked; remote CI pending |
 
 Each earlier slice includes its own regression checks; testing does not wait
 for workstream 7. Workstream 1 creates the minimal VM/transport contracts used
