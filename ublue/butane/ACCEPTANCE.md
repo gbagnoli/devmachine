@@ -1,5 +1,54 @@
 # Clamps VM acceptance log
 
+## DDNS and Datadog named-VM acceptance, 2026-10-07
+
+- Used separate `clamps-test-monitoring`, instance `monitoring`, SSH port 2202,
+  on native `qemu:///session`. The retained `clamps-test-smoke` stayed running
+  on port 2201. KVM is available outside the sandbox. Tested working-tree
+  changes based on `bbfcae8`; the run's original capture preceded live fixes.
+- Shared Datadog API-key/public site change passed the six-required-entry vault
+  audit, formatting, pedantic workspace Clippy, all 299 workspace tests, and
+  Fedora base integration (two applies, no repeat service activation). The
+  actual Quadlet generator accepted the Agent and Autodiscovery fixtures.
+- Provisioned Pi-hole, Tailscale, DDNS and Agent using cached vault access and
+  the ownership-checked CLI. DDNS published one allowlisted, marked public A
+  record and verified publication on repeat provisioning and after reboot.
+  Disposable reprovisioning replaces its bounded token by design; it does not
+  establish token reuse. Ordinary repeat apply preserved all container IDs.
+- Live acceptance found and fixed three defects: socket-as-directory volume
+  convergence, HTML escaping of Quadlet label quotes, and replacement of the
+  Agent's built-in integration directory. Mounted the socket's parent and
+  individual integration directories; machine templates preserve literal text.
+- Confirmed Agent 7.84.1, VM hostname, SELinux enforcing, API key validation,
+  successful submissions with no submission errors, Btrfs/network/systemd/SSH
+  checks, default host/container checks, Syncthing HTTP and four process checks.
+  Configured checks had no current errors; Docker had an initial historical
+  error but no current error/warning. Agent listeners observed on loopback
+  5000/5001; no 8125/8126 listener was observed. Dashboard/graph verification
+  and detailed host metric-value comparison were not performed.
+- `skillet test smoke clamps --instance monitoring` passed all synthetic
+  fixture cases across reboot and readiness. It did not run `--with-applications`.
+  Readiness reinstalled original captured binaries/definitions; restored the
+  current build with `test vm update`, reconverged phases, then used an owned
+  direct reboot for the monitoring recovery check.
+- DDNS and Agent units and credential apply phases recovered successfully.
+  Host checks and submissions resumed. Application Autodiscovery did not
+  recover automatically: HTTP/process instances were absent despite running
+  labelled containers. A manual Agent restart restored one HTTP and four
+  process checks. Automatic application monitoring recovery remains failed.
+- eBPF network tracing remains failed: probe attachment reported “function not
+  implemented”, and fallback kprobe registration could not write read-only
+  tracing files. Secure Boot state was not verified. Do not claim eBPF parity;
+  the active container and successful host network check do not prove it.
+- `test vm destroy clamps monitoring` completed Cloudflare owned-record/token
+  cleanup, Tailscale cleanup and VM disposal. The run directory was removed;
+  native libvirt listed only retained `clamps-test-smoke`. No production
+  handover was attempted. Unrelated provider-resource preservation has offline
+  ownership coverage; a full live provider inventory comparison was not done.
+- Next: fix boot-time Autodiscovery reconciliation and review eBPF kernel,
+  seccomp and tracing access; see `../plan/CLAMPS-DATADOG.md`. Private ping,
+  richer application metrics and production acceptance remain separate work.
+
 ## Datadog offline validation, 2026-10-07
 
 - Approved rootful Agent recipe and delivery implemented; Clamps selects it
@@ -17,11 +66,13 @@
   secret rotation, and retry after a failed restart.
 - Official pinned image metadata reports Agent 7.84.1. The image's startup
   requires `DD_API_KEY`; native Podman environment-secret injection is used.
-- Live named-VM Agent acceptance is unverified: `/dev/kvm` is absent on this
-  workstation. Agent status/version, socket discovery, actual host/Btrfs
+- Live named-VM Agent acceptance was unverified at this stage. The absent
+  `/dev/kvm` observation was inside the sandbox; a later native workstation
+  check confirmed KVM and session libvirt are available. Agent status/version, socket discovery, actual host/Btrfs
   observations, systemd/SSH checks, eBPF under uCore Secure Boot/SELinux,
   listener exposure, reboot recovery, and Datadog ingestion still need tests
-  with test-environment API-key/site leaves. No vault unlock was attempted.
+  with the shared `skillet/datadog/api-key` and public template site configuration.
+  No vault unlock was attempted for this Agent validation.
 
 ## Disposable DDNS attempt and cleanup, 2026-10-06
 

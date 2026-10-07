@@ -3,14 +3,26 @@
 Status, 2026-10-07: user approved the rootful Podman runtime. Service-owned
 labels, optional Agent recipe, separate apply phase, templates, and shared
 encrypted delivery are implemented. No workstation agent was installed.
-Live uCore/telemetry acceptance remains pending; see `../butane/ACCEPTANCE.md`.
+Live startup/submission acceptance passed. Automatic application discovery after
+reboot and eBPF tracing remain failed; see `../butane/ACCEPTANCE.md`.
 
-Validated, 2026-10-07: 291 workspace tests, pedantic Clippy, formatting,
-Fedora base integration, eight bootstrap regressions, and actual Agent Quadlet
-generation passed. Live acceptance is blocked here by absent `/dev/kvm`.
-Next: supply test environment API-key/site leaves, then execute section 4's
-named-VM Agent checks on a workstation with KVM. Private ping targets and richer
-application metrics remain additional implementation work.
+Validated, 2026-10-07: formatting, pedantic Clippy, 299 workspace tests,
+Fedora base repeat apply, and named-VM Agent startup/delivery passed. The earlier
+missing KVM observation was sandbox visibility; native session libvirt works.
+`clamps-test-monitoring` confirmed Agent 7.84.1, SELinux enforcing, hostname,
+valid API key, successful submissions, default host/container checks, Syncthing
+HTTP health and four process instances, and no-op container identities.
+Live acceptance found and fixed socket-as-directory convergence, HTML escaping
+of Quadlet labels, and shadowing of built-in integrations. eBPF tracing remains
+failed: perf probe attachment returned “function not implemented” and fallback
+registration could not write to read-only tracing files. Review the required
+kernel/seccomp/tracing access before claiming network-monitoring parity.
+Named-VM smoke passed. Both optional services and submissions recover after
+reboot, but HTTP/process Autodiscovery does not: restarting the Agent restores
+one HTTP and four process checks. Fix boot discovery/reconciliation before
+claiming application monitoring recovery. Owned Cloudflare/Tailscale cleanup
+and VM disposal passed; evidence is in the acceptance log.
+Private ping targets and richer application metrics remain additional work.
 
 Read `../AGENTS.md`, `../skillet/AGENTS.md`, `../design/monitoring.md`,
 `../design/secrets.md`, and `../design/configuration-templates.md`.
@@ -49,7 +61,7 @@ Reviewable runtime boundary:
 
 - Rootful Agent with host PID/cgroup namespaces and host networking for
   container HTTP probes; no published Agent, DogStatsD, or APM ports.
-- Rootful `/run/podman/podman.sock` mounted read-only for supported Docker API
+- Rootful `/run/podman` directory mounted read-only, exposing `podman.sock`, for supported Docker API
   Autodiscovery. Enable/start `podman.socket` only for the opted-in agent. The
   socket can mutate containers despite the read-only bind mount.
 - Read-only `/proc`, `/sys/fs/cgroup`, `/run/systemd`, and host filesystem mounts
@@ -76,13 +88,13 @@ require Datadog credentials or start telemetry.
 Implemented: template, schema validation, native Podman environment secrets,
 separate credential-gated phase, production delivery, explicit disposable
 enrollment, and authoritative `env:prod`/`env:test` tags. The official image's
-startup requires `DD_API_KEY`; file-secret injection is not used. Live delivery
-and ingestion remain unverified.
+startup requires `DD_API_KEY`; file-secret injection is not used. Live encrypted delivery, API-key validation and successful submissions passed;
+account-side graph/dashboard acceptance remains separate.
 
-- Add a public `datadog` template with typed references to planned vault leaves
-  `skillet/environments/<environment>/datadog/api-key` and
-  `skillet/environments/<environment>/datadog/site`. Host overrides can select
-  a different API key and private tags. Do not require an application key for
+- Use the public `datadog` template with one typed secret reference to
+  `skillet/datadog/api-key`, shared by production and test. Site is ordinary
+  template configuration, defaulting to `datadoghq.com`. Host overrides can
+  select a different site and private tags. Do not require an application key for
   ingestion. Version and validate the rendered payload before delivery.
 - Add a shared `--phase datadog`, `skillet-datadog-apply.service`, and
   `datadog_config` encrypted credential. Production command:
@@ -90,15 +102,31 @@ and ingestion remain unverified.
 - Mount API keys as native Podman secrets, preferably files if supported by the
   pinned image; native secret environment injection is an explicit supported
   fallback. Never use literal `Environment=DD_API_KEY=...`.
-- Disposable enrollment is explicit through `--with-datadog`, with test-only
-  credentials and the actual VM hostname; record that remote telemetry/host
-  retention is distinct from VM/token cleanup. Do not reuse production keys
-  silently. Use dummy credentials and disabled networking for offline checks.
+- Disposable enrollment is explicit through `--with-datadog`, with the shared
+  key, `env:test` tagging, and the actual VM hostname; record that remote
+  telemetry/host retention is distinct from VM/token cleanup. Use dummy
+  credentials and disabled networking for offline checks.
 
 Exit: successful template validation, deferred activation, rotation, and missing
 credential handling; no vault/API requirement in routine CI.
 
 ## 4. Checks and acceptance
+
+Next implementation slice, from live acceptance:
+
+1. Fix container-label discovery at boot. Reproduce on a fresh named VM with
+   concurrent application startup; evaluate supported provider polling/event
+   reconciliation or explicit declared startup dependencies. Keep shared service
+   selection authoritative. Do not rely on a manual Agent restart or fixed sleep.
+   Add offline regressions for the selected policy; reboot must restore Syncthing
+   HTTP and each enabled process check without workstation intervention.
+2. Resolve eBPF probe attachment separately. Inspect effective seccomp, kernel
+   support and tracefs/debugfs access; use official Agent requirements and the
+   narrowest supported runtime policy. Test with real uCore SELinux and report
+   Secure Boot state explicitly. Do not claim parity from an active container or
+   host interface counters. Document any additional privileges before enabling
+   them; do not silently broaden the Agent boundary.
+
 
 - Agent owns shared host system/process/network/Btrfs metrics and localhost SSH
   TCP check. Aggregate systemd unit contributions from the canonical service
