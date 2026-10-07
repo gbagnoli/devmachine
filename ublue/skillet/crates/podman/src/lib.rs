@@ -48,7 +48,7 @@ pub enum PodmanError {
 }
 
 #[derive(Template)]
-#[template(path = "quadlet.container.j2")]
+#[template(path = "quadlet.container.j2", escape = "none")]
 struct QuadletTemplate {
     sections: BTreeMap<String, Vec<String>>,
 }
