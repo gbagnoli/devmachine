@@ -206,7 +206,7 @@ struct VmProvisionArgs {
     /// Provision public DDNS records from test-environment `KeePassXC` config
     #[arg(long)]
     with_ddns: bool,
-    /// Send test-environment Datadog credentials and enable test VM telemetry
+    /// Deliver the shared Datadog key and enable test-tagged VM telemetry
     #[arg(long)]
     with_datadog: bool,
     #[arg(long)]

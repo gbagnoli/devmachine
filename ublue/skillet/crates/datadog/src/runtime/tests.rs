@@ -48,6 +48,8 @@ fn rootful_secrets_and_host_observation_are_explicit() {
         "--cgroupns=host",
         "--security-opt=label=disable",
         "AddCapability=",
+        "Volume=/run/podman:/run/podman:ro",
+        "Environment=DOCKER_HOST=unix:///run/podman/podman.sock",
         "DD_HOSTNAME=clamps-test-monitoring",
         "Secret=datadog_api_key,type=env,target=DD_API_KEY",
         "/sys/kernel/debug",
@@ -55,7 +57,16 @@ fn rootful_secrets_and_host_observation_are_explicit() {
         assert!(quadlet.contains(expected), "missing {expected}: {quadlet}");
     }
     assert!(!quadlet.contains("PublishPort="));
+    assert!(quadlet.contains("/etc/datadog-agent/conf.d/btrfs.d:ro"));
+    assert!(!quadlet.contains("/etc/datadog-agent/conf.d:ro"));
     assert!(!quadlet.contains("Environment=DD_API_KEY="));
+    assert!(quadlet.contains("Environment=DD_SITE=datadoghq.eu"));
+    assert!(!quadlet.contains("Secret=datadog_site"));
+    assert!(!system
+        .podman_secrets
+        .lock()
+        .unwrap()
+        .contains("datadog_site"));
     assert!(!quadlet.contains(":Z"));
     assert!(state
         .values()

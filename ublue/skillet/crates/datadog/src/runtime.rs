@@ -158,11 +158,7 @@ where
         .chain(["service:host".into()])
         .collect::<Vec<_>>()
         .join(" ");
-    for (name, value) in [
-        ("datadog_api_key", input.api_key),
-        ("datadog_site", input.site),
-        ("datadog_tags", tags),
-    ] {
+    for (name, value) in [("datadog_api_key", input.api_key), ("datadog_tags", tags)] {
         system.ensure_podman_secret(name, &value)?;
         revisions.push(value.into_bytes());
     }
@@ -170,16 +166,25 @@ where
     if !system.service_is_active("podman.socket")? {
         system.service_start("podman.socket")?;
     }
-    skillet_podman::container(system, files, container_config(runtime, revisions))?;
+    skillet_podman::container(
+        system,
+        files,
+        container_config(runtime, revisions, &input.site),
+    )?;
     Ok(())
 }
 
-fn container_config(runtime: &RuntimeConfig<'_>, revisions: Vec<Vec<u8>>) -> PodmanConfig {
+fn container_config(
+    runtime: &RuntimeConfig<'_>,
+    revisions: Vec<Vec<u8>>,
+    site: &str,
+) -> PodmanConfig {
     let mut settings = vec![
         "ContainerName=datadog-agent".into(),
         "PodmanArgs=--pid=host --cgroupns=host --security-opt=label=disable".into(),
         "Environment=DOCKER_HOST=unix:///run/podman/podman.sock".into(),
         format!("Environment=DD_HOSTNAME={}", runtime.hostname),
+        format!("Environment=DD_SITE={site}"),
         "Environment=DD_PROCESS_AGENT_ENABLED=true".into(),
         "Environment=DD_APM_ENABLED=false".into(),
         "Environment=DD_LOGS_ENABLED=false".into(),
@@ -195,12 +200,11 @@ fn container_config(runtime: &RuntimeConfig<'_>, revisions: Vec<Vec<u8>>) -> Pod
         settings.push("Environment=DD_SYSTEM_PROBE_ENABLED=false".into());
     }
     let mut volumes = [
-        ("/run/podman/podman.sock", "/run/podman/podman.sock"),
+        ("/run/podman", "/run/podman"),
         ("/proc", "/host/proc"),
         ("/sys/fs/cgroup", "/host/sys/fs/cgroup"),
         ("/run/systemd", "/host/run/systemd"),
         ("/", "/host/root"),
-        (CONFIG_DIR, "/etc/datadog-agent/conf.d"),
     ]
     .into_iter()
     .map(|(host, container)| Volume {
@@ -211,6 +215,16 @@ fn container_config(runtime: &RuntimeConfig<'_>, revisions: Vec<Vec<u8>>) -> Pod
         host_ownership: None,
     })
     .collect::<Vec<_>>();
+    // Preserve the image's built-in integrations and auto-configuration.
+    for name in ["btrfs", "network", "tcp_check", "systemd"] {
+        volumes.push(Volume {
+            host_path: format!("{CONFIG_DIR}/{name}.d"),
+            container_path: format!("/etc/datadog-agent/conf.d/{name}.d"),
+            options: Some("ro".into()),
+            host_mode: None,
+            host_ownership: None,
+        });
+    }
     if runtime.network_monitoring {
         volumes.push(Volume {
             host_path: "/sys/kernel/debug".into(),
@@ -231,7 +245,6 @@ fn container_config(runtime: &RuntimeConfig<'_>, revisions: Vec<Vec<u8>>) -> Pod
         volumes,
         secrets: [
             ("datadog_api_key", "DD_API_KEY"),
-            ("datadog_site", "DD_SITE"),
             ("datadog_tags", "DD_TAGS"),
         ]
         .into_iter()

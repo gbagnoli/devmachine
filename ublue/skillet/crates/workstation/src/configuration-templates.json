@@ -5,11 +5,9 @@
       "default": {
         "version": 1,
         "api_key": {
-          "$secret": "skillet/environments/{environment}/datadog/api-key"
+          "$secret": "skillet/datadog/api-key"
         },
-        "site": {
-          "$secret": "skillet/environments/{environment}/datadog/site"
-        },
+        "site": "datadoghq.com",
         "tags": []
       },
       "hosts": {}

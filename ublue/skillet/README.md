@@ -8,14 +8,18 @@ credential-gated apply phase.
 
 ## Datadog
 
-For an opted-in host, create these KeePassXC entries (Password field):
+For an opted-in host, create this KeePassXC entry (Password field):
 
-- `skillet/environments/prod/datadog/api-key`: Datadog ingestion API key.
-- `skillet/environments/prod/datadog/site`: site such as `datadoghq.eu`.
+- `skillet/datadog/api-key`: shared Datadog ingestion API key.
 
-Use `test` instead of `prod` for disposable telemetry. No application key is
-required. The `datadog` configuration template supports host overrides and
-private tags using the shared configuration-template pattern.
+Production and test use the same key; telemetry is tagged `env:prod` or
+`env:test`. No application key is required. Site is public configuration in
+the `datadog` default template in
+[configuration-templates.json](crates/workstation/src/configuration-templates.json),
+defaulting to `datadoghq.com`. Change it there for another Datadog region;
+host overrides and private tags use the shared configuration-template pattern.
+Move any previous environment-specific key to the shared entry. Obsolete
+Datadog key/site vault paths are reported as unused; the checker never deletes them.
 
 Deliver using `skillet secret deliver <host> datadog` with the usual SSH
 identity, known-hosts, and target options. For an owned disposable VM, use

@@ -35,7 +35,8 @@ explicit caller policy and tested on uCore with its Secure Boot/SELinux settings
 The agent has a separate credential-gated apply phase. Installing Skillet
 or declaring a monitored service must not start telemetry without the Datadog
 capability and credentials. Use configuration templates to combine public
-policy with environment API-key/site leaves in KeePassXC. The application key
+policy with one shared `skillet/datadog/api-key` in KeePassXC. Site is public
+template configuration, defaulting to `datadoghq.com`. The application key
 used by Chef's handler is unnecessary for metric submission; future dashboard
 or monitor management would be a separate workstation responsibility. Private
 tags, endpoint credentials, and ping targets follow the existing encrypted
@@ -43,17 +44,27 @@ delivery path and must not appear in labels or recorded files.
 
 Host networking preserves host interface visibility and localhost SSH checks;
 Autodiscovery reaches container bridge addresses without published UI ports.
-The pinned official image requires `DD_API_KEY` at startup, so Podman injects
-API key, site, and private tags through native environment secrets. No literal
-secret-bearing `Environment=` directives are written. Production and test use
-different vault leaves; delivery adds an authoritative environment tag. Test
+The socket is accessed through a read-only bind of `/run/podman`; the volume
+helper converges directory roots, not socket files. Integration directories
+are mounted individually so the official image retains its default system and
+container checks. The pinned official image
+requires `DD_API_KEY` at startup, so Podman injects
+API key and private tags through native environment secrets; the public site
+uses an ordinary `Environment=DD_SITE` directive. No literal secret-bearing
+`Environment=` directives are written. Production and test use the shared key;
+delivery adds an authoritative environment tag. Test
 telemetry requires explicit `--with-datadog`; destroying a VM does not remove
 historical telemetry from Datadog.
 
 Implemented: labels for Syncthing HTTP health and process liveness for
 Pi-hole, DDNS, UniFi, Caddy, and Tailscale; Agent deployment/delivery and
-host/process/network/Btrfs/SSH/systemd configuration. Pending: live Agent
-acceptance, private ping targets, richer
+host/process/network/Btrfs/SSH/systemd configuration. Named-VM acceptance
+confirmed host/container checks, Autodiscovery, and successful submissions with
+SELinux enforcing. eBPF tracing remains unaccepted: the VM returned unsupported
+perf probe attachment and read-only fallback tracing errors. Review the required
+seccomp/kernel/tracing access separately before changing privileges. Pending:
+automatic post-reboot container-label discovery (Agent restart currently
+restores application checks), private ping targets, richer
 Syncthing metrics and Pi-hole's authenticated API integration. The existing
 Pi-hole community integration requires compatibility review against Pi-hole 6.
 

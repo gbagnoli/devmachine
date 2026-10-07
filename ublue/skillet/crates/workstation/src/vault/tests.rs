@@ -9,7 +9,7 @@ fn entry_inventory_returns_only_paths_without_password_fields() {
     let mut database = Database::new();
     super::create_entry(
         &mut database,
-        "skillet/environments/test/datadog/api-key",
+        "skillet/datadog/api-key",
         "private-do-not-display",
     )
     .unwrap();
@@ -28,10 +28,7 @@ fn entry_inventory_returns_only_paths_without_password_fields() {
     };
     assert_eq!(
         vault.entry_paths(),
-        [
-            "personal/account/password",
-            "skillet/environments/test/datadog/api-key"
-        ]
+        ["personal/account/password", "skillet/datadog/api-key"]
     );
 }
 

@@ -36,7 +36,8 @@ For DDNS, move `name` to `ddns-dns-name`; keep `proxied` and
 host override with one typed reference per record. Remove the obsolete whole
 document entry after the new template and leaf values have been validated.
 
-Datadog uses the same catalog to resolve environment-level `datadog/api-key`
-and `datadog/site` leaves, with optional host overrides/private tags. Delivery
+Datadog resolves one shared `skillet/datadog/api-key` for both environments.
+Its site is ordinary template configuration, defaulting to `datadoghq.com`,
+with optional host overrides/private tags. Delivery
 adds the selected environment tag and rejects a conflicting one; credentials
 alone never select the Agent capability.
