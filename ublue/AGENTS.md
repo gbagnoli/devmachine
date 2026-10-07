@@ -70,6 +70,9 @@
   workstation boundary; do not store whole configuration documents in the
   vault or interpolate secret text into configuration strings. Record template
   behavior and schema changes in the relevant design document.
+- Scope vault credentials to their actual provider/account needs; do not
+  require separate copies by environment when a shared credential is intended.
+  Keep public endpoint/site choices in configuration, with documented defaults.
 - Give each resource lifecycle one owner. Every public entry point must use
   the same ownership validation, recovery, and cleanup policy; transport
   adapters must not provide a shortcut that bypasses those guarantees.

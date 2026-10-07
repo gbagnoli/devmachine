@@ -30,8 +30,8 @@ fn manual_requirements_follow_profiles_environment_and_template_references() {
         &|_| Ok(None),
     )
     .unwrap();
-    assert_eq!(report.checked, 7);
-    assert_eq!(report.missing.len(), 7);
+    assert_eq!(report.checked, 6);
+    assert_eq!(report.missing.len(), 6);
     assert!(report.missing.iter().any(
         |entry| entry.path == "skillet/environments/test/hosts/clamps/cloudflare/ddns-dns-name"
     ));
@@ -76,8 +76,9 @@ fn invalid_and_empty_entries_are_reported_without_values_or_lookup_error_text() 
 #[test]
 fn unused_audit_keeps_both_environments_hosts_generated_and_legacy_paths() {
     let stored = [
-        "skillet/environments/prod/datadog/api-key",
+        "skillet/datadog/api-key",
         "skillet/environments/test/datadog/api-key",
+        "skillet/environments/test/datadog/site",
         "skillet/environments/test/hosts/clamps/cloudflare/ddns-dns-name",
         "skillet/environments/prod/hosts/beezelbot/cloudflare/acme-token",
         "skillet/environments/test/hosts/beezelbot/cloudflare/acme-token",
@@ -90,7 +91,9 @@ fn unused_audit_keeps_both_environments_hosts_generated_and_legacy_paths() {
     ]
     .map(str::to_string);
     let unused = unused_paths(&skillet_hosts::profile::declared_profiles(), &stored).unwrap();
-    assert_eq!(unused.len(), 3);
+    assert_eq!(unused.len(), 5);
+    assert!(unused.contains(&"skillet/environments/test/datadog/api-key".into()));
+    assert!(unused.contains(&"skillet/environments/test/datadog/site".into()));
     assert!(unused.contains(&"skillet/environments/dns/cloudflare-zone-id".into()));
     assert!(
         unused.contains(&"skillet/environments/prod/hosts/unknown/cloudflare/acme-token".into())
@@ -101,12 +104,9 @@ fn unused_audit_keeps_both_environments_hosts_generated_and_legacy_paths() {
 
 #[test]
 fn template_reference_discovery_is_vault_free() {
-    let paths = configuration_templates::secret_paths("datadog", "clamps", "test").unwrap();
-    assert_eq!(
-        paths,
-        [
-            "skillet/environments/test/datadog/api-key",
-            "skillet/environments/test/datadog/site"
-        ]
-    );
+    for environment in ["prod", "test"] {
+        let paths =
+            configuration_templates::secret_paths("datadog", "clamps", environment).unwrap();
+        assert_eq!(paths, ["skillet/datadog/api-key"]);
+    }
 }

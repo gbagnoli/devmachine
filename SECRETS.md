@@ -38,12 +38,11 @@ Shared inputs for Caddy and DDNS.
 
 ## Datadog
 
-Use separate test credentials for disposable telemetry. No application key required.
+One shared key serves production and test. No application key required. Site is public template configuration, defaulting to datadoghq.com. [Setup](ublue/skillet/README.md#datadog).
 
 | Entry | Status | Password value / how to obtain it |
 | --- | --- | --- |
-| `skillet/environments/<environment>/datadog/api-key` | Required | Create an ingestion API key in Datadog Organization Settings → API Keys. [Key guide](https://docs.datadoghq.com/account_management/api-app-keys/). |
-| `skillet/environments/<environment>/datadog/site` | Required | Enter your account's Datadog site, e.g. datadoghq.eu. [Setup](ublue/skillet/README.md#datadog). |
+| `skillet/datadog/api-key` | Required | Create an ingestion API key in Datadog Organization Settings → API Keys. [Key guide](https://docs.datadoghq.com/account_management/api-app-keys/). |
 
 ## DDNS
 
