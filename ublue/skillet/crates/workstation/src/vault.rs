@@ -49,6 +49,28 @@ pub struct Vault {
 }
 
 impl Vault {
+    /// Enumerate entry paths without accessing Password or Username values.
+    pub fn entry_paths(&self) -> Vec<String> {
+        let mut paths = Vec::new();
+        let mut pending = vec![(self.database.root().id(), String::new())];
+        while let Some((id, prefix)) = pending.pop() {
+            let Some(group) = self.database.group(id) else {
+                continue;
+            };
+            for entry in group.entry_ids().filter_map(|id| self.database.entry(id)) {
+                paths.push(format!(
+                    "{prefix}{}",
+                    entry.get_title().unwrap_or("<untitled>")
+                ));
+            }
+            for child in group.group_ids().filter_map(|id| self.database.group(id)) {
+                pending.push((child.id(), format!("{prefix}{}/", child.name)));
+            }
+        }
+        paths.sort();
+        paths
+    }
+
     pub fn default_path() -> Result<PathBuf, VaultError> {
         let xdg = std::env::var_os("XDG_DATA_HOME").map(PathBuf::from);
         let home = std::env::var_os("HOME").map(PathBuf::from);

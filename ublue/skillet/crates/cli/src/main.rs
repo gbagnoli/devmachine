@@ -6,6 +6,7 @@ use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 mod secret_delivery;
+mod secret_output;
 mod vm;
 
 #[derive(Parser, Debug)]
@@ -20,6 +21,7 @@ struct Args {
 #[derive(clap::Subcommand, Debug)]
 enum Commands {
     /// Manage host secrets backed by `KeePassXC`
+    #[command(name = "secrets", visible_alias = "secret")]
     Secret {
         #[command(subcommand)]
         command: SecretCommands,
@@ -45,12 +47,27 @@ enum Commands {
 
 #[derive(clap::Subcommand, Debug)]
 enum SecretCommands {
+    /// Audit required and unused entries without changing the vault or providers
+    Check(SecretCheckArgs),
     /// Deliver credentials for a configured host service
     Deliver(SecretDeliverArgs),
     /// Verify and cache the `KeePassXC` password for this session
     Unlock(SecretUnlockArgs),
     /// Remove the cached vault password from the kernel keyring
     Lock(SecretLockArgs),
+}
+
+#[derive(clap::Args, Debug)]
+struct SecretCheckArgs {
+    /// Check requirements for this host; defaults to all declared profiles
+    #[arg(long)]
+    host: Option<String>,
+    #[arg(long, value_enum, default_value_t = UiEnvironmentName::Production)]
+    environment: UiEnvironmentName,
+    #[arg(long)]
+    database: Option<PathBuf>,
+    #[arg(long)]
+    key_file: Option<PathBuf>,
 }
 
 #[derive(clap::Args, Debug)]
@@ -255,6 +272,9 @@ fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     match args.command {
+        Commands::Secret {
+            command: SecretCommands::Check(args),
+        } => secret_delivery::check_vault(&args)?,
         Commands::Secret {
             command: SecretCommands::Deliver(args),
         } => {

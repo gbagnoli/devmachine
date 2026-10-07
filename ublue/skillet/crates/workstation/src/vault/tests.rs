@@ -5,6 +5,37 @@ use super::{
 use keepass::{Database, DatabaseKey};
 
 #[test]
+fn entry_inventory_returns_only_paths_without_password_fields() {
+    let mut database = Database::new();
+    super::create_entry(
+        &mut database,
+        "skillet/environments/test/datadog/api-key",
+        "private-do-not-display",
+    )
+    .unwrap();
+    super::create_entry(
+        &mut database,
+        "personal/account/password",
+        "another-private-value",
+    )
+    .unwrap();
+    let vault = Vault {
+        path: std::path::PathBuf::new(),
+        original: Vec::new(),
+        database,
+        password: "unlock-value".into(),
+        password_cached: false,
+    };
+    assert_eq!(
+        vault.entry_paths(),
+        [
+            "personal/account/password",
+            "skillet/environments/test/datadog/api-key"
+        ]
+    );
+}
+
+#[test]
 fn exact_entry_lookup_preserves_whitespace_and_reports_absence() {
     let mut database = Database::new();
     let mut root = database.root_mut();

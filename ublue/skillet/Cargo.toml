@@ -22,6 +22,9 @@ members = [
 ]
 
 [workspace.dependencies]
+osc8 = "0.1"
+pulldown-cmark = { version = "0.13", default-features = false }
+supports-hyperlinks = "3.2"
 skillet_core = { path = "crates/core" }
 skillet_hardening = { path = "crates/hardening" }
 skillet_pihole = { path = "crates/pihole" }

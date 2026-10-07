@@ -2,6 +2,38 @@ use super::{validate_delivery_service, validate_tailscale_unit_config};
 use clap::Parser;
 
 #[test]
+fn plural_secrets_commands_parse_and_unknown_check_host_fails_before_unlock() {
+    for command in ["unlock", "lock", "check"] {
+        assert!(crate::Args::try_parse_from(["skillet", "secrets", command]).is_ok());
+        assert!(crate::Args::try_parse_from(["skillet", "secret", command]).is_ok());
+    }
+    let parsed = crate::Args::try_parse_from([
+        "skillet",
+        "secrets",
+        "check",
+        "--host",
+        "unknown",
+        "--environment",
+        "test",
+        "--database",
+        "/nonexistent/secrets.kdbx",
+        "--key-file",
+        "/nonexistent/key",
+    ])
+    .unwrap();
+    let crate::Commands::Secret {
+        command: crate::SecretCommands::Check(args),
+    } = parsed.command
+    else {
+        panic!("wrong command")
+    };
+    assert!(super::check_vault(&args)
+        .unwrap_err()
+        .to_string()
+        .contains("unknown host profile"));
+}
+
+#[test]
 fn ddns_commands_parse_and_test_delivery_refuses_before_vault_access() {
     let parsed = crate::Args::try_parse_from([
         "skillet",
