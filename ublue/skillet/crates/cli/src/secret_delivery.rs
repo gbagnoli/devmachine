@@ -1,4 +1,7 @@
-use super::{butane_root, SecretDeliverArgs, UiEnvironmentName, VmDestroyArgs, VmProvisionArgs};
+use super::{
+    butane_root, SecretCheckArgs, SecretDeliverArgs, UiEnvironmentName, VmDestroyArgs,
+    VmProvisionArgs,
+};
 use anyhow::{anyhow, Context, Result};
 use skillet_vm::{
     backend::{VirshBackend, VmBackend},
@@ -198,6 +201,38 @@ pub(super) fn lock_vault(path: Option<&Path>) -> Result<()> {
     // an explicit path to its target.
     skillet_workstation::vault::lock(Some(&path))?;
     println!("Vault unlock removed from the kernel keyring");
+    Ok(())
+}
+
+pub(super) fn check_vault(args: &SecretCheckArgs) -> Result<()> {
+    let all_profiles = skillet_hosts::profile::declared_profiles();
+    let profiles = if let Some(host) = &args.host {
+        vec![skillet_hosts::profile_for_name(host)
+            .ok_or_else(|| anyhow!("unknown host profile: {host}"))?]
+    } else {
+        all_profiles.clone()
+    };
+    let path = args
+        .database
+        .clone()
+        .map_or_else(default_database_path, Ok)?;
+    let vault = Vault::open(&path, args.key_file.as_deref())?;
+    let report =
+        skillet_workstation::secrets::check(&profiles, args.environment.policy(), &|path| {
+            vault.get(path)
+        })?;
+    let unused = skillet_workstation::secrets::unused_paths(&all_profiles, &vault.entry_paths())?;
+    let hyperlinks = std::io::IsTerminal::is_terminal(&std::io::stdout())
+        && supports_hyperlinks::on(supports_hyperlinks::Stream::Stdout);
+    print!(
+        "{}",
+        crate::secret_output::render(&report, &unused, hyperlinks)
+    );
+    if !report.missing.is_empty() {
+        return Err(anyhow!(
+            "required vault entries need attention; see instructions above"
+        ));
+    }
     Ok(())
 }
 

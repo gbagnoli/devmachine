@@ -57,6 +57,21 @@ pub fn render(
     })
 }
 
+/// Discover resolved references using the same parser and host override selection
+/// as delivery. No vault reads or secret values are required.
+pub fn secret_paths(
+    service: &str,
+    host: &str,
+    environment: &str,
+) -> Result<Vec<String>, ConfigurationTemplateError> {
+    let paths = std::cell::RefCell::new(std::collections::BTreeSet::new());
+    render_catalog(TEMPLATE_CATALOG, service, host, environment, &|path| {
+        paths.borrow_mut().insert(path.to_string());
+        Ok(Some("audit-placeholder".into()))
+    })?;
+    Ok(paths.into_inner().into_iter().collect())
+}
+
 fn render_catalog(
     catalog: &str,
     service: &str,

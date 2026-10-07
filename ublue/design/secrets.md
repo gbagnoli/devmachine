@@ -82,6 +82,16 @@ re-apply can reuse credentials already installed on that host.
 
 ## Configuration templates
 
+Secret auditing uses shared public requirement metadata to render the root
+checklist and supply missing-entry instructions. Required manual entries follow
+the selected canonical host capabilities and environment; template references
+come from the delivery resolver, including host overrides. Generated, optional,
+and planned entries are distinguished. A read-only inventory of entry paths
+finds unused Skillet entries across all declared hosts and both environments,
+retaining known migration paths. It never emits values, mutates the vault, or
+uses provider APIs; it checks presence rather than provider permissions or host
+recovery state. `secrets` is the canonical CLI group; `secret` remains an alias.
+
 Use the generic [configuration template design](configuration-templates.md)
 when service configuration combines clear policy with KeePassXC values. The
 DDNS template is the first implementation.

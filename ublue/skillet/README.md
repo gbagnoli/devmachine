@@ -169,6 +169,32 @@ that VM's host key beside the private key.
 
 ## Secret setup and delivery
 
+Start with the repository-root [secrets checklist](../../SECRETS.md) for the
+entries required by each module.
+
+The command group is `skillet secrets`; `skillet secret` remains an alias.
+
+```bash
+cargo run --release -p skillet -- secrets unlock
+cargo run --release -p skillet -- secrets check
+cargo run --release -p skillet -- secrets check --host clamps --environment test
+```
+
+`check` defaults to all declared host profiles and production requirements.
+It reads the vault, reports missing or invalid required Password fields with
+the checklist's setup instructions, and exits unsuccessfully if any are missing
+or invalid. Optional and automatically generated entries need not exist.
+Unused `skillet/` entries are reported against **all hosts and both prod/test**,
+regardless of the check filter; unrelated personal entries are excluded. Unused
+entries are advisory and are never deleted. No provider calls or credential
+generation occur. These commands accept `--database` and `--key-file` overrides.
+
+Audit output uses plain labels and setup instructions. Supporting terminals get
+clickable web links through OSC 8; pipes and unsupported terminals get readable
+link destinations. Repository-relative documentation links remain file paths.
+Set `FORCE_HYPERLINK=0` to disable links, or `FORCE_HYPERLINK=1` to override
+terminal detection when stdout is a terminal.
+
 Manage durable secrets in your Syncthing-synced KeePassXC database. Use group
 paths and entry titles from the [secret design](../design/secrets.md), storing
 each value in its Password field. The workstation prompts for the database

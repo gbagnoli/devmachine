@@ -11,6 +11,22 @@
 
 ## Design documentation
 
+- Maintain the repository-root [secrets checklist](../SECRETS.md) whenever a
+  vault entry or secret requirement is added, changed, or removed. Group entries
+  by module in alphabetical order. Keep explanations brief; include the exact
+  path, required/optional/generated status, where to obtain the value or a short
+  setup link, and whether it belongs in Username or Password. Distinguish planned
+  requirements from implemented ones; never include real credentials or private
+  identifiers.
+- The checklist and `secrets check` share
+  `skillet/crates/workstation/src/secret-requirements.json`. Update that metadata
+  and regenerate `SECRETS.md` with `cargo run -p skillet_workstation --example
+  secrets_documentation` from the Skillet workspace (redirect output to the
+  repository-root file). Keep template-reference coverage and the documentation
+  equality test passing. Required checks follow selected host capabilities;
+  unused-entry auditing must consider all declared hosts and both environments,
+  including optional/generated entries and retained migration readers.
+
 - Read the relevant documents in [design/](design/) before changing architecture
   or behavior they describe, including [secrets](design/secrets.md) and
   [smoke VM lifecycle](design/smoke-vms.md).

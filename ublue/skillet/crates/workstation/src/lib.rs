@@ -6,6 +6,7 @@ pub mod credential_delivery;
 pub mod ddns_provisioning;
 pub mod provisioning_policy;
 pub mod provisioning_state;
+pub mod secrets;
 pub mod tailscale;
 pub mod tailscale_enrollment;
 pub mod ui_provisioning;
