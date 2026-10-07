@@ -128,6 +128,7 @@ where
         vec![
             "AutoUpdate=registry".to_string(),
             "ContainerName=pihole".to_string(),
+            skillet_datadog::process("pihole", "pihole-FTL"),
             "Environment=FTLCONF_dns_listeningMode=ALL".to_string(),
             "Environment=FTLCONF_webserver_port=8088o,[::]:8088o".to_string(),
             "Environment=TZ=Europe/Madrid".to_string(),

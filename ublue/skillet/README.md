@@ -1,5 +1,28 @@
 # Skillet
 
+Monitoring composition and Datadog Agent acceptance are described
+in the [monitoring design](../design/monitoring.md) and
+[Datadog plan](../plan/CLAMPS-DATADOG.md). Container modules currently emit
+credential-free Autodiscovery labels. The optional Agent uses a separate
+credential-gated apply phase.
+
+## Datadog
+
+For an opted-in host, create these KeePassXC entries (Password field):
+
+- `skillet/environments/prod/datadog/api-key`: Datadog ingestion API key.
+- `skillet/environments/prod/datadog/site`: site such as `datadoghq.eu`.
+
+Use `test` instead of `prod` for disposable telemetry. No application key is
+required. The `datadog` configuration template supports host overrides and
+private tags using the shared configuration-template pattern.
+
+Deliver using `skillet secret deliver <host> datadog` with the usual SSH
+identity, known-hosts, and target options. For an owned disposable VM, use
+`skillet test vm provision <host> <instance> --with-datadog`. Unlock the vault
+through the existing `secret unlock` workflow. Ordinary provisioning and smoke
+do not enable Datadog. Historical telemetry remains after VM destruction.
+
 Skillet is a Rust tool for idempotent host configuration management.
 
 Design decisions: [secret storage and delivery](../design/secrets.md) and

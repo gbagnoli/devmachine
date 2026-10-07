@@ -296,6 +296,7 @@ where
         vec![
             "AutoUpdate=registry".to_string(),
             "ContainerName=caddy".to_string(),
+            skillet_datadog::process("caddy", "caddy run"),
         ],
     );
     container.insert("Service".to_string(), vec!["Restart=always".to_string()]);

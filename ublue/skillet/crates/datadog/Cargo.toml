@@ -1,5 +1,5 @@
 [package]
-name = "skillet_caddy"
+name = "skillet_datadog"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,6 @@ edition = "2021"
 workspace = true
 
 [dependencies]
-skillet_datadog.workspace = true
 skillet_core.workspace = true
 skillet_podman.workspace = true
 serde.workspace = true

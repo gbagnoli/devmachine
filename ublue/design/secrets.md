@@ -163,6 +163,14 @@ expiry, and owned record IDs in run metadata, without token values. Existing
 VM credentials survive re-apply and reboot. Expired tokens require explicit
 renewal; cleanup and recovery belong to the [VM lifecycle](smoke-vms.md).
 
+Optional Datadog delivery resolves environment `datadog/api-key` and
+`datadog/site` leaves through the shared templates. A single `datadog_config`
+credential uses the existing encrypted SSH/systemd path and independently
+activates the Agent phase. The Agent consumes native Podman environment secrets
+for API key, site, and tags; none are written into Quadlet `Environment=` values.
+Disposable delivery is explicit and uses test credentials plus an authoritative
+environment tag. VM destruction does not delete historical Datadog telemetry.
+
 References: [KeePassXC](https://keepassxc.org/docs/KeePassXC_GettingStarted),
 [Rust KDBX reader](https://github.com/sseemayer/keepass-rs),
 [Cloudflare token creation](https://developers.cloudflare.com/fundamentals/api/how-to/create-via-api/),

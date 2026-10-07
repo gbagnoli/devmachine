@@ -2348,6 +2348,7 @@ dependencies = [
  "serde",
  "serde_json",
  "skillet_core",
+ "skillet_datadog",
  "skillet_podman",
  "thiserror 1.0.69",
 ]
@@ -2385,12 +2386,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "skillet_datadog"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "skillet_core",
+ "skillet_podman",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "skillet_ddns"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
  "skillet_core",
+ "skillet_datadog",
  "skillet_podman",
  "thiserror 1.0.69",
 ]
@@ -2414,6 +2427,7 @@ dependencies = [
  "skillet_btrbk",
  "skillet_caddy",
  "skillet_core",
+ "skillet_datadog",
  "skillet_ddns",
  "skillet_hardening",
  "skillet_pihole",
@@ -2429,6 +2443,7 @@ version = "0.1.0"
 dependencies = [
  "askama",
  "skillet_core",
+ "skillet_datadog",
  "skillet_podman",
  "thiserror 1.0.69",
  "tracing",
@@ -2453,6 +2468,7 @@ name = "skillet_syncthing"
 version = "0.1.0"
 dependencies = [
  "skillet_core",
+ "skillet_datadog",
  "skillet_podman",
  "thiserror 1.0.69",
  "tracing",
@@ -2463,6 +2479,7 @@ name = "skillet_unifi"
 version = "0.1.0"
 dependencies = [
  "skillet_core",
+ "skillet_datadog",
  "skillet_podman",
  "thiserror 1.0.69",
  "tracing",
@@ -2500,6 +2517,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "skillet_caddy",
+ "skillet_datadog",
  "skillet_ddns",
  "skillet_hosts",
  "skillet_vm",
