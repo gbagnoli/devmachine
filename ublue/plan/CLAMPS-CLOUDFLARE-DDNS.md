@@ -1,15 +1,11 @@
 # Cloudflare DDNS port
 
-Status: slices 1–3 and disposable test provisioning/cleanup implementation
-complete, 2026-10-06. Shared DDNS crate, caller selection, separate apply
-phase/unit, validated rendered config, token use-or-create, production encrypted
-delivery, embedded templates with typed KeePassXC references, and journaled
-test-only DNS/token ownership are implemented. Routine
-and fake-provider tests cover cleanup. Live DDNS DNS ownership acceptance is
-parked until the test `ddns-dns-name` entry is configured. The disposable VM was
-created, reached signed boot, partially provisioned, and destroyed with its
-Tailscale identity removed; no DDNS token or DNS record was created. Syncthing
-live acceptance remains parked and remote CI evidence is pending.
+Status, 2026-10-07: implementation complete. The test-only DDNS leaf is now
+configured. `clamps-test-monitoring` activated the updater and published one
+journaled A record; repeated provisioning verified publication and renewed
+the bounded disposable token. Repeat apply preserved its container ID.
+Publication after reboot and owned disposal passed; see `../butane/ACCEPTANCE.md`. Production DNS
+handover and explicit credential-rotation acceptance remain separate work.
 
 Template review validation, 2026-10-06: six resolver tests cover environment
 paths, complete host overrides, nested references, safe JSON string escaping,
@@ -139,7 +135,8 @@ workstation issuer.
 
 ## 4. Disposable acceptance and production handover
 
-Implementation complete; live DNS acceptance remains parked. The disposable
+Implementation complete; live publication and repeat apply passed on the
+monitoring VM. Publication after reboot and owned disposal passed; see the acceptance log. The disposable
 provisioner persists VM/environment/zone identity, a unique test ownership
 marker, exact configured record names, token identity and cleanup-token state
 before provider mutation. It records created record IDs after verifying the
