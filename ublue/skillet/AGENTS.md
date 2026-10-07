@@ -86,6 +86,13 @@ tracks existing violations and their migration, not completed implementation.
 - Use a common ownership representation for named and numeric identities.
   Model application identity, host filesystem ownership, and namespace mapping
   separately. Existing numeric ownership must not require a named host account.
+- Render machine configuration with the target format's escaping rules;
+  disable HTML escaping for non-HTML templates. Test literal directives
+  through both the renderer and the actual downstream consumer.
+- Match bind-mount sources to the resource helper's convergence contract.
+  A helper that creates directories cannot manage a socket or regular-file
+  source; use an appropriate typed resource or mount its existing directory
+  without changing application-managed metadata. Verify this on the real runtime.
 - Give common configuration fields one authoritative representation. Reject
   conflicts between typed fields and extension directives; preserve ordering
   where repeated directives are semantically ordered. Global runtime policy

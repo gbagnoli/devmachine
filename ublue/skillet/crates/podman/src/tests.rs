@@ -569,3 +569,15 @@ fn filesystem_fake_enforces_object_types_and_injected_failures() {
         )
         .is_err());
 }
+
+#[test]
+fn quadlet_directives_preserve_configuration_quotes() {
+    let directive = r#"Label="example.config={\"name\":\"a&b\"}""#;
+    let template = QuadletTemplate {
+        sections: BTreeMap::from([("Container".into(), vec![directive.into()])]),
+    };
+    let quadlet = template.render().unwrap();
+    assert!(quadlet.lines().any(|line| line == directive));
+    assert!(!quadlet.contains("&quot;"));
+    assert!(!quadlet.contains("&amp;"));
+}
