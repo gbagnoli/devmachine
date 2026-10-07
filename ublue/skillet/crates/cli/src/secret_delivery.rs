@@ -14,12 +14,17 @@ use std::path::Path;
 
 pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
     validate_delivery_service(&args.hostname, &args.service)?;
-    if args.service == "ddns"
+    if matches!(args.service.as_str(), "ddns" | "datadog")
         && args.environment.policy().environment()
             != skillet_workstation::provisioning_policy::Environment::Production
     {
+        let service = if args.service == "ddns" {
+            "DDNS"
+        } else {
+            "Datadog"
+        };
         return Err(anyhow!(
-            "test DDNS must be provisioned through an owned disposable VM"
+            "test {service} must be provisioned through an owned disposable VM"
         ));
     }
     let database = match &args.database {
@@ -60,6 +65,15 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
         }
         "caddy" => deliver_caddy_from_vault(args, &mut vault),
         "ddns" => deliver_ddns_from_vault(args, &mut vault),
+        "datadog" => {
+            let transport = credential_transport(args)?;
+            deliver_datadog_from_vault(
+                &args.hostname,
+                args.environment.policy(),
+                &vault,
+                &transport,
+            )
+        }
         _ => Err(anyhow!("unsupported secret service {}", args.service)),
     }
 }
@@ -68,15 +82,33 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
     let profile = skillet_hosts::profile_for_name(hostname)
         .ok_or_else(|| anyhow!("unknown host profile: {hostname}"))?;
     match service {
-        "pihole" | "tailscale" | "ddns" if !profile.supports_service(service) => Err(anyhow!(
-            "host {hostname} does not declare {service} credential delivery"
-        )),
+        "pihole" | "tailscale" | "ddns" | "datadog" if !profile.supports_service(service) => Err(
+            anyhow!("host {hostname} does not declare {service} credential delivery"),
+        ),
         "caddy" if profile.ui_services().is_empty() => {
             Err(anyhow!("host {hostname} declares no UI services"))
         }
-        "pihole" | "tailscale" | "caddy" | "ddns" => Ok(profile),
+        "pihole" | "tailscale" | "caddy" | "ddns" | "datadog" => Ok(profile),
         unsupported => Err(anyhow!("unsupported secret service {unsupported}")),
     }
+}
+
+fn deliver_datadog_from_vault(
+    host: &str,
+    policy: skillet_workstation::provisioning_policy::ProvisioningPolicy,
+    vault: &Vault,
+    transport: &impl GuestTransport,
+) -> Result<()> {
+    let input = skillet_workstation::configuration_templates::render(
+        "datadog",
+        host,
+        policy.vault_name(),
+        vault,
+    )?;
+    skillet_workstation::credential_delivery::deliver_datadog_credential(
+        host, policy, &input, transport,
+    )?;
+    Ok(())
 }
 
 fn deliver_ddns_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Result<()> {
@@ -234,6 +266,9 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     if args.with_ddns && !profile.supports_service("ddns") {
         return Err(anyhow!("host {} does not declare DDNS", args.hostname));
     }
+    if args.with_datadog && !profile.supports_service("datadog") {
+        return Err(anyhow!("host {} does not declare Datadog", args.hostname));
+    }
     let butane = butane_root()?;
     let run_identity = RunIdentity::new(&args.hostname, &args.instance)?;
     let store = ManifestStore::new(&butane.join("runs"), skillet_vm::current_uid())?;
@@ -282,6 +317,9 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     }
     if args.with_ddns {
         provision_vm_ddns(args, &run_dir, &transport, &mut vault)?;
+    }
+    if args.with_datadog {
+        deliver_datadog_from_vault(&args.hostname, policy, &vault, &transport)?;
     }
     provisioning_state::remove_tailscale_pending(&run_dir)?;
     println!("Tailscale connected VM {expected_hostname}");

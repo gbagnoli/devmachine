@@ -35,3 +35,8 @@ For DDNS, move `name` to `ddns-dns-name`; keep `proxied` and
 `takeover_existing` in the template. Multi-record hosts can provide a complete
 host override with one typed reference per record. Remove the obsolete whole
 document entry after the new template and leaf values have been validated.
+
+Datadog uses the same catalog to resolve environment-level `datadog/api-key`
+and `datadog/site` leaves, with optional host overrides/private tags. Delivery
+adds the selected environment tag and rejects a conflicting one; credentials
+alone never select the Agent capability.

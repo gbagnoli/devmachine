@@ -11,6 +11,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum CredentialDeliveryError {
+    #[error(transparent)]
+    Datadog(#[from] skillet_datadog::DatadogError),
     #[error("invalid host credential delivery: {0}")]
     Invalid(String),
     #[error(transparent)]
@@ -21,6 +23,28 @@ pub enum CredentialDeliveryError {
     Guest(#[from] skillet_vm::Error),
     #[error("operating system randomness is unavailable: {0}")]
     Randomness(#[from] std::io::Error),
+}
+
+pub fn deliver_datadog_credential(
+    host: &str,
+    policy: ProvisioningPolicy,
+    input: &str,
+    guest: &impl GuestTransport,
+) -> Result<(), CredentialDeliveryError> {
+    let profile = skillet_hosts::profile_for_name(host)
+        .filter(|profile| profile.supports_service("datadog"))
+        .ok_or_else(|| CredentialDeliveryError::Invalid("host does not declare Datadog".into()))?;
+    let input =
+        skillet_datadog::Input::parse(input)?.render_for_environment(policy.vault_name())?;
+    credential::install(
+        guest,
+        profile.id.as_str(),
+        skillet_datadog::CREDENTIAL,
+        "skillet-datadog-apply.service",
+        credential::ActivationPolicy::StartConsumer,
+        input.as_bytes(),
+    )?;
+    Ok(())
 }
 
 pub trait ProductionAuthKeyProvider {

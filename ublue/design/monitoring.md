@@ -1,10 +1,64 @@
-# Fleet monitoring
+# Monitoring composition
 
-Decision, 2026-10-06: keep Datadog when migrating Rupik to Clamps. Preserve the
-required host, process, network, filesystem, and service checks after auditing
-the effective Chef configuration. Caddy replaces nginx, so nginx-specific
-monitoring cannot be copied unchanged.
+Keep Datadog for the Rupik-to-Clamps migration, retaining required host,
+process, network, filesystem, and service checks. Caddy replaces nginx, so its
+checks need a different implementation. Local metrics/Grafana remain a later
+discussion outside this migration.
 
-Local metrics and Grafana may be added later; that decision and implementation
-are outside the current migration. Datadog implementation is pending and follows
-the DDNS milestone. Keep credentials and private check targets in the vault.
+Decision, 2026-10-06: services own their monitoring declarations. Datadog is an
+optional host capability; the agent consumes the checks belonging to the
+services selected by the canonical host caller. Adding or removing a service
+must also add or remove its monitoring without a second service inventory.
+
+Container modules declare credential-free Datadog Autodiscovery labels. The
+shared Datadog library renders and escapes those labels. Checks use discovered
+container addresses, so private UI ports stay unpublished. Container/process
+liveness and application correctness are different checks; process presence
+does not establish DNS publication, synchronization, or controller health.
+Non-container services will contribute explicit systemd units to the host check.
+
+Approved agent deployment, 2026-10-07: a pinned official rootful Agent container managed by
+Skillet. Datadog recommends container deployment for Podman over native host
+installation, which requires additional permission handling. The OS image
+continues to provide Podman and kernel tooling; Skillet owns activation,
+credentials, and changing integration configuration. Community integrations,
+if required, belong in a separately built agent image, not runtime downloads.
+
+Implemented agent runtime and credential delivery. Host monitoring
+needs host PID/cgroup visibility, read-only proc/cgroup/filesystem mounts, and
+SELinux access. Podman Autodiscovery through the rootful API socket grants
+container-management authority even with a read-only socket bind mount.
+Preserving Chef's network/service monitoring additionally needs the
+system-probe's eBPF capabilities and debugfs access. Those privileges must be
+explicit caller policy and tested on uCore with its Secure Boot/SELinux settings.
+
+The agent has a separate credential-gated apply phase. Installing Skillet
+or declaring a monitored service must not start telemetry without the Datadog
+capability and credentials. Use configuration templates to combine public
+policy with environment API-key/site leaves in KeePassXC. The application key
+used by Chef's handler is unnecessary for metric submission; future dashboard
+or monitor management would be a separate workstation responsibility. Private
+tags, endpoint credentials, and ping targets follow the existing encrypted
+delivery path and must not appear in labels or recorded files.
+
+Host networking preserves host interface visibility and localhost SSH checks;
+Autodiscovery reaches container bridge addresses without published UI ports.
+The pinned official image requires `DD_API_KEY` at startup, so Podman injects
+API key, site, and private tags through native environment secrets. No literal
+secret-bearing `Environment=` directives are written. Production and test use
+different vault leaves; delivery adds an authoritative environment tag. Test
+telemetry requires explicit `--with-datadog`; destroying a VM does not remove
+historical telemetry from Datadog.
+
+Implemented: labels for Syncthing HTTP health and process liveness for
+Pi-hole, DDNS, UniFi, Caddy, and Tailscale; Agent deployment/delivery and
+host/process/network/Btrfs/SSH/systemd configuration. Pending: live Agent
+acceptance, private ping targets, richer
+Syncthing metrics and Pi-hole's authenticated API integration. The existing
+Pi-hole community integration requires compatibility review against Pi-hole 6.
+
+Sources: [Podman deployment](https://docs.datadoghq.com/containers/guide/podman-support-with-docker-integration/),
+[Autodiscovery](https://docs.datadoghq.com/containers/docker/integrations/),
+[network monitoring](https://docs.datadoghq.com/network_monitoring/cloud_network_monitoring/setup/),
+[Btrfs](https://docs.datadoghq.com/integrations/btrfs/),
+[systemd](https://docs.datadoghq.com/integrations/systemd/).

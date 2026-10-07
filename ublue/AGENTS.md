@@ -42,6 +42,9 @@
   declaration. Shared baseline services retain their common defaults; the
   presence of environment configuration or credentials must not enable an
   optional service implicitly.
+- Service modules own their monitoring declarations. Monitoring consumes the
+  same selected services as application composition; do not maintain an
+  independent monitoring inventory or place credentials in discovery metadata.
 
 - Shared helpers receive identity and configuration from validated inputs or
   declarations. Keep deployment-specific assumptions in the selected profile;

@@ -1,6 +1,19 @@
 {
   "version": 1,
   "services": {
+    "datadog": {
+      "default": {
+        "version": 1,
+        "api_key": {
+          "$secret": "skillet/environments/{environment}/datadog/api-key"
+        },
+        "site": {
+          "$secret": "skillet/environments/{environment}/datadog/site"
+        },
+        "tags": []
+      },
+      "hosts": {}
+    },
     "ddns": {
       "default": {
         "version": 1,

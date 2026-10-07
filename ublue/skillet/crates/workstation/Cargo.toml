@@ -7,6 +7,7 @@ edition = "2021"
 workspace = true
 
 [dependencies]
+skillet_datadog.workspace = true
 cloudflare.workspace = true
 hex.workspace = true
 keepass.workspace = true

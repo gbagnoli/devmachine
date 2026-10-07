@@ -63,7 +63,10 @@ where
             extra_config: BTreeMap::from([
                 (
                     "Container".into(),
-                    vec!["ContainerName=cloudflare-ddns".into()],
+                    vec![
+                        "ContainerName=cloudflare-ddns".into(),
+                        skillet_datadog::process("ddns", "cloudflare-ddns"),
+                    ],
                 ),
                 (
                     "Unit".into(),

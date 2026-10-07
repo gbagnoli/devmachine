@@ -43,6 +43,7 @@ where
         vec![
             "AutoUpdate=registry".to_string(),
             "ContainerName=unifi".to_string(),
+            skillet_datadog::process("unifi", "ace.jar"),
             "Environment=TZ=Europe/Madrid".to_string(),
         ],
     );

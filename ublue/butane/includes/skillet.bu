@@ -59,3 +59,20 @@ systemd:
 
         [Install]
         WantedBy=multi-user.target
+    - name: skillet-datadog-apply.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Apply Skillet optional Datadog monitoring configuration
+        Requires=skillet-apply.service skillet-data-prepare.service
+        After=skillet-apply.service skillet-data-prepare.service
+        AssertPathIsMountPoint=/var/lib/data
+        ConditionPathExists=/etc/credstore.encrypted/skillet/datadog_config.cred
+
+        [Service]
+        Type=oneshot
+        LoadCredentialEncrypted=datadog_config:/etc/credstore.encrypted/skillet/datadog_config.cred
+        ExecStart=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase datadog
+
+        [Install]
+        WantedBy=multi-user.target

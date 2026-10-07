@@ -81,6 +81,7 @@ where
         vec![
             "AutoUpdate=registry".to_string(),
             "ContainerName=syncthing".to_string(),
+            skillet_datadog::http("syncthing", "http://%%host%%:8384/rest/noauth/health"),
         ],
     );
     extra_config.insert(

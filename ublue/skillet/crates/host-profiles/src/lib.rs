@@ -22,6 +22,7 @@ pub enum HostApplyPhase {
     Full,
     Caddy,
     Ddns,
+    Datadog,
 }
 
 pub fn credentials_for_phase(
@@ -37,11 +38,13 @@ pub fn credentials_for_phase(
         .credential_consumers()
         .into_iter()
         .filter(|consumer| match phase {
-            HostApplyPhase::Full => {
-                !matches!(consumer.unit, "caddy.service" | "cloudflare-ddns.service")
-            }
+            HostApplyPhase::Full => !matches!(
+                consumer.unit,
+                "caddy.service" | "cloudflare-ddns.service" | "datadog-agent.service"
+            ),
             HostApplyPhase::Caddy => consumer.unit == "caddy.service",
             HostApplyPhase::Ddns => consumer.unit == "cloudflare-ddns.service",
+            HostApplyPhase::Datadog => consumer.unit == "datadog-agent.service",
             HostApplyPhase::Base => false,
         })
         .map(|consumer| consumer.credential)
@@ -86,6 +89,8 @@ pub enum ApplyError {
     Caddy(#[from] skillet_caddy::CaddyError),
     #[error("DDNS apply error: {0}")]
     Ddns(#[from] skillet_ddns::DdnsError),
+    #[error("Datadog apply error: {0}")]
+    Datadog(#[from] skillet_datadog::DatadogError),
     #[error("Podman error: {0}")]
     Podman(#[from] skillet_podman::PodmanError),
     #[error("Fixture input error: {0}")]
@@ -135,6 +140,7 @@ fn tailscale_config(hostname: &str, auth_key: String, state_path: &str) -> Podma
             "Container".to_string(),
             vec![
                 "ContainerName=tailscale".to_string(),
+                skillet_datadog::process("tailscale", "tailscaled"),
                 "AddCapability=NET_ADMIN".to_string(),
                 "AddCapability=NET_RAW".to_string(),
                 "AddDevice=/dev/net/tun:/dev/net/tun".to_string(),
@@ -247,7 +253,7 @@ fn apply_profile(
     for service in &profile.services {
         match &service.config {
             // Independently credential-gated optional services have their own phase.
-            ServiceConfig::Ddns => {}
+            ServiceConfig::Ddns | ServiceConfig::Datadog { .. } => {}
             ServiceConfig::Pihole { custom_dns } => {
                 let password = credentials
                     .require(PIHOLE_WEB_PASSWORD_CREDENTIAL)?
@@ -321,7 +327,7 @@ fn runtime_hostname(files: &dyn FileResource, fallback: &str) -> Result<String, 
             .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
     {
         return Err(ApplyError::FixtureInput(
-            "invalid hostname in /etc/hostname for Tailscale".to_string(),
+            "invalid runtime hostname in /etc/hostname".to_string(),
         ));
     }
     Ok(hostname.to_string())
@@ -343,6 +349,7 @@ pub fn apply_host_phase(
         HostApplyPhase::Full => apply_host(hostname, system, files, credentials),
         HostApplyPhase::Caddy => apply_caddy_host(hostname, system, files, credentials),
         HostApplyPhase::Ddns => apply_ddns_host(hostname, system, files, credentials),
+        HostApplyPhase::Datadog => apply_datadog_host(hostname, system, files, credentials),
     }
 }
 
@@ -369,6 +376,43 @@ fn apply_ddns_host(
     )?;
     skillet_podman::ensure_network(system, files, &profile.service_network())?;
     skillet_ddns::apply(system, files, payload, profile.id.as_str())?;
+    Ok(())
+}
+
+fn apply_datadog_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.into()))?;
+    let network_monitoring = profile
+        .services
+        .iter()
+        .find_map(|service| match service.config {
+            ServiceConfig::Datadog { network_monitoring } => Some(network_monitoring),
+            _ => None,
+        })
+        .ok_or_else(|| ApplyError::FixtureInput("host does not declare Datadog".into()))?;
+    let payload = credentials.require(skillet_datadog::CREDENTIAL)?;
+    let hostname = runtime_hostname(files, profile.id.as_str())?;
+    let monitored_units = profile
+        .acceptance_plan_with_ddns(true)
+        .services
+        .into_iter()
+        .map(|service| service.unit)
+        .collect::<Vec<_>>();
+    skillet_datadog::apply(
+        system,
+        files,
+        payload,
+        &skillet_datadog::RuntimeConfig {
+            hostname: &hostname,
+            network_monitoring,
+            monitored_units: &monitored_units,
+        },
+    )?;
     Ok(())
 }
 

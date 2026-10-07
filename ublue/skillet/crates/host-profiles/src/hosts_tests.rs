@@ -11,6 +11,41 @@ use skillet_core::{
 use skillet_podman::SecretTarget;
 
 #[test]
+fn datadog_is_optional_and_separately_credential_gated() {
+    let files = skillet_core::test_utils::MockFiles::new();
+    let system = MockSystem::new();
+    assert!(super::apply_host_phase(
+        "clamps",
+        super::HostApplyPhase::Datadog,
+        &system,
+        &files,
+        &CredentialInputs::default()
+    )
+    .is_err());
+    assert!(files.files.lock().unwrap().is_empty());
+    assert!(system.podman_secrets.lock().unwrap().is_empty());
+    let clamps = super::profile_for_name("clamps").unwrap();
+    assert!(clamps.supports_service("datadog"));
+    assert!(!super::profile_for_name("beezelbot")
+        .unwrap()
+        .supports_service("datadog"));
+    assert_eq!(
+        super::credentials_for_phase("clamps", super::HostApplyPhase::Datadog).unwrap(),
+        ["datadog_config"]
+    );
+    assert!(
+        !super::credentials_for_phase("clamps", super::HostApplyPhase::Full)
+            .unwrap()
+            .contains(&"datadog_config")
+    );
+    assert!(clamps
+        .acceptance_plan()
+        .services
+        .iter()
+        .all(|service| service.unit != "datadog-agent.service"));
+}
+
+#[test]
 fn boot_expectations_are_profile_inputs_and_unknown_profiles_are_refused() {
     let clamps = super::boot_policy_for_host("clamps").unwrap();
     assert_eq!(clamps.signed_image, "ghcr.io/gbagnoli/ucore-clamps");
@@ -68,7 +103,15 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
             .iter()
             .map(HostService::name)
             .collect::<Vec<_>>(),
-        ["pihole", "tailscale", "syncthing", "unifi", "ddns", "btrbk"]
+        [
+            "pihole",
+            "tailscale",
+            "syncthing",
+            "unifi",
+            "ddns",
+            "datadog",
+            "btrbk"
+        ]
     );
     let credentials = clamps.credential_consumers();
     assert!(credentials.iter().any(|use_| {

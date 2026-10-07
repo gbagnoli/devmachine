@@ -70,7 +70,7 @@ struct SecretLockArgs {
 #[derive(clap::Args, Debug)]
 struct SecretDeliverArgs {
     hostname: String,
-    #[arg(value_parser = ["pihole", "tailscale", "caddy", "ddns"])]
+    #[arg(value_parser = ["pihole", "tailscale", "caddy", "ddns", "datadog"])]
     service: String,
     #[arg(long)]
     database: Option<PathBuf>,
@@ -178,6 +178,8 @@ struct VmDestroyArgs {
 }
 
 #[derive(clap::Args, Debug)]
+// These CLI switches select independent optional provisioning operations.
+#[allow(clippy::struct_excessive_bools)]
 struct VmProvisionArgs {
     hostname: String,
     instance: String,
@@ -187,6 +189,9 @@ struct VmProvisionArgs {
     /// Provision public DDNS records from test-environment `KeePassXC` config
     #[arg(long)]
     with_ddns: bool,
+    /// Send test-environment Datadog credentials and enable test VM telemetry
+    #[arg(long)]
+    with_datadog: bool,
     #[arg(long)]
     database: Option<PathBuf>,
     #[arg(long)]
@@ -1209,6 +1214,7 @@ fn run_twice_and_check(name: &str, phase: ApplyPhase, inspect: bool) -> Result<(
         ApplyPhase::Full => "full",
         ApplyPhase::Caddy => "caddy",
         ApplyPhase::Ddns => "ddns",
+        ApplyPhase::Datadog => "datadog",
     };
     for round in ["first", "second"] {
         let status = Command::new("podman")

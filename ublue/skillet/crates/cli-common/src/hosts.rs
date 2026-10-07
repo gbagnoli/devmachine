@@ -16,6 +16,7 @@ pub enum ApplyPhase {
     Full,
     Caddy,
     Ddns,
+    Datadog,
 }
 
 pub fn apply_host_phase(
@@ -30,6 +31,7 @@ pub fn apply_host_phase(
         ApplyPhase::Full => skillet_hosts::HostApplyPhase::Full,
         ApplyPhase::Caddy => skillet_hosts::HostApplyPhase::Caddy,
         ApplyPhase::Ddns => skillet_hosts::HostApplyPhase::Ddns,
+        ApplyPhase::Datadog => skillet_hosts::HostApplyPhase::Datadog,
     };
     skillet_hosts::apply_host_phase(hostname, phase, system, files, credentials)
 }

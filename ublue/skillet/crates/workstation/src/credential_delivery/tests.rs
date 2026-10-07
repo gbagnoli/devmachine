@@ -49,6 +49,28 @@ struct FakeGuest {
 
 type CapturedGuestCall = (Vec<String>, Option<Vec<u8>>);
 
+#[test]
+fn datadog_delivery_validates_capability_and_sends_only_stdin() {
+    let guest = FakeGuest::default();
+    let key = "0123456789abcdef0123456789abcdef";
+    let payload = serde_json::json!({"version":1,"api_key":key,"site":"datadoghq.eu"}).to_string();
+    let policy = ProvisioningPolicy::new(Environment::Test);
+    assert!(deliver_datadog_credential("beezelbot", policy, &payload, &guest).is_err());
+    assert!(deliver_datadog_credential("clamps", policy, "invalid", &guest).is_err());
+    assert!(guest.calls.lock().unwrap().is_empty());
+    deliver_datadog_credential("clamps", policy, &payload, &guest).unwrap();
+    let calls = guest.calls.lock().unwrap();
+    assert!(calls
+        .iter()
+        .all(|(args, _)| args.iter().all(|arg| !arg.contains(key))));
+    assert!(calls
+        .iter()
+        .any(|(_, input)| input.as_ref().is_some_and(|bytes| {
+            let value = String::from_utf8_lossy(bytes);
+            value.contains(key) && value.contains("env:test")
+        })));
+}
+
 impl GuestTransport for FakeGuest {
     fn execute(
         &self,

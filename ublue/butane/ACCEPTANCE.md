@@ -1,5 +1,28 @@
 # Clamps VM acceptance log
 
+## Datadog offline validation, 2026-10-07
+
+- Approved rootful Agent recipe and delivery implemented; Clamps selects it
+  separately from ordinary full apply. No live telemetry was enabled here.
+- Formatting, pedantic Clippy, all 291 workspace tests, the Fedora base
+  integration scenario (two applies, repeat with no service activation), and
+  all eight Butane bootstrap regressions passed on the musl target.
+- The installed Quadlet generator accepted the actual Agent recipe emitted by
+  the offline `skillet_datadog` `agent` example. Generated ExecStart retains
+  host PID/cgroup/network namespaces, optional eBPF capabilities, read-only
+  mounts without host relabeling, and native Podman environment-secret
+  references. No literal API key or published ports appear in the Quadlet.
+- Unit regressions cover input validation, storage prerequisites, independent
+  credential phase, environment tags, stdin-only delivery, repeat apply,
+  secret rotation, and retry after a failed restart.
+- Official pinned image metadata reports Agent 7.84.1. The image's startup
+  requires `DD_API_KEY`; native Podman environment-secret injection is used.
+- Live named-VM Agent acceptance is unverified: `/dev/kvm` is absent on this
+  workstation. Agent status/version, socket discovery, actual host/Btrfs
+  observations, systemd/SSH checks, eBPF under uCore Secure Boot/SELinux,
+  listener exposure, reboot recovery, and Datadog ingestion still need tests
+  with test-environment API-key/site leaves. No vault unlock was attempted.
+
 ## Disposable DDNS attempt and cleanup, 2026-10-06
 
 - Built the current Skillet CLI with Rust 1.99 and created a separate

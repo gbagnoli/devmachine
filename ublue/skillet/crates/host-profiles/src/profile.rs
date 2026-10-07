@@ -53,6 +53,9 @@ pub enum ServiceConfig {
     },
     Unifi,
     Ddns,
+    Datadog {
+        network_monitoring: bool,
+    },
     Tailscale {
         state_path: &'static str,
     },
@@ -74,6 +77,7 @@ impl HostService {
             ServiceConfig::Syncthing { .. } => "syncthing",
             ServiceConfig::Unifi => "unifi",
             ServiceConfig::Ddns => "ddns",
+            ServiceConfig::Datadog { .. } => "datadog",
             ServiceConfig::Tailscale { .. } => "tailscale",
             ServiceConfig::Btrbk { .. } => "btrbk",
         }
@@ -81,6 +85,10 @@ impl HostService {
 
     pub fn credential_consumers(&self) -> Vec<CredentialConsumer> {
         match self.config {
+            ServiceConfig::Datadog { .. } => vec![CredentialConsumer {
+                credential: skillet_datadog::CREDENTIAL,
+                unit: "datadog-agent.service",
+            }],
             ServiceConfig::Ddns => vec![CredentialConsumer {
                 credential: super::CLOUDFLARE_DDNS_CONFIG_CREDENTIAL,
                 unit: "cloudflare-ddns.service",
@@ -171,7 +179,10 @@ impl HostProfile {
         let mut services = self
             .services
             .iter()
-            .filter(|service| with_ddns || !matches!(service.config, ServiceConfig::Ddns))
+            .filter(|service| {
+                !matches!(service.config, ServiceConfig::Datadog { .. })
+                    && (with_ddns || !matches!(service.config, ServiceConfig::Ddns))
+            })
             .map(|service| acceptance_service(self.id.as_str(), service))
             .collect::<Vec<_>>();
         if self.services.iter().any(|service| service.ui.is_some()) {
@@ -287,6 +298,15 @@ impl HostProfile {
 
 fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService {
     match service.config {
+        ServiceConfig::Datadog { .. } => AcceptanceService {
+            unit: "datadog-agent.service".into(),
+            container: Some("datadog-agent".into()),
+            network_mode: Some("host".into()),
+            bind_paths: vec!["/etc/skillet/datadog/conf.d".into()],
+            owner: Some(AcceptanceOwner::Numeric { uid: 0, gid: 0 }),
+            listeners: Vec::new(),
+            health_probe: None,
+        },
         ServiceConfig::Ddns => AcceptanceService {
             unit: "cloudflare-ddns.service".into(),
             container: Some("cloudflare-ddns".into()),
@@ -453,6 +473,12 @@ fn clamps() -> HostProfile {
             },
             HostService {
                 config: ServiceConfig::Ddns,
+                ui: None,
+            },
+            HostService {
+                config: ServiceConfig::Datadog {
+                    network_monitoring: true,
+                },
                 ui: None,
             },
             HostService {

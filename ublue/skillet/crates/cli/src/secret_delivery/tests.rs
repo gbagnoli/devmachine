@@ -49,6 +49,8 @@ fn rejects_vm_without_tailscale_systemd_credential() {
 
 #[test]
 fn delivery_eligibility_uses_declared_service_capabilities() {
+    assert!(validate_delivery_service("beezelbot", "datadog").is_err());
+    assert!(validate_delivery_service("clamps", "datadog").is_ok());
     assert!(validate_delivery_service("beezelbot", "pihole").is_err());
     assert!(validate_delivery_service("beezelbot", "tailscale").is_err());
     assert!(validate_delivery_service("beezelbot", "caddy").is_ok());
@@ -56,4 +58,50 @@ fn delivery_eligibility_uses_declared_service_capabilities() {
     assert!(validate_delivery_service("clamps", "ddns").is_ok());
     assert!(validate_delivery_service("missing-host", "caddy").is_err());
     assert!(validate_delivery_service("clamps", "unknown").is_err());
+}
+
+#[test]
+fn datadog_commands_parse_and_test_delivery_refuses_before_vault_access() {
+    assert!(crate::Args::try_parse_from([
+        "skillet", "apply", "--host", "clamps", "--phase", "datadog"
+    ])
+    .is_ok());
+    assert!(crate::Args::try_parse_from([
+        "skillet",
+        "test",
+        "vm",
+        "provision",
+        "clamps",
+        "monitoring",
+        "--with-datadog"
+    ])
+    .is_ok());
+    let parsed = crate::Args::try_parse_from([
+        "skillet",
+        "secret",
+        "deliver",
+        "clamps",
+        "datadog",
+        "--environment",
+        "test",
+        "--database",
+        "/nonexistent/skillet-test.kdbx",
+        "--target",
+        "user@localhost",
+        "--identity",
+        "/nonexistent/key",
+        "--known-hosts",
+        "/nonexistent/known_hosts",
+    ])
+    .unwrap();
+    let crate::Commands::Secret {
+        command: crate::SecretCommands::Deliver(args),
+    } = parsed.command
+    else {
+        panic!("wrong parsed command");
+    };
+    assert!(super::deliver_from_vault(&args)
+        .unwrap_err()
+        .to_string()
+        .contains("test Datadog must be provisioned through an owned disposable VM"));
 }
