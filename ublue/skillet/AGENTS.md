@@ -97,6 +97,10 @@ tracks existing violations and their migration, not completed implementation.
   conflicts between typed fields and extension directives; preserve ordering
   where repeated directives are semantically ordered. Global runtime policy
   belongs to the host baseline, not an arbitrary container resource.
+- Discovery acceptance must cover concurrent boot startup as well as steady
+  state. Derive startup ordering from existing caller declarations and keep
+  ordering separate from dependencies that activate optional services; an
+  active observer alone does not prove it discovered the intended workloads.
 - State what every convergence result means. Distinguish definition changes,
   activation, recovery, and no-op outcomes. Persist applied state only after the
   consuming operation succeeds and retry pending activation after interruption.
