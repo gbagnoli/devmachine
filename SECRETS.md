@@ -43,7 +43,7 @@ One shared key serves production and test. No application key required for inges
 | Entry | Status | Password value / how to obtain it |
 | --- | --- | --- |
 | `skillet/datadog/api-key` | Required | Create an ingestion API key in Datadog Organization Settings → API Keys. [Key guide](https://docs.datadoghq.com/account_management/api-app-keys/). |
-| `skillet/datadog/application-key` | Optional | For workstation monitor administration only: create a scoped Application Key in Datadog Organization Settings → Application Keys with monitors_read and monitors_write. Never deliver this key to hosts. [Key guide](https://docs.datadoghq.com/account_management/api-app-keys/). |
+| `skillet/datadog/monitor-setup-key` | Optional | For workstation monitor administration only: create a scoped Application Key in Datadog Organization Settings → Application Keys with monitors_read and monitors_write. Never deliver this key to hosts. [Key guide](https://docs.datadoghq.com/account_management/api-app-keys/). |
 
 ## DDNS
 

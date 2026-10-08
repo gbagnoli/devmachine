@@ -30,11 +30,13 @@ through the existing `secret unlock` workflow. Ordinary provisioning and smoke
 do not enable Datadog. Historical telemetry remains after VM destruction.
 
 For one-time monitor administration, optionally add
-`skillet/datadog/application-key` (Password field) with `monitors_read` and
+`skillet/datadog/monitor-setup-key` (Password field) with `monitors_read` and
 `monitors_write` scopes from Datadog Organization Settings → Application Keys.
 This credential stays on the workstation. Exclude `env:test` in host/service
 monitor data scopes; retain coverage for legacy Chef hosts tagged `env:home`.
 Changing monitor metadata tags does not exclude matching telemetry.
+The all-host Agent no-data and NTP monitors were updated on 2026-10-08;
+include the same test exclusion when creating new monitors.
 Existing running test hosts need Datadog credential redelivery for the region
 change; destroying a VM does not erase historical telemetry.
 
