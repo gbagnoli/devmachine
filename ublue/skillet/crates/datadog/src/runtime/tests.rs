@@ -90,6 +90,52 @@ fn network_capabilities_are_optional() {
 }
 
 #[test]
+fn startup_order_follows_caller_units_without_enabling_them() {
+    let system = MockSystem::new();
+    let files = mounted_files();
+    let units = vec![
+        "example-app.service".into(),
+        "example-optional.service".into(),
+    ];
+    let mut config = runtime(false);
+    config.monitored_units = &units;
+    apply(
+        &system,
+        &files,
+        &payload("0123456789abcdef0123456789abcdef"),
+        &config,
+    )
+    .unwrap();
+    let state = files.files.lock().unwrap();
+    let quadlet =
+        String::from_utf8_lossy(&state["/etc/containers/systemd/datadog-agent.container"]);
+    assert!(quadlet.contains(
+        "After=podman.socket network-online.target example-app.service example-optional.service"
+    ));
+    assert!(quadlet.lines().any(|line| line == "Requires=podman.socket"));
+    assert!(!quadlet.contains("Wants="));
+    assert!(!quadlet.contains("Requires=example"));
+}
+
+#[test]
+fn rejects_agent_self_dependency_before_mutation() {
+    let system = MockSystem::new();
+    let files = mounted_files();
+    let units = vec!["datadog-agent.service".into()];
+    let mut config = runtime(false);
+    config.monitored_units = &units;
+    assert!(apply(
+        &system,
+        &files,
+        &payload("0123456789abcdef0123456789abcdef"),
+        &config,
+    )
+    .is_err());
+    assert!(files.files.lock().unwrap().is_empty());
+    assert!(system.podman_secrets.lock().unwrap().is_empty());
+}
+
+#[test]
 fn repeats_are_noops_and_rotation_retries_failed_activation() {
     let system = MockSystem::new();
     let files = mounted_files();

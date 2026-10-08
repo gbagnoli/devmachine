@@ -1,12 +1,13 @@
 # Datadog port
 
-Status, 2026-10-07: user approved the rootful Podman runtime. Service-owned
-labels, optional Agent recipe, separate apply phase, templates, and shared
-encrypted delivery are implemented. No workstation agent was installed.
-Live startup/submission acceptance passed. Automatic application discovery after
-reboot and eBPF tracing remain failed; see `../butane/ACCEPTANCE.md`.
+Status, 2026-10-08: rootful Agent, credential delivery and caller-derived boot
+ordering are implemented. Two reboots of `clamps-test-discovery` automatically restored one Syncthing
+HTTP and four process checks, without an Agent restart. Offline checks pass
+(301 tests, Clippy, formatting, Fedora repeat apply), and named-VM smoke passed.
+Owned Cloudflare/Tailscale cleanup and VM disposal passed. eBPF tracing
+and richer metrics remain pending; see `../butane/ACCEPTANCE.md`.
 
-Validated, 2026-10-07: formatting, pedantic Clippy, 299 workspace tests,
+Prior validation, 2026-10-07: formatting, pedantic Clippy, 299 workspace tests,
 Fedora base repeat apply, and named-VM Agent startup/delivery passed. The earlier
 missing KVM observation was sandbox visibility; native session libvirt works.
 `clamps-test-monitoring` confirmed Agent 7.84.1, SELinux enforcing, hostname,
@@ -55,7 +56,7 @@ Autodiscovery placeholders; relevant local CI checks pass.
 Implemented: official Agent container as an optional canonical host service.
 Clamps opts in. Agent image index evaluated for this port:
 `registry.datadoghq.com/agent@sha256:161a43ad2b290f7527a70e70c8880c1b3d65b39411552a8cb41398049546daf5`.
-Pinned metadata reports Agent 7.84.1; runtime version still needs live acceptance.
+Pinned metadata and live runtime both report Agent 7.84.1.
 
 Reviewable runtime boundary:
 
@@ -112,14 +113,15 @@ credential handling; no vault/API requirement in routine CI.
 
 ## 4. Checks and acceptance
 
-Next implementation slice, from live acceptance:
+Follow-ups from live acceptance:
 
-1. Fix container-label discovery at boot. Reproduce on a fresh named VM with
-   concurrent application startup; evaluate supported provider polling/event
-   reconciliation or explicit declared startup dependencies. Keep shared service
-   selection authoritative. Do not rely on a manual Agent restart or fixed sleep.
-   Add offline regressions for the selected policy; reboot must restore Syncthing
-   HTTP and each enabled process check without workstation intervention.
+1. Implemented: order Agent startup after caller-declared monitored units,
+   without activating optional consumers. Pinned workload metadata/provider
+   source uses an initial inventory followed by events, not periodic collection.
+   Offline tests cover caller-derived order, absence of activation dependencies,
+   and self-dependency rejection. Both live reboots and repeat apply passed;
+   named-VM smoke passed. Later runtime event
+   reconciliation remains outside this boot fix's evidence.
 2. Resolve eBPF probe attachment separately. Inspect effective seccomp, kernel
    support and tracefs/debugfs access; use official Agent requirements and the
    narrowest supported runtime policy. Test with real uCore SELinux and report
@@ -138,8 +140,8 @@ Next implementation slice, from live acceptance:
   do not claim that HTTP health establishes folder/device synchronization.
 - Review Pi-hole 6 authentication and community-check compatibility before
   installing it. DNS-query checks and API statistics must have separate evidence.
-- DDNS process liveness is insufficient to prove publication; retain its
-  separately parked ownership/publication acceptance.
+- DDNS process liveness is insufficient to prove publication; keep its separate
+  ownership/publication acceptance evidence and production cutover plan.
 - Named VM: verify Agent status, detected containers, check success, host rather
   than container metrics, Btrfs data, systemd units, eBPF under Secure Boot,
   no-op/reboot recovery, and explicit test ingestion. Record results in

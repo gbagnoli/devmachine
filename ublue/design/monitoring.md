@@ -15,7 +15,19 @@ shared Datadog library renders and escapes those labels. Checks use discovered
 container addresses, so private UI ports stay unpublished. Container/process
 liveness and application correctness are different checks; process presence
 does not establish DNS publication, synchronization, or controller health.
-Non-container services will contribute explicit systemd units to the host check.
+Non-container services contribute explicit systemd units to the host check.
+
+Boot discovery policy: order the Agent after the same caller-selected monitored
+units, using `After=` without `Wants=` or additional `Requires=` dependencies.
+The pinned Agent collector lists existing containers once, then consumes events;
+Podman's boot-time event path did not recover application labels in acceptance.
+Ordering makes the initial inventory follow concurrent application startup and
+leaves services without delivered credentials inactive. It does not guarantee
+reconciliation of missing events later in runtime. Verify reboot discovery on
+real Podman; provider polling is not a supported replacement for the pinned
+streaming container provider. Two live reboots restored application checks
+without restarting the Agent; see the acceptance record.
+
 
 Approved agent deployment, 2026-10-07: a pinned official rootful Agent container managed by
 Skillet. Datadog recommends container deployment for Podman over native host
@@ -63,12 +75,12 @@ confirmed host/container checks, Autodiscovery, and successful submissions with
 SELinux enforcing. eBPF tracing remains unaccepted: the VM returned unsupported
 perf probe attachment and read-only fallback tracing errors. Review the required
 seccomp/kernel/tracing access separately before changing privileges. Pending:
-automatic post-reboot container-label discovery (Agent restart currently
-restores application checks), private ping targets, richer
+private ping targets and richer
 Syncthing metrics and Pi-hole's authenticated API integration. The existing
 Pi-hole community integration requires compatibility review against Pi-hole 6.
 
-Sources: [Podman deployment](https://docs.datadoghq.com/containers/guide/podman-support-with-docker-integration/),
+Sources: [pinned container collector](https://github.com/DataDog/datadog-agent/blob/8e795c5e/comp/core/workloadmeta/collectors/internal/docker/docker.go),
+[Podman deployment](https://docs.datadoghq.com/containers/guide/podman-support-with-docker-integration/),
 [Autodiscovery](https://docs.datadoghq.com/containers/docker/integrations/),
 [network monitoring](https://docs.datadoghq.com/network_monitoring/cloud_network_monitoring/setup/),
 [Btrfs](https://docs.datadoghq.com/integrations/btrfs/),

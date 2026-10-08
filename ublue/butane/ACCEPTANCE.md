@@ -1,5 +1,42 @@
 # Clamps VM acceptance log
 
+## Datadog automatic boot discovery, 2026-10-08
+
+- Implemented Agent `After=` ordering from the existing caller-selected
+  monitored unit list. No application `Wants=` or `Requires=` was added; missing
+  optional credentials do not activate their consumers. Reject Agent self-ordering
+  before any mutation. No changes to container privileges or eBPF policy.
+- Formatting, pedantic workspace Clippy, all 301 workspace tests and Fedora
+  base integration passed on 2026-10-07. Repeat base apply issued no service
+  activation. The actual Quadlet compiler retained the ordering. New offline
+  regressions cover caller-provided units, ordering versus activation, and
+  self-dependency rejection; routine CI needs no vault or external runtime.
+- Created fresh `clamps-test-discovery` on port 2202 from the working-tree fix
+  based on `869c438`; the retained smoke VM on port 2201 was untouched. The
+  source capture includes the fix. Signed boot/readiness and Pi-hole, Tailscale,
+  DDNS and Datadog provisioning succeeded. Local debug image hashing was stopped
+  before VM definition and the recorded preparation resumed using release CLI.
+- Initial status: one Syncthing HTTP check, four process instances, no current
+  check/submission errors. Direct owned reboot automatically restored the same
+  checks without an Agent restart. Startup timestamps confirmed the five active
+  monitored containers started before the Agent. Status was sampled again after
+  initial Agent warm-up; an early probe before auth-token creation was inconclusive.
+- Repeating the Datadog credential phase preserved every container ID.
+  `test smoke clamps --instance discovery` passed all fixture cases across a
+  second reboot and readiness recovery, using release binaries. Smoke initially
+  refused the Started lifecycle state after direct reboot; explicit `test vm
+  ready` completed before retry. `--with-applications` was not used.
+- After the second reboot: one HTTP and four process checks, no current check,
+  Autodiscovery or submission errors; Agent `NRestarts=0`. No manual Agent
+  restart was used during either recovery check. Caddy was not provisioned;
+  later application-start/event reconciliation is not established by this test.
+- eBPF remains the separate unresolved acceptance gap from 2026-10-07. This
+  slice changes boot ordering only; it does not establish probe/kernel/Secure
+  Boot compatibility or richer application metrics.
+- Owned Cloudflare/Tailscale cleanup and VM disposal completed successfully.
+  The run directory was removed; the retained smoke VM remained running.
+  Private zones, tokens and status payloads were kept out of tracked files.
+
 ## DDNS and Datadog named-VM acceptance, 2026-10-07
 
 - Used separate `clamps-test-monitoring`, instance `monitoring`, SSH port 2202,

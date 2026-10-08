@@ -115,7 +115,8 @@ where
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
         || runtime.monitored_units.is_empty()
         || runtime.monitored_units.iter().any(|unit| {
-            !matches!(unit.rsplit_once('.'), Some((_, "service" | "timer")))
+            unit == "datadog-agent.service"
+                || !matches!(unit.rsplit_once('.'), Some((_, "service" | "timer")))
                 || !unit
                     .bytes()
                     .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
@@ -262,7 +263,14 @@ fn container_config(
                 "Unit".into(),
                 vec![
                     "Requires=podman.socket".into(),
-                    "After=podman.socket network-online.target".into(),
+                    // The Agent's container metadata collector takes an initial
+                    // inventory and then consumes runtime events. Order that
+                    // inventory after concurrent application startup, without
+                    // pulling in services whose credentials are not delivered.
+                    format!(
+                        "After=podman.socket network-online.target {}",
+                        runtime.monitored_units.join(" ")
+                    ),
                 ],
             ),
             ("Service".into(), vec!["Restart=always".into()]),
