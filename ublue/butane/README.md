@@ -197,3 +197,25 @@ the owned libvirt resources follow the recorded recovery journal.
 
 Run the local bootstrap state regression checks with `bash tests/bootstrap.sh`.
 They exercise mocked deployment states and do not create or modify a VM.
+
+## Isolated UniFi restore acceptance
+
+Follow the [UniFi plan](../plan/CLAMPS-UNIFI.md). Use a dedicated disposable VM,
+install the test fence from `tests/fixtures/unifi-restore/`, and verify fresh
+SSH, blocked application egress and reboot persistence before importing state.
+The fence files are test fixtures; do not merge them into production Butane.
+
+Build the service-only driver from the Skillet workspace with:
+
+```bash
+cargo build --release -p skillet_unifi --example acceptance_apply
+```
+
+Deploy the reported executable through the owned VM transport and run it as
+root inside the prepared guest. It applies the actual UniFi recipe; it neither
+imports backups nor configures other services. Keep `.unf` files private and
+outside the checkout; Skillet's ignore rules also protect accidental local
+copies. UniFi 10.0.162's offline CLI restore failed in this acceptance attempt;
+use the setup/UI flow through `test vm ssh --forward 18443:8443`. See the plan
+for the retained instance and pending verification. Do not enable cloud access
+or change device inform settings during this isolated test.

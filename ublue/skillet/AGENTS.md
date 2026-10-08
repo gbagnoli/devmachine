@@ -157,6 +157,11 @@ tracks existing violations and their migration, not completed implementation.
   environments directly, observe results, and bound waits with diagnostics.
   Preserve supported workstation backends and static guest builds without
   installing tools as part of a refactor.
+- Validate isolation policies before importing sensitive application state.
+  Prove management connectivity across activation and reboot, respect kernel
+  hook ordering, and prepare recovery while the guest is still empty. Cancel
+  any automatic policy rollback before restoring production state; a recovery
+  mechanism must not silently reconnect a restored test copy to live services.
 - CI must cover executable helpers regardless of filename extension and must
   run relevant checks when their shared inputs change. Keep routine CI free of
   private credentials and external API access; record live acceptance separately.
