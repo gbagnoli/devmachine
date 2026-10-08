@@ -149,3 +149,14 @@ Acceptance requires a fresh create, readiness, application checks, unchanged
 second apply, and reboot persistence. Destruction must also demonstrate that
 external credentials and test-owned resources are cleaned up. An interrupted
 run must either resume or leave enough ownership metadata for cleanup.
+
+## Local UI inspection
+
+Implemented: `test vm ssh --forward LOCAL:GUEST` exposes a guest localhost
+TCP endpoint only on workstation localhost. The shared SSH adapter owns the
+forward for the interactive session; the existing lifecycle holds its run lock
+and checks domain ownership before and after that session. Bind failures are
+fatal and duplicate local ports are refused. This allows browser inspection
+without publishing a guest application port on LAN or tailnet. A forward is
+not a network isolation policy; restored production controllers still require
+a persistent guest fence before import.

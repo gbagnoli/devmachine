@@ -1,7 +1,7 @@
 //! CLI presentation and legacy provider wiring. Ownership lives in `skillet_vm`.
 use super::{
     butane_root, secret_delivery, workspace_root, VmCreateArgs, VmDestroyArgs, VmDirectoryArgs,
-    VmListArgs, VmTargetArgs,
+    VmListArgs, VmSshArgs, VmTargetArgs,
 };
 use anyhow::{anyhow, Context, Result};
 use skillet_vm::{
@@ -272,8 +272,8 @@ pub(super) fn reboot(args: &VmTargetArgs) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn ssh(args: &VmTargetArgs) -> Result<()> {
-    let (butane, store, identity) = context(args)?;
+pub(super) fn ssh(args: &VmSshArgs) -> Result<()> {
+    let (butane, store, identity) = context(&args.target)?;
     let _lock = store.lock(&identity)?;
     let run = store.load(&identity)?;
     if !matches!(run.phase, Phase::Started | Phase::Ready) {
@@ -282,7 +282,7 @@ pub(super) fn ssh(args: &VmTargetArgs) -> Result<()> {
     let backend = VirshBackend::for_run(&run, &butane.join("bin/virsh"))?;
     require_running_domain(&backend, &run)?;
     let transport = SshTransport::new(run.ssh.clone(), HostKeyPolicy::Enroll)?;
-    let status = transport.interactive()?;
+    let status = transport.interactive_with_forwards(&args.forward)?;
     require_owned_domain(&backend, &run)?;
     if !status.success() {
         return Err(anyhow!(

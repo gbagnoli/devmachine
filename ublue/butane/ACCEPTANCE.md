@@ -1,3 +1,20 @@
+## Owned localhost UI forwarding — 2026-10-08
+
+- `test vm ssh HOST INSTANCE --forward LOCAL:GUEST` retains the existing run
+  lock and domain UUID/disk checks. Both listener and destination are IPv4
+  loopback; duplicate ports and malformed/nonlocal targets are rejected.
+- Native live check used an interactive, read-only session to the retained
+  `clamps-test-smoke`, forwarding workstation port 18443 to guest port 22.
+  Curl received `SSH-2.0-OpenSSH_10.2`; its two-second timeout was expected
+  because no SSH negotiation was sent. On successful shell exit the local
+  listener disappeared. Guest configuration was not changed.
+- SSH multiplexing is disabled for forwarded sessions so a persistent master
+  cannot retain the listener. Bind failure is fatal. Unit tests cover the
+  arguments, invalid ports/addresses, duplicate ports and CLI parsing.
+- Formatting, pedantic workspace Clippy, all 307 workspace tests and the
+  Fedora base/repeat container check passed. Flatpak backend acceptance remains
+  parked; this live check used native libvirt.
+
 # Clamps VM acceptance log
 
 ## Datadog NPM/USM and lab isolation, 2026-10-08

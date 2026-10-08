@@ -164,7 +164,7 @@ fn enroll_policy_does_not_replace_a_recorded_host_key_and_verify_requires_it() {
 fn interactive_session_inherits_a_terminal_and_uses_recorded_target() {
     let dir = tempfile::tempdir().unwrap();
     let transport = SshTransport::new(target(dir.path()), HostKeyPolicy::Enroll).unwrap();
-    let command = transport.interactive_command();
+    let command = transport.interactive_command(&[]).unwrap();
     let arguments: Vec<_> = command
         .get_args()
         .map(|arg| arg.to_str().unwrap())
@@ -239,4 +239,49 @@ fn generic_transport_supports_dns_and_ipv6_targets_without_option_injection() {
         command.get_args().last().unwrap(),
         "fixture@[::1]:/var/tmp/skillet"
     );
+}
+
+#[test]
+fn loopback_forward_rejects_addresses_zero_and_invalid_ports() {
+    for value in [
+        "0:8443",
+        "8443:0",
+        "65536:8443",
+        "8443",
+        "8443:host:8443",
+        "0.0.0.0:8443:8443",
+    ] {
+        assert!(value.parse::<LoopbackForward>().is_err(), "{value}");
+    }
+    assert_eq!(
+        "18443:8443".parse::<LoopbackForward>().unwrap(),
+        LoopbackForward {
+            local: 18443,
+            guest: 8443
+        }
+    );
+}
+
+#[test]
+fn interactive_forwards_are_loopback_only_and_fail_on_bind_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let transport = SshTransport::new(target(dir.path()), HostKeyPolicy::Verify).unwrap();
+    let forward = "18443:8443".parse::<LoopbackForward>().unwrap();
+    let command = transport.interactive_command(&[forward]).unwrap();
+    let args: Vec<_> = command
+        .get_args()
+        .map(|arg| arg.to_str().unwrap())
+        .collect();
+    assert!(args
+        .windows(2)
+        .any(|pair| pair == ["-L", "127.0.0.1:18443:127.0.0.1:8443"]));
+    for option in [
+        "ExitOnForwardFailure=yes",
+        "ControlMaster=no",
+        "ControlPath=none",
+        "ControlPersist=no",
+    ] {
+        assert!(args.contains(&option));
+    }
+    assert!(transport.interactive_command(&[forward, forward]).is_err());
 }

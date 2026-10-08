@@ -143,6 +143,18 @@ ssh -i runs/NAME/ssh/id_ed25519 -p PORT \
   -o UserKnownHostsFile=runs/NAME/ssh/known_hosts giacomo@127.0.0.1
 ```
 
+For a local application UI, keep the owned SSH session open with a loopback
+forward (run from the Skillet workspace):
+
+```bash
+cargo run --release -p skillet -- test vm ssh clamps unifi-restore --forward 18443:8443
+```
+
+Open `https://127.0.0.1:18443` for the guest's local HTTPS endpoint. The guest's
+self-signed certificate will not match localhost. `--forward LOCAL:GUEST` can
+be repeated; both ends use localhost and the forward closes when SSH exits.
+A port already in use causes SSH to fail. See the [VM lifecycle design](../design/smoke-vms.md).
+
 The VM staging step grants `giacomo` passwordless sudo. The guest starts
 `ucore-bootstrap.service`, which reads the host image from
 `/etc/ucore-bootstrap-image` and rebases first to the unsigned clamps image
