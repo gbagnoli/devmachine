@@ -34,8 +34,18 @@ pub fn deliver_datadog_credential(
     let profile = skillet_hosts::profile_for_name(host)
         .filter(|profile| profile.supports_service("datadog"))
         .ok_or_else(|| CredentialDeliveryError::Invalid("host does not declare Datadog".into()))?;
-    let input =
-        skillet_datadog::Input::parse(input)?.render_for_environment(policy.vault_name())?;
+    let production_region = profile
+        .services
+        .iter()
+        .find_map(|service| match service.config {
+            skillet_hosts::ServiceConfig::Datadog {
+                production_region, ..
+            } => Some(production_region),
+            _ => None,
+        })
+        .ok_or_else(|| CredentialDeliveryError::Invalid("host does not declare Datadog".into()))?;
+    let input = skillet_datadog::Input::parse(input)?
+        .render_for_environment(policy.vault_name(), production_region)?;
     credential::install(
         guest,
         profile.id.as_str(),

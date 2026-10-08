@@ -160,10 +160,49 @@ fn rejects_missing_storage_bad_credentials_and_conflicting_environment() {
     assert!(files.files.lock().unwrap().is_empty());
     assert!(system.podman_secrets.lock().unwrap().is_empty());
     let input = Input::parse(&payload("0123456789abcdef0123456789abcdef")).unwrap();
-    assert!(input.render_for_environment("prod").is_err());
+    assert!(input
+        .render_for_environment("prod", "example-region")
+        .is_err());
     let input = Input::parse(&payload("0123456789abcdef0123456789abcdef")).unwrap();
     assert!(input
-        .render_for_environment("test")
+        .render_for_environment("test", "example-region")
         .unwrap()
         .contains("env:test"));
+}
+
+#[test]
+fn environment_and_region_follow_deployment_policy() {
+    for (environment, production_region, expected_region) in [
+        ("prod", "example-region", "example-region"),
+        ("test", "example-region", "lab"),
+        ("test", "another-region", "lab"),
+    ] {
+        let payload = json!({"version":1,"api_key":"0123456789abcdef0123456789abcdef",
+            "site":"datadoghq.com","tags":["region:old", "region:duplicate", "role:sync"]})
+        .to_string();
+        let rendered = Input::parse(&payload)
+            .unwrap()
+            .render_for_environment(environment, production_region)
+            .unwrap();
+        let value: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+        assert_eq!(
+            value["tags"],
+            json!([
+                "role:sync",
+                format!("env:{environment}"),
+                format!("region:{expected_region}")
+            ])
+        );
+        let again = Input::parse(&rendered)
+            .unwrap()
+            .render_for_environment(environment, production_region)
+            .unwrap();
+        assert_eq!(rendered, again);
+    }
+    for (environment, region) in [("unknown", "valid"), ("prod", ""), ("test", "bad region")] {
+        assert!(Input::parse(&payload("0123456789abcdef0123456789abcdef"))
+            .unwrap()
+            .render_for_environment(environment, region)
+            .is_err());
+    }
 }

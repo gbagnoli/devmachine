@@ -1,5 +1,22 @@
 # Clamps VM acceptance log
 
+## Datadog test alert isolation, 2026-10-08
+
+- Credential delivery retains `env:prod`/`env:test` and now derives production
+  region from the canonical host caller (`ftwo` for Clamps). Every test uses
+  `region:lab`; conflicting template region tags are replaced.
+- Formatting, pedantic workspace Clippy, workspace tests and the Fedora base
+  scenario passed. New offline tests cover production/test tag policy, different
+  caller regions, retained unrelated tags, conflicting template regions,
+  idempotent rendering, invalid inputs and stdin-only delivery. Fedora repeat
+  apply issued no service start/restart.
+- Provider monitor edits remain pending: the ingestion API key does not grant
+  monitor administration. The optional workstation application key requires
+  `monitors_read` and `monitors_write`. No monitors were changed or claimed muted.
+- Live Datadog tag/submission acceptance is deferred until test monitor scopes
+  exclude `env:test`, to avoid generating more unwanted notifications. No VM
+  was created, provisioned or destroyed for this slice.
+
 ## Datadog automatic boot discovery, 2026-10-08
 
 - Implemented Agent `After=` ordering from the existing caller-selected

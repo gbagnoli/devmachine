@@ -64,7 +64,15 @@ requires `DD_API_KEY` at startup, so Podman injects
 API key and private tags through native environment secrets; the public site
 uses an ordinary `Environment=DD_SITE` directive. No literal secret-bearing
 `Environment=` directives are written. Production and test use the shared key;
-delivery adds an authoritative environment tag. Test
+delivery adds an authoritative environment tag and region. Production region
+is declared by the host caller (Clamps inherits Chef's `region:ftwo`); every
+test deployment uses `region:lab`, replacing any template region tags.
+Monitor notification policy excludes `env:test` in the data query, preserving
+legacy production hosts with `env:home` or no environment tag. Monitor metadata
+tags alone do not filter host data. One-time monitor administration uses a
+separate optional workstation-only application key; it is never delivered to
+the Agent. API changes and their live validation are pending until that key is
+available. Test
 telemetry requires explicit `--with-datadog`; destroying a VM does not remove
 historical telemetry from Datadog.
 
