@@ -6,6 +6,29 @@ use std::{
     time::Duration,
 };
 
+/// A localhost listener forwarded only to the guest's localhost.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct LoopbackForward {
+    local: u16,
+    guest: u16,
+}
+
+impl std::str::FromStr for LoopbackForward {
+    type Err = Error;
+
+    fn from_str(value: &str) -> Result<Self> {
+        let invalid =
+            || Error::Invalid("forward must be LOCAL:GUEST with nonzero TCP ports".into());
+        let (local, guest) = value.split_once(':').ok_or_else(invalid)?;
+        let local = local.parse::<u16>().map_err(|_| invalid())?;
+        let guest = guest.parse::<u16>().map_err(|_| invalid())?;
+        if local == 0 || guest == 0 {
+            return Err(invalid());
+        }
+        Ok(Self { local, guest })
+    }
+}
+
 pub struct GuestCommand<'a> {
     pub program: &'a str,
     pub arguments: &'a [&'a str],
@@ -187,19 +210,48 @@ impl SshTransport {
         Ok(command)
     }
 
-    fn interactive_command(&self) -> Command {
+    fn interactive_command(&self, forwards: &[LoopbackForward]) -> Result<Command> {
         let mut command = Command::new("ssh");
         command.arg("-tt");
         self.options(&mut command, "-p");
+        let mut ports = std::collections::BTreeSet::new();
+        for forward in forwards {
+            if !ports.insert(forward.local) {
+                return Err(Error::Invalid("duplicate local forwarding port".into()));
+            }
+            command.arg("-L").arg(format!(
+                "127.0.0.1:{}:127.0.0.1:{}",
+                forward.local, forward.guest
+            ));
+        }
+        if !forwards.is_empty() {
+            command.args([
+                "-o",
+                "ExitOnForwardFailure=yes",
+                "-o",
+                "ControlMaster=no",
+                "-o",
+                "ControlPath=none",
+                "-o",
+                "ControlPersist=no",
+            ]);
+        }
         command.arg(self.remote_target());
-        command
+        Ok(command)
     }
 
     /// Run an interactive guest shell with the caller's terminal attached.
     /// Unlike captured guest commands this is intentionally unbounded until
     /// the user exits, and inherits stdin/stdout/stderr directly.
     pub fn interactive(&self) -> Result<ExitStatus> {
-        self.interactive_command().status().map_err(Error::Io)
+        self.interactive_with_forwards(&[])
+    }
+
+    /// Keep forwards scoped to the interactive SSH process and caller's run lock.
+    pub fn interactive_with_forwards(&self, forwards: &[LoopbackForward]) -> Result<ExitStatus> {
+        self.interactive_command(forwards)?
+            .status()
+            .map_err(Error::Io)
     }
 }
 

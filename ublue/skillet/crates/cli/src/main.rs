@@ -148,7 +148,7 @@ enum VmCommands {
     /// Reboot a retained, owned disposable VM
     Reboot(VmTargetArgs),
     /// Open an interactive SSH shell to a retained, owned disposable VM
-    Ssh(VmTargetArgs),
+    Ssh(VmSshArgs),
     /// Read bootstrap and Skillet journals from a retained VM
     Logs(VmTargetArgs),
     /// Verify signed boot and apply the captured base/user environment
@@ -177,6 +177,15 @@ struct VmCreateArgs {
 struct VmTargetArgs {
     hostname: String,
     instance: String,
+}
+
+#[derive(clap::Args, Debug)]
+struct VmSshArgs {
+    #[command(flatten)]
+    target: VmTargetArgs,
+    /// Forward a workstation localhost TCP port to guest localhost (repeatable)
+    #[arg(long, value_name = "LOCAL:GUEST")]
+    forward: Vec<skillet_vm::transport::LoopbackForward>,
 }
 
 #[derive(clap::Args, Debug)]
@@ -1367,3 +1376,6 @@ mod smoke_artifact_tests;
 #[cfg(test)]
 #[path = "application_acceptance_tests.rs"]
 mod application_acceptance_tests;
+
+#[cfg(test)]
+mod vm_ssh_tests;
