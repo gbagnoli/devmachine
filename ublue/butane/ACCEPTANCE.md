@@ -1,3 +1,51 @@
+## UniFi restore preparation — 2026-10-09
+
+**Preparation passed; backup restore remains unverified.**
+
+- User supplied an October 1 `.unf` Network backup, 212,880 bytes. Its original
+  automatic-backup filename identifies UniFi 10.0.162. The private original is
+  retained and ignored by Git; a mode-0600 working copy is outside the checkout
+  in a mode-0700 directory. Production SSH rejected this workstation's key;
+  current production runtime/version and source inventory counts are unverified.
+- A dedicated native `clamps-test-unifi-restore` VM on SSH port 2202 passed
+  fresh signed-image, base and user-environment readiness. The retained smoke
+  VM's configuration was untouched. No provider credentials were provisioned.
+- The real UniFi recipe was applied alone using the `acceptance_apply` test
+  driver. Observed package `10.0.162-32076-1`, MongoDB 3.6.8 x86_64, rootful
+  host networking and numeric data-root ownership 999:999, mode 0750.
+  Local HTTPS returned 200.
+- First isolation attempt blocked SSH before any controller or backup import;
+  that empty VM was disposed successfully and recreated. The revised nftables
+  policy uses standard filter priority, preserves loopback/SSH/DHCP/IPv6
+  neighbour discovery, and drops other input/output/forwarding for both IP
+  families. Its empty-guest rollback timer was stopped before backup delivery.
+- The revised policy passed fresh management access. Direct HTTPS to a public
+  IPv4 address timed out, with the output drop counter showing blocked packets.
+  An empty-controller reboot preserved SSH and both active fence/controller
+  services; the fence remained installed and counted 67 dropped output packets
+  when inspected. The controller's unit Requires/After includes the fence.
+  This is not an individual live IPv6/LAN/tailnet reachability probe.
+- The provided backup was copied privately only after those checks. Installed
+  command help lists `restore <file>`; attempting it while live reports
+  `Already running`. A stopped-controller restore using the same image/data
+  paths in a one-off `network=none` container exits unsuccessfully with a
+  missing Spring bean (`com.ubnt.service.system.status.o0OO`). No successful
+  import or backup validity is established.
+- Normal service restarted behind the fence and HTTPS returned 200. Database
+  aggregate observations were two sites, one network, one WLAN, zero devices
+  and zero admins. Awaiting setup/UI restore via owned localhost forwarding;
+  post-restore configuration, repeat apply, reboot/data survival and final
+  VM cleanup remain pending. Site Manager/adoption remain cutover checks.
+- Formatting, pedantic Clippy and all 307 workspace tests passed, including
+  compilation of the UniFi-only driver. Cargo reported the deployed driver
+  artifact at the selected musl release path. Fedora base/repeat validation
+  and Butane bootstrap regression checks passed. No workstation packages
+  were installed.
+
+Private diagnostics are under `/tmp/skillet-unifi-restore-isolation/`; readiness,
+image-pull and fence preparation logs use `/tmp/skillet-unifi-*` paths. Do not
+publish their contents or treat a failed restore command as acceptance.
+
 ## Owned localhost UI forwarding — 2026-10-08
 
 - `test vm ssh HOST INSTANCE --forward LOCAL:GUEST` retains the existing run

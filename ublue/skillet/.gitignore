@@ -1,1 +1,4 @@
 target/
+
+# Private UniFi application backups
+*.unf

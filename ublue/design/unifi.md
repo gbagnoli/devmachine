@@ -17,7 +17,10 @@ controller's local HTTPS management endpoint available on the host network.
 
 Rupik is ARM64 and runs UniFi 10.0.162; clamps is x86_64. Validate a supported
 application backup restore across architectures in an isolated VM before
-production migration. Retain the old controller and an independent backup until
-clamps manages the devices successfully.
+production migration. The restored test copy must be fenced from production devices and cloud
+services, including across reboot; NAT is not sufficient isolation. Validate
+configuration locally. Site Manager and device connectivity belong to cutover
+acceptance, when the original controller is stopped. Retain the old controller
+and an independent backup until clamps manages the devices successfully.
 
 See the [implementation plan](../plan/CLAMPS-UNIFI.md).
