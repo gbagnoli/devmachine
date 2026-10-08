@@ -38,11 +38,12 @@ Shared inputs for Caddy and DDNS.
 
 ## Datadog
 
-One shared key serves production and test. No application key required. Site is public template configuration, defaulting to datadoghq.com. [Setup](ublue/skillet/README.md#datadog).
+One shared key serves production and test. No application key required for ingestion. Site is public template configuration, defaulting to datadoghq.com. [Setup](ublue/skillet/README.md#datadog).
 
 | Entry | Status | Password value / how to obtain it |
 | --- | --- | --- |
 | `skillet/datadog/api-key` | Required | Create an ingestion API key in Datadog Organization Settings → API Keys. [Key guide](https://docs.datadoghq.com/account_management/api-app-keys/). |
+| `skillet/datadog/application-key` | Optional | For workstation monitor administration only: create a scoped Application Key in Datadog Organization Settings → Application Keys with monitors_read and monitors_write. Never deliver this key to hosts. [Key guide](https://docs.datadoghq.com/account_management/api-app-keys/). |
 
 ## DDNS
 

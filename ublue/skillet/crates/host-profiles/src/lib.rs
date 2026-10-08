@@ -391,7 +391,9 @@ fn apply_datadog_host(
         .services
         .iter()
         .find_map(|service| match service.config {
-            ServiceConfig::Datadog { network_monitoring } => Some(network_monitoring),
+            ServiceConfig::Datadog {
+                network_monitoring, ..
+            } => Some(network_monitoring),
             _ => None,
         })
         .ok_or_else(|| ApplyError::FixtureInput("host does not declare Datadog".into()))?;

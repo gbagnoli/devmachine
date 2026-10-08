@@ -13,7 +13,9 @@ For an opted-in host, create this KeePassXC entry (Password field):
 - `skillet/datadog/api-key`: shared Datadog ingestion API key.
 
 Production and test use the same key; telemetry is tagged `env:prod` or
-`env:test`. No application key is required. Site is public configuration in
+`env:test`. Production region comes from the host caller (Clamps: `region:ftwo`);
+all tests use `region:lab`. Delivery replaces template region tags.
+No application key is required for ingestion. Site is public configuration in
 the `datadog` default template in
 [configuration-templates.json](crates/workstation/src/configuration-templates.json),
 defaulting to `datadoghq.com`. Change it there for another Datadog region;
@@ -26,6 +28,15 @@ identity, known-hosts, and target options. For an owned disposable VM, use
 `skillet test vm provision <host> <instance> --with-datadog`. Unlock the vault
 through the existing `secret unlock` workflow. Ordinary provisioning and smoke
 do not enable Datadog. Historical telemetry remains after VM destruction.
+
+For one-time monitor administration, optionally add
+`skillet/datadog/application-key` (Password field) with `monitors_read` and
+`monitors_write` scopes from Datadog Organization Settings → Application Keys.
+This credential stays on the workstation. Exclude `env:test` in host/service
+monitor data scopes; retain coverage for legacy Chef hosts tagged `env:home`.
+Changing monitor metadata tags does not exclude matching telemetry.
+Existing running test hosts need Datadog credential redelivery for the region
+change; destroying a VM does not erase historical telemetry.
 
 Skillet is a Rust tool for idempotent host configuration management.
 

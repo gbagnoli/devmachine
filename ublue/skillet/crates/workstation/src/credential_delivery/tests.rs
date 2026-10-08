@@ -67,7 +67,7 @@ fn datadog_delivery_validates_capability_and_sends_only_stdin() {
         .iter()
         .any(|(_, input)| input.as_ref().is_some_and(|bytes| {
             let value = String::from_utf8_lossy(bytes);
-            value.contains(key) && value.contains("env:test")
+            value.contains(key) && value.contains("env:test") && value.contains("region:lab")
         })));
 }
 
@@ -261,4 +261,26 @@ fn disposable_pihole_inspection_errors_do_not_generate_a_replacement() {
 
     assert!(ensure_disposable_pihole_credential("clamps", false, &guest).is_err());
     assert_eq!(guest.calls.lock().unwrap().len(), 1);
+}
+
+#[test]
+fn datadog_production_delivery_uses_caller_region() {
+    let guest = FakeGuest::default();
+    let payload = serde_json::json!({"version":1,"api_key":"0123456789abcdef0123456789abcdef",
+        "site":"datadoghq.com","tags":["region:obsolete"]})
+    .to_string();
+    deliver_datadog_credential(
+        "clamps",
+        ProvisioningPolicy::new(Environment::Production),
+        &payload,
+        &guest,
+    )
+    .unwrap();
+    let calls = guest.calls.lock().unwrap();
+    let input = calls.iter().find_map(|(_, input)| input.as_ref()).unwrap();
+    let value: serde_json::Value = serde_json::from_slice(input).unwrap();
+    assert_eq!(
+        value["tags"],
+        serde_json::json!(["env:prod", "region:ftwo"])
+    );
 }

@@ -54,6 +54,7 @@ pub enum ServiceConfig {
     Unifi,
     Ddns,
     Datadog {
+        production_region: &'static str,
         network_monitoring: bool,
     },
     Tailscale {
@@ -477,6 +478,7 @@ fn clamps() -> HostProfile {
             },
             HostService {
                 config: ServiceConfig::Datadog {
+                    production_region: "ftwo",
                     network_monitoring: true,
                 },
                 ui: None,

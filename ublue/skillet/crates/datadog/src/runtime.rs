@@ -42,8 +42,17 @@ pub struct Input {
 }
 
 impl Input {
-    pub fn render_for_environment(mut self, environment: &str) -> Result<String, DatadogError> {
-        if !matches!(environment, "prod" | "test") {
+    pub fn render_for_environment(
+        mut self,
+        environment: &str,
+        production_region: &str,
+    ) -> Result<String, DatadogError> {
+        if !matches!(environment, "prod" | "test")
+            || production_region.is_empty()
+            || !production_region
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+        {
             return Err(DatadogError::Invalid);
         }
         let expected = format!("env:{environment}");
@@ -57,6 +66,15 @@ impl Input {
         if !self.tags.contains(&expected) {
             self.tags.push(expected);
         }
+        let region = if environment == "test" {
+            "lab"
+        } else {
+            production_region
+        };
+        // Region is deployment policy: templates cannot move test telemetry
+        // into a production location or override the host caller's location.
+        self.tags.retain(|tag| !tag.starts_with("region:"));
+        self.tags.push(format!("region:{region}"));
         serde_json::to_string(&self).map_err(|_| DatadogError::Invalid)
     }
 
