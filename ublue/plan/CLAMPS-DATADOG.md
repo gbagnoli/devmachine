@@ -116,15 +116,20 @@ credential handling; no vault/API requirement in routine CI.
 Implemented: authoritative `env:prod`/`env:test` tagging plus caller-declared
 production region (`ftwo` on Clamps) and `lab` for every test deployment.
 Templates cannot override the region policy. Optional workstation administration
-key: `skillet/datadog/application-key`, with `monitors_read`/`monitors_write`.
+key: `skillet/datadog/monitor-setup-key`, with `monitors_read`/`monitors_write`.
 
-Pending live one-time setup: inventory existing monitors through the API, exclude
-`env:test` from relevant host/service queries, validate before updating, retain a
-private rollback snapshot, and read back changes. Preserve existing Chef
-`env:home` coverage, thresholds, PagerDuty routing and production no-data alerts.
-Check existing historical test groups after the update; tags do not erase old
-telemetry. Re-deliver Datadog credentials to any retained test hosts for `lab`.
-Do not claim alert suppression before provider-side verification.
+Completed one-time setup, 2026-10-08: key-pair validation and six-monitor
+inventory succeeded. Added `.exclude("env:test")` to the all-host Agent no-data
+and NTP monitors. Both full-policy validations, query-only updates and read-back
+checks returned HTTP 200. Notification options, thresholds, messages and routing
+were unchanged. Private rollback snapshots were retained outside the repository.
+Other monitors have explicit production targets. Existing Chef `env:home` and
+untagged production hosts remain included.
+
+Pending: observe historical test-group reevaluation and re-deliver Datadog
+credentials to retained test hosts for `lab`; live region-tag ingestion has not
+been verified. New monitors must also exclude test data. No VM was changed by
+the one-time provider setup.
 
 ## 4. Checks and acceptance
 

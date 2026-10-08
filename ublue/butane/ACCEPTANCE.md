@@ -1,5 +1,25 @@
 # Clamps VM acceptance log
 
+## Datadog monitor setup, 2026-10-08
+
+- Verified the API/application key pair from KeePassXC using
+  `skillet/datadog/api-key` and `skillet/datadog/monitor-setup-key`.
+  Key-pair validation and the six-monitor inventory returned HTTP 200.
+- The all-host Agent no-data and NTP service-check queries now include
+  `.exclude("env:test")`. Both provider validations succeeded before mutations;
+  query-only updates returned HTTP 200 and read-back confirmed the exclusion.
+- Compared options, messages, names, types, tags and priority before/after;
+  notification routing and production no-data policy were preserved. Other
+  monitors have explicit production targets and were not changed. Historical
+  test-group reevaluation and actual PagerDuty notification behavior were not
+  observed in this check.
+- Complete original monitor snapshots are in a private local temporary
+  directory outside the repository. The setup key was used only in memory on
+  the workstation; no credentials or real provider identifiers were committed.
+- Updated the secret inventory to the user's chosen setup-key path. No VM
+  operations or new Agent submissions were performed. Live region-tag
+  ingestion remains pending.
+
 ## Datadog test alert isolation, 2026-10-08
 
 - Credential delivery retains `env:prod`/`env:test` and now derives production
@@ -10,11 +30,13 @@
   caller regions, retained unrelated tags, conflicting template regions,
   idempotent rendering, invalid inputs and stdin-only delivery. Fedora repeat
   apply issued no service start/restart.
-- Provider monitor edits remain pending: the ingestion API key does not grant
-  monitor administration. The optional workstation application key requires
-  `monitors_read` and `monitors_write`. No monitors were changed or claimed muted.
-- Live Datadog tag/submission acceptance is deferred until test monitor scopes
-  exclude `env:test`, to avoid generating more unwanted notifications. No VM
+- At this slice's validation, provider monitor edits were pending. The
+  subsequent monitor setup above completed the query exclusions using the
+  optional workstation application key; ingestion credentials alone cannot
+  administer monitors.
+- Live Datadog tag/submission acceptance was deferred to avoid generating
+  unwanted notifications before monitor setup. Region-tag ingestion remains
+  unverified. No VM
   was created, provisioned or destroyed for this slice.
 
 ## Datadog automatic boot discovery, 2026-10-08

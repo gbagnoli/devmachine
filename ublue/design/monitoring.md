@@ -71,8 +71,11 @@ Monitor notification policy excludes `env:test` in the data query, preserving
 legacy production hosts with `env:home` or no environment tag. Monitor metadata
 tags alone do not filter host data. One-time monitor administration uses a
 separate optional workstation-only application key; it is never delivered to
-the Agent. API changes and their live validation are pending until that key is
-available. Test
+the Agent. One-time setup completed on 2026-10-08: the all-host Agent no-data and NTP
+monitors exclude `env:test`. Provider validation, updates and query read-back
+passed; notification settings were preserved. Other existing monitors target
+production hosts explicitly. New monitors must preserve this exclusion.
+Live acceptance of the new region tags remains pending. Test
 telemetry requires explicit `--with-datadog`; destroying a VM does not remove
 historical telemetry from Datadog.
 
