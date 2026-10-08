@@ -210,10 +210,13 @@ fn container_config(
         "Environment=DD_USE_DOGSTATSD=false".into(),
     ];
     if runtime.network_monitoring {
+        // Podman's default seccomp profile allows perf_event_open only when
+        // PERFMON is explicitly selected. SYS_ADMIN alone leaves the syscall
+        // at the profile's ENOSYS default even though the kernel supports it.
         settings.extend([
             "Environment=DD_SYSTEM_PROBE_NETWORK_ENABLED=true".into(),
             "Environment=DD_SYSTEM_PROBE_SERVICE_MONITORING_ENABLED=true".into(),
-            "AddCapability=SYS_ADMIN SYS_RESOURCE SYS_PTRACE NET_ADMIN NET_BROADCAST NET_RAW IPC_LOCK CHOWN".into(),
+            "AddCapability=SYS_ADMIN SYS_RESOURCE SYS_PTRACE NET_ADMIN NET_BROADCAST NET_RAW IPC_LOCK CHOWN PERFMON".into(),
         ]);
     } else {
         settings.push("Environment=DD_SYSTEM_PROBE_ENABLED=false".into());

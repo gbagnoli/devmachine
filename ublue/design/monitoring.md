@@ -43,6 +43,13 @@ container-management authority even with a read-only socket bind mount.
 Preserving Chef's network/service monitoring additionally needs the
 system-probe's eBPF capabilities and debugfs access. Those privileges must be
 explicit caller policy and tested on uCore with its Secure Boot/SELinux settings.
+For network monitoring, explicitly select `PERFMON`: the installed Podman
+seccomp profile gates `perf_event_open` on that capability. `SYS_ADMIN` alone
+left the syscall returning ENOSYS in the VM. Preserve default seccomp and
+read-only debugfs; do not disable syscall filtering or make tracing writable
+unless a separate diagnosed requirement warrants it. Named-VM acceptance on 2026-10-08 confirmed perf events, NPM/USM traffic
+collection and automatic recovery after reboot with SELinux enforcing. The VM
+uses BIOS; Secure Boot remains a physical/UEFI acceptance requirement.
 
 The agent has a separate credential-gated apply phase. Installing Skillet
 or declaring a monitored service must not start telemetry without the Datadog
@@ -75,7 +82,10 @@ the Agent. One-time setup completed on 2026-10-08: the all-host Agent no-data an
 monitors exclude `env:test`. Provider validation, updates and query read-back
 passed; notification settings were preserved. Other existing monitors target
 production hosts explicitly. New monitors must preserve this exclusion.
-Live acceptance of the new region tags remains pending. Test
+Agent status and successful submissions confirm the delivered test/lab tags;
+provider host-tag read-back returned HTTP 403 with the monitor-only key. Both
+monitors returned zero test-host groups before and after reboot. PagerDuty
+incident delivery was not separately observed. Test
 telemetry requires explicit `--with-datadog`; destroying a VM does not remove
 historical telemetry from Datadog.
 
@@ -83,9 +93,9 @@ Implemented: labels for Syncthing HTTP health and process liveness for
 Pi-hole, DDNS, UniFi, Caddy, and Tailscale; Agent deployment/delivery and
 host/process/network/Btrfs/SSH/systemd configuration. Named-VM acceptance
 confirmed host/container checks, Autodiscovery, and successful submissions with
-SELinux enforcing. eBPF tracing remains unaccepted: the VM returned unsupported
-perf probe attachment and read-only fallback tracing errors. Review the required
-seccomp/kernel/tracing access separately before changing privileges. Pending:
+SELinux enforcing. eBPF acceptance now passes with explicit `PERFMON`, default
+seccomp and read-only debugfs. Real Syncthing bridge traffic was classified as
+HTTP with nonzero byte counters and HTTP aggregates, also after reboot. Pending:
 private ping targets and richer
 Syncthing metrics and Pi-hole's authenticated API integration. The existing
 Pi-hole community integration requires compatibility review against Pi-hole 6.

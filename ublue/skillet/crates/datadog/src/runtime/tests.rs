@@ -47,7 +47,7 @@ fn rootful_secrets_and_host_observation_are_explicit() {
         "--pid=host",
         "--cgroupns=host",
         "--security-opt=label=disable",
-        "AddCapability=",
+        "AddCapability=SYS_ADMIN SYS_RESOURCE SYS_PTRACE NET_ADMIN NET_BROADCAST NET_RAW IPC_LOCK CHOWN PERFMON",
         "Volume=/run/podman:/run/podman:ro",
         "Environment=DOCKER_HOST=unix:///run/podman/podman.sock",
         "DD_HOSTNAME=clamps-test-monitoring",
@@ -57,6 +57,9 @@ fn rootful_secrets_and_host_observation_are_explicit() {
         assert!(quadlet.contains(expected), "missing {expected}: {quadlet}");
     }
     assert!(!quadlet.contains("PublishPort="));
+    assert!(!quadlet.contains("seccomp=unconfined"));
+    assert!(!quadlet.contains("--privileged"));
+    assert!(quadlet.contains("Volume=/sys/kernel/debug:/sys/kernel/debug:ro"));
     assert!(quadlet.contains("/etc/datadog-agent/conf.d/btrfs.d:ro"));
     assert!(!quadlet.contains("/etc/datadog-agent/conf.d:ro"));
     assert!(!quadlet.contains("Environment=DD_API_KEY="));

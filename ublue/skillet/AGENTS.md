@@ -97,6 +97,10 @@ tracks existing violations and their migration, not completed implementation.
   conflicts between typed fields and extension directives; preserve ordering
   where repeated directives are semantically ordered. Global runtime policy
   belongs to the host baseline, not an arbitrary container resource.
+- Diagnose container kernel-feature failures against the effective capability,
+  seccomp, mount and LSM policy before declaring the host kernel unsupported.
+  Match syscall allow rules to explicitly selected capabilities; test the
+  smallest policy change and retain restrictions unrelated to the feature.
 - Discovery acceptance must cover concurrent boot startup as well as steady
   state. Derive startup ordering from existing caller declarations and keep
   ordering separate from dependencies that activate optional services; an

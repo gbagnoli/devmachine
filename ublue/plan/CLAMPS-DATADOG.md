@@ -4,8 +4,12 @@ Status, 2026-10-08: rootful Agent, credential delivery and caller-derived boot
 ordering are implemented. Two reboots of `clamps-test-discovery` automatically restored one Syncthing
 HTTP and four process checks, without an Agent restart. Offline checks pass
 (301 tests, Clippy, formatting, Fedora repeat apply), and named-VM smoke passed.
-Owned Cloudflare/Tailscale cleanup and VM disposal passed. eBPF tracing
-and richer metrics remain pending; see `../butane/ACCEPTANCE.md`.
+Previous Cloudflare/Tailscale cleanup and VM disposal passed.
+NPM/USM VM acceptance now passes with explicit `PERFMON`, default seccomp and
+read-only debugfs. `clamps-test-datadog` recovered automatically after reboot,
+with real bridge HTTP traffic, application discovery, lab tags and submissions.
+Secure Boot, provider host-tag read-back and richer metrics remain pending;
+see `../butane/ACCEPTANCE.md`.
 
 Prior validation, 2026-10-07: formatting, pedantic Clippy, 299 workspace tests,
 Fedora base repeat apply, and named-VM Agent startup/delivery passed. The earlier
@@ -126,10 +130,13 @@ were unchanged. Private rollback snapshots were retained outside the repository.
 Other monitors have explicit production targets. Existing Chef `env:home` and
 untagged production hosts remain included.
 
-Pending: observe historical test-group reevaluation and re-deliver Datadog
-credentials to retained test hosts for `lab`; live region-tag ingestion has not
-been verified. New monitors must also exclude test data. No VM was changed by
-the one-time provider setup.
+Live VM follow-up: Agent status confirmed `env:test` and `region:lab`, with
+successful submissions before and after reboot. Both monitors returned zero
+test-host groups in their evaluation state. Provider host-tag read-back returned
+HTTP 403 with the monitor-only key; verifying received tags needs appropriate
+host-read access. PagerDuty delivery was not separately observed. New monitors
+must also exclude test data. Existing retained hosts require redelivery to get
+`lab`; this acceptance used a separate disposable VM.
 
 ## 4. Checks and acceptance
 
@@ -142,12 +149,16 @@ Follow-ups from live acceptance:
    and self-dependency rejection. Both live reboots and repeat apply passed;
    named-VM smoke passed. Later runtime event
    reconciliation remains outside this boot fix's evidence.
-2. Resolve eBPF probe attachment separately. Inspect effective seccomp, kernel
-   support and tracefs/debugfs access; use official Agent requirements and the
-   narrowest supported runtime policy. Test with real uCore SELinux and report
-   Secure Boot state explicitly. Do not claim parity from an active container or
-   host interface counters. Document any additional privileges before enabling
-   them; do not silently broaden the Agent boundary.
+2. Implemented and accepted on the named VM: explicitly add `PERFMON` when
+   network monitoring is selected. The installed Podman seccomp profile gates
+   `perf_event_open` on it; `SYS_ADMIN` alone returned ENOSYS. No seccomp bypass,
+   writable tracing/debugfs or additional host installation was needed. The
+   syscall succeeded, NPM/USM/event-monitor modules started, and actual bridge
+   HTTP traffic produced byte counters, HTTP classification and aggregates.
+   Repeat apply preserved container IDs; smoke/reboot passed and recovered the
+   same modules and application checks without an Agent restart. SELinux was
+   enforcing on kernel `7.2.5-200.fc44.x86_64`. Secure Boot was unavailable in
+   this BIOS VM and must still be tested on UEFI/physical hardware.
 
 
 - Agent owns shared host system/process/network/Btrfs metrics and localhost SSH

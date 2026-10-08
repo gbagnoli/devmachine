@@ -1,5 +1,53 @@
 # Clamps VM acceptance log
 
+## Datadog NPM/USM and lab isolation, 2026-10-08
+
+- Created fresh `clamps-test-datadog`, native `qemu:///session`, SSH 2202, from
+  `69e908d`. Signed boot, base/user-environment readiness, Pi-hole/Tailscale/full
+  application provisioning and `--with-datadog` succeeded with the cached vault.
+  Caddy and DDNS were outside this scoped run. The retained smoke VM was untouched.
+- Baseline Agent had `SYS_ADMIN` but no `PERFMON`. A software perf-event syscall
+  returned ENOSYS (38); tracer logs reproduced unsupported perf attachment and
+  read-only fallback tracing failures. The installed seccomp profile explicitly
+  gates the perf-event allow rule on `CAP_PERFMON`.
+- Deployed the working-tree fix through owned `test vm update`; original capture
+  evidence was preserved. Added `PERFMON` only for caller-selected network
+  monitoring. Effective default seccomp and read-only debugfs remained in place;
+  no privileged mode or extra host installation. The syscall then returned a
+  valid descriptor (4, errno 0). NPM/USM network tracer, event monitor and discovery
+  modules started. Kernel: `7.2.5-200.fc44.x86_64`; SELinux enforcing; BIOS VM, so
+  Secure Boot was unavailable and remains unverified.
+- System-probe connection endpoint returned HTTP 200 and 63 connections. A private
+  Syncthing health request returned OK; six tracked connections involving port
+  8384 had nonzero byte counters, HTTP classification and HTTP aggregates. These
+  are connection records, not a count of distinct requests. USM reported Running.
+- Agent reported `env:test` / `region:lab`, successful submissions (56 core
+  forwarder transactions at one sample), no Autodiscovery errors, one Syncthing
+  HTTP check, three process checks, one Btrfs and one systemd check. Repeat
+  Datadog apply preserved every container ID; Agent `NRestarts=0`.
+- Named fixture smoke and guarded reboot/readiness recovery passed. After reboot,
+  without manual Agent restart, `PERFMON`, default seccomp, USM Running, tracer
+  polling, tags and the same application check counts were present; successful
+  submissions reached 92 in the sampled boot. A new health request yielded ten
+  bridge records with HTTP classification, HTTP aggregates and nonzero byte
+  counters. Agent remained active/running with `NRestarts=0`; no ERROR logs in
+  the sampled two-minute steady-state window. Startup socket/remote-config
+  retries before warmup were transient. Readiness restores original captured
+  binaries by design; this reboot used the explicitly deployed fix at boot.
+- Provider monitor read-back before/after reboot: both all-host monitors retain
+  their test exclusions and return zero test-host groups. Host-tag read-back
+  returned HTTP 403 with the monitor-only key; remote tag receipt and PagerDuty
+  incident delivery were not independently verified. Appropriate host-read
+  access is still needed for the former.
+- Formatting, pedantic workspace Clippy, workspace tests and Fedora base repeat
+  apply passed. Regression assertions cover the explicit capability and retained
+  default seccomp/read-only debugfs; the non-network caller has no added caps.
+  Smoke evidence was generated under `/var/lib/skillet-smoke/`; private local
+  command logs are under `/tmp/skillet-datadog-*.log`.
+- Owned Tailscale identity cleanup and VM disposal passed. The run directory
+  was removed and the retained smoke VM remained running.
+
+
 ## Datadog monitor setup, 2026-10-08
 
 - Verified the API/application key pair from KeePassXC using
