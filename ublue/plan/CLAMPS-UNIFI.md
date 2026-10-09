@@ -63,8 +63,8 @@ for the controller's UI account.
 Routine tests already cover host-network Quadlet rendering, numeric data-root
 ownership, mount refusal, repeated apply, and preservation of existing files;
 the canonical profile selects UniFi for Clamps. Empty-controller runtime
-acceptance passed on 2026-10-03. Backup restore and production/device acceptance
-remain pending. Record new commands and results in `butane/ACCEPTANCE.md`.
+acceptance passed on 2026-10-03. UI import and restored-data persistence passed on 2026-10-09; authenticated
+inspection, disposal and production/device acceptance remain pending. Record new commands and results in `butane/ACCEPTANCE.md`.
 Device migration stays unverified until a backup restore or deliberate
 re-adoption succeeds.
 
