@@ -17,12 +17,14 @@ use std::path::Path;
 
 pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
     validate_delivery_service(&args.hostname, &args.service)?;
-    if matches!(args.service.as_str(), "ddns" | "datadog")
+    if matches!(args.service.as_str(), "ddns" | "datadog" | "smtp")
         && args.environment.policy().environment()
             != skillet_workstation::provisioning_policy::Environment::Production
     {
         let service = if args.service == "ddns" {
             "DDNS"
+        } else if args.service == "smtp" {
+            "SMTP"
         } else {
             "Datadog"
         };
@@ -68,6 +70,18 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
         }
         "caddy" => deliver_caddy_from_vault(args, &mut vault),
         "ddns" => deliver_ddns_from_vault(args, &mut vault),
+        "smtp" => {
+            let input = skillet_workstation::smtp_provisioning::input(
+                args.environment.policy(),
+                &|path, field| vault.get_field(path, field),
+            )?;
+            skillet_workstation::smtp_provisioning::deliver(
+                &args.hostname,
+                &input,
+                &credential_transport(args)?,
+            )?;
+            Ok(())
+        }
         "datadog" => {
             let transport = credential_transport(args)?;
             deliver_datadog_from_vault(
@@ -85,13 +99,17 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
     let profile = skillet_hosts::profile_for_name(hostname)
         .ok_or_else(|| anyhow!("unknown host profile: {hostname}"))?;
     match service {
-        "pihole" | "tailscale" | "ddns" | "datadog" if !profile.supports_service(service) => Err(
-            anyhow!("host {hostname} does not declare {service} credential delivery"),
-        ),
+        "pihole" | "tailscale" | "ddns" | "datadog" | "smtp"
+            if !profile.supports_service(service) =>
+        {
+            Err(anyhow!(
+                "host {hostname} does not declare {service} credential delivery"
+            ))
+        }
         "caddy" if profile.ui_services().is_empty() => {
             Err(anyhow!("host {hostname} declares no UI services"))
         }
-        "pihole" | "tailscale" | "caddy" | "ddns" | "datadog" => Ok(profile),
+        "pihole" | "tailscale" | "caddy" | "ddns" | "datadog" | "smtp" => Ok(profile),
         unsupported => Err(anyhow!("unsupported secret service {unsupported}")),
     }
 }
@@ -293,7 +311,9 @@ fn default_database_path() -> Result<std::path::PathBuf> {
 pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     let profile = skillet_hosts::profile_for_name(&args.hostname)
         .ok_or_else(|| anyhow!("unknown host profile: {}", args.hostname))?;
-    if !profile.supports_service("pihole") || !profile.supports_service("tailscale") {
+    if !args.smtp_only
+        && (!profile.supports_service("pihole") || !profile.supports_service("tailscale"))
+    {
         return Err(anyhow!(
             "host {} must declare both Pi-hole and Tailscale to use VM application provisioning",
             args.hostname
@@ -304,6 +324,11 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     }
     if args.with_datadog && !profile.supports_service("datadog") {
         return Err(anyhow!("host {} does not declare Datadog", args.hostname));
+    }
+    if args.smtp_only && (args.with_ui || args.with_ddns || args.with_datadog || args.rotate) {
+        return Err(anyhow!(
+            "--smtp-only cannot be combined with application provisioning switches"
+        ));
     }
     let butane = butane_root()?;
     let run_identity = RunIdentity::new(&args.hostname, &args.instance)?;
@@ -319,6 +344,22 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     let verify_ownership = || verify_running_vm(&backend, &run);
     verify_ownership()?;
     let transport = OwnershipCheckedTransport::new(&base_transport, &verify_ownership);
+    if args.smtp_only {
+        skillet_workstation::smtp_provisioning::deliver(
+            &args.hostname,
+            &skillet_workstation::smtp_provisioning::input(
+                UiEnvironmentName::Test.policy(),
+                &|_, _| {
+                    Err(skillet_workstation::vault::VaultError::Invalid(
+                        "test policy must not read credentials".into(),
+                    ))
+                },
+            )?,
+            &transport,
+        )?;
+        println!("Configured isolated SMTP capture relay; start a loopback sink on port 1025");
+        return Ok(());
+    }
     validate_vm_tailscale_delivery(&transport)?;
     let vault_path = match &args.database {
         Some(path) => path.clone(),
@@ -356,6 +397,14 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     }
     if args.with_datadog {
         deliver_datadog_from_vault(&args.hostname, policy, &vault, &transport)?;
+    }
+    if profile.supports_service("smtp") {
+        let input = skillet_workstation::smtp_provisioning::input(policy, &|_, _| {
+            Err(skillet_workstation::vault::VaultError::Invalid(
+                "test policy must not read credentials".into(),
+            ))
+        })?;
+        skillet_workstation::smtp_provisioning::deliver(&args.hostname, &input, &transport)?;
     }
     provisioning_state::remove_tailscale_pending(&run_dir)?;
     println!("Tailscale connected VM {expected_hostname}");

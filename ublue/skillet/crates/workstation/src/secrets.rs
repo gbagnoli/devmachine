@@ -48,6 +48,8 @@ impl Status {
 struct RequirementGroup {
     module: String,
     required_by: Vec<String>,
+    #[serde(default)]
+    environments: Vec<String>,
     description: String,
     template: Option<String>,
     entries: Vec<Entry>,
@@ -81,6 +83,7 @@ enum FieldRule {
     Hostname,
     Port,
     Choice,
+    Sender,
 }
 
 impl FieldRequirement {
@@ -93,6 +96,7 @@ impl FieldRequirement {
             FieldRule::Port => value.parse::<u16>().is_ok_and(|port| port != 0),
             FieldRule::Choice => self.values.iter().any(|allowed| allowed == value),
             FieldRule::Hostname => valid_hostname(value),
+            FieldRule::Sender => skillet_smtp::valid_sender(value),
         }
     }
 }
@@ -193,9 +197,7 @@ pub fn unused_paths(
 
 fn selected(module: &RequirementGroup, profile: &HostProfile) -> bool {
     module.required_by.iter().any(|service| {
-        if service == "fleet" {
-            profile.signed_image.is_some()
-        } else if service == "ui" {
+        if service == "ui" {
             !profile.ui_services().is_empty()
         } else {
             profile.supports_service(service)
@@ -217,6 +219,14 @@ pub fn check(
 ) -> Result<CheckReport, CheckError> {
     let mut required = BTreeMap::new();
     for module in catalog()? {
+        if !module.environments.is_empty()
+            && !module
+                .environments
+                .iter()
+                .any(|env| env == policy.vault_name())
+        {
+            continue;
+        }
         for profile in profiles.iter().filter(|profile| selected(&module, profile)) {
             let host = profile.id.as_str();
             let paths = module

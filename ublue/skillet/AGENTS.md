@@ -101,6 +101,12 @@ tracks existing violations and their migration, not completed implementation.
   seccomp, mount and LSM policy before declaring the host kernel unsupported.
   Match syscall allow rules to explicitly selected capabilities; test the
   smallest policy change and retain restrictions unrelated to the feature.
+- Restrict credential-file access to the identities that actually consume them.
+  Test access under the worker identity, rather than inferring it from a
+  successful privileged preparation command.
+- Regenerate volatile credential files before their consumers start. Validate
+  persisted environment policy during both apply and boot preparation; retained
+  queues or application data must not silently cross deployment policies.
 - Discovery acceptance must cover concurrent boot startup as well as steady
   state. Derive startup ordering from existing caller declarations and keep
   ordering separate from dependencies that activate optional services; an

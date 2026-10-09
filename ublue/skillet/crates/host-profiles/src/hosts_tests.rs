@@ -110,7 +110,8 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
             "unifi",
             "ddns",
             "datadog",
-            "btrbk"
+            "btrbk",
+            "smtp"
         ]
     );
     let credentials = clamps.credential_consumers();
@@ -141,7 +142,7 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
         .contains(&"Subnet=fd59:4e23:2950:11f5::/64".to_string()));
 
     let beezelbot = super::profile_for_name("beezelbot").unwrap();
-    assert_eq!(beezelbot.services.len(), 1);
+    assert_eq!(beezelbot.services.len(), 2);
     assert!(beezelbot.supports_service("syncthing"));
     assert!(!beezelbot.supports_service("pihole"));
     assert!(beezelbot.btrbk_config().is_none());
@@ -155,6 +156,10 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
     assert_eq!(
         beezelbot.credential_consumers(),
         [
+            super::CredentialConsumer {
+                credential: skillet_smtp::CREDENTIAL,
+                unit: "postfix.service"
+            },
             super::CredentialConsumer {
                 credential: super::CADDY_SITES_CREDENTIAL,
                 unit: "caddy.service",
@@ -453,4 +458,28 @@ fn a_credential_service_remains_eligible_when_its_ui_is_not_exposed() {
             unit: "pihole.service",
         }]
     );
+}
+
+#[test]
+fn smtp_is_shared_and_has_an_independent_credential_phase() {
+    for host in ["clamps", "beezelbot"] {
+        let profile = super::profile_for_name(host).unwrap();
+        assert_eq!(
+            profile
+                .services
+                .iter()
+                .filter(|service| service.name() == "smtp")
+                .count(),
+            1
+        );
+        assert_eq!(
+            super::credentials_for_phase(host, super::HostApplyPhase::Smtp).unwrap(),
+            [skillet_smtp::CREDENTIAL]
+        );
+        assert!(
+            !super::credentials_for_phase(host, super::HostApplyPhase::Full)
+                .unwrap()
+                .contains(&skillet_smtp::CREDENTIAL)
+        );
+    }
 }

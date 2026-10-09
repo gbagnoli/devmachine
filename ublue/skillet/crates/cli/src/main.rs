@@ -20,6 +20,11 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Commands {
+    /// Prepare guest SMTP runtime credentials
+    Smtp {
+        #[command(subcommand)]
+        command: skillet_cli_common::SmtpCommands,
+    },
     /// Manage host secrets backed by `KeePassXC`
     #[command(name = "secrets", visible_alias = "secret")]
     Secret {
@@ -87,7 +92,7 @@ struct SecretLockArgs {
 #[derive(clap::Args, Debug)]
 struct SecretDeliverArgs {
     hostname: String,
-    #[arg(value_parser = ["pihole", "tailscale", "caddy", "ddns", "datadog"])]
+    #[arg(value_parser = ["pihole", "tailscale", "caddy", "ddns", "datadog", "smtp"])]
     service: String,
     #[arg(long)]
     database: Option<PathBuf>,
@@ -207,6 +212,9 @@ struct VmDestroyArgs {
 // These CLI switches select independent optional provisioning operations.
 #[allow(clippy::struct_excessive_bools)]
 struct VmProvisionArgs {
+    /// Configure only isolated SMTP capture; no vault, Tailscale or external delivery
+    #[arg(long)]
+    smtp_only: bool,
     hostname: String,
     instance: String,
     /// Also provision private UI DNS, Caddy, and disposable Cloudflare credentials
@@ -281,6 +289,9 @@ fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     match args.command {
+        Commands::Smtp {
+            command: skillet_cli_common::SmtpCommands::Prepare,
+        } => skillet_cli_common::prepare_smtp()?,
         Commands::Secret {
             command: SecretCommands::Check(args),
         } => secret_delivery::check_vault(&args)?,
@@ -1244,6 +1255,7 @@ fn run_twice_and_check(name: &str, phase: ApplyPhase, inspect: bool) -> Result<(
         ApplyPhase::Caddy => "caddy",
         ApplyPhase::Ddns => "ddns",
         ApplyPhase::Datadog => "datadog",
+        ApplyPhase::Smtp => "smtp",
     };
     for round in ["first", "second"] {
         let status = Command::new("podman")

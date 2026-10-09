@@ -203,9 +203,11 @@ the checklist's setup instructions, and exits unsuccessfully if any are missing
 or invalid. Optional and automatically generated entries need not exist.
 SMTP preparation uses one entry, `skillet/smtp`: set **Username** and
 **Password**, plus custom fields `host` (Mailjet: `in-v3.mailjet.com`), `port`
-(`587`), and `tls` (`starttls`). The audit requires it for all declared fleet
-hosts in prod and test, checks field presence/formats, and never prints values.
-SMTP service delivery is still planned; the check does not authenticate to Mailjet.
+(`587`), `tls` (`starttls`), and `sender` (a Mailjet-verified email address).
+The audit requires it for all declared fleet hosts in production, checks field
+presence/formats, and never prints values.
+Test-policy checks omit Mailjet credentials because capture delivery never uses them.
+The check does not authenticate to Mailjet. Native SMTP delivery is described below.
 
 Unused `skillet/` entries are reported against **all hosts and both prod/test**,
 regardless of the check filter; unrelated personal entries are excluded. Unused
@@ -470,3 +472,53 @@ record/token ownership is cleaned up by `test vm destroy`; do not use direct
 - **Idempotency**: All modules must ensure system state idempotently.
 - **System Interactions**: Prioritize Rust crates (e.g., `zbus`, `users`) over shelling out to system commands.
 - **Linting**: Run `cargo clippy --workspace --all-targets -- -D warnings`; the workspace enables pedantic lints with documented exceptions.
+
+## Native SMTP relay
+
+The shared fleet declaration includes native Postfix. The common image supplies
+`postfix` and `cyrus-sasl-plain`, initially disabled. Delivery starts the separate
+SMTP apply phase; credential-free base and normal application apply still work
+without relay credentials. See [the design](../design/email-delivery.md).
+
+Create `skillet/smtp` as described above, including a verified `sender`. For a
+production host, use the existing verified SSH target/identity/known-hosts options:
+
+```bash
+cargo run --release -p skillet -- secrets deliver clamps smtp --target USER@ADDRESS --identity KEY --known-hosts KNOWN_HOSTS --environment production
+```
+
+This transmits a validated payload through SSH stdin, stores `smtp_config`
+encrypted on the guest, and starts `skillet-smtp-apply.service`. The relay accepts
+only loopback SMTP on port 25 and host `sendmail` submissions. UniFi's host-network
+container can use `127.0.0.1:25` without SMTP authentication or TLS on that local
+hop; Postfix authenticates to Mailjet over required, verified STARTTLS. Configure
+UniFi's SMTP sender/test-email settings in its UI. Bridge application access is
+not enabled yet.
+
+Postfix's provider map is root-owned, readable only by root and the Postfix
+group (`0640`, parent `0750`) under `/run/postfix/skillet/`, and regenerated
+from the encrypted credential before service startup. Queued mail persists in
+`/var/spool/postfix`. Local senders are rewritten to the verified sender; recipient
+addresses are preserved. Mailjet domain verification/SPF/DKIM/DMARC still need
+provider setup and live acceptance.
+
+For an owned disposable VM, configure only the isolated relay without unlocking
+KeePass or joining Tailscale:
+
+```bash
+cargo run --release -p skillet -- test vm provision clamps smtp --smtp-only
+```
+
+The VM must already exist and be ready with the rebuilt image/current Skillet.
+Ordinary application provisioning also configures this capture policy. Test mail
+queues until a local sink is listening on `127.0.0.1:1025`; no provider credentials
+are read or delivered. Switching an existing relay between production and capture
+is refused to protect queued mail. Use a new disposable instance for another policy.
+
+`crates/smtp/tests/native_acceptance.py BINARY HOST [--production-policy]` is a
+native-consumer fixture for an isolated **Podman systemd container with
+`--network none`** and Postfix/Python installed. It uses synthetic credentials,
+checks repeat apply, queue restart/retry and map regeneration; production-policy
+mode also checks that an upstream without STARTTLS receives no credentials/mail.
+It refuses to run outside that test container. Compile the CLI via Cargo and use
+its reported artifact; the fixture is separate from VM lifecycle management.

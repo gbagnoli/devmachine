@@ -63,11 +63,11 @@ Prepare the shared Cloudflare token creator and Zone ID. [DDNS setup](ublue/skil
 
 ## SMTP
 
-Shared fleet relay credential preparation; SMTP runtime delivery is planned. [SMTP plan](ublue/plan/CLAMPS-EMAIL.md).
+Production-only native Postfix relay credentials; smoke machines use a local sink without these values. [SMTP plan](ublue/plan/CLAMPS-EMAIL.md).
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
-| `skillet/smtp` | Required | Create one entry using your Mailjet SMTP credentials: Username = SMTP username; Password = SMTP password. Custom fields: host = in-v3.mailjet.com; port = 587; tls = starttls (required TLS with certificate verification). [Mailjet credentials](https://documentation.mailjet.com/hc/en-us/articles/360043229473-How-can-I-configure-my-SMTP-parameters). |
+| `skillet/smtp` | Required | Create one entry using your Mailjet SMTP credentials: Username = SMTP username; Password = SMTP password. Custom fields: host = in-v3.mailjet.com; port = 587; tls = starttls (required TLS with certificate verification); sender = a Mailjet-verified sender email address. [Mailjet credentials](https://documentation.mailjet.com/hc/en-us/articles/360043229473-How-can-I-configure-my-SMTP-parameters). |
 
 ## Storage (planned)
 

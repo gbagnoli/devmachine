@@ -284,3 +284,26 @@ fn datadog_production_delivery_uses_caller_region() {
         serde_json::json!(["env:prod", "region:ftwo"])
     );
 }
+
+#[test]
+fn smtp_delivery_is_stdin_only_and_capture_cannot_contain_provider_fields() {
+    let guest = FakeGuest::default();
+    let input = skillet_smtp::Input::Production {
+        host: "smtp.example.com".into(),
+        port: 587,
+        tls: "starttls".into(),
+        username: "fixture-key".into(),
+        password: "fixture-password".into(),
+        sender: "server@example.com".into(),
+    };
+    assert!(crate::smtp_provisioning::deliver("agent", &input, &guest).is_err());
+    assert_eq!(guest.calls.lock().unwrap().len(), 0);
+    crate::smtp_provisioning::deliver("beezelbot", &input, &guest).unwrap();
+    let calls = guest.calls.lock().unwrap();
+    assert!(calls.iter().all(|(args, _)| args
+        .iter()
+        .all(|arg| !arg.contains("fixture-password") && !arg.contains("fixture-key"))));
+    assert!(calls.iter().any(|(_, bytes)| bytes
+        .as_ref()
+        .is_some_and(|value| String::from_utf8_lossy(value).contains("fixture-password"))));
+}

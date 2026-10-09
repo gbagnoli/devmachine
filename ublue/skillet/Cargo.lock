@@ -2382,6 +2382,7 @@ dependencies = [
  "serde_yml",
  "skillet_core",
  "skillet_hosts",
+ "skillet_smtp",
  "tempfile",
  "thiserror 1.0.69",
  "tracing",
@@ -2452,6 +2453,7 @@ dependencies = [
  "skillet_hardening",
  "skillet_pihole",
  "skillet_podman",
+ "skillet_smtp",
  "skillet_syncthing",
  "skillet_unifi",
  "thiserror 1.0.69",
@@ -2481,6 +2483,19 @@ dependencies = [
  "skillet_core",
  "thiserror 1.0.69",
  "tracing",
+]
+
+[[package]]
+name = "skillet_smtp"
+version = "0.1.0"
+dependencies = [
+ "askama",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "skillet_core",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2540,6 +2555,7 @@ dependencies = [
  "skillet_datadog",
  "skillet_ddns",
  "skillet_hosts",
+ "skillet_smtp",
  "skillet_vm",
  "tempfile",
  "thiserror 1.0.69",

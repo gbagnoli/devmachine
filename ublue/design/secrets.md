@@ -95,8 +95,9 @@ uses provider APIs; it checks declared field presence/formats rather than provid
 permissions or host recovery state. Existing entries default to Password-only
 validation. Structured entries declare standard/custom fields and validators in
 the shared metadata. `skillet/smtp` uses Username/Password and host/port/tls
-custom fields; its shared fleet audit is implemented, while runtime SMTP
-delivery remains planned. `secrets` is the canonical CLI group; `secret` remains an alias.
+and sender custom fields. Its shared fleet audit requires the entry for production
+only. Encrypted delivery activates a dedicated native SMTP phase; disposable
+machines receive a credential-free capture payload without consulting the entry. `secrets` is the canonical CLI group; `secret` remains an alias.
 
 Use the generic [configuration template design](configuration-templates.md)
 when service configuration combines clear policy with KeePassXC values. The
