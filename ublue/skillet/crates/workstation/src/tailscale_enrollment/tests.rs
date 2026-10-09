@@ -220,7 +220,12 @@ fn unenrolled_vm_receives_auth_key_before_device_lookup_and_state_is_saved() {
     assert_eq!(provider.devices_found.get(), 1);
     let installs = guest.installs.lock().unwrap();
     assert_eq!(installs.len(), 1);
-    assert_eq!(installs[0].1.as_deref(), Some(b"dummy-auth-key".as_slice()));
+    let input = skillet_hosts::tailscale::EnrollmentInput::parse(
+        std::str::from_utf8(installs[0].1.as_deref().unwrap()).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(input.auth_key, "dummy-auth-key");
+    assert!(!input.advertise_exit_node);
     assert!(installs[0]
         .0
         .iter()

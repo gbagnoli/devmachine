@@ -11,7 +11,9 @@ DNS listener and Syncthing's peer-transfer ports separate from their UIs.
 Run Tailscale in its Podman container with `Network=host`, matching the
 existing Chef configuration on rupik, calculon, and boxy. This gives the host
 a normal Tailscale interface for host-level routing and port forwarding.
-Persist its state under `/var/lib/data/tailscale`. Use separate tagged
+Persist its state under `/var/lib/data/tailscale`. Caller-selected production
+exit-node policy and its enrollment migration are documented in
+[host routing](tailscale.md). Use separate tagged
 identities and access rules for production servers and smoke VMs. The
 workstation uses a narrowly scoped OAuth client to mint one-use enrollment
 keys; only those short-lived keys are delivered to a host, never the OAuth

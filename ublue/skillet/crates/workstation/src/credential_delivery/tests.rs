@@ -201,10 +201,11 @@ fn tailscale_production_key_uses_profile_tag_and_shared_credential_installer() {
         &*provider.description.borrow(),
         "Skillet clamps production host"
     );
-    assert_eq!(
-        guest.calls.lock().unwrap()[0].1.as_deref(),
-        Some(b"dummy auth key".as_slice())
-    );
+    let calls = guest.calls.lock().unwrap();
+    let payload = std::str::from_utf8(calls[0].1.as_deref().unwrap()).unwrap();
+    let input = skillet_hosts::tailscale::EnrollmentInput::parse(payload).unwrap();
+    assert_eq!(input.auth_key, "dummy auth key");
+    assert!(input.advertise_exit_node);
 }
 
 #[test]

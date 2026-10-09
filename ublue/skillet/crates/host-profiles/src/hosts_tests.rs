@@ -62,6 +62,7 @@ fn clamps_tailscale_uses_host_network_and_persistent_state() {
         "clamps-test-smoke",
         "test-auth-key".to_string(),
         "/var/lib/data/tailscale",
+        false,
     );
 
     assert_eq!(config.name, "tailscale");
@@ -481,5 +482,31 @@ fn smtp_is_shared_and_has_an_independent_credential_phase() {
                 .unwrap()
                 .contains(&skillet_smtp::CREDENTIAL)
         );
+    }
+}
+
+#[test]
+fn tailscale_exit_node_is_caller_selected_and_preferences_follow_readiness() {
+    assert!(super::profile_for_name("clamps")
+        .unwrap()
+        .tailscale_exit_node());
+    assert!(!super::profile_for_name("beezelbot")
+        .unwrap()
+        .tailscale_exit_node());
+    for enabled in [false, true] {
+        let config = tailscale_config(
+            "fixture-host",
+            "fixture-key".into(),
+            "/var/lib/data/tailscale",
+            enabled,
+        );
+        let container = &config.extra_config["Container"];
+        assert!(container.contains(&format!(
+            "Environment=TS_EXTRA_ARGS=--advertise-exit-node={enabled}"
+        )));
+        assert!(container.contains(&"Environment=TS_AUTH_ONCE=true".into()));
+        assert!(container.contains(&"Notify=healthy".into()));
+        assert!(container.contains(&"HealthCmd=tailscale status --peers=false".into()));
+        assert!(config.extra_config["Service"].contains(&format!("ExecStartPost=/usr/bin/podman exec tailscale tailscale set --advertise-exit-node={enabled}")));
     }
 }

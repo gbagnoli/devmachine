@@ -131,7 +131,10 @@ pub fn deliver_tailscale_credential(
         "tailscale_auth_key",
         "skillet-full-apply.service",
         credential::ActivationPolicy::StartConsumer,
-        auth_key.key.as_bytes(),
+        skillet_hosts::tailscale::EnrollmentInput::new(auth_key.key, profile.tailscale_exit_node())
+            .payload()
+            .map_err(|e| CredentialDeliveryError::Invalid(e.to_string()))?
+            .as_bytes(),
     )?;
     Ok(())
 }

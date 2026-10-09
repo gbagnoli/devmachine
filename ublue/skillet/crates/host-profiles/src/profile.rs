@@ -59,6 +59,7 @@ pub enum ServiceConfig {
         network_monitoring: bool,
     },
     Tailscale {
+        advertise_exit_node: bool,
         state_path: &'static str,
     },
     Btrbk {
@@ -173,6 +174,18 @@ pub enum HealthProbe {
 }
 
 impl HostProfile {
+    pub fn tailscale_exit_node(&self) -> bool {
+        self.services.iter().any(|service| {
+            matches!(
+                service.config,
+                ServiceConfig::Tailscale {
+                    advertise_exit_node: true,
+                    ..
+                }
+            )
+        })
+    }
+
     /// Runtime checks follow the services and UI capabilities declared by
     /// this profile, so fixture acceptance cannot stand in for application
     /// acceptance.
@@ -384,7 +397,7 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
             ],
             health_probe: None,
         },
-        ServiceConfig::Tailscale { state_path } => AcceptanceService {
+        ServiceConfig::Tailscale { state_path, .. } => AcceptanceService {
             unit: "tailscale.service".into(),
             container: Some("tailscale".into()),
             network_mode: Some("host".into()),
@@ -455,6 +468,7 @@ fn clamps() -> HostProfile {
             },
             HostService {
                 config: ServiceConfig::Tailscale {
+                    advertise_exit_node: true,
                     state_path: "/var/lib/data/tailscale",
                 },
                 ui: None,
