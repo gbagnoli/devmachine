@@ -2154,3 +2154,28 @@ host tool; it still uses normal command approvals.
 - Live VM/client routing was intentionally omitted by operator decision, rather
   than recorded as passing. Production tailnet exit-node approval and client
   selection remain operator deployment steps. Retained smoke VM was not modified.
+
+
+## 2026-10-09 — read-only host baseline audit
+
+- Used the owned `test vm ssh clamps smoke` transport for bounded read-only
+  inspection of the retained VM. No reapply, reboot, service or account changes.
+- SSH server syntax and client configuration parsing passed. Effective key-only
+  authentication, root policy, forwarding and SFTP match the public Chef role.
+  SSH service enabled/active; home and Ignition key permissions appropriate.
+- Sudo syntax passed. Base uCore sudo-group rule grants passwordless access,
+  independently of the VM override. This differs from Chef's default password
+  requirement. Production forced-password-change behavior is removed by VM
+  staging and was not accepted here.
+- Eternal Terminal installed/enabled/active with dual-stack TCP 2022 listeners;
+  an end-to-end ET client session and physical firewall access were not tested.
+- Giacomo UID/GID is 1001, versus Chef's declared 1000; Core owns 1000. Live
+  user authorized_keys contains seven keys in addition to the Ignition file;
+  no key material or password hashes copied into this record.
+- Brew and dotfiles oneshots succeeded and their markers exist. Installer `-V`
+  explicitly skips Vim plugins; plugin installation remains deferred.
+- SELinux enforcing, auditd active/enabled, both forwarding sysctls set to one.
+  OS-hardening placeholder and observed login-policy differences remain open.
+  WOL installed; private target shortcuts and actual wake-up were not tested.
+- Source comparison confirmed identical image/Skillet SSH and sysctl files.
+  Findings and ordered follow-ups: `../plan/CLAMPS-BASELINE-AUDIT.md`.
