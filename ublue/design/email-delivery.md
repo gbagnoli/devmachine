@@ -3,7 +3,8 @@
 Status: image packages and shared SMTP provisioning implemented. Native Postfix
 container and rebuilt uCore capture acceptance passed. Live Mailjet submission
 over verified STARTTLS and operator-confirmed Gmail receipt passed. Mail
-authentication headers and UniFi recovery email remain unverified.
+authentication headers remain unverified; UniFi recovery email is parked by
+operator decision.
 
 ## Implementation boundary
 

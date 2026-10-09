@@ -43,8 +43,7 @@ See [the design](../design/email-delivery.md).
    sendmail and loopback submission first. Add explicit bridge
    client access only for declared applications; do not publish LAN/tailnet SMTP
    or broadly allow arbitrary bridge clients. Applications own their SMTP client
-   integration. Configure UniFi recovery email via a supported interface, with
-   any necessary operator UI handoff recorded.
+   integration. UniFi recovery email is parked by operator decision; see below.
 5. **Unit health implemented; queue/failure metrics pending:** add module-owned
    monitoring for service health, deferred queue age and send
    failures without credential/message-body disclosure. Test hosts use a local
@@ -61,7 +60,7 @@ See [the design](../design/email-delivery.md).
   and retry after a simulated upstream outage without regenerating credentials.
 - Explicit live acceptance after provider setup: send a message to an
   operator-controlled Gmail inbox. Inspect SPF/DKIM/DMARC results and actual
-  delivery; no guaranteed inbox placement claim. Verify UniFi recovery email.
+  delivery; no guaranteed inbox placement claim. UniFi recovery email is parked.
   Do not send during routine smoke runs.
 - Record exact passed/pending checks in `butane/ACCEPTANCE.md`, maintain designs,
   README usage and the root secrets checklist; focused validated commits, no push.
@@ -80,8 +79,14 @@ verified STARTTLS, SMTP authentication, and one operator-confirmed Gmail deliver
 The original deferred message was retried after fixing the trust-bundle path and
 RAM credential labels; no duplicate was submitted.
 
-Next: configure UniFi SMTP through its UI and inspect SPF/DKIM/DMARC headers.
+Remaining SMTP follow-ups: inspect SPF/DKIM/DMARC headers.
 Explicit certificate/authentication failure cases remain unverified; the isolated
 no-STARTTLS refusal check passed. Bridge client access and queue-age/send-failure
 monitoring remain separate implementation work. No provider mail is sent by
 routine smoke runs.
+
+## Parked by operator decision
+
+UniFi SMTP/recovery-email configuration is parked (2026-10-09). It is not the
+next milestone or a required cutover gate. Shared host mail delivery is accepted;
+application email setup can resume only when requested.

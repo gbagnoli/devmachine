@@ -16,7 +16,7 @@ Sources: `roles/rupik.rb` includes `role[server]`, `server::wol`, and `rupik`.
 | nginx, ACME, OAuth proxy, web pod | Separate bridge containers; generic Caddy routes, Cloudflare DNS-01, tailnet restriction, per-service names and aliases | Production certificate/renewal and external-source denial; inventory any legacy cross-host routes still needed |
 | Syncthing | Container and leaf data subvolume; peer ports retained; host GUI publication removed; explicit host/container identity mapping | PARKED: live ownership fix acceptance; production peer connectivity and identity/data migration |
 | btrbk | Caller-selected Syncthing snapshots, hourly timer, retention and restore accepted | Off-machine backup policy and physical cutover acceptance; nested source subvolumes unsupported |
-| UniFi | Rootful host-network container; numeric application data ownership; empty-controller/repeat-apply acceptance | Isolated backup restore, version compatibility, adoption and Site Manager access; see `CLAMPS-UNIFI.md` |
+| UniFi | Rootful host-network container; numeric application data ownership; empty-controller/repeat-apply, isolated backup restore, restored-data persistence and operator UI inspection accepted | Production device adoption and Site Manager access at cutover; SMTP setup parked; see `CLAMPS-UNIFI.md` |
 | Tailscale | Host network, persistent state, OAuth enrollment, disposable identity cleanup, DNS acceptance disabled | Chef advertises an exit node; current Skillet declaration does not. Add caller-controlled production exit-node behavior and prove forwarding/firewall/client routing |
 | Cloudflare DDNS | Caller-selected rootful updater, clear shared template with KeePassXC leaf references, production delivery, and journaled disposable token/record cleanup implemented; separate from UI DNS publication | Explicit rotation acceptance and private record/proxy inventory and one-writer cutover; see `CLAMPS-CLOUDFLARE-DDNS.md` |
 | Datadog | Retained; approved rootful Agent, service-owned labels, host checks and credential delivery implemented | Live host/container checks, submissions and automatic boot discovery passed; NPM/USM perf/HTTP traffic and reboot acceptance passed with explicit PERFMON; physical Secure Boot, provider tag read-back and richer application checks pending; see `CLAMPS-DATADOG.md`. Later local metrics/Grafana is separate work |
@@ -39,10 +39,12 @@ exists. Additional private run-list recipes remain an inventory question.
 1. Disposable DDNS publication/recovery/cleanup passed; finish explicit rotation
    acceptance and privately inventory production records;
    do not mutate production DNS.
-2. Datadog eBPF VM acceptance passed. Next, handle isolated UniFi backup/restore
-   planning and execution; retain physical Secure Boot, provider tag read-back
-   and richer monitoring follow-ups in `CLAMPS-DATADOG.md`.
-3. Close exit-node and remaining host-baseline gaps before cutover.
+2. Datadog eBPF and isolated UniFi restore/UI acceptance passed. Shared SMTP
+   delivery to Gmail also passed; UniFi email setup is parked. Retain physical
+   Secure Boot, provider tag read-back and richer monitoring follow-ups in
+   `CLAMPS-DATADOG.md`.
+3. Next: add caller-controlled production Tailscale exit-node behavior, disabled
+   by default for smoke VMs, then close remaining host-baseline gaps before cutover.
 4. Run the parked VM and deferred network/production acceptance when their
    required infrastructure is available; transfer state only with a recovery path.
 
