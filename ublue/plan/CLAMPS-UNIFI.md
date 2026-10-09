@@ -5,9 +5,10 @@ before proceeding with the remaining feature milestones in this plan.
 Existing acceptance evidence and deferred tasks remain applicable.
 
 Status: implementation and empty-controller acceptance passed on the
-disposable x86_64 VM on 2026-10-03. UI backup import and restored-data persistence passed on 2026-10-09.
-Authenticated UI verification, final disposable cleanup and production migration
-remain pending.
+disposable x86_64 VM on 2026-10-03. UI backup import and restored-data
+persistence passed on 2026-10-09.
+Operator authenticated UI inspection and owned disposable cleanup passed.
+Production migration remains pending.
 
 ## Current behavior
 
@@ -50,9 +51,11 @@ for the controller's UI account.
 1. **Passed:** Test the Quadlet/module on a named disposable x86_64 VM with an
    empty controller: service starts, remains active, uses intended ownership,
    has `Network=host` for discovery/adoption, and survives repeated apply.
-   See `butane/ACCEPTANCE.md`. Reboot survival, expected host listeners, and
-   confirmation that no Caddy/Cloudflare setup is needed remain to verify.
-2. Restore one private rupik `.unf` Network backup in a dedicated x86_64 VM
+   See `butane/ACCEPTANCE.md`. Reboot survival and local HTTPS passed; complete
+   expected host listener coverage remains a cutover check. Isolated restore
+   acceptance needed no Caddy/Cloudflare setup.
+2. **Passed on 2026-10-09:** Restore one private rupik `.unf` Network backup
+   in a dedicated x86_64 VM
    using a compatible application version. Complete the isolated acceptance
    below. Site Manager access is a separate cutover check: the restored copy
    must not contact devices or the cloud while rupik remains the live controller.
@@ -63,10 +66,10 @@ for the controller's UI account.
 Routine tests already cover host-network Quadlet rendering, numeric data-root
 ownership, mount refusal, repeated apply, and preservation of existing files;
 the canonical profile selects UniFi for Clamps. Empty-controller runtime
-acceptance passed on 2026-10-03. UI import and restored-data persistence passed on 2026-10-09; authenticated
-inspection, disposal and production/device acceptance remain pending. Record new commands and results in `butane/ACCEPTANCE.md`.
-Device migration stays unverified until a backup restore or deliberate
-re-adoption succeeds.
+acceptance passed on 2026-10-03. UI import, restored-data persistence, operator
+inspection and disposal passed on 2026-10-09. Production/device acceptance
+remains pending. Record new commands and results in `butane/ACCEPTANCE.md`.
+Actual device migration remains unverified until scheduled cutover succeeds.
 
 Read `skillet/AGENTS.md`, `design/storage.md`, `design/secrets.md`, and
 `design/smoke-vms.md` before implementation.
@@ -77,9 +80,10 @@ References: [UniFi cloud architecture](https://help.ui.com/hc/en-us/articles/303
 
 ## Isolated backup-restore acceptance
 
-This work is in progress. UI import, repeat module apply, restored configuration
-hashes and reboot persistence passed on 2026-10-09. Authenticated UI inspection
-and final disposal remain pending. On 2026-10-08 the workstation reached rupik but SSH
+Completed on 2026-10-09: UI import, repeat module apply, restored configuration
+hashes, reboot persistence, operator authenticated inspection and final disposal
+passed. Production/device/cloud acceptance remains separate. On 2026-10-08
+the workstation reached rupik but SSH
 failed with `Permission denied (publickey)`. The user supplied a private October
 1 Network backup (212,880 bytes); its original automatic-backup filename
 identifies application version 10.0.162. Current source runtime access remains
@@ -142,24 +146,17 @@ and rollback available.
 
 Restore reference: [Ubiquiti Network backups and migration](https://help.ui.com/hc/en-us/articles/360008976393-Backups-and-Migration-in-UniFi).
 
-### Current live handoff — 2026-10-09
+### Completed isolated acceptance — 2026-10-09
 
-- Retained VM: `clamps` / `unifi-restore`, native `qemu:///session`, SSH 2202.
-  UniFi version 10.0.162-32076-1, rootful host networking, data-root 999:999/0750.
-- Operator uploaded the backup through the setup UI. Database aggregates:
-  two sites, one network, four WLANs, three devices, one admin. Source inventory
-  equivalence remains unverified. CLI restore attempts failed previously;
-  those failures did not establish backup corruption.
-- Repeat production module-only apply before and after owned reboot passed;
-  network/WLAN configuration hashes stayed identical. HTTPS returned 200 after
-  boot startup, service active with zero restarts. This is not full-host acceptance.
-- Persistent isolation survived reboot and is required before UniFi activation.
-  Public IPv4 HTTPS remains blocked; separate LAN/tailnet/IPv6 probes remain
-  unverified. No provider credentials or cloud/device access were enabled.
-- Login with the operator’s recorded password failed; an older password is
-  possible. SMTP recovery is unavailable. Retain the isolated VM for credential
-  investigation; do not alter database credentials or remove the fence.
-- Remaining: operator authenticated UI/configuration inspection, then stop and
-  dispose through the owned lifecycle. Preserve independent private backups.
-  Production adoption and Site Manager remain scheduled cutover checks.
+- Dedicated `clamps` / `unifi-restore` VM restored the supplied ARM controller
+  backup using x86_64 UniFi 10.0.162-32076-1. Aggregate state: two sites, one
+  network, four WLANs, three devices, one admin.
+- Operator successfully logged in and confirmed devices/configuration look
+  correct. Repeat production module apply and reboot preserved network/WLAN
+  collection hashes; local HTTPS and persistent isolation passed.
+- Stopped the controller and disposed the owned VM. Run artifacts are absent,
+  independent backup copies retained, and the existing smoke VM untouched.
+- See `butane/ACCEPTANCE.md` for evidence and limitations. Complete individual
+  listener checks, device connectivity and Site Manager at scheduled production
+  cutover, with rupik stopped and rollback available.
 - Email delivery is tracked in [the follow-up plan](CLAMPS-EMAIL.md).
