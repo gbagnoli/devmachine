@@ -2103,3 +2103,32 @@ host tool; it still uses normal command approvals.
   Mailjet/Gmail delivery, sender-domain verification and UniFi SMTP settings
   remain pending. Bridge clients and queue-age/send-failure metrics remain
   implementation follow-ups in `plan/CLAMPS-EMAIL.md`.
+
+## 2026-10-09 — live Mailjet relay and Gmail receipt
+
+- Created fresh owned `clamps-test-mailjet` on native `qemu:///session`, SSH port
+  2202. Signed uCore boot and base readiness passed; retained smoke VM untouched.
+- Explicit `--smtp-only --live-smtp` provisioning used cached KeePass access and
+  shared encrypted credential delivery. Normal VM provisioning remains capture-only;
+  the override does not change VM environment or enable other production services.
+- Submitted one operator-authorized message. Initial delivery deferred because
+  the compatibility CA symlink was absent and the SMTP worker could not read
+  RAM credentials with the generic SELinux label. TLS policy prevented plaintext
+  fallback. Fixed the extracted trust-bundle path and runtime credential labeling,
+  updated both guest binaries, and retried the original queue entry without
+  submitting a duplicate.
+- Mailjet accepted the original message over verified TLS with SMTP authentication.
+  Operator confirmed Gmail receipt. SELinux remained enforcing; credentials have
+  `postfix_etc_t`, root/Postfix ownership and restricted Unix permissions. Queue
+  drained. Encrypted credential preparation recreated the deleted RAM map with
+  the correct label. Restarting the prerequisite stopped its dependent Postfix unit;
+  apply recovered it. A subsequent ordinary repeat production apply preserved
+  Postfix PID and empty queue.
+- Local checks: 328 workspace tests, formatting, pedantic Clippy, Fedora base
+  repeat-apply, and Ruff check/format passed. Isolated native capture and
+  production-policy fixtures passed from absent mutable package state; configured
+  CA bundle exists, and an upstream without STARTTLS receives no credentials/mail.
+- SPF/DKIM/DMARC headers, explicit invalid-certificate/authentication cases, and
+  UniFi recovery-email integration remain unverified. No additional provider
+  messages were submitted. The disposable Mailjet VM and fixture containers were
+  removed after acceptance; provider secrets/private sender details are not recorded.
