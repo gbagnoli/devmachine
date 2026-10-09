@@ -83,6 +83,9 @@
 - Preserve downstream schema types when parsing and re-emitting configuration.
   Validate staged output with the actual consumer/compiler where possible, not
   only with a parser round trip.
+- Do not assume package directories under mutable OS paths are initialized by
+  an image build or rebase. Converge required state directories, ownership and
+  security labels before confined service startup; test from absent package state.
 - Before activating a unit with multiple credential prerequisites, deliver the
   complete credential set first. Cover activation from a fresh host where the
   consumer service and its containers do not yet exist.

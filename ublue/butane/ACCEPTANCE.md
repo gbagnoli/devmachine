@@ -2057,3 +2057,49 @@ host tool; it still uses normal command approvals.
   failures, explicit Mailjet/Gmail delivery with SPF/DKIM/DMARC inspection, and
   UniFi recovery-email configuration. Bridge clients and queue-age/send-failure
   metrics are separate remaining implementation slices; unit health is declared.
+
+
+### Rebuilt uCore SMTP capture acceptance, 2026-10-09
+
+- [Image workflow 37916306725](https://github.com/gbagnoli/ucore-images/actions/runs/37916306725)
+  succeeded for ucore-images `3223d48`. Created the owned disposable
+  `clamps-test-smtp` on port 2202; UUID
+  `59878d4b-8095-4ebb-81e9-dc9e4658914d`. The retained smoke VM was untouched.
+  Signed clamps boot/readiness passed; the guest contained
+  `postfix-3.10.14-1.fc44` and `cyrus-sasl-plain-2.1.28-35.fc44`.
+- Fresh activation exposed missing package `/var` state on ostree. Skillet now
+  initializes the full packaged queue directory layout, PID directory and
+  `/var/lib/postfix` with package ownership/modes before confined startup, then
+  restores security labels. Initializing only the queue root was insufficient:
+  confined startup could not initialize all remaining directory metadata.
+- Capture-only delivery used `test vm provision clamps smtp --smtp-only` without
+  vault/provider access. With SELinux enforcing, native Postfix and credential
+  preparation started, host sendmail queued a synthetic message, and connections
+  to the guest's non-loopback IPv4 address on port 25 were rejected.
+- Removed the volatile map, rebooted through `test vm reboot`, and ran owned
+  readiness. The encrypted credential survived, boot regenerated the map, and
+  the synthetic message persisted and delivered to a temporary loopback sink.
+  The first observation captured a transient maildrop ID; subsequent checks
+  waited for the finalized deferred ID before comparing identities.
+- Exercised signed common-image rebase and return to signed clamps. For the
+  direct common check, temporarily changed `/etc/ucore-bootstrap-image` to the
+  common image and restored it before returning. Disabling bootstrap alone is
+  insufficient because the base unit requires it and can start it again.
+  Confirmed actual signed common boot, unchanged finalized queue ID, regenerated
+  map, enforcing SELinux, and successful retry. Signed clamps readiness passed
+  after restoring its bootstrap target. All guest assertions used the owned
+  `test vm ssh` interface; reboot and readiness used the Rust lifecycle owner.
+- Local checks passed: formatting, pedantic workspace Clippy, 324 workspace
+  tests, Fedora base repeat-apply integration, and Ruff check/format. Both native
+  fixture policies additionally passed after deleting package queue/data state
+  inside isolated disposable containers; both containers were removed.
+- After returning to signed clamps, updated both guest binaries to the current
+  fix and repeated capture provisioning. Confirmed the restored image/target,
+  empty queue, retained encrypted credential, and unchanged Postfix PID on repeat
+  apply. Disposed `clamps-test-smtp`; final VM list retained only the running
+  `clamps-test-smoke` on port 2201.
+- No real provider credential or external email was used. Production credential
+  map access and certificate/authentication failures under enforcing SELinux,
+  Mailjet/Gmail delivery, sender-domain verification and UniFi SMTP settings
+  remain pending. Bridge clients and queue-age/send-failure metrics remain
+  implementation follow-ups in `plan/CLAMPS-EMAIL.md`.

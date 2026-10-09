@@ -1,8 +1,8 @@
 # Fleet email delivery
 
 Status: image packages and shared SMTP provisioning implemented. Native Postfix
-container acceptance passed; rebuilt uCore VM and live provider acceptance remain
-pending.
+container and rebuilt uCore capture acceptance passed; live production provider
+acceptance remains pending.
 
 ## Implementation boundary
 
@@ -41,8 +41,13 @@ hold policy; private configuration and credentials use the existing vault and
 systemd encrypted-delivery workflow. A root-owned, Postfix-group-readable
 `texthash` map (`0640`, parent `0750`) under `/run/postfix/skillet` is regenerated
 from `LoadCredentialEncrypted=` before Postfix starts. Native Fedora acceptance
-verified the backend and permissions; enforcing SELinux remains a VM gate.
-Sender canonical rewriting preserves recipients.
+verified backend/worker permissions. Capture delivery and boot/rebase recovery
+passed on uCore with enforcing SELinux; production credential-map access and
+TLS/authentication acceptance remain pending.
+Skillet initializes the packaged queue layout and `/var/lib/postfix` before
+startup, with package ownership/modes and restored SELinux labels. Image-layer
+`/var` contents do not initialize a rebased host. Existing message contents are
+preserved; managed directory metadata and security labels converge. Sender canonical rewriting preserves recipients.
 Never bake credentials or sender domains into an image.
 
 Default listener: loopback only. UniFi uses host networking and can reach it.
