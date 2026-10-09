@@ -9,7 +9,7 @@ use std::{
 use thiserror::Error;
 
 const CATALOG: &str = include_str!("secret-requirements.json");
-const INTRO: &str = "# Skillet secrets checklist\n\nVault: `$XDG_DATA_HOME/skillet/secrets.kdbx` (default:\n`~/.local/share/skillet/secrets.kdbx`). Paths are **group path + entry title**.\nPut every value in **Password**, including IDs and configuration; leave\n**Username** empty. `<environment>` is `prod` or `test`; `<host>` is the\ncanonical host name. Only prepare entries for enabled modules.\n\nAudit with `skillet secrets check` (all declared hosts, production), or\n`skillet secrets check --host clamps --environment test`. It checks presence\nand nonempty Password fields, without provider calls or generating secrets.\nMissing optional/generated/planned entries do not fail the check.\n\n<!-- Generated from ublue/skillet/crates/workstation/src/secret-requirements.json. -->\n";
+const INTRO: &str = "# Skillet secrets checklist\n\nVault: `$XDG_DATA_HOME/skillet/secrets.kdbx` (default:\n`~/.local/share/skillet/secrets.kdbx`). Paths are **group path + entry title**.\nUnless an entry documents other fields, put its value in **Password** and\nleave **Username** empty. `<environment>` is `prod` or `test`; `<host>` is the\ncanonical host name. Only prepare entries for enabled modules.\n\nAudit with `skillet secrets check` (all declared hosts, production), or\n`skillet secrets check --host clamps --environment test`. It checks required fields and their formats, without provider calls or generating secrets.\nMissing optional/generated/planned entries do not fail the check.\n\n<!-- Generated from ublue/skillet/crates/workstation/src/secret-requirements.json. -->\n";
 
 #[derive(Debug, Error)]
 pub enum CheckError {
@@ -59,6 +59,60 @@ struct Entry {
     path: String,
     status: Status,
     help: String,
+    #[serde(default)]
+    fields: Vec<FieldRequirement>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FieldRequirement {
+    name: String,
+    #[serde(default)]
+    rule: FieldRule,
+    #[serde(default)]
+    values: Vec<String>,
+}
+
+#[derive(Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum FieldRule {
+    #[default]
+    Nonempty,
+    Hostname,
+    Port,
+    Choice,
+}
+
+impl FieldRequirement {
+    fn valid(&self, value: &str) -> bool {
+        if value.trim().is_empty() {
+            return false;
+        }
+        match self.rule {
+            FieldRule::Nonempty => true,
+            FieldRule::Port => value.parse::<u16>().is_ok_and(|port| port != 0),
+            FieldRule::Choice => self.values.iter().any(|allowed| allowed == value),
+            FieldRule::Hostname => valid_hostname(value),
+        }
+    }
+}
+
+fn valid_hostname(value: &str) -> bool {
+    if value.parse::<std::net::IpAddr>().is_ok() {
+        return true;
+    }
+    let value = value.strip_suffix('.').unwrap_or(value);
+    !value.is_empty()
+        && value.len() <= 253
+        && value.split('.').all(|label| {
+            !label.is_empty()
+                && label.len() <= 63
+                && !label.starts_with('-')
+                && !label.ends_with('-')
+                && label
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        })
 }
 
 fn catalog() -> Result<Vec<RequirementGroup>, CheckError> {
@@ -139,7 +193,9 @@ pub fn unused_paths(
 
 fn selected(module: &RequirementGroup, profile: &HostProfile) -> bool {
     module.required_by.iter().any(|service| {
-        if service == "ui" {
+        if service == "fleet" {
+            profile.signed_image.is_some()
+        } else if service == "ui" {
             !profile.ui_services().is_empty()
         } else {
             profile.supports_service(service)
@@ -157,7 +213,7 @@ fn expand(path: &str, host: &str, environment: &str) -> String {
 pub fn check(
     profiles: &[HostProfile],
     policy: ProvisioningPolicy,
-    lookup: &impl Fn(&str) -> Result<Option<String>, VaultError>,
+    lookup: &impl Fn(&str, &str) -> Result<Option<String>, VaultError>,
 ) -> Result<CheckReport, CheckError> {
     let mut required = BTreeMap::new();
     for module in catalog()? {
@@ -189,6 +245,7 @@ pub fn check(
                     (
                         module.module.clone(),
                         format!("{} {}", module.description, entry.help),
+                        entry.fields.clone(),
                     )
                 });
             }
@@ -198,18 +255,46 @@ pub fn check(
         checked: required.len(),
         missing: Vec::new(),
     };
-    for (path, (module, guide)) in required {
-        let invalid = match lookup(&path) {
-            Ok(Some(value)) if !value.is_empty() => continue,
-            Ok(None) => false,
-            Ok(Some(_)) | Err(VaultError::Invalid(_)) => true,
-            Err(error) => return Err(error.into()),
-        };
+    for (path, (module, mut guide, mut fields)) in required {
+        if fields.is_empty() {
+            fields.push(FieldRequirement {
+                name: "Password".into(),
+                rule: FieldRule::Nonempty,
+                values: Vec::new(),
+            });
+        }
+        let mut invalid_fields = Vec::new();
+        let mut present = false;
+        let mut invalid = false;
+        for field in fields {
+            match lookup(&path, &field.name) {
+                Ok(Some(value)) => {
+                    present = true;
+                    if !field.valid(&value) {
+                        invalid_fields.push(field.name);
+                    }
+                }
+                Ok(None) => invalid_fields.push(field.name),
+                Err(VaultError::Invalid(_)) => {
+                    invalid = true;
+                    invalid_fields.push(field.name);
+                }
+                Err(error) => return Err(error.into()),
+            }
+        }
+        if invalid_fields.is_empty() {
+            continue;
+        }
+        let _ = write!(
+            guide,
+            " Missing or invalid fields: {}.",
+            invalid_fields.join(", ")
+        );
         report.missing.push(MissingEntry {
             module,
             path,
             guide,
-            invalid,
+            invalid: invalid || present,
         });
     }
     report.missing.sort_by(|a, b| {
@@ -229,7 +314,7 @@ pub fn documentation() -> Result<String, CheckError> {
         let _ = write!(output, "\n## {}\n\n{}\n", module.module, module.description);
         if !module.entries.is_empty() {
             output.push_str(
-                "\n| Entry | Status | Password value / how to obtain it |\n| --- | --- | --- |\n",
+                "\n| Entry | Status | Fields / how to obtain them |\n| --- | --- | --- |\n",
             );
             for entry in module.entries {
                 let _ = writeln!(

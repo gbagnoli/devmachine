@@ -1,3 +1,21 @@
+## Structured SMTP vault audit — 2026-10-09
+
+- `skillet secrets check --host clamps --environment test` opened the unlocked
+  vault and passed: seven required entries, zero missing/invalid, zero unused.
+  The shared `skillet/smtp` entry includes required Username/Password and custom
+  host/port/tls fields. The audit checks format and required STARTTLS policy;
+  it makes no provider calls and prints no field values.
+- Shared metadata drives field validation, missing-field instructions and the
+  root checklist. SMTP is a shared fleet preparation requirement in prod/test;
+  credential-free synthetic agent profiles are excluded. Runtime SMTP delivery
+  is still planned. Existing single-value readers retain Password semantics.
+- Formatting, pedantic workspace Clippy and all 311 workspace tests passed.
+  Added coverage for missing/invalid structured fields, protected custom reads,
+  exact-path ambiguity, deduplication and both-environment unused auditing.
+  Fedora base/repeat check passed with no service start/restart on the second apply.
+- No container behavior changed; no additional VM or Mailjet delivery acceptance
+  is claimed. Postfix provisioning and verified-sender setup remain pending.
+
 ## UniFi isolated restore completed — 2026-10-09
 
 **Passed: cross-architecture backup restore, operator UI inspection, repeat

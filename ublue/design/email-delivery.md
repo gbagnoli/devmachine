@@ -18,6 +18,17 @@ A container relay is possible, but would additionally need host submission
 integration. A lightweight client alone does not supply the required durable
 queue without extra machinery.
 
+## Provider entry
+
+Mailjet is the existing provider. Read a single `skillet/smtp` entry:
+Username and Password contain SMTP credentials; `host`, `port` and `tls` custom
+fields hold the endpoint and security mode. Field-aware reading/auditing is
+implemented; service delivery is pending. The audit requires these fields once
+for shared fleet preparation in both environments and currently accepts only
+`starttls` for TLS. Missing/invalid field names are public diagnostics; values
+are never printed. SMTP credentials are the provider’s API key/secret, rather
+than the account login ([provider guide](https://documentation.mailjet.com/hc/en-us/articles/360043229473-How-can-I-configure-my-SMTP-parameters)).
+
 ## Delivery and access
 
 Relay only through an authenticated external provider, using verified TLS;

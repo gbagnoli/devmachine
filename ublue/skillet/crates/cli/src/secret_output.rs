@@ -73,12 +73,12 @@ pub(super) fn render(report: &CheckReport, unused: &[String], hyperlinks: bool) 
                 previous_module = &entry.module;
             }
             let state = if entry.invalid {
-                "INVALID (empty or ambiguous)"
+                "INVALID (fields or ambiguous entry)"
             } else {
                 "MISSING"
             };
             let _ = writeln!(output, "  {state}: {}", entry.path);
-            output.push_str("    Field: Password (leave Username empty)\n    Setup:\n");
+            output.push_str("    Setup:\n");
             write_guide(&mut output, &entry.guide, hyperlinks);
             output.push('\n');
         }

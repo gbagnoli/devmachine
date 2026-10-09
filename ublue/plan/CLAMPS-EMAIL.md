@@ -2,7 +2,8 @@
 
 Status: investigation completed; implementation pending. UniFi isolated restore
 acceptance is complete. Native Postfix + shared Skillet module is the recommended
-approach; confirm the existing provider before selecting credentials and endpoints.
+approach. Mailjet credentials and endpoint are confirmed by the operator;
+verified sender/domain configuration remains to prepare.
 See [the design](../design/email-delivery.md).
 
 ## Findings
@@ -12,14 +13,17 @@ See [the design](../design/email-delivery.md).
   its README locally, so the old provider cannot be identified from this checkout.
 - `ucore-common` owns packages/static files; Skillet already owns credentials,
   canonical service composition, convergence and monitoring declarations.
-- No credentials were read or new vault requirements introduced by this research.
-  Do not assume the unlocked vault contains the old provider configuration.
+- Operator identified Mailjet (`in-v3.mailjet.com:587`) and created one
+  `skillet/smtp` entry with Username/Password and host/port/tls custom fields.
+  Shared field-aware vault reading and required-field auditing are implemented;
+  no provider authentication or outgoing email is performed by the audit.
 
 ## Ordered slices
 
-1. Confirm the operator’s existing provider and verified sender. Check SMTP
-   authentication, required TLS/port, sending limits and domain verification
-   against that provider’s official documentation. Prepare brief exact vault
+1. **Partially complete:** Mailjet identified and the one-entry vault audit
+   passed. Confirm the verified sender and domain, account limits and provider
+   authentication during explicit live acceptance. Required STARTTLS on port
+   587 is the selected policy. Prepare brief exact vault
    requirements through shared metadata/root checklist; keep provider password
    and private sender/endpoint leaves out of the public repo. Use a shared
    credential where its actual account scope allows it, with explicit test policy.
