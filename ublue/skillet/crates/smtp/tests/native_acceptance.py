@@ -141,6 +141,9 @@ def main():
         )
 
     apply()
+    assert pathlib.Path(
+        run("postconf", "-h", "smtp_tls_CAfile").decode().strip()
+    ).is_file(), "configured CA trust bundle must exist"
     pid = run("systemctl", "show", "postfix.service", "-p", "MainPID", "--value")
     apply()
     assert pid == run(

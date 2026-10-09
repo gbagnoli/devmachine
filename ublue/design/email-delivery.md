@@ -1,8 +1,9 @@
 # Fleet email delivery
 
 Status: image packages and shared SMTP provisioning implemented. Native Postfix
-container and rebuilt uCore capture acceptance passed; live production provider
-acceptance remains pending.
+container and rebuilt uCore capture acceptance passed. Live Mailjet submission
+over verified STARTTLS and operator-confirmed Gmail receipt passed. Mail
+authentication headers and UniFi recovery email remain unverified.
 
 ## Implementation boundary
 
@@ -26,8 +27,11 @@ Mailjet is the existing provider. Read a single `skillet/smtp` entry:
 Username and Password contain SMTP credentials; `host`, `port` and `tls` custom
 fields hold the endpoint and security mode; `sender` holds the verified sender
 address. Field-aware reading, auditing and encrypted delivery are implemented.
-The audit requires these fields once for production fleet preparation. Test
-provisioning neither reads nor delivers provider credentials. Only `starttls` is
+The audit requires these fields once for production fleet preparation. Default test
+provisioning neither reads nor delivers provider credentials. The explicit
+`--smtp-only --live-smtp` acceptance override delivers real credentials through
+the same owned VM transport without changing its test identity or enabling
+other production services. It sends no message itself. Only `starttls` is
 accepted; production requires certificate and hostname verification.
 Missing/invalid field names are public diagnostics; values are never printed. SMTP credentials are the provider’s API key/secret, rather
 than the account login ([provider guide](https://documentation.mailjet.com/hc/en-us/articles/360043229473-How-can-I-configure-my-SMTP-parameters)).
@@ -42,8 +46,12 @@ systemd encrypted-delivery workflow. A root-owned, Postfix-group-readable
 `texthash` map (`0640`, parent `0750`) under `/run/postfix/skillet` is regenerated
 from `LoadCredentialEncrypted=` before Postfix starts. Native Fedora acceptance
 verified backend/worker permissions. Capture delivery and boot/rebase recovery
-passed on uCore with enforcing SELinux; production credential-map access and
-TLS/authentication acceptance remain pending.
+passed on uCore with enforcing SELinux, including production credential-map
+access and live TLS/authentication. The guest preparation adapter copies the
+Postfix configuration label onto RAM credential files when SELinux is enabled,
+after restoring the reference file label. Disabled test containers skip labeling;
+permissive hosts still receive correct labels. Trust uses Fedora’s extracted CA
+bundle rather than assuming a compatibility symlink exists.
 Skillet initializes the packaged queue layout and `/var/lib/postfix` before
 startup, with package ownership/modes and restored SELinux labels. Image-layer
 `/var` contents do not initialize a rebased host. Existing message contents are

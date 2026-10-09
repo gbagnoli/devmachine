@@ -104,6 +104,8 @@ tracks existing violations and their migration, not completed implementation.
   seccomp, mount and LSM policy before declaring the host kernel unsupported.
   Match syscall allow rules to explicitly selected capabilities; test the
   smallest policy change and retain restrictions unrelated to the feature.
+- Validate trust-store paths against the deployed OS. A rendered strict TLS
+  directive does not prove the consumer can initialize its TLS engine.
 - Restrict credential-file access to the identities that actually consume them.
   Test access under the worker identity, rather than inferring it from a
   successful privileged preparation command.

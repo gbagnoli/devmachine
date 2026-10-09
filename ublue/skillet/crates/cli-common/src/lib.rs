@@ -11,6 +11,7 @@ use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 pub mod hosts;
+mod smtp_runtime;
 use hosts::ApplyPhase;
 
 #[derive(Error, Debug)]
@@ -281,6 +282,17 @@ pub fn prepare_smtp() -> Result<(), CliCommonError> {
     let payload = manager.read_secret(skillet_smtp::CREDENTIAL)?;
     let input =
         skillet_smtp::Input::parse(&payload).map_err(|e| CliCommonError::Config(e.to_string()))?;
-    skillet_smtp::prepare(&LocalFileResource::new(), &input)
-        .map_err(|e| CliCommonError::Config(e.to_string()))
+    let files = LocalFileResource::new();
+    skillet_smtp::prepare(&files, &input).map_err(|e| CliCommonError::Config(e.to_string()))?;
+    smtp_runtime::label_credentials(&files, &|program, arguments| {
+        let output = std::process::Command::new(program)
+            .args(arguments)
+            .output()?;
+        if !output.status.success() {
+            return Err(CliCommonError::Config(
+                "SMTP credential labeling failed".into(),
+            ));
+        }
+        Ok(())
+    })
 }

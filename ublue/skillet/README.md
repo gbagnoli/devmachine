@@ -497,11 +497,13 @@ not enabled yet.
 
 Postfix's provider map is root-owned, readable only by root and the Postfix
 group (`0640`, parent `0750`) under `/run/postfix/skillet/`, and regenerated
-from the encrypted credential before service startup. Queued mail persists in
+from the encrypted credential before service startup. On SELinux hosts, preparation
+applies the Postfix configuration label to the RAM map and directory. Production
+TLS uses `/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem`. Queued mail persists in
 `/var/spool/postfix`; Skillet initializes the queue directories and
 `/var/lib/postfix` before activation. Local senders are rewritten to the verified sender; recipient
-addresses are preserved. Mailjet domain verification/SPF/DKIM/DMARC still need
-provider setup and live acceptance.
+addresses are preserved. Configure Mailjet sender/domain verification and
+SPF/DKIM/DMARC in the provider UI; validate headers on a received message.
 
 For an owned disposable VM, configure only the isolated relay without unlocking
 KeePass or joining Tailscale:
