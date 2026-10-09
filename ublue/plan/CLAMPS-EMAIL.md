@@ -1,9 +1,9 @@
 # Fleet SMTP implementation
 
-Status: investigation completed; implementation pending. UniFi isolated restore
-acceptance is complete. Native Postfix + shared Skillet module is the recommended
-approach. Mailjet credentials and endpoint are confirmed by the operator;
-verified sender/domain configuration remains to prepare.
+Status: native Postfix image packages and shared provisioning implemented.
+Isolated native-consumer checks passed; rebuilt uCore VM acceptance is pending.
+Mailjet entry fields, including sender, pass the production vault audit. Provider
+authentication and verified sender/domain DNS remain live acceptance work.
 See [the design](../design/email-delivery.md).
 
 ## Findings
@@ -27,22 +27,25 @@ See [the design](../design/email-delivery.md).
    requirements through shared metadata/root checklist; keep provider password
    and private sender/endpoint leaves out of the public repo. Use a shared
    credential where its actual account scope allows it, with explicit test policy.
-2. Add native Postfix and required authentication/TLS packages to the common
-   image, initially inactive. Check the base image for existing packages and
+2. **Implemented:** add native Postfix and required authentication/TLS packages
+   to the common image, initially inactive. Check the base image for existing packages and
    units first. Keep all runtime values and authentication material out of it.
-3. Add a cohesive `skillet_smtp` service crate and typed configuration template.
+3. **Implemented; VM gates pending:** add a cohesive `skillet_smtp` service
+   crate and typed configuration template.
    Declare fleet inclusion centrally, separate from credential-free base apply.
    Deliver the entire prerequisite set before activation using existing encrypted
    credential workflow. Validate map backend, file permissions, SELinux and
    service/worker access using the actual runtime. Preserve queued mail across
    repeat apply, reboot and image rebase. Require authenticated verified-TLS
    upstream; no direct-MX fallback. Queue lives in `/var/spool/postfix`.
-4. Support host sendmail and loopback submission first. Add explicit bridge
+4. **Host/loopback implemented; application setup pending:** support host
+   sendmail and loopback submission first. Add explicit bridge
    client access only for declared applications; do not publish LAN/tailnet SMTP
    or broadly allow arbitrary bridge clients. Applications own their SMTP client
    integration. Configure UniFi recovery email via a supported interface, with
    any necessary operator UI handoff recorded.
-5. Add module-owned monitoring for service health, deferred queue age and send
+5. **Unit health implemented; queue/failure metrics pending:** add module-owned
+   monitoring for service health, deferred queue age and send
    failures without credential/message-body disclosure. Test hosts use a local
    capture sink and environment tags; provider delivery remains explicit opt-in.
 
@@ -64,3 +67,14 @@ See [the design](../design/email-delivery.md).
 
 References: [Postfix relay configuration](https://www.postfix.org/SOHO_README.html),
 [Gmail requirements](https://support.google.com/mail/answer/81126?hl=en).
+
+## Next acceptance slice
+
+After the operator pushes ucore-images commit `3223d48` and signed images rebuild,
+create a named disposable VM and run `test vm provision <host> <instance>
+--smtp-only`. Verify enforcing SELinux access, boot map regeneration, loopback
+submission, queue persistence through reboot/rebase, and non-loopback denial.
+The capture sink is test-only; no production SMTP credential is delivered.
+Then perform explicit Mailjet/Gmail acceptance and configure UniFi SMTP through
+its UI. Bridge client access and queue-age/send-failure monitoring remain separate
+work. See the native-consumer evidence in `butane/ACCEPTANCE.md`.

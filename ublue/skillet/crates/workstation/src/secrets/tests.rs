@@ -30,8 +30,8 @@ fn manual_requirements_follow_profiles_environment_and_template_references() {
         &|_, _| Ok(None),
     )
     .unwrap();
-    assert_eq!(report.checked, 7);
-    assert_eq!(report.missing.len(), 7);
+    assert_eq!(report.checked, 6);
+    assert_eq!(report.missing.len(), 6);
     assert!(report.missing.iter().any(
         |entry| entry.path == "skillet/environments/test/hosts/clamps/cloudflare/ddns-dns-name"
     ));
@@ -50,6 +50,7 @@ fn manual_requirements_follow_profiles_environment_and_template_references() {
                 match field {
                     "port" => "587",
                     "tls" => "starttls",
+                    "sender" => "server@example.com",
                     _ => "not-displayed",
                 }
                 .into(),
@@ -123,8 +124,8 @@ fn template_reference_discovery_is_vault_free() {
 #[test]
 fn smtp_fields_are_required_validated_and_never_rendered() {
     let profiles = [skillet_hosts::profile_for_name("clamps").unwrap()];
-    for environment in [Environment::Test, Environment::Production] {
-        for bad_field in ["UserName", "Password", "host", "port", "tls"] {
+    for environment in [Environment::Production] {
+        for bad_field in ["UserName", "Password", "host", "port", "tls", "sender"] {
             for missing in [false, true] {
                 let report = check(
                     &profiles,
@@ -152,6 +153,7 @@ fn smtp_fields_are_required_validated_and_never_rendered() {
                                 "host" => "smtp.example.com",
                                 "port" => "587",
                                 "tls" => "starttls",
+                                "sender" => "server@example.com",
                                 _ => "PRIVATE-CREDENTIAL",
                             }
                             .into(),
@@ -211,7 +213,7 @@ fn shared_smtp_is_counted_once_and_is_not_unused() {
     let profiles = skillet_hosts::declared_profiles();
     let report = check(
         &profiles,
-        ProvisioningPolicy::new(Environment::Test),
+        ProvisioningPolicy::new(Environment::Production),
         &|_, _| Ok(None),
     )
     .unwrap();
@@ -238,4 +240,22 @@ fn shared_smtp_is_counted_once_and_is_not_unused() {
         .checked,
         0
     );
+}
+
+#[test]
+fn capture_environment_does_not_require_or_read_smtp_provider_fields() {
+    let profiles = skillet_hosts::declared_profiles();
+    let report = check(
+        &profiles,
+        ProvisioningPolicy::new(Environment::Test),
+        &|path, _| {
+            assert_ne!(path, "skillet/smtp");
+            Ok(None)
+        },
+    )
+    .unwrap();
+    assert!(report
+        .missing
+        .iter()
+        .all(|entry| entry.path != "skillet/smtp"));
 }

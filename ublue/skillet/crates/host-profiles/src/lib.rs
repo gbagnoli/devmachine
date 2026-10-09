@@ -23,6 +23,7 @@ pub enum HostApplyPhase {
     Caddy,
     Ddns,
     Datadog,
+    Smtp,
 }
 
 pub fn credentials_for_phase(
@@ -40,11 +41,15 @@ pub fn credentials_for_phase(
         .filter(|consumer| match phase {
             HostApplyPhase::Full => !matches!(
                 consumer.unit,
-                "caddy.service" | "cloudflare-ddns.service" | "datadog-agent.service"
+                "caddy.service"
+                    | "cloudflare-ddns.service"
+                    | "datadog-agent.service"
+                    | "postfix.service"
             ),
             HostApplyPhase::Caddy => consumer.unit == "caddy.service",
             HostApplyPhase::Ddns => consumer.unit == "cloudflare-ddns.service",
             HostApplyPhase::Datadog => consumer.unit == "datadog-agent.service",
+            HostApplyPhase::Smtp => consumer.unit == "postfix.service",
             HostApplyPhase::Base => false,
         })
         .map(|consumer| consumer.credential)
@@ -91,6 +96,8 @@ pub enum ApplyError {
     Ddns(#[from] skillet_ddns::DdnsError),
     #[error("Datadog apply error: {0}")]
     Datadog(#[from] skillet_datadog::DatadogError),
+    #[error("SMTP apply error: {0}")]
+    Smtp(#[from] skillet_smtp::SmtpError),
     #[error("Podman error: {0}")]
     Podman(#[from] skillet_podman::PodmanError),
     #[error("Fixture input error: {0}")]
@@ -253,7 +260,7 @@ fn apply_profile(
     for service in &profile.services {
         match &service.config {
             // Independently credential-gated optional services have their own phase.
-            ServiceConfig::Ddns | ServiceConfig::Datadog { .. } => {}
+            ServiceConfig::Ddns | ServiceConfig::Datadog { .. } | ServiceConfig::Smtp => {}
             ServiceConfig::Pihole { custom_dns } => {
                 let password = credentials
                     .require(PIHOLE_WEB_PASSWORD_CREDENTIAL)?
@@ -350,6 +357,17 @@ pub fn apply_host_phase(
         HostApplyPhase::Caddy => apply_caddy_host(hostname, system, files, credentials),
         HostApplyPhase::Ddns => apply_ddns_host(hostname, system, files, credentials),
         HostApplyPhase::Datadog => apply_datadog_host(hostname, system, files, credentials),
+        HostApplyPhase::Smtp => {
+            profile_for_name(hostname)
+                .filter(|profile| profile.supports_service("smtp"))
+                .ok_or_else(|| ApplyError::FixtureInput("host does not declare SMTP".into()))?;
+            skillet_smtp::apply(
+                system,
+                files,
+                credentials.require(skillet_smtp::CREDENTIAL)?,
+            )?;
+            Ok(())
+        }
     }
 }
 
@@ -399,12 +417,19 @@ fn apply_datadog_host(
         .ok_or_else(|| ApplyError::FixtureInput("host does not declare Datadog".into()))?;
     let payload = credentials.require(skillet_datadog::CREDENTIAL)?;
     let hostname = runtime_hostname(files, profile.id.as_str())?;
-    let monitored_units = profile
+    let mut monitored_units = profile
         .acceptance_plan_with_ddns(true)
         .services
         .into_iter()
         .map(|service| service.unit)
         .collect::<Vec<_>>();
+    if profile.supports_service("smtp") {
+        monitored_units.extend(
+            skillet_smtp::MONITORED_UNITS
+                .iter()
+                .map(|unit| (*unit).to_string()),
+        );
+    }
     skillet_datadog::apply(
         system,
         files,

@@ -76,3 +76,19 @@ systemd:
 
         [Install]
         WantedBy=multi-user.target
+    - name: skillet-smtp-apply.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Apply shared fleet SMTP configuration
+        Requires=skillet-apply.service
+        After=skillet-apply.service
+        ConditionPathExists=/etc/credstore.encrypted/skillet/smtp_config.cred
+
+        [Service]
+        Type=oneshot
+        LoadCredentialEncrypted=smtp_config:/etc/credstore.encrypted/skillet/smtp_config.cred
+        ExecStart=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase smtp
+
+        [Install]
+        WantedBy=multi-user.target

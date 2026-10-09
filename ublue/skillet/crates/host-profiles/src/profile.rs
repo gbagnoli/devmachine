@@ -52,6 +52,7 @@ pub enum ServiceConfig {
         container_gid: u32,
     },
     Unifi,
+    Smtp,
     Ddns,
     Datadog {
         production_region: &'static str,
@@ -79,6 +80,7 @@ impl HostService {
             ServiceConfig::Unifi => "unifi",
             ServiceConfig::Ddns => "ddns",
             ServiceConfig::Datadog { .. } => "datadog",
+            ServiceConfig::Smtp => "smtp",
             ServiceConfig::Tailscale { .. } => "tailscale",
             ServiceConfig::Btrbk { .. } => "btrbk",
         }
@@ -86,6 +88,10 @@ impl HostService {
 
     pub fn credential_consumers(&self) -> Vec<CredentialConsumer> {
         match self.config {
+            ServiceConfig::Smtp => vec![CredentialConsumer {
+                credential: skillet_smtp::CREDENTIAL,
+                unit: "postfix.service",
+            }],
             ServiceConfig::Datadog { .. } => vec![CredentialConsumer {
                 credential: skillet_datadog::CREDENTIAL,
                 unit: "datadog-agent.service",
@@ -181,8 +187,10 @@ impl HostProfile {
             .services
             .iter()
             .filter(|service| {
-                !matches!(service.config, ServiceConfig::Datadog { .. })
-                    && (with_ddns || !matches!(service.config, ServiceConfig::Ddns))
+                !matches!(
+                    service.config,
+                    ServiceConfig::Datadog { .. } | ServiceConfig::Smtp
+                ) && (with_ddns || !matches!(service.config, ServiceConfig::Ddns))
             })
             .map(|service| acceptance_service(self.id.as_str(), service))
             .collect::<Vec<_>>();
@@ -299,15 +307,8 @@ impl HostProfile {
 
 fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService {
     match service.config {
-        ServiceConfig::Datadog { .. } => AcceptanceService {
-            unit: "datadog-agent.service".into(),
-            container: Some("datadog-agent".into()),
-            network_mode: Some("host".into()),
-            bind_paths: vec!["/etc/skillet/datadog/conf.d".into()],
-            owner: Some(AcceptanceOwner::Numeric { uid: 0, gid: 0 }),
-            listeners: Vec::new(),
-            health_probe: None,
-        },
+        ServiceConfig::Smtp => smtp_acceptance(),
+        ServiceConfig::Datadog { .. } => datadog_acceptance(),
         ServiceConfig::Ddns => AcceptanceService {
             unit: "cloudflare-ddns.service".into(),
             container: Some("cloudflare-ddns".into()),
@@ -537,8 +538,8 @@ fn agent_baseline() -> HostProfile {
 /// Resolve a validated host identity to its declared configuration.
 pub fn profile_for_host(host: &HostId) -> Option<HostProfile> {
     match host.as_str() {
-        "clamps" => Some(clamps()),
-        "beezelbot" => Some(beezelbot()),
+        "clamps" => Some(with_fleet_baseline(clamps())),
+        "beezelbot" => Some(with_fleet_baseline(beezelbot())),
         "agent" => Some(agent_baseline()),
         _ => None,
     }
@@ -549,5 +550,41 @@ pub fn profile_for_name(host: &str) -> Option<HostProfile> {
 }
 
 pub fn declared_profiles() -> Vec<HostProfile> {
-    vec![clamps(), beezelbot(), agent_baseline()]
+    vec![
+        with_fleet_baseline(clamps()),
+        with_fleet_baseline(beezelbot()),
+        agent_baseline(),
+    ]
+}
+
+fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
+    profile.services.push(HostService {
+        config: ServiceConfig::Smtp,
+        ui: None,
+    });
+    profile
+}
+
+fn smtp_acceptance() -> AcceptanceService {
+    AcceptanceService {
+        unit: "postfix.service".into(),
+        container: None,
+        network_mode: None,
+        bind_paths: Vec::new(),
+        owner: None,
+        listeners: Vec::new(),
+        health_probe: None,
+    }
+}
+
+fn datadog_acceptance() -> AcceptanceService {
+    AcceptanceService {
+        unit: "datadog-agent.service".into(),
+        container: Some("datadog-agent".into()),
+        network_mode: Some("host".into()),
+        bind_paths: vec!["/etc/skillet/datadog/conf.d".into()],
+        owner: Some(AcceptanceOwner::Numeric { uid: 0, gid: 0 }),
+        listeners: Vec::new(),
+        health_probe: None,
+    }
 }

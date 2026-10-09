@@ -2023,3 +2023,37 @@ host tool; it still uses normal command approvals.
 - No production credentials, production DNS, or Cloudflare APIs were used for
   this recovery check. Production delivery/renewal and outside-tailnet denial
   remain deferred from the refactoring gate.
+
+
+### Native fleet SMTP provisioning, 2026-10-09
+
+- ucore-images commit `3223d48` adds Postfix and `cyrus-sasl-plain` to the common
+  image, initially disabled. The previously published common image was inspected
+  and lacked both packages. Package availability was verified in a disposable
+  Fedora image; the signed uCore image rebuild remains an operator step.
+- Passed `cargo fmt --all -- --check`, pedantic workspace Clippy, all 323 workspace
+  tests, Fedora beezelbot base integration (repeat apply issued no service
+  start/restart), Butane bootstrap regression tests, and Ruff check/format for
+  the native acceptance fixture. These checks require no provider credentials.
+- Production `secrets check --host clamps --environment production` passed:
+  7 required checked, 0 missing/invalid, 0 unused, including SMTP sender/custom
+  fields. This validates presence/formats, not Mailjet permissions or sender DNS.
+- Ran `crates/smtp/tests/native_acceptance.py` against the Cargo-reported musl CLI
+  in fresh disposable Fedora systemd containers with `--network none` and
+  synthetic credentials/addresses. Capture and production-policy runs passed;
+  both containers were removed. No provider APIs or external email were used.
+- Actual Postfix accepted host sendmail submission, preserved the recipient and
+  queued message across stop/apply-start, and delivered to the loopback capture
+  sink after an upstream outage. Repeated apply preserved the Postfix PID.
+  Credential preparation regenerated a deleted volatile map. The production
+  map was root-owned mode `0640`, under root/Postfix-group mode `0750`; a query
+  under the Postfix worker identity verified backend access.
+- With production policy and a synthetic upstream that did not offer STARTTLS,
+  Postfix retained the queued message and sent no AUTH, MAIL or message content.
+  Sender canonical rewriting preserved the recipient. This is not acceptance
+  of provider authentication or certificate validation against a TLS server.
+- Pending: rebuilt uCore VM with enforcing SELinux, boot/reboot/rebase map and
+  queue persistence, non-loopback access rejection, certificate/authentication
+  failures, explicit Mailjet/Gmail delivery with SPF/DKIM/DMARC inspection, and
+  UniFi recovery-email configuration. Bridge clients and queue-age/send-failure
+  metrics are separate remaining implementation slices; unit health is declared.

@@ -54,6 +54,11 @@ pub struct HostArgs {
 
 #[derive(clap::Subcommand, Debug)]
 pub enum HostCommands {
+    /// Prepare native SMTP runtime files from an encrypted systemd credential
+    Smtp {
+        #[command(subcommand)]
+        command: SmtpCommands,
+    },
     /// Apply configuration
     Apply {
         #[arg(long, value_enum, default_value_t = ApplyPhase::Full)]
@@ -105,6 +110,9 @@ where
     tracing::subscriber::set_global_default(subscriber)?;
 
     match args.command {
+        HostCommands::Smtp {
+            command: SmtpCommands::Prepare,
+        } => prepare_smtp(),
         HostCommands::Apply { record, phase } => {
             handle_host_apply(hostname, phase, record, |system, files, credentials| {
                 apply_fn(phase, system, files, credentials)
@@ -157,6 +165,7 @@ where
         ApplyPhase::Caddy => skillet_hosts::HostApplyPhase::Caddy,
         ApplyPhase::Ddns => skillet_hosts::HostApplyPhase::Ddns,
         ApplyPhase::Datadog => skillet_hosts::HostApplyPhase::Datadog,
+        ApplyPhase::Smtp => skillet_hosts::HostApplyPhase::Smtp,
     };
     let required = skillet_hosts::credentials_for_phase(hostname, phase)
         .map_err(|error| CliCommonError::Config(error.to_string()))?;
@@ -261,3 +270,17 @@ fn persist_recording(
 #[cfg(test)]
 #[path = "recording_tests.rs"]
 mod recording_tests;
+
+#[derive(clap::Subcommand, Debug)]
+pub enum SmtpCommands {
+    Prepare,
+}
+
+pub fn prepare_smtp() -> Result<(), CliCommonError> {
+    let manager = CredentialManager::new()?;
+    let payload = manager.read_secret(skillet_smtp::CREDENTIAL)?;
+    let input =
+        skillet_smtp::Input::parse(&payload).map_err(|e| CliCommonError::Config(e.to_string()))?;
+    skillet_smtp::prepare(&LocalFileResource::new(), &input)
+        .map_err(|e| CliCommonError::Config(e.to_string()))
+}

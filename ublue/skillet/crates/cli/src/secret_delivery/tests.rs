@@ -137,3 +137,34 @@ fn datadog_commands_parse_and_test_delivery_refuses_before_vault_access() {
         .to_string()
         .contains("test Datadog must be provisioned through an owned disposable VM"));
 }
+
+#[test]
+fn smtp_delivery_and_capture_only_cli_are_supported() {
+    use clap::Parser;
+    assert!(super::super::Args::try_parse_from([
+        "skillet",
+        "secrets",
+        "deliver",
+        "clamps",
+        "smtp",
+        "--target",
+        "root@example.invalid",
+        "--identity",
+        "/tmp/key",
+        "--known-hosts",
+        "/tmp/hosts"
+    ])
+    .is_ok());
+    assert!(super::super::Args::try_parse_from([
+        "skillet",
+        "test",
+        "vm",
+        "provision",
+        "beezelbot",
+        "smtp",
+        "--smtp-only"
+    ])
+    .is_ok());
+    assert!(super::validate_delivery_service("agent", "smtp").is_err());
+    assert!(super::validate_delivery_service("beezelbot", "smtp").is_ok());
+}

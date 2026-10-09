@@ -23,7 +23,8 @@
   and regenerate `SECRETS.md` with `cargo run -p skillet_workstation --example
   secrets_documentation` from the Skillet workspace (redirect output to the
   repository-root file). Keep template-reference coverage and the documentation
-  equality test passing. Required checks follow selected host capabilities.
+  equality test passing. Required checks follow selected host capabilities and the actual environment
+  delivery policy; isolated test modes must not require unused provider credentials.
   Structured vault entries must declare each required standard/custom field and
   its validation in the shared audit metadata; keep single-value entry behavior
   compatible, and never include field values in audit output or errors.
