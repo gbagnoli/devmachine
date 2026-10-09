@@ -21,6 +21,8 @@ fn production_config_requires_verified_tls_and_loopback_submission() {
     for directive in [
         "relayhost = [smtp.example.com]:587",
         "smtp_tls_security_level = secure",
+        "smtp_tls_CAfile = /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
+        "smtp_tls_loglevel = 1",
         "inet_interfaces = loopback-only",
         "smtp_sasl_auth_enable = yes",
         "sender_canonical_maps = static:server@example.com",
@@ -154,4 +156,15 @@ fn fresh_apply_initializes_the_persistent_queue_root() {
         metadata["/var/lib/postfix"],
         (Some(0o700), Ownership::named(Some("postfix"), Some("root")))
     );
+}
+
+#[test]
+fn prepare_unit_preserves_runtime_credential_labels() {
+    let unit = include_str!("prepare.service");
+    let restore = unit
+        .lines()
+        .find(|line| line.starts_with("ExecStartPost="))
+        .unwrap();
+    assert!(!restore.contains("/run/postfix/skillet"));
+    assert!(restore.contains("/var/spool/postfix /var/lib/postfix"));
 }
