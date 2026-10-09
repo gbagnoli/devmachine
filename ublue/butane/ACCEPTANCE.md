@@ -2179,3 +2179,27 @@ host tool; it still uses normal command approvals.
   WOL installed; private target shortcuts and actual wake-up were not tested.
 - Source comparison confirmed identical image/Skillet SSH and sysctl files.
   Findings and ordered follow-ups: `../plan/CLAMPS-BASELINE-AUDIT.md`.
+
+
+## 2026-10-09 — explicit administrative access finalization
+
+- Operator accepted UID 1001 and selected temporary passwordless provisioning,
+  followed by password-required sudo and first-login password change.
+- Shared guest/host CLI now offers `access finalize --user <account>`; base apply
+  never invokes it. New production Butane inputs no longer run early automatic
+  expiry. Existing install media must be regenerated; installed legacy expiry
+  units require explicit retirement. No retained VM or production account changed.
+- Finalization validates sudo policy, installs the account's PASSWD override and
+  expires its existing password. Root-only intent/completion state and a lock
+  support retry without expiring a password already changed by the operator.
+- Formatting, pedantic Clippy, 338 workspace tests, Fedora base repeat-apply and
+  all eight bootstrap regressions passed. CI unit coverage includes command
+  parsing, one-time expiry, expiry failure/retry, interrupted recovery preserving
+  a changed password, invalid journal rejection and account-name validation.
+- An isolated Fedora container with native sudo/shadow tools passed temporary
+  passwordless access, final expiry, passwordless rejection, new-password sudo
+  acceptance, repeat finalization preserving password age, and sudo syntax.
+  Synthetic passwords only; fixture removed. No workstation packages installed.
+- Interactive first-login password change over SSH/console on a fresh uCore
+  install remains unverified. Later workstation delivery currently assumes
+  passwordless sudo; finish it first, then use interactive sudo/root administration.

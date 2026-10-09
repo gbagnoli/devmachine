@@ -2378,8 +2378,10 @@ name = "skillet_cli_common"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "nix",
  "serde",
  "serde_yml",
+ "sha2 0.10.9",
  "skillet_core",
  "skillet_hosts",
  "skillet_smtp",
@@ -2387,6 +2389,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tracing",
  "tracing-subscriber",
+ "zeroize",
 ]
 
 [[package]]

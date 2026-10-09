@@ -58,6 +58,11 @@
 
 ## Shared infrastructure boundaries
 
+- Authentication finalization must follow explicit provisioning completion, not
+  base readiness. One-time account mutations need durable recovery state and
+  must preserve later operator password changes; routine apply must not reopen
+  temporary privileged access or repeat password expiry.
+
 - Optional services require explicit selection in the canonical host caller
   declaration. Shared baseline services retain their common defaults; the
   presence of environment configuration or credentials must not enable an
