@@ -516,6 +516,18 @@ queues until a local sink is listening on `127.0.0.1:1025`; no provider credenti
 are read or delivered. Switching an existing relay between production and capture
 is refused to protect queued mail. Use a new disposable instance for another policy.
 
+For an explicitly authorized real-provider check, create a **fresh** instance
+and opt in to vault credential delivery:
+
+```bash
+cargo run --release -p skillet -- test vm create clamps mailjet --port 2202
+cargo run --release -p skillet -- test vm provision clamps mailjet --smtp-only --live-smtp
+```
+
+This configures the real relay but sends no message by itself. Submit the intended
+message explicitly through the owned VM SSH command. Destroy the instance after
+checking delivery; normal test provisioning continues to use capture mode.
+
 `crates/smtp/tests/native_acceptance.py BINARY HOST [--production-policy]` is a
 native-consumer fixture for an isolated **Podman systemd container with
 `--network none`** and Postfix/Python installed. It uses synthetic credentials,
