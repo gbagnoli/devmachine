@@ -2,9 +2,9 @@
 
 Status: native Postfix image packages and shared provisioning implemented.
 Isolated native-consumer and rebuilt uCore capture acceptance passed.
-Production provider/TLS authentication acceptance remains pending.
-Mailjet entry fields, including sender, pass the production vault audit. Provider
-authentication and verified sender/domain DNS remain live acceptance work.
+Live Mailjet verified-TLS/authentication and operator-confirmed Gmail receipt passed.
+Mailjet entry fields, including sender, pass the production vault audit. Sender/domain
+authentication headers and provider account limits remain unverified.
 See [the design](../design/email-delivery.md).
 
 ## Findings
@@ -31,7 +31,7 @@ See [the design](../design/email-delivery.md).
 2. **Implemented:** add native Postfix and required authentication/TLS packages
    to the common image, initially inactive. Check the base image for existing packages and
    units first. Keep all runtime values and authentication material out of it.
-3. **Implemented; capture VM gates passed:** add a cohesive `skillet_smtp` service
+3. **Implemented; capture and live Mailjet gates passed:** add a cohesive `skillet_smtp` service
    crate and typed configuration template.
    Declare fleet inclusion centrally, separate from credential-free base apply.
    Deliver the entire prerequisite set before activation using existing encrypted
@@ -75,9 +75,13 @@ The rebuilt image passed named disposable capture acceptance with enforcing
 SELinux, loopback-only submission, boot map regeneration, and queue persistence
 through reboot and signed image rebase. Record: `butane/ACCEPTANCE.md`.
 
-Next: production-policy testing of certificate/authentication failures and
-credential-map access under enforcing SELinux, then explicit Mailjet/Gmail
-acceptance with provider-verified sender and SPF/DKIM/DMARC inspection. Configure
-UniFi SMTP through its UI. Bridge client access and queue-age/send-failure
+Live acceptance passed production credential-map access under enforcing SELinux,
+verified STARTTLS, SMTP authentication, and one operator-confirmed Gmail delivery.
+The original deferred message was retried after fixing the trust-bundle path and
+RAM credential labels; no duplicate was submitted.
+
+Next: configure UniFi SMTP through its UI and inspect SPF/DKIM/DMARC headers.
+Explicit certificate/authentication failure cases remain unverified; the isolated
+no-STARTTLS refusal check passed. Bridge client access and queue-age/send-failure
 monitoring remain separate implementation work. No provider mail is sent by
 routine smoke runs.
