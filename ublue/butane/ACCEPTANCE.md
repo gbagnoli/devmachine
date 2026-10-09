@@ -2132,3 +2132,25 @@ host tool; it still uses normal command approvals.
   UniFi recovery-email integration remain unverified. No additional provider
   messages were submitted. The disposable Mailjet VM and fixture containers were
   removed after acceptance; provider secrets/private sender details are not recorded.
+
+## 2026-10-09 — caller-selected Tailscale exit-node configuration
+
+- Clamps declares production exit-node advertisement. Production delivery wraps
+  its one-use key with resolved routing policy in a versioned encrypted payload;
+  disposable delivery explicitly disables advertisement. No hostname-based
+  environment inference, new vault entries, or control-plane ACL mutations.
+- Raw retained credentials remain readable with advertisement disabled;
+  production redelivery activates the declared policy. Only the decoded key is
+  delivered to the Podman secret. Invalid/unknown payload versions fail safely.
+- Retained host networking, state, capabilities and `TS_AUTH_ONCE=true`.
+  Quadlet health readiness orders native `tailscale set` after CLI availability,
+  so persisted preferences converge on service startups as well as first join.
+  Explicit false withdraws previous advertisement. Existing shared IPv4/IPv6
+  forwarding settings already enable routing; no image changes were needed.
+- Formatting, pedantic Clippy, all 331 workspace tests and Fedora base repeat-apply
+  passed. Installed Podman 6.1 Quadlet compiler accepted a focused directive
+  fixture for both true and false, including healthy notification and the native
+  post-start preference command. Fixtures did not start containers or enroll nodes.
+- Live VM/client routing was intentionally omitted by operator decision, rather
+  than recorded as passing. Production tailnet exit-node approval and client
+  selection remain operator deployment steps. Retained smoke VM was not modified.

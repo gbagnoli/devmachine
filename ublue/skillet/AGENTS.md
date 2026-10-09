@@ -112,6 +112,9 @@ tracks existing violations and their migration, not completed implementation.
 - Regenerate volatile credential files before their consumers start. Validate
   persisted environment policy during both apply and boot preparation; retained
   queues or application data must not silently cross deployment policies.
+- Authentication-only startup modes may skip later preference flags. Converge
+  persisted preferences through supported consumer commands after readiness,
+  without reusing enrollment credentials or relying solely on initial startup.
 - Discovery acceptance must cover concurrent boot startup as well as steady
   state. Derive startup ordering from existing caller declarations and keep
   ordering separate from dependencies that activate optional services; an

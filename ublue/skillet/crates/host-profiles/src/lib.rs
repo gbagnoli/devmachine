@@ -10,6 +10,7 @@ use std::collections::BTreeMap;
 use thiserror::Error;
 
 pub mod profile;
+pub mod tailscale;
 pub use profile::{
     declared_profiles, profile_for_host, profile_for_name, AcceptanceListener, AcceptanceOwner,
     AcceptanceService, CredentialConsumer, HealthProbe, HostAcceptancePlan, HostId, HostProfile,
@@ -141,7 +142,12 @@ pub fn ui_config_for_host(hostname: &str) -> Option<HostUiConfig> {
     })
 }
 
-fn tailscale_config(hostname: &str, auth_key: String, state_path: &str) -> PodmanConfig {
+fn tailscale_config(
+    hostname: &str,
+    auth_key: String,
+    state_path: &str,
+    advertise_exit_node: bool,
+) -> PodmanConfig {
     let extra_config = BTreeMap::from([
         (
             "Container".to_string(),
@@ -154,9 +160,21 @@ fn tailscale_config(hostname: &str, auth_key: String, state_path: &str) -> Podma
                 "AutoUpdate=registry".to_string(),
                 "Environment=TS_ACCEPT_DNS=false".to_string(),
                 "Environment=TS_AUTH_ONCE=true".to_string(),
+                format!("Environment=TS_EXTRA_ARGS=--advertise-exit-node={advertise_exit_node}"),
+                "Notify=healthy".to_string(),
+                "HealthCmd=tailscale status --peers=false".to_string(),
+                "HealthInterval=10s".to_string(),
+                "HealthStartPeriod=60s".to_string(),
                 format!("Environment=TS_HOSTNAME={hostname}"),
                 "Environment=TS_STATE_DIR=/var/lib/tailscale".to_string(),
                 "Environment=TS_USERSPACE=false".to_string(),
+            ],
+        ),
+        (
+            "Service".to_string(),
+            vec![
+                "TimeoutStartSec=180".to_string(),
+                format!("ExecStartPost=/usr/bin/podman exec tailscale tailscale set --advertise-exit-node={advertise_exit_node}"),
             ],
         ),
         (
@@ -295,16 +313,26 @@ fn apply_profile(
             }
             ServiceConfig::Syncthing { .. } => apply_syncthing(system, files, profile, service)?,
             ServiceConfig::Unifi => skillet_unifi::apply(system, files)?,
-            ServiceConfig::Tailscale { state_path } => {
-                let auth_key = credentials
-                    .require(TAILSCALE_AUTH_KEY_CREDENTIAL)?
-                    .to_string();
+            ServiceConfig::Tailscale {
+                state_path,
+                advertise_exit_node,
+            } => {
+                let input = tailscale::EnrollmentInput::parse(
+                    credentials.require(TAILSCALE_AUTH_KEY_CREDENTIAL)?,
+                )
+                .map_err(|e| ApplyError::FixtureInput(e.to_string()))?;
+                if input.advertise_exit_node && !advertise_exit_node {
+                    return Err(ApplyError::FixtureInput(
+                        "host does not declare exit-node routing".into(),
+                    ));
+                }
+                let auth_key = input.auth_key;
                 system.ensure_podman_secret(TAILSCALE_AUTH_KEY_CREDENTIAL, &auth_key)?;
                 let hostname = runtime_hostname(files, profile.id.as_str())?;
                 skillet_podman::container(
                     system,
                     files,
-                    tailscale_config(&hostname, auth_key, state_path),
+                    tailscale_config(&hostname, auth_key, state_path, input.advertise_exit_node),
                 )?;
             }
             ServiceConfig::Btrbk { .. } => {

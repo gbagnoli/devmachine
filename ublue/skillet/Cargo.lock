@@ -2445,6 +2445,8 @@ dependencies = [
 name = "skillet_hosts"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "skillet_btrbk",
  "skillet_caddy",
  "skillet_core",

@@ -19,6 +19,8 @@ skillet_caddy.workspace = true
 skillet_ddns.workspace = true
 skillet_podman.workspace = true
 thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 skillet_core = { workspace = true, features = ["test-utils"] }

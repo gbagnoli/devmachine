@@ -348,10 +348,20 @@ Clamps runs `tailscale/tailscale` as a host-network container, matching Chef
 on rupik, calculon, and boxy. Its state persists under
 `/var/lib/data/tailscale`. Skillet reads the workstation OAuth client from
 KeePassXC, mints a one-use enrollment key, and sends only that key to the host
-as an encrypted systemd credential and Podman secret. Smoke VM destruction
+inside a versioned encrypted systemd credential, together with resolved routing
+policy. Only the decoded key becomes the Podman secret. Smoke VM destruction
 removes the matching `tag:skillet-smoke` device before deleting the VM. This
 requires `curl` on the workstation. See the
 [private UI design](../design/private-ui-access.md).
+
+Clamps selects `advertise_exit_node: true` in its canonical host declaration.
+Production credential delivery enables that preference; smoke provisioning always
+disables it. Approve the provisioned production device as an exit node in the
+Tailscale admin console (or your existing auto-approval policy), then select it
+on clients. A restrictive tailnet policy must allow those users access to
+`autogroup:internet`; see [exit-node setup](https://tailscale.com/docs/features/exit-nodes).
+No extra vault secret is needed. For an existing raw-key credential,
+redeliver with the production command below to activate the new policy.
 
 1. In the Tailscale admin console, open **Access controls** and ensure the
    policy defines `tag:skillet-provisioner`, `tag:skillet-server`, and

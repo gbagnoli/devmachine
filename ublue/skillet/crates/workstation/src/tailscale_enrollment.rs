@@ -124,7 +124,10 @@ pub fn enroll_disposable_vm(
             "tailscale_auth_key",
             "skillet-full-apply.service",
             credential::ActivationPolicy::StartConsumer,
-            auth_key.key.as_bytes(),
+            skillet_hosts::tailscale::EnrollmentInput::new(auth_key.key, false)
+                .payload()
+                .map_err(|e| EnrollmentError::Invalid(e.to_string()))?
+                .as_bytes(),
         )?;
         addresses = tailscale::wait_for_addresses(
             || guest_addresses(guest),
