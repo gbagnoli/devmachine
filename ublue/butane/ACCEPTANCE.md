@@ -1,3 +1,21 @@
+## UniFi isolated restore completed — 2026-10-09
+
+**Passed: cross-architecture backup restore, operator UI inspection, repeat
+module apply, reboot/data persistence and owned disposable cleanup.**
+
+- Operator successfully logged in and confirmed the restored devices and
+  configuration look correct. This completes the authenticated inspection
+  left pending in the entry below; no password/database reset was needed.
+- Restored state and configuration persistence checks are recorded below.
+  This remains module-only acceptance; production adoption and Site Manager
+  connectivity were intentionally excluded by the persistent isolation fence.
+- Stopped `unifi.service` through the ownership-checked transport, then ran
+  `skillet test vm destroy clamps unifi-restore`; disposal succeeded.
+  Owned `test vm list clamps` shows only the existing smoke instance, and
+  the restore run directory is absent. The original and protected independent
+  backup copies remain present. Existing smoke VM was not modified.
+- No production controller/device changes or outgoing recovery emails occurred.
+
 ## UniFi restored-data persistence — 2026-10-09
 
 **UI import and restored-data persistence verified; authenticated UI acceptance
