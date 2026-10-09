@@ -212,9 +212,12 @@ struct VmDestroyArgs {
 // These CLI switches select independent optional provisioning operations.
 #[allow(clippy::struct_excessive_bools)]
 struct VmProvisionArgs {
-    /// Configure only isolated SMTP capture; no vault, Tailscale or external delivery
+    /// Configure only SMTP (isolated capture unless --live-smtp is supplied)
     #[arg(long)]
     smtp_only: bool,
+    /// Explicitly deliver real provider credentials; requires a fresh SMTP-only VM
+    #[arg(long, requires = "smtp_only")]
+    live_smtp: bool,
     hostname: String,
     instance: String,
     /// Also provision private UI DNS, Caddy, and disposable Cloudflare credentials

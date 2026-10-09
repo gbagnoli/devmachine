@@ -168,3 +168,35 @@ fn smtp_delivery_and_capture_only_cli_are_supported() {
     assert!(super::validate_delivery_service("agent", "smtp").is_err());
     assert!(super::validate_delivery_service("beezelbot", "smtp").is_ok());
 }
+
+#[test]
+fn live_smtp_requires_explicit_smtp_only_selection() {
+    use clap::Parser;
+    let base = ["skillet", "test", "vm", "provision", "beezelbot", "mailjet"];
+    assert!(super::super::Args::try_parse_from(base.into_iter().chain(["--live-smtp"])).is_err());
+    let parsed =
+        super::super::Args::try_parse_from(base.into_iter().chain(["--smtp-only", "--live-smtp"]))
+            .unwrap();
+    let crate::Commands::Test {
+        command:
+            crate::TestCommands::Vm {
+                command: crate::VmCommands::Provision(args),
+            },
+    } = parsed.command
+    else {
+        panic!("wrong parsed command");
+    };
+    assert!(args.smtp_only && args.live_smtp);
+    let parsed =
+        super::super::Args::try_parse_from(base.into_iter().chain(["--smtp-only"])).unwrap();
+    let crate::Commands::Test {
+        command:
+            crate::TestCommands::Vm {
+                command: crate::VmCommands::Provision(args),
+            },
+    } = parsed.command
+    else {
+        panic!("wrong parsed command");
+    };
+    assert!(!args.live_smtp);
+}

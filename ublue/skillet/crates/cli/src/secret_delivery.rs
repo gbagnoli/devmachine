@@ -311,6 +311,9 @@ fn default_database_path() -> Result<std::path::PathBuf> {
 pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     let profile = skillet_hosts::profile_for_name(&args.hostname)
         .ok_or_else(|| anyhow!("unknown host profile: {}", args.hostname))?;
+    if args.smtp_only && !profile.supports_service("smtp") {
+        return Err(anyhow!("host {} does not declare SMTP", args.hostname));
+    }
     if !args.smtp_only
         && (!profile.supports_service("pihole") || !profile.supports_service("tailscale"))
     {
@@ -345,20 +348,7 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     verify_ownership()?;
     let transport = OwnershipCheckedTransport::new(&base_transport, &verify_ownership);
     if args.smtp_only {
-        skillet_workstation::smtp_provisioning::deliver(
-            &args.hostname,
-            &skillet_workstation::smtp_provisioning::input(
-                UiEnvironmentName::Test.policy(),
-                &|_, _| {
-                    Err(skillet_workstation::vault::VaultError::Invalid(
-                        "test policy must not read credentials".into(),
-                    ))
-                },
-            )?,
-            &transport,
-        )?;
-        println!("Configured isolated SMTP capture relay; start a loopback sink on port 1025");
-        return Ok(());
+        return provision_vm_smtp(args, &transport);
     }
     validate_vm_tailscale_delivery(&transport)?;
     let vault_path = match &args.database {
@@ -657,6 +647,33 @@ fn validate_tailscale_unit_config(contents: &str) -> Result<()> {
         return Err(anyhow!(
             "this VM was created from an older Butane config that does not pass the Tailscale credential to full apply; recreate the smoke VM with the current config, then retry provisioning"
         ));
+    }
+    Ok(())
+}
+
+fn provision_vm_smtp(args: &VmProvisionArgs, transport: &impl GuestTransport) -> Result<()> {
+    let input = if args.live_smtp {
+        let vault_path = args
+            .database
+            .clone()
+            .map_or_else(default_database_path, Ok)?;
+        let vault = Vault::open(&vault_path, args.key_file.as_deref())?;
+        skillet_workstation::smtp_provisioning::input(
+            UiEnvironmentName::Production.policy(),
+            &|path, field| vault.get_field(path, field),
+        )?
+    } else {
+        skillet_workstation::smtp_provisioning::input(UiEnvironmentName::Test.policy(), &|_, _| {
+            Err(skillet_workstation::vault::VaultError::Invalid(
+                "test policy must not read credentials".into(),
+            ))
+        })?
+    };
+    skillet_workstation::smtp_provisioning::deliver(&args.hostname, &input, transport)?;
+    if args.live_smtp {
+        println!("Configured live SMTP provider; submission remains explicit and loopback-only");
+    } else {
+        println!("Configured isolated SMTP capture relay; start a loopback sink on port 1025");
     }
     Ok(())
 }
