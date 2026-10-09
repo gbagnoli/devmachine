@@ -122,6 +122,11 @@ impl Vault {
         lookup(&self.database, path)
     }
 
+    /// Read a standard or custom field from an exact entry without logging values.
+    pub fn get_field(&self, path: &str, field: &str) -> Result<Option<String>, VaultError> {
+        lookup_field(&self.database, path, field)
+    }
+
     pub fn insert(&mut self, path: &str, secret: &str) -> Result<(), VaultError> {
         create_entry(&mut self.database, path, secret)
     }
@@ -321,6 +326,34 @@ fn open_with_password(
 }
 
 fn lookup(database: &Database, path: &str) -> Result<Option<String>, VaultError> {
+    let Some(secret) = lookup_field(database, path, "Password")? else {
+        if find_entry(database, path)?.is_some() {
+            return Err(VaultError::Invalid(format!(
+                "KeePassXC entry {path} has no Password field"
+            )));
+        }
+        return Ok(None);
+    };
+    if secret.is_empty() {
+        return Err(VaultError::Invalid(format!(
+            "KeePassXC entry {path} has an empty Password field"
+        )));
+    }
+    Ok(Some(secret))
+}
+
+fn lookup_field(
+    database: &Database,
+    path: &str,
+    field: &str,
+) -> Result<Option<String>, VaultError> {
+    Ok(find_entry(database, path)?.and_then(|entry| entry.get(field).map(str::to_owned)))
+}
+
+fn find_entry<'a>(
+    database: &'a Database,
+    path: &str,
+) -> Result<Option<keepass::db::EntryRef<'a>>, VaultError> {
     let parts: Vec<_> = path.split('/').collect();
     if parts.len() < 2 || parts.iter().any(|part| part.is_empty()) {
         return Err(VaultError::Invalid("invalid KeePassXC entry path".into()));
@@ -346,18 +379,7 @@ fn lookup(database: &Database, path: &str) -> Result<Option<String>, VaultError>
             "KeePassXC entry {path} is ambiguous"
         )));
     }
-    let Some(entry) = matches.pop() else {
-        return Ok(None);
-    };
-    let secret = entry.get_password().ok_or_else(|| {
-        VaultError::Invalid(format!("KeePassXC entry {path} has no Password field"))
-    })?;
-    if secret.is_empty() {
-        return Err(VaultError::Invalid(format!(
-            "KeePassXC entry {path} has an empty Password field"
-        )));
-    }
-    Ok(Some(secret.to_owned()))
+    Ok(matches.pop())
 }
 
 fn create_entry(database: &mut Database, path: &str, password: &str) -> Result<(), VaultError> {

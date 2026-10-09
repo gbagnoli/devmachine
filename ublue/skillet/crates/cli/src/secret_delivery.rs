@@ -217,10 +217,11 @@ pub(super) fn check_vault(args: &SecretCheckArgs) -> Result<()> {
         .clone()
         .map_or_else(default_database_path, Ok)?;
     let vault = Vault::open(&path, args.key_file.as_deref())?;
-    let report =
-        skillet_workstation::secrets::check(&profiles, args.environment.policy(), &|path| {
-            vault.get(path)
-        })?;
+    let report = skillet_workstation::secrets::check(
+        &profiles,
+        args.environment.policy(),
+        &|path, field| vault.get_field(path, field),
+    )?;
     let unused = skillet_workstation::secrets::unused_paths(&all_profiles, &vault.entry_paths())?;
     let hyperlinks = std::io::IsTerminal::is_terminal(&std::io::stdout())
         && supports_hyperlinks::on(supports_hyperlinks::Stream::Stdout);

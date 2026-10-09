@@ -23,8 +23,11 @@
   and regenerate `SECRETS.md` with `cargo run -p skillet_workstation --example
   secrets_documentation` from the Skillet workspace (redirect output to the
   repository-root file). Keep template-reference coverage and the documentation
-  equality test passing. Required checks follow selected host capabilities;
-  unused-entry auditing must consider all declared hosts and both environments,
+  equality test passing. Required checks follow selected host capabilities.
+  Structured vault entries must declare each required standard/custom field and
+  its validation in the shared audit metadata; keep single-value entry behavior
+  compatible, and never include field values in audit output or errors.
+  Unused-entry auditing must consider all declared hosts and both environments,
   including optional/generated entries and retained migration readers.
 
 - Read the relevant documents in [design/](design/) before changing architecture

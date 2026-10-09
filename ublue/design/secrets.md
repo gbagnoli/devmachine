@@ -50,7 +50,9 @@ without the old one's keyring. `skillet secret unlock` verifies the database and
 establishes the same session cache without coupling unlock to provisioning.
 The Cloudflare token creator is stored at `skillet/cloudflare/token-creator`.
 
-Vault paths are group paths plus an entry title; values use the Password field.
+Vault paths are group paths plus an entry title. Single-value entries use the
+Password field; structured entries declare their standard/custom fields in the
+shared requirements metadata.
 The prefix is consistently singular, `skillet`:
 KeePassXC environment groups are named `prod` and `test`; the CLI's `production`
 policy maps to the `prod` group.
@@ -89,8 +91,12 @@ come from the delivery resolver, including host overrides. Generated, optional,
 and planned entries are distinguished. A read-only inventory of entry paths
 finds unused Skillet entries across all declared hosts and both environments,
 retaining known migration paths. It never emits values, mutates the vault, or
-uses provider APIs; it checks presence rather than provider permissions or host
-recovery state. `secrets` is the canonical CLI group; `secret` remains an alias.
+uses provider APIs; it checks declared field presence/formats rather than provider
+permissions or host recovery state. Existing entries default to Password-only
+validation. Structured entries declare standard/custom fields and validators in
+the shared metadata. `skillet/smtp` uses Username/Password and host/port/tls
+custom fields; its shared fleet audit is implemented, while runtime SMTP
+delivery remains planned. `secrets` is the canonical CLI group; `secret` remains an alias.
 
 Use the generic [configuration template design](configuration-templates.md)
 when service configuration combines clear policy with KeePassXC values. The

@@ -198,9 +198,15 @@ cargo run --release -p skillet -- secrets check --host clamps --environment test
 ```
 
 `check` defaults to all declared host profiles and production requirements.
-It reads the vault, reports missing or invalid required Password fields with
+It reads the vault, reports missing or invalid required entry fields with
 the checklist's setup instructions, and exits unsuccessfully if any are missing
 or invalid. Optional and automatically generated entries need not exist.
+SMTP preparation uses one entry, `skillet/smtp`: set **Username** and
+**Password**, plus custom fields `host` (Mailjet: `in-v3.mailjet.com`), `port`
+(`587`), and `tls` (`starttls`). The audit requires it for all declared fleet
+hosts in prod and test, checks field presence/formats, and never prints values.
+SMTP service delivery is still planned; the check does not authenticate to Mailjet.
+
 Unused `skillet/` entries are reported against **all hosts and both prod/test**,
 regardless of the check filter; unrelated personal entries are excluded. Unused
 entries are advisory and are never deleted. No provider calls or credential

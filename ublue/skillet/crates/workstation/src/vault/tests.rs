@@ -201,3 +201,45 @@ fn missing_vault_fails_before_password_prompt() {
     assert!(error.to_string().contains("missing or unreadable"));
     assert!(error.to_string().contains("secrets.kdbx"));
 }
+
+#[test]
+fn exact_field_lookup_supports_standard_protected_and_custom_fields() {
+    let mut db = Database::new();
+    let mut root = db.root_mut();
+    let mut group = root.add_group();
+    group.name = "skillet".into();
+    let mut entry = group.add_entry();
+    entry.set_unprotected("Title", "smtp");
+    entry.set_protected("UserName", "fixture-user");
+    entry.set_protected("Password", "fixture-password");
+    entry.set_unprotected("host", "smtp.example.com");
+    entry.set_protected("tls", "starttls");
+    for (field, expected) in [
+        ("UserName", "fixture-user"),
+        ("Password", "fixture-password"),
+        ("host", "smtp.example.com"),
+        ("tls", "starttls"),
+    ] {
+        assert_eq!(
+            super::lookup_field(&db, "skillet/smtp", field)
+                .unwrap()
+                .as_deref(),
+            Some(expected)
+        );
+    }
+    assert!(super::lookup_field(&db, "skillet/smtp", "port")
+        .unwrap()
+        .is_none());
+    assert!(super::lookup_field(&db, "skillet/missing", "Password")
+        .unwrap()
+        .is_none());
+    let mut root = db.root_mut();
+    let mut group = root.add_group();
+    group.name = "skillet".into();
+    let mut entry = group.add_entry();
+    entry.set_unprotected("Title", "smtp");
+    assert!(matches!(
+        super::lookup_field(&db, "skillet/smtp", "host"),
+        Err(VaultError::Invalid(_))
+    ));
+}
