@@ -10,6 +10,7 @@ use thiserror::Error;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
+pub mod access;
 pub mod hosts;
 mod smtp_runtime;
 use hosts::ApplyPhase;
@@ -55,6 +56,11 @@ pub struct HostArgs {
 
 #[derive(clap::Subcommand, Debug)]
 pub enum HostCommands {
+    /// Finalize interactive administrative access after provisioning
+    Access {
+        #[command(subcommand)]
+        command: access::AccessCommands,
+    },
     /// Prepare native SMTP runtime files from an encrypted systemd credential
     Smtp {
         #[command(subcommand)]
@@ -111,6 +117,7 @@ where
     tracing::subscriber::set_global_default(subscriber)?;
 
     match args.command {
+        HostCommands::Access { command } => access::dispatch(command),
         HostCommands::Smtp {
             command: SmtpCommands::Prepare,
         } => prepare_smtp(),

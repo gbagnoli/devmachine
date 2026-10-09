@@ -20,6 +20,11 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Commands {
+    /// Finalize interactive administrative access on this guest
+    Access {
+        #[command(subcommand)]
+        command: skillet_cli_common::access::AccessCommands,
+    },
     /// Prepare guest SMTP runtime credentials
     Smtp {
         #[command(subcommand)]
@@ -292,6 +297,7 @@ fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     match args.command {
+        Commands::Access { command } => skillet_cli_common::access::dispatch(command)?,
         Commands::Smtp {
             command: skillet_cli_common::SmtpCommands::Prepare,
         } => skillet_cli_common::prepare_smtp()?,
@@ -1317,6 +1323,12 @@ fn podman_capture(name: &str, shell: &str) -> Result<String> {
 mod tests {
     use super::Args;
     use clap::Parser;
+
+    #[test]
+    fn access_finalization_parses_explicit_account() {
+        assert!(Args::try_parse_from(["skillet", "access", "finalize", "--user", "admin"]).is_ok());
+        assert!(Args::try_parse_from(["skillet", "access", "finalize"]).is_err());
+    }
 
     #[test]
     fn test_run_accepts_explicit_base_phase() {

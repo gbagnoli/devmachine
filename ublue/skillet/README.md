@@ -547,3 +547,29 @@ checks repeat apply, queue restart/retry and map regeneration; production-policy
 mode also checks that an upstream without STARTTLS receives no credentials/mail.
 It refuses to run outside that test container. Compile the CLI via Cargo and use
 its reported artifact; the fixture is separate from VM lifecycle management.
+
+
+## Finalize production administrative access
+
+Finish service configuration and credential delivery first. On the host, run:
+
+```sh
+sudo /var/usrlocal/bin/skillet access finalize --user giacomo
+```
+
+Keep the current administrative session open. Start a second interactive login
+(with an SSH TTY or the console), use the known bootstrap password to change it,
+and verify sudo asks for the new password. SSH authentication stays key-only.
+The command requires an existing unlocked password; it does not create one.
+
+Finalization is explicit and persistent, with interrupted-operation recovery.
+Repeating it never expires the changed password again. Base apply does not undo
+it. Smoke VMs are not finalized automatically. Subsequent workstation credential
+and VM automation assumes passwordless sudo: finish those operations before
+finalization, then use interactive sudo or root for further administration.
+Do not delete `/var/lib/skillet/access/` to rerun provisioning.
+
+Older install media containing `force-pw-change.service` must be regenerated.
+For an already installed host using that service, stop/disable it and remove its
+unit before adopting this explicit workflow; no live machine is migrated here.
+See [the access lifecycle decision](../design/administrative-access.md).
