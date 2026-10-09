@@ -5,7 +5,8 @@ before proceeding with the remaining feature milestones in this plan.
 Existing acceptance evidence and deferred tasks remain applicable.
 
 Status: implementation and empty-controller acceptance passed on the
-disposable x86_64 VM on 2026-10-03. Backup restore and production migration
+disposable x86_64 VM on 2026-10-03. UI backup import and restored-data persistence passed on 2026-10-09.
+Authenticated UI verification, final disposable cleanup and production migration
 remain pending.
 
 ## Current behavior
@@ -76,8 +77,9 @@ References: [UniFi cloud architecture](https://help.ui.com/hc/en-us/articles/303
 
 ## Isolated backup-restore acceptance
 
-This work is in progress. Isolated VM preparation passed on 2026-10-09;
-backup import and post-restore checks remain pending. On 2026-10-08 the workstation reached rupik but SSH
+This work is in progress. UI import, repeat module apply, restored configuration
+hashes and reboot persistence passed on 2026-10-09. Authenticated UI inspection
+and final disposal remain pending. On 2026-10-08 the workstation reached rupik but SSH
 failed with `Permission denied (publickey)`. The user supplied a private October
 1 Network backup (212,880 bytes); its original automatic-backup filename
 identifies application version 10.0.162. Current source runtime access remains
@@ -142,33 +144,22 @@ Restore reference: [Ubiquiti Network backups and migration](https://help.ui.com/
 
 ### Current live handoff — 2026-10-09
 
-- Retained VM: host `clamps`, instance `unifi-restore`, native `qemu:///session`,
-  SSH loopback port 2202. Fresh signed boot/base/user readiness passed.
-- The cached x86_64 image runs UniFi `10.0.162-32076-1`. The actual recipe uses
-  host networking and data-root ownership 999:999, mode 0750. Local HTTPS
-  returns 200. No Tailscale, Cloudflare or Datadog credentials were delivered.
-- The tested fence assets are in `butane/tests/fixtures/unifi-restore/`.
-  Fresh SSH and the fence survived an empty-controller reboot. A direct
-  public HTTPS probe timed out and the output drop counter increased.
-  `unifi.service` requires and starts after the persistent fence. Its initial
-  rollback timer was stopped before the backup was copied.
-- First fence attempt failed management access and its empty VM was disposed;
-  the revised policy uses filter priority and an explicit SSH reply allowance.
-  Never copy the rejected initial policy from private diagnostic artifacts.
-- The application's help lists `restore <file>`. It rejects a live controller
-  with `Already running`. The stopped-controller attempt in a one-off,
-  network-disabled container fails with `NoSuchBeanDefinitionException` for
-  `com.ubnt.service.system.status.o0OO`. No successful backup import is proven;
-  use the supported setup/UI restore next. Do not interpret the CLI failure
-  as evidence that the backup is corrupt or incompatible.
-- The normal controller has been restarted behind the fence. Current aggregate
-  observations: two sites, one network, one WLAN, zero devices, zero admins.
-  These observations are not backup-restore acceptance.
-- User action: from the Skillet workspace, run `cargo run --release -p skillet --
-  test vm ssh clamps unifi-restore --forward 18443:8443`, open
-  `https://127.0.0.1:18443` and upload the private backup through the setup UI.
-  Wait for completion, then exit SSH so owned verification can acquire the
-  run lock. Passwords and backup contents must not be shared in chat.
-- After UI restore: verify site/configuration and inventory, repeat recipe
-  apply, test reboot/data survival and isolation, then clean up the owned VM.
-  Do not destroy this retained VM while the UI handoff is pending.
+- Retained VM: `clamps` / `unifi-restore`, native `qemu:///session`, SSH 2202.
+  UniFi version 10.0.162-32076-1, rootful host networking, data-root 999:999/0750.
+- Operator uploaded the backup through the setup UI. Database aggregates:
+  two sites, one network, four WLANs, three devices, one admin. Source inventory
+  equivalence remains unverified. CLI restore attempts failed previously;
+  those failures did not establish backup corruption.
+- Repeat production module-only apply before and after owned reboot passed;
+  network/WLAN configuration hashes stayed identical. HTTPS returned 200 after
+  boot startup, service active with zero restarts. This is not full-host acceptance.
+- Persistent isolation survived reboot and is required before UniFi activation.
+  Public IPv4 HTTPS remains blocked; separate LAN/tailnet/IPv6 probes remain
+  unverified. No provider credentials or cloud/device access were enabled.
+- Login with the operator’s recorded password failed; an older password is
+  possible. SMTP recovery is unavailable. Retain the isolated VM for credential
+  investigation; do not alter database credentials or remove the fence.
+- Remaining: operator authenticated UI/configuration inspection, then stop and
+  dispose through the owned lifecycle. Preserve independent private backups.
+  Production adoption and Site Manager remain scheduled cutover checks.
+- Email delivery is tracked in [the follow-up plan](CLAMPS-EMAIL.md).

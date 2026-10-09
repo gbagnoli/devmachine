@@ -1,3 +1,34 @@
+## UniFi restored-data persistence — 2026-10-09
+
+**UI import and restored-data persistence verified; authenticated UI acceptance
+and final disposable cleanup remain pending.**
+
+- Operator uploaded the supplied backup using the setup UI. Aggregate database
+  state now contains two sites, one network, four WLANs, three devices and one
+  admin, versus one WLAN/zero devices/zero admins before UI import. Source
+  inventory equivalence has not been independently verified.
+- The actual UniFi module-only driver passed repeat apply before and after an
+  owned reboot. Network/WLAN collection hashes matched the post-import baseline
+  throughout. No import occurs during ordinary apply.
+- After boot startup completed, UniFi was active/running with Result=success,
+  NRestarts=0 and local HTTPS HTTP 200. Rootful host networking and image user
+  `unifi` remain configured; data-root metadata was 999:999, mode 0750.
+- The persistent fence was active after reboot; UniFi Requires/After still
+  includes it. Both-family drop policies remained installed, with 48 dropped
+  output packets observed. A subsequent public IPv4 HTTPS probe timed out.
+  Dedicated LAN/tailnet/IPv6 endpoint probes remain unverified.
+- Operator cannot log in with the recorded password; password age is uncertain
+  and SMTP is not configured. No password reset, database credential edits or
+  cloud enrollment were attempted. Authenticated inspection is still pending.
+- Retain the isolated `clamps-test-unifi-restore` VM for login investigation.
+  Do not remove its fence. Final controller stop/disposal is deferred until the
+  operator completes that inspection; independent private backups are retained.
+- This is module-only acceptance, not full-host/device/Site Manager acceptance.
+  No production controller or device was modified. Only documentation changed
+  in this follow-up; existing code validation is recorded below.
+
+Email delivery follow-up: [server email plan](../plan/CLAMPS-EMAIL.md).
+
 ## UniFi restore preparation — 2026-10-09
 
 **Preparation passed; backup restore remains unverified.**
