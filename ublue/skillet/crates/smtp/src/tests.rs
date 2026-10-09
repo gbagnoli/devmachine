@@ -119,3 +119,39 @@ fn mismatched_credentials_cannot_prepare_a_retained_environment() {
     ));
     assert!(files.read_file(Path::new(MAP_PATH)).unwrap().is_none());
 }
+
+#[test]
+fn fresh_apply_initializes_the_persistent_queue_root() {
+    let files = MockFiles::new();
+    apply(
+        &MockSystem::new(),
+        &files,
+        &Input::Capture {}.payload().unwrap(),
+    )
+    .unwrap();
+    let metadata = files.directory_metadata.lock().unwrap();
+    assert_eq!(metadata["/var/spool/postfix"].0, Some(0o755));
+    assert_eq!(metadata["/var/spool/postfix/pid"].0, Some(0o755));
+    for name in [
+        "active", "bounce", "corrupt", "defer", "deferred", "flush", "hold", "incoming", "private",
+        "saved", "trace",
+    ] {
+        assert_eq!(
+            metadata[&format!("/var/spool/postfix/{name}")],
+            (Some(0o700), Ownership::named(Some("postfix"), Some("root")))
+        );
+    }
+    for (name, mode) in [("maildrop", 0o730), ("public", 0o710)] {
+        assert_eq!(
+            metadata[&format!("/var/spool/postfix/{name}")],
+            (
+                Some(mode),
+                Ownership::named(Some("postfix"), Some("postdrop"))
+            )
+        );
+    }
+    assert_eq!(
+        metadata["/var/lib/postfix"],
+        (Some(0o700), Ownership::named(Some("postfix"), Some("root")))
+    );
+}

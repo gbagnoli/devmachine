@@ -218,6 +218,7 @@ where
         Some(0o600),
         &Ownership::named(Some("root"), Some("root")),
     )?;
+    initialize_persistent_state(files)?;
     files.ensure_directory(Path::new("/etc/postfix"), None, &Ownership::default())?;
     files.ensure_directory(
         Path::new("/etc/systemd/system/postfix.service.d"),
@@ -269,6 +270,43 @@ where
             reload_daemon: false,
             consumer_kind: ConsumerKind::Persistent,
         },
+    )?;
+    Ok(())
+}
+
+// Image-layer /var paths need explicit initialization before confined startup.
+fn initialize_persistent_state<F: FileMutationResource + ?Sized>(
+    files: &F,
+) -> Result<(), SmtpError> {
+    let queue = Path::new("/var/spool/postfix");
+    for path in [queue.to_path_buf(), queue.join("pid")] {
+        files.ensure_directory(
+            &path,
+            Some(0o755),
+            &Ownership::named(Some("root"), Some("root")),
+        )?;
+    }
+    for name in [
+        "active", "bounce", "corrupt", "defer", "deferred", "flush", "hold", "incoming", "private",
+        "saved", "trace",
+    ] {
+        files.ensure_directory(
+            &queue.join(name),
+            Some(0o700),
+            &Ownership::named(Some("postfix"), Some("root")),
+        )?;
+    }
+    for (name, mode) in [("maildrop", 0o730), ("public", 0o710)] {
+        files.ensure_directory(
+            &queue.join(name),
+            Some(mode),
+            &Ownership::named(Some("postfix"), Some("postdrop")),
+        )?;
+    }
+    files.ensure_directory(
+        Path::new("/var/lib/postfix"),
+        Some(0o700),
+        &Ownership::named(Some("postfix"), Some("root")),
     )?;
     Ok(())
 }

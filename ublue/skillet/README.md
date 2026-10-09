@@ -498,7 +498,8 @@ not enabled yet.
 Postfix's provider map is root-owned, readable only by root and the Postfix
 group (`0640`, parent `0750`) under `/run/postfix/skillet/`, and regenerated
 from the encrypted credential before service startup. Queued mail persists in
-`/var/spool/postfix`. Local senders are rewritten to the verified sender; recipient
+`/var/spool/postfix`; Skillet initializes the queue directories and
+`/var/lib/postfix` before activation. Local senders are rewritten to the verified sender; recipient
 addresses are preserved. Mailjet domain verification/SPF/DKIM/DMARC still need
 provider setup and live acceptance.
 

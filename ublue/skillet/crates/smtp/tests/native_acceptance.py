@@ -8,6 +8,7 @@ owned by Skillet. Supply the deployed CLI path and a declared host profile.
 import argparse
 import json
 import pathlib
+import shutil
 import socket
 import socketserver
 import subprocess
@@ -89,6 +90,17 @@ def main():
             == b"active"
         )
     )
+    # Reproduce ostree: package image /var directories need runtime initialization.
+    assert (
+        run(
+            "systemctl", "show", "postfix.service", "-p", "ActiveState", "--value"
+        ).strip()
+        != b"active"
+    )
+    shutil.rmtree("/var/spool/postfix", ignore_errors=True)
+    assert not pathlib.Path("/var/spool/postfix").exists()
+    shutil.rmtree("/var/lib/postfix", ignore_errors=True)
+    assert not pathlib.Path("/var/lib/postfix").exists()
     config = {"mode": "capture"}
     if args.production_policy:
         config = {

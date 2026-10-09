@@ -29,6 +29,9 @@ This document defines the architectural mandates and project structure for `skil
 - **Verification**: Always run both:
     - **Unit Tests**: `cargo test --workspace --all-targets`.
     - **Runtime Smoke**: Run `cargo run --release -p skillet -- test smoke <HOST> --instance <INSTANCE>` against an explicitly named disposable VM with real systemd and Podman for affected container resources. Record the guest state snapshots and failure diagnostics.
+- Acceptance checks distinguish transient staging from durable state, and
+  successful oneshot completion from persistent service activity. Compare
+  identities only after the consumer reaches its stable state.
 - Tests for host-dependent observations must inject or simulate those
   observations. Do not require a particular workstation port, account, service,
   or external resource to happen to be available for a unit test.
