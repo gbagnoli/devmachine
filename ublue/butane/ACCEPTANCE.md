@@ -2310,3 +2310,46 @@ host tool; it still uses normal command approvals.
   UEFI/Secure Boot/MOK startup and encrypted rebase/rollback are unverified.
 - Updated storage design and TPM plan. No encrypted profile or VM was created;
   current install templates and both repositories' runtime code are unchanged.
+
+## 2026-10-11 — protected header backup and native TPM-loss recovery
+
+Native `qemu:///session`, fresh `clamps / header-recovery` (SSH 2202), recovery
+clone `clamps / tpm-loss` (2203). The existing `clamps / smoke` VM on 2201 was
+preserved. No workstation packages or physical disks/TPMs were changed.
+
+Passed:
+
+- Fresh TPM-profile install reached signed uCore and base/user readiness.
+- `test vm recovery-key clamps header-recovery` persisted the independent key,
+  volume UUID and verified `root-luks.header` attachment in the encrypted vault.
+  Repeating it left the encrypted vault bytes unchanged.
+- The archived header was restored onto a new 64 MiB tmpfs regular-file fixture;
+  the archived passphrase unlocked it. The fixture and plaintext inputs were removed.
+- A stopped disk copy received independent TPM/NVRAM and an unlogged console.
+  The fresh TPM failed automatic unlock and reached the passphrase prompt;
+  the vault passphrase booted the same encrypted volume.
+- Explicit re-enrollment verified the new TPM before deleting the old binding,
+  retained the independent recovery slot, and saved a separate clone header.
+- Two unattended cold boots preserved volume identity and the flushed data
+  sentinel, with exactly two keyslots. Repeating completed recovery left vault
+  bytes unchanged and introduced no additional slots.
+- The original TPM still unsealed its original key and unlocked its unchanged
+  volume. Its header archive matched the pre-clone hash throughout recovery.
+- Both owned recovery VMs, disks, TPM/NVRAM and run artifacts were disposed.
+  Vault archives remained unchanged; the original smoke VM remained running.
+
+Driver: `cargo run --release -p skillet_workstation --example tpm_recovery --
+../butane clamps header-recovery tpm-loss 2203 ACTION`, with `clone`, `unlock`,
+`rebind`, `verify` in order. Usage is in the Skillet README. Clone preflight
+allows known readiness evidence but rejects provider journals, containers,
+Podman secrets and delivered encrypted credentials.
+
+Local checks passed: formatting, pedantic workspace Clippy, all 363 workspace
+and example tests, ShellCheck for the three recovery helpers, and Fedora
+`test run beezelbot --phase base --image fedora:latest` (both applies succeeded;
+repeat apply issued no service start/restart). Routine CI uses fixture KDBX and
+fake transports; this live run used the cached vault unlock.
+
+Still unverified: physical TPM/firmware compatibility and rescue installation,
+Flatpak encrypted-VM acceptance, offline-network and remaining boot-policy /
+update / rollback matrix cases. A header backup is not a service-data backup.
