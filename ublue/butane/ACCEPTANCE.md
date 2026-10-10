@@ -2203,3 +2203,25 @@ host tool; it still uses normal command approvals.
 - Interactive first-login password change over SSH/console on a fresh uCore
   install remains unverified. Later workstation delivery currently assumes
   passwordless sudo; finish it first, then use interactive sudo/root administration.
+
+
+## 2026-10-10 — TPM/boot capability audit
+
+- Used the owned retained `clamps/smoke` SSH transport for read-only package,
+  boot-layout and deployed-initramfs inspection. No guest state mutation,
+  reboot, credential delivery, enrollment or formatting.
+- Deployed uCore: Clevis 21, cryptsetup 2.8.8, dracut 108, systemd 259.8 with
+  TPM2 support, TPM2 tools 5.7. Initramfs includes Clevis TPM2, cryptsetup,
+  systemd TPM token plugin and Btrfs. Boot entries use separate kernel/initrd;
+  EFI runtime and TPM devices absent in the existing BIOS VM. ukify and
+  systemd-measure were not found; signed PCR policies are not configured.
+- Workstation: KVM present; swtpm 0.8, QEMU 10.1, libvirt 11.10, edk2 OVMF
+  installed. q35 domain capabilities advertise EFI/Secure Boot and emulated
+  TPM2. Secure Boot firmware and enrolled-key NVRAM template files exist.
+  No physical TPM device exposed. No workstation packages installed.
+- Reviewed current CoreOS/Clevis/systemd upstream documentation. Native TPM
+  encryption and signed-PCR boot integrity are distinct guarantees; protection
+  scope choice remains pending. Initial FCOS image initramfs, PCR banks, actual
+  UEFI/Secure Boot/MOK startup and encrypted rebase/rollback are unverified.
+- Updated storage design and TPM plan. No encrypted profile or VM was created;
+  current install templates and both repositories' runtime code are unchanged.

@@ -4,8 +4,11 @@ Prerequisite: complete [the Skillet refactoring roadmap](SKILLET-REFACTOR.md)
 before proceeding with the remaining feature milestones in this plan.
 Existing acceptance evidence and deferred tasks remain applicable.
 
-Status: planned, 2026-10-02. No encrypted-root implementation or acceptance
-is claimed. Start after the refactoring prerequisite and private-UI acceptance work.
+Status: capability/source audit started 2026-10-10. Native virtual TPM and
+UEFI prerequisites are available, and deployed uCore initramfs support is
+confirmed. Protection-scope selection is pending; no encrypted-root
+implementation or acceptance is claimed. The refactor live retry remains
+explicitly parked by the operator; it is not represented as passing.
 
 ## Scope and decisions
 
@@ -29,6 +32,33 @@ Read `AGENTS.md`, `skillet/AGENTS.md`, `design/storage.md`, `design/secrets.md`,
 Make small validated changes in the order below. Never format a populated
 physical disk as part of Skillet convergence; use only named disposable disks
 until physical install and restore are explicitly arranged.
+
+## Audit findings and next slice (2026-10-10)
+
+- Read-only retained-VM inspection confirmed native Clevis/TPM/Btrfs unlock
+  components in the deployed initramfs. No image/package change is needed yet.
+  The exact initial cached FCOS image still needs boot-time verification.
+- Native workstation q35 capabilities advertise EFI, secure loaders and TPM2
+  emulation. swtpm 0.8, QEMU 10.1, libvirt 11.10 and OVMF with enrolled-key
+  templates are installed. No physical TPM is exposed; virtual tests remain
+  possible. Flatpak equivalence and physical hardware are unverified.
+- Native XML already selects q35 but supplies no UEFI loader/NVRAM or TPM.
+  Extend `crates/vm/src/{manifest,domain_xml,backend,creation,lifecycle}.rs`
+  through one typed install/boot profile; preserve retained BIOS manifests.
+- `includes/data-storage.bu` uses raw `by-partlabel/root` in both the creation
+  helper and mount unit. Select the verified unlocked Btrfs filesystem before
+  encrypted tests; retain UUID/topology and absent/wrong-mount guards.
+- Separate GRUB kernel/initramfs entries are deployed, not an observed signed
+  UKI/PCR policy pipeline. Native PCR-7-based unlock offers a narrower guarantee
+  than authenticated whole-machine boot. Operator protection-scope choice is
+  pending; do not choose empty PCRs or silently claim stronger protection.
+- After scope selection, specify enrollment timing across FCOS, uCore and MOK,
+  then implement the explicit install profile and named UEFI/TPM VM. Keep the
+  existing unencrypted retained smoke VM unchanged. Recovery material must be
+  established before TPM replacement/tampering tests.
+
+Evidence and policy limits: `../design/storage.md` and
+`../butane/ACCEPTANCE.md`. Audit completion is not encrypted-boot acceptance.
 
 ## 1. Establish hardware, image, and boot policy
 

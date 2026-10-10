@@ -68,3 +68,31 @@ physical disk choice remain open in
 References: [XDG base directories](https://specifications.freedesktop.org/basedir/),
 [FHS `/srv`](https://specifications.freedesktop.org/fhs/latest/srv.html),
 [Btrfs subvolumes](https://btrfs.readthedocs.io/en/stable/btrfs-subvolume.html).
+
+
+## TPM capability audit (2026-10-10)
+
+The retained signed-uCore VM has Clevis 21, cryptsetup 2.8.8, systemd 259.8
+with TPM2 support, and TPM2 tools. Its deployed initramfs contains Clevis TPM2,
+cryptsetup/systemd TPM token support and Btrfs. No extra package installation is
+currently justified for native Clevis unlock; actual encrypted-boot acceptance
+must also check the initial FCOS image and each subsequent deployment.
+
+The native Rocky test backend has KVM, swtpm and q35 OVMF Secure Boot firmware
+with enrolled-key NVRAM templates. The workstation exposes no physical TPM;
+virtual-TPM tests do not require one. Existing smoke domains boot BIOS without
+TPM. New encrypted tests must explicitly select UEFI/Secure Boot, independent
+TPM2 state and owned persistent NVRAM. Firmware capability is not boot acceptance.
+
+Current boot entries use separate kernel/initramfs files under GRUB. Neither
+ukify nor systemd-measure was found on the deployed guest; no signed PCR-policy
+pipeline exists in our image recipes. PCR 7 binds Secure Boot policy, not all
+kernel/initramfs/command-line bytes. TPM-only unlock must not be described as
+protection against whole-machine theft or tampering. Signed-policy boot integrity
+requires a separate implemented update/rollback chain; adding packages alone
+would not establish it. The first profile's protection scope is awaiting the
+operator's choice; no PCR enrollment or encrypted formatting has been performed.
+
+Sources: [FCOS encrypted root](https://github.com/coreos/fedora-coreos-docs/blob/main/modules/ROOT/pages/storage.adoc#encrypted-storage-luks),
+[Clevis TPM threat model](https://github.com/latchset/clevis/blob/master/src/pins/tpm2/clevis-encrypt-tpm2.1.adoc#threat-model),
+[systemd PCR policies](https://github.com/systemd/systemd/blob/main/man/systemd-cryptenroll.xml).
