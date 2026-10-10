@@ -1,4 +1,4 @@
-//! Native libvirt domain XML rendering for a recorded test run.
+//! Libvirt domain XML rendering for a recorded test run.
 use crate::{Backend, Error, ManifestStore, Phase, Result, VmRun};
 use quick_xml::{
     events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event},
@@ -11,21 +11,16 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Write the native KVM definition beside its owned disk and Ignition files.
+/// Write the KVM definition beside its owned disk and Ignition files.
 /// The output is atomically replaced and never follows a symlink.
-pub fn write_native_domain_xml(
-    store: &ManifestStore,
-    run: &VmRun,
-    emulator: &Path,
-) -> Result<PathBuf> {
+pub fn write_domain_xml(store: &ManifestStore, run: &VmRun, emulator: &Path) -> Result<PathBuf> {
     store.validate(run, &run.identity)?;
-    if run.connection.backend != Backend::Native
-        || !matches!(run.phase, Phase::Preparing | Phase::Defined)
+    if !matches!(run.phase, Phase::Preparing | Phase::Defined)
         || !emulator.is_absolute()
-        || !emulator.is_file()
+        || (run.connection.backend == Backend::Native && !emulator.is_file())
     {
         return Err(Error::Invalid(
-            "native domain XML requires a native preparing run and absolute emulator".into(),
+            "domain XML requires a preparing run and absolute emulator".into(),
         ));
     }
     let dir = run
@@ -43,6 +38,15 @@ pub fn write_native_domain_xml(
     crate::manifest::reject_symlinks(dir)?;
     let path = dir.join("domain.xml");
     crate::manifest::reject_symlinks(&path)?;
+    if run.root_profile == crate::install::RootProfile::Tpm {
+        let serial = dir.join("serial.log");
+        crate::manifest::reject_symlinks(&serial)?;
+        let log = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(serial)?;
+        log.set_permissions(fs::Permissions::from_mode(0o600))?;
+    }
     let xml = render(run, emulator)?;
     let mut output = tempfile::NamedTempFile::new_in(dir)?;
     output
@@ -67,19 +71,47 @@ fn render(run: &VmRun, emulator: &Path) -> Result<String> {
     text_element_with_attrs(&mut writer, "memory", "8192", &[("unit", "MiB".into())])?;
     text_element(&mut writer, "vcpu", "2")?;
 
-    start(&mut writer, "os", &[])?;
+    let encrypted = run.root_profile == crate::install::RootProfile::Tpm;
+    let firmware_attrs = if encrypted {
+        vec![("firmware", "efi".into())]
+    } else {
+        Vec::new()
+    };
+    start(&mut writer, "os", &firmware_attrs)?;
+    if encrypted {
+        start(&mut writer, "firmware", &[])?;
+        for name in ["secure-boot", "enrolled-keys"] {
+            empty(
+                &mut writer,
+                "feature",
+                &[("enabled", "yes".into()), ("name", name.into())],
+            )?;
+        }
+        end(&mut writer, "firmware")?;
+    }
     text_element_with_attrs(
         &mut writer,
         "type",
         "hvm",
         &[("arch", "x86_64".into()), ("machine", "q35".into())],
     )?;
+    if encrypted {
+        text_element_with_attrs(
+            &mut writer,
+            "nvram",
+            &crate::install::nvram_path(run)?.display().to_string(),
+            &[("format", "raw".into())],
+        )?;
+    }
     empty(&mut writer, "boot", &[("dev", "hd".into())])?;
     end(&mut writer, "os")?;
 
     start(&mut writer, "features", &[])?;
     empty(&mut writer, "acpi", &[])?;
     empty(&mut writer, "apic", &[])?;
+    if encrypted {
+        empty(&mut writer, "smm", &[("state", "on".into())])?;
+    }
     end(&mut writer, "features")?;
     empty(&mut writer, "cpu", &[("mode", "host-passthrough".into())])?;
 
@@ -95,7 +127,12 @@ fn render(run: &VmRun, emulator: &Path) -> Result<String> {
     end(&mut writer, "sysinfo")?;
 
     start(&mut writer, "devices", &[])?;
-    text_element(&mut writer, "emulator", &emulator.display().to_string())?;
+    if run.connection.backend == Backend::Native {
+        text_element(&mut writer, "emulator", &emulator.display().to_string())?;
+    }
+    if encrypted {
+        render_tpm(&mut writer, run)?;
+    }
     disk(&mut writer, &run.disk, "qcow2", "vda", false)?;
     disk(&mut writer, &run.ignition, "raw", "vdb", true)?;
     start(&mut writer, "interface", &[("type", "user".into())])?;
@@ -113,20 +150,66 @@ fn render(run: &VmRun, emulator: &Path) -> Result<String> {
     end(&mut writer, "portForward")?;
     empty(&mut writer, "model", &[("type", "virtio".into())])?;
     end(&mut writer, "interface")?;
-    start(&mut writer, "serial", &[("type", "pty".into())])?;
-    empty(&mut writer, "target", &[("port", "0".into())])?;
-    end(&mut writer, "serial")?;
-    start(&mut writer, "console", &[("type", "pty".into())])?;
-    empty(
-        &mut writer,
-        "target",
-        &[("type", "serial".into()), ("port", "0".into())],
-    )?;
-    end(&mut writer, "console")?;
+    render_console(&mut writer, run, encrypted)?;
     end(&mut writer, "devices")?;
     end(&mut writer, "domain")?;
     String::from_utf8(writer.into_inner())
         .map_err(|_| Error::Invalid("generated libvirt XML was not UTF-8".into()))
+}
+
+fn render_console(writer: &mut Writer<Vec<u8>>, run: &VmRun, encrypted: bool) -> Result<()> {
+    start(writer, "serial", &[("type", "pty".into())])?;
+    if encrypted {
+        empty(
+            writer,
+            "log",
+            &[
+                (
+                    "file",
+                    run.disk
+                        .parent()
+                        .ok_or_else(|| Error::Invalid("disk has no parent".into()))?
+                        .join("serial.log")
+                        .display()
+                        .to_string(),
+                ),
+                ("append", "on".into()),
+            ],
+        )?;
+    }
+    empty(writer, "target", &[("port", "0".into())])?;
+    end(writer, "serial")?;
+    start(writer, "console", &[("type", "pty".into())])?;
+    empty(
+        writer,
+        "target",
+        &[("type", "serial".into()), ("port", "0".into())],
+    )?;
+    end(writer, "console")?;
+    Ok(())
+}
+
+fn render_tpm(writer: &mut Writer<Vec<u8>>, run: &VmRun) -> Result<()> {
+    start(writer, "tpm", &[("model", "tpm-crb".into())])?;
+    start(
+        writer,
+        "backend",
+        &[("type", "emulator".into()), ("version", "2.0".into())],
+    )?;
+    empty(
+        writer,
+        "source",
+        &[
+            ("type", "dir".into()),
+            ("path", crate::install::tpm_path(run)?.display().to_string()),
+        ],
+    )?;
+    start(writer, "active_pcr_banks", &[])?;
+    empty(writer, "sha256", &[])?;
+    end(writer, "active_pcr_banks")?;
+    end(writer, "backend")?;
+    end(writer, "tpm")?;
+    Ok(())
 }
 
 fn disk(

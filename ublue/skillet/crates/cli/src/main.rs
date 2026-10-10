@@ -8,6 +8,7 @@ use tracing_subscriber::FmtSubscriber;
 mod secret_delivery;
 mod secret_output;
 mod vm;
+mod vm_encryption;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -147,6 +148,8 @@ enum TestCommands {
 
 #[derive(clap::Subcommand, Debug)]
 enum VmCommands {
+    /// Verify encrypted root, save disposable recovery artifacts and cold-boot it
+    EncryptionCheck(VmTargetArgs),
     /// Provision a disposable host VM and wait for it to become ready
     Create(VmCreateArgs),
     /// Destroy a disposable host VM and remove its temporary key and artifacts
@@ -172,8 +175,26 @@ enum VmCommands {
     Update(VmDestroyArgs),
 }
 
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
+enum RootProfileName {
+    Unencrypted,
+    Tpm,
+}
+
+impl RootProfileName {
+    fn policy(self) -> skillet_vm::install::RootProfile {
+        match self {
+            Self::Unencrypted => skillet_vm::install::RootProfile::Unencrypted,
+            Self::Tpm => skillet_vm::install::RootProfile::Tpm,
+        }
+    }
+}
+
 #[derive(clap::Args, Debug)]
 struct VmCreateArgs {
+    /// Root storage policy; TPM requires UEFI Secure Boot and a virtual TPM
+    #[arg(long, value_enum, default_value_t = RootProfileName::Unencrypted)]
+    root_profile: RootProfileName,
     hostname: String,
     instance: String,
     #[arg(long, default_value_t = 2201)]
@@ -360,6 +381,7 @@ fn main() -> Result<()> {
 
 fn run_vm_command(command: VmCommands) -> Result<()> {
     match command {
+        VmCommands::EncryptionCheck(args) => vm_encryption::check(&args)?,
         VmCommands::Create(args) => run_vm_create(&args)?,
         VmCommands::Destroy(args) => run_vm_destroy(&args)?,
         VmCommands::List(args) => run_vm_list(&args)?,
@@ -1373,6 +1395,32 @@ mod tests {
             "/tmp/fcos.qcow2",
         ]);
         assert!(parsed.is_ok());
+    }
+
+    #[test]
+    fn vm_create_accepts_explicit_tpm_profile() {
+        assert!(Args::try_parse_from([
+            "skillet",
+            "test",
+            "vm",
+            "create",
+            "clamps",
+            "tpm",
+            "--root-profile",
+            "tpm"
+        ])
+        .is_ok());
+        assert!(Args::try_parse_from([
+            "skillet",
+            "test",
+            "vm",
+            "create",
+            "clamps",
+            "tpm",
+            "--root-profile",
+            "unknown"
+        ])
+        .is_err());
     }
 
     #[test]

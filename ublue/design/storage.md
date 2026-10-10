@@ -26,9 +26,8 @@ clients; Pi-hole's database and Podman's image layers are internal state.
 
 The shared `butane/includes/data-storage.bu` include creates the top-level
 `data` subvolume on the Btrfs filesystem backing `/var`, mounts it, prepares
-the `containers` subvolume, and configures rootful Podman. It checks that the
-standard `root` partition
-label points to that same filesystem. Each host's Butane template must merge
+the `containers` subvolume, and configures rootful Podman. It verifies the filesystem UUID backing `/var` and mounts the filesystem
+labelled `root`, whether it resides on a plain partition or a LUKS mapper. Each host's Butane template must merge
 the include; clamps currently does. Host Skillet creates application
 subvolumes and directories. Existing populated Podman stores require an
 explicit migration; changing an installed host's graphroot is not automatic.
@@ -44,7 +43,7 @@ this rule by design. The `containers` subvolume can then be omitted from
 service-data snapshots. A shared filesystem shares free space and physical
 failure; snapshots are not independent backups.
 
-## Planned encryption
+## Optional native encryption
 
 Decision, 2026-10-02: add LUKS2 beneath the shared Btrfs backing filesystem
 and prefer local TPM2 unlock on both local and remote physical hosts. Normal
@@ -55,8 +54,28 @@ EFI and `/boot` remain outside encryption. An explicit boot-integrity policy
 and update/rollback compatibility must be proved before claiming protection
 against theft of the whole machine. Keep an independent recovery key in the
 private vault and a protected off-machine LUKS header backup.
-Encryption is not implemented. Installation owns formatting; the current raw
-root partition mount assumptions must be changed to the unlocked filesystem.
+Decision, 2026-10-10: the first profile uses native Ignition/Clevis TPM2 with
+SHA256 PCR 7 and requires Secure Boot. Its accepted protection scope is removal
+or loss of the encrypted disk; separate GRUB kernel/initramfs files do not
+provide authenticated whole-machine boot. Custom UKIs and signed PCR policies
+are deferred. No network service participates in unlock.
+
+Implemented for disposable installs: `unencrypted` remains the default;
+explicit `tpm` selects LUKS2 beneath Btrfs and fails when prerequisites are
+missing. There is no automatic downgrade. Profile selection is independent of
+host identity. Filesystem UUID/label checks support both layouts. TPM enrollment
+occurs during native Ignition installation; the same firmware policy must
+survive the signed-uCore bootstrap. Changing Secure Boot/MOK policy requires a
+working recovery path before enrollment changes. On physical hardware, enroll
+any required image signing/MOK keys before the first encrypted Ignition boot;
+QEMU success with its enrolled firmware keys does not replace that procedure.
+
+Disposable acceptance creates an independent random recovery key and header
+backup under the private run directory, then checks recovery without TPM and
+cold-boots through the lifecycle owner. Only TPM and recovery keyslots are
+accepted. These artifacts are deleted on disposal. Production vault enrollment,
+physical-disk selection and physical recovery acceptance remain planned;
+Skillet convergence never formats an installed filesystem.
 QEMU functional tests and physical acceptance are specified in the
 [TPM encrypted-root plan](../plan/TPM-ENCRYPTED-ROOT.md).
 
@@ -90,8 +109,9 @@ pipeline exists in our image recipes. PCR 7 binds Secure Boot policy, not all
 kernel/initramfs/command-line bytes. TPM-only unlock must not be described as
 protection against whole-machine theft or tampering. Signed-policy boot integrity
 requires a separate implemented update/rollback chain; adding packages alone
-would not establish it. The first profile's protection scope is awaiting the
-operator's choice; no PCR enrollment or encrypted formatting has been performed.
+would not establish it. The operator accepted the narrower native profile above; stronger boot integrity
+is a separate future project. Virtual acceptance does not establish physical
+firmware compatibility.
 
 Sources: [FCOS encrypted root](https://github.com/coreos/fedora-coreos-docs/blob/main/modules/ROOT/pages/storage.adoc#encrypted-storage-luks),
 [Clevis TPM threat model](https://github.com/latchset/clevis/blob/master/src/pins/tpm2/clevis-encrypt-tpm2.1.adoc#threat-model),

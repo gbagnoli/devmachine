@@ -220,3 +220,30 @@ fn staging_is_idempotent_and_refuses_progressed_runs_or_linked_sources() {
     )
     .is_err());
 }
+
+#[test]
+fn staging_accepts_account_only_passwd_includes_and_tpm_root() {
+    let (_tmp, store, mut run, config, includes, host, generic, image) = fixture();
+    fs::write(includes.join("passwd.bu"),"variant: fcos\nversion: 1.6.0\npasswd:\n  users:\n    - name: giacomo\n      ssh_authorized_keys: []\n").unwrap();
+    let mut value: Value = serde_yml::from_str(&fs::read_to_string(&config).unwrap()).unwrap();
+    value["storage"].as_mapping_mut().unwrap().insert(Value::String("filesystems".into()),serde_yml::from_str("- device: /dev/disk/by-partlabel/root\n  format: btrfs\n  label: root\n  wipe_filesystem: true\n").unwrap());
+    fs::write(&config, serde_yml::to_string(&value).unwrap()).unwrap();
+    run.root_profile = crate::install::RootProfile::Tpm;
+    store.save(&run).unwrap();
+    for _ in 0..2 {
+        stage_butane_source(&store, &run, &config, &includes, &host, &generic, &image).unwrap();
+    }
+    let path = store.run_dir(&run.identity).join("source/clamps.bu");
+    let staged: Value = serde_yml::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+    assert_eq!(
+        staged["storage"]["filesystems"][0]["device"].as_str(),
+        Some("/dev/mapper/root")
+    );
+    let passwd = fs::read_to_string(
+        store
+            .run_dir(&run.identity)
+            .join("source/includes/passwd.bu"),
+    )
+    .unwrap();
+    assert!(passwd.contains("90-skillet-vm"));
+}

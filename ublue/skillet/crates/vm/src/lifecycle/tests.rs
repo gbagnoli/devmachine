@@ -16,6 +16,7 @@ impl FakeBackend {
     fn new(run: &VmRun, present: bool) -> Self {
         Self {
             domain: RefCell::new(present.then(|| DomainSnapshot {
+                boot: None,
                 name: run.identity.domain_name(),
                 uuid: run.uuid,
                 state: "running".into(),

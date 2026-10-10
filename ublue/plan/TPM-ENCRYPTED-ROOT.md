@@ -4,11 +4,20 @@ Prerequisite: complete [the Skillet refactoring roadmap](SKILLET-REFACTOR.md)
 before proceeding with the remaining feature milestones in this plan.
 Existing acceptance evidence and deferred tasks remain applicable.
 
-Status: capability/source audit started 2026-10-10. Native virtual TPM and
-UEFI prerequisites are available, and deployed uCore initramfs support is
-confirmed. Protection-scope selection is pending; no encrypted-root
-implementation or acceptance is claimed. The refactor live retry remains
-explicitly parked by the operator; it is not represented as passing.
+Status: native profile implemented 2026-10-10. Fresh signed bootstrap,
+independent-key recovery/cold boot, runtime fixture, plain-profile readiness,
+and owned disposal/recreation passed in native disposable VMs.
+The accepted scope is encrypted-disk loss/removal with native Clevis SHA256
+PCR 7 plus Secure Boot. Custom UKIs/signed PCR policies and Tang are deferred.
+Unencrypted root remains supported and is the default. Physical and Flatpak
+acceptance are unverified. The refactor live retry remains parked.
+
+Implemented: typed optional manifest/install profile, conflict validation,
+mapper-safe Btrfs mounts, common UEFI/TPM XML, capability preflight, owned
+TPM/NVRAM disposal, private serial logging, profile-aware readiness and the
+repeatable independent-key/header/cold-boot acceptance command. Routine CI
+covers rendering, prerequisites, staging and policy rejection without a vault.
+Production recovery-key vault persistence and physical installation are pending.
 
 ## Scope and decisions
 
@@ -42,18 +51,17 @@ until physical install and restore are explicitly arranged.
   emulation. swtpm 0.8, QEMU 10.1, libvirt 11.10 and OVMF with enrolled-key
   templates are installed. No physical TPM is exposed; virtual tests remain
   possible. Flatpak equivalence and physical hardware are unverified.
-- Native XML already selects q35 but supplies no UEFI loader/NVRAM or TPM.
-  Extend `crates/vm/src/{manifest,domain_xml,backend,creation,lifecycle}.rs`
-  through one typed install/boot profile; preserve retained BIOS manifests.
-- `includes/data-storage.bu` uses raw `by-partlabel/root` in both the creation
-  helper and mount unit. Select the verified unlocked Btrfs filesystem before
-  encrypted tests; retain UUID/topology and absent/wrong-mount guards.
+- Retained unencrypted XML selects q35 without UEFI/NVRAM or TPM.
+  The new explicit profile extends the shared manifest/XML/backend/lifecycle
+  owner while preserving retained BIOS manifests.
+- `includes/data-storage.bu` now selects the verified filesystem UUID/label
+  rather than a raw root partition; UUID/topology and mount guards remain.
 - Separate GRUB kernel/initramfs entries are deployed, not an observed signed
   UKI/PCR policy pipeline. Native PCR-7-based unlock offers a narrower guarantee
-  than authenticated whole-machine boot. Operator protection-scope choice is
-  pending; do not choose empty PCRs or silently claim stronger protection.
-- After scope selection, specify enrollment timing across FCOS, uCore and MOK,
-  then implement the explicit install profile and named UEFI/TPM VM. Keep the
+  than authenticated whole-machine boot. The operator accepted this narrower
+  scope; custom UKIs/signed policies are deferred. Do not choose empty PCRs or silently claim stronger protection.
+- With the accepted scope, verify enrollment timing across FCOS, uCore and MOK,
+  using the explicit profile and named UEFI/TPM VM. Keep the
   existing unencrypted retained smoke VM unchanged. Recovery material must be
   established before TPM replacement/tampering tests.
 

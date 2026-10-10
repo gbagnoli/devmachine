@@ -85,6 +85,12 @@
 - Give each resource lifecycle one owner. Every public entry point must use
   the same ownership validation, recovery, and cleanup policy; transport
   adapters must not provide a shortcut that bypasses those guarantees.
+- Removing an optional generated configuration section must tolerate its
+  absence, while rejecting malformed present sections. Cover fresh inputs and
+  retained compatibility inputs through the actual staging/compiler path.
+- Installation profiles are explicit and independent of host identity. Preserve
+  compatible defaults and reject missing prerequisites rather than silently
+  weakening a requested security policy. Convergence never reformats live data.
 - Preserve downstream schema types when parsing and re-emitting configuration.
   Validate staged output with the actual consumer/compiler where possible, not
   only with a parser round trip.

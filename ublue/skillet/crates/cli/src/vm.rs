@@ -59,42 +59,7 @@ pub(super) fn create(args: &VmCreateArgs) -> Result<()> {
     }
     let source_commit = skillet_vm::provisioning::source_revision(&workspace)?;
     let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
-    let run_dir = store.run_dir(&identity);
-    let _prepared_run = if run_dir.exists() {
-        let run = store.load(&identity)?;
-        if run.ssh.port != args.port {
-            return Err(anyhow!(
-                "recorded VM uses SSH port {}; requested port is {}",
-                run.ssh.port,
-                args.port
-            ));
-        }
-        if matches!(run.phase, Phase::Preparing | Phase::Defined)
-            && run.source_commit != source_commit
-        {
-            return Err(anyhow!(
-                "unfinished VM was prepared from a different source revision; inspect or dispose it before retrying"
-            ));
-        }
-        skillet_vm::runtime::ensure_connection(&butane, current_uid(), &run.connection)?;
-        run
-    } else {
-        skillet_vm::provisioning::validate_ssh_port(args.port)?;
-        let runtime = skillet_vm::runtime::prepare(&butane, current_uid())?;
-        let backend = VirshBackend::new(
-            runtime.connection.clone(),
-            current_uid(),
-            &runtime.virsh_wrapper,
-            skillet_vm::backend::ProcessExecutor::default(),
-        )?;
-        if backend.contains_name(&identity.domain_name())? {
-            return Err(anyhow!(
-                "refusing unrecorded existing libvirt domain {}",
-                identity.domain_name()
-            ));
-        }
-        store.prepare_intent(&identity, runtime.connection, args.port, &source_commit)?
-    };
+    prepare_run_intent(args, &butane, &store, &identity, &source_commit)?;
     let _create_lock = store.lock_create(&identity)?;
     let run = store.load(&identity)?;
     if matches!(run.phase, Phase::Preparing | Phase::Defined) && run.source_commit != source_commit
@@ -139,6 +104,67 @@ pub(super) fn create(args: &VmCreateArgs) -> Result<()> {
         run.ssh.identity.display()
     );
     Ok(())
+}
+
+fn prepare_run_intent(
+    args: &VmCreateArgs,
+    butane: &std::path::Path,
+    store: &ManifestStore,
+    identity: &RunIdentity,
+    source_commit: &str,
+) -> Result<VmRun> {
+    let run_dir = store.run_dir(identity);
+    if run_dir.exists() {
+        let run = store.load(identity)?;
+        if run.root_profile != args.root_profile.policy() {
+            return Err(anyhow!(
+                "recorded root profile differs; use another instance or dispose this run"
+            ));
+        }
+        if run.ssh.port != args.port {
+            return Err(anyhow!(
+                "recorded VM uses SSH port {}; requested port is {}",
+                run.ssh.port,
+                args.port
+            ));
+        }
+        if matches!(run.phase, Phase::Preparing | Phase::Defined)
+            && run.source_commit != source_commit
+        {
+            return Err(anyhow!(
+                "unfinished VM was prepared from a different source revision; inspect or dispose it before retrying"
+            ));
+        }
+        skillet_vm::runtime::ensure_connection(butane, current_uid(), &run.connection)?;
+        Ok(run)
+    } else {
+        skillet_vm::provisioning::validate_ssh_port(args.port)?;
+        let runtime = skillet_vm::runtime::prepare(butane, current_uid())?;
+        let backend = VirshBackend::new(
+            runtime.connection.clone(),
+            current_uid(),
+            &runtime.virsh_wrapper,
+            skillet_vm::backend::ProcessExecutor::default(),
+        )?;
+        if backend.contains_name(&identity.domain_name())? {
+            return Err(anyhow!(
+                "refusing unrecorded existing libvirt domain {}",
+                identity.domain_name()
+            ));
+        }
+        if args.root_profile.policy() == skillet_vm::install::RootProfile::Tpm {
+            backend.verify_tpm_support()?;
+        }
+        store
+            .prepare_intent_with_profile(
+                identity,
+                runtime.connection,
+                args.port,
+                source_commit,
+                args.root_profile.policy(),
+            )
+            .map_err(Into::into)
+    }
 }
 
 fn prepare_guest_artifacts(
@@ -236,8 +262,21 @@ fn create_recorded_domain(
                 podman_version,
                 yq_version
             );
-            skillet_vm::creation::create_native(store, identity, &backend, &emulator, &versions)
+            skillet_vm::creation::create_libvirt(store, identity, &backend, &emulator, &versions)
                 .map_err(Into::into)
+        }
+        skillet_vm::Backend::Flatpak
+            if run.root_profile == skillet_vm::install::RootProfile::Tpm =>
+        {
+            backend.verify_tpm_support()?;
+            skillet_vm::creation::create_libvirt(
+                store,
+                identity,
+                &backend,
+                std::path::Path::new("/usr/bin/true"),
+                &backend.version(&run)?,
+            )
+            .map_err(Into::into)
         }
         skillet_vm::Backend::Flatpak => {
             let creator = FlatpakVirtInstall::for_run(&run, &butane.join("bin/virt-install"))?;

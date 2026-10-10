@@ -7,6 +7,8 @@ pub mod creation;
 pub mod credential;
 pub mod delivery;
 pub mod domain_xml;
+pub mod firmware;
+pub mod install;
 pub mod lifecycle;
 pub mod manifest;
 mod process;

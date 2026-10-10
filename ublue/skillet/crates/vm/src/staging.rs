@@ -76,6 +76,7 @@ fn stage_config(
         find_file(&mut host_config, "/etc/hostname")?,
         &run.guest_hostname,
     )?;
+    crate::install::configure_root(&mut host_config, run.root_profile)?;
     write_yaml_if_changed(&config_target, &host_config)?;
 
     for entry in fs::read_dir(includes)? {
@@ -322,6 +323,12 @@ fn set_inline(file: &mut Mapping, inline: &str) -> Result<()> {
 }
 
 fn remove_file(root: &mut Value, path: &str) -> Result<()> {
+    if root
+        .get("storage")
+        .is_none_or(|value| value.is_mapping() && value.get("files").is_none())
+    {
+        return Ok(());
+    }
     let files = sequence_at_mut(root, &["storage", "files"])?;
     files.retain(|value| {
         value
@@ -333,6 +340,12 @@ fn remove_file(root: &mut Value, path: &str) -> Result<()> {
 }
 
 fn remove_unit(root: &mut Value, name: &str) -> Result<()> {
+    if root
+        .get("systemd")
+        .is_none_or(|value| value.is_mapping() && value.get("units").is_none())
+    {
+        return Ok(());
+    }
     let units = sequence_at_mut(root, &["systemd", "units"])?;
     units.retain(|value| {
         value
@@ -366,7 +379,18 @@ fn add_authorized_key(root: &mut Value, key: &str) -> Result<()> {
 }
 
 fn add_vm_sudoers(root: &mut Value) -> Result<()> {
-    let files = sequence_at_mut(root, &["storage", "files"])?;
+    let storage = root
+        .as_mapping_mut()
+        .ok_or_else(|| Error::Invalid("Butane root is not a mapping".into()))?
+        .entry(Value::String("storage".into()))
+        .or_insert_with(|| Value::Mapping(Mapping::new()))
+        .as_mapping_mut()
+        .ok_or_else(|| Error::Invalid("Butane storage is not a mapping".into()))?;
+    let files = storage
+        .entry(Value::String("files".into()))
+        .or_insert_with(|| Value::Sequence(Vec::new()))
+        .as_sequence_mut()
+        .ok_or_else(|| Error::Invalid("Butane files are not a sequence".into()))?;
     if files.iter().any(|value| {
         value
             .as_mapping()

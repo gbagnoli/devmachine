@@ -10,9 +10,9 @@ use std::{
     path::Path,
 };
 
-/// Define and start a native VM, persisting ownership after each successful
+/// Define and start a VM through common libvirt XML, persisting ownership after each successful
 /// external transition so a retry can inspect and continue safely.
-pub fn create_native(
+pub fn create_libvirt(
     store: &ManifestStore,
     identity: &RunIdentity,
     backend: &impl VmBackend,
@@ -23,13 +23,29 @@ pub fn create_native(
         store,
         identity,
         backend,
-        Backend::Native,
+        store.load(identity)?.connection.backend,
         tool_versions,
         |run| {
-            let xml = domain_xml::write_native_domain_xml(store, run, emulator)?;
+            let xml = domain_xml::write_domain_xml(store, run, emulator)?;
             backend.define(run, &xml)
         },
     )
+}
+
+/// Native-only compatibility entry point using the shared XML owner.
+pub fn create_native(
+    store: &ManifestStore,
+    identity: &RunIdentity,
+    backend: &impl VmBackend,
+    emulator: &Path,
+    tool_versions: &str,
+) -> Result<VmRun> {
+    if store.load(identity)?.connection.backend != Backend::Native {
+        return Err(Error::Invalid(
+            "native creation requires a native run".into(),
+        ));
+    }
+    create_libvirt(store, identity, backend, emulator, tool_versions)
 }
 
 /// Create a Flatpak-backed guest through the caller's focused virt-install

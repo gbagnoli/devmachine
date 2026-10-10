@@ -160,3 +160,21 @@ fatal and duplicate local ports are refused. This allows browser inspection
 without publishing a guest application port on LAN or tailnet. A forward is
 not a network isolation policy; restored production controllers still require
 a persistent guest fence before import.
+
+## Optional encrypted root
+
+Each manifest records a root profile; absent fields in retained manifests mean
+`unencrypted`. Explicit `tpm` requires UEFI Secure Boot with enrolled keys and
+an emulated TPM2 SHA256 bank. Native and Flatpak definitions share the same
+XML policy for this profile; Flatpak live equivalence remains unverified.
+TPM state, NVRAM, serial diagnostics and recovery artifacts belong to the named
+run. Lifecycle ownership verifies the firmware/TPM paths in addition to UUID
+and disk. Cold starts preserve them; disposal removes them. Independent runs
+never share TPM or firmware state.
+
+`encryption-check` uses the same lock and guarded transport as other guest
+operations. The independent recovery key is persisted before guest enrollment
+so interruption is retryable. Test secrets are private ignored files, never
+vault production entries, command arguments or output. A cold power cycle
+checks unattended unlock and Btrfs data persistence. This validates guest
+functionality, not security against a compromised hypervisor.

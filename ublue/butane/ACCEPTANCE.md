@@ -1,3 +1,42 @@
+## Native optional TPM root — 2026-10-10
+
+- A fresh `clamps / tpm-native` disposable VM used native `qemu:///session`,
+  q35 UEFI Secure Boot with enrolled keys, independent NVRAM and an emulated
+  TPM2 with SHA256 PCR bank. No workstation packages or physical disks changed.
+- Native Ignition created LUKS2 beneath Btrfs; the FCOS 44.20260829.3.1 boot
+  and both unsigned/signed uCore bootstrap reboots unlocked unattended. The
+  final signed deployment was 44.20260913.3.2, kernel 7.2.5, following the
+  initial FCOS kernel 7.1.10. Secure Boot remained enabled. Clevis reported one
+  binding to SHA256 PCR 7. No signing/MOK-policy change was performed.
+- `test vm encryption-check clamps tpm-native` passed: a generated independent
+  64-byte recovery key opens this volume through the passphrase path; only TPM
+  and recovery keyslots remain; Btrfs `/var` and `/var/lib/data` share the same
+  filesystem, with `/data` mounted at the latter. Root label matches that UUID.
+  The flushed data marker and recovery key worked after an owned cold stop/start
+  without an unlock prompt. Private recovery directory is 0700; key and 16-MiB
+  header backup are 0600 and belong to the disposable run.
+- Formatting, pedantic workspace Clippy, all 347 workspace tests, ShellCheck
+  for the adapter/acceptance helper/extracted storage helpers, bootstrap state
+  regressions, and Fedora base/repeat-apply container checks passed. Routine CI
+  needs no vault or provider API. New tests cover retained defaults, capability
+  rejection, firmware/TPM ownership, conflicting formatting, account-only input
+  staging, symlink refusal and wrong Secure Boot/PCR policy.
+- `test smoke clamps --instance tpm-native` passed the real-systemd fixture:
+  repeated apply, native Podman/network behavior, stored test credentials/data
+  and another unattended reboot. A fresh `plain-native` VM also passed signed
+  bootstrap/base/user readiness; `/var` remained plain `/dev/vda4` Btrfs.
+  Both original test runs were disposed through the owner, including the
+  encrypted disk, TPM/NVRAM and private recovery artifacts. Recreation used a
+  different UUID and fresh firmware/TPM state, created a nonempty 0600 serial
+  log, reached SSH, and passed the final label/UUID data-subvolume guard. Its
+  serial log confirmed successful data-top preparation and data mount. This
+  final lifecycle probe was intentionally stopped before another complete
+  image bootstrap and disposed; the retained original smoke VM was untouched.
+- Flatpak, physical hardware,
+  network-disconnected boot, post-bootstrap rollback, TPM-loss/PCR-negative
+  boot tests and production vault-backed recovery remain unverified. This is
+  the accepted disk-loss/removal scope, not authenticated whole-machine boot.
+
 ## Structured SMTP vault audit — 2026-10-09
 
 - `skillet secrets check --host clamps --environment test` opened the unlocked
