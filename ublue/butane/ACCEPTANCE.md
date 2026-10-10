@@ -2353,3 +2353,40 @@ fake transports; this live run used the cached vault unlock.
 Still unverified: physical TPM/firmware compatibility and rescue installation,
 Flatpak encrypted-VM acceptance, offline-network and remaining boot-policy /
 update / rollback matrix cases. A header backup is not a service-data backup.
+
+
+## 2026-10-11 — physical installation media
+
+- `skillet install prepare HOST` selects an explicit whole-disk by-id identifier,
+  private bootstrap key/hash, and independent plain/TPM root profile. It leaves
+  the committed VM `/dev/vda` template unchanged and never writes a block device.
+- Real FCOS 44.20260913.3.2 x86_64 live ISO downloaded and signature-verified by
+  the existing CoreOS installer container. Plain and TPM USB ISOs generated
+  successfully using disposable access inputs; TPM used a disposable DER
+  certificate, not an enrolled hardware key.
+- Extracted both ISOs with `iso ignition show`, recursively decoded their merge
+  payloads, and verified the embedded destination-Ignition digests. Destination
+  storage selected the requested by-id disk; plain retained raw Btrfs and TPM
+  selected LUKS2 -> `/dev/mapper/root` -> Btrfs with networkless Clevis policy.
+  Verified private output-directory and Ignition permissions and replaced access
+  inputs without printing credential values.
+- Full destination payload exceeded CoreOS's 256 KiB embedding limit. The
+  implemented flow embeds only the live helper/policy, operator public key and
+  payload digest; destination Ignition is transferred over verified SSH or
+  separate data media and verified in root-only live tmpfs before installation.
+- CI/local checks: fmt, pedantic Clippy, 370 workspace/all-target tests, Fedora
+  base integration (two applies, no repeated service starts), ShellCheck,
+  all eight bootstrap regressions and isolated hardware-helper refusal tests
+  passed. CI now lints the live helper and rejects mismatched payloads/absent
+  target disks without vault/provider access or host block-device exposure.
+- Native `clamps / physical-regression` on port 2202 booted the unchanged
+  `/dev/vda` installation, accepted SSH/binary delivery and reached signed
+  bootstrap. Initial readiness was paused to inspect slow image-layer downloads;
+  one retry lost SSH during a bootstrap reboot. The following retry reached
+  base/user-environment apply and temporarily received SSH connection resets.
+  After a quiet interval and retry, full readiness passed with recorded phase
+  `Ready`, including base apply, user environment and artifact verification.
+  Private evidence was retained before disposing of this regression VM.
+- Unverified: booting the new USB ISO itself, actual S13 disk installation,
+  physical TPM/Secure Boot/MOK enrollment, LAN and production cutover. See
+  [the physical runbook](HARDWARE.md). Existing smoke VM was not modified.

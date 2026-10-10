@@ -91,7 +91,9 @@ deferred; remote hosts will first be assessed for usable TPM support.
 - Physical USB media generation now selects a whole-disk by-id identifier and
   reuses the shared root-profile renderer; VM creation retains `/dev/vda`. Follow
   [the hardware runbook](../butane/HARDWARE.md). Actual disk selection, firmware
-  checks, MOK enrollment and stock-SSD installation remain unverified.
+  checks, MOK enrollment and stock-SSD installation remain unverified. Fresh
+  native `/dev/vda` regression reached signed boot and full readiness after
+  transient bootstrap/SSH retries; evidence is in the acceptance record.
 
 ## Milestone 3: storage and credentials for the first application
 
