@@ -5,6 +5,7 @@ use std::{fs, io::Write as _, path::PathBuf, process::Command};
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
+mod root_recovery;
 mod secret_delivery;
 mod secret_output;
 mod vm;
@@ -66,8 +67,31 @@ enum SecretCommands {
     Unlock(SecretUnlockArgs),
     /// Remove the cached vault password from the kernel keyring
     Lock(SecretLockArgs),
+    /// Enroll and save a production recovery passphrase
+    RootRecoveryKey(RootRecoveryArgs),
 }
 
+#[derive(clap::Args, Debug)]
+struct RootRecoveryArgs {
+    hostname: String,
+    #[command(flatten)]
+    vault: SecretUnlockArgs,
+    #[arg(long)]
+    target: String,
+    #[arg(long, default_value_t = 22)]
+    port: u16,
+    #[arg(long)]
+    identity: PathBuf,
+    #[arg(long)]
+    known_hosts: PathBuf,
+}
+#[derive(clap::Args, Debug)]
+struct VmRecoveryArgs {
+    #[command(flatten)]
+    target: VmTargetArgs,
+    #[command(flatten)]
+    vault: SecretUnlockArgs,
+}
 #[derive(clap::Args, Debug)]
 struct SecretCheckArgs {
     /// Check requirements for this host; defaults to all declared profiles
@@ -150,6 +174,8 @@ enum TestCommands {
 enum VmCommands {
     /// Verify encrypted root, save disposable recovery artifacts and cold-boot it
     EncryptionCheck(VmTargetArgs),
+    /// Save this instance recovery passphrase in `KeePassXC`
+    RecoveryKey(VmRecoveryArgs),
     /// Provision a disposable host VM and wait for it to become ready
     Create(VmCreateArgs),
     /// Destroy a disposable host VM and remove its temporary key and artifacts
@@ -334,6 +360,9 @@ fn main() -> Result<()> {
             command: SecretCommands::Unlock(args),
         } => secret_delivery::unlock_vault(args.database.as_deref(), args.key_file.as_deref())?,
         Commands::Secret {
+            command: SecretCommands::RootRecoveryKey(args),
+        } => root_recovery::production(&args)?,
+        Commands::Secret {
             command: SecretCommands::Lock(args),
         } => secret_delivery::lock_vault(args.database.as_deref())?,
         Commands::Apply {
@@ -382,6 +411,7 @@ fn main() -> Result<()> {
 fn run_vm_command(command: VmCommands) -> Result<()> {
     match command {
         VmCommands::EncryptionCheck(args) => vm_encryption::check(&args)?,
+        VmCommands::RecoveryKey(args) => root_recovery::vm(&args)?,
         VmCommands::Create(args) => run_vm_create(&args)?,
         VmCommands::Destroy(args) => run_vm_destroy(&args)?,
         VmCommands::List(args) => run_vm_list(&args)?,
@@ -1454,3 +1484,6 @@ mod application_acceptance_tests;
 
 #[cfg(test)]
 mod vm_ssh_tests;
+
+#[cfg(test)]
+mod root_recovery_tests;

@@ -188,16 +188,29 @@ pub fn unused_paths(
     }
     Ok(stored
         .iter()
-        .filter(|path| path.starts_with("skillet/") && !used.contains(*path))
+        .filter(|path| {
+            path.starts_with("skillet/") && !used.iter().any(|pattern| matches_entry(pattern, path))
+        })
         .cloned()
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect())
 }
 
+fn matches_entry(pattern: &str, path: &str) -> bool {
+    let Some((prefix, suffix)) = pattern.split_once("<instance>") else {
+        return pattern == path;
+    };
+    path.strip_prefix(prefix)
+        .and_then(|v| v.strip_suffix(suffix))
+        .is_some_and(|instance| skillet_vm::RunIdentity::new("fixture", instance).is_ok())
+}
+
 fn selected(module: &RequirementGroup, profile: &HostProfile) -> bool {
     module.required_by.iter().any(|service| {
-        if service == "ui" {
+        if service == "storage" {
+            true
+        } else if service == "ui" {
             !profile.ui_services().is_empty()
         } else {
             profile.supports_service(service)

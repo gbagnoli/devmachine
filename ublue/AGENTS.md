@@ -113,6 +113,9 @@
 - File and directory mutations use the same typed ownership contract for
   named and numeric UID/GID values. Numeric ownership must not require a host
   account lookup; preserve omitted metadata fields on existing paths.
+- Persist independently usable recovery credentials before enrolling them. Bind
+  recovery records to the resource identity, retain pending state for retries,
+  and refuse silent replacement or re-enrollment of verified credentials.
 - Persist ownership before mutations and preserve it across partial failures.
   Cleanup must tolerate already-absent owned resources while refusing ambiguous
   or unrelated resources. Remove recovery metadata only after cleanup completes.

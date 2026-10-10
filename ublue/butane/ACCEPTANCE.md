@@ -1,3 +1,21 @@
+## Recovery-key vault commands — 2026-10-10
+
+- Implemented `secrets root-recovery-key HOST` for production and lifecycle-owned
+  `test vm recovery-key HOST INSTANCE` for separately scoped vault archives.
+  TPM VM creation prints the follow-up. Vault unlock uses the existing prompt/cache.
+- Unit tests cover interrupted pending enrollment, reuse without rotation,
+  refusal of mismatched host/volume, persistence failure before enrollment,
+  verify-only failure for previously verified keys, CLI argument separation,
+  instance-aware unused-entry auditing, and real encrypted KDBX round trips
+  preserving recovery identity/state through atomic saves.
+- Local fmt, pedantic Clippy, workspace tests, CI ShellCheck and Fedora base/repeat
+  apply passed. A private regular-file LUKS2 fixture accepted and verified the
+  128-character printable recovery passphrase; no real host disks were touched.
+- Not run: new SSH-to-TPM-VM vault archive acceptance or production enrollment.
+  No production vault key was created. Header export and physical recovery remain
+  pending. This slice does not simulate TPM loss or replace the earlier disposable
+  cold-boot acceptance; the two enrollment commands have separate key lifetimes.
+
 ## Native optional TPM root — 2026-10-10
 
 - A fresh `clamps / tpm-native` disposable VM used native `qemu:///session`,

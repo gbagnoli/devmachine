@@ -131,6 +131,19 @@ impl Vault {
         create_entry(&mut self.database, path, secret)
     }
 
+    /// Add metadata to an existing exact entry before an atomic verified save.
+    pub fn set_field(&mut self, path: &str, field: &str, value: &str) -> Result<(), VaultError> {
+        let id = find_entry(&self.database, path)?
+            .ok_or_else(|| VaultError::Invalid("vault metadata entry is absent".into()))?
+            .id();
+        let mut entry = self
+            .database
+            .entry_mut(id)
+            .ok_or_else(|| VaultError::Invalid("vault entry disappeared".into()))?;
+        entry.set_protected(field, value);
+        Ok(())
+    }
+
     pub fn ensure_unchanged(&self) -> Result<(), VaultError> {
         if fs::read(&self.path).map_err(|error| source("rechecking vault before write", error))?
             != self.original

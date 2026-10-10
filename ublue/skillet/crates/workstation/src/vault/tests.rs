@@ -132,6 +132,12 @@ fn verified_save_updates_symlink_target_and_keeps_recovery_copy() {
     let entry_path = "skillet/hosts/clamps/pihole/web-password";
     vault.insert(entry_path, "generated test value").unwrap();
     vault
+        .set_field(entry_path, "luks-uuid", "fixture-volume")
+        .unwrap();
+    vault
+        .set_field(entry_path, "recovery-state", "pending")
+        .unwrap();
+    vault
         .save_verified(None, entry_path, "generated test value")
         .unwrap();
     assert!(link_path.is_symlink());
@@ -144,6 +150,18 @@ fn verified_save_updates_symlink_target_and_keeps_recovery_copy() {
     assert_eq!(
         lookup(&reopened, entry_path).unwrap().as_deref(),
         Some("generated test value")
+    );
+    assert_eq!(
+        super::lookup_field(&reopened, entry_path, "luks-uuid")
+            .unwrap()
+            .as_deref(),
+        Some("fixture-volume")
+    );
+    assert_eq!(
+        super::lookup_field(&reopened, entry_path, "recovery-state")
+            .unwrap()
+            .as_deref(),
+        Some("pending")
     );
     assert!(std::fs::read_dir(dir.path()).unwrap().any(|entry| entry
         .unwrap()
@@ -242,4 +260,66 @@ fn exact_field_lookup_supports_standard_protected_and_custom_fields() {
         super::lookup_field(&db, "skillet/smtp", "host"),
         Err(VaultError::Invalid(_))
     ));
+}
+
+#[test]
+fn recovery_store_round_trips_pending_and_verified_metadata_without_rotation() {
+    use crate::root_recovery::{Record, RecoveryStore, VaultStore};
+    use zeroize::Zeroizing;
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("fixture.kdbx");
+    let database = Database::new();
+    let mut bytes = Vec::new();
+    database
+        .save(
+            &mut bytes,
+            DatabaseKey::new().with_password("fixture unlock"),
+        )
+        .unwrap();
+    std::fs::write(&path, &bytes).unwrap();
+    let mut vault = Vault {
+        path: path.clone(),
+        original: bytes,
+        database,
+        password: "fixture unlock".into(),
+        password_cached: false,
+    };
+    let mut store = VaultStore {
+        vault: &mut vault,
+        key_file: None,
+    };
+    let entry = "skillet/hosts/clamps/storage/root-recovery-key";
+    let mut record = Record {
+        key: Zeroizing::new("b".repeat(128)),
+        volume: "12345678-1234-1234-1234-123456789abc".into(),
+        verified: false,
+    };
+    store.save(entry, &record).unwrap();
+    assert!(!store.load(entry).unwrap().unwrap().verified);
+    record.verified = true;
+    store.save(entry, &record).unwrap();
+    let encrypted = std::fs::read(path).unwrap();
+    let reopened = Database::open(
+        &mut encrypted.as_slice(),
+        DatabaseKey::new().with_password("fixture unlock"),
+    )
+    .unwrap();
+    assert_eq!(
+        super::lookup_field(&reopened, entry, "Password")
+            .unwrap()
+            .unwrap(),
+        *record.key
+    );
+    assert_eq!(
+        super::lookup_field(&reopened, entry, "recovery-state")
+            .unwrap()
+            .as_deref(),
+        Some("verified")
+    );
+    assert_eq!(
+        super::lookup_field(&reopened, entry, "luks-uuid")
+            .unwrap()
+            .unwrap(),
+        record.volume
+    );
 }
