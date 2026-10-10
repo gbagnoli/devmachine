@@ -73,9 +73,10 @@ QEMU success with its enrolled firmware keys does not replace that procedure.
 Disposable acceptance creates an independent random recovery key and header
 backup under the private run directory, then checks recovery without TPM and
 cold-boots through the lifecycle owner. Only TPM and recovery keyslots are
-accepted. These artifacts are deleted on disposal. Production vault enrollment,
-physical-disk selection and physical recovery acceptance remain planned;
-Skillet convergence never formats an installed filesystem.
+accepted. These artifacts are deleted on disposal. Production vault enrollment
+is implemented with write-ahead persistence and volume identity checks.
+Physical-disk selection, header export and physical recovery acceptance remain
+planned. Skillet convergence never formats an installed filesystem.
 QEMU functional tests and physical acceptance are specified in the
 [TPM encrypted-root plan](../plan/TPM-ENCRYPTED-ROOT.md).
 

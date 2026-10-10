@@ -2565,6 +2565,7 @@ dependencies = [
  "skillet_vm",
  "tempfile",
  "thiserror 1.0.69",
+ "zeroize",
 ]
 
 [[package]]

@@ -606,3 +606,41 @@ See the [storage design](../design/storage.md) and
 [encrypted-root plan](../plan/TPM-ENCRYPTED-ROOT.md) for policy and remaining
 acceptance. PCR 7 does not measure every boot component; this profile has the
 accepted encrypted-disk protection scope.
+
+## Root recovery keys
+
+Before finalizing production access (while `sudo -n` still works), enroll and
+save an independent printable LUKS recovery passphrase:
+
+```bash
+cargo run --release -p skillet -- secrets root-recovery-key clamps \
+  --target giacomo@HOST --identity /absolute/path/to/key \
+  --known-hosts /absolute/path/to/known_hosts
+```
+
+This opens the normal vault unlock prompt unless its password is cached.
+Optional `--database` and `--key-file` select another vault. SSH host keys must
+already be recorded. The Password at
+`skillet/hosts/clamps/storage/root-recovery-key` is the passphrase to enter at
+LUKS recovery. Skillet generates it, saves it before enrollment, and verifies
+it against the running root volume. Repeat runs verify the existing key;
+a different volume is rejected. No key is printed or written to workstation
+plaintext files. Back up the vault off the host before relying on it.
+
+For a TPM disposable VM, creation prints this follow-up:
+
+```bash
+cargo run --release -p skillet -- test vm recovery-key clamps encrypted
+# Equivalent wrapper:
+../butane/bin/test-vm clamps recovery-key encrypted
+```
+
+Its archived entry is separate:
+`skillet/environments/test/hosts/clamps/instances/encrypted/storage/root-recovery-key`.
+Disposal retains this vault entry; remove it before reusing the instance name
+for a different disk. This command enrolls an additional passphrase; it does
+not export the TPM-bound volume key. The separate `encryption-check` uses its
+own disposable key and enforces exactly two slots; use a fresh instance for
+that acceptance scenario rather than combining both enrollment workflows.
+Header backup/export and physical recovery acceptance remain pending.
+See [storage decisions](../design/storage.md).

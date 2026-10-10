@@ -178,3 +178,9 @@ so interruption is retryable. Test secrets are private ignored files, never
 vault production entries, command arguments or output. A cold power cycle
 checks unattended unlock and Btrfs data persistence. This validates guest
 functionality, not security against a compromised hypervisor.
+
+The optional `recovery-key` command archives an independent printable passphrase
+in an instance-scoped vault entry through the same lock and guarded SSH transport.
+It never writes production entries. Archives survive disposal; reusing an instance
+name for a new volume fails until its old entry is explicitly removed. This is
+separate from `encryption-check`'s private disposable two-slot acceptance fixture.

@@ -252,3 +252,8 @@ See the [storage design](../design/storage.md) and
 [encrypted-root plan](../plan/TPM-ENCRYPTED-ROOT.md) for policy and remaining
 acceptance. PCR 7 does not measure every boot component; this profile has the
 accepted encrypted-disk protection scope.
+
+TPM creation prints `skillet test vm recovery-key HOST INSTANCE` to optionally
+archive a separately scoped printable passphrase in KeePassXC. Production uses
+`skillet secrets root-recovery-key HOST` with explicit verified SSH options,
+before access finalization. See [recovery key usage](../skillet/README.md#root-recovery-keys).

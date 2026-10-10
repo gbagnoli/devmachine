@@ -259,3 +259,21 @@ fn capture_environment_does_not_require_or_read_smtp_provider_fields() {
         .iter()
         .all(|entry| entry.path != "skillet/smtp"));
 }
+
+#[test]
+fn recovery_inventory_recognizes_only_declared_hosts_and_valid_instances() {
+    let profiles = skillet_hosts::profile::declared_profiles();
+    let paths: Vec<String> = [
+        "skillet/hosts/clamps/storage/root-recovery-key",
+        "skillet/environments/test/hosts/clamps/instances/smoke/storage/root-recovery-key",
+        "skillet/environments/test/hosts/unknown/instances/smoke/storage/root-recovery-key",
+        "skillet/environments/test/hosts/clamps/instances/a/b/storage/root-recovery-key",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
+    assert_eq!(
+        unused_paths(&profiles, &paths).unwrap(),
+        vec![paths[3].clone(), paths[2].clone()]
+    );
+}

@@ -69,13 +69,14 @@ Production-only native Postfix relay credentials; smoke machines use a local sin
 | --- | --- | --- |
 | `skillet/smtp` | Required | Create one entry using your Mailjet SMTP credentials: Username = SMTP username; Password = SMTP password. Custom fields: host = in-v3.mailjet.com; port = 587; tls = starttls (required TLS with certificate verification); sender = a Mailjet-verified sender email address. [Mailjet credentials](https://documentation.mailjet.com/hc/en-us/articles/360043229473-How-can-I-configure-my-SMTP-parameters). |
 
-## Storage (planned)
+## Storage
 
-No entry required today. Keep recovery material off the encrypted host. [Encryption plan](ublue/plan/TPM-ENCRYPTED-ROOT.md).
+Generated independent LUKS root recovery passphrases. [Enrollment](ublue/skillet/README.md#root-recovery-keys). Password contains the printable passphrase; custom luks-uuid and recovery-state fields are managed by Skillet.
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
-| `skillet/hosts/<host>/storage/root-recovery-key` | Planned | LUKS recovery key; prepare through the future TPM/LUKS workflow. |
+| `skillet/hosts/<host>/storage/root-recovery-key` | Generated | Run skillet secrets root-recovery-key before finishing production provisioning. The command unlocks the vault, saves before enrollment, and verifies the key against this volume. |
+| `skillet/environments/test/hosts/<host>/instances/<instance>/storage/root-recovery-key` | Generated | Run skillet test vm recovery-key HOST INSTANCE. Archived test keys remain in the vault after VM disposal; delete the instance entry before reusing its name for a new disk. |
 
 ## Syncthing
 

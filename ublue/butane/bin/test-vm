@@ -7,7 +7,7 @@ script_dir="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 repo_dir="$(realpath "$script_dir/../..")"
 
 usage() {
-  echo "Usage: $0 [HOST] list | $0 HOST create|ready|update|status|ssh|logs|reboot|encryption-check|destroy INSTANCE [--port PORT] [--image IMAGE] [--root-profile unencrypted|tpm]" >&2
+  echo "Usage: $0 [HOST] list | $0 HOST create|ready|update|status|ssh|logs|reboot|encryption-check|recovery-key|destroy INSTANCE [--port PORT] [--image IMAGE] [--root-profile unencrypted|tpm]" >&2
   exit 2
 }
 
@@ -37,6 +37,20 @@ case "$operation" in
     while (($#)); do
       case "$1" in
         --port|--image|--root-profile)
+          (($# >= 2)) || usage
+          args+=("$1" "$2")
+          shift 2
+          ;;
+        *) usage ;;
+      esac
+    done
+    skillet_cli "${args[@]}"
+    ;;
+  recovery-key)
+    args=(test vm recovery-key "$host" "$instance")
+    while (($#)); do
+      case "$1" in
+        --database|--key-file)
           (($# >= 2)) || usage
           args+=("$1" "$2")
           shift 2

@@ -13,3 +13,5 @@ pub mod tailscale_enrollment;
 pub mod ui_provisioning;
 pub mod vault;
 pub mod zone_token;
+
+pub mod root_recovery;

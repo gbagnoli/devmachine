@@ -103,6 +103,13 @@ pub(super) fn create(args: &VmCreateArgs) -> Result<()> {
         args.port,
         run.ssh.identity.display()
     );
+    if run.root_profile == skillet_vm::install::RootProfile::Tpm {
+        println!(
+            "Recovery key backup pending. Run: skillet test vm recovery-key {} {}",
+            identity.host(),
+            args.instance
+        );
+    }
     Ok(())
 }
 

@@ -24,3 +24,5 @@ skillet_hosts.workspace = true
 skillet_vm.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
+
+zeroize = "1.9"

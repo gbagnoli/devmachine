@@ -17,7 +17,10 @@ mapper-safe Btrfs mounts, common UEFI/TPM XML, capability preflight, owned
 TPM/NVRAM disposal, private serial logging, profile-aware readiness and the
 repeatable independent-key/header/cold-boot acceptance command. Routine CI
 covers rendering, prerequisites, staging and policy rejection without a vault.
-Production recovery-key vault persistence and physical installation are pending.
+Production recovery-key vault persistence is implemented with atomic pending/verified
+state, volume identity validation, and a separate VM archive command. Live
+acceptance of this new vault workflow, production header export and physical
+installation remain pending.
 
 ## Scope and decisions
 

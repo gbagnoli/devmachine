@@ -194,3 +194,14 @@ References: [KeePassXC](https://keepassxc.org/docs/KeePassXC_GettingStarted),
 [Rust KDBX reader](https://github.com/sseemayer/keepass-rs),
 [Cloudflare token creation](https://developers.cloudflare.com/fundamentals/api/how-to/create-via-api/),
 [systemd credentials](https://github.com/systemd/systemd/blob/main/docs/CREDENTIALS.md).
+
+Root recovery uses an independent printable high-entropy passphrase in Password,
+with protected `luks-uuid` and `recovery-state` metadata. Save a pending entry
+atomically before enrollment; verify against the same volume before marking it
+verified. Retries reuse pending keys; verified keys are never silently re-enrolled
+or replaced. Production paths are `skillet/hosts/<host>/storage/root-recovery-key`;
+VM archives use `skillet/environments/test/hosts/<host>/instances/<instance>/storage/root-recovery-key`.
+VM disposal retains vault archives deliberately, so new disks require an explicit
+archive removal or a fresh instance name. Keys travel only through verified SSH
+stdin and a restricted guest `/run` file removed after use. This workflow requires
+provisioning-time noninteractive sudo and precedes access finalization.
