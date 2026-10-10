@@ -1,5 +1,8 @@
 # Clamps VM bootstrap
 
+For real servers, use the separate [physical installation flow](HARDWARE.md).
+VM creation keeps its `/dev/vda` template and independent root-profile choice.
+
 A clean disposable VM create passed signed boot and readiness on 2026-09-26.
 The Flatpak backend on Bazzite passed create, status, and readiness on 2026-09-27.
 See [ACCEPTANCE.md](ACCEPTANCE.md) for the checks performed and remaining work.

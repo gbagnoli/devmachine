@@ -5,6 +5,7 @@ use std::{fs, io::Write as _, path::PathBuf, process::Command};
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
+mod installation;
 mod root_recovery;
 mod secret_delivery;
 mod secret_output;
@@ -22,6 +23,11 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Commands {
+    /// Prepare physical installation media without writing a block device
+    Install {
+        #[command(subcommand)]
+        command: installation::Commands,
+    },
     /// Finalize interactive administrative access on this guest
     Access {
         #[command(subcommand)]
@@ -344,6 +350,7 @@ fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     match args.command {
+        Commands::Install { command } => installation::dispatch(command)?,
         Commands::Access { command } => skillet_cli_common::access::dispatch(command)?,
         Commands::Smtp {
             command: skillet_cli_common::SmtpCommands::Prepare,

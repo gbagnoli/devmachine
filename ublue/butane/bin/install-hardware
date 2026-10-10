@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Runs only in the prepared Fedora CoreOS live environment, never during apply.
+set -euo pipefail
+[[ $EUID -eq 0 ]] || { echo 'Run with sudo.' >&2; exit 1; }
+[[ $# -le 1 ]] || { echo 'Usage: skillet-install /path/to/destination.ign' >&2; exit 2; }
+config="${1:-/etc/skillet-install/config.ign}"
+[[ -f "$config" ]] || { echo 'Transfer the prepared destination Ignition file and pass its path.' >&2; exit 1; }
+umask 077
+staged_config="$(mktemp /run/skillet-install.XXXXXXXX.ign)"
+trap 'rm -f -- "$staged_config"' EXIT
+cp -- "$config" "$staged_config"
+actual_hash="$(sha256sum "$staged_config" | cut -d ' ' -f 1)"
+[[ "$actual_hash" == "$(cat /etc/skillet-install/ignition.sha256)" ]] || {
+  echo 'Ignition checksum does not match this prepared USB; refusing installation.' >&2; exit 1;
+}
+disk="$(cat /etc/skillet-install/disk)"
+profile="$(cat /etc/skillet-install/profile)"
+[[ "$disk" == /dev/disk/by-id/* && "$disk" != *-part* && -b "$disk" ]] || {
+  echo 'Prepared whole-disk identifier is absent; stop and inspect hardware.' >&2; exit 1;
+}
+[[ "$(lsblk -dn -o TYPE "$disk")" == disk ]] || { echo 'Target is not a whole disk.' >&2; exit 1; }
+[[ "$profile" == tpm || "$profile" == unencrypted ]] || { echo 'Invalid root profile.' >&2; exit 1; }
+secure_boot=disabled
+if [[ -d /sys/firmware/efi ]]; then
+  secure_boot="$(mokutil --sb-state)" || { echo 'Cannot establish Secure Boot state.' >&2; exit 1; }
+fi
+case "$secure_boot" in
+  'SecureBoot enabled'|'SecureBoot disabled'|disabled) ;;
+  *) echo 'Unrecognized Secure Boot state; stop and inspect firmware.' >&2; exit 1 ;;
+esac
+if [[ "$profile" == tpm ]]; then
+  [[ -d /sys/firmware/efi && "$(cat /sys/class/tpm/tpm0/tpm_version_major)" == 2 ]] || {
+    echo 'TPM profile requires UEFI and TPM 2.' >&2; exit 1;
+  }
+  [[ "$secure_boot" == 'SecureBoot enabled' ]] || {
+    echo 'Enable Secure Boot before installation; no unencrypted fallback.' >&2; exit 1;
+  }
+fi
+if [[ "$secure_boot" == 'SecureBoot enabled' ]]; then
+  if [[ ! -f /etc/skillet-install/ublue.der ]] || ! mokutil --test-key /etc/skillet-install/ublue.der; then
+    echo 'Enroll the supplied ublue MOK, reboot back into this USB, then retry.' >&2
+    echo 'Enrollment command: sudo mokutil --import /etc/skillet-install/ublue.der' >&2
+    exit 1
+  fi
+fi
+lsblk -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINTS "$disk"
+if lsblk -nr -o MOUNTPOINTS "$disk" | grep -q '[^[:space:]]'; then
+  echo 'Target has mounted filesystems; stop and inspect before installation.' >&2; exit 1
+fi
+echo "Installation will erase $disk. Root profile: $profile"
+printf 'Type the complete disk identifier to install: '
+read -r confirmation </dev/tty
+[[ "$confirmation" == "$disk" ]] || { echo 'Cancelled.' >&2; exit 1; }
+coreos-installer install "$disk" --ignition-file "$staged_config"
+echo 'Installed. Remove the USB before booting the installed system.'

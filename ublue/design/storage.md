@@ -131,3 +131,19 @@ New TPM enrollment is explicit, verifies the new binding before removing the
 old one, and archives the refreshed clone header separately. Routine convergence
 never replaces TPM bindings. Native header restoration, TPM-loss recovery/re-enrollment, completed retry and
 unattended cold boot passed on 2026-10-11; evidence is in Butane's record.
+
+## Physical installation media
+
+Physical installation uses an explicit destination whole-disk by-id path and
+reuses the VM-tested root-profile transform. Workstation media generation never
+opens a block device. A separate live helper checks the actual server and asks
+for disk confirmation before installation; TPM media requires the final Secure
+Boot/MOK policy before first encrypted boot. VM staging retains `/dev/vda`.
+The live ISO contains a small bootstrap configuration, operator public key and
+expected destination-Ignition digest. CoreOS's 256 KiB embedding limit excludes
+our application binaries, so the full destination payload is transferred over
+verified SSH (or separate data media), then checked in root-only live tmpfs.
+Production media requires private bootstrap-access inputs instead of inheriting
+committed keys/password hashes. USB media generation is implemented; physical
+boot and installation acceptance remain unverified. See the
+[hardware runbook](../butane/HARDWARE.md).

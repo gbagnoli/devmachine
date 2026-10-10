@@ -51,6 +51,7 @@ jobs:
           find . -type f \
             \( -name '*.sh' -o -name run -o -name butane -o -name flatpak-virt \
                -o -name test-vm -o -name test-vm-ready -o -name virsh -o -name virt-install \
+               -o -name install-hardware \
                -o -name setup-llama-server -o -name update-llama \) \
             -not -path './.git/*' -not -path './.venv/*' -not -path './berks-cookbooks/*' \
             -not -path '*/target/*' -not -path './ublue/llama/files/update-llama' \
@@ -107,6 +108,8 @@ jobs:
           cd ublue/skillet
           cargo run --bin skillet -- test run beezelbot --phase base --image fedora:latest
 
-      - name: Run bootstrap state regressions
+      - name: Run installation and bootstrap regressions
         if: steps.filter.outputs.rust == 'true'
-        run: bash ublue/butane/tests/bootstrap.sh
+        run: |
+          bash ublue/butane/tests/bootstrap.sh
+          bash ublue/butane/tests/hardware.sh

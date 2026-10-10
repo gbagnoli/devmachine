@@ -23,7 +23,8 @@ VM vault enrollment, unchanged retry, independent-passphrase verification and
 unattended cold-boot persistence passed on 2026-10-10. Protected header export
 is implemented as a verified KDBX attachment. Native simulated TPM-loss
 recovery/re-enrollment, header restoration and completed-retry acceptance passed
-on 2026-10-11. Physical installation remains pending.
+on 2026-10-11. Physical USB media generation is implemented; installation on real hardware
+remains pending. See [the hardware runbook](../butane/HARDWARE.md).
 
 ## Scope and decisions
 

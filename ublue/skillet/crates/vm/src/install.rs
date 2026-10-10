@@ -82,6 +82,35 @@ pub fn configure_root(config: &mut Value, profile: RootProfile) -> Result<()> {
     Ok(())
 }
 
+/// Butane requires file modes to be numeric. `serde_yml` parses YAML values such
+/// as `0644` as strings, so convert octal mode strings before writing staged
+/// configs back out.
+pub fn normalize_butane_modes(value: &mut Value) -> Result<()> {
+    match value {
+        Value::Mapping(mapping) => {
+            for (key, value) in mapping.iter_mut() {
+                if key.as_str() == Some("mode") {
+                    if let Some(mode) = value.as_str() {
+                        let mode = u64::from_str_radix(mode, 8).map_err(|_| {
+                            Error::Invalid(format!("invalid octal Butane file mode: {mode}"))
+                        })?;
+                        *value = Value::Number(mode.into());
+                    }
+                } else {
+                    normalize_butane_modes(value)?;
+                }
+            }
+        }
+        Value::Sequence(values) => {
+            for value in values {
+                normalize_butane_modes(value)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
 pub fn nvram_path(run: &crate::VmRun) -> Result<std::path::PathBuf> {
     Ok(run
         .disk
@@ -100,3 +129,42 @@ pub fn tpm_path(run: &crate::VmRun) -> Result<std::path::PathBuf> {
 #[cfg(test)]
 #[path = "install/tests.rs"]
 mod tests;
+
+/// Select the whole disk for a fresh physical installation. VM templates remain unchanged.
+pub fn configure_disk(config: &mut Value, disk: &str) -> Result<()> {
+    validate_physical_disk(disk)?;
+    let disks = config
+        .get_mut("storage")
+        .and_then(|v| v.get_mut("disks"))
+        .and_then(Value::as_sequence_mut)
+        .ok_or_else(|| {
+            Error::Invalid("installation requires an explicit disk declaration".into())
+        })?;
+    if disks.len() != 1 || disks[0].get("device").and_then(Value::as_str) != Some("/dev/vda") {
+        return Err(Error::Invalid(
+            "expected one VM template disk; refusing ambiguous disk selection".into(),
+        ));
+    }
+    disks[0]["device"] = Value::String(disk.into());
+    Ok(())
+}
+
+/// Require a stable whole-disk identifier, not an ambient workstation block device.
+pub fn validate_physical_disk(disk: &str) -> Result<()> {
+    let Some(name) = disk.strip_prefix("/dev/disk/by-id/") else {
+        return Err(Error::Invalid(
+            "physical disk must use /dev/disk/by-id/<whole-disk-id>".into(),
+        ));
+    };
+    if name.is_empty()
+        || name.contains("-part")
+        || !name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"-_.:".contains(&b))
+        || name == "."
+        || name == ".."
+    {
+        return Err(Error::Invalid("invalid whole-disk identifier".into()));
+    }
+    Ok(())
+}

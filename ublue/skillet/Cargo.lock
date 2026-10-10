@@ -2548,6 +2548,7 @@ dependencies = [
 name = "skillet_workstation"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "cloudflare",
  "hex",
  "keepass",
@@ -2557,6 +2558,7 @@ dependencies = [
  "rpassword",
  "serde",
  "serde_json",
+ "serde_yml",
  "sha2 0.10.9",
  "skillet_caddy",
  "skillet_datadog",
