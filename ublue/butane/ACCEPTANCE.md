@@ -1,3 +1,31 @@
+## Live vault-backed root recovery — 2026-10-10
+
+- Fresh native `clamps / vault-recovery`, SSH port 2202, explicitly selected
+  `--root-profile tpm`. Native Ignition created LUKS2/Btrfs; both bootstrap
+  rebases unlocked unattended and signed-uCore/base/user readiness passed.
+  Creation printed the expected `test vm recovery-key` follow-up.
+- The first enrollment attempt failed while creating the vault write lock: the
+  synced parent directory was read-only for the operator despite a writable
+  database file. An owner-checked guest probe confirmed only the original TPM
+  slot remained. After the operator granted a narrow directory ACL, enrollment
+  succeeded and the test-scoped vault record was saved with verified state and
+  the matching LUKS UUID. No production recovery entry was created.
+- Repeated `test vm recovery-key clamps vault-recovery` succeeded without
+  changing encrypted vault bytes. Guest inspection confirmed exactly two slots:
+  TPM plus independent printable recovery passphrase.
+- A temporary Rust acceptance driver used the per-run lock, manifest/backend
+  ownership validation and guarded SSH transport. It flushed a Btrfs data marker,
+  checked a complete cold stop/start, then normal `test vm ready` passed with
+  unattended unlock. The boot ID changed; volume UUID, two slots and data marker
+  survived. Direct cryptsetup verification accepted the vault passphrase and
+  rejected an invalid passphrase. No transient recovery file remained in `/run`.
+- Lifecycle disposal removed the test domain and its owned run artifacts;
+  encrypted vault bytes stayed unchanged, preserving the test archive. The
+  retained `clamps / smoke` VM remained running on port 2201.
+- This establishes the live test-scoped vault enrollment/retry/cold-boot slice.
+  It does not establish physical production enrollment, header export or recovery
+  after simulated TPM loss; those remain pending. No workstation packages installed.
+
 ## Recovery-key vault commands — 2026-10-10
 
 - Implemented `secrets root-recovery-key HOST` for production and lifecycle-owned

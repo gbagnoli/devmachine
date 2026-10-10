@@ -19,8 +19,9 @@ repeatable independent-key/header/cold-boot acceptance command. Routine CI
 covers rendering, prerequisites, staging and policy rejection without a vault.
 Production recovery-key vault persistence is implemented with atomic pending/verified
 state, volume identity validation, and a separate VM archive command. Live
-acceptance of this new vault workflow, production header export and physical
-installation remain pending.
+VM vault enrollment, unchanged retry, independent-passphrase verification and
+unattended cold-boot persistence passed on 2026-10-10. Production header export,
+simulated TPM-loss recovery and physical installation remain pending.
 
 ## Scope and decisions
 
@@ -138,6 +139,10 @@ remain usable, and both backend paths have evidence or an explicit unverified
 status. No workstation installation is performed by the agent.
 
 ## 4. Establish recovery before destructive tests
+
+Status: independent key enrollment and vault persistence/retry are implemented
+and verified in a native VM, including cold boot and invalid-key rejection.
+Production header export and simulated TPM-loss recovery remain unfinished.
 
 - Add an independent high-entropy recovery key while the valid TPM path works.
   Persist production keys through the atomic Rust KDBX writer at
