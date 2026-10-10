@@ -88,6 +88,13 @@
 - Removing an optional generated configuration section must tolerate its
   absence, while rejecting malformed present sections. Cover fresh inputs and
   retained compatibility inputs through the actual staging/compiler path.
+- Physical installation media requires explicit destination disk identity and
+  private bootstrap access. Keep media generation separate from block-device
+  writes; validate hardware prerequisites and confirm destruction on the target.
+  Respect installer metadata size limits; bind separately delivered installation
+  payloads to the prepared media and verify them before destructive operations.
+  Preserve virtual installation support without leaking virtual disk assumptions
+  into physical profiles. Never describe generated media as hardware acceptance.
 - Installation profiles are explicit and independent of host identity. Preserve
   compatible defaults and reject missing prerequisites rather than silently
   weakening a requested security policy. Convergence never reformats live data.

@@ -66,8 +66,9 @@ configuration are available; record each result in
 The smoke VM uses libvirt user-mode networking and cannot satisfy item 1; use a
 bridged test VM or the physical clamps host on an isolated/test network.
 
-Planned before physical cutover: [TPM-encrypted Btrfs root](TPM-ENCRYPTED-ROOT.md),
-including QEMU TPM2 tests, recovery and stock-SSD hardware acceptance. Tang is
+Native [TPM-encrypted Btrfs root](TPM-ENCRYPTED-ROOT.md), QEMU TPM2 tests
+and recovery are implemented and accepted. Physical media generation is
+implemented; stock-SSD hardware acceptance remains required before cutover. Tang is
 deferred; remote hosts will first be assessed for usable TPM support.
 
 ## Boundaries
@@ -87,7 +88,10 @@ deferred; remote hosts will first be assessed for usable TPM support.
 - Exercise interrupted bootstrap and capture resolver continuity across intermediate boots.
 - Reconcile the acceptance log's repeatability status with its recorded second fresh VM; do not infer unrecorded checks passed.
 - Confirm automatic base apply before readiness explicitly restarts the unit, and collision refusal for unrelated domains/disks.
-- Prepare physical disk selection and hardware/Secure Boot/MOK enrollment separately from the VM-only `/dev/vda` template; validate on the stock SSD.
+- Physical USB media generation now selects a whole-disk by-id identifier and
+  reuses the shared root-profile renderer; VM creation retains `/dev/vda`. Follow
+  [the hardware runbook](../butane/HARDWARE.md). Actual disk selection, firmware
+  checks, MOK enrollment and stock-SSD installation remain unverified.
 
 ## Milestone 3: storage and credentials for the first application
 

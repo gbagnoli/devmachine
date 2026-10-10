@@ -15,3 +15,5 @@ pub mod vault;
 pub mod zone_token;
 
 pub mod root_recovery;
+
+pub mod installation;

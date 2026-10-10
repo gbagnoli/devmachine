@@ -685,3 +685,13 @@ vault on an independent machine. Enter the Password at the LUKS boot prompt.
 Header restoration is a separate destructive rescue operation: verify the
 volume/disk identity before restoring it, and never restore a header onto a
 running root volume. Physical TPM replacement acceptance remains pending.
+
+## Physical installation media
+
+`skillet install prepare HOST --disk /dev/disk/by-id/WHOLE_DISK_ID --iso LIVE_ISO
+--output NEW_PRIVATE_DIRECTORY --ssh-public-key PUBLIC_KEY --password-hash-file
+PRIVATE_HASH_FILE [--root-profile unencrypted|tpm] [--mok-certificate UBLUE_DER]`
+builds a private USB-ready ISO without writing a block device. Follow
+[the hardware runbook](../butane/HARDWARE.md) for inputs, USB writing, live checks,
+MOK enrollment and cutover. Installation requires confirmation on the server;
+TPM prerequisites are checked there. The VM `/dev/vda` path remains supported.

@@ -7,6 +7,8 @@ edition = "2021"
 workspace = true
 
 [dependencies]
+base64 = "0.22"
+serde_yml.workspace = true
 skillet_smtp.workspace = true
 skillet_datadog.workspace = true
 cloudflare.workspace = true
