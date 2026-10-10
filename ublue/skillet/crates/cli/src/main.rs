@@ -67,7 +67,7 @@ enum SecretCommands {
     Unlock(SecretUnlockArgs),
     /// Remove the cached vault password from the kernel keyring
     Lock(SecretLockArgs),
-    /// Enroll and save a production recovery passphrase
+    /// Enroll a production recovery passphrase and archive its LUKS header
     RootRecoveryKey(RootRecoveryArgs),
 }
 
@@ -174,7 +174,7 @@ enum TestCommands {
 enum VmCommands {
     /// Verify encrypted root, save disposable recovery artifacts and cold-boot it
     EncryptionCheck(VmTargetArgs),
-    /// Save this instance recovery passphrase in `KeePassXC`
+    /// Save this instance recovery passphrase and LUKS header in `KeePassXC`
     RecoveryKey(VmRecoveryArgs),
     /// Provision a disposable host VM and wait for it to become ready
     Create(VmCreateArgs),

@@ -17,10 +17,13 @@ pub enum RecoveryError {
     Randomness(#[from] std::io::Error),
 }
 
+pub const HEADER_ATTACHMENT: &str = "root-luks.header";
+
 pub struct Record {
     pub key: Zeroizing<String>,
     pub volume: String,
     pub verified: bool,
+    pub header: Option<Zeroizing<Vec<u8>>>,
 }
 
 /// Cohesive persistence of a key and its enrollment/recovery identity.
@@ -55,6 +58,7 @@ impl RecoveryStore for VaultStore<'_> {
             key: Zeroizing::new(key),
             volume,
             verified: state == "verified",
+            header: self.vault.get_attachment(path, HEADER_ATTACHMENT)?,
         }))
     }
     fn save(&mut self, path: &str, record: &Record) -> Result<(), RecoveryError> {
@@ -72,7 +76,18 @@ impl RecoveryStore for VaultStore<'_> {
                 "pending"
             },
         )?;
-        self.vault.save_verified(self.key_file, path, &record.key)?;
+        if let Some(header) = &record.header {
+            self.vault.set_attachment(path, HEADER_ATTACHMENT, header)?;
+            self.vault.save_verified_attachment(
+                self.key_file,
+                path,
+                &record.key,
+                HEADER_ATTACHMENT,
+                header,
+            )?;
+        } else {
+            self.vault.save_verified(self.key_file, path, &record.key)?;
+        }
         Ok(())
     }
 }
@@ -144,6 +159,7 @@ pub fn provision(
             key: Zeroizing::new(generate()?),
             volume: volume.clone(),
             verified: false,
+            header: None,
         },
     };
     if record.volume != volume {
@@ -170,11 +186,39 @@ pub fn provision(
         run_key(guest, remote, "enroll", &record.key)?;
     }
     run_key(guest, remote, "verify", &record.key)?;
-    if !record.verified {
+    let header = capture_header(guest, remote, &record.key)?;
+    if !record.verified || record.header.as_deref() != Some(&*header) {
+        record.header = Some(header);
         record.verified = true;
         store.save(path, &record)?;
     }
     Ok(())
+}
+
+fn capture_header(
+    guest: &impl GuestTransport,
+    remote: &str,
+    key: &str,
+) -> Result<Zeroizing<Vec<u8>>, RecoveryError> {
+    let output = guest.execute(
+        &GuestCommand {
+            program: "sudo",
+            arguments: &["-n", "bash", remote, "header"],
+        },
+        Some(key.as_bytes()),
+    )?;
+    if !output.status.success() {
+        return Err(RecoveryError::Invalid(
+            "header backup verification failed; recovery key remains in vault",
+        ));
+    }
+    let header = Zeroizing::new(output.stdout);
+    if !(4096..=64 * 1024 * 1024).contains(&header.len())
+        || !header.starts_with(b"LUKS\xba\xbe\x00\x02")
+    {
+        return Err(RecoveryError::Invalid("invalid LUKS2 header backup"));
+    }
+    Ok(header)
 }
 
 fn text(

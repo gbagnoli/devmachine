@@ -4,7 +4,8 @@ set -euo pipefail
 umask 077
 device=/dev/disk/by-partlabel/root
 key="$(mktemp /run/skillet-root-recovery.XXXXXXXX)"
-trap 'rm -f -- "$key"' EXIT
+work=""
+trap 'rm -f -- "$key"; if [[ -n "$work" ]]; then rm -rf -- "$work"; fi' EXIT
 cat > "$key"
 [[ "$(stat -c %s "$key")" == 128 ]]
 LC_ALL=C grep -Eq '^[0-9a-f]{128}$' "$key"
@@ -16,6 +17,14 @@ case "${1:-}" in
       clevis luks pass -d "$device" -s "$slot" |
         cryptsetup luksAddKey --key-file=- "$device" "$key"
     fi
+    ;;
+  header)
+    work="$(mktemp -d /run/skillet-root-header.XXXXXXXX)"
+    header="$work/luks.header"
+    cryptsetup luksHeaderBackup "$device" --header-backup-file "$header"
+    [[ "$(cryptsetup luksUUID --header "$header" "$device")" == "$(cryptsetup luksUUID "$device")" ]]
+    cryptsetup open --test-passphrase --header "$header" --key-file "$key" "$device"
+    cat "$header"
     ;;
   verify) cryptsetup open --test-passphrase --key-file "$key" "$device" ;;
   *) exit 2 ;;

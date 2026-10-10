@@ -87,6 +87,8 @@ fn save(
         guest,
         root_recovery::generate_key,
     )?;
-    println!("Saved and verified recovery passphrase in KeePassXC: {path}");
+    println!(
+        "Saved and verified recovery passphrase and encrypted LUKS header in KeePassXC: {path}"
+    );
     Ok(())
 }

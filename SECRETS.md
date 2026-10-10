@@ -71,7 +71,7 @@ Production-only native Postfix relay credentials; smoke machines use a local sin
 
 ## Storage
 
-Generated independent LUKS root recovery passphrases. [Enrollment](ublue/skillet/README.md#root-recovery-keys). Password contains the printable passphrase; custom luks-uuid and recovery-state fields are managed by Skillet.
+Generated independent LUKS root recovery passphrases. [Enrollment](ublue/skillet/README.md#root-recovery-keys). Password contains the printable passphrase; custom luks-uuid and recovery-state fields and the protected root-luks.header attachment are managed by Skillet.
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |

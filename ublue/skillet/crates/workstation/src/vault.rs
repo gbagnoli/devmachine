@@ -144,6 +144,35 @@ impl Vault {
         Ok(())
     }
 
+    /// Encrypted binary material attached to an exact vault entry.
+    pub fn get_attachment(
+        &self,
+        path: &str,
+        name: &str,
+    ) -> Result<Option<zeroize::Zeroizing<Vec<u8>>>, VaultError> {
+        Ok(find_entry(&self.database, path)?.and_then(|entry| {
+            entry
+                .attachment_by_name(name)
+                .map(|attachment| zeroize::Zeroizing::new(attachment.data.to_vec()))
+        }))
+    }
+
+    pub fn set_attachment(
+        &mut self,
+        path: &str,
+        name: &str,
+        bytes: &[u8],
+    ) -> Result<(), VaultError> {
+        let id = find_entry(&self.database, path)?
+            .ok_or_else(|| VaultError::Invalid("vault attachment entry is absent".into()))?
+            .id();
+        self.database
+            .entry_mut(id)
+            .ok_or_else(|| VaultError::Invalid("vault entry disappeared".into()))?
+            .add_attachment(name, keepass::db::Value::protected(bytes.to_vec()));
+        Ok(())
+    }
+
     pub fn ensure_unchanged(&self) -> Result<(), VaultError> {
         if fs::read(&self.path).map_err(|error| source("rechecking vault before write", error))?
             != self.original
@@ -160,6 +189,28 @@ impl Vault {
         key_file: Option<&Path>,
         entry_path: &str,
         secret: &str,
+    ) -> Result<(), VaultError> {
+        self.save_checked(key_file, entry_path, secret, None)
+    }
+
+    /// Reopen and verify both credential and attachment before atomic publication.
+    pub fn save_verified_attachment(
+        &mut self,
+        key_file: Option<&Path>,
+        entry_path: &str,
+        secret: &str,
+        name: &str,
+        bytes: &[u8],
+    ) -> Result<(), VaultError> {
+        self.save_checked(key_file, entry_path, secret, Some((name, bytes)))
+    }
+
+    fn save_checked(
+        &mut self,
+        key_file: Option<&Path>,
+        entry_path: &str,
+        secret: &str,
+        attachment: Option<(&str, &[u8])>,
     ) -> Result<(), VaultError> {
         let parent = self
             .path
@@ -208,6 +259,19 @@ impl Vault {
             return Err(VaultError::Invalid(
                 "saved vault did not retain the generated credential".into(),
             ));
+        }
+
+        if let Some((name, bytes)) = attachment {
+            let retained = find_entry(&reopened, entry_path)?.and_then(|entry| {
+                entry
+                    .attachment_by_name(name)
+                    .map(|item| zeroize::Zeroizing::new(item.data.to_vec()))
+            });
+            if retained.as_deref().map(Vec::as_slice) != Some(bytes) {
+                return Err(VaultError::Invalid(
+                    "saved vault did not retain the recovery attachment".into(),
+                ));
+            }
         }
 
         let stamp = SystemTime::now()

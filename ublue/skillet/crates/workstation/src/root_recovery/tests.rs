@@ -12,6 +12,7 @@ impl RecoveryStore for Store {
             key: Zeroizing::new(r.key.to_string()),
             volume: r.volume.clone(),
             verified: r.verified,
+            header: r.header.clone(),
         }))
     }
     fn save(&mut self, _: &str, record: &Record) -> Result<(), RecoveryError> {
@@ -22,6 +23,7 @@ impl RecoveryStore for Store {
             key: Zeroizing::new(record.key.to_string()),
             volume: record.volume.clone(),
             verified: record.verified,
+            header: record.header.clone(),
         });
         Ok(())
     }
@@ -64,7 +66,13 @@ impl GuestTransport for Guest {
             status: std::process::ExitStatus::from_raw(
                 i32::from(self.fail && action == "enroll") * 256,
             ),
-            stdout: output.as_bytes().to_vec(),
+            stdout: if action == "header" {
+                let mut bytes = vec![0; 4096];
+                bytes[..8].copy_from_slice(b"LUKS\xba\xbe\x00\x02");
+                bytes
+            } else {
+                output.as_bytes().to_vec()
+            },
             stderr: vec![],
         })
     }
@@ -121,6 +129,7 @@ fn failed_persistence_and_volume_mismatch_never_enroll() {
         key: Zeroizing::new("a".repeat(128)),
         volume: "another".into(),
         verified: true,
+        header: None,
     });
     assert!(run(&mut store, &guest).is_err());
     assert!(!guest.calls.borrow().iter().any(|s| s == "upload"));
@@ -177,6 +186,7 @@ fn verified_key_is_not_silently_reenrolled_on_verification_failure() {
             key: Zeroizing::new("a".repeat(128)),
             volume: UUID.into(),
             verified: true,
+            header: None,
         }),
         fail: false,
     };
@@ -191,4 +201,68 @@ fn verified_key_is_not_silently_reenrolled_on_verification_failure() {
     .is_err());
     assert!(store.record.unwrap().verified);
     assert!(!guest.0.calls.borrow().iter().any(|s| s == "enroll"));
+}
+
+#[test]
+fn missing_header_is_migrated_without_rotating_verified_key() {
+    let mut store = Store {
+        record: Some(Record {
+            key: Zeroizing::new("a".repeat(128)),
+            volume: UUID.into(),
+            verified: true,
+            header: None,
+        }),
+        fail: false,
+    };
+    let guest = Guest::default();
+    run(&mut store, &guest).unwrap();
+    assert_eq!(
+        store
+            .record
+            .as_ref()
+            .unwrap()
+            .header
+            .as_ref()
+            .unwrap()
+            .len(),
+        4096
+    );
+    assert!(!guest.calls.borrow().iter().any(|action| action == "enroll"));
+    store.fail = true;
+    run(&mut store, &guest).unwrap(); // unchanged header must not rewrite the vault
+}
+
+#[test]
+fn invalid_header_keeps_pending_recovery_for_retry() {
+    struct BadHeader(Guest);
+    impl GuestTransport for BadHeader {
+        fn upload(&self, source: &Path, target: &str) -> skillet_vm::Result<()> {
+            self.0.upload(source, target)
+        }
+        fn execute(
+            &self,
+            command: &GuestCommand<'_>,
+            input: Option<&[u8]>,
+        ) -> skillet_vm::Result<Output> {
+            let mut output = self.0.execute(command, input)?;
+            if command.arguments.last() == Some(&"header") {
+                output.stdout.clear();
+            }
+            Ok(output)
+        }
+    }
+    let mut store = Store::default();
+    assert!(provision(
+        "clamps",
+        "path",
+        Path::new("helper"),
+        &mut store,
+        &BadHeader(Guest::default()),
+        || Ok("a".repeat(128))
+    )
+    .is_err());
+    assert!(!store.record.as_ref().unwrap().verified);
+    assert!(store.record.as_ref().unwrap().header.is_none());
+    run(&mut store, &Guest::default()).unwrap();
+    assert!(store.record.unwrap().verified);
 }
