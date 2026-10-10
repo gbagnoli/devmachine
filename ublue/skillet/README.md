@@ -600,7 +600,7 @@ are saved privately in the run's `serial.log` before SSH is available.
 the independent key, cold-boots the owned VM and checks data persistence.
 Reruns reuse the recovery key. Disposal removes these artifacts. No vault or
 provider credentials are required. Keep production recovery material separately;
-physical installation and its vault-backed recovery workflow are still pending.
+physical installation and production header export are still pending.
 
 See the [storage design](../design/storage.md) and
 [encrypted-root plan](../plan/TPM-ENCRYPTED-ROOT.md) for policy and remaining
@@ -619,6 +619,11 @@ cargo run --release -p skillet -- secrets root-recovery-key clamps \
 ```
 
 This opens the normal vault unlock prompt unless its password is cached.
+The vault file and its parent directory must be writable: atomic saves create a
+lock, encrypted replacement and backup in that directory. A group-writable file
+in a read-only directory is insufficient. For synced stores, preserve service
+ownership and grant the operator a narrow directory ACL when needed.
+
 Optional `--database` and `--key-file` select another vault. SSH host keys must
 already be recorded. The Password at
 `skillet/hosts/clamps/storage/root-recovery-key` is the passphrase to enter at
