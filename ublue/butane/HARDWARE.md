@@ -106,8 +106,8 @@ See [storage policy](../design/storage.md) and [remaining encryption checks](../
 
    The helper copies the supplied file into root-only live tmpfs and checks its
    SHA-256 against the digest embedded in this USB. A payload from another bundle
-   is refused. CoreOS's 256 KiB embedded-config area cannot hold our binaries;
-   the destination Ignition remains in the private bundle and travels over SSH.
+   is refused. Destination Ignition remains in the private bundle and travels
+   over SSH. See [the media design](../design/storage.md#physical-installation-media).
    An offline alternative is a separate data USB: mount it and pass the Ignition
    path to the same helper.
 
