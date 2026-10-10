@@ -20,8 +20,10 @@ covers rendering, prerequisites, staging and policy rejection without a vault.
 Production recovery-key vault persistence is implemented with atomic pending/verified
 state, volume identity validation, and a separate VM archive command. Live
 VM vault enrollment, unchanged retry, independent-passphrase verification and
-unattended cold-boot persistence passed on 2026-10-10. Production header export,
-simulated TPM-loss recovery and physical installation remain pending.
+unattended cold-boot persistence passed on 2026-10-10. Protected header export
+is implemented as a verified KDBX attachment. Native simulated TPM-loss
+recovery/re-enrollment, header restoration and completed-retry acceptance passed
+on 2026-10-11. Physical installation remains pending.
 
 ## Scope and decisions
 
@@ -142,7 +144,12 @@ status. No workstation installation is performed by the agent.
 
 Status: independent key enrollment and vault persistence/retry are implemented
 and verified in a native VM, including cold boot and invalid-key rejection.
-Production header export and simulated TPM-loss recovery remain unfinished.
+Protected header export is implemented in both recovery-key commands, with
+legacy-entry upgrade, refresh and encrypted attachment readback verification.
+The native TPM-loss driver uses a fresh base-only stopped disk clone and
+unlogged console. Native live acceptance passed on 2026-10-11: restored header
+fixture, fresh TPM rejection, vault-assisted boot, verified re-enrollment, two
+unattended cold boots, unchanged completed retry, and original TPM preservation.
 
 - Add an independent high-entropy recovery key while the valid TPM path works.
   Persist production keys through the atomic Rust KDBX writer at

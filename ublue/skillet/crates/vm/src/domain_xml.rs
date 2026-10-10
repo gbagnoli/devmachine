@@ -14,6 +14,24 @@ use std::{
 /// Write the KVM definition beside its owned disk and Ignition files.
 /// The output is atomically replaced and never follows a symlink.
 pub fn write_domain_xml(store: &ManifestStore, run: &VmRun, emulator: &Path) -> Result<PathBuf> {
+    write_with_console_log(store, run, emulator, true)
+}
+
+/// Recovery acceptance must disable serial logging before injecting a passphrase.
+pub fn write_recovery_domain_xml(
+    store: &ManifestStore,
+    run: &VmRun,
+    emulator: &Path,
+) -> Result<PathBuf> {
+    write_with_console_log(store, run, emulator, false)
+}
+
+fn write_with_console_log(
+    store: &ManifestStore,
+    run: &VmRun,
+    emulator: &Path,
+    console_log: bool,
+) -> Result<PathBuf> {
     store.validate(run, &run.identity)?;
     if !matches!(run.phase, Phase::Preparing | Phase::Defined)
         || !emulator.is_absolute()
@@ -38,7 +56,7 @@ pub fn write_domain_xml(store: &ManifestStore, run: &VmRun, emulator: &Path) -> 
     crate::manifest::reject_symlinks(dir)?;
     let path = dir.join("domain.xml");
     crate::manifest::reject_symlinks(&path)?;
-    if run.root_profile == crate::install::RootProfile::Tpm {
+    if console_log && run.root_profile == crate::install::RootProfile::Tpm {
         let serial = dir.join("serial.log");
         crate::manifest::reject_symlinks(&serial)?;
         let log = fs::OpenOptions::new()
@@ -47,7 +65,7 @@ pub fn write_domain_xml(store: &ManifestStore, run: &VmRun, emulator: &Path) -> 
             .open(serial)?;
         log.set_permissions(fs::Permissions::from_mode(0o600))?;
     }
-    let xml = render(run, emulator)?;
+    let xml = render_with_console_log(run, emulator, console_log)?;
     let mut output = tempfile::NamedTempFile::new_in(dir)?;
     output
         .as_file()
@@ -62,7 +80,12 @@ pub fn write_domain_xml(store: &ManifestStore, run: &VmRun, emulator: &Path) -> 
     Ok(path)
 }
 
+#[cfg(test)]
 fn render(run: &VmRun, emulator: &Path) -> Result<String> {
+    render_with_console_log(run, emulator, true)
+}
+
+fn render_with_console_log(run: &VmRun, emulator: &Path, console_log: bool) -> Result<String> {
     let mut writer = Writer::new_with_indent(Vec::new(), b' ', 2);
     writer.write_event(Event::Decl(BytesDecl::new("1.0", Some("UTF-8"), None)))?;
     start(&mut writer, "domain", &[("type", "kvm".into())])?;
@@ -150,7 +173,7 @@ fn render(run: &VmRun, emulator: &Path) -> Result<String> {
     end(&mut writer, "portForward")?;
     empty(&mut writer, "model", &[("type", "virtio".into())])?;
     end(&mut writer, "interface")?;
-    render_console(&mut writer, run, encrypted)?;
+    render_console(&mut writer, run, encrypted && console_log)?;
     end(&mut writer, "devices")?;
     end(&mut writer, "domain")?;
     String::from_utf8(writer.into_inner())

@@ -26,3 +26,7 @@ tempfile.workspace = true
 thiserror.workspace = true
 
 zeroize = "1.9"
+
+[dev-dependencies]
+nix = { workspace = true, features = ["term", "fs"] }
+uuid.workspace = true

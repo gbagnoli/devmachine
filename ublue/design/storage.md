@@ -77,8 +77,12 @@ accepted. These artifacts are deleted on disposal. Production vault enrollment
 is implemented with write-ahead persistence and volume identity checks.
 Live VM vault enrollment/retry and cold-boot persistence passed on 2026-10-10;
 invalid-passphrase rejection confirms the independent passphrase path.
-Physical-disk selection, header export and physical recovery acceptance remain
-planned. Skillet convergence never formats an installed filesystem.
+Header export is implemented: the recovery-key command archives a verified
+LUKS2 header as the protected `root-luks.header` attachment on the same KDBX
+entry. It refreshes after enrollment changes without rotating the passphrase.
+The encrypted vault, backed up independently, carries both recovery artifacts.
+A header backup is not a data backup. Physical-disk selection and physical
+recovery acceptance remain planned. Skillet convergence never formats an installed filesystem.
 QEMU functional tests and physical acceptance are specified in the
 [TPM encrypted-root plan](../plan/TPM-ENCRYPTED-ROOT.md).
 
@@ -119,3 +123,11 @@ firmware compatibility.
 Sources: [FCOS encrypted root](https://github.com/coreos/fedora-coreos-docs/blob/main/modules/ROOT/pages/storage.adoc#encrypted-storage-luks),
 [Clevis TPM threat model](https://github.com/latchset/clevis/blob/master/src/pins/tpm2/clevis-encrypt-tpm2.1.adoc#threat-model),
 [systemd PCR policies](https://github.com/systemd/systemd/blob/main/man/systemd-cryptenroll.xml).
+
+Recovery acceptance uses a stopped, base-only disk clone with independent TPM
+and NVRAM. It preserves the source TPM and archive; provider-provisioned VMs
+are excluded to prevent impersonation. Recovery consoles have no serial log.
+New TPM enrollment is explicit, verifies the new binding before removing the
+old one, and archives the refreshed clone header separately. Routine convergence
+never replaces TPM bindings. Native header restoration, TPM-loss recovery/re-enrollment, completed retry and
+unattended cold boot passed on 2026-10-11; evidence is in Butane's record.

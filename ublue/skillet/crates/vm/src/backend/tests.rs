@@ -299,3 +299,52 @@ fn subprocess_arguments_are_literal_and_timeout_is_bounded() {
     assert!(matches!(executor.execute(&invocation), Err(Error::Timeout)));
     assert!(start.elapsed() < Duration::from_secs(2));
 }
+
+#[test]
+fn recovery_console_rejects_logging_ambiguous_sources_and_non_ptys() {
+    let (_tmp, store, identity) = legacy_run();
+    let run = store.load(&identity).unwrap();
+    let base = xml(&run);
+    let serial = "<serial type='pty'><source path='/dev/pts/7'/></serial>";
+    let with = |serial: &str| base.replace("</devices>", &format!("{serial}</devices>"));
+    assert_eq!(
+        parse_recovery_console(&with(serial)).unwrap(),
+        PathBuf::from("/dev/pts/7")
+    );
+    assert!(parse_recovery_console(&base).is_err());
+    assert!(parse_recovery_console(&with(&serial.repeat(2))).is_err());
+    assert!(parse_recovery_console(&with(
+        &serial.replace("</serial>", "<log file='/tmp/transcript'/></serial>")
+    ))
+    .is_err());
+    assert!(parse_recovery_console(&with(&serial.replace("/dev/pts/7", "/tmp/console"))).is_err());
+    assert!(parse_recovery_console(&with(&serial.replace("type='pty'", "type='file'"))).is_err());
+}
+
+#[test]
+fn recovery_console_stops_when_ownership_changes_after_inspection() {
+    let (_tmp, store, identity) = legacy_run();
+    let run = store.load(&identity).unwrap();
+    let good = xml(&run).replace(
+        "</devices>",
+        "<serial type='pty'><source path='/dev/pts/7'/></serial></devices>",
+    );
+    let bad = good.replace(&run.disk.display().to_string(), "/unowned/disk");
+    let backend = VirshBackend::new(
+        run.connection.clone(),
+        run.owner_uid,
+        Path::new("/wrapper"),
+        executor(vec![
+            output(&run.uuid.to_string()),
+            output(&good),
+            output("running"),
+            output(&good),
+            output(&run.uuid.to_string()),
+            output(&bad),
+            output("running"),
+        ]),
+    )
+    .unwrap();
+    assert!(backend.recovery_console(&run).is_err());
+    assert_eq!(backend.executor.calls.borrow().len(), 7);
+}
