@@ -24,9 +24,9 @@ storage:
             exit 1
           }
           var_uuid="$(findmnt -T /var -n -o UUID)"
-          root_device=/dev/disk/by-partlabel/root
-          [[ -n "$var_uuid" && "$(blkid -s UUID -o value "$root_device")" == "$var_uuid" ]] || {
-            echo 'The root partition does not match the Btrfs filesystem backing /var' >&2
+          root_device="/dev/disk/by-uuid/$var_uuid"
+          [[ -n "$var_uuid" && "$(blkid -s UUID -o value /dev/disk/by-label/root)" == "$var_uuid" ]] || {
+            echo 'The root filesystem does not match the Btrfs filesystem backing /var' >&2
             exit 1
           }
           top="$(mktemp -d /run/skillet-data-top.XXXXXX)"
@@ -97,7 +97,7 @@ systemd:
         After=skillet-data-top.service
 
         [Mount]
-        What=/dev/disk/by-partlabel/root
+        What=/dev/disk/by-label/root
         Where=/var/lib/data
         Type=btrfs
         Options=subvol=data,noatime,compress=zstd:3

@@ -118,7 +118,8 @@ pub fn ready(
             command.extend(arguments);
             checked(transport, "sudo", &command)?;
         }
-        verify(run, run_dir, policy, transport)
+        verify(run, run_dir, policy, transport)?;
+        verify_root_profile(run, transport)
     })();
     if result.is_err() && (io.ownership)().is_ok() {
         // Diagnostics are best effort; never replace the original failure.
@@ -129,6 +130,58 @@ pub fn ready(
     run.phase = Phase::Ready;
     run.deployed.clone_from(&run.captured);
     store.save(run)
+}
+
+fn verify_root_profile(run: &VmRun, transport: &impl GuestTransport) -> Result<()> {
+    if run.root_profile == crate::install::RootProfile::Unencrypted {
+        return Ok(());
+    }
+    let secure = checked(transport, "sudo", &["-n", "mokutil", "--sb-state"])?;
+    let status = checked(transport, "sudo", &["-n", "cryptsetup", "status", "root"])?;
+    let source = checked(transport, "findmnt", &["-T", "/var", "-n", "-o", "SOURCE"])?;
+    let binding = checked(
+        transport,
+        "sudo",
+        &[
+            "-n",
+            "clevis",
+            "luks",
+            "list",
+            "-d",
+            "/dev/disk/by-partlabel/root",
+        ],
+    )?;
+    let secure = String::from_utf8_lossy(&secure);
+    let status = String::from_utf8_lossy(&status);
+    let source = String::from_utf8_lossy(&source);
+    let binding = String::from_utf8_lossy(&binding);
+    if !secure.lines().any(|line| line == "SecureBoot enabled")
+        || !status.contains("LUKS2")
+        || !source.trim().starts_with("/dev/mapper/root")
+    {
+        return Err(Error::Invalid(
+            "encrypted readiness requires active Secure Boot and mapper-backed LUKS2 root".into(),
+        ));
+    }
+    let entries: Vec<_> = binding
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .collect();
+    if entries.len() != 1 {
+        return Err(Error::Invalid(
+            "root must have exactly one Clevis TPM binding".into(),
+        ));
+    }
+    let (_, policy) = entries[0]
+        .split_once("tpm2 ")
+        .ok_or_else(|| Error::Invalid("unexpected root unlock pin".into()))?;
+    let policy: serde_json::Value = serde_json::from_str(policy.trim().trim_matches('\''))?;
+    if policy["pcr_bank"] != "sha256" || policy["pcr_ids"] != "7" {
+        return Err(Error::Invalid(
+            "root unlock policy is not the selected SHA256 PCR7 policy".into(),
+        ));
+    }
+    Ok(())
 }
 
 fn wait(

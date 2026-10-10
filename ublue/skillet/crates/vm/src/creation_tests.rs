@@ -46,6 +46,7 @@ impl VmBackend for FakeBackend {
 
 fn snapshot(run: &VmRun, state: &str) -> DomainSnapshot {
     DomainSnapshot {
+        boot: None,
         name: run.identity.domain_name(),
         uuid: run.uuid,
         state: state.into(),

@@ -219,3 +219,36 @@ copies. UniFi 10.0.162's offline CLI restore failed in this acceptance attempt;
 use the setup/UI flow through `test vm ssh --forward 18443:8443`. See the plan
 for the retained instance and pending verification. Do not enable cloud access
 or change device inform settings during this isolated test.
+
+## Optional TPM-encrypted test root
+
+From `ublue/skillet`:
+
+```sh
+cargo run --release -p skillet -- test vm create clamps encrypted --root-profile tpm --port 2202
+cargo run --release -p skillet -- test vm encryption-check clamps encrypted
+cargo run --release -p skillet -- test vm destroy clamps encrypted
+```
+
+The equivalent wrapper is `ublue/butane/bin/test-vm clamps create encrypted
+--root-profile tpm --port 2202`, followed by `encryption-check encrypted` and
+`destroy encrypted`. Choose a free SSH port when retaining another VM.
+`--root-profile unencrypted` is the default and supports hosts without TPM.
+Profiles cannot be switched on an existing VM; use a separate instance.
+
+The TPM profile needs native libvirt 10.10+, swtpm 0.7+, KVM, and q35 UEFI
+Secure Boot firmware with enrolled keys. Creation checks capabilities and fails
+explicitly if unsupported. No packages are installed. Early boot diagnostics
+are saved privately in the run's `serial.log` before SSH is available.
+
+`encryption-check` saves a disposable recovery key and LUKS header backup in
+`butane/runs/<recorded-vm-name>/recovery/` (directory 0700, files 0600), verifies
+the independent key, cold-boots the owned VM and checks data persistence.
+Reruns reuse the recovery key. Disposal removes these artifacts. No vault or
+provider credentials are required. Keep production recovery material separately;
+physical installation and its vault-backed recovery workflow are still pending.
+
+See the [storage design](../design/storage.md) and
+[encrypted-root plan](../plan/TPM-ENCRYPTED-ROOT.md) for policy and remaining
+acceptance. PCR 7 does not measure every boot component; this profile has the
+accepted encrypted-disk protection scope.

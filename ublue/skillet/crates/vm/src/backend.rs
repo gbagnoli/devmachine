@@ -18,6 +18,15 @@ pub struct DomainSnapshot {
     pub uuid: Uuid,
     pub state: String,
     pub disks: Vec<PathBuf>,
+    pub boot: Option<DomainBoot>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DomainBoot {
+    pub nvram: PathBuf,
+    pub tpm_state: PathBuf,
+    pub secure: bool,
+    pub sha256: bool,
 }
 
 impl DomainSnapshot {
@@ -29,6 +38,23 @@ impl DomainSnapshot {
         if self.uuid != run.uuid || self.name != run.identity.domain_name() || actual != expected {
             return Err(Error::Invalid(
                 "domain UUID, name or disks do not match owned run".into(),
+            ));
+        }
+        if run.root_profile == crate::install::RootProfile::Tpm {
+            let expected = DomainBoot {
+                nvram: crate::install::nvram_path(run)?,
+                tpm_state: crate::install::tpm_path(run)?,
+                secure: true,
+                sha256: true,
+            };
+            if self.boot.as_ref() != Some(&expected) {
+                return Err(Error::Invalid(
+                    "domain firmware or TPM state does not match the encrypted owned run".into(),
+                ));
+            }
+        } else if self.boot.is_some() {
+            return Err(Error::Invalid(
+                "unencrypted BIOS run has unexpected firmware or TPM state".into(),
             ));
         }
         Ok(())
@@ -348,6 +374,13 @@ impl<E: VirshExecutor> VirshBackend<E> {
         self.invoke(&["--version"])
     }
 
+    pub fn verify_tpm_support(&self) -> Result<()> {
+        crate::firmware::verify_capabilities(
+            &self.invoke(&["domcapabilities", "--machine", "q35"])?,
+            &self.invoke(&["version", "--daemon"])?,
+        )
+    }
+
     pub fn probe(&self) -> Result<()> {
         self.invoke(&["uri"])?;
         Ok(())
@@ -407,7 +440,13 @@ impl<E: VirshExecutor> VmBackend for VirshBackend<E> {
         self.action("destroy", run)
     }
     fn undefine(&self, run: &VmRun) -> Result<()> {
-        self.action("undefine", run)
+        if run.root_profile == crate::install::RootProfile::Tpm {
+            self.validate_connection(run)?;
+            self.invoke(&["undefine", &run.uuid.to_string(), "--nvram", "--tpm"])?;
+            Ok(())
+        } else {
+            self.action("undefine", run)
+        }
     }
 }
 
@@ -416,6 +455,7 @@ struct DomainXml {
     name: String,
     uuid: Uuid,
     devices: DevicesXml,
+    os: Option<OsXml>,
 }
 
 #[derive(Deserialize)]
@@ -441,6 +481,7 @@ struct ArchitectureXml {
 struct DevicesXml {
     #[serde(rename = "disk", default)]
     disks: Vec<DiskXml>,
+    tpm: Option<TpmXml>,
 }
 #[derive(Deserialize)]
 struct DiskXml {
@@ -454,8 +495,88 @@ struct DiskSourceXml {
     file: Option<PathBuf>,
 }
 
+#[derive(Deserialize)]
+struct OsXml {
+    nvram: Option<String>,
+    firmware: Option<FirmwareXml>,
+}
+#[derive(Deserialize)]
+struct FirmwareXml {
+    #[serde(rename = "feature", default)]
+    features: Vec<FeatureXml>,
+}
+#[derive(Deserialize)]
+struct FeatureXml {
+    #[serde(rename = "@name")]
+    name: String,
+    #[serde(rename = "@enabled")]
+    enabled: String,
+}
+#[derive(Deserialize)]
+struct TpmXml {
+    #[serde(rename = "@model")]
+    model: String,
+    backend: TpmBackendXml,
+}
+#[derive(Deserialize)]
+struct TpmBackendXml {
+    #[serde(rename = "@type")]
+    kind: String,
+    #[serde(rename = "@version")]
+    version: String,
+    source: Option<TpmSourceXml>,
+    active_pcr_banks: Option<PcrBanksXml>,
+}
+#[derive(Deserialize)]
+struct TpmSourceXml {
+    #[serde(rename = "@type")]
+    kind: String,
+    #[serde(rename = "@path")]
+    path: PathBuf,
+}
+#[derive(Deserialize)]
+struct PcrBanksXml {
+    sha256: Option<()>,
+}
+
 pub(crate) fn parse_domain(xml: &str, state: String) -> Result<DomainSnapshot> {
     let domain: DomainXml = quick_xml::de::from_str(xml)?;
+    let boot = match (domain.os, domain.devices.tpm) {
+        (Some(os), Some(tpm)) => {
+            let source = tpm
+                .backend
+                .source
+                .ok_or_else(|| Error::Invalid("TPM state source missing".into()))?;
+            if tpm.model != "tpm-crb"
+                || tpm.backend.kind != "emulator"
+                || tpm.backend.version != "2.0"
+                || source.kind != "dir"
+            {
+                return Err(Error::Invalid("unexpected TPM device definition".into()));
+            }
+            Some(DomainBoot {
+                nvram: os
+                    .nvram
+                    .ok_or_else(|| Error::Invalid("NVRAM source missing".into()))?
+                    .trim()
+                    .into(),
+                tpm_state: source.path,
+                secure: os.firmware.is_some_and(|f| {
+                    ["secure-boot", "enrolled-keys"].iter().all(|name| {
+                        f.features
+                            .iter()
+                            .any(|feature| feature.name == *name && feature.enabled == "yes")
+                    })
+                }),
+                sha256: tpm
+                    .backend
+                    .active_pcr_banks
+                    .is_some_and(|banks| banks.sha256.is_some()),
+            })
+        }
+        (_, None) => None,
+        _ => return Err(Error::Invalid("TPM definition lacks firmware".into())),
+    };
     let mut disks = Vec::new();
     for disk in domain.devices.disks {
         if disk.kind == "disk" {
@@ -471,6 +592,7 @@ pub(crate) fn parse_domain(xml: &str, state: String) -> Result<DomainSnapshot> {
         uuid: domain.uuid,
         state,
         disks,
+        boot,
     })
 }
 

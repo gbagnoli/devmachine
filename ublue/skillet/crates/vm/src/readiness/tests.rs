@@ -109,6 +109,10 @@ impl GuestTransport for FakeGuest {
             ("systemctl", ["restart" | "start" | "reset-failed", _rest @ ..]) => {
                 return Ok(output(i32::from(self.fail_unit), ""));
             }
+            ("mokutil", ["--sb-state"]) => if self.fault == "secure-boot" { "SecureBoot disabled\n" } else { "SecureBoot enabled\n" }.into(),
+            ("cryptsetup", ["status", "root"]) => "type: LUKS2\n".into(),
+            ("findmnt", ["-T", "/var", "-n", "-o", "SOURCE"]) => "/dev/mapper/root[/ostree/deploy/default/var]\n".into(),
+            ("clevis", ["luks", "list", "-d", "/dev/disk/by-partlabel/root"]) => if self.fault == "pcr" { "0: tpm2 '{\"pcr_bank\":\"sha256\",\"pcr_ids\":\"0\"}'\n" } else { "0: tpm2 '{\"pcr_bank\":\"sha256\",\"pcr_ids\":\"7\"}'\n" }.into(),
             ("rpm-ostree", ["status", "--json"]) => serde_json::json!({"deployments":[{"booted":true,"container-image-reference":self.origin}]}).to_string(),
             ("rpm-ostree", ["status"]) => "Signed deployment\n".into(),
             ("journalctl", _) => "Sanitized fixture journal\n".into(),
@@ -458,4 +462,17 @@ fn ownership_loss_after_long_brew_operation_stops_before_dotfiles_start() {
         call == "sudo [\"-n\", \"systemctl\", \"start\", \"dotfiles-install.service\"]"
     }));
     assert_eq!(store.load(&run.identity).unwrap().phase, Phase::Started);
+}
+
+#[test]
+fn encrypted_profile_requires_secure_boot_and_selected_pcr_policy() {
+    for fault in ["none", "secure-boot", "pcr"] {
+        let (_tmp, _store, mut run, _policy) = fixture();
+        run.root_profile = crate::install::RootProfile::Tpm;
+        let guest = FakeGuest {
+            fault,
+            ..FakeGuest::default()
+        };
+        assert_eq!(verify_root_profile(&run, &guest).is_ok(), fault == "none");
+    }
 }

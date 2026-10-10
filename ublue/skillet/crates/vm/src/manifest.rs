@@ -109,6 +109,8 @@ pub struct VmRun {
     pub owner_uid: u32,
     pub identity: RunIdentity,
     pub environment: Environment,
+    #[serde(default)]
+    pub root_profile: crate::install::RootProfile,
     pub guest_hostname: String,
     pub uuid: Uuid,
     pub connection: Connection,
@@ -167,6 +169,23 @@ impl ManifestStore {
         ssh_port: u16,
         source_commit: &str,
     ) -> Result<VmRun> {
+        self.prepare_intent_with_profile(
+            identity,
+            connection,
+            ssh_port,
+            source_commit,
+            crate::install::RootProfile::Unencrypted,
+        )
+    }
+
+    pub fn prepare_intent_with_profile(
+        &self,
+        identity: &RunIdentity,
+        connection: Connection,
+        ssh_port: u16,
+        source_commit: &str,
+        root_profile: crate::install::RootProfile,
+    ) -> Result<VmRun> {
         if !(2200..=2299).contains(&ssh_port) || source_commit.trim().is_empty() {
             return Err(Error::Invalid(
                 "invalid SSH port or empty source revision for VM creation".into(),
@@ -191,6 +210,7 @@ impl ManifestStore {
                 && existing.connection == connection
                 && existing.ssh.port == ssh_port
                 && existing.source_commit == source_commit
+                && existing.root_profile == root_profile
             {
                 return Ok(existing);
             }
@@ -205,6 +225,7 @@ impl ManifestStore {
             owner_uid: self.owner_uid,
             identity: identity.clone(),
             environment: Environment::Test,
+            root_profile,
             guest_hostname: identity.domain_name(),
             uuid: Uuid::new_v4(),
             connection,
@@ -463,6 +484,18 @@ impl ManifestStore {
         ] {
             reject_symlinks(path)?;
         }
+        if run.root_profile == crate::install::RootProfile::Tpm {
+            reject_symlinks(&crate::install::nvram_path(run)?)?;
+            reject_symlinks(&crate::install::tpm_path(run)?)?;
+            reject_symlinks(&dir.join("serial.log"))?;
+            for name in [
+                "recovery",
+                "recovery/root-recovery.key",
+                "recovery/root-luks.header",
+            ] {
+                reject_symlinks(&dir.join(name))?;
+            }
+        }
         for hashes in [&run.captured, &run.deployed].into_iter().flatten() {
             if !valid_hash(&hashes.host) || !valid_hash(&hashes.generic) {
                 return Err(Error::Invalid("artifact hashes must be SHA256".into()));
@@ -511,6 +544,7 @@ impl ManifestStore {
             owner_uid: self.owner_uid,
             identity: identity.clone(),
             environment: Environment::Test,
+            root_profile: crate::install::RootProfile::Unencrypted,
             guest_hostname: identity.domain_name(),
             uuid,
             connection: Connection {
