@@ -184,3 +184,11 @@ in an instance-scoped vault entry through the same lock and guarded SSH transpor
 It never writes production entries. Archives survive disposal; reusing an instance
 name for a new volume fails until its old entry is explicitly removed. This is
 separate from `encryption-check`'s private disposable two-slot acceptance fixture.
+
+Native TPM-loss acceptance is an explicit test driver using the shared manifest,
+locks, backend and guarded transport. It clones only a stopped base-only
+encrypted VM, records ancestry before mutation, and defines independent TPM
+and NVRAM state. It reuses the cloned guest SSH identity with the already-known
+server key at the new local port. The recovery console is unlogged. Source
+firmware/TPM and vault archives remain intact; normal disposal owns each VM's
+artifacts. A failed recovery retains manifests and ancestry for inspection.

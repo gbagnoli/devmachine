@@ -600,7 +600,7 @@ are saved privately in the run's `serial.log` before SSH is available.
 the independent key, cold-boots the owned VM and checks data persistence.
 Reruns reuse the recovery key. Disposal removes these artifacts. No vault or
 provider credentials are required. Keep production recovery material separately;
-physical installation and production header export are still pending.
+physical installation is still pending.
 
 See the [storage design](../design/storage.md) and
 [encrypted-root plan](../plan/TPM-ENCRYPTED-ROOT.md) for policy and remaining
@@ -628,7 +628,9 @@ Optional `--database` and `--key-file` select another vault. SSH host keys must
 already be recorded. The Password at
 `skillet/hosts/clamps/storage/root-recovery-key` is the passphrase to enter at
 LUKS recovery. Skillet generates it, saves it before enrollment, and verifies
-it against the running root volume. Repeat runs verify the existing key;
+it against the running root volume. The verified LUKS header is stored as the encrypted `root-luks.header`
+attachment on the same entry. Repeat runs verify the existing key and refresh
+the header after enrollment changes;
 a different volume is rejected. No key is printed or written to workstation
 plaintext files. Back up the vault off the host before relying on it.
 
@@ -649,3 +651,37 @@ own disposable key and enforces exactly two slots; use a fresh instance for
 that acceptance scenario rather than combining both enrollment workflows.
 Header backup/export and physical recovery acceptance remain pending.
 See [storage decisions](../design/storage.md).
+
+### Native TPM-loss recovery acceptance
+
+Use fresh instance names and free ports. Start from a base-only VM with no
+provider credentials; keep another smoke VM on its own port. From `skillet/`:
+
+```bash
+cargo run --release -p skillet -- test vm create clamps header-recovery --root-profile tpm --port 2202
+cargo run --release -p skillet -- test vm recovery-key clamps header-recovery
+cargo run --release -p skillet_workstation --example tpm_recovery -- ../butane clamps header-recovery tpm-loss 2203 clone
+cargo run --release -p skillet_workstation --example tpm_recovery -- ../butane clamps header-recovery tpm-loss 2203 unlock
+cargo run --release -p skillet_workstation --example tpm_recovery -- ../butane clamps header-recovery tpm-loss 2203 rebind
+cargo run --release -p skillet_workstation --example tpm_recovery -- ../butane clamps header-recovery tpm-loss 2203 verify
+cargo run --release -p skillet -- test vm destroy clamps tpm-loss
+cargo run --release -p skillet -- test vm destroy clamps header-recovery
+```
+
+The driver uses the normal vault cache. `clone` tests header restoration on a
+fresh tmpfs regular-file fixture and creates a stopped disk clone with a fresh
+TPM. `unlock` proves automatic unlock fails, then sends the vault passphrase
+through an unlogged console. `rebind` verifies the new TPM before removing the
+old binding, saves a separate replacement header archive and starts a cold boot.
+`verify` checks unattended boot, volume identity, data sentinel, keyslots and
+the original source TPM unlock path.
+No passwords, headers or console transcripts are printed. Source and clone
+archives survive VM disposal; remove an old instance's entry before reusing
+its name for a new disk. Interrupted tests retain owned artifacts. To return
+the restarted source to Ready, use `test vm ready HOST SOURCE`.
+
+For physical recovery, retrieve the Password and attachment from the backed-up
+vault on an independent machine. Enter the Password at the LUKS boot prompt.
+Header restoration is a separate destructive rescue operation: verify the
+volume/disk identity before restoring it, and never restore a header onto a
+running root volume. Physical TPM replacement acceptance remains pending.

@@ -205,3 +205,14 @@ VM disposal retains vault archives deliberately, so new disks require an explici
 archive removal or a fresh instance name. Keys travel only through verified SSH
 stdin and a restricted guest `/run` file removed after use. This workflow requires
 provisioning-time noninteractive sudo and precedes access finalization.
+
+LUKS headers are protected binary attachments named `root-luks.header` beside
+their volume-bound recovery passphrase. The atomic KDBX writer reopens and
+compares both passphrase and attachment before publishing. Plaintext header
+capture stays in guest tmpfs and workstation memory; the portable backup is
+the encrypted vault. Verified legacy entries without an attachment are upgraded
+by the same recovery-key command. Re-running refreshes changed enrollment
+metadata. Disk-clone acceptance retains separate source and replacement archives.
+
+Historical headers retain their keyslots, so encrypted vault backups remain
+sensitive after a key is retired.

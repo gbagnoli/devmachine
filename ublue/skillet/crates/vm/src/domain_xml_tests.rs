@@ -75,6 +75,15 @@ fn encrypted_xml_owns_firmware_and_tpm_and_refuses_other_state() {
             & 0o777,
         0o600
     );
+    let recovery_path =
+        write_recovery_domain_xml(&store, &run, Path::new("/usr/bin/true")).unwrap();
+    let recovery_xml = fs::read_to_string(recovery_path).unwrap();
+    assert!(!recovery_xml.contains("<log"));
+    assert!(recovery_xml.contains("<serial type=\"pty\""));
+    parse_domain(&recovery_xml, "defined".into())
+        .unwrap()
+        .validate_owned(&run)
+        .unwrap();
     let mut flatpak = run.clone();
     flatpak.connection.backend = Backend::Flatpak;
     let xml = render(&flatpak, Path::new("/not-a-native-emulator")).unwrap();

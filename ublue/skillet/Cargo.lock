@@ -2552,6 +2552,7 @@ dependencies = [
  "hex",
  "keepass",
  "keyutils",
+ "nix",
  "reqwest",
  "rpassword",
  "serde",
@@ -2565,6 +2566,7 @@ dependencies = [
  "skillet_vm",
  "tempfile",
  "thiserror 1.0.69",
+ "uuid",
  "zeroize",
 ]
 

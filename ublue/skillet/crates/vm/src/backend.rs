@@ -374,6 +374,24 @@ impl<E: VirshExecutor> VirshBackend<E> {
         self.invoke(&["--version"])
     }
 
+    /// Resolve an unlogged native recovery PTY with ownership checked around inspection.
+    pub fn recovery_console(&self, run: &VmRun) -> Result<PathBuf> {
+        self.validate_connection(run)?;
+        if run.connection.backend != Backend::Native {
+            return Err(Error::Invalid(
+                "recovery console acceptance currently requires native libvirt".into(),
+            ));
+        }
+        self.inspect(run)?
+            .ok_or_else(|| Error::Invalid("recovery VM is absent".into()))?
+            .validate_owned(run)?;
+        let xml = self.invoke(&["dumpxml", &run.uuid.to_string()])?;
+        self.inspect(run)?
+            .ok_or_else(|| Error::Invalid("recovery VM disappeared".into()))?
+            .validate_owned(run)?;
+        parse_recovery_console(&xml)
+    }
+
     pub fn verify_tpm_support(&self) -> Result<()> {
         crate::firmware::verify_capabilities(
             &self.invoke(&["domcapabilities", "--machine", "q35"])?,
@@ -482,7 +500,47 @@ struct DevicesXml {
     #[serde(rename = "disk", default)]
     disks: Vec<DiskXml>,
     tpm: Option<TpmXml>,
+    #[serde(rename = "serial", default)]
+    serials: Vec<SerialXml>,
 }
+#[derive(Deserialize)]
+struct SerialXml {
+    #[serde(rename = "@type")]
+    kind: String,
+    source: Option<SerialSourceXml>,
+    log: Option<serde::de::IgnoredAny>,
+}
+#[derive(Deserialize)]
+struct SerialSourceXml {
+    #[serde(rename = "@path")]
+    path: PathBuf,
+}
+fn parse_recovery_console(xml: &str) -> Result<PathBuf> {
+    let domain: DomainXml = quick_xml::de::from_str(xml)?;
+    let serials = domain.devices.serials;
+    let [serial] = serials.as_slice() else {
+        return Err(Error::Invalid(
+            "recovery requires a single serial console".into(),
+        ));
+    };
+    if serial.kind != "pty" || serial.log.is_some() {
+        return Err(Error::Invalid(
+            "recovery requires an unlogged PTY console".into(),
+        ));
+    }
+    let path = serial
+        .source
+        .as_ref()
+        .ok_or_else(|| Error::Invalid("recovery PTY source is absent".into()))?
+        .path
+        .clone();
+    let suffix = path.strip_prefix("/dev/pts").ok().and_then(|p| p.to_str());
+    if !suffix.is_some_and(|s| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit())) {
+        return Err(Error::Invalid("invalid recovery PTY path".into()));
+    }
+    Ok(path)
+}
+
 #[derive(Deserialize)]
 struct DiskXml {
     #[serde(rename = "@device")]
