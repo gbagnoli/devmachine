@@ -293,12 +293,38 @@ fn recovery_store_round_trips_pending_and_verified_metadata_without_rotation() {
         key: Zeroizing::new("b".repeat(128)),
         volume: "12345678-1234-1234-1234-123456789abc".into(),
         verified: false,
+        header: None,
     };
     store.save(entry, &record).unwrap();
     assert!(!store.load(entry).unwrap().unwrap().verified);
     record.verified = true;
+    record.header = Some(Zeroizing::new(b"sensitive binary header fixture".to_vec()));
     store.save(entry, &record).unwrap();
+    assert_eq!(store.load(entry).unwrap().unwrap().header, record.header);
+    let before = std::fs::read(&path).unwrap();
+    store
+        .vault
+        .set_attachment(
+            entry,
+            crate::root_recovery::HEADER_ATTACHMENT,
+            b"wrong attachment",
+        )
+        .unwrap();
+    assert!(store
+        .vault
+        .save_verified_attachment(
+            None,
+            entry,
+            &record.key,
+            crate::root_recovery::HEADER_ATTACHMENT,
+            record.header.as_ref().unwrap()
+        )
+        .is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), before);
     let encrypted = std::fs::read(path).unwrap();
+    assert!(!encrypted
+        .windows(b"sensitive binary header fixture".len())
+        .any(|chunk| chunk == b"sensitive binary header fixture"));
     let reopened = Database::open(
         &mut encrypted.as_slice(),
         DatabaseKey::new().with_password("fixture unlock"),
