@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Compatibility entry point only. Rust validates ownership and retained state.
+if (($# != 1)); then
+  echo "Usage: $0 RUN_DIR" >&2
+  exit 2
+fi
+script_dir="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+run_dir="$(realpath -e "$1")"
+cd "$script_dir/../../skillet"
+exec cargo run --quiet --release -p skillet -- test vm ready-directory "$run_dir"

@@ -1,0 +1,12 @@
+[package]
+name = "skillet-beezelbot"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+skillet_cli_common.workspace = true
+skillet_hardening.workspace = true
+anyhow = "1.0"

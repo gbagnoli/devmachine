@@ -1,0 +1,36 @@
+[package]
+name = "skillet"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+zeroize = "1.9"
+osc8.workspace = true
+pulldown-cmark.workspace = true
+supports-hyperlinks.workspace = true
+skillet_cli_common.workspace = true
+skillet_hosts.workspace = true
+skillet_caddy.workspace = true
+skillet_podman.workspace = true
+skillet_core.workspace = true
+skillet_vm.workspace = true
+skillet_workstation.workspace = true
+clap.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow = "1.0"
+keepass.workspace = true
+rpassword.workspace = true
+keyutils.workspace = true
+hex.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+skillet_core = { workspace = true, features = ["test-utils"] }

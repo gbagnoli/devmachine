@@ -1,0 +1,21 @@
+[package]
+name = "skillet_vm"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yml.workspace = true
+tempfile.workspace = true
+uuid.workspace = true
+users.workspace = true
+quick-xml.workspace = true
+nix = { workspace = true, features = ["signal", "process"] }
+zeroize = "1.9"
+sha2.workspace = true
+hex.workspace = true

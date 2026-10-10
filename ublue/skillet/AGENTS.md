@@ -1,0 +1,222 @@
+# Skillet Project Constraints & Structure
+
+This document defines the architectural mandates and project structure for `skillet`, a Rust-based idempotent host configuration tool.
+
+## Core Mandates
+
+### 1. Error Handling & Safety
+- **Libraries MUST use `thiserror`** for custom error types.
+- **Libraries MUST NOT use `anyhow`**. `anyhow` is reserved for the CLI binary only.
+- **NEVER use `unwrap()` or `expect()`** in library code. All errors must be propagated and handled.
+- **Prioritize Crates over Shell-out**: Use Rust crates (e.g., `users`, `nix`) for system interactions whenever possible instead of executing shell commands.
+- **Never embed shell scripts in Rust string constants or construct shell programs inside Rust.** Use Rust APIs and focused subprocess calls for work owned by Skillet. If a shell script is truly needed, keep it in a standalone script file with its own interface.
+
+### 2. Idempotency
+- All resources (files, users, groups, etc.) must be **idempotent**.
+- Before performing an action, check the current state (e.g., compare SHA256 hashes for files, check existence for users).
+- Actions should only be taken if the system state does not match the desired state.
+- Use the normal blocking `systemctl start` or `restart` command and inspect its
+  result. Do not pass `--wait`: it waits for a started unit to stop and can hang
+  on long-running services or `RemainAfterExit=yes` oneshot units.
+
+### 3. Testing Strategy
+- **Unit Tests**: Place unit tests in a `tests` submodule within each module's directory (e.g., `src/files/tests.rs`).
+- **Separation**: Never put tests in the same `.rs` file as the implementation code. Reference them using `#[cfg(test)] #[path = "MODULE/tests.rs"] mod tests;`.
+- **Abstractions**: Use Traits (e.g., `FileResource`, `SystemResource`) to allow for mocking in higher-level library tests.
+
+### 4. Quality Control & Validation
+- **Formatting & Linting**: Always run `cargo fmt` and `cargo clippy` after making changes to ensure code quality and consistency. **Clippy MUST be run with `pedantic` lints enabled (configured in `Cargo.toml`).**
+- **Verification**: Always run both:
+    - **Unit Tests**: `cargo test --workspace --all-targets`.
+    - **Runtime Smoke**: Run `cargo run --release -p skillet -- test smoke <HOST> --instance <INSTANCE>` against an explicitly named disposable VM with real systemd and Podman for affected container resources. Record the guest state snapshots and failure diagnostics.
+- Acceptance checks distinguish transient staging from durable state, and
+  successful oneshot completion from persistent service activity. Compare
+  identities only after the consumer reaches its stable state.
+- Tests for host-dependent observations must inject or simulate those
+  observations. Do not require a particular workstation port, account, service,
+  or external resource to happen to be available for a unit test.
+
+## Local musl toolchain
+
+- On this workstation, the musl cross compiler is installed under
+  `/opt/x86_64-linux-musl-cross/bin`. Before compiling musl binaries, run:
+  `export PATH=/opt/x86_64-linux-musl-cross/bin:$PATH`.
+- Ensure this PATH is inherited by Cargo and its child build commands. Check
+  the installed Rust target and compiler before reporting musl as unavailable;
+  a missing binary artifact alone does not indicate a missing toolchain.
+
+## Architecture and refactoring rules
+
+Follow [the refactoring roadmap](../plan/SKILLET-REFACTOR.md) before further
+feature milestones. These rules describe the target architecture; the roadmap
+tracks existing violations and their migration, not completed implementation.
+
+- Route effectful observations and mutations through the same explicit
+  boundary. Recipe and orchestration code must not bypass an injected resource
+  interface to inspect the live filesystem, account database, process
+  environment, or runtime. Concrete adapters own those operations; load
+  credentials and ambient configuration at the entry point and pass them in.
+- Keep account lookup, subordinate-ID reads, and account changes injectable.
+  Select one explicit mapping policy and report missing or invalid host
+  identity data instead of silently substituting IDs.
+- Define traits around cohesive capabilities needed by consumers. Add an
+  operation to the capability that owns it, not an unrelated omnibus trait.
+  Use ordinary data and functions for pure validation, rendering, and static
+  recipe composition; do not introduce a trait for every recipe.
+- Keep one authoritative host capability declaration. Application composition,
+  UI exposure, credential requirements, and provisioning eligibility must agree
+  with it. Reject unknown profiles for profile-dependent operations.
+- Keep synthetic smoke/test fixtures outside production host identity and profile
+  dispatch. Invoke them through an explicitly test-scoped command or target.
+- Keep binary entry points thin. Host composition, guest runtime adapters,
+  workstation provisioning, and test fixtures have distinct responsibilities.
+  Extract modules first and crates where dependency or deployment boundaries
+  justify them; production dispatch must not include synthetic test profiles.
+- Keep workstation vault, provider-client, and host-provisioning dependencies
+  behind workstation libraries. Guest apply and credential commands must not
+  require a workstation vault, interactive unlock flow, or provisioning-only
+  API client.
+- Share delivery and lifecycle workflows across environments. Supply explicit
+  policy and target inputs rather than duplicating algorithms or branching on
+  particular deployment names. Keep secret values off command lines and out of
+  manifests, recordings, and errors.
+- Credential-capable transport keeps stdin and captured output in memory.
+  Use the shared verified guest transport for production and VM delivery; pass
+  executable names and arguments as separate values rather than assembling
+  remote command strings in callers.
+  Drain stdout/stderr concurrently with stdin, bound the complete operation
+  including stream completion, and zeroize owned payload copies after transfer.
+- Use a common ownership representation for named and numeric identities.
+  Model application identity, host filesystem ownership, and namespace mapping
+  separately. Existing numeric ownership must not require a named host account.
+- Render machine configuration with the target format's escaping rules;
+  disable HTML escaping for non-HTML templates. Test literal directives
+  through both the renderer and the actual downstream consumer.
+- Match bind-mount sources to the resource helper's convergence contract.
+  A helper that creates directories cannot manage a socket or regular-file
+  source; use an appropriate typed resource or mount its existing directory
+  without changing application-managed metadata. Verify this on the real runtime.
+- Give common configuration fields one authoritative representation. Reject
+  conflicts between typed fields and extension directives; preserve ordering
+  where repeated directives are semantically ordered. Global runtime policy
+  belongs to the host baseline, not an arbitrary container resource.
+- Diagnose container kernel-feature failures against the effective capability,
+  seccomp, mount and LSM policy before declaring the host kernel unsupported.
+  Match syscall allow rules to explicitly selected capabilities; test the
+  smallest policy change and retain restrictions unrelated to the feature.
+- Validate trust-store paths against the deployed OS. A rendered strict TLS
+  directive does not prove the consumer can initialize its TLS engine.
+- Restrict credential-file access to the identities that actually consume them.
+  Test access under the worker identity, rather than inferring it from a
+  successful privileged preparation command.
+- Regenerate volatile credential files before their consumers start. Validate
+  persisted environment policy during both apply and boot preparation; retained
+  queues or application data must not silently cross deployment policies.
+- Authentication-only startup modes may skip later preference flags. Converge
+  persisted preferences through supported consumer commands after readiness,
+  without reusing enrollment credentials or relying solely on initial startup.
+- Discovery acceptance must cover concurrent boot startup as well as steady
+  state. Derive startup ordering from existing caller declarations and keep
+  ordering separate from dependencies that activate optional services; an
+  active observer alone does not prove it discovered the intended workloads.
+- State what every convergence result means. Distinguish definition changes,
+  activation, recovery, and no-op outcomes. Persist applied state only after the
+  consuming operation succeeds and retry pending activation after interruption.
+- Define whether omission means leaving a resource unmanaged or ensuring its
+  absence. Deactivation must be explicit and must preserve application data
+  unless its deletion is authorized.
+- Diagnostic recording must survive apply failures and describe operation
+  outcomes without exposing payloads. Do not treat an attempted operation as
+  proof of a change, success, or idempotence.
+- Fakes and command stubs must honor production contracts for state, metadata,
+  identities, and error/exit semantics. Unsupported behavior must fail explicitly
+  rather than silently succeeding. Use shared contract checks for important
+  adapters and fakes; a mocked runtime does not prove real runtime acceptance.
+- Select build artifacts from Cargo's reported outputs and honor its target,
+  profile, and configured target directory. Do not discover the new build by
+  scanning potentially stale binaries at conventional paths.
+- Compilation and artifact lookup belong to one operation. Consumers use
+  that operation's reported executables and reject incomplete or ambiguous
+  results; do not rebuild in one path and rediscover binaries in another.
+- Reading retained state must not implicitly migrate it. Import legacy formats
+  explicitly, preserve original evidence, and use atomic creation that cannot
+  overwrite a concurrently created authoritative manifest.
+- Serialize lifecycle mutations per run. A successful runtime query must
+  establish absence; transport failure is not absence. Revalidate ownership
+  around each bounded remote operation and after long external calls; do not
+  continue with later operations when an ownership check fails. Address
+  destructive runtime actions by the recorded immutable identity, not only a
+  reusable name.
+- Every VM guest-operation entry point uses the same per-run lock and validates
+  recorded UUID/disk ownership before and after each remote operation. Guest
+  assertion scripts may inspect application state, but lifecycle orchestration,
+  SSH, reboot, retries, and readiness remain with the Rust owner.
+- Persist external cleanup intent before provider mutations. Bind each
+  ownership journal to the complete typed host, environment, and instance
+  identity; reject mismatches on retry and preserve journals when cleanup is
+  incomplete.
+- Verify deployed artifact bytes and required metadata before recording delivery
+  success. Keep original capture evidence distinct from subsequent deployments;
+  a partially successful transfer must remain safely retryable.
+- Readiness verifies authoritative boot and application evidence, not only a
+  marker or successful connection. Supply profile expectations explicitly, keep
+  probes bounded and retain private failure diagnostics without replacing the
+  original error. Refuse further guest contact after ownership is lost.
+- Compatibility entry points obtain identity from validated recorded fields;
+  do not reconstruct independent identity parsers from composite resource names.
+- Remove recovery metadata only after owned artifact deletion succeeds, too.
+  A recursive directory deletion must not erase its own retry journal before
+  discovering that a later child cannot be removed.
+- Keep subprocess adapters focused: construct executable arguments and
+  environments directly, observe results, and bound waits with diagnostics.
+  Preserve supported workstation backends and static guest builds without
+  installing tools as part of a refactor.
+- Validate isolation policies before importing sensitive application state.
+  Prove management connectivity across activation and reboot, respect kernel
+  hook ordering, and prepare recovery while the guest is still empty. Cancel
+  any automatic policy rollback before restoring production state; a recovery
+  mechanism must not silently reconnect a restored test copy to live services.
+- CI must cover executable helpers regardless of filename extension and must
+  run relevant checks when their shared inputs change. Keep routine CI free of
+  private credentials and external API access; record live acceptance separately.
+
+## Testing Philosophy
+
+Skillet uses a multi-layered testing approach to ensure reliability and idempotency:
+
+1.  **Trait-based Abstraction**: Core resources (`FileResource`, `SystemResource`) are defined as traits. This allows for easy mocking using `MockFiles` and `MockSystem` in unit tests.
+2.  **Diagnostic Recorder**: `apply --record PATH` can capture attempted resource operations for investigation. Recording equality is not an acceptance check.
+3.  **Real Runtime Smoke**: `test smoke` exercises the namespaced synthetic fixture; `--with-applications` additionally checks the actual services selected from the canonical host profile. The Rust lifecycle owner guards SSH, upload, reboot, retry, and readiness. Application mode compares managed configuration and metadata, runtime identity, declared network/listeners, and a data marker across repeat apply and reboot.
+
+## Project Structure
+
+The project is organized as a Cargo workspace:
+
+```text
+skillet/
+├── Cargo.toml          # Workspace configuration
+├── AGENTS.md           # Project mandates
+└── crates/
+    ├── core/           # Effect interfaces and idempotent primitives
+    ├── host-profiles/  # Canonical host capabilities and composition
+    ├── vm/             # Manifest, backend, transport and lifecycle
+    ├── workstation/    # Vault, provider, delivery and enrollment
+    ├── podman/         # Typed Podman configuration/runtime model
+    ├── btrbk/          # Caller-selected Btrfs snapshot configuration
+    ├── caddy/          # Private UI routes and reverse proxy configuration
+    ├── pihole/         # Pi-hole service configuration
+    ├── syncthing/      # Syncthing service configuration
+    ├── unifi/          # UniFi service configuration
+    ├── hardening/      # Shared baseline configuration
+    ├── test-fixture/   # Synthetic smoke-only host binary
+    ├── cli-common/     # Shared guest apply/credential handling
+    ├── cli/            # Workstation and guest CLI entry point
+    └── hosts/
+        ├── clamps/     # skillet-clamps host entry point
+        └── beezelbot/  # skillet-beezelbot host entry point
+```
+
+## Module Design
+- **Service Modules**: Service crates compose shared primitives and own their application configuration. Supporting libraries own cohesive runtime, host-profile, or workstation responsibilities.
+- **Binary per Host**: Host binaries select a shared canonical profile. Keep their behavior consistent with the generic entry point; do not duplicate recipe composition between binaries.
+- **Core Primitives**: Found in `skillet_core`, providing the building blocks for all modules.

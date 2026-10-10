@@ -1,0 +1,15 @@
+[package]
+name = "skillet-clamps"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+skillet_cli_common.workspace = true
+skillet_hardening.workspace = true
+skillet_pihole.workspace = true
+skillet_core.workspace = true
+skillet_podman.workspace = true
+anyhow = "1.0"

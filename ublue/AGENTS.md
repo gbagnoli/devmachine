@@ -1,0 +1,147 @@
+# uBlue agent instructions
+
+## Current priority
+
+- Complete the seven workstreams in [the Skillet refactoring roadmap](plan/SKILLET-REFACTOR.md)
+  before proceeding with further service migrations, encryption features, or
+  production cutover. VM management's Bash-to-Rust migration is included.
+- Follow the roadmap's ordering and validation gates. Existing feature plans
+  retain their unfinished work but are gated by this prerequisite. Fixes and
+  acceptance work necessary to complete the refactoring are in scope.
+
+## Design documentation
+
+- Maintain the repository-root [secrets checklist](../SECRETS.md) whenever a
+  vault entry or secret requirement is added, changed, or removed. Group entries
+  by module in alphabetical order. Keep explanations brief; include the exact
+  path, required/optional/generated status, where to obtain the value or a short
+  setup link, and whether it belongs in Username or Password. Distinguish planned
+  requirements from implemented ones; never include real credentials or private
+  identifiers.
+- The checklist and `secrets check` share
+  `skillet/crates/workstation/src/secret-requirements.json`. Update that metadata
+  and regenerate `SECRETS.md` with `cargo run -p skillet_workstation --example
+  secrets_documentation` from the Skillet workspace (redirect output to the
+  repository-root file). Keep template-reference coverage and the documentation
+  equality test passing. Required checks follow selected host capabilities and the actual environment
+  delivery policy; isolated test modes must not require unused provider credentials.
+  Structured vault entries must declare each required standard/custom field and
+  its validation in the shared audit metadata; keep single-value entry behavior
+  compatible, and never include field values in audit output or errors.
+  Unused-entry auditing must consider all declared hosts and both environments,
+  including optional/generated entries and retained migration readers.
+
+- Read the relevant documents in [design/](design/) before changing architecture
+  or behavior they describe, including [secrets](design/secrets.md) and
+  [smoke VM lifecycle](design/smoke-vms.md).
+- Keep those documents updated in the same change as the implementation or
+  decision they describe. Clearly distinguish planned from implemented behavior.
+- Record new architectural decisions in `ublue/design/`, updating an existing
+  document when appropriate or adding a short document for a new topic.
+- Keep design documents brief: describe the decision, why it was chosen, and
+  material consequences. Keep setup and usage instructions in READMEs, with
+  links to the relevant designs instead of duplicated rationale.
+
+## Implementation plans
+
+- Keep implementation plans in [plan/](plan/), not in the `ublue/` root.
+- Read relevant plans before starting work and update their remaining steps,
+  status, and links as work progresses. Plans describe tasks and acceptance
+  criteria; architectural decisions and rationale belong in `design/`.
+- Remove completed or superseded plans after preserving any unfinished work
+  in an active plan. Retain implementation evidence in the relevant acceptance
+  record; do not label unverified checks as passed.
+- Each refactoring handoff must name the implemented slice, remaining work,
+  interface changes, and validation evidence. Record the general prevention
+  rule in the applicable `AGENTS.md` when an architectural defect is corrected;
+  keep incident-specific details in designs, plans, or acceptance records.
+
+## Shared infrastructure boundaries
+
+- Authentication finalization must follow explicit provisioning completion, not
+  base readiness. One-time account mutations need durable recovery state and
+  must preserve later operator password changes; routine apply must not reopen
+  temporary privileged access or repeat password expiry.
+
+- Optional services require explicit selection in the canonical host caller
+  declaration. Shared baseline services retain their common defaults; the
+  presence of environment configuration or credentials must not enable an
+  optional service implicitly.
+- Service modules own their monitoring declarations. Monitoring consumes the
+  same selected services as application composition; do not maintain an
+  independent monitoring inventory or place credentials in discovery metadata.
+
+- Shared helpers receive identity and configuration from validated inputs or
+  declarations. Keep deployment-specific assumptions in the selected profile;
+  do not bake them into generic readiness, delivery, or lifecycle code.
+- Keep clear configuration policy in reviewed source templates and secret
+  leaves in the vault. Resolve secrets through typed references at the
+  workstation boundary; do not store whole configuration documents in the
+  vault or interpolate secret text into configuration strings. Record template
+  behavior and schema changes in the relevant design document.
+- Scope vault credentials to their actual provider/account needs; do not
+  require separate copies by environment when a shared credential is intended.
+  Keep public endpoint/site choices in configuration, with documented defaults.
+- Give each resource lifecycle one owner. Every public entry point must use
+  the same ownership validation, recovery, and cleanup policy; transport
+  adapters must not provide a shortcut that bypasses those guarantees.
+- Removing an optional generated configuration section must tolerate its
+  absence, while rejecting malformed present sections. Cover fresh inputs and
+  retained compatibility inputs through the actual staging/compiler path.
+- Installation profiles are explicit and independent of host identity. Preserve
+  compatible defaults and reject missing prerequisites rather than silently
+  weakening a requested security policy. Convergence never reformats live data.
+- Preserve downstream schema types when parsing and re-emitting configuration.
+  Validate staged output with the actual consumer/compiler where possible, not
+  only with a parser round trip.
+- Do not assume package directories under mutable OS paths are initialized by
+  an image build or rebase. Converge required state directories, ownership and
+  security labels before confined service startup; test from absent package state.
+- Before activating a unit with multiple credential prerequisites, deliver the
+  complete credential set first. Cover activation from a fresh host where the
+  consumer service and its containers do not yet exist.
+- Keep shell entry points as narrow argument adapters when Rust owns a
+  lifecycle. Backend selection, resource inspection, retries, and cleanup
+  belong to the shared Rust owner rather than being duplicated in wrappers.
+- VM guest operations hold the per-run lock and revalidate the recorded domain
+  identity immediately before and after each remote operation. Consumers load
+  target details from the typed manifest; they do not launch compatibility
+  wrappers for status checks or reparse legacy run files.
+- Keep host profile, environment, deployment instance, runtime identity, and
+  connection target distinct. Derive conventions in one place and persist the
+  resolved values needed for recovery.
+- File and directory mutations use the same typed ownership contract for
+  named and numeric UID/GID values. Numeric ownership must not require a host
+  account lookup; preserve omitted metadata fields on existing paths.
+- Persist independently usable recovery credentials before enrolling them. Bind
+  recovery records to the resource identity, retain pending state for retries,
+  and refuse silent replacement or re-enrollment of verified credentials.
+- Persist ownership before mutations and preserve it across partial failures.
+  Cleanup must tolerate already-absent owned resources while refusing ambiguous
+  or unrelated resources. Remove recovery metadata only after cleanup completes.
+- Compatibility-sensitive refactors must preserve retained artifacts and
+  manifests through an explicit migration; never infer that existing state is
+  disposable merely because its format is old.
+
+## Local validation before commit
+
+- Compare CI and local Rust/Clippy versions when diagnosing lint failures.
+  Validate fixes with CI's toolchain version; an older local toolchain passing
+  does not verify lints added in a newer release.
+- Before committing, run the CI checks that apply to the changed paths locally
+  and resolve failures first. For Skillet changes, run
+  `cargo fmt --all -- --check`,
+  `cargo clippy --workspace --all-targets -- -D warnings`,
+  `cargo test --workspace --all-targets`, and
+  `cargo run --bin skillet -- test run beezelbot --phase base --image fedora:latest`
+  from `.github/workflows/ci.yml`. For shell changes, run the workflow's
+  ShellCheck commands; for Python or Chef changes, run the corresponding
+  Ruff/Mypy or Cookstyle commands.
+- When Butane bootstrap inputs or tests change, also run
+  `bash ublue/butane/tests/bootstrap.sh` from the repository root. CI must
+  execute state-regression scripts as tests, not only lint their source.
+- For changes to container behavior, also run the affected host's real-runtime
+  smoke test against a named disposable VM as required by `skillet/AGENTS.md`.
+- If a required check cannot run because a tool, runtime, or external service
+  is unavailable, record the exact reason and report the check as unverified;
+  do not describe it as passing or commit as though it passed.

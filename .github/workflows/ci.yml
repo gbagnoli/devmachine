@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, skillet ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, skillet ]
 
 jobs:
   chef-lint:
@@ -47,5 +47,65 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run ShellCheck
         run: |
-          find . -name "*.sh" -not -path "./.venv/*" -not -path "./berks-cookbooks/*" -exec shellcheck -x {} +
-          shellcheck -x run
+          find . -type f \
+            \( -name '*.sh' -o -name run -o -name butane -o -name flatpak-virt \
+               -o -name test-vm -o -name test-vm-ready -o -name virsh -o -name virt-install \
+               -o -name setup-llama-server -o -name update-llama \) \
+            -not -path './.git/*' -not -path './.venv/*' -not -path './berks-cookbooks/*' \
+            -not -path '*/target/*' -not -path './ublue/llama/files/update-llama' \
+            -exec shellcheck -x {} +
+          # This desktop helper intentionally ignores a failed best-effort stop.
+          shellcheck -x --exclude=SC2015 ublue/llama/files/update-llama
+
+  skillet-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            rust:
+              - 'ublue/skillet/**'
+              - 'ublue/butane/**'
+              - 'ublue/AGENTS.md'
+              - '.github/workflows/ci.yml'
+      
+      - name: Set up Rust
+        if: steps.filter.outputs.rust == 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: x86_64-unknown-linux-musl
+
+      - name: Install musl linker
+        if: steps.filter.outputs.rust == 'true'
+        run: sudo apt-get update && sudo apt-get install --yes musl-tools
+
+      - name: Rust Cache
+        if: steps.filter.outputs.rust == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ublue/skillet
+
+      - name: Run Clippy
+        if: steps.filter.outputs.rust == 'true'
+        run: cd ublue/skillet && cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Check formatting
+        if: steps.filter.outputs.rust == 'true'
+        run: cd ublue/skillet && cargo fmt --all -- --check
+
+      - name: Run Unit Tests
+        if: steps.filter.outputs.rust == 'true'
+        run: cd ublue/skillet && cargo test --workspace --all-targets
+
+      - name: Run Integration Tests
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          cargo run --bin skillet -- test run beezelbot --phase base --image fedora:latest
+
+      - name: Run bootstrap state regressions
+        if: steps.filter.outputs.rust == 'true'
+        run: bash ublue/butane/tests/bootstrap.sh

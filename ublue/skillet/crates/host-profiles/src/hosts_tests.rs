@@ -1,0 +1,512 @@
+use super::{
+    profile::{
+        AcceptanceOwner, HostId, HostProfile, HostService, NetworkPolicy, ServiceConfig,
+        UiServiceDeclaration,
+    },
+    tailscale_config, ui_config_for_host, TAILSCALE_AUTH_KEY_CREDENTIAL,
+};
+use skillet_core::{
+    credentials::CredentialInputs, files::LocalFileResource, test_utils::MockSystem,
+};
+use skillet_podman::SecretTarget;
+
+#[test]
+fn datadog_is_optional_and_separately_credential_gated() {
+    let files = skillet_core::test_utils::MockFiles::new();
+    let system = MockSystem::new();
+    assert!(super::apply_host_phase(
+        "clamps",
+        super::HostApplyPhase::Datadog,
+        &system,
+        &files,
+        &CredentialInputs::default()
+    )
+    .is_err());
+    assert!(files.files.lock().unwrap().is_empty());
+    assert!(system.podman_secrets.lock().unwrap().is_empty());
+    let clamps = super::profile_for_name("clamps").unwrap();
+    assert!(clamps.supports_service("datadog"));
+    assert!(!super::profile_for_name("beezelbot")
+        .unwrap()
+        .supports_service("datadog"));
+    assert_eq!(
+        super::credentials_for_phase("clamps", super::HostApplyPhase::Datadog).unwrap(),
+        ["datadog_config"]
+    );
+    assert!(
+        !super::credentials_for_phase("clamps", super::HostApplyPhase::Full)
+            .unwrap()
+            .contains(&"datadog_config")
+    );
+    assert!(clamps
+        .acceptance_plan()
+        .services
+        .iter()
+        .all(|service| service.unit != "datadog-agent.service"));
+}
+
+#[test]
+fn boot_expectations_are_profile_inputs_and_unknown_profiles_are_refused() {
+    let clamps = super::boot_policy_for_host("clamps").unwrap();
+    assert_eq!(clamps.signed_image, "ghcr.io/gbagnoli/ucore-clamps");
+    assert_eq!(clamps.masked_units, ["systemd-resolved.service"]);
+    let other = super::boot_policy_for_host("beezelbot").unwrap();
+    assert_eq!(other.masked_units, [] as [&str; 0]);
+    assert!(super::boot_policy_for_host("clamps-test-smoke").is_none());
+    assert!(super::boot_policy_for_host("unknown").is_none());
+}
+
+#[test]
+fn clamps_tailscale_uses_host_network_and_persistent_state() {
+    let config = tailscale_config(
+        "clamps-test-smoke",
+        "test-auth-key".to_string(),
+        "/var/lib/data/tailscale",
+        false,
+    );
+
+    assert_eq!(config.name, "tailscale");
+    assert_eq!(config.image, "docker.io/tailscale/tailscale:stable");
+    assert_eq!(
+        config.network_attachments,
+        [skillet_podman::NetworkAttachment::Host]
+    );
+    assert_eq!(config.volumes.len(), 1);
+    assert_eq!(config.volumes[0].host_path, "/var/lib/data/tailscale");
+    assert_eq!(config.volumes[0].container_path, "/var/lib/tailscale");
+    let container = &config.extra_config["Container"];
+    assert!(container.contains(&"ContainerName=tailscale".to_string()));
+    assert_eq!(
+        config.network_attachments,
+        [skillet_podman::NetworkAttachment::Host]
+    );
+    assert!(container.contains(&"AddCapability=NET_ADMIN".to_string()));
+    assert!(container.contains(&"AddCapability=NET_RAW".to_string()));
+    assert!(container.contains(&"AddDevice=/dev/net/tun:/dev/net/tun".to_string()));
+    assert!(container.contains(&"Environment=TS_AUTH_ONCE=true".to_string()));
+    assert!(container.contains(&"Environment=TS_ACCEPT_DNS=false".to_string()));
+    assert!(container.contains(&"Environment=TS_HOSTNAME=clamps-test-smoke".to_string()));
+    assert!(config.secrets.iter().any(|secret| {
+        secret.secret_name == TAILSCALE_AUTH_KEY_CREDENTIAL
+            && matches!(
+                &secret.target,
+                SecretTarget::Environment { env_var_name } if env_var_name == "TS_AUTHKEY"
+            )
+    }));
+}
+
+#[test]
+fn profile_capabilities_are_the_authority_for_services_credentials_network_and_snapshots() {
+    let clamps = super::profile_for_name("clamps").unwrap();
+    assert_eq!(
+        clamps
+            .services
+            .iter()
+            .map(HostService::name)
+            .collect::<Vec<_>>(),
+        [
+            "pihole",
+            "tailscale",
+            "syncthing",
+            "unifi",
+            "ddns",
+            "datadog",
+            "btrbk",
+            "smtp"
+        ]
+    );
+    let credentials = clamps.credential_consumers();
+    assert!(credentials.iter().any(|use_| {
+        use_.credential == super::PIHOLE_WEB_PASSWORD_CREDENTIAL && use_.unit == "pihole.service"
+    }));
+    assert!(credentials.iter().any(|use_| {
+        use_.credential == super::TAILSCALE_AUTH_KEY_CREDENTIAL && use_.unit == "tailscale.service"
+    }));
+    assert!(credentials.iter().any(|use_| {
+        use_.credential == super::CLOUDFLARE_ACME_TOKEN_CREDENTIAL && use_.unit == "caddy.service"
+    }));
+    assert_eq!(
+        clamps.btrbk_config().unwrap().snapshot_subvolumes,
+        [std::path::PathBuf::from("syncthing")]
+    );
+    assert_eq!(clamps.signed_image, Some("ghcr.io/gbagnoli/ucore-clamps"));
+    assert_eq!(clamps.masked_units, ["systemd-resolved.service"]);
+    assert!(clamps.requires_data_mount);
+    assert!(clamps.requires_pihole_dns_listener_policy());
+    let network = clamps.service_network();
+    assert!(network.options.contains(&"IPv6=true".to_string()));
+    assert!(network
+        .options
+        .contains(&"Subnet=172.26.26.0/24".to_string()));
+    assert!(network
+        .options
+        .contains(&"Subnet=fd59:4e23:2950:11f5::/64".to_string()));
+
+    let beezelbot = super::profile_for_name("beezelbot").unwrap();
+    assert_eq!(beezelbot.services.len(), 2);
+    assert!(beezelbot.supports_service("syncthing"));
+    assert!(!beezelbot.supports_service("pihole"));
+    assert!(beezelbot.btrbk_config().is_none());
+    assert_eq!(
+        beezelbot.signed_image,
+        Some("ghcr.io/gbagnoli/ucore-beezelbot")
+    );
+    assert_eq!(beezelbot.masked_units, [] as [&str; 0]);
+    assert!(beezelbot.requires_data_mount);
+    assert!(!beezelbot.requires_pihole_dns_listener_policy());
+    assert_eq!(
+        beezelbot.credential_consumers(),
+        [
+            super::CredentialConsumer {
+                credential: skillet_smtp::CREDENTIAL,
+                unit: "postfix.service"
+            },
+            super::CredentialConsumer {
+                credential: super::CADDY_SITES_CREDENTIAL,
+                unit: "caddy.service",
+            },
+            super::CredentialConsumer {
+                credential: super::CLOUDFLARE_ACME_TOKEN_CREDENTIAL,
+                unit: "caddy.service",
+            }
+        ]
+    );
+}
+
+#[test]
+fn agent_baseline_declares_no_ui_or_credentials_and_unknown_full_profiles_fail() {
+    let baseline = super::profile_for_name("agent").unwrap();
+    assert_eq!(baseline.services, Vec::<HostService>::new());
+    assert_eq!(
+        baseline.ui_services(),
+        Vec::<skillet_caddy::UiService>::new()
+    );
+    assert_eq!(
+        baseline.credential_consumers(),
+        Vec::<super::CredentialConsumer>::new()
+    );
+    assert!(super::ui_config_for_host("agent").is_none());
+    let system = MockSystem::new();
+    let files = LocalFileResource::new();
+    assert!(matches!(
+        super::apply_host(
+            "unknown-host",
+            &system,
+            &files,
+            &CredentialInputs::default()
+        ),
+        Err(super::ApplyError::UnknownHost(_))
+    ));
+    assert!(system.podman_secrets.lock().unwrap().is_empty());
+}
+
+#[test]
+fn credential_values_are_selected_by_host_and_apply_phase() {
+    assert_eq!(
+        super::credentials_for_phase("clamps", super::HostApplyPhase::Ddns).unwrap(),
+        [super::CLOUDFLARE_DDNS_CONFIG_CREDENTIAL]
+    );
+    assert_eq!(
+        super::credentials_for_phase("clamps", super::HostApplyPhase::Base).unwrap(),
+        Vec::<&str>::new()
+    );
+    assert_eq!(
+        super::credentials_for_phase("clamps", super::HostApplyPhase::Full).unwrap(),
+        [
+            super::PIHOLE_WEB_PASSWORD_CREDENTIAL,
+            super::TAILSCALE_AUTH_KEY_CREDENTIAL
+        ]
+    );
+    assert_eq!(
+        super::credentials_for_phase("clamps", super::HostApplyPhase::Caddy).unwrap(),
+        [
+            super::CADDY_SITES_CREDENTIAL,
+            super::CLOUDFLARE_ACME_TOKEN_CREDENTIAL
+        ]
+    );
+    assert_eq!(
+        super::credentials_for_phase("beezelbot", super::HostApplyPhase::Full).unwrap(),
+        Vec::<&str>::new()
+    );
+    assert!(super::credentials_for_phase("unknown", super::HostApplyPhase::Base).is_err());
+}
+
+#[test]
+fn ddns_is_caller_selected_and_independently_credential_gated() {
+    let system = MockSystem::new();
+    let files = skillet_core::test_utils::MockFiles::new();
+    let credentials = CredentialInputs::default();
+    assert!(super::apply_host_phase(
+        "clamps",
+        super::HostApplyPhase::Ddns,
+        &system,
+        &files,
+        &credentials
+    )
+    .is_err());
+    assert!(super::apply_host_phase(
+        "beezelbot",
+        super::HostApplyPhase::Ddns,
+        &system,
+        &files,
+        &credentials
+    )
+    .is_err());
+    assert!(system.podman_secrets.lock().unwrap().is_empty());
+    assert!(files.files.lock().unwrap().is_empty());
+    let profile = super::profile_for_name("clamps").unwrap();
+    assert!(profile.supports_service("ddns"));
+    assert!(!profile
+        .acceptance_plan()
+        .services
+        .iter()
+        .any(|service| service.unit == "cloudflare-ddns.service"));
+    assert!(profile
+        .acceptance_plan_with_ddns(true)
+        .services
+        .iter()
+        .any(|service| service.unit == "cloudflare-ddns.service"));
+    assert!(!super::profile_for_name("beezelbot")
+        .unwrap()
+        .supports_service("ddns"));
+}
+
+#[test]
+fn host_ui_declarations_include_only_the_services_each_host_runs() {
+    let clamps = ui_config_for_host("clamps").expect("clamps UI declaration");
+    assert_eq!(
+        clamps
+            .services
+            .iter()
+            .map(|service| service.name.as_str())
+            .collect::<Vec<_>>(),
+        ["pihole", "syncthing"]
+    );
+    assert_eq!(clamps.network_name, "clamps");
+    assert_eq!(clamps.services[0].upstream, "pihole");
+    assert_eq!(clamps.services[0].port, 8088);
+    assert_eq!(clamps.services[0].aliases, Vec::<String>::new());
+    assert_eq!(clamps.services[1].upstream, "syncthing");
+    assert_eq!(clamps.services[1].port, 8384);
+    assert_eq!(clamps.services[1].aliases, ["sync.{host}"]);
+
+    let beezelbot = ui_config_for_host("beezelbot").expect("beezelbot UI declaration");
+    assert_eq!(beezelbot.services.len(), 1);
+    assert_eq!(beezelbot.services[0].name, "syncthing");
+    assert_eq!(beezelbot.services[0].aliases, ["sync.{host}"]);
+    assert_eq!(beezelbot.network_name, "beezelbot");
+    assert!(ui_config_for_host("unknown-host").is_none());
+}
+
+#[test]
+fn application_acceptance_tracks_each_profiles_declared_services() {
+    use super::{profile_for_name, HealthProbe, ListenerProtocol};
+
+    let clamps = profile_for_name("clamps").unwrap().acceptance_plan();
+    let clamps_names = clamps
+        .services
+        .iter()
+        .map(|service| service.unit.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        clamps_names,
+        [
+            "pihole.service",
+            "tailscale.service",
+            "syncthing.service",
+            "unifi.service",
+            "skillet-btrbk.timer",
+            "caddy.service"
+        ]
+    );
+    let pihole = clamps
+        .services
+        .iter()
+        .find(|service| service.unit == "pihole.service")
+        .unwrap();
+    assert_eq!(pihole.health_probe, Some(HealthProbe::Pihole));
+    assert_eq!(pihole.owner, None);
+    assert!(pihole
+        .listeners
+        .iter()
+        .any(|listener| listener.port == 53 && listener.protocol == ListenerProtocol::Udp));
+    let syncthing = clamps
+        .services
+        .iter()
+        .find(|service| service.unit == "syncthing.service")
+        .unwrap();
+    assert_eq!(
+        syncthing.owner,
+        Some(AcceptanceOwner::Named {
+            user: "giacomo".into(),
+            group: "giacomo".into()
+        })
+    );
+    let unifi = clamps
+        .services
+        .iter()
+        .find(|service| service.unit == "unifi.service")
+        .unwrap();
+    assert_eq!(
+        unifi.owner,
+        Some(AcceptanceOwner::Numeric { uid: 999, gid: 999 })
+    );
+
+    let beezelbot = profile_for_name("beezelbot").unwrap().acceptance_plan();
+    assert_eq!(
+        beezelbot
+            .services
+            .iter()
+            .map(|service| service.unit.as_str())
+            .collect::<Vec<_>>(),
+        ["syncthing.service", "caddy.service"]
+    );
+    assert!(beezelbot
+        .services
+        .iter()
+        .all(|service| service.network_mode.as_deref() == Some("beezelbot")));
+}
+
+#[test]
+fn host_ids_validate_ascii_dns_label_syntax() {
+    for valid in ["a", "clamps", "remote-node-2"] {
+        assert_eq!(
+            HostId::parse(valid).as_ref().map(HostId::as_str),
+            Some(valid)
+        );
+    }
+    let max_length = "a".repeat(63);
+    assert_eq!(
+        HostId::parse(&max_length).as_ref().map(HostId::as_str),
+        Some(max_length.as_str())
+    );
+    for invalid in [
+        "",
+        "Upper",
+        "-leading",
+        "trailing-",
+        "has space",
+        "a.b",
+        "é",
+    ] {
+        assert!(HostId::parse(invalid).is_none(), "accepted {invalid:?}");
+    }
+}
+
+#[test]
+fn synthetic_profile_derives_network_and_ui_from_its_identity() {
+    let profile = HostProfile {
+        id: HostId::parse("remote-node").unwrap(),
+        signed_image: None,
+        masked_units: &[],
+        network: NetworkPolicy {
+            ipv4_subnet: "192.0.2.0/24",
+            ipv4_gateway: "192.0.2.1",
+            ipv6_subnet: "2001:db8::/64",
+            ipv6_gateway: "2001:db8::1",
+        },
+        requires_data_mount: false,
+        services: vec![HostService {
+            config: ServiceConfig::Syncthing {
+                data_path: "/srv/sync",
+                data_owner: "sync",
+                data_group: "sync",
+                container_uid: 1000,
+                container_gid: 1000,
+            },
+            ui: Some(UiServiceDeclaration {
+                name: "sync",
+                upstream: "sync",
+                port: 8384,
+                aliases: &["files.{host}"],
+            }),
+        }],
+    };
+    assert_eq!(profile.service_network().unit_name, "remote-node");
+    assert_eq!(profile.ui_services()[0].name, "sync");
+    assert_eq!(profile.ui_services()[0].aliases, ["files.{host}"]);
+    assert!(profile.credential_consumers().iter().any(|use_| {
+        use_.credential == super::CADDY_SITES_CREDENTIAL && use_.unit == "caddy.service"
+    }));
+}
+
+#[test]
+fn a_credential_service_remains_eligible_when_its_ui_is_not_exposed() {
+    let profile = HostProfile {
+        id: HostId::parse("pihole-node").unwrap(),
+        signed_image: None,
+        masked_units: &[],
+        network: NetworkPolicy {
+            ipv4_subnet: "192.0.2.0/24",
+            ipv4_gateway: "192.0.2.1",
+            ipv6_subnet: "2001:db8::/64",
+            ipv6_gateway: "2001:db8::1",
+        },
+        requires_data_mount: false,
+        services: vec![HostService {
+            config: ServiceConfig::Pihole { custom_dns: &[] },
+            ui: None,
+        }],
+    };
+    assert_eq!(
+        profile.ui_services(),
+        Vec::<skillet_caddy::UiService>::new()
+    );
+    assert_eq!(
+        profile.credential_consumers(),
+        [super::CredentialConsumer {
+            credential: super::PIHOLE_WEB_PASSWORD_CREDENTIAL,
+            unit: "pihole.service",
+        }]
+    );
+}
+
+#[test]
+fn smtp_is_shared_and_has_an_independent_credential_phase() {
+    for host in ["clamps", "beezelbot"] {
+        let profile = super::profile_for_name(host).unwrap();
+        assert_eq!(
+            profile
+                .services
+                .iter()
+                .filter(|service| service.name() == "smtp")
+                .count(),
+            1
+        );
+        assert_eq!(
+            super::credentials_for_phase(host, super::HostApplyPhase::Smtp).unwrap(),
+            [skillet_smtp::CREDENTIAL]
+        );
+        assert!(
+            !super::credentials_for_phase(host, super::HostApplyPhase::Full)
+                .unwrap()
+                .contains(&skillet_smtp::CREDENTIAL)
+        );
+    }
+}
+
+#[test]
+fn tailscale_exit_node_is_caller_selected_and_preferences_follow_readiness() {
+    assert!(super::profile_for_name("clamps")
+        .unwrap()
+        .tailscale_exit_node());
+    assert!(!super::profile_for_name("beezelbot")
+        .unwrap()
+        .tailscale_exit_node());
+    for enabled in [false, true] {
+        let config = tailscale_config(
+            "fixture-host",
+            "fixture-key".into(),
+            "/var/lib/data/tailscale",
+            enabled,
+        );
+        let container = &config.extra_config["Container"];
+        assert!(container.contains(&format!(
+            "Environment=TS_EXTRA_ARGS=--advertise-exit-node={enabled}"
+        )));
+        assert!(container.contains(&"Environment=TS_AUTH_ONCE=true".into()));
+        assert!(container.contains(&"Notify=healthy".into()));
+        assert!(container.contains(&"HealthCmd=tailscale status --peers=false".into()));
+        assert!(config.extra_config["Service"].contains(&format!("ExecStartPost=/usr/bin/podman exec tailscale tailscale set --advertise-exit-node={enabled}")));
+    }
+}

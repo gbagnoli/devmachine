@@ -1,0 +1,28 @@
+[package]
+name = "skillet_workstation"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+skillet_smtp.workspace = true
+skillet_datadog.workspace = true
+cloudflare.workspace = true
+hex.workspace = true
+keepass.workspace = true
+keyutils.workspace = true
+rpassword.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+skillet_caddy.workspace = true
+skillet_ddns.workspace = true
+skillet_hosts.workspace = true
+skillet_vm.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+
+zeroize = "1.9"

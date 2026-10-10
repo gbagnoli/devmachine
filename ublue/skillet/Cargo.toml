@@ -1,0 +1,73 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/core",
+    "crates/hardening",
+    "crates/pihole",
+    "crates/unifi",
+    "crates/syncthing",
+    "crates/btrbk",
+    "crates/caddy",
+    "crates/ddns",
+    "crates/datadog",
+    "crates/smtp",
+    "crates/podman",
+    "crates/cli",
+    "crates/hosts/beezelbot",
+    "crates/hosts/clamps",
+    "crates/cli-common",
+    "crates/test-fixture",
+    "crates/vm",
+    "crates/host-profiles",
+    "crates/workstation",
+]
+
+[workspace.dependencies]
+osc8 = "0.1"
+pulldown-cmark = { version = "0.13", default-features = false }
+supports-hyperlinks = "3.2"
+skillet_core = { path = "crates/core" }
+skillet_hardening = { path = "crates/hardening" }
+skillet_pihole = { path = "crates/pihole" }
+skillet_unifi = { path = "crates/unifi" }
+skillet_syncthing = { path = "crates/syncthing" }
+skillet_btrbk = { path = "crates/btrbk" }
+skillet_caddy = { path = "crates/caddy" }
+skillet_ddns = { path = "crates/ddns" }
+skillet_datadog = { path = "crates/datadog" }
+skillet_smtp = { path = "crates/smtp" }
+skillet_podman = { path = "crates/podman" }
+skillet_cli_common = { path = "crates/cli-common" }
+skillet_vm = { path = "crates/vm" }
+skillet_hosts = { path = "crates/host-profiles" }
+skillet_workstation = { path = "crates/workstation" }
+thiserror = "1.0"
+sha2 = "0.10"
+users = "0.11"
+nix = { version = "0.29", features = ["user", "fs"] }
+clap = { version = "4.4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tempfile = "3.8"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yml = "0.0.12"
+hex = "0.4"
+zbus = { version = "4.4", features = ["blocking"] }
+askama = "0.12"
+keepass = { version = "0.13.25", features = ["save_kdbx4"] }
+rpassword = "7.5"
+cloudflare = { version = "0.14.0", default-features = false, features = ["blocking", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+keyutils = "0.4"
+uuid = { version = "1.26", features = ["serde", "v4"] }
+quick-xml = { version = "0.41", features = ["serialize"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+must_use_candidate = "allow"
+# Optional: explicitly allow some pedantic lints if they are too noisy
