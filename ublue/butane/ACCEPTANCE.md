@@ -2390,3 +2390,44 @@ update / rollback matrix cases. A header backup is not a service-data backup.
 - Unverified: booting the new USB ISO itself, actual S13 disk installation,
   physical TPM/Secure Boot/MOK enrollment, LAN and production cutover. See
   [the physical runbook](HARDWARE.md). Existing smoke VM was not modified.
+
+
+## 2026-10-11 — boxy replacement host/boot slice
+
+- Source inventory: `roles/boxy.rb` and the default cookbook includes. Shared
+  services selected by canonical `beelzebot`: Pi-hole, host-network Tailscale,
+  Syncthing, caller-selected Syncthing-only btrbk, DDNS, Datadog and SMTP;
+  generic Caddy exposes only the declared UIs. UniFi is not selected.
+- Operator explicitly authorized removing the misspelled profile/package without
+  compatibility. Current commands and CI use `beelzebot`; earlier log entries
+  retain the command spelling actually executed. No vault or manifest migrated.
+- Local: all 372 workspace/all-target tests, formatting, strict pedantic Clippy,
+  Fedora `test run beelzebot --phase base --image fedora:latest` (two applies,
+  no repeated starts/restarts), ShellCheck, nine bootstrap regressions and both
+  guarded hardware-helper refusal cases passed. Routine checks used no vault,
+  provider or hypervisor credentials.
+- ucore-images: YAML parsing, Pi-hole DNS mask and serialized common-before-host
+  workflow assertions passed. The recipe change is committed; its rebuilt remote
+  image/CI has not been checked. The new Butane template also masks resolved
+  at day zero so the older correctly named image can boot with this policy.
+- Native named run: `test vm create beelzebot migration --port 2202`, plain root,
+  `/dev/vda`, existing verified FCOS image; the clamps smoke VM was preserved.
+  Strict compilation and decoded destination Ignition assertions passed for
+  canonical host/image, resolved mask, full-apply credentials and disk layout.
+  Captures were built from the working tree before commit `13961a1`; its manifest
+  records the previous HEAD. Recorded hashes bind the delivered artifacts.
+- Signed boot and binary delivery reached the base/user-environment stage;
+  full base/user readiness passed. `test smoke beelzebot --instance migration`
+  passed namespaced fixture convergence/failure/recovery checks, repeat apply,
+  reboot/persistence and final readiness. This was fixture mode, not full declared
+  application acceptance. The native run remains `Ready` on SSH port 2202 for
+  the next slice; final manifest/status/journals and command logs are preserved
+  privately at `/tmp/beelzebot-migration-evidence`.
+- Vault-dependent audit could not unlock: `secrets check --host beelzebot
+  --environment test` returned `reading database password from terminal: No such
+  device or address`; the cache was unavailable in this process. No provider
+  mutation, production identity, DNS publication or real service-data transfer.
+  Full application/provider acceptance remains pending an operator unlock.
+- Remaining parity: private Pi-hole v6 DNS configuration delivery, boxy's subnet
+  routing/acceptance/SNAT policy, private cross-host UI/probes, source data/ACLs,
+  physical deployment and cutover. See `../plan/BEELZEBOT-MIGRATION.md`.

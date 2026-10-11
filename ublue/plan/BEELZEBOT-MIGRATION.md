@@ -1,6 +1,9 @@
 # Boxy → beelzebot
 
-Status: first implementation slice, 2026-10-11. Review completed against
+Status: host/boot slice implemented; native base readiness and fixture
+repeat-apply/reboot accepted, 2026-10-11. Full application/provider acceptance
+is pending a vault unlock; the rebuilt image change and remote CI are unverified.
+Review completed against
 `roles/boxy.rb` and `site-cookbooks/boxy/recipes/default.rb` and its includes.
 Private Chef overrides and live boxy state have not been inventoried.
 Clamps remaining work is tracked in [its migration plan](CLAMPS-MIGRATION.md).
@@ -24,7 +27,7 @@ No private addresses, domains, keys or effective Chef overrides belong here.
 
 ## Implementation order and exits
 
-1. **Host and boot slice:** canonical `beelzebot` crate/profile/image, shared
+1. **Implemented; native boot/fixture accepted:** canonical `beelzebot` crate/profile/image, shared
    full-apply unit, host Butane with existing `/dev/vda` and Btrfs layout.
    Remove the old misspelling without compatibility at operator request.
    Profile selection must drive UIs, credentials, monitoring and snapshots;
