@@ -7,7 +7,7 @@ storage:
       mode: 0644
       contents:
         inline: |
-          ghcr.io/gbagnoli/ucore-beelzebot
+          ghcr.io/gbagnoli/ucore-joey
 systemd:
   units:
     - name: systemd-resolved.service

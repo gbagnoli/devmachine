@@ -41,7 +41,7 @@ fn manual_requirements_follow_profiles_environment_and_template_references() {
         .all(|entry| !entry.path.contains("/prod/")
             && !entry.path.ends_with("web-password")
             && !entry.path.ends_with("acme-token")));
-    let profile = skillet_hosts::profile_for_name("beelzebot").unwrap();
+    let profile = skillet_hosts::profile_for_name("joey").unwrap();
     let report = check(
         &[profile],
         ProvisioningPolicy::new(Environment::Production),
@@ -90,14 +90,14 @@ fn unused_audit_keeps_both_environments_hosts_generated_and_legacy_paths() {
         "skillet/environments/test/datadog/api-key",
         "skillet/environments/test/datadog/site",
         "skillet/environments/test/hosts/clamps/cloudflare/ddns-dns-name",
-        "skillet/environments/prod/hosts/beelzebot/cloudflare/acme-token",
-        "skillet/environments/test/hosts/beelzebot/cloudflare/acme-token",
+        "skillet/environments/prod/hosts/joey/cloudflare/acme-token",
+        "skillet/environments/test/hosts/joey/cloudflare/acme-token",
         "skillet/hosts/clamps/cloudflare/acme-token",
         "skillet/hosts/clamps/pihole/web-password",
         "personal/not-for-skillet",
         "skillet/environments/dns/cloudflare-zone-id",
         "skillet/environments/prod/hosts/unknown/cloudflare/acme-token",
-        "skillet/environments/test/hosts/beelzebot/cloudflare/ddns-dns-name",
+        "skillet/environments/test/hosts/joey/cloudflare/ddns-dns-name",
     ]
     .map(str::to_string);
     let unused = unused_paths(&skillet_hosts::profile::declared_profiles(), &stored).unwrap();
@@ -108,8 +108,9 @@ fn unused_audit_keeps_both_environments_hosts_generated_and_legacy_paths() {
     assert!(
         unused.contains(&"skillet/environments/prod/hosts/unknown/cloudflare/acme-token".into())
     );
-    assert!(!unused
-        .contains(&"skillet/environments/test/hosts/beelzebot/cloudflare/ddns-dns-name".into()));
+    assert!(
+        !unused.contains(&"skillet/environments/test/hosts/joey/cloudflare/ddns-dns-name".into())
+    );
 }
 
 #[test]

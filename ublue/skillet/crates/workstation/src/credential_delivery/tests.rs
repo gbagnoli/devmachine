@@ -299,7 +299,7 @@ fn smtp_delivery_is_stdin_only_and_capture_cannot_contain_provider_fields() {
     };
     assert!(crate::smtp_provisioning::deliver("agent", &input, &guest).is_err());
     assert_eq!(guest.calls.lock().unwrap().len(), 0);
-    crate::smtp_provisioning::deliver("beelzebot", &input, &guest).unwrap();
+    crate::smtp_provisioning::deliver("joey", &input, &guest).unwrap();
     let calls = guest.calls.lock().unwrap();
     assert!(calls.iter().all(|(args, _)| args
         .iter()

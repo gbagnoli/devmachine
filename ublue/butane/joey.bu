@@ -11,10 +11,10 @@ ignition:
       - local: includes/data-storage.bu
       - local: includes/brew.bu
       - local: includes/skillet.bu
-      - local: includes/skillet-beelzebot.bu
+      - local: includes/skillet-joey.bu
       - local: includes/skillet-full.bu
       - local: includes/ucore-bootstrap.bu
-      - local: includes/ucore-beelzebot.bu
+      - local: includes/ucore-joey.bu
 storage:
   disks:
     - # The link to the block device the OS was booted from.
@@ -39,8 +39,8 @@ storage:
     - path: /etc/skillet/host
       mode: 0644
       contents:
-        inline: beelzebot
+        inline: joey
     - path: /etc/hostname
       mode: 0644
       contents:
-        inline: beelzebot
+        inline: joey

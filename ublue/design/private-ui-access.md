@@ -44,8 +44,8 @@ revokes that token. Production records use a separately scoped credential;
 update them if a host's tailnet address changes. Tailscale enrollment needs no
 DNS-management OAuth scope. Keep the Cloudflare token creator on the workstation.
 
-Plan a second Pi-hole on beelzebot beside clamps. They cover individual host
-failure but share power and internet failure. A third Pi-hole on bender,
+Plan a second Pi-hole on joey beside clamps. They cover individual host
+failure but share power and internet failure. A third Pi-hole on donbot,
 the calculon replacement in the other country, would add a separate site.
 These Pi-hole instances provide redundant client DNS service, independent of
 UI name publication in Cloudflare. A healthy resolver can resolve an offline

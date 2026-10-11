@@ -1,7 +1,7 @@
 # Tailscale host routing
 
 Run Tailscale rootfully with host networking and persistent state. The canonical
-host caller selects `advertise_exit_node`; clamps and beelzebot enable it. Production delivery
+host caller selects `advertise_exit_node`; clamps and joey enable it. Production delivery
 resolves that declaration into a versioned encrypted enrollment payload. Disposable
 delivery always selects false. Never infer environment from a runtime hostname.
 Only the decoded enrollment key becomes the Podman secret; policy stays in clear
@@ -31,4 +31,4 @@ References: [exit-node policy](https://tailscale.com/docs/features/exit-nodes),
 
 Boxy's LAN subnet advertisement, route acceptance and disabled subnet SNAT are
 not supplied by this exit-node switch. Shared private routing policy is the next
-[beelzebot slice](../plan/BEELZEBOT-MIGRATION.md); no LAN routes are guessed.
+[joey slice](../plan/JOEY-MIGRATION.md); no LAN routes are guessed.

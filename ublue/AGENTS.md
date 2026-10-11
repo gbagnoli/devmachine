@@ -144,7 +144,7 @@
   `cargo fmt --all -- --check`,
   `cargo clippy --workspace --all-targets -- -D warnings`,
   `cargo test --workspace --all-targets`, and
-  `cargo run --bin skillet -- test run beelzebot --phase base --image fedora:latest`
+  `cargo run --bin skillet -- test run joey --phase base --image fedora:latest`
   from `.github/workflows/ci.yml`. For shell changes, run the workflow's
   ShellCheck commands; for Python or Chef changes, run the corresponding
   Ruff/Mypy or Cookstyle commands.

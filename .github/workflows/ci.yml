@@ -106,7 +106,7 @@ jobs:
         if: steps.filter.outputs.rust == 'true'
         run: |
           cd ublue/skillet
-          cargo run --bin skillet -- test run beelzebot --phase base --image fedora:latest
+          cargo run --bin skillet -- test run joey --phase base --image fedora:latest
 
       - name: Run installation and bootstrap regressions
         if: steps.filter.outputs.rust == 'true'

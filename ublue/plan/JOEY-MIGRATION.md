@@ -1,8 +1,12 @@
-# Boxy → beelzebot
+# Boxy → joey
 
 Status: host/boot slice implemented; native base readiness and fixture
 repeat-apply/reboot accepted, 2026-10-11. Full application/provider acceptance
 is pending a vault unlock; the rebuilt image change and remote CI are unverified.
+Host identity changed to `joey` on 2026-10-11; the earlier native acceptance
+used its previous identity. Fresh joey boot/application acceptance and publication
+of `ghcr.io/gbagnoli/ucore-joey` remain pending. Existing VM manifests and vault
+entries are not rewritten or accepted as joey implicitly.
 Review completed against
 `roles/boxy.rb` and `site-cookbooks/boxy/recipes/default.rb` and its includes.
 Private Chef overrides and live boxy state have not been inventoried.
@@ -22,14 +26,14 @@ Clamps remaining work is tracked in [its migration plan](CLAMPS-MIGRATION.md).
 | Datadog host/process/network checks and private cross-host probes | Shared selected Agent, production region `ftwo`, test `lab`/`env:test`; private remote probes not yet ported |
 | ET and server baseline | Common image + shared hardening/user environment; shared SMTP also selected for every fleet server |
 
-UniFi is absent from boxy's default recipe; beelzebot does not select it.
+UniFi is absent from boxy's default recipe; joey does not select it.
 No private addresses, domains, keys or effective Chef overrides belong here.
 
 ## Implementation order and exits
 
-1. **Implemented; native boot/fixture accepted:** canonical `beelzebot` crate/profile/image, shared
+1. **Implemented; native boot/fixture accepted:** canonical `joey` crate/profile/image, shared
    full-apply unit, host Butane with existing `/dev/vda` and Btrfs layout.
-   Remove the old misspelling without compatibility at operator request.
+   Use the new identity consistently without compatibility aliases.
    Profile selection must drive UIs, credentials, monitoring and snapshots;
    tests cover those declarations and bootstrap inputs. The matching image
    recipe must mask resolved. Validate strict Butane compilation, local CI
@@ -47,7 +51,7 @@ No private addresses, domains, keys or effective Chef overrides belong here.
    empty/configured records, repeat apply, reboot and private-value redaction.
    Settle whether omission preserves restored records before production import.
 4. **Named application acceptance:** unlock with the existing workflow; run
-   beelzebot full provisioning and capability-selected repeat-apply/reboot checks,
+   joey full provisioning and capability-selected repeat-apply/reboot checks,
    then opted-in UI, DDNS, Datadog and isolated SMTP checks. Use disposable
    identities, test DNS and lifecycle-owned cleanup. No production writer/peer
    identity during acceptance; record failed and unavailable checks honestly.
@@ -57,7 +61,7 @@ No private addresses, domains, keys or effective Chef overrides belong here.
    retention and rollback. Stage copies with original writers stopped as needed;
    do LAN/device and production certificate acceptance before moving addresses.
 
-Use `skillet test vm create beelzebot INSTANCE --port FREE_PORT`, then
+Use `skillet test vm create joey INSTANCE --port FREE_PORT`, then
 `test vm ready`, `test vm provision`, `test smoke --with-applications` and
 `test vm destroy` through the shared Rust lifecycle owner. Provisioning may
 need cached vault access; do independent work if unlock would block. Install

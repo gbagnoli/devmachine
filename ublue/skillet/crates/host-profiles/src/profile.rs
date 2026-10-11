@@ -508,10 +508,10 @@ fn clamps() -> HostProfile {
 }
 
 /// Boxy's replacement. Private DNS and routing inputs are delivered separately.
-fn beelzebot() -> HostProfile {
+fn joey() -> HostProfile {
     HostProfile {
-        id: HostId::known("beelzebot"),
-        signed_image: Some("ghcr.io/gbagnoli/ucore-beelzebot"),
+        id: HostId::known("joey"),
+        signed_image: Some("ghcr.io/gbagnoli/ucore-joey"),
         masked_units: &["systemd-resolved.service"],
         network: NetworkPolicy {
             ipv4_subnet: "172.26.26.0/24",
@@ -588,7 +588,7 @@ fn agent_baseline() -> HostProfile {
 pub fn profile_for_host(host: &HostId) -> Option<HostProfile> {
     match host.as_str() {
         "clamps" => Some(with_fleet_baseline(clamps())),
-        "beelzebot" => Some(with_fleet_baseline(beelzebot())),
+        "joey" => Some(with_fleet_baseline(joey())),
         "agent" => Some(agent_baseline()),
         _ => None,
     }
@@ -601,7 +601,7 @@ pub fn profile_for_name(host: &str) -> Option<HostProfile> {
 pub fn declared_profiles() -> Vec<HostProfile> {
     vec![
         with_fleet_baseline(clamps()),
-        with_fleet_baseline(beelzebot()),
+        with_fleet_baseline(joey()),
         agent_baseline(),
     ]
 }

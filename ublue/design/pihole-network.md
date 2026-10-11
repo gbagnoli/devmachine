@@ -13,9 +13,9 @@ qualified registry image for Quadlet auto-update; the OS image already enables
 the auto-update timer. The planned private UI route and Cloudflare DNS-only
 records are described in the [private UI design](private-ui-access.md).
 
-The planned second Pi-hole on beelzebot beside clamps is a separate DNS
+The planned second Pi-hole on joey beside clamps is a separate DNS
 instance on the same power and internet connection. A possible third on remote
-bender adds site diversity. All instances offered to the same clients must
+donbot adds site diversity. All instances offered to the same clients must
 serve consistent local records and filtering policy; the synchronization
 mechanism and LAN client resolver settings remain to be decided before those
 hosts are deployed.
