@@ -10,7 +10,7 @@ Clamps remaining work is tracked in [its migration plan](CLAMPS-MIGRATION.md).
 | Boxy behavior | Target / remaining work |
 | --- | --- |
 | One Btrfs filesystem, separate data subvolume; rootful/rootless Podman stores | Shared root + `/var/lib/data`; rootful overlay graphroot; retain rootless storage only for workloads that need it |
-| Pi-hole; resolved disabled | Selected shared Pi-hole and bridge DNS policy; image/day-zero mask; real private DNS inputs and LAN acceptance pending |
+| Pi-hole; resolved disabled | Selected shared Pi-hole and bridge DNS policy; image/day-zero mask; private runtime DNS delivery/v6 convergence and LAN acceptance pending |
 | Syncthing data `/var/lib/data/sync`, dedicated account and ACLs | Shared `/var/lib/data/syncthing` leaf, declared host ownership/user mapping; transfer folder definitions, identity and ACLs explicitly, never copy live identity into smoke |
 | btrbk snapshots `sync` only | Caller opts in for `syncthing` only; preserve leaf-only snapshots and settle production retention/off-machine backup |
 | nginx/OAuth/ACME, local and cross-host routes | Generic Caddy, declared Pi-hole/Syncthing UIs and service alias policy; Cloudflare credentials and tailnet ingress reused; inventory needed cross-host routes before omitting them |
@@ -37,12 +37,18 @@ No private addresses, domains, keys or effective Chef overrides belong here.
    compatibility, converge preferences after authentication, and force disposable
    policy to omit advertisements. Test rendering, validation, repeat convergence
    and no production routes on smoke machines. Do not publish the LAN subnet.
-3. **Named application acceptance:** unlock with the existing workflow; run
+3. **Private Pi-hole configuration:** replace static/sample DNS declarations
+   with private runtime template delivery shared by both hosts. Use Pi-hole v6's
+   supported configuration API/format; current `custom.list` rendering and the
+   manual accepted `dns.hosts` test do not prove automatic v6 convergence. Validate
+   empty/configured records, repeat apply, reboot and private-value redaction.
+   Settle whether omission preserves restored records before production import.
+4. **Named application acceptance:** unlock with the existing workflow; run
    beelzebot full provisioning and capability-selected repeat-apply/reboot checks,
    then opted-in UI, DDNS, Datadog and isolated SMTP checks. Use disposable
    identities, test DNS and lifecycle-owned cleanup. No production writer/peer
    identity during acceptance; record failed and unavailable checks honestly.
-4. **Private inventory and cutover:** inspect live boxy storage/subvolumes,
+5. **Private inventory and cutover:** inspect live boxy storage/subvolumes,
    Syncthing identity/folders/ACLs, Pi-hole settings, routing and cross-host
    monitoring/UI needs. Select real hardware/disk/root profile, snapshot/backup
    retention and rollback. Stage copies with original writers stopped as needed;

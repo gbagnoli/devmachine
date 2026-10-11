@@ -13,7 +13,7 @@ Sources: `roles/rupik.rb` includes `role[server]`, `server::wol`, and `rupik`.
 | Chef capability | Clamps implementation / deliberate change | Remaining work |
 | --- | --- | --- |
 | Btrfs `/srv` and system/user Podman stores | Shared `/var/lib/data` subvolume; system graphroot under `containers/system`, overlay driver on uCore | Native TPM/plain profiles and USB preparation implemented; physical acceptance and state transfer; rootless store only if a retained workload needs it |
-| Disable resolved; Pi-hole | Mask/resolver setup, dual-stack port 53, persistent service data, encrypted password, shared bridge | Real LAN/firewall acceptance, actual custom DNS configuration, data transfer |
+| Disable resolved; Pi-hole | Mask/resolver setup, dual-stack port 53, persistent service data, encrypted password, shared bridge | Private runtime custom DNS delivery/v6 convergence (current static `custom.list` path is not validated by the manual v6 test), real LAN/firewall acceptance, data transfer |
 | nginx, ACME, OAuth proxy, web pod | Separate bridge containers; generic Caddy routes, Cloudflare DNS-01, tailnet restriction, per-service names and aliases | Production certificate/renewal and external-source denial; inventory any legacy cross-host routes still needed |
 | Syncthing | Container and leaf data subvolume; peer ports retained; host GUI publication removed; explicit host/container identity mapping | PARKED: live ownership fix acceptance; production peer connectivity and identity/data migration |
 | btrbk | Caller-selected Syncthing snapshots, hourly timer, retention and restore accepted | Off-machine backup policy and physical cutover acceptance; nested source subvolumes unsupported |
