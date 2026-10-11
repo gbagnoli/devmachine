@@ -53,6 +53,10 @@ Prepare the shared Cloudflare token creator and Zone ID. [DDNS setup](ublue/skil
 | `skillet/environments/<environment>/hosts/<host>/cloudflare/ddns-dns-name` | Required | Choose the relative DNS record name, not a full domain. |
 | `skillet/environments/prod/hosts/<host>/cloudflare/ddns-token` | Generated | Skillet creates the persistent scoped token; disposable tokens are lifecycle-owned. |
 
+## Mikochi
+
+No application password; uses the shared Tailnet UI allowlist. [Setup](ublue/skillet/README.md#private-file-browsing).
+
 ## Pi-hole
 
 [Delivery](ublue/skillet/README.md#secret-setup-and-delivery).
@@ -81,6 +85,14 @@ Generated independent LUKS root recovery passphrases. [Enrollment](ublue/skillet
 ## Syncthing
 
 No vault entries currently required; Skillet manages the private UI configuration.
+
+## Tailnet UI
+
+Identity authorization for caller-declared private UIs. Uses the existing host-network daemon; no second login. [Setup](ublue/skillet/README.md#private-file-browsing).
+
+| Entry | Status | Fields / how to obtain them |
+| --- | --- | --- |
+| `skillet/tailscale/ui-users` | Required | Password = complete Tailscale LoginName values, separated by commas or newlines; Username is unused. Obtain the identities from tailscale status --json on an authenticated client. Both environments share this explicit allowlist. |
 
 ## Tailscale
 

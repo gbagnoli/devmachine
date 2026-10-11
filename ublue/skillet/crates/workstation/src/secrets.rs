@@ -84,6 +84,7 @@ enum FieldRule {
     Port,
     Choice,
     Sender,
+    Tailnetusers,
 }
 
 impl FieldRequirement {
@@ -97,6 +98,7 @@ impl FieldRequirement {
             FieldRule::Choice => self.values.iter().any(|allowed| allowed == value),
             FieldRule::Hostname => valid_hostname(value),
             FieldRule::Sender => skillet_smtp::valid_sender(value),
+            FieldRule::Tailnetusers => skillet_caddy::auth::Policy::parse_users(value).is_ok(),
         }
     }
 }
@@ -210,6 +212,8 @@ fn selected(module: &RequirementGroup, profile: &HostProfile) -> bool {
     module.required_by.iter().any(|service| {
         if service == "storage" {
             true
+        } else if service == "tailnet-ui" {
+            profile.ui_services().iter().any(|ui| ui.tailnet_identity)
         } else if service == "ui" {
             !profile.ui_services().is_empty()
         } else {

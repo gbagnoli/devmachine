@@ -30,6 +30,7 @@ pub struct UiServiceDeclaration {
     pub name: &'static str,
     pub upstream: &'static str,
     pub port: u16,
+    pub tailnet_identity: bool,
     pub aliases: &'static [&'static str],
 }
 
@@ -45,7 +46,15 @@ pub enum ServiceConfig {
         custom_dns: &'static [(&'static str, &'static str)],
     },
     Syncthing {
+        files_path: &'static str,
         data_path: &'static str,
+        data_owner: &'static str,
+        data_group: &'static str,
+        container_uid: u32,
+        container_gid: u32,
+    },
+    Mikochi {
+        files_path: &'static str,
         data_owner: &'static str,
         data_group: &'static str,
         container_uid: u32,
@@ -78,6 +87,7 @@ impl HostService {
         match self.config {
             ServiceConfig::Pihole { .. } => "pihole",
             ServiceConfig::Syncthing { .. } => "syncthing",
+            ServiceConfig::Mikochi { .. } => "mikochi",
             ServiceConfig::Unifi => "unifi",
             ServiceConfig::Ddns => "ddns",
             ServiceConfig::Datadog { .. } => "datadog",
@@ -169,6 +179,7 @@ pub enum ListenerProtocol {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HealthProbe {
+    Mikochi,
     Pihole,
     Tailscale,
 }
@@ -209,6 +220,17 @@ impl HostProfile {
             .collect::<Vec<_>>();
         if self.services.iter().any(|service| service.ui.is_some()) {
             services.push(caddy_acceptance(self.id.as_str()));
+            if self.ui_services().iter().any(|ui| ui.tailnet_identity) {
+                services.push(AcceptanceService {
+                    unit: "skillet-tailnet-ui.service".into(),
+                    container: None,
+                    network_mode: None,
+                    bind_paths: Vec::new(),
+                    owner: None,
+                    listeners: Vec::new(),
+                    health_probe: None,
+                });
+            }
         }
         HostAcceptancePlan {
             requires_data_mount: self.requires_data_mount,
@@ -254,6 +276,7 @@ impl HostProfile {
                 name: ui.name.to_string(),
                 upstream: ui.upstream.to_string(),
                 port: ui.port,
+                tailnet_identity: ui.tailnet_identity,
                 aliases: ui
                     .aliases
                     .iter()
@@ -371,32 +394,24 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
                 .into(),
             health_probe: None,
         },
-        ServiceConfig::Unifi => AcceptanceService {
-            unit: "unifi.service".into(),
-            container: Some("unifi".into()),
-            network_mode: Some("host".into()),
-            bind_paths: vec!["/var/lib/data/unifi".into()],
-            owner: Some(AcceptanceOwner::Numeric { uid: 999, gid: 999 }),
-            listeners: vec![
-                AcceptanceListener {
-                    port: 8080,
-                    protocol: ListenerProtocol::Tcp,
-                },
-                AcceptanceListener {
-                    port: 8443,
-                    protocol: ListenerProtocol::Tcp,
-                },
-                AcceptanceListener {
-                    port: 3478,
-                    protocol: ListenerProtocol::Udp,
-                },
-                AcceptanceListener {
-                    port: 10001,
-                    protocol: ListenerProtocol::Udp,
-                },
-            ],
-            health_probe: None,
+        ServiceConfig::Mikochi {
+            files_path,
+            data_owner,
+            data_group,
+            ..
+        } => AcceptanceService {
+            unit: "mikochi.service".into(),
+            container: Some("mikochi".into()),
+            network_mode: Some(format!("{profile}-files")),
+            bind_paths: vec![files_path.into()],
+            owner: Some(AcceptanceOwner::Named {
+                user: data_owner.into(),
+                group: data_group.into(),
+            }),
+            listeners: Vec::new(),
+            health_probe: Some(HealthProbe::Mikochi),
         },
+        ServiceConfig::Unifi => unifi_acceptance(),
         ServiceConfig::Tailscale { state_path, .. } => AcceptanceService {
             unit: "tailscale.service".into(),
             container: Some("tailscale".into()),
@@ -438,6 +453,7 @@ const SYNCTHING_UI: UiServiceDeclaration = UiServiceDeclaration {
     name: "syncthing",
     upstream: "syncthing",
     port: 8384,
+    tailnet_identity: false,
     aliases: &["sync.{host}"],
 };
 
@@ -462,6 +478,7 @@ fn clamps() -> HostProfile {
                     name: "pihole",
                     upstream: "pihole",
                     port: 8088,
+                    tailnet_identity: false,
                     aliases: &[],
                 }),
             },
@@ -474,6 +491,7 @@ fn clamps() -> HostProfile {
             },
             HostService {
                 config: ServiceConfig::Syncthing {
+                    files_path: "/var/lib/data/syncthing/data",
                     data_path: "/var/lib/data/syncthing",
                     data_owner: "giacomo",
                     data_group: "giacomo",
@@ -527,6 +545,7 @@ fn joey() -> HostProfile {
                     name: "pihole",
                     upstream: "pihole",
                     port: 8088,
+                    tailnet_identity: false,
                     aliases: &[],
                 }),
             },
@@ -539,6 +558,7 @@ fn joey() -> HostProfile {
             },
             HostService {
                 config: ServiceConfig::Syncthing {
+                    files_path: "/var/lib/data/syncthing/data",
                     data_path: "/var/lib/data/syncthing",
                     data_owner: "giacomo",
                     data_group: "giacomo",
@@ -607,6 +627,42 @@ pub fn declared_profiles() -> Vec<HostProfile> {
 }
 
 fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
+    // File browsing is part of the shared Syncthing composition, not a second
+    // independently maintained per-host inventory.
+    let file_browsers: Vec<_> = profile
+        .services
+        .iter()
+        .filter_map(|service| {
+            let ServiceConfig::Syncthing {
+                files_path,
+                data_owner,
+                data_group,
+                container_uid,
+                container_gid,
+                ..
+            } = service.config
+            else {
+                return None;
+            };
+            Some(HostService {
+                config: ServiceConfig::Mikochi {
+                    files_path,
+                    data_owner,
+                    data_group,
+                    container_uid,
+                    container_gid,
+                },
+                ui: Some(UiServiceDeclaration {
+                    name: "files",
+                    upstream: "mikochi",
+                    port: 8080,
+                    aliases: &[],
+                    tailnet_identity: true,
+                }),
+            })
+        })
+        .collect();
+    profile.services.extend(file_browsers);
     profile.services.push(HostService {
         config: ServiceConfig::Smtp,
         ui: None,
@@ -634,6 +690,35 @@ fn datadog_acceptance() -> AcceptanceService {
         bind_paths: vec!["/etc/skillet/datadog/conf.d".into()],
         owner: Some(AcceptanceOwner::Numeric { uid: 0, gid: 0 }),
         listeners: Vec::new(),
+        health_probe: None,
+    }
+}
+
+fn unifi_acceptance() -> AcceptanceService {
+    AcceptanceService {
+        unit: "unifi.service".into(),
+        container: Some("unifi".into()),
+        network_mode: Some("host".into()),
+        bind_paths: vec!["/var/lib/data/unifi".into()],
+        owner: Some(AcceptanceOwner::Numeric { uid: 999, gid: 999 }),
+        listeners: vec![
+            AcceptanceListener {
+                port: 8080,
+                protocol: ListenerProtocol::Tcp,
+            },
+            AcceptanceListener {
+                port: 8443,
+                protocol: ListenerProtocol::Tcp,
+            },
+            AcceptanceListener {
+                port: 3478,
+                protocol: ListenerProtocol::Udp,
+            },
+            AcceptanceListener {
+                port: 10001,
+                protocol: ListenerProtocol::Udp,
+            },
+        ],
         health_probe: None,
     }
 }

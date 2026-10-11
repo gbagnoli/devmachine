@@ -27,9 +27,12 @@ pub enum SyncthingError {
     UnknownDataGroup(String),
     #[error("configured Syncthing data group `{group}` is not the primary group of `{owner}`")]
     NonPrimaryDataGroup { owner: String, group: String },
+    #[error("Syncthing user-file scope must be a separate directory beneath its data root")]
+    InvalidFileScope,
 }
 
 pub struct SyncthingConfig {
+    pub files_path: String,
     pub data_path: String,
     pub data_owner: String,
     pub data_group: String,
@@ -44,6 +47,7 @@ where
     F: FileMutationResource + FileReadResource + StorageResource + ?Sized,
 {
     info!("Applying Syncthing configuration...");
+    let container_home = container_home(&config)?;
     let user = system
         .user_by_name(&config.data_owner)?
         .ok_or_else(|| SyncthingError::UnknownDataOwner(config.data_owner.clone()))?;
@@ -57,15 +61,7 @@ where
         });
     }
 
-    let data_path = Path::new(&config.data_path);
-    files.require_btrfs_subvolume_mount(Path::new("/var/lib/data"), Path::new("/var"), "/data")?;
-    files.ensure_btrfs_subvolume(data_path)?;
-    files.ensure_directory(
-        data_path,
-        Some(0o755),
-        &Ownership::named(Some(&config.data_owner), Some(&config.data_group)),
-    )?;
-
+    prepare_storage(files, &config)?;
     let volumes = vec![Volume {
         host_path: config.data_path,
         container_path: "/var/syncthing".to_string(),
@@ -81,6 +77,7 @@ where
         vec![
             "AutoUpdate=registry".to_string(),
             "ContainerName=syncthing".to_string(),
+            format!("Environment=HOME={container_home}"),
             skillet_datadog::http("syncthing", "http://%%host%%:8384/rest/noauth/health"),
         ],
     );
@@ -150,3 +147,39 @@ where
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
+
+fn container_home(config: &SyncthingConfig) -> Result<String, SyncthingError> {
+    let file_scope = Path::new(&config.files_path)
+        .strip_prefix(&config.data_path)
+        .map_err(|_| SyncthingError::InvalidFileScope)?;
+    if file_scope.as_os_str().is_empty()
+        || file_scope.starts_with("config")
+        || file_scope
+            .components()
+            .any(|part| !matches!(part, std::path::Component::Normal(_)))
+    {
+        return Err(SyncthingError::InvalidFileScope);
+    }
+    Ok(format!("/var/syncthing/{}", file_scope.display()))
+}
+
+fn prepare_storage<F>(files: &F, config: &SyncthingConfig) -> Result<(), SyncthingError>
+where
+    F: FileMutationResource + StorageResource + ?Sized,
+{
+    let data_path = Path::new(&config.data_path);
+    files.require_btrfs_subvolume_mount(Path::new("/var/lib/data"), Path::new("/var"), "/data")?;
+    files.ensure_btrfs_subvolume(data_path)?;
+    files.ensure_directory(
+        data_path,
+        Some(0o755),
+        &Ownership::named(Some(&config.data_owner), Some(&config.data_group)),
+    )?;
+
+    files.ensure_directory(
+        Path::new(&config.files_path),
+        Some(0o755),
+        &Ownership::named(Some(&config.data_owner), Some(&config.data_group)),
+    )?;
+    Ok(())
+}

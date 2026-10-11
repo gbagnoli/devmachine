@@ -58,6 +58,17 @@
 
 ## Shared infrastructure boundaries
 
+- Disabling application authentication requires explicit proxy authorization
+  and a private backend boundary. Preserve the actual connection peer, replace
+  untrusted identity headers, and deny unknown/tagged sources or lookup failures.
+  Sharing a network address range is not user authentication. Test policy
+  revocation, daemon outages, browser origin checks, and direct backend isolation.
+  Verify effective forwarding isolation in both IP families; network flags can
+  change whether the runtime generates firewall rules at all.
+- Identity/private policy follows the same canonical UI declaration and encrypted
+  delivery path as the service. Give proxy processes only the API surface they
+  consume; a read-only Unix socket bind does not limit API methods.
+
 - Authentication finalization must follow explicit provisioning completion, not
   base readiness. One-time account mutations need durable recovery state and
   must preserve later operator password changes; routine apply must not reopen

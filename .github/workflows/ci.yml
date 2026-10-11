@@ -108,6 +108,18 @@ jobs:
           cd ublue/skillet
           cargo run --bin skillet -- test run joey --phase base --image fedora:latest
 
+      - name: Validate private UI Caddy configuration
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          cargo test -p skillet_caddy generated_identity_caddyfile_validates_with_the_real_consumer -- --ignored
+
+      - name: Test Mikochi file operations without external credentials
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          cargo test -p skillet_mikochi real_mikochi_has_no_second_login_and_supports_owned_file_operations -- --ignored
+
       - name: Run installation and bootstrap regressions
         if: steps.filter.outputs.rust == 'true'
         run: |

@@ -12,6 +12,8 @@ use skillet_podman::{
 use std::{collections::BTreeMap, path::Path};
 use thiserror::Error;
 
+pub mod auth;
+
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
@@ -23,6 +25,8 @@ pub struct UiService {
     pub port: u16,
     #[serde(default)]
     pub aliases: Vec<String>,
+    #[serde(default)]
+    pub tailnet_identity: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -40,6 +44,8 @@ pub struct CaddySites {
     pub acme_staging: bool,
     pub machine_hostname: String,
     pub services: Vec<CaddySite>,
+    #[serde(default)]
+    pub tailnet_users: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -50,6 +56,8 @@ pub struct CaddySite {
     pub aliases: Vec<String>,
     pub upstream: String,
     pub port: u16,
+    #[serde(default)]
+    pub tailnet_identity: bool,
 }
 
 #[derive(Debug, Error)]
@@ -64,6 +72,10 @@ pub enum CaddyError {
     InvalidConfiguration(String),
     #[error("invalid Caddy sites credential: {0}")]
     InvalidSites(#[from] serde_json::Error),
+    #[error(transparent)]
+    Auth(#[from] auth::AuthError),
+    #[error(transparent)]
+    Activation(#[from] skillet_core::activation::ActivationError),
 }
 
 impl CaddySites {
@@ -133,27 +145,29 @@ impl CaddySites {
                 aliases,
                 upstream: service.upstream.clone(),
                 port: service.port,
+                tailnet_identity: service.tailnet_identity,
             });
         }
         Ok(Self {
-            version: 2,
+            version: 3,
             host: host.to_string(),
             ui_domain: environment.ui_domain.clone(),
             acme_staging: environment.acme_staging,
             machine_hostname,
             services: sites,
+            tailnet_users: Vec::new(),
         })
     }
 
     pub fn parse(contents: &str, host: &str, services: &[UiService]) -> Result<Self, CaddyError> {
         let sites: Self = serde_json::from_str(contents)?;
-        if sites.version != 2 {
+        if !matches!(sites.version, 2 | 3) {
             return Err(CaddyError::InvalidConfiguration(format!(
                 "unsupported payload version {}",
                 sites.version
             )));
         }
-        let expected = Self::from_host(
+        let mut expected = Self::from_host(
             host,
             &UiEnvironment {
                 ui_domain: sites.ui_domain.clone(),
@@ -161,12 +175,25 @@ impl CaddySites {
             },
             services,
         )?;
+        auth::Policy::new(sites.tailnet_users.clone())?;
+        if sites.version == 2 && sites.services.iter().any(|site| site.tailnet_identity) {
+            return Err(CaddyError::InvalidConfiguration(
+                "identity protection requires payload version 3; redeliver Caddy credentials"
+                    .into(),
+            ));
+        }
+        expected.version = sites.version;
+        expected.tailnet_users.clone_from(&sites.tailnet_users);
         if sites != expected {
             return Err(CaddyError::InvalidConfiguration(
                 "payload does not match this host's declared UI services".to_string(),
             ));
         }
         Ok(expected)
+    }
+
+    pub fn needs_identity_gate(&self) -> bool {
+        self.services.iter().any(|site| site.tailnet_identity)
     }
 
     pub fn render(&self) -> String {
@@ -180,10 +207,15 @@ impl CaddySites {
         for service in &self.services {
             use std::fmt::Write as _;
             for hostname in std::iter::once(&service.hostname).chain(&service.aliases) {
+                let _ = writeln!(config, "\n{hostname} {{\n    tls {{\n        resolvers 1.1.1.1 1.0.0.1\n    }}\n    route {{\n        @outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48\n        respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403");
+                if service.tailnet_identity {
+                    let _ = writeln!(config, "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {{http.request.header.Origin}} != \"https://{hostname}\"`\n        respond @cross_origin 403\n        @cross_site header Sec-Fetch-Site cross-site\n        respond @cross_site 403");
+                    config.push_str("        request_header -X-Skillet-Peer\n        request_header -X-Skillet-User\n        request_header -X-Webauth-User\n        request_header -Remote-User\n        request_header -Tailscale-User\n        forward_auth unix//run/skillet-tailnet-ui/auth.sock {\n            uri /auth\n            header_up X-Skillet-Peer {http.request.remote}\n            copy_headers X-Skillet-User\n        }\n");
+                }
                 let _ = writeln!(
                     config,
-                    "\n{} {{\n    @outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48\n    respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403\n    reverse_proxy {}:{}\n}}",
-                    hostname, service.upstream, service.port
+                    "        reverse_proxy {}:{}\n    }}\n}}",
+                    service.upstream, service.port
                 );
             }
         }
@@ -276,7 +308,25 @@ where
     S: AccountLookupResource + AccountResource + PodmanSecretResource + ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
 {
+    let policy = auth::Policy::new(sites.tailnet_users.clone())?;
     let caddyfile = sites.render();
+    let mut networks = vec![NetworkAttachment::Bridge(network_name.to_string())];
+    let mut auth_volumes = Vec::new();
+    if sites.needs_identity_gate() {
+        auth::apply(system, files, &policy)?;
+        auth_volumes.push(Volume {
+            host_path: "/run/skillet-tailnet-ui".into(),
+            container_path: "/run/skillet-tailnet-ui".into(),
+            options: Some("ro,z".into()),
+            host_mode: None,
+            host_ownership: None,
+        });
+        for site in sites.services.iter().filter(|site| site.tailnet_identity) {
+            let network = private_network(&sites.host, &site.name);
+            skillet_podman::ensure_network(system, files, &network)?;
+            networks.push(NetworkAttachment::Bridge(network.unit_name));
+        }
+    }
     let config_dir = Path::new("/etc/skillet/caddy");
     files.ensure_directory(
         config_dir,
@@ -308,10 +358,20 @@ where
         ],
     );
 
-    let config = PodmanConfig {
+    if sites.needs_identity_gate() {
+        container.entry("Unit".into()).or_default().extend([
+            "Requires=skillet-tailnet-ui.service".into(),
+            "After=skillet-tailnet-ui.service".into(),
+        ]);
+        container.entry("Container".into()).or_default().extend([
+            "Sysctl=net.ipv4.ip_forward=0".into(),
+            "Sysctl=net.ipv6.conf.all.forwarding=0".into(),
+        ]);
+    }
+    let mut config = PodmanConfig {
         name: "caddy".to_string(),
         image: "ghcr.io/caddybuilds/caddy-cloudflare:2".to_string(),
-        network_attachments: vec![NetworkAttachment::Bridge(network_name.to_string())],
+        network_attachments: networks,
         port_publications: ["::", "0.0.0.0"]
             .into_iter()
             .map(|address| PortPublication {
@@ -327,29 +387,7 @@ where
         storage_dependency: Some(MountDependency::shared_service_data()),
         process_identity: ProcessIdentity::ImageDefault,
         namespace_mapping: None,
-        volumes: vec![
-            Volume {
-                host_path: "/etc/skillet/caddy".to_string(),
-                container_path: "/etc/caddy".to_string(),
-                options: Some("ro,Z".to_string()),
-                host_mode: None,
-                host_ownership: None,
-            },
-            Volume {
-                host_path: "/var/lib/data/caddy/data".to_string(),
-                container_path: "/data".to_string(),
-                options: Some("Z".to_string()),
-                host_mode: None,
-                host_ownership: None,
-            },
-            Volume {
-                host_path: "/var/lib/data/caddy/config".to_string(),
-                container_path: "/config".to_string(),
-                options: Some("Z".to_string()),
-                host_mode: None,
-                host_ownership: None,
-            },
-        ],
+        volumes: state_volumes(),
         secrets: vec![QuadletSecret {
             secret_name: "cloudflare_acme_token".to_string(),
             target: SecretTarget::Environment {
@@ -359,6 +397,7 @@ where
         config_revisions: vec![caddyfile.into_bytes()],
         extra_config: container,
     };
+    config.volumes.extend(auth_volumes);
     // Preserve the caller's network configuration and let Podman create its
     // persistent directories on the shared data filesystem.
     for path in ["/var/lib/data/caddy/data", "/var/lib/data/caddy/config"] {
@@ -370,4 +409,47 @@ where
     }
     skillet_podman::container(system, files, config)?;
     Ok(())
+}
+
+/// A private backend whose strict firewall isolation allows only joined containers.
+pub fn private_network(host: &str, service: &str) -> skillet_podman::PodmanNetwork {
+    let name = format!("{host}-{service}");
+    skillet_podman::PodmanNetwork {
+        unit_name: name.clone(),
+        options: vec![
+            "Driver=bridge".into(),
+            // Netavark skips firewall/isolation rules for internal networks.
+            "Internal=false".into(),
+            "DisableDNS=false".into(),
+            "IPv6=true".into(),
+            "Options=isolate=strict".into(),
+            format!("NetworkName={name}"),
+        ],
+    }
+}
+
+fn state_volumes() -> Vec<Volume> {
+    vec![
+        Volume {
+            host_path: "/etc/skillet/caddy".to_string(),
+            container_path: "/etc/caddy".to_string(),
+            options: Some("ro,Z".to_string()),
+            host_mode: None,
+            host_ownership: None,
+        },
+        Volume {
+            host_path: "/var/lib/data/caddy/data".to_string(),
+            container_path: "/data".to_string(),
+            options: Some("Z".to_string()),
+            host_mode: None,
+            host_ownership: None,
+        },
+        Volume {
+            host_path: "/var/lib/data/caddy/config".to_string(),
+            container_path: "/config".to_string(),
+            options: Some("Z".to_string()),
+            host_mode: None,
+            host_ownership: None,
+        },
+    ]
 }

@@ -149,3 +149,67 @@ fn data_mount_and_persistence_hash_checks_reject_lost_state() {
         super::verify_guest_hash(&transport, "/var/lib/data/.marker", "expected-hash").is_err()
     );
 }
+
+struct FilesTransport {
+    sibling_exit: i32,
+    probes: std::sync::Mutex<Vec<String>>,
+}
+
+impl GuestTransport for FilesTransport {
+    fn execute(&self, request: &GuestCommand<'_>, _: Option<&[u8]>) -> skillet_vm::Result<Output> {
+        let (stdout, code) = match (request.program, request.arguments) {
+            ("sudo", ["-n", "podman", "inspect", "--format", _, "mikochi"]) => (
+                br#"{"fixture-files":{"IPAddress":"172.28.0.2","GlobalIPv6Address":"fd00:1234::2"}}"#.to_vec(),
+                0,
+            ),
+            ("curl", arguments) => {
+                self.probes.lock().unwrap().push(arguments.last().unwrap().to_string());
+                (br#"{"status":"ok"}"#.to_vec(), 0)
+            }
+            ("sudo", ["-n", "podman", "exec", "syncthing", "curl", arguments @ ..]) => {
+                self.probes.lock().unwrap().push(arguments.last().unwrap().to_string());
+                (Vec::new(), self.sibling_exit)
+            }
+            _ => return Err(skillet_vm::Error::Invalid("unsupported acceptance fake request".into())),
+        };
+        Ok(Output {
+            status: ExitStatus::from_raw(code << 8),
+            stdout,
+            stderr: Vec::new(),
+        })
+    }
+
+    fn upload(&self, _: &Path, _: &str) -> skillet_vm::Result<()> {
+        Err(skillet_vm::Error::Invalid(
+            "unsupported acceptance fake upload".into(),
+        ))
+    }
+}
+
+#[test]
+fn file_ui_health_proves_readiness_and_sibling_denial_in_both_ip_families() {
+    for sibling_exit in [7, 28] {
+        let guest = FilesTransport {
+            sibling_exit,
+            probes: std::sync::Mutex::default(),
+        };
+        super::check_mikochi_health(&guest).unwrap();
+        let probes = guest.probes.lock().unwrap();
+        assert_eq!(probes.len(), 4);
+        assert_eq!(probes[0], probes[1]);
+        assert_eq!(probes[2], probes[3]);
+        assert!(probes[0].contains("172.28.0.2:8080"));
+        assert!(probes[2].contains("[fd00:1234::2]:8080"));
+    }
+}
+
+#[test]
+fn file_ui_health_rejects_accessible_backends_and_broken_probe_commands() {
+    for sibling_exit in [0, 1, 3, 127] {
+        let guest = FilesTransport {
+            sibling_exit,
+            probes: std::sync::Mutex::default(),
+        };
+        assert!(super::check_mikochi_health(&guest).is_err());
+    }
+}

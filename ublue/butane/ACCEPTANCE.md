@@ -1,3 +1,53 @@
+## Mikochi and shared tailnet identity — 2026-10-11
+
+- Shared Syncthing composition selects Mikochi on clamps and joey. It serves
+  only the declared user-file directory, using Syncthing's process/host mapping,
+  without a native login or published port. Caddy receives the authorization
+  socket; the gate alone receives daemon access. Encrypted version 3 UI payloads
+  carry the shared allowlist from `skillet/tailscale/ui-users` (Password, commas
+  or newlines). The unlocked vault audit passed: seven required, none missing,
+  invalid or unused. No private identifiers or credential values are recorded here.
+- Local musl-target formatting, strict all-target Clippy and all 385 workspace
+  tests passed. The Fedora joey base integration applied twice without service
+  activation on repeat apply. Bootstrap and hardware regressions passed.
+  New CI checks validate generated identity Caddy configuration using the real
+  Caddy image and exercise pinned Mikochi 1.12.0 without a vault/provider API:
+  no app authentication, 3-MiB upload/download, spaced filenames, mkdir, rename,
+  delete, preserved host ownership and denial of an unmounted host symlink target.
+- The first disposable `clamps / files` probe rejected `Internal=true` as unsafe:
+  Netavark 1.17.2 skips firewall generation for internal networks, allowing direct
+  backend access. Mikochi was stopped and that VM disposed through the owner.
+  The final profile uses a dedicated **non-internal**, strictly isolated bridge;
+  Caddy forwarding is disabled. Runtime smoke now requires positive IPv4/IPv6
+  readiness and negative sibling connections, rejecting broken probe commands.
+- Fresh `clamps / files`, native `qemu:///session`, SSH port 2203, captured the
+  corrected binaries and passed signed image/bootstrap/base/user readiness.
+  A temporary Rust driver held the per-run lock and checked domain ownership
+  around every guest command: positive readiness passed over IPv4 and IPv6,
+  while both sibling bridge connections timed out. There was one Mikochi backend
+  network and no host publication. After the synthetic reboot, independent full
+  apply and Caddy apply preserved Mikochi's container ID and start timestamp. Real LocalAPI lookup
+  matched this workstation's untagged user to the allowlist; the authorization
+  endpoint returned 204. This does not establish two-person browser acceptance.
+- A preliminary VM obtained four staging ACME certificates and returned its
+  explicit non-tailnet 403 after a diagnostic public-resolver change. Public
+  ACME resolvers are now in shared rendering, separately from upstream Podman
+  DNS. On the fresh VM, provisioning still failed its HTTPS denial/readiness
+  check: Let's Encrypt reported **secondary-validation DNS networking errors**.
+  Certificate issuance is retrying; fresh live ACME acceptance remains pending.
+- End-to-end user HTTPS/file operations remain pending: this workstation's
+  connection to the tailnet VM returned `Host is unreachable`. The operator was
+  asked to verify human-user TCP 443 grants to the smoke tag. Do not equate
+  direct authorization-socket success or direct-container CI file operations
+  with successful HTTPS file operations. Irene, unknown-user live requests,
+  live revocation/outage, broader symlink behavior and Headscale remain unverified.
+  Gokapi mapping and donbot implementation remain planned.
+- Synthetic smoke passed first apply, repeat apply and reboot checks. The full
+  `--with-applications` run failed because the fresh UniFi controller did not
+  listen on UDP 10001 within 120 seconds; it stopped before the Mikochi roster
+  probe. The independent Mikochi checks above passed afterward. Full-profile
+  application acceptance remains failed; no UniFi requirement was relaxed.
+
 ## Fleet rename — 2026-10-11
 
 Current profiles/artifacts use `joey` (formerly beelzebot) and `donbot`

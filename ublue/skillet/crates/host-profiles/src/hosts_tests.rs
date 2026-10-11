@@ -72,7 +72,7 @@ fn clamps_tailscale_uses_host_network_and_persistent_state() {
         config.network_attachments,
         [skillet_podman::NetworkAttachment::Host]
     );
-    assert_eq!(config.volumes.len(), 1);
+    assert_eq!(config.volumes.len(), 2);
     assert_eq!(config.volumes[0].host_path, "/var/lib/data/tailscale");
     assert_eq!(config.volumes[0].container_path, "/var/lib/tailscale");
     let container = &config.extra_config["Container"];
@@ -113,6 +113,7 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
             "ddns",
             "datadog",
             "btrbk",
+            "mikochi",
             "smtp"
         ]
     );
@@ -156,6 +157,7 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
             "ddns",
             "datadog",
             "btrbk",
+            "mikochi",
             "smtp"
         ]
     );
@@ -285,7 +287,7 @@ fn host_ui_declarations_include_only_the_services_each_host_runs() {
             .iter()
             .map(|service| service.name.as_str())
             .collect::<Vec<_>>(),
-        ["pihole", "syncthing"]
+        ["pihole", "syncthing", "files"]
     );
     assert_eq!(clamps.network_name, "clamps");
     assert_eq!(clamps.services[0].upstream, "pihole");
@@ -296,7 +298,7 @@ fn host_ui_declarations_include_only_the_services_each_host_runs() {
     assert_eq!(clamps.services[1].aliases, ["sync.{host}"]);
 
     let joey = ui_config_for_host("joey").expect("joey UI declaration");
-    assert_eq!(joey.services.len(), 2);
+    assert_eq!(joey.services.len(), 3);
     assert_eq!(joey.services[0].name, "pihole");
     assert_eq!(joey.services[1].name, "syncthing");
     assert_eq!(joey.services[1].aliases, ["sync.{host}"]);
@@ -322,7 +324,9 @@ fn application_acceptance_tracks_each_profiles_declared_services() {
             "syncthing.service",
             "unifi.service",
             "skillet-btrbk.timer",
-            "caddy.service"
+            "mikochi.service",
+            "caddy.service",
+            "skillet-tailnet-ui.service"
         ]
     );
     let pihole = clamps
@@ -369,7 +373,9 @@ fn application_acceptance_tracks_each_profiles_declared_services() {
             "tailscale.service",
             "syncthing.service",
             "skillet-btrbk.timer",
-            "caddy.service"
+            "mikochi.service",
+            "caddy.service",
+            "skillet-tailnet-ui.service"
         ]
     );
     assert!(joey
@@ -423,6 +429,7 @@ fn synthetic_profile_derives_network_and_ui_from_its_identity() {
         requires_data_mount: false,
         services: vec![HostService {
             config: ServiceConfig::Syncthing {
+                files_path: "/var/lib/data/syncthing/data",
                 data_path: "/srv/sync",
                 data_owner: "sync",
                 data_group: "sync",
@@ -433,6 +440,7 @@ fn synthetic_profile_derives_network_and_ui_from_its_identity() {
                 name: "sync",
                 upstream: "sync",
                 port: 8384,
+                tailnet_identity: false,
                 aliases: &["files.{host}"],
             }),
         }],
@@ -624,4 +632,32 @@ fn joey_full_apply_uses_shared_services_and_is_repeatable() {
     assert!(!before.contains_key("/etc/containers/systemd/unifi.container"));
     assert!(!before.contains_key("/etc/containers/systemd/datadog-agent.container"));
     assert!(!before.contains_key("/etc/containers/systemd/cloudflare-ddns.container"));
+}
+
+#[test]
+fn every_syncthing_caller_has_matching_private_file_browsing() {
+    for profile in super::declared_profiles() {
+        let syncthing = profile
+            .services
+            .iter()
+            .find(|service| matches!(service.config, ServiceConfig::Syncthing { .. }));
+        let files = profile
+            .services
+            .iter()
+            .find(|service| matches!(service.config, ServiceConfig::Mikochi { .. }));
+        assert_eq!(syncthing.is_some(), files.is_some());
+        if let Some(files) = files {
+            let ui = files.ui.unwrap();
+            assert_eq!(ui.name, "files");
+            assert!(ui.tailnet_identity);
+            assert_eq!(ui.upstream, "mikochi");
+            let plan = profile.acceptance_plan();
+            let acceptance = plan
+                .services
+                .iter()
+                .find(|service| service.unit == "mikochi.service")
+                .unwrap();
+            assert_eq!(acceptance.health_probe, Some(crate::HealthProbe::Mikochi));
+        }
+    }
 }

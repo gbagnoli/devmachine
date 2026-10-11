@@ -37,6 +37,7 @@ fn syncthing_uses_persistent_data_and_shared_dns_network() {
         &system,
         &files,
         SyncthingConfig {
+            files_path: "/var/lib/data/syncthing/data".to_string(),
             data_path: "/var/lib/data/syncthing".to_string(),
             data_owner: "giacomo".to_string(),
             data_group: "giacomo".to_string(),
@@ -55,6 +56,7 @@ fn syncthing_uses_persistent_data_and_shared_dns_network() {
     for directive in [
         "AutoUpdate=registry",
         "ContainerName=syncthing",
+        "Environment=HOME=/var/syncthing/data",
         "User=1000:1000",
         "UIDMap=1000:1042:1",
         "GIDMap=1000:2047:1",
@@ -78,6 +80,33 @@ fn syncthing_uses_persistent_data_and_shared_dns_network() {
 }
 
 #[test]
+fn user_files_are_separate_from_configuration_and_cannot_escape_the_mount() {
+    let mut config = SyncthingConfig {
+        files_path: "/var/lib/data/syncthing/data".into(),
+        data_path: "/var/lib/data/syncthing".into(),
+        data_owner: "owner".into(),
+        data_group: "owner".into(),
+        container_uid: 1000,
+        container_gid: 1000,
+        network_name: "example".into(),
+    };
+    assert_eq!(container_home(&config).unwrap(), "/var/syncthing/data");
+    for path in [
+        "/var/lib/data/syncthing",
+        "/var/lib/data/syncthing/config",
+        "/var/lib/data/syncthing/config/files",
+        "/var/lib/data/syncthing/../other",
+        "/var/lib/data/other",
+    ] {
+        config.files_path = path.into();
+        assert!(matches!(
+            container_home(&config),
+            Err(SyncthingError::InvalidFileScope)
+        ));
+    }
+}
+
+#[test]
 fn syncthing_requires_declared_host_account_identities() {
     let system = MockSystem::new();
     let files = MockFiles::new();
@@ -87,6 +116,7 @@ fn syncthing_requires_declared_host_account_identities() {
         &system,
         &files,
         SyncthingConfig {
+            files_path: "/var/lib/data/syncthing/data".to_string(),
             data_path: "/var/lib/data/syncthing".to_string(),
             data_owner: "giacomo".to_string(),
             data_group: "giacomo".to_string(),
@@ -129,6 +159,7 @@ fn syncthing_rejects_a_non_primary_host_group_for_namespace_mapping() {
         &system,
         &files,
         SyncthingConfig {
+            files_path: "/var/lib/data/syncthing/data".to_string(),
             data_path: "/var/lib/data/syncthing".to_string(),
             data_owner: "giacomo".to_string(),
             data_group: "data".to_string(),

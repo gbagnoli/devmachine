@@ -30,8 +30,8 @@ fn manual_requirements_follow_profiles_environment_and_template_references() {
         &|_, _| Ok(None),
     )
     .unwrap();
-    assert_eq!(report.checked, 6);
-    assert_eq!(report.missing.len(), 6);
+    assert_eq!(report.checked, 7);
+    assert_eq!(report.missing.len(), 7);
     assert!(report.missing.iter().any(
         |entry| entry.path == "skillet/environments/test/hosts/clamps/cloudflare/ddns-dns-name"
     ));
@@ -58,7 +58,7 @@ fn manual_requirements_follow_profiles_environment_and_template_references() {
         },
     )
     .unwrap();
-    assert_eq!(report.checked, 7);
+    assert_eq!(report.checked, 8);
     assert!(report.missing.is_empty());
 }
 
