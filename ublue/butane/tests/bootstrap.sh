@@ -67,6 +67,9 @@ check fresh '{"deployments":[{"booted":true,"container-image-reference":""}]}' "
 check bender_fresh '{"deployments":[{"booted":true,"container-image-reference":""}]}' \
   'ostree-unverified-registry:ghcr.io/gbagnoli/ucore-bender:latest' 1 0 0 '' 0 \
   'ghcr.io/gbagnoli/ucore-bender'
+check beelzebot_fresh '{"deployments":[{"booted":true,"container-image-reference":""}]}' \
+  'ostree-unverified-registry:ghcr.io/gbagnoli/ucore-beelzebot:latest' 1 0 0 '' 0 \
+  'ghcr.io/gbagnoli/ucore-beelzebot'
 check unsigned_with_signed_rollback \
   "{\"deployments\":[{\"booted\":true,\"container-image-reference\":\"$unsigned\"},{\"booted\":false,\"container-image-reference\":\"$signed\"}]}" \
   "$signed" 1 0 0

@@ -81,11 +81,16 @@ to converge only the shared host baseline before credentials are available.
   ```bash
   ./target/x86_64-unknown-linux-musl/debug/skillet apply --host clamps --phase base
   ```
-- **Host-Specific Configuration**: If a host-specific binary has been built (e.g., `skillet-beezelbot`), you can use it to apply specific configurations.
+- **Host-Specific Configuration**: If a host-specific binary has been built (e.g., `skillet-beelzebot`), you can use it to apply specific configurations.
 
 ## Disposable VM smoke check
 
-The CI command `skillet test run beezelbot --phase base --image fedora:latest`
+`beelzebot` replaces boxy and selects Pi-hole, Syncthing, Tailscale, snapshots,
+DDNS, Datadog and shared SMTP. Use the [migration plan](../plan/BEELZEBOT-MIGRATION.md)
+for remaining routing/production work and [host design](../design/fleet-hosts.md)
+for selection decisions. The old misspelled binary/profile has been removed.
+
+The CI command `skillet test run beelzebot --phase base --image fedora:latest`
 runs the selected apply phase twice in a uniquely named, temporary Podman
 container. It builds the selected host binary, checks both applies succeed,
 and checks the second apply does not start or restart a service. `clamps` is
@@ -466,7 +471,7 @@ record/token ownership is cleaned up by `test vm destroy`; do not use direct
 - Workspace checks: `cargo fmt --all -- --check`,
   `cargo clippy --workspace --all-targets -- -D warnings`, and
   `cargo test --workspace --all-targets`.
-- Container integration: `cargo run --bin skillet -- test run beezelbot
+- Container integration: `cargo run --bin skillet -- test run beelzebot
   --phase base --image fedora:latest` (also run for `clamps` after changing
   shared container behavior).
 - Bootstrap state regressions: `bash ublue/butane/tests/bootstrap.sh` from the

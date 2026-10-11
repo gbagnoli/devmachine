@@ -338,7 +338,7 @@ fn create_cleanup_fixture(run_directory: &Path, provider: &FakeCloudflare) {
 #[test]
 fn production_and_test_share_host_dns_plan_but_select_different_acme_policy() {
     let production = build_ui_provisioning_plan(
-        "beezelbot",
+        "beelzebot",
         ProvisioningPolicy::new(Environment::Production),
         "example.invalid",
         Some("ui"),
@@ -346,7 +346,7 @@ fn production_and_test_share_host_dns_plan_but_select_different_acme_policy() {
     )
     .unwrap();
     let test = build_ui_provisioning_plan(
-        "beezelbot",
+        "beelzebot",
         ProvisioningPolicy::new(Environment::Test),
         "example.invalid",
         Some("smoke.ui"),
@@ -356,11 +356,11 @@ fn production_and_test_share_host_dns_plan_but_select_different_acme_policy() {
 
     assert_eq!(
         production.sites.machine_hostname,
-        "beezelbot.ui.example.invalid"
+        "beelzebot.ui.example.invalid"
     );
     assert_eq!(
         test.sites.machine_hostname,
-        "beezelbot.smoke.ui.example.invalid"
+        "beelzebot.smoke.ui.example.invalid"
     );
     assert!(!production.sites.acme_staging);
     assert!(test.sites.acme_staging);
@@ -423,7 +423,7 @@ fn profiles_without_ui_and_incomplete_address_families_fail_closed() {
     let only_v4 = BTreeSet::from(["100.64.0.10".to_string()]);
     assert!(matches!(
         build_ui_provisioning_plan(
-            "beezelbot",
+            "beelzebot",
             ProvisioningPolicy::new(Environment::Test),
             "example.invalid",
             None,

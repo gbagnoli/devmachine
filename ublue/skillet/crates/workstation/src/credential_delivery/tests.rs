@@ -55,7 +55,7 @@ fn datadog_delivery_validates_capability_and_sends_only_stdin() {
     let key = "0123456789abcdef0123456789abcdef";
     let payload = serde_json::json!({"version":1,"api_key":key,"site":"datadoghq.eu"}).to_string();
     let policy = ProvisioningPolicy::new(Environment::Test);
-    assert!(deliver_datadog_credential("beezelbot", policy, &payload, &guest).is_err());
+    assert!(deliver_datadog_credential("agent", policy, &payload, &guest).is_err());
     assert!(deliver_datadog_credential("clamps", policy, "invalid", &guest).is_err());
     assert!(guest.calls.lock().unwrap().is_empty());
     deliver_datadog_credential("clamps", policy, &payload, &guest).unwrap();
@@ -299,7 +299,7 @@ fn smtp_delivery_is_stdin_only_and_capture_cannot_contain_provider_fields() {
     };
     assert!(crate::smtp_provisioning::deliver("agent", &input, &guest).is_err());
     assert_eq!(guest.calls.lock().unwrap().len(), 0);
-    crate::smtp_provisioning::deliver("beezelbot", &input, &guest).unwrap();
+    crate::smtp_provisioning::deliver("beelzebot", &input, &guest).unwrap();
     let calls = guest.calls.lock().unwrap();
     assert!(calls.iter().all(|(args, _)| args
         .iter()

@@ -1,5 +1,5 @@
 use super::{application_snapshot, application_snapshot_with_probe_timeout, require_data_mount};
-use skillet_hosts::profile_for_name;
+use skillet_hosts::{profile_for_name, HostAcceptancePlan};
 use skillet_vm::transport::{GuestCommand, GuestTransport};
 use std::{
     os::unix::process::ExitStatusExt as _,
@@ -55,17 +55,25 @@ impl GuestTransport for AcceptanceTransport {
 fn transport() -> AcceptanceTransport {
     AcceptanceTransport {
         active: true,
-        network: "beezelbot".into(),
+        network: "beelzebot".into(),
         missing_listener: None,
         owner: "1042:2047".into(),
         container_id: "container-id".into(),
     }
 }
 
+// These observations exercise the Syncthing/Caddy capability subset only.
+// Host selection itself is checked against the complete canonical declaration.
+fn syncthing_ui_plan() -> HostAcceptancePlan {
+    let mut plan = profile_for_name("beelzebot").unwrap().acceptance_plan();
+    plan.services
+        .retain(|service| matches!(service.unit.as_str(), "syncthing.service" | "caddy.service"));
+    plan
+}
+
 #[test]
 fn application_snapshot_accepts_profile_declared_runtime() {
-    let profile = profile_for_name("beezelbot").unwrap();
-    let plan = profile.acceptance_plan();
+    let plan = syncthing_ui_plan();
     let observed = application_snapshot(&transport(), &|| Ok(()), &plan).unwrap();
     assert!(observed
         .iter()
@@ -79,7 +87,7 @@ fn application_snapshot_accepts_profile_declared_runtime() {
 fn application_snapshot_rejects_stopped_units() {
     let mut fake = transport();
     fake.active = false;
-    let plan = profile_for_name("beezelbot").unwrap().acceptance_plan();
+    let plan = syncthing_ui_plan();
     assert!(application_snapshot_with_probe_timeout(
         &fake,
         &|| Ok(()),
@@ -93,7 +101,7 @@ fn application_snapshot_rejects_stopped_units() {
 
 #[test]
 fn application_snapshot_rejects_wrong_network_and_missing_listener() {
-    let plan = profile_for_name("beezelbot").unwrap().acceptance_plan();
+    let plan = syncthing_ui_plan();
     let mut wrong_network = transport();
     wrong_network.network = "unrelated".into();
     assert!(application_snapshot(&wrong_network, &|| Ok(()), &plan)
@@ -116,7 +124,7 @@ fn application_snapshot_rejects_wrong_network_and_missing_listener() {
 
 #[test]
 fn application_snapshot_rejects_wrong_data_ownership_and_changed_identity() {
-    let plan = profile_for_name("beezelbot").unwrap().acceptance_plan();
+    let plan = syncthing_ui_plan();
     let mut wrong_owner = transport();
     wrong_owner.owner = "1000:1000".into();
     assert!(application_snapshot(&wrong_owner, &|| Ok(()), &plan)

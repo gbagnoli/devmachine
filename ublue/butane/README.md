@@ -1,7 +1,19 @@
-# Clamps VM bootstrap
+# Fleet VM bootstrap
 
 For real servers, use the separate [physical installation flow](HARDWARE.md).
 VM creation keeps its `/dev/vda` template and independent root-profile choice.
+
+Available VM templates: `clamps.bu` and `beelzebot.bu`. Both retain `/dev/vda`
+and the shared Btrfs data layout. Use `beelzebot` for boxy's replacement; the
+old misspelled selector/package is removed. [Migration plan](../plan/BEELZEBOT-MIGRATION.md).
+
+```bash
+./bin/test-vm beelzebot create smoke --port 2202
+./bin/test-vm beelzebot ready smoke
+./bin/test-vm beelzebot destroy smoke
+```
+
+Choose a free port if another VM already uses 2202.
 
 A clean disposable VM create passed signed boot and readiness on 2026-09-26.
 The Flatpak backend on Bazzite passed create, status, and readiness on 2026-09-27.
