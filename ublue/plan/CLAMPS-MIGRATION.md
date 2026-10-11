@@ -197,6 +197,14 @@ Done when: all retained capabilities and data work on clamps, routine convergenc
   Nebula Sync, and legacy networking. Datadog is retained and its live VM acceptance passed.
 - Cutover: address/identity transitions, outage window and rollback duration.
 
+## Optional additions
+
+[Home Assistant](HOME-ASSISTANT.md) is a requested new service, separate from
+Chef parity and the rupik retirement gates. Its plan covers an opted-in rootful
+host-network container, generic private UI access, native encrypted backups
+published into Syncthing, existing btrbk history, and isolated restore acceptance.
+All Home Assistant implementation and acceptance remain pending.
+
 ## Technical references
 
 - [systemctl waiting semantics](https://raw.githubusercontent.com/systemd/systemd/main/man/systemctl.xml)
