@@ -55,7 +55,7 @@ impl GuestTransport for AcceptanceTransport {
 fn transport() -> AcceptanceTransport {
     AcceptanceTransport {
         active: true,
-        network: "beelzebot".into(),
+        network: "joey".into(),
         missing_listener: None,
         owner: "1042:2047".into(),
         container_id: "container-id".into(),
@@ -65,7 +65,7 @@ fn transport() -> AcceptanceTransport {
 // These observations exercise the Syncthing/Caddy capability subset only.
 // Host selection itself is checked against the complete canonical declaration.
 fn syncthing_ui_plan() -> HostAcceptancePlan {
-    let mut plan = profile_for_name("beelzebot").unwrap().acceptance_plan();
+    let mut plan = profile_for_name("joey").unwrap().acceptance_plan();
     plan.services
         .retain(|service| matches!(service.unit.as_str(), "syncthing.service" | "caddy.service"));
     plan

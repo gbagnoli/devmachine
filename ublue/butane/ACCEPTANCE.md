@@ -1,3 +1,20 @@
+## Fleet rename — 2026-10-11
+
+Current profiles/artifacts use `joey` (formerly beelzebot) and `donbot`
+(formerly bender). Dated commands, VM identities and evidence paths below retain
+the values actually used; they are not acceptance of freshly renamed machines.
+Retained run manifests, provider ownership and vault entries were not mutated.
+New image publication and a fresh joey boot/application check remain pending;
+see [the joey migration plan](../plan/JOEY-MIGRATION.md).
+Rename validation passed: offline locked workspace/all-target compile check,
+strict all-target Clippy, formatting and all 372 workspace tests. Nine bootstrap
+regressions (including joey/donbot image selection), both hardware refusal cases,
+and changed-script ShellCheck passed. The Fedora CI base integration for joey
+applied twice, issued no service start/restart on repeat apply and cleaned its
+container (exit 0). Document/include links and the image recipe matrix/base-build
+dependency resolve. Fresh named-VM acceptance and image builds were not run for
+this rename; previous dated results remain historical evidence.
+
 ## Live vault-backed root recovery — 2026-10-10
 
 - Fresh native `clamps / vault-recovery`, SSH port 2202, explicitly selected
@@ -2399,7 +2416,7 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   Syncthing, caller-selected Syncthing-only btrbk, DDNS, Datadog and SMTP;
   generic Caddy exposes only the declared UIs. UniFi is not selected.
 - Operator explicitly authorized removing the misspelled profile/package without
-  compatibility. Current commands and CI use `beelzebot`; earlier log entries
+  compatibility. At that time commands and CI used `beelzebot`; earlier log entries
   retain the command spelling actually executed. No vault or manifest migrated.
 - Local: all 372 workspace/all-target tests, formatting, strict pedantic Clippy,
   Fedora `test run beelzebot --phase base --image fedora:latest` (two applies,
@@ -2430,4 +2447,4 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   Full application/provider acceptance remains pending an operator unlock.
 - Remaining parity: private Pi-hole v6 DNS configuration delivery, boxy's subnet
   routing/acceptance/SNAT policy, private cross-host UI/probes, source data/ACLs,
-  physical deployment and cutover. See `../plan/BEELZEBOT-MIGRATION.md`.
+  physical deployment and cutover. See `../plan/JOEY-MIGRATION.md`.

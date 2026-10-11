@@ -22,7 +22,7 @@ fn applying_unchanged_caddy_sites_preserves_the_container() {
         .ensure_podman_secret("cloudflare_acme_token", "dummy-token")
         .unwrap();
     let sites = CaddySites::from_host(
-        "beelzebot",
+        "joey",
         &UiEnvironment {
             ui_domain: "test.example.invalid".to_string(),
             acme_staging: true,
@@ -30,7 +30,7 @@ fn applying_unchanged_caddy_sites_preserves_the_container() {
         &syncthing_only(),
     )
     .unwrap();
-    super::apply(&system, &files, &sites, "beelzebot").unwrap();
+    super::apply(&system, &files, &sites, "joey").unwrap();
     let initial_restart_count = system.restart_count.load(Ordering::SeqCst);
     let initial_config = files
         .files
@@ -47,7 +47,7 @@ fn applying_unchanged_caddy_sites_preserves_the_container() {
         .unwrap()
         .contains_key("/etc/skillet/caddy/Caddyfile"));
 
-    super::apply(&system, &files, &sites, "beelzebot").unwrap();
+    super::apply(&system, &files, &sites, "joey").unwrap();
 
     assert_eq!(
         system.restart_count.load(Ordering::SeqCst),
@@ -71,7 +71,7 @@ fn derives_a_single_non_clamps_service_hostname_for_either_environment() {
         ("prod.example.invalid", false),
     ] {
         let sites = CaddySites::from_host(
-            "beelzebot",
+            "joey",
             &UiEnvironment {
                 ui_domain: domain.to_string(),
                 acme_staging: staging,
@@ -82,7 +82,7 @@ fn derives_a_single_non_clamps_service_hostname_for_either_environment() {
         assert_eq!(sites.services.len(), 1);
         assert_eq!(
             sites.services[0].hostname,
-            format!("syncthing.beelzebot.{domain}")
+            format!("syncthing.joey.{domain}")
         );
         assert_eq!(sites.acme_staging, staging);
     }
@@ -128,7 +128,7 @@ fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
 fn guest_payload_must_match_the_callers_declared_services() {
     let services = syncthing_only();
     let expected = CaddySites::from_host(
-        "beelzebot",
+        "joey",
         &UiEnvironment {
             ui_domain: "test.example.invalid".to_string(),
             acme_staging: true,
@@ -138,11 +138,11 @@ fn guest_payload_must_match_the_callers_declared_services() {
     .unwrap();
     let payload = serde_json::to_string(&expected).unwrap();
     assert_eq!(
-        CaddySites::parse(&payload, "beelzebot", &services).unwrap(),
+        CaddySites::parse(&payload, "joey", &services).unwrap(),
         expected
     );
     assert!(CaddySites::parse(&payload, "clamps", &services).is_err());
-    assert!(CaddySites::parse(&payload, "beelzebot", &[]).is_err());
+    assert!(CaddySites::parse(&payload, "joey", &[]).is_err());
 }
 
 #[test]

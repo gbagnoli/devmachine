@@ -3,14 +3,14 @@
 For real servers, use the separate [physical installation flow](HARDWARE.md).
 VM creation keeps its `/dev/vda` template and independent root-profile choice.
 
-Available VM templates: `clamps.bu` and `beelzebot.bu`. Both retain `/dev/vda`
-and the shared Btrfs data layout. Use `beelzebot` for boxy's replacement; the
-old misspelled selector/package is removed. [Migration plan](../plan/BEELZEBOT-MIGRATION.md).
+Available VM templates: `clamps.bu` and `joey.bu`. Both retain `/dev/vda`
+and the shared Btrfs data layout. Use `joey` for boxy's replacement;
+retained VM manifests and vault entries are not renamed implicitly. [Migration plan](../plan/JOEY-MIGRATION.md).
 
 ```bash
-./bin/test-vm beelzebot create smoke --port 2202
-./bin/test-vm beelzebot ready smoke
-./bin/test-vm beelzebot destroy smoke
+./bin/test-vm joey create smoke --port 2202
+./bin/test-vm joey ready smoke
+./bin/test-vm joey destroy smoke
 ```
 
 Choose a free port if another VM already uses 2202.

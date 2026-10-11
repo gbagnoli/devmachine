@@ -2321,14 +2321,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "skillet-beelzebot"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "skillet_cli_common",
-]
-
-[[package]]
 name = "skillet-clamps"
 version = "0.1.0"
 dependencies = [
@@ -2338,6 +2330,14 @@ dependencies = [
  "skillet_hardening",
  "skillet_pihole",
  "skillet_podman",
+]
+
+[[package]]
+name = "skillet-joey"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "skillet_cli_common",
 ]
 
 [[package]]

@@ -90,9 +90,9 @@ bridge upstream (container DNS name and port). Each host caller supplies its
 enabled services and Podman network through one reusable host definition.
 Use that same declaration for Caddy and workstation DNS planning; do not
 maintain two lists that can drift. Clamps declares Syncthing and Pi-hole;
-beelzebot now declares both through the same profile mechanism and its own
+joey now declares both through the same profile mechanism and its own
 bridge. Service-free and injected capability subsets test hosts without a
-Pi-hole dependency. See [its migration plan](BEELZEBOT-MIGRATION.md).
+Pi-hole dependency. See [its migration plan](JOEY-MIGRATION.md).
 Declaring future services must not require editing Caddy's renderer.
 
 Add a validated environment configuration and one hostname derivation helper.

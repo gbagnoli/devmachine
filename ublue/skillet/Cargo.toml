@@ -13,7 +13,7 @@ members = [
     "crates/smtp",
     "crates/podman",
     "crates/cli",
-    "crates/hosts/beelzebot",
+    "crates/hosts/joey",
     "crates/hosts/clamps",
     "crates/cli-common",
     "crates/test-fixture",

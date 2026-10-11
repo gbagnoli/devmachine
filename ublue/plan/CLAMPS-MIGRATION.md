@@ -32,7 +32,7 @@ open; previous passing native VM checks do not close them.
    tests. Broader OS hardening is still a placeholder, not an accepted port.
 
 No new clamps service crate is required to start
-[boxy → beelzebot](BEELZEBOT-MIGRATION.md). Acceptance details remain in
+[boxy → joey](JOEY-MIGRATION.md). Acceptance details remain in
 [ACCEPTANCE.md](../butane/ACCEPTANCE.md) and the service plans.
 
 ## Goal and starting point

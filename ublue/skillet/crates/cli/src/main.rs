@@ -1395,7 +1395,7 @@ mod tests {
             "skillet",
             "test",
             "run",
-            "beelzebot",
+            "joey",
             "--phase",
             "base",
             "--image",

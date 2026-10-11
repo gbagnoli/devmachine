@@ -50,9 +50,9 @@ fn boot_expectations_are_profile_inputs_and_unknown_profiles_are_refused() {
     let clamps = super::boot_policy_for_host("clamps").unwrap();
     assert_eq!(clamps.signed_image, "ghcr.io/gbagnoli/ucore-clamps");
     assert_eq!(clamps.masked_units, ["systemd-resolved.service"]);
-    let other = super::boot_policy_for_host("beelzebot").unwrap();
+    let other = super::boot_policy_for_host("joey").unwrap();
     assert_eq!(other.masked_units, ["systemd-resolved.service"]);
-    assert_eq!(other.signed_image, "ghcr.io/gbagnoli/ucore-beelzebot");
+    assert_eq!(other.signed_image, "ghcr.io/gbagnoli/ucore-joey");
     assert!(super::boot_policy_for_host("clamps-test-smoke").is_none());
     assert!(super::boot_policy_for_host("unknown").is_none());
 }
@@ -143,10 +143,9 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
         .options
         .contains(&"Subnet=fd59:4e23:2950:11f5::/64".to_string()));
 
-    let beelzebot = super::profile_for_name("beelzebot").unwrap();
+    let joey = super::profile_for_name("joey").unwrap();
     assert_eq!(
-        beelzebot
-            .services
+        joey.services
             .iter()
             .map(HostService::name)
             .collect::<Vec<_>>(),
@@ -160,20 +159,17 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
             "smtp"
         ]
     );
-    assert!(!beelzebot.supports_service("unifi"));
+    assert!(!joey.supports_service("unifi"));
     assert_eq!(
-        beelzebot.btrbk_config().unwrap().snapshot_subvolumes,
+        joey.btrbk_config().unwrap().snapshot_subvolumes,
         [std::path::PathBuf::from("syncthing")]
     );
-    assert_eq!(
-        beelzebot.signed_image,
-        Some("ghcr.io/gbagnoli/ucore-beelzebot")
-    );
-    assert_eq!(beelzebot.masked_units, ["systemd-resolved.service"]);
-    assert!(beelzebot.requires_data_mount);
-    assert!(beelzebot.requires_pihole_dns_listener_policy());
-    assert!(beelzebot.tailscale_exit_node());
-    assert!(beelzebot
+    assert_eq!(joey.signed_image, Some("ghcr.io/gbagnoli/ucore-joey"));
+    assert_eq!(joey.masked_units, ["systemd-resolved.service"]);
+    assert!(joey.requires_data_mount);
+    assert!(joey.requires_pihole_dns_listener_policy());
+    assert!(joey.tailscale_exit_node());
+    assert!(joey
         .services
         .iter()
         .any(|service| matches!(service.config, ServiceConfig::Pihole { custom_dns: [] })));
@@ -231,7 +227,7 @@ fn credential_values_are_selected_by_host_and_apply_phase() {
         ]
     );
     assert_eq!(
-        super::credentials_for_phase("beelzebot", super::HostApplyPhase::Full).unwrap(),
+        super::credentials_for_phase("joey", super::HostApplyPhase::Full).unwrap(),
         [
             super::PIHOLE_WEB_PASSWORD_CREDENTIAL,
             super::TAILSCALE_AUTH_KEY_CREDENTIAL
@@ -299,12 +295,12 @@ fn host_ui_declarations_include_only_the_services_each_host_runs() {
     assert_eq!(clamps.services[1].port, 8384);
     assert_eq!(clamps.services[1].aliases, ["sync.{host}"]);
 
-    let beelzebot = ui_config_for_host("beelzebot").expect("beelzebot UI declaration");
-    assert_eq!(beelzebot.services.len(), 2);
-    assert_eq!(beelzebot.services[0].name, "pihole");
-    assert_eq!(beelzebot.services[1].name, "syncthing");
-    assert_eq!(beelzebot.services[1].aliases, ["sync.{host}"]);
-    assert_eq!(beelzebot.network_name, "beelzebot");
+    let joey = ui_config_for_host("joey").expect("joey UI declaration");
+    assert_eq!(joey.services.len(), 2);
+    assert_eq!(joey.services[0].name, "pihole");
+    assert_eq!(joey.services[1].name, "syncthing");
+    assert_eq!(joey.services[1].aliases, ["sync.{host}"]);
+    assert_eq!(joey.network_name, "joey");
     assert!(ui_config_for_host("unknown-host").is_none());
 }
 
@@ -362,10 +358,9 @@ fn application_acceptance_tracks_each_profiles_declared_services() {
         Some(AcceptanceOwner::Numeric { uid: 999, gid: 999 })
     );
 
-    let beelzebot = profile_for_name("beelzebot").unwrap().acceptance_plan();
+    let joey = profile_for_name("joey").unwrap().acceptance_plan();
     assert_eq!(
-        beelzebot
-            .services
+        joey.services
             .iter()
             .map(|service| service.unit.as_str())
             .collect::<Vec<_>>(),
@@ -377,14 +372,14 @@ fn application_acceptance_tracks_each_profiles_declared_services() {
             "caddy.service"
         ]
     );
-    assert!(beelzebot
+    assert!(joey
         .services
         .iter()
         .filter(|service| matches!(
             service.container.as_deref(),
             Some("pihole" | "syncthing" | "caddy")
         ))
-        .all(|service| service.network_mode.as_deref() == Some("beelzebot")));
+        .all(|service| service.network_mode.as_deref() == Some("joey")));
 }
 
 #[test]
@@ -483,7 +478,7 @@ fn a_credential_service_remains_eligible_when_its_ui_is_not_exposed() {
 
 #[test]
 fn smtp_is_shared_and_has_an_independent_credential_phase() {
-    for host in ["clamps", "beelzebot"] {
+    for host in ["clamps", "joey"] {
         let profile = super::profile_for_name(host).unwrap();
         assert_eq!(
             profile
@@ -532,28 +527,26 @@ fn tailscale_exit_node_is_caller_selected_and_preferences_follow_readiness() {
 }
 
 #[test]
-fn beelzebot_boot_template_and_credential_unit_match_the_profile() {
-    let template = include_str!("../../../../butane/beelzebot.bu");
-    let image = include_str!("../../../../butane/includes/ucore-beelzebot.bu");
+fn joey_boot_template_and_credential_unit_match_the_profile() {
+    let template = include_str!("../../../../butane/joey.bu");
+    let image = include_str!("../../../../butane/includes/ucore-joey.bu");
     let unit = include_str!("../../../../butane/includes/skillet-full.bu");
-    let profile = super::profile_for_name("beelzebot").unwrap();
+    let profile = super::profile_for_name("joey").unwrap();
     assert!(template.contains("device: /dev/vda"));
     for include in [
         "data-storage",
         "resolver",
         "skillet",
         "skillet-full",
-        "skillet-beelzebot",
+        "skillet-joey",
         "ucore-bootstrap",
-        "ucore-beelzebot",
+        "ucore-joey",
     ] {
         assert!(template.contains(&format!("local: includes/{include}.bu")));
     }
     assert!(image.contains(profile.signed_image.unwrap()));
     assert!(image.contains("name: systemd-resolved.service\n      mask: true"));
-    for credential in
-        super::credentials_for_phase("beelzebot", super::HostApplyPhase::Full).unwrap()
-    {
+    for credential in super::credentials_for_phase("joey", super::HostApplyPhase::Full).unwrap() {
         assert!(unit.contains(&format!("LoadCredentialEncrypted={credential}:/etc/credstore.encrypted/skillet/{credential}.cred")));
     }
     assert!(unit.contains("apply --host-file /etc/skillet/host --phase full"));
@@ -561,7 +554,7 @@ fn beelzebot_boot_template_and_credential_unit_match_the_profile() {
 }
 
 #[test]
-fn beelzebot_full_apply_uses_shared_services_and_is_repeatable() {
+fn joey_full_apply_uses_shared_services_and_is_repeatable() {
     use skillet_core::{
         system::{AccountResource, GroupIdentity, UserIdentity},
         test_utils::MockFiles,
@@ -608,17 +601,17 @@ fn beelzebot_full_apply_uses_shared_services_and_is_repeatable() {
             .payload()
             .unwrap(),
     );
-    super::apply_host("beelzebot", &system, &files, &credentials).unwrap();
+    super::apply_host("joey", &system, &files, &credentials).unwrap();
     let restarts = system.restart_count.load(Ordering::SeqCst);
     let starts = system.start_count.load(Ordering::SeqCst);
     let before = files.files.lock().unwrap().clone();
-    super::apply_host("beelzebot", &system, &files, &credentials).unwrap();
+    super::apply_host("joey", &system, &files, &credentials).unwrap();
     assert_eq!(*files.files.lock().unwrap(), before);
     assert_eq!(system.restart_count.load(Ordering::SeqCst), restarts);
     assert_eq!(system.start_count.load(Ordering::SeqCst), starts);
     let pihole =
         String::from_utf8(before["/etc/containers/systemd/pihole.container"].clone()).unwrap();
-    assert!(pihole.contains("Network=beelzebot.network"));
+    assert!(pihole.contains("Network=joey.network"));
     for address in ["0.0.0.0", "[::]"] {
         for protocol in ["tcp", "udp"] {
             assert!(pihole.contains(&format!("PublishPort={address}:53:53/{protocol}")));
