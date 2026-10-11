@@ -14,6 +14,7 @@ skillet_hardening.workspace = true
 skillet_pihole.workspace = true
 skillet_unifi.workspace = true
 skillet_syncthing.workspace = true
+skillet_mikochi.workspace = true
 skillet_btrbk.workspace = true
 skillet_caddy.workspace = true
 skillet_ddns.workspace = true

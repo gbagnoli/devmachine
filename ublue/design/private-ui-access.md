@@ -55,9 +55,14 @@ routing.
 
 Restrict Caddy's UI listener to tailnet traffic and grant access only to the
 intended user identities. Tailnet access authorizes the connection; it does not
-create an application login. Keep application passwords until the private path
+create an application login. Keep application passwords for existing services until the private path
 and absence of direct UI access have been verified, then decide per application
-whether a second login is useful. In particular, Syncthing's current wildcard
+whether a second login is useful. File browsing and Gokapi administration now
+have an explicit no-second-login requirement: the shared
+[tailnet identity gate](tailnet-ui-authentication.md) authenticates and authorizes
+the two intended users before proxying. It is implemented for Mikochi; Gokapi
+integration remains planned. An IP-range check alone is insufficient
+for those services. In particular, Syncthing's current wildcard
 host publication of GUI port 8384 must be removed or limited to a safe local
 proxy path before relying on tailnet access alone.
 
@@ -110,3 +115,20 @@ References: [Tailscale DNS](https://tailscale.com/docs/reference/dns-in-tailscal
 [DNS rebinding](https://tailscale.com/docs/reference/faq/dns-rebinding/),
 [Let's Encrypt DNS-01](https://letsencrypt.org/docs/challenge-types/),
 [Caddy DNS challenge](https://caddyserver.com/docs/caddyfile/directives/tls).
+
+## ACME resolver policy
+
+DNS-01 propagation checks use explicit public Cloudflare resolvers, separately
+from Podman DNS used for container upstreams. This keeps ACME independent of
+the host's filtering/private DNS path. A diagnostic run completed issuance
+with explicit resolvers; this does not eliminate external ACME validator DNS
+failures, observed on the fresh VM. Keep this policy in shared rendering,
+including aliases, and distinguish local reachability from issuer acceptance.
+
+## Planned public services
+
+Donbot adds public media and mixed file-sharing requirements. These are tracked
+in [public service access](public-service-access.md) and
+[its migration plan](../plan/DONBOT-MIGRATION.md). They require a generic access
+policy extension; the current private renderer does not support them. Public
+routes must preserve every existing private UI restriction.

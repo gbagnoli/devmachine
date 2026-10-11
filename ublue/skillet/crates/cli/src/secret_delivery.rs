@@ -174,6 +174,7 @@ fn deliver_ddns_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Resul
 }
 
 fn deliver_caddy_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Result<()> {
+    let users = tailnet_ui_users(&args.hostname, vault)?;
     let policy = args.environment.policy();
     let domain_path = policy.ui_domain_entry();
     let domain_prefix = vault.get(&domain_path)?;
@@ -200,6 +201,7 @@ fn deliver_caddy_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Resu
             policy,
             zone_id: &zone_id,
             relative_ui_domain: domain_prefix.as_deref(),
+            tailnet_users: &users,
             creator_token: &creator,
         },
         &mut token_store,
@@ -460,6 +462,7 @@ fn provision_vm_ui(
     vault: &mut Vault,
     device: &tailscale::DeviceRecord,
 ) -> Result<()> {
+    let users = tailnet_ui_users(&args.hostname, vault)?;
     let policy = UiEnvironmentName::Test.policy();
     let domain_path = policy.ui_domain_entry();
     let zone_path = policy.cloudflare_zone_entry();
@@ -483,6 +486,7 @@ fn provision_vm_ui(
             policy,
             zone_id: &zone_id,
             relative_ui_domain: domain_prefix.as_deref(),
+            tailnet_users: &users,
             creator_token: &creator,
             run_directory: run_dir,
             addresses: &device.addresses,
@@ -681,3 +685,14 @@ fn provision_vm_smtp(args: &VmProvisionArgs, transport: &impl GuestTransport) ->
 #[cfg(test)]
 #[path = "secret_delivery/tests.rs"]
 mod tests;
+
+fn tailnet_ui_users(host: &str, vault: &Vault) -> Result<Vec<String>> {
+    let profile =
+        skillet_hosts::profile_for_name(host).ok_or_else(|| anyhow!("unknown host profile"))?;
+    if !profile.ui_services().iter().any(|ui| ui.tailnet_identity) {
+        return Ok(Vec::new());
+    }
+    let users = vault.get(skillet_caddy::auth::USERS_ENTRY)?.ok_or_else(||
+        anyhow!("KeePassXC entry is missing: {}; put full LoginName values in Password, separated by commas or newlines", skillet_caddy::auth::USERS_ENTRY))?;
+    Ok(skillet_caddy::auth::Policy::parse_users(&users)?)
+}

@@ -11,6 +11,7 @@ nix.workspace = true
 sha2.workspace = true
 zeroize = "1.9"
 skillet_smtp.workspace = true
+skillet_caddy.workspace = true
 skillet_core.workspace = true
 skillet_hosts.workspace = true
 clap.workspace = true

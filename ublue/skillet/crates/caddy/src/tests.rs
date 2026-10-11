@@ -10,6 +10,7 @@ fn syncthing_only() -> Vec<UiService> {
         name: "syncthing".to_string(),
         upstream: "syncthing".to_string(),
         port: 8384,
+        tailnet_identity: false,
         aliases: Vec::new(),
     }]
 }
@@ -95,6 +96,7 @@ fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
             name: "pihole".to_string(),
             upstream: "pihole".to_string(),
             port: 8088,
+            tailnet_identity: false,
             aliases: Vec::new(),
         },
         syncthing_only().remove(0),
@@ -185,6 +187,7 @@ fn renders_declared_aliases_and_rejects_conflicting_names() {
         name: "syncthing".to_string(),
         upstream: "syncthing".to_string(),
         port: 8384,
+        tailnet_identity: false,
         aliases: vec!["sync".to_string(), "sync.{host}".to_string()],
     }];
     let sites = CaddySites::from_host(
@@ -208,9 +211,11 @@ fn renders_declared_aliases_and_rejects_conflicting_names() {
     assert!(rendered.contains("sync.test.example.invalid {"));
     assert!(rendered.contains("sync.clamps.test.example.invalid {"));
     assert_eq!(rendered.matches("reverse_proxy syncthing:8384").count(), 3);
+    assert_eq!(rendered.matches("resolvers 1.1.1.1 1.0.0.1").count(), 3);
 
     for alias in ["", ".sync", "sync.", "*.sync", "bad{host}", "clamps"] {
         let invalid = vec![UiService {
+            tailnet_identity: false,
             aliases: vec![alias.to_string()],
             ..services[0].clone()
         }];
@@ -273,4 +278,129 @@ fn relative_ui_domain_rejects_invalid_prefixes_and_total_length() {
     let label = "a".repeat(63);
     let too_long = format!("{label}.{label}.{label}.{label}");
     assert!(super::resolve_ui_domain("example.com", Some(&too_long)).is_err());
+}
+
+#[test]
+fn file_ui_is_gated_before_proxy_and_cannot_disable_declared_identity() {
+    let services = vec![UiService {
+        name: "files".into(),
+        upstream: "mikochi".into(),
+        port: 8080,
+        aliases: vec!["browse.{host}".into()],
+        tailnet_identity: true,
+    }];
+    let mut sites = CaddySites::from_host(
+        "joey",
+        &UiEnvironment {
+            ui_domain: "ui.example.invalid".into(),
+            acme_staging: true,
+        },
+        &services,
+    )
+    .unwrap();
+    sites.tailnet_users = vec!["alice@example.invalid".into()];
+    let config = sites.render();
+    assert!(config.contains("files.joey.ui.example.invalid"));
+    assert_eq!(
+        config
+            .matches("forward_auth unix//run/skillet-tailnet-ui/auth.sock")
+            .count(),
+        2
+    );
+    assert!(config.find("forward_auth").unwrap() < config.find("reverse_proxy mikochi").unwrap());
+    assert!(config.contains("header_up X-Skillet-Peer {http.request.remote}"));
+    assert!(config.contains("request_header -X-Skillet-User"));
+    assert!(config.contains("respond @cross_origin 403"));
+    let encoded = serde_json::to_string(&sites).unwrap();
+    assert_eq!(
+        CaddySites::parse(&encoded, "joey", &services).unwrap(),
+        sites
+    );
+    sites.services[0].tailnet_identity = false;
+    assert!(CaddySites::parse(&serde_json::to_string(&sites).unwrap(), "joey", &services).is_err());
+}
+
+#[test]
+fn identity_caddy_has_only_the_authorization_socket_and_a_private_backend() {
+    let system = MockSystem::new();
+    let files = MockFiles::new();
+    system
+        .ensure_podman_secret("cloudflare_acme_token", "dummy-token")
+        .unwrap();
+    let mut sites = CaddySites::from_host(
+        "joey",
+        &UiEnvironment {
+            ui_domain: "ui.example.invalid".into(),
+            acme_staging: true,
+        },
+        &[UiService {
+            name: "files".into(),
+            upstream: "mikochi".into(),
+            port: 8080,
+            aliases: Vec::new(),
+            tailnet_identity: true,
+        }],
+    )
+    .unwrap();
+    sites.tailnet_users = vec!["alice@example.invalid".into()];
+    super::apply(&system, &files, &sites, "joey").unwrap();
+    let records = files.files.lock().unwrap();
+    let quadlet = String::from_utf8_lossy(&records["/etc/containers/systemd/caddy.container"]);
+    assert!(quadlet.contains("Network=joey-files.network"));
+    assert!(quadlet.contains("Volume=/run/skillet-tailnet-ui:/run/skillet-tailnet-ui:ro,z"));
+    assert!(!quadlet.contains("skillet-tailscale"));
+    let network = String::from_utf8_lossy(&records["/etc/containers/systemd/joey-files.network"]);
+    assert!(network.contains("Internal=false"));
+    assert!(network.contains("Options=isolate=strict"));
+    let restarts = system.restart_count.load(Ordering::SeqCst);
+    drop(records);
+    super::apply(&system, &files, &sites, "joey").unwrap();
+    assert_eq!(system.restart_count.load(Ordering::SeqCst), restarts);
+}
+
+#[test]
+#[ignore = "requires Podman and the Caddy container image"]
+fn generated_identity_caddyfile_validates_with_the_real_consumer() {
+    let temp = tempfile::tempdir().unwrap();
+    let sites = CaddySites::from_host(
+        "clamps",
+        &UiEnvironment {
+            ui_domain: "ui.example.invalid".into(),
+            acme_staging: true,
+        },
+        &[UiService {
+            name: "files".into(),
+            upstream: "mikochi".into(),
+            port: 8080,
+            aliases: Vec::new(),
+            tailnet_identity: true,
+        }],
+    )
+    .unwrap();
+    let path = temp.path().join("Caddyfile");
+    std::fs::write(&path, sites.render()).unwrap();
+    let volume = format!("{}:/etc/caddy/Caddyfile:ro,z", path.display());
+    let output = std::process::Command::new("podman")
+        .args([
+            "run",
+            "--rm",
+            "--network",
+            "none",
+            "--volume",
+            &volume,
+            "--env",
+            "CF_API_TOKEN=0000000000000000000000000000000000000000",
+            "ghcr.io/caddybuilds/caddy-cloudflare:2",
+            "caddy",
+            "validate",
+            "--config",
+            "/etc/caddy/Caddyfile",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }

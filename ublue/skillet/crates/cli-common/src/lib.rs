@@ -56,6 +56,11 @@ pub struct HostArgs {
 
 #[derive(clap::Subcommand, Debug)]
 pub enum HostCommands {
+    /// Run the private tailnet identity authorization endpoint
+    TailnetUi {
+        #[command(subcommand)]
+        command: TailnetUiCommands,
+    },
     /// Finalize interactive administrative access after provisioning
     Access {
         #[command(subcommand)]
@@ -117,6 +122,7 @@ where
     tracing::subscriber::set_global_default(subscriber)?;
 
     match args.command {
+        HostCommands::TailnetUi { command } => run_tailnet_ui(command),
         HostCommands::Access { command } => access::dispatch(command),
         HostCommands::Smtp {
             command: SmtpCommands::Prepare,
@@ -302,4 +308,28 @@ pub fn prepare_smtp() -> Result<(), CliCommonError> {
         }
         Ok(())
     })
+}
+
+#[derive(clap::Subcommand, Debug)]
+pub enum TailnetUiCommands {
+    /// Serve Caddy authorization over a private Unix socket
+    Serve {
+        #[arg(long, default_value = skillet_caddy::auth::AUTH_SOCKET)]
+        socket: PathBuf,
+        #[arg(long, default_value = skillet_caddy::auth::DAEMON_SOCKET)]
+        daemon_socket: PathBuf,
+        #[arg(long, default_value = skillet_caddy::auth::POLICY_FILE)]
+        policy_file: PathBuf,
+    },
+}
+
+pub fn run_tailnet_ui(command: TailnetUiCommands) -> Result<(), CliCommonError> {
+    match command {
+        TailnetUiCommands::Serve {
+            socket,
+            daemon_socket,
+            policy_file,
+        } => skillet_caddy::auth::serve(&socket, &daemon_socket, &policy_file)
+            .map_err(|error| CliCommonError::Config(error.to_string())),
+    }
 }

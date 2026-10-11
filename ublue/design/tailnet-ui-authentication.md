@@ -1,0 +1,69 @@
+# Tailnet identity for private web UIs
+
+Decision, 2026-10-11: file browsing must not ask for another username/password.
+Reuse one caller-selected Caddy identity policy for file browsing and Gokapi
+administration, allowing the two intended human users. Private policy values
+and application-account mappings are delivered privately, never compiled into
+source. An address-range gate alone supplies no user identity.
+
+Authenticate the actual connection through the existing host-network tailscaled
+LocalAPI WhoIs. Require a user-owned device and an explicitly allowed complete
+user identity; reject anonymous/unknown/tagged sources and lookup failures.
+Private authenticated hostnames resolve to tailnet addresses: a browser using
+the public IP does not supply a tailnet identity merely because Tailscale is
+running. For Gokapi, prefer a private admin hostname and a public sharing hostname
+if the selected app version supports their URL/origin behavior. Public routes
+bypass the identity gate and never receive an administrative header.
+Authorize before proxying every protected request. Never use browser-supplied
+forwarded or identity headers to identify the user. Preserve the actual peer
+through Podman ingress and overwrite/strip identity headers at Caddy.
+
+Gokapi supports [proxy header authentication](https://gokapi.readthedocs.io/en/latest/setup.html).
+Map verified identity to existing application accounts with explicitly chosen
+roles; permit no arbitrary account creation. Public sharing requests carry no
+administrative identity. For a file UI supporting disabled authentication,
+disable its internal login only behind the verified gate and a backend confined
+to the proxy path. No UI host port or broadly reachable backend is allowed.
+Use a private backend network accessible only through the declared proxy path;
+verify isolation from other application networks. Omitted host ports alone do
+not establish that boundary. No app password is required for file browsing.
+App-native passwords are not the chosen user flow for these services.
+
+Implementation: Caddy's built-in `forward_auth` calls the Skillet Rust gate on
+its private Unix socket. The gate calls only LocalAPI WhoIs and never caches
+identity decisions. The full daemon socket is available to the root-owned gate,
+not to Caddy or application containers. The reviewed gate is therefore trusted
+with daemon access; a read-only socket mount would not restrict API operations.
+This avoids the experimental Caddy plugin and a custom Caddy image. Policy is
+part of the encrypted version 3 Caddy payload and converges to a root-only host
+file. `skillet/tailscale/ui-users` supplies complete LoginName values separated
+by commas or newlines. Both environments share that allowlist; explicit caller
+UI declarations select which routes use it. Missing/invalid input fails delivery;
+a missing or malformed host policy denies access.
+
+Mikochi runs on a dedicated backend bridge with explicit Netavark strict
+isolation. Only it and Caddy join that bridge; Caddy has IP forwarding disabled.
+Do not set `Internal=true`: Netavark skips the firewall rules for internal
+networks, which allowed direct access in the dual-stack acceptance probe.
+The selected bridge permits outbound traffic but blocks forwarded ingress from
+other networks. Host root remains trusted; no backend port is published.
+Strict isolation is supported by the guest's Netavark 1.17.2, independently of
+Podman 6's newer default. Verify the actual bridge boundary during acceptance.
+Cross-origin browser requests are rejected before authentication/proxying.
+
+Using the Tailscale client LocalAPI with Headscale is the intended portable
+approach, but compatibility, returned identity and authorization must be tested.
+This is an inference from the client-side integration, not accepted Headscale
+support. Hosted Tailscale workstation enrollment remains separate. Do not match
+only the username before `@`, infer people from tags or equate a tagged test
+server with an authorized human client.
+
+Status: implemented for Mikochi on clamps and joey; Gokapi remains planned.
+No-vault tests cover both allowed users, other/tagged/mismatched identities,
+forged headers, daemon failure, IPv4/IPv6 and immediate host-policy revocation.
+Live LocalAPI authorization, repeat apply and IPv4/IPv6 backend readiness and
+sibling-network isolation passed. End-to-end HTTPS source preservation, both
+human users, denied users, revocation/outage and file operations remain pending;
+see [the acceptance record](../butane/ACCEPTANCE.md) for external ACME and
+connectivity failures. CI file operations do not establish browser acceptance.
+See [donbot migration](../plan/DONBOT-MIGRATION.md).

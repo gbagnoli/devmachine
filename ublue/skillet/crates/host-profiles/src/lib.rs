@@ -89,6 +89,8 @@ pub enum ApplyError {
     Unifi(#[from] skillet_unifi::UnifiError),
     #[error("Syncthing apply error: {0}")]
     Syncthing(#[from] skillet_syncthing::SyncthingError),
+    #[error(transparent)]
+    Mikochi(#[from] skillet_mikochi::MikochiError),
     #[error("Btrbk apply error: {0}")]
     Btrbk(#[from] skillet_btrbk::BtrbkError),
     #[error("Caddy apply error: {0}")]
@@ -167,6 +169,7 @@ fn tailscale_config(
                 "HealthStartPeriod=60s".to_string(),
                 format!("Environment=TS_HOSTNAME={hostname}"),
                 "Environment=TS_STATE_DIR=/var/lib/tailscale".to_string(),
+                "Environment=TS_SOCKET=/var/run/tailscale/tailscaled.sock".to_string(),
                 "Environment=TS_USERSPACE=false".to_string(),
             ],
         ),
@@ -190,13 +193,25 @@ fn tailscale_config(
         storage_dependency: Some(skillet_podman::MountDependency::shared_service_data()),
         process_identity: ProcessIdentity::ImageDefault,
         namespace_mapping: None,
-        volumes: vec![Volume {
-            host_path: state_path.to_string(),
-            container_path: "/var/lib/tailscale".to_string(),
-            options: Some("Z".to_string()),
-            host_mode: None,
-            host_ownership: None,
-        }],
+        volumes: vec![
+            Volume {
+                host_path: state_path.to_string(),
+                container_path: "/var/lib/tailscale".to_string(),
+                options: Some("Z".to_string()),
+                host_mode: None,
+                host_ownership: None,
+            },
+            Volume {
+                host_path: "/run/skillet-tailscale".into(),
+                container_path: "/var/run/tailscale".into(),
+                options: Some("z".into()),
+                host_mode: Some(0o700),
+                host_ownership: Some(skillet_core::files::Ownership::named(
+                    Some("root"),
+                    Some("root"),
+                )),
+            },
+        ],
         secrets: vec![QuadletSecret {
             secret_name: TAILSCALE_AUTH_KEY_CREDENTIAL.to_string(),
             target: SecretTarget::Environment {
@@ -216,6 +231,7 @@ fn apply_syncthing(
     service: &HostService,
 ) -> Result<(), ApplyError> {
     let ServiceConfig::Syncthing {
+        files_path,
         data_path,
         data_owner,
         data_group,
@@ -231,6 +247,7 @@ fn apply_syncthing(
         system,
         files,
         skillet_syncthing::SyncthingConfig {
+            files_path: files_path.to_string(),
             data_path: data_path.to_string(),
             data_owner: data_owner.to_string(),
             data_group: data_group.to_string(),
@@ -312,6 +329,7 @@ fn apply_profile(
                 )?;
             }
             ServiceConfig::Syncthing { .. } => apply_syncthing(system, files, profile, service)?,
+            ServiceConfig::Mikochi { .. } => apply_mikochi(system, files, profile, service)?,
             ServiceConfig::Unifi => skillet_unifi::apply(system, files)?,
             ServiceConfig::Tailscale {
                 state_path,
@@ -507,5 +525,40 @@ fn apply_caddy_host(
         .to_string();
     system.ensure_podman_secret(CLOUDFLARE_ACME_TOKEN_CREDENTIAL, &token)?;
     skillet_caddy::apply(system, files, &sites, &ui_config.network_name)?;
+    Ok(())
+}
+
+fn apply_mikochi(
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    profile: &HostProfile,
+    service: &HostService,
+) -> Result<(), ApplyError> {
+    let ServiceConfig::Mikochi {
+        files_path,
+        data_owner,
+        data_group,
+        container_uid,
+        container_gid,
+    } = service.config
+    else {
+        return Err(ApplyError::FixtureInput(
+            "Mikochi apply received an incompatible declaration".into(),
+        ));
+    };
+    let network = skillet_caddy::private_network(profile.id.as_str(), "files");
+    skillet_podman::ensure_network(system, files, &network)?;
+    skillet_mikochi::apply(
+        system,
+        files,
+        &skillet_mikochi::Config {
+            files_path,
+            owner: data_owner,
+            group: data_group,
+            container_uid,
+            container_gid,
+            private_network: &network.unit_name,
+        },
+    )?;
     Ok(())
 }

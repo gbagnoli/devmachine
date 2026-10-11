@@ -197,6 +197,7 @@ pub struct DisposableUiRequest<'a> {
     pub creator_token: &'a str,
     pub run_directory: &'a Path,
     pub addresses: &'a BTreeSet<String>,
+    pub tailnet_users: &'a [String],
 }
 
 pub struct DisposableUiCredentials {
@@ -286,7 +287,7 @@ fn verify_non_tailnet_denial(
     timeout: Duration,
     interval: Duration,
 ) -> Result<(), UiProvisioningError> {
-    let caddy_address = caddy_container_address(guest)?;
+    let caddy_address = caddy_container_address(guest, &sites.host)?;
     let mut verified_names = 0;
     for site in &sites.services {
         for hostname in std::iter::once(&site.hostname).chain(&site.aliases) {
@@ -320,7 +321,8 @@ fn verify_non_tailnet_denial(
                 }
                 if started.elapsed() >= timeout {
                     return Err(UiProvisioningError::Invalid(format!(
-                        "Caddy did not return its explicit tailnet-denial response for UI name {hostname}"
+                        "Caddy did not return its explicit tailnet-denial response for service {} (curl exit {:?}); inspect caddy.service for TLS/ACME diagnostics",
+                        site.name, output.status.code()
                     )));
                 }
                 std::thread::sleep(interval);
@@ -337,18 +339,13 @@ fn verify_non_tailnet_denial(
 
 fn caddy_container_address(
     guest: &impl GuestTransport,
+    network: &str,
 ) -> Result<std::net::Ipv4Addr, UiProvisioningError> {
+    let format = format!("{{{{(index .NetworkSettings.Networks \"{network}\").IPAddress}}}}");
     let output = guest.execute(
         &skillet_vm::transport::GuestCommand {
             program: "/usr/bin/sudo",
-            arguments: &[
-                "-n",
-                "podman",
-                "inspect",
-                "--format",
-                "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
-                "caddy",
-            ],
+            arguments: &["-n", "podman", "inspect", "--format", &format, "caddy"],
         },
         None,
     )?;
@@ -373,6 +370,7 @@ pub struct PersistentUiDelivery<'a> {
     pub zone_id: &'a str,
     pub relative_ui_domain: Option<&'a str>,
     pub creator_token: &'a str,
+    pub tailnet_users: &'a [String],
 }
 
 /// Resolve production or named-host UI configuration, reconcile its DNS, and
@@ -395,13 +393,21 @@ pub fn deliver_persistent_ui(
         .policy
         .tailscale_tag(crate::provisioning_policy::DeviceClass::ProductionHost);
     let device = tailnet.find_device_by_hostname(request.host, tag)?;
-    let plan = build_ui_provisioning_plan(
+    let mut plan = build_ui_provisioning_plan(
         request.host,
         request.policy,
         &zone.name,
         request.relative_ui_domain,
         &device.addresses,
     )?;
+    plan.sites.tailnet_users = request.tailnet_users.to_vec();
+    skillet_caddy::auth::Policy::new(plan.sites.tailnet_users.clone()).map_err(CaddyError::from)?;
+    if plan.sites.needs_identity_gate() && plan.sites.tailnet_users.is_empty() {
+        return Err(UiProvisioningError::Invalid(
+            "tailnet UI allowlist is required; create skillet/tailscale/ui-users in the vault"
+                .into(),
+        ));
+    }
     let account_id = crate::cloudflare::Cloudflare::account_id(&zone)?.to_string();
     let token_path = format!(
         "skillet/environments/{}/hosts/{}/cloudflare/acme-token",
@@ -593,13 +599,21 @@ pub fn provision_disposable_ui(
     }
     cloudflare::validate_zone_id(request.zone_id)?;
     let zone = provider.zone(request.creator_token, request.zone_id)?;
-    let plan = build_ui_provisioning_plan(
+    let mut plan = build_ui_provisioning_plan(
         request.host,
         request.policy,
         &zone.name,
         request.relative_ui_domain,
         request.addresses,
     )?;
+    plan.sites.tailnet_users = request.tailnet_users.to_vec();
+    skillet_caddy::auth::Policy::new(plan.sites.tailnet_users.clone()).map_err(CaddyError::from)?;
+    if plan.sites.needs_identity_gate() && plan.sites.tailnet_users.is_empty() {
+        return Err(UiProvisioningError::Invalid(
+            "tailnet UI allowlist is required; create skillet/tailscale/ui-users in the vault"
+                .into(),
+        ));
+    }
     let account_id = cloudflare::Cloudflare::account_id(&zone)?.to_string();
     let marker = format!(
         "skillet:{}:{}:{}",

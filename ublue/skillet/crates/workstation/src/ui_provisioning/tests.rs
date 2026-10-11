@@ -275,6 +275,7 @@ fn disposable_request<'a>(
         policy: ProvisioningPolicy::new(Environment::Test),
         zone_id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         relative_ui_domain: Some("smoke.ui"),
+        tailnet_users: test_users(),
         creator_token: "dummy creator token",
         run_directory,
         addresses,
@@ -299,6 +300,7 @@ fn persistent_request() -> PersistentUiDelivery<'static> {
         policy: ProvisioningPolicy::new(Environment::Production),
         zone_id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         relative_ui_domain: Some("ui"),
+        tailnet_users: test_users(),
         creator_token: "dummy creator token",
     }
 }
@@ -765,4 +767,14 @@ fn disposable_ui_denial_failure_keeps_old_token_until_guest_acceptance_passes() 
     )
     .is_err());
     assert!(provider.revoked.borrow().is_empty());
+}
+
+fn test_users() -> &'static [String] {
+    static USERS: std::sync::LazyLock<Vec<String>> = std::sync::LazyLock::new(|| {
+        vec![
+            "alice@example.invalid".into(),
+            "irene@example.invalid".into(),
+        ]
+    });
+    &USERS
 }

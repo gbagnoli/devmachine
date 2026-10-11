@@ -23,6 +23,11 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Commands {
+    /// Run the guest private UI authorization endpoint
+    TailnetUi {
+        #[command(subcommand)]
+        command: skillet_cli_common::TailnetUiCommands,
+    },
     /// Prepare physical installation media without writing a block device
     Install {
         #[command(subcommand)]
@@ -350,6 +355,7 @@ fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     match args.command {
+        Commands::TailnetUi { command } => skillet_cli_common::run_tailnet_ui(command)?,
         Commands::Install { command } => installation::dispatch(command)?,
         Commands::Access { command } => skillet_cli_common::access::dispatch(command)?,
         Commands::Smtp {
@@ -1037,6 +1043,7 @@ fn check_health(
 ) -> Result<Option<String>> {
     use skillet_hosts::HealthProbe;
     match probe {
+        Some(HealthProbe::Mikochi) => check_mikochi_health(transport),
         Some(HealthProbe::Pihole) => {
             smoke_guest_command(
                 transport,
@@ -1072,6 +1079,96 @@ fn check_health(
         }
         None => Ok(None),
     }
+}
+
+fn check_mikochi_health(
+    transport: &impl skillet_vm::transport::GuestTransport,
+) -> Result<Option<String>> {
+    let inspected = guest_text(
+        transport,
+        "sudo",
+        &[
+            "-n",
+            "podman",
+            "inspect",
+            "--format",
+            "{{json .NetworkSettings.Networks}}",
+            "mikochi",
+        ],
+    )?;
+    let networks: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&inspected)?;
+    if networks.len() != 1 {
+        return Err(anyhow!(
+            "Mikochi must have exactly one private backend network"
+        ));
+    }
+    let network = networks
+        .values()
+        .next()
+        .ok_or_else(|| anyhow!("Mikochi backend absent"))?;
+    for field in ["IPAddress", "GlobalIPv6Address"] {
+        let address: std::net::IpAddr = network
+            .get(field)
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| anyhow!("Mikochi backend address absent"))?
+            .parse()?;
+        let url = format!("http://{}/ready", std::net::SocketAddr::new(address, 8080));
+        let reply = guest_text(
+            transport,
+            "curl",
+            &[
+                "--noproxy",
+                "*",
+                "--silent",
+                "--show-error",
+                "--fail",
+                "--max-time",
+                "10",
+                &url,
+            ],
+        )?;
+        let ready: serde_json::Value = serde_json::from_str(&reply)?;
+        if ready.get("status").and_then(serde_json::Value::as_str) != Some("ok") {
+            return Err(anyhow!("Mikochi is not ready"));
+        }
+        check_mikochi_backend_isolation(transport, &url)?;
+    }
+    Ok(Some("health:mikochi:ready:isolated-dual-stack".into()))
+}
+
+fn check_mikochi_backend_isolation(
+    transport: &impl skillet_vm::transport::GuestTransport,
+    url: &str,
+) -> Result<()> {
+    let output = transport.execute(
+        &skillet_vm::transport::GuestCommand {
+            program: "sudo",
+            arguments: &[
+                "-n",
+                "podman",
+                "exec",
+                "syncthing",
+                "curl",
+                "--noproxy",
+                "*",
+                "--silent",
+                "--show-error",
+                "--connect-timeout",
+                "3",
+                "--max-time",
+                "5",
+                url,
+            ],
+        },
+        None,
+    )?;
+    // A missing probe executable or malformed command is not isolation evidence.
+    if !matches!(output.status.code(), Some(7 | 28)) {
+        return Err(anyhow!(
+            "Mikochi backend isolation probe did not reject a sibling application connection"
+        ));
+    }
+    Ok(())
 }
 
 fn smoke_guest_command(

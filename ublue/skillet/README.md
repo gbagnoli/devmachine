@@ -347,6 +347,51 @@ Do not create a manual smoke VM ACME token. See the
 [generic UI plan](../plan/GENERIC-PRIVATE-UIS.md) and
 [Cloudflare lifecycle design](../design/cloudflare-ui-lifecycle.md).
 
+### Private file browsing
+
+Hosts declaring Syncthing also run Mikochi at `https://files.<host>.<ui-domain>`.
+For the default UI prefix, this is `files.<host>.ui.<zone-domain>`.
+
+1. Create `skillet/tailscale/ui-users` in KeePassXC. Put complete Tailscale
+   `LoginName` values in **Password**, separated by commas or newlines; leave
+   **Username** empty. Find the identities in `tailscale status --json` on an
+   authenticated client. Include each allowed person explicitly.
+2. In Tailscale Access controls, allow those people to reach the server tags on
+   `tcp:443`. For [grants](https://tailscale.com/docs/features/access-control/grants),
+   use their user group in `src`, `tag:skillet-server` and `tag:skillet-smoke` in
+   `dst`, and `["tcp:443"]` in `ip`. Tag ownership does not grant connectivity.
+3. Unlock with `skillet secrets unlock`, then run
+   `skillet secrets check --host clamps --environment test`.
+4. Provision the named test VM with
+   `skillet test vm provision clamps <instance> --with-ui`.
+5. Open the files hostname from an allowed person's untagged tailnet client.
+   Mikochi has no additional login. Tagged server clients are denied.
+
+The default mounted file scope is `/var/lib/data/syncthing/data`, owned and
+mapped like Syncthing. Configure synchronized folders beneath that directory.
+New Syncthing instances use it as their home (the initial folder is `data/Sync`);
+existing folder paths are preserved and must be moved/configured separately.
+Mikochi cannot browse Syncthing's `config` directory or other service data.
+
+After updating a retained VM's Skillet binaries, redeliver Caddy credentials:
+its previous service inventory lacks the new files site. Version 2 inputs
+remain readable for unchanged profiles without identity-protected sites;
+identity protection uses version 3. Removing a person from the vault takes
+host effect after redelivery. The host policy is checked on every request.
+
+Mikochi has no published host port. Only Caddy joins its dedicated, isolated
+backend network. Use a Netavark backend supporting `isolate=strict` and verify
+bridge isolation; the smoke guest uses Podman 5.8.4 / Netavark 1.17.2.
+The authorization endpoint uses `/run/skillet-tailnet-ui/auth.sock`;
+the daemon socket remains outside Caddy at
+`/run/skillet-tailscale/tailscaled.sock`. Do not forward the backend port or
+mount either socket into unrelated containers.
+
+See [file browsing](../design/file-browsing.md) and
+[tailnet UI authentication](../design/tailnet-ui-authentication.md).
+Headscale identity lookup is not accepted yet; hosted Tailscale enrollment and
+cleanup still use the hosted provider API.
+
 ### Tailscale setup for Skillet
 
 Clamps runs `tailscale/tailscale` as a host-network container, matching Chef
