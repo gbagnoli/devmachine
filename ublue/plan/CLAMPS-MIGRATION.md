@@ -4,12 +4,33 @@ Prerequisite: complete [the Skillet refactoring roadmap](SKILLET-REFACTOR.md)
 before proceeding with the remaining feature milestones in this plan.
 Existing acceptance evidence and deferred tasks remain applicable.
 
-Status: reconciled against source and acceptance evidence, 2026-10-06.
-Refactor implementation is committed; Syncthing live validation is parked and
-remote CI evidence is pending. Parity auditing and DDNS implementation proceeded
-while that check is parked. Skillet convergence and disposable VM bootstrap exist.
-Runtime evidence and outstanding bootstrap checks are recorded in
-[ACCEPTANCE.md](../butane/ACCEPTANCE.md).
+Status: reviewed against source and recorded acceptance, 2026-10-11.
+Shared services, native TPM recovery and physical USB media preparation are
+implemented. Clamps is not production-ready until the physical/cutover gates
+below pass. The parked Flatpak/Syncthing and deferred network checks remain
+open; previous passing native VM checks do not close them.
+
+## What remains for clamps
+
+1. Boot the prepared USB on the S13; inspect firmware/TPM and select its stock
+   SSD explicitly. Enroll the trusted MOK when using Secure Boot. Validate the
+   selected plain or TPM profile on hardware, recovery archive and cold boot.
+2. Supply private production DNS/DDNS records and keys, migrate service data
+   and identities from rupik, and decide retained cross-host routes and WOL
+   targets. Keep the old DNS service and Samsung SSD until the cutover.
+3. Validate real LAN IPv4/IPv6 UDP/TCP DNS, peer connectivity, physical SSH/ET,
+   UniFi devices/cloud access, production ACME/renewal and outside-tailnet denial.
+   Approve the production exit node; routed-traffic checks remain omitted by
+   operator decision. Finish automated delivery before interactive access
+   finalization and first-login password-change acceptance.
+4. Verify physical repeat apply, reboot and OS update; take service-data backups,
+   choose off-machine backup retention, rehearse rollback and agree the cutover.
+   Finish or explicitly defer the outstanding boot-policy/transport-interruption
+   tests. Broader OS hardening is still a placeholder, not an accepted port.
+
+No new clamps service crate is required to start
+[boxy → beelzebot](BEELZEBOT-MIGRATION.md). Acceptance details remain in
+[ACCEPTANCE.md](../butane/ACCEPTANCE.md) and the service plans.
 
 ## Goal and starting point
 
@@ -27,9 +48,10 @@ production/network acceptance, and remaining rebase/bootstrap checks stay open.
 The [source parity checklist](CLAMPS-PARITY.md) records retained behavior and
 deliberate changes. [Cloudflare DDNS](CLAMPS-CLOUDFLARE-DDNS.md) has its guest
 service, production delivery, and disposable ownership/cleanup implementation.
-Live disposable DNS acceptance awaits the private test DDNS name entry; production
-cutover remains separate. Datadog is retained by user decision; its port and
-UniFi backup/restore are the next implementation milestones.
+Live disposable DNS publication and cleanup passed; rotation and production
+cutover remain separate. Datadog live acceptance, isolated UniFi backup restore
+and operator UI inspection passed. Shared SMTP delivery to Gmail passed;
+UniFi email setup is parked by operator decision.
 
 After the refactoring prerequisite: complete Pi-hole LAN acceptance and configure
 the actual custom DNS
@@ -134,11 +156,11 @@ Each row is a separate implementation and validation step. Adjust order for depe
 | --- | --- | --- |
 | 1 | Syncthing (implemented; ownership correction committed; live retry parked) | Data, device identity, folder configuration, UID/GID, required ports; production peer and state transfer remain |
 | 2 | btrbk (implemented and verified) | Follow the [btrbk milestone](CLAMPS-BTRBK.md): real Btrfs subvolume, hourly snapshots, Chef retention policy, and restore exercise. Local snapshots are not an independent backup. |
-| 3 | UniFi (implemented; empty-controller/repeat-apply acceptance passed) | Follow the [UniFi port plan](CLAMPS-UNIFI.md): rootful host-network container, persistent data, and isolated backup restore/version compatibility before cutover. No Caddy route. |
+| 3 | UniFi (implemented; isolated restore and operator inspection passed) | Rootful host-network container and persistent data accepted; production devices/cloud access remain cutover checks. See [UniFi port plan](CLAMPS-UNIFI.md). No Caddy route. |
 | 4 | Tailscale (implemented; smoke enrollment and cleanup accepted) | Host network, state, OAuth enrollment, and cleanup exist. Caller-selected production exit-node advertisement is implemented, disabled for smoke VMs. Existing forwarding policy is retained; approve the production device in tailnet policy. Live routing exercises are omitted by operator decision. UI names use Cloudflare DNS-only records. |
 | 5 | Private UI access with Caddy + ACME (implemented; staging accepted) | Generic declarations/aliases, encrypted delivery, scoped account tokens, A/AAAA/CNAME reconciliation and cleanup exist. Staging ACME/HTTPS passed. Production renewal, real-client resolution and separate-network denial remain; see [UI plan](GENERIC-PRIVATE-UIS.md). |
-| 6 | Cloudflare DDNS | Guest service, production delivery, and journaled disposable lifecycle implemented; live disposable acceptance awaits test config and production one-writer handover remains separate; see [DDNS plan](CLAMPS-CLOUDFLARE-DDNS.md) |
-| 7 | Datadog and remaining host baseline | Datadog implementation and live VM acceptance passed. Next audit hardening, users, SSH/sudo, ET and WOL targets against the [parity checklist](CLAMPS-PARITY.md) |
+| 6 | Cloudflare DDNS | Guest service, production delivery, and journaled disposable lifecycle implemented; live disposable publication/cleanup passed; explicit rotation and production one-writer handover remain separate; see [DDNS plan](CLAMPS-CLOUDFLARE-DDNS.md) |
+| 7 | Datadog and remaining host baseline | Datadog implementation and live VM acceptance passed. Baseline audit and access finalization are implemented; physical checks remain in the [parity checklist](CLAMPS-PARITY.md) |
 
 For each service: inspect effective Chef inputs, settle its open decisions, add only needed Skillet support, migrate a copy of state, validate functionality and repeat convergence. Account for ARM-to-x86 application/image and data compatibility. Avoid activating duplicate production identities or DNS writers during testing.
 
@@ -169,7 +191,7 @@ Done when: all retained capabilities and data work on clamps, routine convergenc
   passed.
 - Credentials: production TPM/rebase policy and protection of Podman's on-disk copy; portable storage and delivery are decided in the secret design.
 - Services: actual DNS/DDNS records, retained cross-host routes, exit-node operation,
-  Nebula Sync, and legacy networking. Datadog retention is decided; its port is pending.
+  Nebula Sync, and legacy networking. Datadog is retained and its live VM acceptance passed.
 - Cutover: address/identity transitions, outage window and rollback duration.
 
 ## Technical references

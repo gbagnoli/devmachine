@@ -1,6 +1,6 @@
 # Rupik to Clamps parity checklist
 
-Status: source audit updated 2026-10-09; baseline VM observations recorded in
+Status: source/plan review updated 2026-10-11; baseline VM observations recorded in
 `CLAMPS-BASELINE-AUDIT.md`. This compares the repository's Chef include
 path with current Skillet, Butane, and image definitions. It is not an inventory
 of effective private Chef attributes or live Rupik state. Never copy production
@@ -12,7 +12,7 @@ Sources: `roles/rupik.rb` includes `role[server]`, `server::wol`, and `rupik`.
 
 | Chef capability | Clamps implementation / deliberate change | Remaining work |
 | --- | --- | --- |
-| Btrfs `/srv` and system/user Podman stores | Shared `/var/lib/data` subvolume; system graphroot under `containers/system`, overlay driver on uCore | Final physical disk, encrypted backing filesystem, state transfer; rootless store only if a retained workload needs it |
+| Btrfs `/srv` and system/user Podman stores | Shared `/var/lib/data` subvolume; system graphroot under `containers/system`, overlay driver on uCore | Native TPM/plain profiles and USB preparation implemented; physical acceptance and state transfer; rootless store only if a retained workload needs it |
 | Disable resolved; Pi-hole | Mask/resolver setup, dual-stack port 53, persistent service data, encrypted password, shared bridge | Real LAN/firewall acceptance, actual custom DNS configuration, data transfer |
 | nginx, ACME, OAuth proxy, web pod | Separate bridge containers; generic Caddy routes, Cloudflare DNS-01, tailnet restriction, per-service names and aliases | Production certificate/renewal and external-source denial; inventory any legacy cross-host routes still needed |
 | Syncthing | Container and leaf data subvolume; peer ports retained; host GUI publication removed; explicit host/container identity mapping | PARKED: live ownership fix acceptance; production peer connectivity and identity/data migration |
@@ -44,10 +44,11 @@ exists. Additional private run-list recipes remain an inventory question.
    delivery to Gmail also passed; UniFi email setup is parked. Retain physical
    Secure Boot, provider tag read-back and richer monitoring follow-ups in
    `CLAMPS-DATADOG.md`.
-3. Production exit-node configuration is implemented; local policy checks passed.
-   Next: resolve account/bootstrap policy and reconcile broader OS hardening
-   using the ordered follow-ups in `CLAMPS-BASELINE-AUDIT.md`; audit completed
-   without configuration changes.
+3. Production exit-node selection, baseline audit and explicit administrative
+   access finalization are implemented. Native TPM recovery/header archival and
+   physical USB generation passed disposable acceptance. Actual S13 firmware,
+   first-login password change and deployment remain unverified; see
+   `TPM-ENCRYPTED-ROOT.md` and `../butane/HARDWARE.md`.
 4. Run the parked VM and deferred network/production acceptance when their
    required infrastructure is available; transfer state only with a recovery path.
 
