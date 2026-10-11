@@ -15,7 +15,10 @@ open; previous passing native VM checks do not close them.
 1. Boot the prepared USB on the S13; inspect firmware/TPM and select its stock
    SSD explicitly. Enroll the trusted MOK when using Secure Boot. Validate the
    selected plain or TPM profile on hardware, recovery archive and cold boot.
-2. Supply private production DNS/DDNS records and keys, migrate service data
+2. Implement private runtime Pi-hole DNS configuration delivery and v6
+   convergence: current code writes `custom.list` from a static declaration;
+   the accepted temporary v6 `dns.hosts` test does not validate that recipe path.
+   Supply production DNS/DDNS records and keys, migrate service data
    and identities from rupik, and decide retained cross-host routes and WOL
    targets. Keep the old DNS service and Samsung SSD until the cutover.
 3. Validate real LAN IPv4/IPv6 UDP/TCP DNS, peer connectivity, physical SSH/ET,
