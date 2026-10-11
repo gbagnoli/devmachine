@@ -12,6 +12,7 @@ ignition:
       - local: includes/brew.bu
       - local: includes/skillet.bu
       - local: includes/skillet-clamps.bu
+      - local: includes/skillet-full.bu
       - local: includes/ucore-bootstrap.bu
       - local: includes/ucore-clamps.bu
 storage:

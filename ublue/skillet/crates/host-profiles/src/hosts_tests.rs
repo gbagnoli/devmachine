@@ -26,7 +26,7 @@ fn datadog_is_optional_and_separately_credential_gated() {
     assert!(system.podman_secrets.lock().unwrap().is_empty());
     let clamps = super::profile_for_name("clamps").unwrap();
     assert!(clamps.supports_service("datadog"));
-    assert!(!super::profile_for_name("beezelbot")
+    assert!(!super::profile_for_name("agent")
         .unwrap()
         .supports_service("datadog"));
     assert_eq!(
@@ -50,8 +50,9 @@ fn boot_expectations_are_profile_inputs_and_unknown_profiles_are_refused() {
     let clamps = super::boot_policy_for_host("clamps").unwrap();
     assert_eq!(clamps.signed_image, "ghcr.io/gbagnoli/ucore-clamps");
     assert_eq!(clamps.masked_units, ["systemd-resolved.service"]);
-    let other = super::boot_policy_for_host("beezelbot").unwrap();
-    assert_eq!(other.masked_units, [] as [&str; 0]);
+    let other = super::boot_policy_for_host("beelzebot").unwrap();
+    assert_eq!(other.masked_units, ["systemd-resolved.service"]);
+    assert_eq!(other.signed_image, "ghcr.io/gbagnoli/ucore-beelzebot");
     assert!(super::boot_policy_for_host("clamps-test-smoke").is_none());
     assert!(super::boot_policy_for_host("unknown").is_none());
 }
@@ -142,35 +143,40 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
         .options
         .contains(&"Subnet=fd59:4e23:2950:11f5::/64".to_string()));
 
-    let beezelbot = super::profile_for_name("beezelbot").unwrap();
-    assert_eq!(beezelbot.services.len(), 2);
-    assert!(beezelbot.supports_service("syncthing"));
-    assert!(!beezelbot.supports_service("pihole"));
-    assert!(beezelbot.btrbk_config().is_none());
+    let beelzebot = super::profile_for_name("beelzebot").unwrap();
     assert_eq!(
-        beezelbot.signed_image,
-        Some("ghcr.io/gbagnoli/ucore-beezelbot")
-    );
-    assert_eq!(beezelbot.masked_units, [] as [&str; 0]);
-    assert!(beezelbot.requires_data_mount);
-    assert!(!beezelbot.requires_pihole_dns_listener_policy());
-    assert_eq!(
-        beezelbot.credential_consumers(),
+        beelzebot
+            .services
+            .iter()
+            .map(HostService::name)
+            .collect::<Vec<_>>(),
         [
-            super::CredentialConsumer {
-                credential: skillet_smtp::CREDENTIAL,
-                unit: "postfix.service"
-            },
-            super::CredentialConsumer {
-                credential: super::CADDY_SITES_CREDENTIAL,
-                unit: "caddy.service",
-            },
-            super::CredentialConsumer {
-                credential: super::CLOUDFLARE_ACME_TOKEN_CREDENTIAL,
-                unit: "caddy.service",
-            }
+            "pihole",
+            "tailscale",
+            "syncthing",
+            "ddns",
+            "datadog",
+            "btrbk",
+            "smtp"
         ]
     );
+    assert!(!beelzebot.supports_service("unifi"));
+    assert_eq!(
+        beelzebot.btrbk_config().unwrap().snapshot_subvolumes,
+        [std::path::PathBuf::from("syncthing")]
+    );
+    assert_eq!(
+        beelzebot.signed_image,
+        Some("ghcr.io/gbagnoli/ucore-beelzebot")
+    );
+    assert_eq!(beelzebot.masked_units, ["systemd-resolved.service"]);
+    assert!(beelzebot.requires_data_mount);
+    assert!(beelzebot.requires_pihole_dns_listener_policy());
+    assert!(beelzebot.tailscale_exit_node());
+    assert!(beelzebot
+        .services
+        .iter()
+        .any(|service| matches!(service.config, ServiceConfig::Pihole { custom_dns: [] })));
 }
 
 #[test]
@@ -225,8 +231,11 @@ fn credential_values_are_selected_by_host_and_apply_phase() {
         ]
     );
     assert_eq!(
-        super::credentials_for_phase("beezelbot", super::HostApplyPhase::Full).unwrap(),
-        Vec::<&str>::new()
+        super::credentials_for_phase("beelzebot", super::HostApplyPhase::Full).unwrap(),
+        [
+            super::PIHOLE_WEB_PASSWORD_CREDENTIAL,
+            super::TAILSCALE_AUTH_KEY_CREDENTIAL
+        ]
     );
     assert!(super::credentials_for_phase("unknown", super::HostApplyPhase::Base).is_err());
 }
@@ -245,7 +254,7 @@ fn ddns_is_caller_selected_and_independently_credential_gated() {
     )
     .is_err());
     assert!(super::apply_host_phase(
-        "beezelbot",
+        "agent",
         super::HostApplyPhase::Ddns,
         &system,
         &files,
@@ -266,7 +275,7 @@ fn ddns_is_caller_selected_and_independently_credential_gated() {
         .services
         .iter()
         .any(|service| service.unit == "cloudflare-ddns.service"));
-    assert!(!super::profile_for_name("beezelbot")
+    assert!(!super::profile_for_name("agent")
         .unwrap()
         .supports_service("ddns"));
 }
@@ -290,11 +299,12 @@ fn host_ui_declarations_include_only_the_services_each_host_runs() {
     assert_eq!(clamps.services[1].port, 8384);
     assert_eq!(clamps.services[1].aliases, ["sync.{host}"]);
 
-    let beezelbot = ui_config_for_host("beezelbot").expect("beezelbot UI declaration");
-    assert_eq!(beezelbot.services.len(), 1);
-    assert_eq!(beezelbot.services[0].name, "syncthing");
-    assert_eq!(beezelbot.services[0].aliases, ["sync.{host}"]);
-    assert_eq!(beezelbot.network_name, "beezelbot");
+    let beelzebot = ui_config_for_host("beelzebot").expect("beelzebot UI declaration");
+    assert_eq!(beelzebot.services.len(), 2);
+    assert_eq!(beelzebot.services[0].name, "pihole");
+    assert_eq!(beelzebot.services[1].name, "syncthing");
+    assert_eq!(beelzebot.services[1].aliases, ["sync.{host}"]);
+    assert_eq!(beelzebot.network_name, "beelzebot");
     assert!(ui_config_for_host("unknown-host").is_none());
 }
 
@@ -352,19 +362,29 @@ fn application_acceptance_tracks_each_profiles_declared_services() {
         Some(AcceptanceOwner::Numeric { uid: 999, gid: 999 })
     );
 
-    let beezelbot = profile_for_name("beezelbot").unwrap().acceptance_plan();
+    let beelzebot = profile_for_name("beelzebot").unwrap().acceptance_plan();
     assert_eq!(
-        beezelbot
+        beelzebot
             .services
             .iter()
             .map(|service| service.unit.as_str())
             .collect::<Vec<_>>(),
-        ["syncthing.service", "caddy.service"]
+        [
+            "pihole.service",
+            "tailscale.service",
+            "syncthing.service",
+            "skillet-btrbk.timer",
+            "caddy.service"
+        ]
     );
-    assert!(beezelbot
+    assert!(beelzebot
         .services
         .iter()
-        .all(|service| service.network_mode.as_deref() == Some("beezelbot")));
+        .filter(|service| matches!(
+            service.container.as_deref(),
+            Some("pihole" | "syncthing" | "caddy")
+        ))
+        .all(|service| service.network_mode.as_deref() == Some("beelzebot")));
 }
 
 #[test]
@@ -463,7 +483,7 @@ fn a_credential_service_remains_eligible_when_its_ui_is_not_exposed() {
 
 #[test]
 fn smtp_is_shared_and_has_an_independent_credential_phase() {
-    for host in ["clamps", "beezelbot"] {
+    for host in ["clamps", "beelzebot"] {
         let profile = super::profile_for_name(host).unwrap();
         assert_eq!(
             profile
@@ -490,7 +510,7 @@ fn tailscale_exit_node_is_caller_selected_and_preferences_follow_readiness() {
     assert!(super::profile_for_name("clamps")
         .unwrap()
         .tailscale_exit_node());
-    assert!(!super::profile_for_name("beezelbot")
+    assert!(!super::profile_for_name("agent")
         .unwrap()
         .tailscale_exit_node());
     for enabled in [false, true] {
@@ -509,4 +529,106 @@ fn tailscale_exit_node_is_caller_selected_and_preferences_follow_readiness() {
         assert!(container.contains(&"HealthCmd=tailscale status --peers=false".into()));
         assert!(config.extra_config["Service"].contains(&format!("ExecStartPost=/usr/bin/podman exec tailscale tailscale set --advertise-exit-node={enabled}")));
     }
+}
+
+#[test]
+fn beelzebot_boot_template_and_credential_unit_match_the_profile() {
+    let template = include_str!("../../../../butane/beelzebot.bu");
+    let image = include_str!("../../../../butane/includes/ucore-beelzebot.bu");
+    let unit = include_str!("../../../../butane/includes/skillet-full.bu");
+    let profile = super::profile_for_name("beelzebot").unwrap();
+    assert!(template.contains("device: /dev/vda"));
+    for include in [
+        "data-storage",
+        "resolver",
+        "skillet",
+        "skillet-full",
+        "skillet-beelzebot",
+        "ucore-bootstrap",
+        "ucore-beelzebot",
+    ] {
+        assert!(template.contains(&format!("local: includes/{include}.bu")));
+    }
+    assert!(image.contains(profile.signed_image.unwrap()));
+    assert!(image.contains("name: systemd-resolved.service\n      mask: true"));
+    for credential in
+        super::credentials_for_phase("beelzebot", super::HostApplyPhase::Full).unwrap()
+    {
+        assert!(unit.contains(&format!("LoadCredentialEncrypted={credential}:/etc/credstore.encrypted/skillet/{credential}.cred")));
+    }
+    assert!(unit.contains("apply --host-file /etc/skillet/host --phase full"));
+    assert!(super::profile_for_name("beezelbot").is_none());
+}
+
+#[test]
+fn beelzebot_full_apply_uses_shared_services_and_is_repeatable() {
+    use skillet_core::{
+        system::{AccountResource, GroupIdentity, UserIdentity},
+        test_utils::MockFiles,
+    };
+    use std::{path::Path, sync::atomic::Ordering};
+    let system = MockSystem::new();
+    system.user_identities.lock().unwrap().insert(
+        "giacomo".into(),
+        UserIdentity {
+            name: "giacomo".into(),
+            uid: 1042,
+            primary_gid: 2047,
+        },
+    );
+    system.group_identities.lock().unwrap().insert(
+        "giacomo".into(),
+        GroupIdentity {
+            name: "giacomo".into(),
+            gid: 2047,
+        },
+    );
+    system.ensure_group("pihole", Some(2000)).unwrap();
+    system
+        .ensure_user("pihole", Some(2000), Some(2000))
+        .unwrap();
+    let files = MockFiles::new();
+    files.record_btrfs_mount(Path::new("/var"), "/dev/test", "/", "btrfs");
+    files.record_btrfs_mount(Path::new("/var/lib/data"), "/dev/test", "/data", "btrfs");
+    for path in ["/etc/subuid", "/etc/subgid"] {
+        files
+            .files
+            .lock()
+            .unwrap()
+            .insert(path.into(), b"giacomo:100000:65536\n".to_vec());
+    }
+    let mut credentials = CredentialInputs::default();
+    credentials.insert(
+        super::PIHOLE_WEB_PASSWORD_CREDENTIAL,
+        "fixture-password".into(),
+    );
+    credentials.insert(
+        super::TAILSCALE_AUTH_KEY_CREDENTIAL,
+        super::tailscale::EnrollmentInput::new("fixture-auth-key".into(), false)
+            .payload()
+            .unwrap(),
+    );
+    super::apply_host("beelzebot", &system, &files, &credentials).unwrap();
+    let restarts = system.restart_count.load(Ordering::SeqCst);
+    let starts = system.start_count.load(Ordering::SeqCst);
+    let before = files.files.lock().unwrap().clone();
+    super::apply_host("beelzebot", &system, &files, &credentials).unwrap();
+    assert_eq!(*files.files.lock().unwrap(), before);
+    assert_eq!(system.restart_count.load(Ordering::SeqCst), restarts);
+    assert_eq!(system.start_count.load(Ordering::SeqCst), starts);
+    let pihole =
+        String::from_utf8(before["/etc/containers/systemd/pihole.container"].clone()).unwrap();
+    assert!(pihole.contains("Network=beelzebot.network"));
+    for address in ["0.0.0.0", "[::]"] {
+        for protocol in ["tcp", "udp"] {
+            assert!(pihole.contains(&format!("PublishPort={address}:53:53/{protocol}")));
+        }
+    }
+    let tailscale =
+        String::from_utf8(before["/etc/containers/systemd/tailscale.container"].clone()).unwrap();
+    assert!(tailscale.contains("Network=host"));
+    assert!(tailscale.contains("--advertise-exit-node=false"));
+    assert!(!before.contains_key("/etc/containers/systemd/unifi.container"));
+    assert!(!before.contains_key("/etc/containers/systemd/datadog-agent.container"));
+    assert!(!before.contains_key("/etc/containers/systemd/cloudflare-ddns.container"));
 }

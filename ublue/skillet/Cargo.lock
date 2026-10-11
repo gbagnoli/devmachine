@@ -2321,12 +2321,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "skillet-beezelbot"
+name = "skillet-beelzebot"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "skillet_cli_common",
- "skillet_hardening",
 ]
 
 [[package]]

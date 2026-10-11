@@ -81,13 +81,16 @@ fn rejects_vm_without_tailscale_systemd_credential() {
 
 #[test]
 fn delivery_eligibility_uses_declared_service_capabilities() {
-    assert!(validate_delivery_service("beezelbot", "datadog").is_err());
+    assert!(validate_delivery_service("agent", "datadog").is_err());
     assert!(validate_delivery_service("clamps", "datadog").is_ok());
-    assert!(validate_delivery_service("beezelbot", "pihole").is_err());
-    assert!(validate_delivery_service("beezelbot", "tailscale").is_err());
-    assert!(validate_delivery_service("beezelbot", "caddy").is_ok());
-    assert!(validate_delivery_service("beezelbot", "ddns").is_err());
+    assert!(validate_delivery_service("agent", "pihole").is_err());
+    assert!(validate_delivery_service("agent", "tailscale").is_err());
+    assert!(validate_delivery_service("beelzebot", "caddy").is_ok());
+    assert!(validate_delivery_service("agent", "ddns").is_err());
     assert!(validate_delivery_service("clamps", "ddns").is_ok());
+    for service in ["pihole", "tailscale", "caddy", "ddns", "datadog", "smtp"] {
+        assert!(validate_delivery_service("beelzebot", service).is_ok());
+    }
     assert!(validate_delivery_service("missing-host", "caddy").is_err());
     assert!(validate_delivery_service("clamps", "unknown").is_err());
 }
@@ -160,19 +163,19 @@ fn smtp_delivery_and_capture_only_cli_are_supported() {
         "test",
         "vm",
         "provision",
-        "beezelbot",
+        "beelzebot",
         "smtp",
         "--smtp-only"
     ])
     .is_ok());
     assert!(super::validate_delivery_service("agent", "smtp").is_err());
-    assert!(super::validate_delivery_service("beezelbot", "smtp").is_ok());
+    assert!(super::validate_delivery_service("beelzebot", "smtp").is_ok());
 }
 
 #[test]
 fn live_smtp_requires_explicit_smtp_only_selection() {
     use clap::Parser;
-    let base = ["skillet", "test", "vm", "provision", "beezelbot", "mailjet"];
+    let base = ["skillet", "test", "vm", "provision", "beelzebot", "mailjet"];
     assert!(super::super::Args::try_parse_from(base.into_iter().chain(["--live-smtp"])).is_err());
     let parsed =
         super::super::Args::try_parse_from(base.into_iter().chain(["--smtp-only", "--live-smtp"]))

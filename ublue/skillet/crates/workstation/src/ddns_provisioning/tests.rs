@@ -238,7 +238,7 @@ fn invalid_config_ui_namespace_and_test_policy_never_issue_or_deliver() {
     request.policy = ProvisioningPolicy::new(Environment::Test);
     assert!(deliver_persistent_ddns(&request, &mut store, &provider, &guest).is_err());
     request.policy = ProvisioningPolicy::new(Environment::Production);
-    request.host = "beezelbot";
+    request.host = "agent";
     assert!(deliver_persistent_ddns(&request, &mut store, &provider, &guest).is_err());
     assert_eq!(provider.issued.get(), 0);
     assert!(guest.payloads.borrow().is_empty());

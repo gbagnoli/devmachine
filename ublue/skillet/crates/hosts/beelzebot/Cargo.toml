@@ -1,5 +1,5 @@
 [package]
-name = "skillet-beezelbot"
+name = "skillet-beelzebot"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,5 +8,4 @@ workspace = true
 
 [dependencies]
 skillet_cli_common.workspace = true
-skillet_hardening.workspace = true
 anyhow = "1.0"

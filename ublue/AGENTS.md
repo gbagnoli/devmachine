@@ -144,7 +144,7 @@
   `cargo fmt --all -- --check`,
   `cargo clippy --workspace --all-targets -- -D warnings`,
   `cargo test --workspace --all-targets`, and
-  `cargo run --bin skillet -- test run beezelbot --phase base --image fedora:latest`
+  `cargo run --bin skillet -- test run beelzebot --phase base --image fedora:latest`
   from `.github/workflows/ci.yml`. For shell changes, run the workflow's
   ShellCheck commands; for Python or Chef changes, run the corresponding
   Ruff/Mypy or Cookstyle commands.
@@ -156,3 +156,8 @@
 - If a required check cannot run because a tool, runtime, or external service
   is unavailable, record the exact reason and report the check as unverified;
   do not describe it as passing or commit as though it passed.
+
+- Keep canonical host spelling consistent across profile, package, binary,
+  installation templates and image. Identity renames require an explicit
+  compatibility decision; never silently rewrite retained manifests or vault
+  entries. Preserve historical acceptance evidence as recorded.

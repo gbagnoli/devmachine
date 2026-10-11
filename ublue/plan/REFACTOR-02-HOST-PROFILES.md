@@ -72,7 +72,7 @@ remains independent of deployment names.
 ## Progress
 
 - Implemented: `skillet_hosts` is the canonical profile and composition crate
-  for clamps, beezelbot, and the explicit generic agent baseline. Profile data
+  for clamps, beelzebot, and the explicit generic agent baseline. Profile data
   owns boot image/masks, enabled services, UI exposure, credentials, bridge
   network, storage requirement, and optional btrbk inputs.
 - Implemented: generic and per-host apply wrappers, Caddy apply, credential

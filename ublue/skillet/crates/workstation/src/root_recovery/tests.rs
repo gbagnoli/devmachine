@@ -139,7 +139,7 @@ fn failed_persistence_and_volume_mismatch_never_enroll() {
 fn wrong_host_never_saves() {
     let mut store = Store::default();
     assert!(provision(
-        "beezelbot",
+        "beelzebot",
         "path",
         Path::new("helper"),
         &mut store,

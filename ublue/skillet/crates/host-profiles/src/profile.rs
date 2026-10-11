@@ -434,13 +434,12 @@ fn caddy_acceptance(profile: &str) -> AcceptanceService {
 }
 
 const CLAMPS_DNS: &[(&str, &str)] = &[("192.168.1.100", "my.custom.domain")];
-const CLAMPS_SYNCTHING_UI: UiServiceDeclaration = UiServiceDeclaration {
+const SYNCTHING_UI: UiServiceDeclaration = UiServiceDeclaration {
     name: "syncthing",
     upstream: "syncthing",
     port: 8384,
     aliases: &["sync.{host}"],
 };
-const BEEZELBOT_SYNCTHING_UI: UiServiceDeclaration = CLAMPS_SYNCTHING_UI;
 
 fn clamps() -> HostProfile {
     HostProfile {
@@ -481,7 +480,7 @@ fn clamps() -> HostProfile {
                     container_uid: 1000,
                     container_gid: 1000,
                 },
-                ui: Some(CLAMPS_SYNCTHING_UI),
+                ui: Some(SYNCTHING_UI),
             },
             HostService {
                 config: ServiceConfig::Unifi,
@@ -508,11 +507,12 @@ fn clamps() -> HostProfile {
     }
 }
 
-fn beezelbot() -> HostProfile {
+/// Boxy's replacement. Private DNS and routing inputs are delivered separately.
+fn beelzebot() -> HostProfile {
     HostProfile {
-        id: HostId::known("beezelbot"),
-        signed_image: Some("ghcr.io/gbagnoli/ucore-beezelbot"),
-        masked_units: &[],
+        id: HostId::known("beelzebot"),
+        signed_image: Some("ghcr.io/gbagnoli/ucore-beelzebot"),
+        masked_units: &["systemd-resolved.service"],
         network: NetworkPolicy {
             ipv4_subnet: "172.26.26.0/24",
             ipv4_gateway: "172.26.26.1",
@@ -520,16 +520,51 @@ fn beezelbot() -> HostProfile {
             ipv6_gateway: "fd59:4e23:2950:11f5::1",
         },
         requires_data_mount: true,
-        services: vec![HostService {
-            config: ServiceConfig::Syncthing {
-                data_path: "/var/lib/data/syncthing",
-                data_owner: "giacomo",
-                data_group: "giacomo",
-                container_uid: 1000,
-                container_gid: 1000,
+        services: vec![
+            HostService {
+                config: ServiceConfig::Pihole { custom_dns: &[] },
+                ui: Some(UiServiceDeclaration {
+                    name: "pihole",
+                    upstream: "pihole",
+                    port: 8088,
+                    aliases: &[],
+                }),
             },
-            ui: Some(BEEZELBOT_SYNCTHING_UI),
-        }],
+            HostService {
+                config: ServiceConfig::Tailscale {
+                    advertise_exit_node: true,
+                    state_path: "/var/lib/data/tailscale",
+                },
+                ui: None,
+            },
+            HostService {
+                config: ServiceConfig::Syncthing {
+                    data_path: "/var/lib/data/syncthing",
+                    data_owner: "giacomo",
+                    data_group: "giacomo",
+                    container_uid: 1000,
+                    container_gid: 1000,
+                },
+                ui: Some(SYNCTHING_UI),
+            },
+            HostService {
+                config: ServiceConfig::Ddns,
+                ui: None,
+            },
+            HostService {
+                config: ServiceConfig::Datadog {
+                    production_region: "ftwo",
+                    network_monitoring: true,
+                },
+                ui: None,
+            },
+            HostService {
+                config: ServiceConfig::Btrbk {
+                    snapshot_subvolumes: &["syncthing"],
+                },
+                ui: None,
+            },
+        ],
     }
 }
 
@@ -553,7 +588,7 @@ fn agent_baseline() -> HostProfile {
 pub fn profile_for_host(host: &HostId) -> Option<HostProfile> {
     match host.as_str() {
         "clamps" => Some(with_fleet_baseline(clamps())),
-        "beezelbot" => Some(with_fleet_baseline(beezelbot())),
+        "beelzebot" => Some(with_fleet_baseline(beelzebot())),
         "agent" => Some(agent_baseline()),
         _ => None,
     }
@@ -566,7 +601,7 @@ pub fn profile_for_name(host: &str) -> Option<HostProfile> {
 pub fn declared_profiles() -> Vec<HostProfile> {
     vec![
         with_fleet_baseline(clamps()),
-        with_fleet_baseline(beezelbot()),
+        with_fleet_baseline(beelzebot()),
         agent_baseline(),
     ]
 }
