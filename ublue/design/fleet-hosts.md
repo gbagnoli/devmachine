@@ -23,3 +23,8 @@ includes select artifacts/images; generic units read `/etc/skillet/host`.
 Boxy's subnet-routing and private cross-host routes/probes need separate policy
 and private inventory. Selecting the current shared modules does not claim full
 live source parity. See [the migration plan](../plan/JOEY-MIGRATION.md).
+
+Calculon/donbot source services, exclusions and public/mixed ingress needs are
+in [the inventory](../plan/DONBOT-INVENTORY.md) and
+[migration plan](../plan/DONBOT-MIGRATION.md). The donbot image recipe exists;
+its Skillet profile, host binary and Butane configuration remain pending.
