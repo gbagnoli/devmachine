@@ -24,6 +24,14 @@ chain on hotplug. Unit conditions skip absent hardware; configuration still
 converges on ordinary smoke VMs. Losing the cable must not stop an already
 running monitor: its last known on-battery state can require protective shutdown.
 Datadog unit monitoring is selected only when the UPS is attached at agent apply.
+When both NUT and Datadog are selected, the successful Datadog phase also
+converges a 30-second metrics timer. Its service requires the device alias and
+Agent socket to exist, and only orders startup after existing consumers.
+Hardware absence skips collection; hotplug needs no credential redelivery to
+start metric polling. The shared musl guest binary reads NUT directly and sends
+finite gauges/status checks to local DogStatsD, without Python, `upsc`, another
+image or additional credentials. Native-unit inventory still needs reapply after
+attachment. See [monitoring composition](monitoring.md).
 Removing the declaration leaves existing resources unmanaged; explicit removal
 is required to disable previously configured protection.
 

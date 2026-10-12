@@ -86,6 +86,11 @@
 - Service modules own their monitoring declarations. Monitoring consumes the
   same selected services as application composition; do not maintain an
   independent monitoring inventory or place credentials in discovery metadata.
+- Native metric collectors use bounded read-only queries and a finite metric/tag
+  inventory. Failed observations must report failure rather than synthetic zero
+  readings. Keep ingestion credentials in the Agent and explicitly scope local
+  submission endpoints. Validate collector output with the actual receiving
+  implementation; local submission does not establish remote ingestion.
 
 - Shared helpers receive identity and configuration from validated inputs or
   declarations. Keep deployment-specific assumptions in the selected profile;

@@ -119,6 +119,50 @@ fn caller_inputs_cannot_inject_units_or_configuration() {
     }
 }
 
+#[test]
+fn telemetry_timer_is_explicit_private_and_idempotent() {
+    let files = MockFiles::new();
+    let system = MockSystem::new();
+    apply(&system, &files, CONFIG).unwrap();
+    assert!(!files
+        .files
+        .lock()
+        .unwrap()
+        .contains_key("/etc/systemd/system/skillet-nut-metrics.timer"));
+    apply_metrics(&system, &files, CONFIG, Path::new("/run/test/dsd.socket")).unwrap();
+    let state = files.files.lock().unwrap();
+    let service =
+        String::from_utf8_lossy(&state["/etc/systemd/system/skillet-nut-metrics.service"]);
+    assert!(service.contains("/usr/bin/skillet metrics nut --ups cyberpower"));
+    assert!(service.contains("ConditionPathExists=/dev/skillet-ups-cyberpower"));
+    assert!(service.contains("ConditionPathExists=/run/test/dsd.socket"));
+    assert!(service.contains("ProtectSystem=strict"));
+    assert!(!service.contains("Requires="));
+    assert!(!service.contains("Wants="));
+    drop(state);
+    let before = system.restart_count.load(Ordering::SeqCst);
+    apply_metrics(&system, &files, CONFIG, Path::new("/run/test/dsd.socket")).unwrap();
+    assert_eq!(system.restart_count.load(Ordering::SeqCst), before);
+    assert!(!system.service_is_active("nut-server.service").unwrap());
+    assert!(!system.service_is_active("datadog-agent.service").unwrap());
+    system.fail_restart_once.store(true, Ordering::SeqCst);
+    assert!(apply_metrics(
+        &system,
+        &files,
+        CONFIG,
+        Path::new("/run/changed/dsd.socket")
+    )
+    .is_err());
+    apply_metrics(
+        &system,
+        &files,
+        CONFIG,
+        Path::new("/run/changed/dsd.socket"),
+    )
+    .unwrap();
+    assert!(apply_metrics(&system, &files, CONFIG, Path::new("/run/inject%H.socket")).is_err());
+}
+
 use std::process::Command;
 struct Container(String);
 impl Drop for Container {
@@ -140,6 +184,7 @@ fn write_consumer_configuration(root: &Path) {
     let files = MockFiles::new();
     let system = MockSystem::new();
     apply(&system, &files, CONFIG).unwrap();
+    apply_metrics(&system, &files, CONFIG, Path::new("/run/test/dsd.socket")).unwrap();
     for (path, bytes) in files.files.lock().unwrap().iter() {
         if !path.starts_with("/etc/") {
             continue;
@@ -167,6 +212,38 @@ fn simulate_consumer_configuration(root: &Path) {
         .unwrap()
         .replace("/usr/bin/systemctl poweroff", "/usr/bin/true");
     std::fs::write(monpath, monitor).unwrap();
+}
+
+fn verify_consumer_units(name: &str) {
+    command(&[
+        "exec",
+        name,
+        "udevadm",
+        "verify",
+        "/etc/udev/rules.d/70-skillet-ups.rules",
+    ]);
+    // Unit verification checks the executable exists but never starts it. The
+    // actual static CLI/protocol is exercised separately against the Agent.
+    command(&[
+        "exec",
+        name,
+        "ln",
+        "-s",
+        "/usr/bin/true",
+        "/usr/bin/skillet",
+    ]);
+    command(&[
+        "exec",
+        name,
+        "systemd-analyze",
+        "--man=no",
+        "verify",
+        "nut-driver@cyberpower.service",
+        "nut-server.service",
+        "nut-monitor.service",
+        "skillet-nut-metrics.service",
+        "skillet-nut-metrics.timer",
+    ]);
 }
 
 #[test]
@@ -198,23 +275,7 @@ fn real_fedora_nut_accepts_config_and_monitors_a_safe_dummy_ups() {
         "--create",
         "/usr/lib/tmpfiles.d/nut-common-tmpfiles.conf",
     ]);
-    command(&[
-        "exec",
-        &name,
-        "udevadm",
-        "verify",
-        "/etc/udev/rules.d/70-skillet-ups.rules",
-    ]);
-    command(&[
-        "exec",
-        &name,
-        "systemd-analyze",
-        "--man=no",
-        "verify",
-        "nut-driver@cyberpower.service",
-        "nut-server.service",
-        "nut-monitor.service",
-    ]);
+    verify_consumer_units(&name);
     command(&["exec", &name, "upsdrvctl", "-t", "start", "cyberpower"]);
     let selected = command(&[
         "exec",

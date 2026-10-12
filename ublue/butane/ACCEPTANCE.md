@@ -1,3 +1,47 @@
+## Native NUT metrics and local DogStatsD — 2026-10-12
+
+- Implemented `skillet metrics nut` in the shared static musl guest binary.
+  It performs only `LIST VAR`, with a bounded whole-query deadline and response
+  sizes, and emits a fixed gauge inventory plus independent UPS status flags.
+  Optional absent readings are omitted; query failure submits only a failed
+  `nut.communication` check and exits nonzero. No Python, `upsc`, runtime plugin
+  downloads, derived Agent image or additional credential is required.
+- Successful Datadog apply configures the same caller-selected NUT module's
+  `skillet-nut-metrics.timer`, polling every 30 seconds. The collector is
+  conditioned on the USB alias and Agent socket. Its unit orders startup
+  without activating optional consumers. Repeat apply and interrupted timer
+  activation are covered. Driver-instance unit names are now accepted by the
+  Agent's monitored-unit validation.
+- The official pinned Agent uses a Unix datagram socket under root:root `0700`
+  `/run/skillet-dogstatsd`; tmpfiles recreates the directory at boot. UDP port
+  is explicitly disabled. Only this socket directory is a writable additional
+  mount; host monitoring mounts retain their existing policy.
+- Local validation passed: 403 workspace tests, formatting, strict all-target
+  Clippy, whitespace checks and the Fedora joey base scenario, with no service
+  start/restart on repeat apply. Routine CI needs no vault/provider access:
+  parsing tests, local TCP/Unix datagram transports, real CLI success/failure,
+  status transitions and canonical profile composition use isolated fixtures.
+- Named VM regression `test smoke clamps --instance files` passed its fixture
+  checks before/after reboot and restored signed-boot/base/user-environment
+  readiness on `clamps-test-files`. This is fixture/runtime evidence, not UPS
+  timer or Datadog cloud acceptance.
+- The explicit ignored CLI consumer test passed against official Agent 7.84.1
+  with a dummy key and `--network none`. The Agent parsed expected gauges and
+  both service checks with zero parse errors; actual metric names/tags were
+  visible in DogStatsD statistics. Both UDP listener tables were empty. The
+  disposable container was removed after the test.
+- Read-only live collection passed against the forwarded UPS on both IPv4 and
+  IPv6 loopback. It reported model BR1000ELCD, status `OL`, charge 100%, runtime
+  3301 seconds and load 11%. A separate network-isolated Agent parsed its
+  15 gauges and two service checks, with zero parse errors and no UDP listener.
+  No telemetry was sent to Datadog and no UPS control command was issued.
+- The safe Fedora NUT consumer check also passed real systemd verification of
+  generated collector service/timer syntax. Verification uses a harmless
+  executable placeholder; actual collector execution is covered separately.
+  Native uCore timer execution, socket permission/SELinux behavior and recovery
+  across reboot, cloud ingestion, and physical power-loss acceptance remain
+  **unverified**; local receipt is not evidence of those checks.
+
 ## Local NUT UPS protection — 2026-10-12
 
 - The shared image now declares Fedora `nut` and `nut-client`, with NUT services
