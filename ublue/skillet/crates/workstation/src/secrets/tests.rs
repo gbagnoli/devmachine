@@ -132,6 +132,20 @@ fn smtp_fields_are_required_validated_and_never_rendered() {
                     &profiles,
                     ProvisioningPolicy::new(environment),
                     &|path, field| {
+                        if path.contains("/network/") {
+                            return Ok(Some(
+                                match field {
+                                    "interface" => "eth0",
+                                    "address" => "192.0.2.10",
+                                    "gateway" | "dns1" => "192.0.2.1",
+                                    "dns2" => "127.0.0.1",
+                                    "mask" => "24",
+                                    "UserName" => "fixture",
+                                    _ => "fixture-key",
+                                }
+                                .into(),
+                            ));
+                        }
                         if path != "skillet/smtp" {
                             return Ok(Some("fixture-only".into()));
                         }
@@ -276,5 +290,50 @@ fn recovery_inventory_recognizes_only_declared_hosts_and_valid_instances() {
     assert_eq!(
         unused_paths(&profiles, &paths).unwrap(),
         vec![paths[3].clone(), paths[2].clone()]
+    );
+}
+
+#[test]
+fn network_requirements_follow_selected_interfaces_and_keep_test_dhcp_private() {
+    let mut profile = skillet_hosts::profile_for_name("clamps").unwrap();
+    let stored = [
+        "skillet/hosts/clamps/network/wired".into(),
+        "skillet/hosts/clamps/network/wifi".into(),
+    ];
+    assert_eq!(
+        unused_paths(&[profile.clone()], &stored).unwrap(),
+        Vec::<String>::new()
+    );
+    let test = check(
+        &[profile.clone()],
+        ProvisioningPolicy::new(Environment::Test),
+        &|path, _| {
+            assert!(!path.contains("/network/"));
+            Ok(None)
+        },
+    )
+    .unwrap();
+    assert!(test.missing.iter().all(|entry| entry.module != "Network"));
+    for service in &mut profile.services {
+        if let skillet_hosts::ServiceConfig::Network(selection) = &mut service.config {
+            selection.wifi = false;
+        }
+    }
+    let prod = check(
+        &[profile.clone()],
+        ProvisioningPolicy::new(Environment::Production),
+        &|_, _| Ok(None),
+    )
+    .unwrap();
+    let network = prod
+        .missing
+        .iter()
+        .filter(|entry| entry.module == "Network")
+        .collect::<Vec<_>>();
+    assert_eq!(network.len(), 1);
+    assert_eq!(network[0].path, stored[0]);
+    assert_eq!(
+        unused_paths(&[profile], &stored).unwrap(),
+        [stored[1].clone()]
     );
 }

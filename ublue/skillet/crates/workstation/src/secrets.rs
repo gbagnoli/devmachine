@@ -63,6 +63,8 @@ struct Entry {
     help: String,
     #[serde(default)]
     fields: Vec<FieldRequirement>,
+    #[serde(default)]
+    required_by: Vec<String>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -85,6 +87,11 @@ enum FieldRule {
     Choice,
     Sender,
     Tailnetusers,
+    Ipv4,
+    Mask,
+    Interface,
+    Ssid,
+    Wifikey,
 }
 
 impl FieldRequirement {
@@ -98,6 +105,11 @@ impl FieldRequirement {
             FieldRule::Choice => self.values.iter().any(|allowed| allowed == value),
             FieldRule::Hostname => valid_hostname(value),
             FieldRule::Sender => skillet_smtp::valid_sender(value),
+            FieldRule::Ipv4 => skillet_network::valid_ipv4(value),
+            FieldRule::Mask => skillet_network::prefix_from_mask(value).is_some(),
+            FieldRule::Interface => skillet_network::valid_interface(value),
+            FieldRule::Ssid => skillet_network::valid_ssid(value),
+            FieldRule::Wifikey => skillet_network::valid_wifi_key(value),
             FieldRule::Tailnetusers => skillet_caddy::auth::Policy::parse_users(value).is_ok(),
         }
     }
@@ -169,7 +181,11 @@ pub fn unused_paths(
                         )
                     })
                     .transpose()?;
-                for entry in &module.entries {
+                for entry in module
+                    .entries
+                    .iter()
+                    .filter(|entry| entry_selected(entry, profile))
+                {
                     if entry.status == Status::Planned {
                         continue;
                     }
@@ -209,17 +225,38 @@ fn matches_entry(pattern: &str, path: &str) -> bool {
 }
 
 fn selected(module: &RequirementGroup, profile: &HostProfile) -> bool {
-    module.required_by.iter().any(|service| {
-        if service == "storage" {
-            true
-        } else if service == "tailnet-ui" {
-            profile.ui_services().iter().any(|ui| ui.tailnet_identity)
-        } else if service == "ui" {
-            !profile.ui_services().is_empty()
-        } else {
-            profile.supports_service(service)
-        }
-    })
+    module
+        .required_by
+        .iter()
+        .any(|service| selected_capability(service, profile))
+}
+
+fn entry_selected(entry: &Entry, profile: &HostProfile) -> bool {
+    entry.required_by.is_empty()
+        || entry
+            .required_by
+            .iter()
+            .any(|service| selected_capability(service, profile))
+}
+
+fn selected_capability(service: &str, profile: &HostProfile) -> bool {
+    if service == "network-wired" {
+        profile
+            .host_network_selection()
+            .is_some_and(|selection| selection.wired)
+    } else if service == "network-wifi" {
+        profile
+            .host_network_selection()
+            .is_some_and(|selection| selection.wifi)
+    } else if service == "storage" {
+        true
+    } else if service == "tailnet-ui" {
+        profile.ui_services().iter().any(|ui| ui.tailnet_identity)
+    } else if service == "ui" {
+        !profile.ui_services().is_empty()
+    } else {
+        profile.supports_service(service)
+    }
 }
 
 fn expand(path: &str, host: &str, environment: &str) -> String {
@@ -256,7 +293,7 @@ pub fn check(
             let entries = module
                 .entries
                 .iter()
-                .filter(|entry| entry.status == Status::Required);
+                .filter(|entry| entry.status == Status::Required && entry_selected(entry, profile));
             let documented = entries
                 .map(|entry| (expand(&entry.path, host, policy.vault_name()), entry))
                 .collect::<BTreeMap<_, _>>();

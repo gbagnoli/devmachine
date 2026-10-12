@@ -132,7 +132,7 @@ struct SecretLockArgs {
 #[derive(clap::Args, Debug)]
 struct SecretDeliverArgs {
     hostname: String,
-    #[arg(value_parser = ["pihole", "tailscale", "caddy", "ddns", "datadog", "smtp"])]
+    #[arg(value_parser = ["pihole", "tailscale", "caddy", "ddns", "datadog", "smtp", "network"])]
     service: String,
     #[arg(long)]
     database: Option<PathBuf>,
@@ -1397,6 +1397,7 @@ fn run_twice_and_check(name: &str, phase: ApplyPhase, inspect: bool) -> Result<(
         ApplyPhase::Ddns => "ddns",
         ApplyPhase::Datadog => "datadog",
         ApplyPhase::Smtp => "smtp",
+        ApplyPhase::Network => "network",
     };
     for round in ["first", "second"] {
         let status = Command::new("podman")

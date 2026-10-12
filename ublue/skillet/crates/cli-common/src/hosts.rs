@@ -18,6 +18,7 @@ pub enum ApplyPhase {
     Ddns,
     Datadog,
     Smtp,
+    Network,
 }
 
 pub fn apply_host_phase(
@@ -34,6 +35,7 @@ pub fn apply_host_phase(
         ApplyPhase::Ddns => skillet_hosts::HostApplyPhase::Ddns,
         ApplyPhase::Datadog => skillet_hosts::HostApplyPhase::Datadog,
         ApplyPhase::Smtp => skillet_hosts::HostApplyPhase::Smtp,
+        ApplyPhase::Network => skillet_hosts::HostApplyPhase::Network,
     };
     skillet_hosts::apply_host_phase(hostname, phase, system, files, credentials)
 }

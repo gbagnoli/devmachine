@@ -63,6 +63,7 @@ pub enum ServiceConfig {
     Nut(skillet_nut::Config),
     Unifi,
     Smtp,
+    Network(skillet_network::Selection),
     Ddns,
     Datadog {
         production_region: &'static str,
@@ -94,6 +95,7 @@ impl HostService {
             ServiceConfig::Ddns => "ddns",
             ServiceConfig::Datadog { .. } => "datadog",
             ServiceConfig::Smtp => "smtp",
+            ServiceConfig::Network(_) => "network",
             ServiceConfig::Tailscale { .. } => "tailscale",
             ServiceConfig::Btrbk { .. } => "btrbk",
         }
@@ -101,6 +103,10 @@ impl HostService {
 
     pub fn credential_consumers(&self) -> Vec<CredentialConsumer> {
         match self.config {
+            ServiceConfig::Network(_) => vec![CredentialConsumer {
+                credential: skillet_network::CREDENTIAL,
+                unit: skillet_network::PREPARE_UNIT,
+            }],
             ServiceConfig::Smtp => vec![CredentialConsumer {
                 credential: skillet_smtp::CREDENTIAL,
                 unit: "postfix.service",
@@ -199,6 +205,16 @@ impl HostProfile {
         })
     }
 
+    /// Native interfaces selected by this caller; independent of the Podman network.
+    pub fn host_network_selection(&self) -> Option<skillet_network::Selection> {
+        self.services
+            .iter()
+            .find_map(|service| match service.config {
+                ServiceConfig::Network(selection) => Some(selection),
+                _ => None,
+            })
+    }
+
     /// Runtime checks follow the services and UI capabilities declared by
     /// this profile, so fixture acceptance cannot stand in for application
     /// acceptance.
@@ -215,7 +231,10 @@ impl HostProfile {
             .filter(|service| {
                 !matches!(
                     service.config,
-                    ServiceConfig::Datadog { .. } | ServiceConfig::Smtp | ServiceConfig::Nut(_)
+                    ServiceConfig::Datadog { .. }
+                        | ServiceConfig::Smtp
+                        | ServiceConfig::Nut(_)
+                        | ServiceConfig::Network(_)
                 ) && (with_ddns || !matches!(service.config, ServiceConfig::Ddns))
             })
             .map(|service| acceptance_service(self.id.as_str(), service))
@@ -354,6 +373,7 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
             listeners: Vec::new(),
             health_probe: None,
         },
+        ServiceConfig::Network(_) => native_network_acceptance(),
         ServiceConfig::Smtp => smtp_acceptance(),
         ServiceConfig::Datadog { .. } => datadog_acceptance(),
         ServiceConfig::Ddns => AcceptanceService {
@@ -444,6 +464,18 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
     }
 }
 
+fn native_network_acceptance() -> AcceptanceService {
+    AcceptanceService {
+        unit: skillet_network::PREPARE_UNIT.into(),
+        container: None,
+        network_mode: None,
+        bind_paths: Vec::new(),
+        owner: None,
+        listeners: Vec::new(),
+        health_probe: None,
+    }
+}
+
 fn caddy_acceptance(profile: &str) -> AcceptanceService {
     AcceptanceService {
         unit: "caddy.service".into(),
@@ -481,6 +513,13 @@ fn clamps() -> HostProfile {
         },
         requires_data_mount: true,
         services: vec![
+            HostService {
+                config: ServiceConfig::Network(skillet_network::Selection {
+                    wired: true,
+                    wifi: true,
+                }),
+                ui: None,
+            },
             HostService {
                 config: ServiceConfig::Pihole {
                     custom_dns: CLAMPS_DNS,

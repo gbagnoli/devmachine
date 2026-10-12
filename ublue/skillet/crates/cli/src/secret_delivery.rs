@@ -45,7 +45,9 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
         skillet_vm::credential::ActivationPolicy::DeferConsumer
     };
     deliver_with_vault(args, &mut vault, &transport, activation)?;
-    if args.activate {
+    if args.activate && args.service == "network" {
+        println!("Prepared native network profiles for the next boot; live connections were not switched");
+    } else if args.activate {
         println!(
             "Delivered {} credentials and requested consumer activation",
             args.service
@@ -86,6 +88,21 @@ pub(super) fn deliver_with_vault(
         }
         "caddy" => deliver_caddy_from_vault(args, vault, transport, activation)?,
         "ddns" => deliver_ddns_from_vault(args, vault, transport, activation)?,
+        "network" => {
+            let policy = args.environment.policy();
+            let input = skillet_workstation::network_provisioning::input(
+                &args.hostname,
+                policy,
+                &|path, field| vault.get_field(path, field),
+            )?;
+            skillet_workstation::network_provisioning::deliver(
+                &args.hostname,
+                policy,
+                &input,
+                transport,
+                activation,
+            )?;
+        }
         "smtp" => {
             let input = skillet_workstation::smtp_provisioning::input(
                 args.environment.policy(),
@@ -114,7 +131,7 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
     let profile = skillet_hosts::profile_for_name(hostname)
         .ok_or_else(|| anyhow!("unknown host profile: {hostname}"))?;
     match service {
-        "pihole" | "tailscale" | "ddns" | "datadog" | "smtp"
+        "pihole" | "tailscale" | "ddns" | "datadog" | "smtp" | "network"
             if !profile.supports_service(service) =>
         {
             Err(anyhow!(
@@ -124,7 +141,7 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
         "caddy" if profile.ui_services().is_empty() => {
             Err(anyhow!("host {hostname} declares no UI services"))
         }
-        "pihole" | "tailscale" | "caddy" | "ddns" | "datadog" | "smtp" => Ok(profile),
+        "pihole" | "tailscale" | "caddy" | "ddns" | "datadog" | "smtp" | "network" => Ok(profile),
         unsupported => Err(anyhow!("unsupported secret service {unsupported}")),
     }
 }

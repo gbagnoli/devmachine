@@ -13,6 +13,7 @@ members = [
     "crates/ddns",
     "crates/datadog",
     "crates/smtp",
+    "crates/network",
     "crates/podman",
     "crates/cli",
     "crates/hosts/joey",
@@ -40,6 +41,7 @@ skillet_caddy = { path = "crates/caddy" }
 skillet_ddns = { path = "crates/ddns" }
 skillet_datadog = { path = "crates/datadog" }
 skillet_smtp = { path = "crates/smtp" }
+skillet_network = { path = "crates/network" }
 skillet_podman = { path = "crates/podman" }
 skillet_cli_common = { path = "crates/cli-common" }
 skillet_vm = { path = "crates/vm" }

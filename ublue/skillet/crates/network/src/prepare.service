@@ -1,0 +1,14 @@
+[Unit]
+Description=Prepare private host network profiles for boot
+DefaultDependencies=no
+After=local-fs.target
+Before=NetworkManager.service shutdown.target
+Conflicts=shutdown.target
+ConditionPathExists=/etc/credstore.encrypted/skillet/network_config.cred
+
+[Service]
+Type=oneshot
+LoadCredentialEncrypted=network_config:/etc/credstore.encrypted/skillet/network_config.cred
+ExecStart=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase network
+ExecStartPost=/usr/sbin/restorecon -RF /run/NetworkManager/system-connections
+TimeoutStartSec=30

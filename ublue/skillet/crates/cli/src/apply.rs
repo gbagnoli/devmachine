@@ -113,6 +113,14 @@ fn remote(args: &Args) -> Result<()> {
             "required vault entries need attention; no services applied"
         ));
     }
+    if profile.host_network_selection().is_some() {
+        // Validate subnet relationships before applying any service, not just field formats.
+        skillet_workstation::network_provisioning::input(
+            host,
+            args.environment.policy(),
+            &|path, field| vault.get_field(path, field),
+        )?;
+    }
     let delivery = SecretDeliverArgs {
         hostname: host.into(),
         service: String::new(),
@@ -135,6 +143,9 @@ fn remote(args: &Args) -> Result<()> {
         },
     )?;
     println!("Applied all declared services for {host}");
+    if profile.host_network_selection().is_some() {
+        println!("Network profiles prepared for the next boot; live connections were not switched");
+    }
     Ok(())
 }
 
