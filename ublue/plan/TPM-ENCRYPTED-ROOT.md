@@ -46,9 +46,10 @@ The operator refreshed the vault header successfully after the KDBX writer
 fix and reports automatic unlocking on an unmasked reboot, after one failed
 attempt. This is consistent with the obsolete binding failing before the new
 one succeeds. Supplied status confirms the signed uCore digest is booted,
-bootstrap is successful/active-exited and no units are failed. The base apply
-unit is inactive with Result=success; execution versus a skipped condition
-still needs journal evidence. The operator removed obsolete slot 1; the supplied
+bootstrap is successful/active-exited and no units are failed. The supplied
+cold-boot journal confirms base apply executed successfully, and findmnt
+confirms Btrfs `/var/lib/data` uses `/dev/mapper/root[/data]`.
+The operator removed obsolete slot 1; the supplied
 Clevis listing now contains only slot 2, and the operator reports that the
 machine returned unattended after power-off/power-on. Confirmation of the
 post-removal header refresh and measured-policy comparison remain pending.
