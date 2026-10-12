@@ -133,7 +133,16 @@ fn telemetry_timer_is_explicit_private_and_idempotent() {
     let state = files.files.lock().unwrap();
     let service =
         String::from_utf8_lossy(&state["/etc/systemd/system/skillet-nut-metrics.service"]);
-    assert!(service.contains("/usr/bin/skillet metrics nut --ups cyberpower"));
+    let bootstrap = include_str!("../../../../butane/includes/skillet.bu");
+    let executable = service
+        .lines()
+        .find_map(|line| line.strip_prefix("ExecStart="))
+        .unwrap()
+        .split_whitespace()
+        .next()
+        .unwrap();
+    assert!(bootstrap.contains(&format!("- path: {executable}\n")));
+    assert!(service.contains("/var/usrlocal/bin/skillet metrics nut --ups cyberpower"));
     assert!(service.contains("ConditionPathExists=/dev/skillet-ups-cyberpower"));
     assert!(service.contains("ConditionPathExists=/run/test/dsd.socket"));
     assert!(service.contains("ProtectSystem=strict"));
@@ -224,13 +233,14 @@ fn verify_consumer_units(name: &str) {
     ]);
     // Unit verification checks the executable exists but never starts it. The
     // actual static CLI/protocol is exercised separately against the Agent.
+    command(&["exec", name, "mkdir", "-p", "/var/usrlocal/bin"]);
     command(&[
         "exec",
         name,
         "ln",
         "-s",
         "/usr/bin/true",
-        "/usr/bin/skillet",
+        "/var/usrlocal/bin/skillet",
     ]);
     command(&[
         "exec",

@@ -86,6 +86,9 @@
 - Service modules own their monitoring declarations. Monitoring consumes the
   same selected services as application composition; do not maintain an
   independent monitoring inventory or place credentials in discovery metadata.
+- Generated unit executable paths must agree with the actual bootstrap and
+  update delivery paths. Cover that agreement in regression checks; consumer
+  placeholders alone cannot establish deployment correctness.
 - Native metric collectors use bounded read-only queries and a finite metric/tag
   inventory. Failed observations must report failure rather than synthetic zero
   readings. Keep ingestion credentials in the Agent and explicitly scope local

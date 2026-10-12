@@ -34,7 +34,7 @@ where
     let root = Ownership::named(Some("root"), Some("root"));
     files.ensure_directory(Path::new(STATE), Some(0o700), &root)?;
     files.ensure_directory(Path::new("/etc/systemd/system"), Some(0o755), &root)?;
-    let service = format!("[Unit]\nDescription=Read-only NUT metrics for Datadog\nAfter=nut-server.service datadog-agent.service\nConditionPathExists=/dev/skillet-ups-{}\nConditionPathExists={socket}\n\n[Service]\nType=oneshot\nExecStart=/usr/bin/skillet metrics nut --ups {} --dogstatsd-socket {socket}\nTimeoutStartSec=20\nNoNewPrivileges=true\nProtectSystem=strict\nProtectHome=true\nPrivateTmp=true\nProtectKernelTunables=true\nProtectKernelModules=true\nProtectControlGroups=true\nRestrictAddressFamilies=AF_UNIX AF_INET AF_INET6\nCapabilityBoundingSet=\nLockPersonality=true\nUMask=0077\n", config.name, config.name);
+    let service = format!("[Unit]\nDescription=Read-only NUT metrics for Datadog\nAfter=nut-server.service datadog-agent.service\nConditionPathExists=/dev/skillet-ups-{}\nConditionPathExists={socket}\n\n[Service]\nType=oneshot\nExecStart=/var/usrlocal/bin/skillet metrics nut --ups {} --dogstatsd-socket {socket}\nTimeoutStartSec=20\nNoNewPrivileges=true\nProtectSystem=strict\nProtectHome=true\nPrivateTmp=true\nProtectKernelTunables=true\nProtectKernelModules=true\nProtectControlGroups=true\nRestrictAddressFamilies=AF_UNIX AF_INET AF_INET6\nCapabilityBoundingSet=\nLockPersonality=true\nUMask=0077\n", config.name, config.name);
     let timer = "[Unit]\nDescription=Poll local UPS metrics\n\n[Timer]\nOnBootSec=1min\nOnCalendar=*-*-* *:*:00,30\nAccuracySec=1s\nUnit=skillet-nut-metrics.service\n\n[Install]\nWantedBy=timers.target\n";
     let mut changed = false;
     for (unit, content) in [
