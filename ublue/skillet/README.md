@@ -23,10 +23,10 @@ host overrides and private tags use the shared configuration-template pattern.
 Move any previous environment-specific key to the shared entry. Obsolete
 Datadog key/site vault paths are reported as unused; the checker never deletes them.
 
-Deliver using `skillet secret deliver <host> datadog` with the usual SSH
-identity, known-hosts, and target options. For an owned disposable VM, use
+Activate using `skillet secrets deliver <host> datadog --target USER@HOST --activate`,
+or include it with remote `apply` below. For an owned disposable VM, use
 `skillet test vm provision <host> <instance> --with-datadog`. Unlock the vault
-through the existing `secret unlock` workflow. Ordinary provisioning and smoke
+through the existing `secret unlock` workflow. Ordinary VM provisioning and smoke
 do not enable Datadog. Historical telemetry remains after VM destruction.
 
 For one-time monitor administration, optionally add
@@ -44,6 +44,49 @@ Skillet is a Rust tool for idempotent host configuration management.
 
 Design decisions: [secret storage and delivery](../design/secrets.md) and
 [disposable VM lifecycle](../design/smoke-vms.md).
+
+## Apply a production host remotely
+
+From this workspace, after signed bootstrap and the production secret audit:
+
+```bash
+cargo run --release -p skillet -- secrets check --host clamps --environment production
+cargo run --release -p skillet -- apply --host clamps --target giacomo@HOST
+```
+
+This delivers credentials and applies **all services selected by the host caller**:
+base configuration, full applications, private Caddy UIs, SMTP, DDNS and Datadog
+where declared. It stages both Pi-hole and Tailscale inputs before full apply,
+waits for Tailscale enrollment before UI DNS configuration, and starts monitoring
+last. Existing Tailscale enrollment input and persistent Cloudflare tokens are
+reused. On failure, fix the reported step and repeat the same command.
+The installed guest binaries and phase units must already match the host profile;
+this command does not build or upload replacement binaries.
+
+Keep KeePassXC closed when Skillet may generate entries. Unlock through
+`skillet secrets unlock` if the three-hour cache is not already available.
+The SSH user needs temporary passwordless sudo; run this before access finalization.
+Complete the planned data/identity migration and stop the old DDNS writer before
+applying all production services. Remote apply neither restores service data nor
+isolates a restored controller from production devices.
+
+SSH defaults to port 22 and `~/.ssh/known_hosts`. First verify the server's key
+fingerprint at its console and establish a trusted SSH connection. Skillet refuses
+unknown or changed keys. Omit `--identity` to use OpenSSH's configuration, default
+private keys and ssh-agent; add a protected key to your agent before running the
+noninteractive command. Override with `--port`, `--identity /absolute/path/to/key`
+or `--known-hosts /absolute/path/to/known_hosts` when needed. These defaults also
+apply to production secret delivery and root recovery. Disposable VMs keep their
+own recorded temporary key and known-hosts file.
+
+For one service, `secrets deliver HOST SERVICE --target USER@HOST` now stages
+credentials **without starting its consumer**. Add `--activate` to request
+activation. Pi-hole and Tailscale share the full-apply consumer, so explicitly
+activating either can apply the other declared applications too. Caddy staging
+still issues/reuses scoped tokens and reconciles Cloudflare DNS. Use
+`test vm provision HOST INSTANCE` for test policy and disposable cleanup.
+
+Design: [host application](../design/host-application.md).
 
 ## Building
 
@@ -275,18 +318,18 @@ test VMs that lack the Tailscale credential load.
 If an existing VM credential is corrupt, use `--rotate` to replace only that
 disposable value.
 
-For a production clamps host, deliver over an SSH connection whose host key
-you have already recorded:
+For a production host, prefer remote `apply` above. To stage only Pi-hole's
+credential over an already trusted SSH connection:
 
 ```bash
 cargo run --release -p skillet -- secret deliver clamps pihole \
-  --target giacomo@clamps --identity /path/to/ssh-key \
-  --known-hosts /path/to/known_hosts
+  --target giacomo@HOST
 ```
 
 Add `--key-file /path/to/keyfile` if the database uses one. The value is
 encrypted by the installed `skillet-clamps credential install` command on the
-host and loaded by `skillet-full-apply.service`; later
+host. Delivery alone does not start applications. It is loaded by
+`skillet-full-apply.service`; later
 `systemctl start skillet-full-apply.service` reuses it. If full apply
 reports a missing or undecryptable credential, check the host's encrypted
 credential file and redeliver the KeePassXC entry. If the entry is absent in
@@ -405,7 +448,7 @@ requires `curl` on the workstation. See the
 [private UI design](../design/private-ui-access.md).
 
 Clamps selects `advertise_exit_node: true` in its canonical host declaration.
-Production credential delivery enables that preference; smoke provisioning always
+Production application enables that preference; smoke provisioning always
 disables it. Approve the provisioned production device as an exit node in the
 Tailscale admin console (or your existing auto-approval policy), then select it
 on clients. A restrictive tailnet policy must allow those users access to
@@ -453,17 +496,17 @@ redeliver with the production command below to activate the new policy.
    loopback address and requires Caddy's explicit 403 denial response. This
    checks the source-address rule; it does not replace a test from a separate
    network outside the tailnet. Keep the OAuth client available for cleanup.
-6. For production, deliver the Pi-hole credential first, then Tailscale:
+6. For production, apply all declared services with one command:
 
    ```bash
-   cargo run --release -p skillet -- secret deliver clamps tailscale \
-     --target giacomo@clamps --identity /path/to/ssh-key \
-     --known-hosts /path/to/known_hosts
+   cargo run --release -p skillet -- apply --host clamps --target giacomo@HOST
    ```
 
-   This mints a production-tagged key; full apply then configures both
-   services. Preserve the encrypted KeePassXC entries so another workstation
-   can reprovision credentials.
+   It stages both required inputs before full apply and reuses existing
+   enrollment on repeat runs. For deliberate re-enrollment, use
+   `secrets deliver clamps tailscale --target giacomo@HOST --activate`;
+   this mints a new production-tagged key and activates full apply. Preserve
+   KeePassXC so another workstation can reprovision credentials.
 
 Cloudflare credentials and DNS records are removed before the smoke Tailscale
 device and VM are destroyed. Keep the Cloudflare token creator on the
@@ -495,9 +538,8 @@ automatically. Close KeePassXC before delivery. With the prior DNS writer stoppe
 and the selected record set approved, run:
 
 ```bash
-cargo run --release -p skillet -- secret deliver clamps ddns \
-  --target giacomo@clamps --identity /path/to/ssh-key \
-  --known-hosts /path/to/known_hosts
+cargo run --release -p skillet -- secrets deliver clamps ddns \
+  --target giacomo@HOST --activate
 ```
 
 To adopt an existing public A record, set `takeover_existing` to `true` in the
@@ -541,10 +583,10 @@ SMTP apply phase; credential-free base and normal application apply still work
 without relay credentials. See [the design](../design/email-delivery.md).
 
 Create `skillet/smtp` as described above, including a verified `sender`. For a
-production host, use the existing verified SSH target/identity/known-hosts options:
+production host, activate using a verified SSH target:
 
 ```bash
-cargo run --release -p skillet -- secrets deliver clamps smtp --target USER@ADDRESS --identity KEY --known-hosts KNOWN_HOSTS --environment production
+cargo run --release -p skillet -- secrets deliver clamps smtp --target USER@ADDRESS --activate
 ```
 
 This transmits a validated payload through SSH stdin, stores `smtp_config`

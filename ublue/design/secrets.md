@@ -96,7 +96,7 @@ permissions or host recovery state. Existing entries default to Password-only
 validation. Structured entries declare standard/custom fields and validators in
 the shared metadata. `skillet/smtp` uses Username/Password and host/port/tls
 and sender custom fields. Its shared fleet audit requires the entry for production
-only. Encrypted delivery activates a dedicated native SMTP phase; disposable
+only. SMTP consumption uses a dedicated native apply phase; disposable
 machines receive a credential-free capture payload without consulting the entry. `secrets` is the canonical CLI group; `secret` remains an alias.
 
 Use the generic [configuration template design](configuration-templates.md)
@@ -112,6 +112,13 @@ installs root-owned mode `0600` files at
 `/etc/credstore.encrypted/skillet/<credential>.cred`.
 Keeping delivery after bootstrap avoids plaintext in Ignition and run artifacts.
 Secret values never enter command arguments or diagnostics.
+
+Standalone production delivery stages credentials by default; `--activate`
+requests the consuming apply unit explicitly. Workstation remote `apply` stages
+related inputs and activates every caller-selected phase in dependency order.
+Ordinary re-apply reuses the installed Tailscale enrollment credential; explicit
+Tailscale delivery is the refresh path. Provider token/DNS reconciliation may
+still occur during staging. See [host application](host-application.md).
 
 Use host-key encryption for disposable VMs; current production delivery also
 uses host-key encryption. Production can use TPM2 binding
@@ -183,8 +190,8 @@ renewal; cleanup and recovery belong to the [VM lifecycle](smoke-vms.md).
 Optional Datadog delivery resolves the shared `skillet/datadog/api-key` through
 the templates. Site is public configuration, defaulting to `datadoghq.com`,
 and has no vault entry. A single `datadog_config`
-credential uses the existing encrypted SSH/systemd path and independently
-activates the Agent phase. The Agent consumes native Podman environment secrets
+credential uses the existing encrypted SSH/systemd path and a separate
+Agent apply phase. The Agent consumes native Podman environment secrets
 for API key and tags; those values are never written into Quadlet `Environment=`
 directives. Site uses a normal `Environment=DD_SITE` directive. Disposable
 delivery is explicit and uses the shared key plus an authoritative

@@ -243,7 +243,7 @@ pub fn wait_for_addresses<E>(
         std::thread::sleep(interval.min(timeout.saturating_sub(elapsed)));
     }
     Err(TailscaleError::Invalid(
-        "Tailscale did not connect on the VM before the enrollment timeout".into(),
+        "Tailscale did not connect on the host before the enrollment timeout".into(),
     ))
 }
 

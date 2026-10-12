@@ -129,11 +129,8 @@ pub fn enroll_disposable_vm(
                 .map_err(|e| EnrollmentError::Invalid(e.to_string()))?
                 .as_bytes(),
         )?;
-        addresses = tailscale::wait_for_addresses(
-            || guest_addresses(guest),
-            Duration::from_mins(2),
-            Duration::from_secs(2),
-        )?;
+        addresses =
+            wait_for_guest_addresses(guest, Duration::from_mins(2), Duration::from_secs(2))?;
     }
 
     let record = provider.find_device(request.vm_hostname, tag, &addresses)?;
@@ -200,6 +197,20 @@ pub fn cleanup_disposable_vm(
     Ok(true)
 }
 
+/// Bounded enrollment readiness shared by persistent and disposable hosts.
+/// Callers retain their transport ownership and host-key checks on every probe.
+pub fn wait_for_guest_addresses(
+    guest: &impl GuestTransport,
+    timeout: Duration,
+    interval: Duration,
+) -> Result<BTreeSet<String>, EnrollmentError> {
+    Ok(tailscale::wait_for_addresses(
+        || guest_addresses(guest),
+        timeout,
+        interval,
+    )?)
+}
+
 fn guest_addresses(guest: &impl GuestTransport) -> Result<BTreeSet<String>, EnrollmentError> {
     let container = guest.execute(
         &skillet_vm::transport::GuestCommand {
@@ -216,7 +227,7 @@ fn guest_addresses(guest: &impl GuestTransport) -> Result<BTreeSet<String>, Enro
     }
     if !container.status.success() {
         return Err(EnrollmentError::Invalid(format!(
-            "could not determine whether the Tailscale container exists (status {}); refusing to treat probe failure as an unenrolled VM",
+            "could not determine whether the Tailscale container exists (status {}); refusing to treat probe failure as an unenrolled host",
             container.status
         )));
     }
@@ -237,7 +248,7 @@ fn guest_addresses(guest: &impl GuestTransport) -> Result<BTreeSet<String>, Enro
     )?;
     if !output.status.success() {
         return Err(EnrollmentError::Invalid(format!(
-            "Tailscale guest status command failed with status {}; refusing to treat probe failure as an unenrolled VM",
+            "Tailscale guest status command failed with status {}; refusing to treat probe failure as an unenrolled host",
             output.status
         )));
     }

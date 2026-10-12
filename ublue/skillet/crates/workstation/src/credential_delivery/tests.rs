@@ -55,10 +55,31 @@ fn datadog_delivery_validates_capability_and_sends_only_stdin() {
     let key = "0123456789abcdef0123456789abcdef";
     let payload = serde_json::json!({"version":1,"api_key":key,"site":"datadoghq.eu"}).to_string();
     let policy = ProvisioningPolicy::new(Environment::Test);
-    assert!(deliver_datadog_credential("agent", policy, &payload, &guest).is_err());
-    assert!(deliver_datadog_credential("clamps", policy, "invalid", &guest).is_err());
+    assert!(deliver_datadog_credential(
+        "agent",
+        policy,
+        &payload,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer
+    )
+    .is_err());
+    assert!(deliver_datadog_credential(
+        "clamps",
+        policy,
+        "invalid",
+        &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer
+    )
+    .is_err());
     assert!(guest.calls.lock().unwrap().is_empty());
-    deliver_datadog_credential("clamps", policy, &payload, &guest).unwrap();
+    deliver_datadog_credential(
+        "clamps",
+        policy,
+        &payload,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer,
+    )
+    .unwrap();
     let calls = guest.calls.lock().unwrap();
     assert!(calls
         .iter()
@@ -88,7 +109,8 @@ impl GuestTransport for FakeGuest {
                 .collect(),
             input.map(<[u8]>::to_vec),
         ));
-        let status = if command.arguments.contains(&"test") {
+        let status = if command.arguments.contains(&"test") || command.arguments.contains(&"state")
+        {
             ExitStatus::from_raw(self.state_exit_code << 8)
         } else {
             ExitStatus::from_raw(0)
@@ -135,7 +157,13 @@ fn missing_pihole_password_checks_remote_state_then_persists_and_installs() {
         ..FakeGuest::default()
     };
 
-    deliver_pihole_credential("clamps", &mut store, &guest).unwrap();
+    deliver_pihole_credential(
+        "clamps",
+        &mut store,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer,
+    )
+    .unwrap();
 
     assert_eq!(store.saves.get(), 1);
     let password = store
@@ -161,7 +189,13 @@ fn existing_pihole_password_is_reused_without_remote_state_probe() {
     );
     let guest = FakeGuest::default();
 
-    deliver_pihole_credential("clamps", &mut store, &guest).unwrap();
+    deliver_pihole_credential(
+        "clamps",
+        &mut store,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer,
+    )
+    .unwrap();
 
     assert_eq!(store.saves.get(), 0);
     let calls = guest.calls.lock().unwrap();
@@ -177,7 +211,13 @@ fn existing_remote_pihole_secret_blocks_replacement_and_store_mutation() {
         ..FakeGuest::default()
     };
 
-    assert!(deliver_pihole_credential("clamps", &mut store, &guest).is_err());
+    assert!(deliver_pihole_credential(
+        "clamps",
+        &mut store,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer
+    )
+    .is_err());
     assert_eq!(store.saves.get(), 0);
     assert_eq!(guest.calls.lock().unwrap().len(), 1);
 }
@@ -192,6 +232,7 @@ fn tailscale_production_key_uses_profile_tag_and_shared_credential_installer() {
         ProvisioningPolicy::new(Environment::Production),
         &provider,
         &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer,
     )
     .unwrap();
 
@@ -217,9 +258,16 @@ fn invalid_host_or_nonproduction_tailscale_policy_fails_before_effects() {
         ProvisioningPolicy::new(Environment::Test),
         &provider,
         &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer,
     )
     .is_err());
-    assert!(deliver_pihole_credential("agent", &mut FakeStore::default(), &guest).is_err());
+    assert!(deliver_pihole_credential(
+        "agent",
+        &mut FakeStore::default(),
+        &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer
+    )
+    .is_err());
     assert_eq!(provider.calls.get(), 0);
     assert!(guest.calls.lock().unwrap().is_empty());
 }
@@ -275,6 +323,7 @@ fn datadog_production_delivery_uses_caller_region() {
         ProvisioningPolicy::new(Environment::Production),
         &payload,
         &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer,
     )
     .unwrap();
     let calls = guest.calls.lock().unwrap();
@@ -297,9 +346,21 @@ fn smtp_delivery_is_stdin_only_and_capture_cannot_contain_provider_fields() {
         password: "fixture-password".into(),
         sender: "server@example.com".into(),
     };
-    assert!(crate::smtp_provisioning::deliver("agent", &input, &guest).is_err());
+    assert!(crate::smtp_provisioning::deliver(
+        "agent",
+        &input,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer
+    )
+    .is_err());
     assert_eq!(guest.calls.lock().unwrap().len(), 0);
-    crate::smtp_provisioning::deliver("joey", &input, &guest).unwrap();
+    crate::smtp_provisioning::deliver(
+        "joey",
+        &input,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer,
+    )
+    .unwrap();
     let calls = guest.calls.lock().unwrap();
     assert!(calls.iter().all(|(args, _)| args
         .iter()
@@ -307,4 +368,62 @@ fn smtp_delivery_is_stdin_only_and_capture_cannot_contain_provider_fields() {
     assert!(calls.iter().any(|(_, bytes)| bytes
         .as_ref()
         .is_some_and(|value| String::from_utf8_lossy(value).contains("fixture-password"))));
+}
+
+#[test]
+fn deferred_delivery_never_starts_related_or_independent_consumers() {
+    let guest = FakeGuest::default();
+    let mut store = FakeStore::default();
+    store.entries.borrow_mut().insert(
+        "skillet/hosts/clamps/pihole/web-password".into(),
+        "fixture-password".into(),
+    );
+    let deferred = credential::ActivationPolicy::DeferConsumer;
+    let policy = ProvisioningPolicy::new(Environment::Production);
+    deliver_pihole_credential("clamps", &mut store, &guest, deferred).unwrap();
+    deliver_tailscale_credential(
+        "clamps",
+        policy,
+        &FakeTailscale::default(),
+        &guest,
+        deferred,
+    )
+    .unwrap();
+    let payload = serde_json::json!({"version":1,"api_key":"0123456789abcdef0123456789abcdef","site":"datadoghq.com"}).to_string();
+    deliver_datadog_credential("clamps", policy, &payload, &guest, deferred).unwrap();
+    crate::smtp_provisioning::deliver("clamps", &skillet_smtp::Input::Capture {}, &guest, deferred)
+        .unwrap();
+    let calls = guest.calls.lock().unwrap();
+    assert_eq!(calls.len(), 4);
+    for (args, input) in calls.iter() {
+        assert!(args.iter().any(|arg| arg == "--no-start"));
+        assert!(!args.iter().any(|arg| arg == "systemctl"));
+        assert!(input.is_some());
+    }
+}
+
+#[test]
+fn enrollment_presence_does_not_confuse_failed_inspection_with_absence() {
+    for (code, state, expected) in [
+        (0, "present\n", Some(true)),
+        (0, "absent\n", Some(false)),
+        (1, "", None),
+        (2, "", None),
+        (0, "unknown\n", None),
+    ] {
+        let guest = FakeGuest {
+            state_exit_code: code,
+            state: state.as_bytes().to_vec(),
+            ..FakeGuest::default()
+        };
+        assert_eq!(
+            tailscale_credential_present("clamps", &guest).ok(),
+            expected
+        );
+        let calls = guest.calls.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert!(calls[0].0.iter().any(|arg| arg == "state"));
+        assert!(calls[0].0.iter().any(|arg| arg == "tailscale_auth_key"));
+        assert!(calls[0].1.is_none());
+    }
 }

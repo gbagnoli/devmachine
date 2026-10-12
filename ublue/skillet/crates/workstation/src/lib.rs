@@ -16,4 +16,5 @@ pub mod zone_token;
 
 pub mod root_recovery;
 
+pub mod host_apply;
 pub mod installation;

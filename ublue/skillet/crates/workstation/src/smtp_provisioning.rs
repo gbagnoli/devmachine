@@ -47,7 +47,12 @@ pub fn input(
     Ok(input)
 }
 
-pub fn deliver(host: &str, input: &Input, guest: &impl GuestTransport) -> Result<(), Error> {
+pub fn deliver(
+    host: &str,
+    input: &Input,
+    guest: &impl GuestTransport,
+    activation: ActivationPolicy,
+) -> Result<(), Error> {
     let profile = skillet_hosts::profile_for_name(host)
         .filter(|p| p.supports_service("smtp"))
         .ok_or(Error::Host)?;
@@ -56,7 +61,7 @@ pub fn deliver(host: &str, input: &Input, guest: &impl GuestTransport) -> Result
         profile.id.as_str(),
         skillet_smtp::CREDENTIAL,
         "skillet-smtp-apply.service",
-        ActivationPolicy::StartConsumer,
+        activation,
         input.payload()?.as_bytes(),
     )?;
     Ok(())

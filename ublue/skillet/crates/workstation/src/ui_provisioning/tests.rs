@@ -585,6 +585,7 @@ fn persistent_ui_reuses_token_and_defers_caddy_until_credential_set_is_installed
         &cloudflare,
         &FakeTailnet,
         &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer,
     )
     .unwrap();
 
@@ -619,6 +620,7 @@ fn persistent_ui_mints_and_persists_token_before_dns_reconciliation() {
         &cloudflare,
         &FakeTailnet,
         &FakeGuest::default(),
+        skillet_vm::credential::ActivationPolicy::StartConsumer,
     )
     .unwrap();
 
@@ -651,6 +653,7 @@ fn persistent_ui_migrates_legacy_production_token_without_reissuing_it() {
         &cloudflare,
         &FakeTailnet,
         &FakeGuest::default(),
+        skillet_vm::credential::ActivationPolicy::StartConsumer,
     )
     .unwrap();
 
@@ -679,6 +682,7 @@ fn persistent_ui_vault_conflict_prevents_token_issuance() {
         &cloudflare,
         &FakeTailnet,
         &FakeGuest::default(),
+        skillet_vm::credential::ActivationPolicy::StartConsumer,
     )
     .is_err());
     assert_eq!(cloudflare.issued.get(), 0);
@@ -698,6 +702,7 @@ fn persistent_ui_failed_vault_save_revokes_just_issued_token() {
         &cloudflare,
         &FakeTailnet,
         &FakeGuest::default(),
+        skillet_vm::credential::ActivationPolicy::StartConsumer,
     )
     .is_err());
     assert_eq!(cloudflare.issued.get(), 1);
@@ -777,4 +782,30 @@ fn test_users() -> &'static [String] {
         ]
     });
     &USERS
+}
+
+#[test]
+fn persistent_ui_can_stage_complete_inputs_without_starting_caddy() {
+    let run = tempfile::tempdir().unwrap();
+    let cloudflare = fake_cloudflare(run.path(), false);
+    let mut store = FakeTokenStore::default();
+    let guest = FakeGuest::default();
+    deliver_persistent_ui(
+        &persistent_request(),
+        &mut store,
+        &cloudflare,
+        &FakeTailnet,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::DeferConsumer,
+    )
+    .unwrap();
+    let calls = guest.calls.lock().unwrap();
+    assert_eq!(calls.len(), 2);
+    for (arguments, input) in calls.iter() {
+        assert!(arguments.iter().any(|arg| arg == "--no-start"));
+        assert!(!arguments.iter().any(|arg| arg == "systemctl"));
+        assert!(input.is_some());
+    }
+    assert_eq!(cloudflare.issued.get(), 1);
+    assert_eq!(cloudflare.reconciled.get(), 1);
 }

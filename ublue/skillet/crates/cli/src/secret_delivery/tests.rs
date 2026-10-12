@@ -203,3 +203,83 @@ fn live_smtp_requires_explicit_smtp_only_selection() {
     };
     assert!(!args.live_smtp);
 }
+
+#[test]
+fn delivery_defaults_to_staging_with_openssh_identity_selection() {
+    for activate in [false, true] {
+        let mut arguments = vec![
+            "skillet",
+            "secrets",
+            "deliver",
+            "clamps",
+            "tailscale",
+            "--target",
+            "user@example.invalid",
+        ];
+        if activate {
+            arguments.push("--activate");
+        }
+        let parsed = crate::Args::try_parse_from(arguments).unwrap();
+        let crate::Commands::Secret {
+            command: crate::SecretCommands::Deliver(args),
+        } = parsed.command
+        else {
+            panic!("wrong command");
+        };
+        assert_eq!(args.activate, activate);
+        assert!(args.identity.is_none());
+        assert!(args.known_hosts.is_none());
+        assert_eq!(args.port, 22);
+    }
+}
+
+#[test]
+fn all_test_deliveries_require_owned_vm_before_any_vault_or_ssh_access() {
+    for service in ["pihole", "tailscale", "caddy", "smtp", "ddns", "datadog"] {
+        let parsed = crate::Args::try_parse_from([
+            "skillet",
+            "secrets",
+            "deliver",
+            "clamps",
+            service,
+            "--target",
+            "user@example.invalid",
+            "--environment",
+            "test",
+            "--database",
+            "/nonexistent/vault",
+        ])
+        .unwrap();
+        let crate::Commands::Secret {
+            command: crate::SecretCommands::Deliver(args),
+        } = parsed.command
+        else {
+            panic!("wrong command");
+        };
+        assert!(super::deliver_from_vault(&args)
+            .unwrap_err()
+            .to_string()
+            .contains("owned disposable VM"));
+    }
+}
+
+#[test]
+fn production_recovery_ssh_overrides_are_optional() {
+    let parsed = crate::Args::try_parse_from([
+        "skillet",
+        "secrets",
+        "root-recovery-key",
+        "clamps",
+        "--target",
+        "user@example.invalid",
+    ])
+    .unwrap();
+    let crate::Commands::Secret {
+        command: crate::SecretCommands::RootRecoveryKey(args),
+    } = parsed.command
+    else {
+        panic!("wrong command");
+    };
+    assert!(args.identity.is_none());
+    assert!(args.known_hosts.is_none());
+}

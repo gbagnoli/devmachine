@@ -118,6 +118,30 @@ fn target(dir: &Path) -> SshTarget {
 }
 
 #[test]
+fn workstation_identity_discovery_preserves_noninteractive_strict_host_trust() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut connection = SshConnection::from(target(dir.path()));
+    connection.identity = None;
+    let transport = SshTransport::workstation(connection).unwrap();
+    let command = transport
+        .command(&GuestCommand {
+            program: "true",
+            arguments: &[],
+        })
+        .unwrap();
+    let args: Vec<_> = command.get_args().collect();
+    assert!(!args
+        .iter()
+        .any(|arg| *arg == "-i" || *arg == "IdentitiesOnly=yes"));
+    assert!(args.iter().any(|arg| *arg == "StrictHostKeyChecking=yes"));
+    assert!(args.iter().any(|arg| *arg == "BatchMode=yes"));
+    let mut missing = SshConnection::from(target(dir.path()));
+    missing.identity = None;
+    fs::remove_file(&missing.known_hosts).unwrap();
+    assert!(SshTransport::workstation(missing).is_err());
+}
+
+#[test]
 fn remote_executable_arguments_are_quoted_and_transport_is_noninteractive() {
     let dir = tempfile::tempdir().unwrap();
     let transport = SshTransport::new(target(dir.path()), HostKeyPolicy::Verify).unwrap();
@@ -132,6 +156,8 @@ fn remote_executable_arguments_are_quoted_and_transport_is_noninteractive() {
         .map(|arg| arg.to_str().unwrap())
         .collect();
     assert!(arguments.contains(&"BatchMode=yes"));
+    assert!(arguments.contains(&"IdentitiesOnly=yes"));
+    assert!(arguments.contains(&"-i"));
     assert!(arguments.contains(&"StrictHostKeyChecking=yes"));
     assert!(arguments.contains(&"-T"));
     assert!(arguments.contains(&"2209"));

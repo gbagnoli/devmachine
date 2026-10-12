@@ -159,6 +159,7 @@ impl DdnsProvider for Provider {
 #[derive(Default)]
 struct Guest {
     payloads: RefCell<Vec<Vec<u8>>>,
+    deferred: Cell<usize>,
     fail: Cell<bool>,
 }
 impl GuestTransport for Guest {
@@ -174,6 +175,9 @@ impl GuestTransport for Guest {
             .arguments
             .iter()
             .all(|arg| !arg.contains("dummy-child-token") && !arg.contains("dummy-master-token")));
+        if command.arguments.contains(&"--no-start") {
+            self.deferred.set(self.deferred.get() + 1);
+        }
         let payload = payload.unwrap();
         assert!(!String::from_utf8_lossy(payload).contains("dummy-master-token"));
         skillet_ddns::config::Payload::parse(std::str::from_utf8(payload).unwrap()).unwrap();
@@ -205,9 +209,23 @@ fn creates_once_and_reuses_saved_token_after_delivery_failure() {
     let provider = Provider::default();
     let guest = Guest::default();
     guest.fail.set(true);
-    assert!(deliver_persistent_ddns(&request(CONFIG), &mut store, &provider, &guest).is_err());
+    assert!(deliver_persistent_ddns(
+        &request(CONFIG),
+        &mut store,
+        &provider,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer
+    )
+    .is_err());
     guest.fail.set(false);
-    deliver_persistent_ddns(&request(CONFIG), &mut store, &provider, &guest).unwrap();
+    deliver_persistent_ddns(
+        &request(CONFIG),
+        &mut store,
+        &provider,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer,
+    )
+    .unwrap();
     assert_eq!(provider.issued.get(), 1);
     assert_eq!(
         store.entries["skillet/environments/prod/hosts/clamps/cloudflare/ddns-token"],
@@ -218,7 +236,14 @@ fn creates_once_and_reuses_saved_token_after_delivery_failure() {
         "skillet/environments/prod/hosts/clamps/cloudflare/ddns-token".into(),
         "dummy-rotated-token".into(),
     );
-    deliver_persistent_ddns(&request(CONFIG), &mut store, &provider, &guest).unwrap();
+    deliver_persistent_ddns(
+        &request(CONFIG),
+        &mut store,
+        &provider,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer,
+    )
+    .unwrap();
     assert_eq!(provider.issued.get(), 1);
     assert!(String::from_utf8_lossy(&guest.payloads.borrow()[2]).contains("dummy-rotated-token"));
 }
@@ -232,14 +257,35 @@ fn invalid_config_ui_namespace_and_test_policy_never_issue_or_deliver() {
         "invalid",
         r#"{"version":1,"records":[{"name":"edge.ui","proxied":false}]}"#,
     ] {
-        assert!(deliver_persistent_ddns(&request(config), &mut store, &provider, &guest).is_err());
+        assert!(deliver_persistent_ddns(
+            &request(config),
+            &mut store,
+            &provider,
+            &guest,
+            skillet_vm::credential::ActivationPolicy::StartConsumer
+        )
+        .is_err());
     }
     let mut request = request(CONFIG);
     request.policy = ProvisioningPolicy::new(Environment::Test);
-    assert!(deliver_persistent_ddns(&request, &mut store, &provider, &guest).is_err());
+    assert!(deliver_persistent_ddns(
+        &request,
+        &mut store,
+        &provider,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer
+    )
+    .is_err());
     request.policy = ProvisioningPolicy::new(Environment::Production);
     request.host = "agent";
-    assert!(deliver_persistent_ddns(&request, &mut store, &provider, &guest).is_err());
+    assert!(deliver_persistent_ddns(
+        &request,
+        &mut store,
+        &provider,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer
+    )
+    .is_err());
     assert_eq!(provider.issued.get(), 0);
     assert!(guest.payloads.borrow().is_empty());
 }
@@ -252,11 +298,25 @@ fn save_failure_revokes_and_vault_conflict_prevents_issuance() {
         fail_save: true,
         ..Store::default()
     };
-    assert!(deliver_persistent_ddns(&request(CONFIG), &mut store, &provider, &guest).is_err());
+    assert!(deliver_persistent_ddns(
+        &request(CONFIG),
+        &mut store,
+        &provider,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer
+    )
+    .is_err());
     assert_eq!(provider.revoked.get(), 1);
     assert!(guest.payloads.borrow().is_empty());
     store.changed = true;
-    assert!(deliver_persistent_ddns(&request(CONFIG), &mut store, &provider, &guest).is_err());
+    assert!(deliver_persistent_ddns(
+        &request(CONFIG),
+        &mut store,
+        &provider,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::StartConsumer
+    )
+    .is_err());
     assert_eq!(provider.issued.get(), 1);
 }
 
@@ -270,8 +330,14 @@ fn revocation_failure_returns_safe_recovery_error() {
         fail_save: true,
         ..Store::default()
     };
-    let error = deliver_persistent_ddns(&request(CONFIG), &mut store, &provider, &Guest::default())
-        .unwrap_err();
+    let error = deliver_persistent_ddns(
+        &request(CONFIG),
+        &mut store,
+        &provider,
+        &Guest::default(),
+        skillet_vm::credential::ActivationPolicy::StartConsumer,
+    )
+    .unwrap_err();
     assert!(error.to_string().contains("named-token recovery"));
     assert!(!format!("{error:?} {error}").contains("dummy-child-token"));
 }
@@ -402,4 +468,21 @@ fn rejects_zones_that_exceed_the_updaters_record_page() {
         .collect::<Vec<_>>();
     assert!(validate_takeover(&config, "example.com", MARKER, &records).is_err());
     assert!(validate_takeover(&config, "example.com", MARKER, &records[..99]).is_ok());
+}
+
+#[test]
+fn persistent_ddns_can_deliver_without_activating_the_dns_writer() {
+    let mut store = Store::default();
+    let provider = Provider::default();
+    let guest = Guest::default();
+    deliver_persistent_ddns(
+        &request(CONFIG),
+        &mut store,
+        &provider,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::DeferConsumer,
+    )
+    .unwrap();
+    assert_eq!(guest.payloads.borrow().len(), 1);
+    assert_eq!(guest.deferred.get(), 1);
 }
