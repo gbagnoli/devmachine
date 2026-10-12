@@ -15,7 +15,17 @@
   credentials; they do not establish physical backup or reboot acceptance.
 - The operator verified the new physical slot 2 binding against its LUKS slot
   with exit zero after booting signed uCore and adding a temporary passphrase.
-  The refreshed physical vault backup and unattended reboot are still pending.
+  The operator subsequently confirmed successful physical vault/header backup
+  and automatic unlocking on an unmasked reboot after one failed attempt.
+  Supplied status confirms the signed uCore digest is booted, bootstrap finished
+  successfully/active-exited, and no units are failed. Base apply is inactive
+  with Result=success; journal evidence of execution remains pending.
+  The operator removed obsolete slot 1 and supplied a Clevis listing containing
+  only slot 2. The operator subsequently reports successful unattended
+  power-off/power-on, completing physical cold-boot unlock acceptance after
+  manual recovery. Confirmation of post-removal header refresh remains pending;
+  first-rebase ordering and physical update/rollback are not covered by this
+  successful boot. The earlier failed attempt is consistent with the old binding.
 
 ## Physical installer disk confirmation — 2026-10-12
 
