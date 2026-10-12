@@ -4,6 +4,48 @@ set -euo pipefail
 butane_dir="$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")"
 work="$(mktemp -d)"
 trap 'rm -rf -- "$work"' EXIT
+
+# Exercise the production trust predicate without any real firmware or disks.
+sed -n '/^mok_is_enrolled() {$/,/^}$/p' "$butane_dir/bin/install-hardware" > "$work/mok-check.sh"
+# shellcheck source=/dev/null
+source "$work/mok-check.sh"
+mkdir "$work/bin"
+printf fixture > "$work/ublue.der"
+cat > "$work/bin/mokutil" <<'MOCK'
+#!/usr/bin/env bash
+[[ "$1" == --test-key && "$LC_ALL" == C ]] || exit 2
+printf '%s %s\n' "$2" "$CASE_MOK_MESSAGE"
+exit "$CASE_MOK_STATUS"
+MOCK
+chmod +x "$work/bin/mokutil"
+check_mok() {
+  local name="$1" message="$2" status="$3" expected="$4" actual=0
+  PATH="$work/bin:$PATH" CASE_MOK_MESSAGE="$message" CASE_MOK_STATUS="$status" \
+    mok_is_enrolled "$work/ublue.der" > "$work/mok-output" 2>&1 || actual=$?
+  if [[ "$actual" != "$expected" ]]; then
+    cat "$work/mok-output" >&2
+    echo "FAIL $name: exit=$actual expected=$expected" >&2
+    exit 1
+  fi
+  echo "PASS $name"
+}
+check_mok enrolled_zero 'is already enrolled' 0 0
+check_mok enrolled_one 'is already enrolled' 1 0
+check_mok enrolled_error 'is already enrolled' 255 1
+check_mok not_enrolled 'is not enrolled' 1 1
+check_mok not_enrolled_zero 'is not enrolled' 0 1
+check_mok pending_request 'is already in the enrollment request' 0 1
+check_mok blocked_key 'is blocked in dbx' 0 1
+check_mok blocked_mok 'is blocked in MokListX' 0 1
+check_mok tool_error 'read error' 2 1
+check_mok unknown_success 'unexpected result' 0 1
+rm "$work/ublue.der"
+if mok_is_enrolled "$work/ublue.der"; then
+  echo 'FAIL missing_certificate: unexpectedly trusted' >&2
+  exit 1
+fi
+echo 'PASS missing_certificate'
+
 printf '{"ignition":{"version":"3.5.0"}}\n' > "$work/config.ign"
 printf /dev/disk/by-id/skillet-nonexistent-test-disk > "$work/disk"
 printf unencrypted > "$work/profile"

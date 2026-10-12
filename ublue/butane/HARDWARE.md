@@ -25,25 +25,46 @@ See [storage policy](../design/storage.md) and [remaining encryption checks](../
    and a **fresh bootstrap password hash** (yescrypt or SHA-256/SHA-512 crypt).
    Use an existing password-hashing tool that prompts, keeping the plaintext
    password off command lines and logs. Save the hash in a mode-0600 file.
-   For example, if OpenSSL is already available, this prompts for the password:
+   Run the following on the **workstation**, using existing OpenSSL. The
+   directory follows XDG and defaults to `~/.local/share/skillet/install-inputs`:
 
    ```sh
-   umask 077
-   openssl passwd -6 > /absolute/private/path/bootstrap.hash
+   install_inputs="${XDG_DATA_HOME:-$HOME/.local/share}/skillet/install-inputs"
+   mkdir -p "$install_inputs"
+   chmod 700 "$install_inputs"
+   (
+     umask 077
+     openssl passwd -6 > "$install_inputs/bootstrap.hash"
+   )
    ```
 
-   Know that password: access finalization later requires it. Media generation
+   OpenSSL prompts for the initial `giacomo` account password. Do not put the
+   plaintext password on the command line or share it or its hash in logs/chat.
+   Know that password: access finalization later requires it and forces a
+   password change on first login. Media generation
    replaces the inherited public keys and committed bootstrap hash; it does not
    generate or store an operator's SSH private key.
 
-3. For TPM, obtain the trusted ublue DER signing certificate using the
-   [uCore Secure Boot instructions](https://github.com/ublue-os/ucore#readme).
+3. On the workstation, download the public ublue DER signing certificate
+   referenced by the [ublue Secure Boot instructions](https://github.com/ublue-os/bluefin#secure-boot):
+
+   ```sh
+   curl --fail --location \
+     https://raw.githubusercontent.com/ublue-os/akmods/main/certs/public_key.der \
+     --output "$install_inputs/ublue.der"
+   openssl x509 -inform DER -in "$install_inputs/ublue.der" \
+     -noout -subject -fingerprint -sha256
+   ```
+
+   The certificate subject identifies `Universal Blue` and `ublue kernel`.
+   This public certificate is included in the prepared USB for MOK enrollment.
    TPM requires UEFI, TPM 2 and Secure Boot with that MOK enrolled. Supply the
    certificate for unencrypted installation too if Secure Boot is enabled.
    Verify the live ISO's signature using Fedora's published verification flow.
    `--iso` is an already verified local ISO; Skillet does not verify its signature.
 
-4. From `ublue/skillet`, prepare a **new private output directory**:
+4. From `ublue/skillet` on the workstation, in the same shell as steps 2–3,
+   prepare a **new private output directory**:
 
    ```sh
    export PATH=/opt/x86_64-linux-musl-cross/bin:$PATH
@@ -52,9 +73,9 @@ See [storage policy](../design/storage.md) and [remaining encryption checks](../
      --iso /absolute/path/fedora-coreos-live.x86_64.iso \
      --output /absolute/private/path/clamps-install \
      --ssh-public-key /absolute/path/operator_ed25519.pub \
-     --password-hash-file /absolute/private/path/bootstrap.hash \
+     --password-hash-file "$install_inputs/bootstrap.hash" \
      --root-profile tpm \
-     --mok-certificate /absolute/path/ublue.der
+     --mok-certificate "$install_inputs/ublue.der"
    ```
 
    Use `--root-profile unencrypted` for a machine without TPM; this is the
@@ -119,7 +140,25 @@ See [storage policy](../design/storage.md) and [remaining encryption checks](../
    sudo mokutil --import /etc/skillet-install/ublue.der
    ```
 
-   Reboot, complete the firmware MOK enrollment, then boot this USB again.
+   `mokutil` asks you to choose a temporary enrollment password, separate
+   from the account password. Enter that same password in the firmware MOK
+   enrollment screen after reboot. Then boot this USB again.
+   The helper requires the explicit `is already enrolled` result. Supported
+   live images may return either 0 or 1 for that result; pending enrollment,
+   blocked certificates, unknown output and tool errors are refused.
+   If an older prepared USB rejects this confirmed result, copy the current
+   `ublue/butane/bin/install-hardware` from the workstation to
+   `/home/core/skillet-install.fixed` over SSH. On the live server, update only
+   the helper and retry:
+
+   ```sh
+   sudo install -m 0700 /home/core/skillet-install.fixed /var/usrlocal/bin/skillet-install
+   sudo /var/usrlocal/bin/skillet-install /home/core/clamps.ign
+   ```
+
+   Keep the destination Ignition, checksum and disk/profile files from the
+   original bundle unchanged. The helper update lasts only for this live boot;
+   newly prepared ISOs include the corrected check.
    Retry the helper after the final Secure Boot/MOK policy is established.
    It displays the disk model/serial/size and requires typing its complete
    prepared identifier before running `coreos-installer`. Installation erases

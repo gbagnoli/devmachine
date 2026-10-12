@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 # Runs only in the prepared Fedora CoreOS live environment, never during apply.
 set -euo pipefail
+
+mok_is_enrolled() {
+  local certificate="$1" output status=0
+  [[ -f "$certificate" ]] || return 1
+  output="$(LC_ALL=C mokutil --test-key "$certificate" 2>&1)" || status=$?
+  # Live-image versions differ in their exit status. Require the explicit
+  # enrolled result too: pending requests and blocked keys are not trusted.
+  case "$status:$output" in
+    "0:$certificate is already enrolled"|"1:$certificate is already enrolled") return 0 ;;
+    *) printf '%s\n' "$output" >&2; return 1 ;;
+  esac
+}
+
 [[ $EUID -eq 0 ]] || { echo 'Run with sudo.' >&2; exit 1; }
 [[ $# -le 1 ]] || { echo 'Usage: skillet-install /path/to/destination.ign' >&2; exit 2; }
 config="${1:-/etc/skillet-install/config.ign}"
@@ -37,7 +50,7 @@ if [[ "$profile" == tpm ]]; then
   }
 fi
 if [[ "$secure_boot" == 'SecureBoot enabled' ]]; then
-  if [[ ! -f /etc/skillet-install/ublue.der ]] || ! mokutil --test-key /etc/skillet-install/ublue.der; then
+  if ! mok_is_enrolled /etc/skillet-install/ublue.der; then
     echo 'Enroll the supplied ublue MOK, reboot back into this USB, then retry.' >&2
     echo 'Enrollment command: sudo mokutil --import /etc/skillet-install/ublue.der' >&2
     exit 1
