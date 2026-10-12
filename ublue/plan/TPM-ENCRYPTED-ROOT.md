@@ -9,8 +9,10 @@ independent-key recovery/cold boot, runtime fixture, plain-profile readiness,
 and owned disposal/recreation passed in native disposable VMs.
 The accepted scope is encrypted-disk loss/removal with native Clevis SHA256
 PCR 7 plus Secure Boot. Custom UKIs/signed PCR policies and Tang are deferred.
-Unencrypted root remains supported and is the default. Physical and Flatpak
-acceptance are unverified. The refactor live retry remains parked.
+Unencrypted root remains supported and is the default. Physical automatic
+unlocking after operator-assisted recovery passed across reboot and cold boot;
+first-rebase ordering and physical update/rollback remain unverified. Flatpak
+acceptance is unverified. The refactor live retry remains parked.
 
 Implemented: typed optional manifest/install profile, conflict validation,
 mapper-safe Btrfs mounts, common UEFI/TPM XML, capability preflight, owned
@@ -24,8 +26,11 @@ unattended cold-boot persistence passed on 2026-10-10. Protected header export
 is implemented as a verified KDBX attachment. Native simulated TPM-loss
 recovery/re-enrollment, header restoration and completed-retry acceptance passed
 on 2026-10-11. Physical USB media generation and installation on the S13 are
-complete; unattended encrypted uCore boot remains pending following the
-bootstrap failure below. See [the hardware runbook](../butane/HARDWARE.md).
+complete. The operator reports automatic unlocking on a subsequent unmasked
+reboot. The supplied status confirms the signed deployment and successful
+bootstrap, with no failed units. After obsolete-slot removal, the operator
+reports successful unattended power-off/power-on.
+See [the hardware runbook](../butane/HARDWARE.md).
 
 ## Physical bootstrap blocker — 2026-10-12
 
@@ -37,7 +42,16 @@ unlocked the disk successfully. The operator then enrolled an independent
 vault recovery passphrase, completed the signed uCore rebase, and added a new
 PCR 7 binding in slot 2. Piping its unsealed key into slot-specific Cryptsetup
 verification returned zero. A temporary manual passphrase was also added.
-Automatic unlocking on reboot and measured-policy comparison remain pending.
+The operator refreshed the vault header successfully after the KDBX writer
+fix and reports automatic unlocking on an unmasked reboot, after one failed
+attempt. This is consistent with the obsolete binding failing before the new
+one succeeds. Supplied status confirms the signed uCore digest is booted,
+bootstrap is successful/active-exited and no units are failed. The base apply
+unit is inactive with Result=success; execution versus a skipped condition
+still needs journal evidence. The operator removed obsolete slot 1; the supplied
+Clevis listing now contains only slot 2, and the operator reports that the
+machine returned unattended after power-off/power-on. Confirmation of the
+post-removal header refresh and measured-policy comparison remain pending.
 A changed PCR 7 trust measurement during FCOS-to-uCore transition is a hypothesis,
 not yet established by event logs or PCR comparison.
 
