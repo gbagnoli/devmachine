@@ -23,8 +23,31 @@ VM vault enrollment, unchanged retry, independent-passphrase verification and
 unattended cold-boot persistence passed on 2026-10-10. Protected header export
 is implemented as a verified KDBX attachment. Native simulated TPM-loss
 recovery/re-enrollment, header restoration and completed-retry acceptance passed
-on 2026-10-11. Physical USB media generation is implemented; installation on real hardware
-remains pending. See [the hardware runbook](../butane/HARDWARE.md).
+on 2026-10-11. Physical USB media generation and installation on the S13 are
+complete; unattended encrypted uCore boot remains pending following the
+bootstrap failure below. See [the hardware runbook](../butane/HARDWARE.md).
+
+## Physical bootstrap blocker — 2026-10-12
+
+The S13 exposed TPM 2.0 with Secure Boot and the ublue MOK enrolled. After
+initial installed boot and an image pull, a later boot repeatedly rejected
+Clevis unseal with `0x0000099d` (policy failure) and requested a LUKS passphrase.
+Booting the previous Fedora CoreOS deployment with automatic bootstrap masked
+unlocked the disk successfully. The operator then enrolled an independent
+vault recovery passphrase, completed the signed uCore rebase, and added a new
+PCR 7 binding in slot 2. Piping its unsealed key into slot-specific Cryptsetup
+verification returned zero. A temporary manual passphrase was also added.
+Automatic unlocking on reboot and measured-policy comparison remain pending.
+A changed PCR 7 trust measurement during FCOS-to-uCore transition is a hypothesis,
+not yet established by event logs or PCR comparison.
+
+The current profile seals during initial Ignition boot, while independent
+production recovery is added only after bootstrap. Fix this ordering before
+calling the physical TPM path accepted: preserve verified independent recovery
+before the first trust-changing reboot, diagnose the actual measured transition,
+and validate final enrollment plus bootstrap/update/rollback on hardware.
+Do not clear the TPM, discard the prior deployment, remove PCR restrictions,
+or reformat the disk to diagnose this failure.
 
 ## Scope and decisions
 
