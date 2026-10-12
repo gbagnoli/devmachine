@@ -1,3 +1,14 @@
+## NUT collector delivery-path correction — 2026-10-12
+
+- Corrected the timer to invoke `/var/usrlocal/bin/skillet`, matching both
+  shared Ignition injection and verified VM binary delivery. A regression
+  compares its executable with the actual Butane include; consumer verification
+  now creates its harmless placeholder at that same path.
+- Formatting, strict workspace Clippy, all 403 workspace tests, the Fedora joey
+  base repeat-apply scenario and the real Fedora NUT/systemd consumer passed.
+  Native uCore timer execution remains pending; this is delivery-contract and
+  consumer validation, not live timer or cloud ingestion acceptance.
+
 ## Native NUT metrics and local DogStatsD — 2026-10-12
 
 - Implemented `skillet metrics nut` in the shared static musl guest binary.

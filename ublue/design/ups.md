@@ -28,7 +28,10 @@ When both NUT and Datadog are selected, the successful Datadog phase also
 converges a 30-second metrics timer. Its service requires the device alias and
 Agent socket to exist, and only orders startup after existing consumers.
 Hardware absence skips collection; hotplug needs no credential redelivery to
-start metric polling. The shared musl guest binary reads NUT directly and sends
+start metric polling. Ignition delivers the shared musl guest binary at
+`/var/usrlocal/bin/skillet`; verified VM delivery updates that same path. The
+collector travels with this binary, independently of the image packages. It
+reads NUT directly and sends
 finite gauges/status checks to local DogStatsD, without Python, `upsc`, another
 image or additional credentials. Native-unit inventory still needs reapply after
 attachment. See [monitoring composition](monitoring.md).

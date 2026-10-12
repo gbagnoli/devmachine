@@ -767,7 +767,10 @@ Datadog apply to include its native units in monitoring.
 
 For a host declaring both NUT and Datadog, successful Datadog credential delivery
 also enables `skillet-nut-metrics.timer`. It polls every 30 seconds through the
-existing static guest binary. Inspect the timer and collector with
+existing static guest binary. The collector is compiled into Skillet; the shared
+Butane include installs that binary at `/var/usrlocal/bin/skillet`. It is not
+baked into the uCore image. VM binary delivery updates the same path. Inspect
+the timer and collector with
 `systemctl status skillet-nut-metrics.timer` and
 `journalctl -u skillet-nut-metrics.service`.
 After deploying an updated guest binary to a host with existing credentials,
