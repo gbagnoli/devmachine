@@ -160,8 +160,11 @@ See [storage policy](../design/storage.md) and [remaining encryption checks](../
    original bundle unchanged. The helper update lasts only for this live boot;
    newly prepared ISOs include the corrected check.
    Retry the helper after the final Secure Boot/MOK policy is established.
-   It displays the disk model/serial/size and requires typing its complete
-   prepared identifier before running `coreos-installer`. Installation erases
+   It displays the disk model/serial/size and the exact disk name to type
+   (for example, `nvme0n1`). Either that name or the complete prepared by-id
+   identifier confirms the operation; neither changes the selected target.
+   The helper rechecks the prepared link after confirmation and always passes
+   that by-id identifier to `coreos-installer`. Installation erases
    that disk. A hardware mismatch stops installation; regenerate the bundle
    instead of editing its target ad hoc.
 

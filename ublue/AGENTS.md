@@ -115,6 +115,8 @@
 - Physical installation media requires explicit destination disk identity and
   private bootstrap access. Keep media generation separate from block-device
   writes; validate hardware prerequisites and confirm destruction on the target.
+  Destructive confirmation may use a displayed short name only to acknowledge
+  the already validated resource; it must not select or redirect the target.
   Respect installer metadata size limits; bind separately delivered installation
   payloads to the prepared media and verify them before destructive operations.
   Preserve virtual installation support without leaking virtual disk assumptions
