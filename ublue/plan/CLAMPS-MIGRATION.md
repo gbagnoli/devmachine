@@ -4,7 +4,7 @@ Prerequisite: complete [the Skillet refactoring roadmap](SKILLET-REFACTOR.md)
 before proceeding with the remaining feature milestones in this plan.
 Existing acceptance evidence and deferred tasks remain applicable.
 
-Status: reviewed against source and recorded acceptance, 2026-10-11.
+Status: updated with operator-supplied physical evidence, 2026-10-12.
 Shared services, native TPM recovery and physical USB media preparation are
 implemented. Clamps is not production-ready until the physical/cutover gates
 below pass. The parked Flatpak/Syncthing and deferred network checks remain
@@ -12,9 +12,10 @@ open; previous passing native VM checks do not close them.
 
 ## What remains for clamps
 
-1. Boot the prepared USB on the S13; inspect firmware/TPM and select its stock
-   SSD explicitly. Enroll the trusted MOK when using Secure Boot. Validate the
-   selected plain or TPM profile on hardware, recovery archive and cold boot.
+1. Stock-SSD USB installation, firmware TPM/MOK, signed boot, recovery archive
+   and unattended cold boot now have physical evidence. Remove the temporary
+   recovery passphrase, refresh the header archive after slot cleanup, and finish
+   the remaining networkless/update/rollback and final-disk acceptance.
 2. Implement private runtime Pi-hole DNS configuration delivery and v6
    convergence: current code writes `custom.list` from a static declaration;
    the accepted temporary v6 `dns.hosts` test does not validate that recipe path.
@@ -34,6 +35,23 @@ open; previous passing native VM checks do not close them.
 No new clamps service crate is required to start
 [boxy → joey](JOEY-MIGRATION.md). Acceptance details remain in
 [ACCEPTANCE.md](../butane/ACCEPTANCE.md) and the service plans.
+
+## Production application handoff — 2026-10-12
+
+- Physical stock-SSD clamps installation reached signed uCore, TPM unattended
+  cold boot, base apply and the encrypted-root Btrfs data mount. Pi-hole and
+  Tailscale credential delivery succeeded; the operator observed Pi-hole,
+  Tailscale, Syncthing, UniFi and Mikochi containers running. These observations
+  do not establish service-data migration, controller readiness or LAN DNS.
+- Workstation remote `apply --host HOST --target USER@HOST` now stages related
+  credentials and applies all canonical selected phases, including Caddy, SMTP,
+  DDNS and Datadog. Validate its full production run after migration prerequisites
+  and the one-writer DDNS handover; the new orchestration has no live production
+  acceptance yet. See [host application](../design/host-application.md) and
+  [README](../skillet/README.md#apply-a-production-host-remotely).
+- Temporary recovery-passphrase removal, final header refresh, networkless /
+  update / rollback acceptance, final disk and production service cutover remain
+  tracked by their existing plans. Keep rupik and its production SSD available.
 
 ## Goal and starting point
 
@@ -116,7 +134,8 @@ deferred; remote hosts will first be assessed for usable TPM support.
 - Physical USB media generation now selects a whole-disk by-id identifier and
   reuses the shared root-profile renderer; VM creation retains `/dev/vda`. Follow
   [the hardware runbook](../butane/HARDWARE.md). Actual disk selection, firmware
-  checks, MOK enrollment and stock-SSD installation remain unverified. Fresh
+  checks, MOK enrollment and stock-SSD installation have since been exercised
+  on physical clamps; remaining encryption acceptance is in its plan. Fresh
   native `/dev/vda` regression reached signed boot and full readiness after
   transient bootstrap/SSH retries; evidence is in the acceptance record.
 

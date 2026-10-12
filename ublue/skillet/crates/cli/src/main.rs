@@ -5,10 +5,12 @@ use std::{fs, io::Write as _, path::PathBuf, process::Command};
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
+mod apply;
 mod installation;
 mod root_recovery;
 mod secret_delivery;
 mod secret_output;
+mod ssh;
 mod vm;
 mod vm_encryption;
 
@@ -54,18 +56,8 @@ enum Commands {
         #[command(subcommand)]
         command: SecretCommands,
     },
-    /// Apply host configuration
-    Apply {
-        #[arg(long, value_enum, default_value_t = ApplyPhase::Full)]
-        phase: ApplyPhase,
-        #[arg(long)]
-        host: Option<String>,
-        #[arg(long)]
-        host_file: Option<PathBuf>,
-        /// Optional diagnostic recording of resource operations
-        #[arg(long)]
-        record: Option<PathBuf>,
-    },
+    /// Apply locally, or deliver credentials and apply all declared services over SSH
+    Apply(apply::Args),
     /// Run the real-runtime smoke scenario against a disposable VM
     Test {
         #[command(subcommand)]
@@ -77,7 +69,7 @@ enum Commands {
 enum SecretCommands {
     /// Audit required and unused entries without changing the vault or providers
     Check(SecretCheckArgs),
-    /// Deliver credentials for a configured host service
+    /// Stage host credentials; optionally activate their consumer
     Deliver(SecretDeliverArgs),
     /// Verify and cache the `KeePassXC` password for this session
     Unlock(SecretUnlockArgs),
@@ -96,10 +88,12 @@ struct RootRecoveryArgs {
     target: String,
     #[arg(long, default_value_t = 22)]
     port: u16,
+    /// SSH private key; omitted uses OpenSSH configuration, default keys and agent
     #[arg(long)]
-    identity: PathBuf,
+    identity: Option<PathBuf>,
+    /// Recorded host keys; defaults to `~/.ssh/known_hosts`
     #[arg(long)]
-    known_hosts: PathBuf,
+    known_hosts: Option<PathBuf>,
 }
 #[derive(clap::Args, Debug)]
 struct VmRecoveryArgs {
@@ -151,10 +145,15 @@ struct SecretDeliverArgs {
     target: String,
     #[arg(long, default_value_t = 22)]
     port: u16,
+    /// SSH private key; omitted uses OpenSSH configuration, default keys and agent
     #[arg(long)]
-    identity: PathBuf,
+    identity: Option<PathBuf>,
+    /// Recorded host keys; defaults to `~/.ssh/known_hosts`
     #[arg(long)]
-    known_hosts: PathBuf,
+    known_hosts: Option<PathBuf>,
+    /// Explicitly start the consuming apply unit after credential delivery
+    #[arg(long)]
+    activate: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
@@ -384,36 +383,7 @@ fn main() -> Result<()> {
         Commands::Secret {
             command: SecretCommands::Lock(args),
         } => secret_delivery::lock_vault(args.database.as_deref())?,
-        Commands::Apply {
-            phase,
-            host,
-            host_file,
-            record,
-        } => {
-            let mut hostname = host.unwrap_or_else(|| "agent".to_string());
-            if let Some(path) = host_file {
-                hostname = std::fs::read_to_string(path)
-                    .context("Failed to read host file")?
-                    .trim()
-                    .to_string();
-            }
-            skillet_cli_common::handle_host_apply(
-                &hostname,
-                phase,
-                record,
-                |system, files, credentials| {
-                    skillet_cli_common::hosts::apply_host_phase(
-                        &hostname,
-                        phase,
-                        system,
-                        files,
-                        credentials,
-                    )
-                    .map_err(|error| error.to_string())
-                },
-            )
-            .map_err(|error| anyhow!("Failed to apply configuration: {error}"))?;
-        }
+        Commands::Apply(args) => apply::dispatch(&args)?,
         Commands::Test {
             command: TestCommands::Run(args),
         } => run_container_test(&args)?,

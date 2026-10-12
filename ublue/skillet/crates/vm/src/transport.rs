@@ -79,13 +79,44 @@ pub enum HostKeyPolicy {
 }
 
 pub struct SshTransport {
-    target: SshTarget,
+    target: SshConnection,
     policy: HostKeyPolicy,
     pub timeout: Duration,
 }
 
+/// SSH configuration for a workstation target. An omitted identity delegates
+/// authentication to OpenSSH configuration, default keys and the SSH agent.
+pub struct SshConnection {
+    pub user: String,
+    pub address: String,
+    pub port: u16,
+    pub identity: Option<std::path::PathBuf>,
+    pub known_hosts: std::path::PathBuf,
+}
+
+impl From<SshTarget> for SshConnection {
+    fn from(target: SshTarget) -> Self {
+        Self {
+            user: target.user,
+            address: target.address,
+            port: target.port,
+            identity: Some(target.identity),
+            known_hosts: target.known_hosts,
+        }
+    }
+}
+
 impl SshTransport {
     pub fn new(target: SshTarget, policy: HostKeyPolicy) -> Result<Self> {
+        Self::from_connection(target.into(), policy)
+    }
+
+    /// Production connections always require a previously trusted host key.
+    pub fn workstation(target: SshConnection) -> Result<Self> {
+        Self::from_connection(target, HostKeyPolicy::Verify)
+    }
+
+    fn from_connection(target: SshConnection, policy: HostKeyPolicy) -> Result<Self> {
         if target.user.is_empty()
             || target.user.starts_with('-')
             || !target
@@ -97,13 +128,17 @@ impl SshTransport {
         {
             return Err(Error::Invalid("invalid SSH user, address or port".into()));
         }
-        for path in [&target.identity, &target.known_hosts] {
+        for path in target
+            .identity
+            .iter()
+            .chain(std::iter::once(&target.known_hosts))
+        {
             crate::manifest::reject_symlinks(path)?;
             if !path.is_absolute() {
                 return Err(Error::Invalid("SSH key paths must be absolute".into()));
             }
         }
-        if !target.identity.is_file()
+        if target.identity.as_ref().is_some_and(|path| !path.is_file())
             || (policy == HostKeyPolicy::Verify && !target.known_hosts.is_file())
         {
             return Err(Error::Invalid(
@@ -123,8 +158,6 @@ impl SshTransport {
                 "-o",
                 "BatchMode=yes",
                 "-o",
-                "IdentitiesOnly=yes",
-                "-o",
                 "ConnectTimeout=5",
                 "-o",
                 "ConnectionAttempts=1",
@@ -141,11 +174,13 @@ impl SshTransport {
             .arg(format!(
                 "UserKnownHostsFile={}",
                 self.target.known_hosts.display()
-            ))
-            .arg("-i")
-            .arg(&self.target.identity)
-            .arg(port_flag)
-            .arg(self.target.port.to_string());
+            ));
+        if let Some(identity) = &self.target.identity {
+            command
+                .args(["-o", "IdentitiesOnly=yes", "-i"])
+                .arg(identity);
+        }
+        command.arg(port_flag).arg(self.target.port.to_string());
     }
 
     fn remote_target(&self) -> String {

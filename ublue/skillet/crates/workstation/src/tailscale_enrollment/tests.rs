@@ -324,3 +324,19 @@ fn tailscale_cleanup_identity_mismatch_stops_before_provider_mutation() {
     assert_eq!(provider.removed.get(), 0);
     assert!(run.path().join("tailscale.json").is_file());
 }
+
+#[test]
+fn persistent_readiness_waits_for_addresses_without_issuing_another_credential() {
+    let guest = FakeGuest::new([
+        status("NeedsLogin", &[]),
+        status("Running", &["100.64.0.10"]),
+    ]);
+    assert_eq!(
+        wait_for_guest_addresses(&guest, Duration::from_secs(1), Duration::ZERO).unwrap(),
+        BTreeSet::from(["100.64.0.10".to_string()])
+    );
+    assert!(guest.installs.lock().unwrap().is_empty());
+    let guest = FakeGuest::without_tailscale_container([]);
+    assert!(wait_for_guest_addresses(&guest, Duration::ZERO, Duration::ZERO).is_err());
+    assert!(guest.installs.lock().unwrap().is_empty());
+}

@@ -175,10 +175,13 @@ See [storage policy](../design/storage.md) and [remaining encryption checks](../
 
 ## Provision and cut over
 
-8. Unlock KeePassXC and use the existing production `secrets deliver` commands
-   in [Skillet's README](../skillet/README.md). Check the production secret audit
-   first. Service delivery may activate the full host configuration: keep the
-   new controller isolated from production devices until the planned migration.
+8. Unlock KeePassXC and check the production secret audit. Use
+   `skillet apply --host clamps --target giacomo@HOST` from the workstation to
+   deliver credentials and apply all declared services; see
+   [Skillet's README](../skillet/README.md#apply-a-production-host-remotely).
+   Complete data/identity migration and stop the old DDNS writer first. Keep
+   restored controllers isolated until the planned migration. Individual
+   `secrets deliver` commands stage by default; `--activate` starts their consumer.
 
 9. For encrypted root, run the documented `secrets root-recovery-key clamps`
    command **before finalizing sudo**. Back up the resulting vault, including

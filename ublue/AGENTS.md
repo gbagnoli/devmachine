@@ -133,6 +133,11 @@
 - Do not assume package directories under mutable OS paths are initialized by
   an image build or rebase. Converge required state directories, ownership and
   security labels before confined service startup; test from absent package state.
+- Keep credential staging distinct from activation. A narrowly named delivery
+  command must not implicitly activate unrelated workloads; complete host
+  application belongs to explicit orchestration driven by canonical declarations.
+  Preserve strict host trust when adopting normal workstation SSH defaults, and
+  retain explicit run-owned credentials for disposable targets.
 - Before activating a unit with multiple credential prerequisites, deliver the
   complete credential set first. Cover activation from a fresh host where the
   consumer service and its containers do not yet exist.

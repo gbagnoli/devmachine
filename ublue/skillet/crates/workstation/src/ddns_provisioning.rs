@@ -146,6 +146,7 @@ pub fn deliver_persistent_ddns(
     store: &mut impl SecretStore,
     provider: &impl DdnsProvider,
     guest: &impl GuestTransport,
+    activation: credential::ActivationPolicy,
 ) -> Result<(), DdnsProvisioningError> {
     if request.policy.environment() != Environment::Production {
         return Err(DdnsProvisioningError::Invalid(
@@ -215,7 +216,7 @@ pub fn deliver_persistent_ddns(
         request.host,
         skillet_ddns::CREDENTIAL,
         "skillet-ddns-apply.service",
-        credential::ActivationPolicy::StartConsumer,
+        activation,
         payload.as_bytes(),
     )?;
     Ok(())

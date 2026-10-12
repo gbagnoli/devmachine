@@ -1,3 +1,28 @@
+## Remote all-services application — 2026-10-12
+
+- Added workstation `apply --host HOST --target USER@HOST` for all canonically
+  declared production services. Related Pi-hole/Tailscale credentials stage
+  before full apply; tailnet readiness precedes Caddy DNS; SMTP/DDNS/Datadog
+  phases follow selection, with monitoring last. Existing enrollment input is
+  reused; explicit Tailscale delivery remains the refresh path.
+- Standalone production `secrets deliver` stages by default. `--activate`
+  explicitly requests its consumer. Both Caddy inputs stage before activation;
+  staging still performs the existing scoped-token/DNS reconciliation.
+- Workstation SSH defaults to `~/.ssh/known_hosts` and OpenSSH key/agent
+  selection, retaining strict trust and noninteractive authentication. VM
+  manifests retain their explicit temporary identity and host-key paths.
+- Formatting, strict pedantic workspace Clippy and all 422 workspace/all-target
+  tests passed (four existing runtime-dependent tests remain ignored). Fedora
+  `test run joey --phase base --image fedora:latest` passed both applies; repeat
+  apply issued no service start/restart. Added regressions cover credential
+  staging, capability selection, failure/retry ordering, skipped-unit refusal,
+  bounded enrollment readiness and SSH defaults without vault/provider access.
+- Full production orchestration and a named-VM end-to-end run of the new command
+  have not been performed. The Fedora check is a base fixture, not application
+  or provider acceptance. Existing physical containers were not mutated by
+  validation. Complete production data/identity and one-writer DDNS handover
+  prerequisites before the operator runs all-services apply.
+
 ## Physical clamps production credential preflight — 2026-10-12
 
 - The operator supplied cold-boot journal evidence of successful base apply and

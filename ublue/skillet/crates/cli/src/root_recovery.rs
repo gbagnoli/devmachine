@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use skillet_vm::{
     backend::{VirshBackend, VmBackend},
     transport::{GuestTransport, HostKeyPolicy, OwnershipCheckedTransport, SshTransport},
-    ManifestStore, Phase, RunIdentity, SshTarget,
+    ManifestStore, Phase, RunIdentity,
 };
 use skillet_workstation::{
     root_recovery::{self, VaultStore},
@@ -14,19 +14,11 @@ pub(super) fn production(args: &RootRecoveryArgs) -> Result<()> {
     if skillet_hosts::profile_for_name(&args.hostname).is_none() {
         return Err(anyhow!("unknown host profile"));
     }
-    let (user, address) = args
-        .target
-        .split_once('@')
-        .ok_or_else(|| anyhow!("SSH target must be USER@HOST"))?;
-    let guest = SshTransport::new(
-        SshTarget {
-            user: user.into(),
-            address: address.into(),
-            port: args.port,
-            identity: args.identity.clone(),
-            known_hosts: args.known_hosts.clone(),
-        },
-        HostKeyPolicy::Verify,
+    let guest = super::ssh::transport(
+        &args.target,
+        args.port,
+        args.identity.as_deref(),
+        args.known_hosts.as_deref(),
     )?;
     save(
         &args.hostname,

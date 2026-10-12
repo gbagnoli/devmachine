@@ -381,6 +381,7 @@ pub fn deliver_persistent_ui(
     cloudflare: &impl UiCloudflareProvider,
     tailnet: &impl UiTailscaleProvider,
     guest: &impl GuestTransport,
+    activation: skillet_vm::credential::ActivationPolicy,
 ) -> Result<CaddySites, UiProvisioningError> {
     let profile = skillet_hosts::profile_for_name(request.host)
         .ok_or_else(|| UiProvisioningError::NoUiServices(request.host.to_string()))?;
@@ -468,20 +469,30 @@ pub fn deliver_persistent_ui(
             ("cloudflare_acme_token", token.as_bytes()),
         ],
     )?;
-    let output = guest.execute(
-        &skillet_vm::transport::GuestCommand {
-            program: "/usr/bin/sudo",
-            arguments: &["-n", "systemctl", "start", "skillet-caddy-apply.service"],
-        },
-        None,
-    )?;
-    if !output.status.success() {
-        return Err(UiProvisioningError::Invalid(format!(
-            "Caddy apply failed with status {}",
-            output.status
-        )));
-    }
+    activate_persistent_ui(guest, activation)?;
     Ok(plan.sites)
+}
+
+fn activate_persistent_ui(
+    guest: &impl GuestTransport,
+    activation: skillet_vm::credential::ActivationPolicy,
+) -> Result<(), UiProvisioningError> {
+    if activation == skillet_vm::credential::ActivationPolicy::StartConsumer {
+        let output = guest.execute(
+            &skillet_vm::transport::GuestCommand {
+                program: "/usr/bin/sudo",
+                arguments: &["-n", "systemctl", "start", "skillet-caddy-apply.service"],
+            },
+            None,
+        )?;
+        if !output.status.success() {
+            return Err(UiProvisioningError::Invalid(format!(
+                "Caddy apply failed with status {}",
+                output.status
+            )));
+        }
+    }
+    Ok(())
 }
 
 pub struct DisposableUiCleanupRequest<'a> {

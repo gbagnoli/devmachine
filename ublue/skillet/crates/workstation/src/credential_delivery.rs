@@ -30,6 +30,7 @@ pub fn deliver_datadog_credential(
     policy: ProvisioningPolicy,
     input: &str,
     guest: &impl GuestTransport,
+    activation: credential::ActivationPolicy,
 ) -> Result<(), CredentialDeliveryError> {
     let profile = skillet_hosts::profile_for_name(host)
         .filter(|profile| profile.supports_service("datadog"))
@@ -51,7 +52,7 @@ pub fn deliver_datadog_credential(
         profile.id.as_str(),
         skillet_datadog::CREDENTIAL,
         "skillet-datadog-apply.service",
-        credential::ActivationPolicy::StartConsumer,
+        activation,
         input.as_bytes(),
     )?;
     Ok(())
@@ -59,6 +60,20 @@ pub fn deliver_datadog_credential(
 
 pub trait ProductionAuthKeyProvider {
     fn create_auth_key(&self, tag: &str, description: &str) -> tailscale::Result<AuthKey>;
+}
+
+/// Reuse the persisted encrypted enrollment input on ordinary host re-apply.
+/// Explicit Tailscale secret delivery remains the refresh/re-enrollment path.
+pub fn tailscale_credential_present(
+    host: &str,
+    guest: &impl GuestTransport,
+) -> Result<bool, CredentialDeliveryError> {
+    skillet_hosts::profile_for_name(host)
+        .filter(|profile| profile.supports_service("tailscale"))
+        .ok_or_else(|| {
+            CredentialDeliveryError::Invalid("host does not declare Tailscale".into())
+        })?;
+    remote_credential_present(host, "tailscale_auth_key", guest)
 }
 
 impl ProductionAuthKeyProvider for OAuthCredentials {
@@ -71,6 +86,7 @@ pub fn deliver_pihole_credential(
     host: &str,
     store: &mut impl SecretStore,
     guest: &impl GuestTransport,
+    activation: credential::ActivationPolicy,
 ) -> Result<(), CredentialDeliveryError> {
     let profile = skillet_hosts::profile_for_name(host)
         .ok_or_else(|| CredentialDeliveryError::Invalid(format!("unknown host profile {host}")))?;
@@ -84,7 +100,7 @@ pub fn deliver_pihole_credential(
         store.ensure_unchanged()?;
         password
     } else {
-        if remote_credential_present(host, guest)? {
+        if remote_credential_present(host, "pihole_web_password", guest)? {
             return Err(CredentialDeliveryError::Invalid(
                 "host already has a Pi-hole credential; restore the missing KeePassXC entry instead of creating a replacement".into(),
             ));
@@ -99,7 +115,7 @@ pub fn deliver_pihole_credential(
         host,
         "pihole_web_password",
         "skillet-full-apply.service",
-        credential::ActivationPolicy::StartConsumer,
+        activation,
         password.as_bytes(),
     )?;
     Ok(())
@@ -110,6 +126,7 @@ pub fn deliver_tailscale_credential(
     policy: ProvisioningPolicy,
     provider: &impl ProductionAuthKeyProvider,
     guest: &impl GuestTransport,
+    activation: credential::ActivationPolicy,
 ) -> Result<(), CredentialDeliveryError> {
     if policy.environment() != Environment::Production {
         return Err(CredentialDeliveryError::Invalid(
@@ -130,7 +147,7 @@ pub fn deliver_tailscale_credential(
         host,
         "tailscale_auth_key",
         "skillet-full-apply.service",
-        credential::ActivationPolicy::StartConsumer,
+        activation,
         skillet_hosts::tailscale::EnrollmentInput::new(auth_key.key, profile.tailscale_exit_node())
             .payload()
             .map_err(|e| CredentialDeliveryError::Invalid(e.to_string()))?
@@ -201,19 +218,14 @@ pub fn ensure_disposable_pihole_credential(
 
 fn remote_credential_present(
     host: &str,
+    credential: &str,
     guest: &impl GuestTransport,
 ) -> Result<bool, CredentialDeliveryError> {
     let program = format!("/var/usrlocal/bin/skillet-{host}");
     let output = guest.execute(
         &skillet_vm::transport::GuestCommand {
             program: "/usr/bin/sudo",
-            arguments: &[
-                "-n",
-                program.as_str(),
-                "credential",
-                "state",
-                "pihole_web_password",
-            ],
+            arguments: &["-n", program.as_str(), "credential", "state", credential],
         },
         None,
     )?;

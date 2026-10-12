@@ -17,16 +17,17 @@ use std::path::Path;
 
 pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
     validate_delivery_service(&args.hostname, &args.service)?;
-    if matches!(args.service.as_str(), "ddns" | "datadog" | "smtp")
-        && args.environment.policy().environment()
-            != skillet_workstation::provisioning_policy::Environment::Production
+    if args.environment.policy().environment()
+        != skillet_workstation::provisioning_policy::Environment::Production
     {
         let service = if args.service == "ddns" {
             "DDNS"
         } else if args.service == "smtp" {
             "SMTP"
-        } else {
+        } else if args.service == "datadog" {
             "Datadog"
+        } else {
+            args.service.as_str()
         };
         return Err(anyhow!(
             "test {service} must be provisioned through an owned disposable VM"
@@ -36,40 +37,55 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
         Some(path) => path.clone(),
         None => default_database_path()?,
     };
-    if !args.identity.is_file() || !args.known_hosts.is_file() {
-        return Err(anyhow!(
-            "SSH identity and recorded known-hosts file must exist"
-        ));
-    }
+    let transport = credential_transport(args)?;
     let mut vault = Vault::open(&database, args.key_file.as_deref())?;
+    let activation = if args.activate {
+        skillet_vm::credential::ActivationPolicy::StartConsumer
+    } else {
+        skillet_vm::credential::ActivationPolicy::DeferConsumer
+    };
+    deliver_with_vault(args, &mut vault, &transport, activation)?;
+    if args.activate {
+        println!(
+            "Delivered {} credentials and requested consumer activation",
+            args.service
+        );
+    } else {
+        println!("Staged {} credentials; use remote apply to configure all declared services, or --activate for this consumer", args.service);
+    }
+    Ok(())
+}
+
+pub(super) fn deliver_with_vault(
+    args: &SecretDeliverArgs,
+    vault: &mut Vault,
+    transport: &impl GuestTransport,
+    activation: skillet_vm::credential::ActivationPolicy,
+) -> Result<()> {
+    validate_delivery_service(&args.hostname, &args.service)?;
     match args.service.as_str() {
         "pihole" => {
-            let transport = credential_transport(args)?;
-            let mut store = skillet_workstation::vault::VaultSecretStore::new(
-                &mut vault,
-                args.key_file.as_deref(),
-            );
+            let mut store =
+                skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref());
             skillet_workstation::credential_delivery::deliver_pihole_credential(
                 &args.hostname,
                 &mut store,
-                &transport,
+                transport,
+                activation,
             )?;
-            Ok(())
         }
         "tailscale" => {
-            let credentials = tailscale_credentials(&vault)?;
-            let policy = UiEnvironmentName::Production.policy();
-            let transport = credential_transport(args)?;
+            let credentials = tailscale_credentials(vault)?;
             skillet_workstation::credential_delivery::deliver_tailscale_credential(
                 &args.hostname,
-                policy,
+                args.environment.policy(),
                 &credentials,
-                &transport,
+                transport,
+                activation,
             )?;
-            Ok(())
         }
-        "caddy" => deliver_caddy_from_vault(args, &mut vault),
-        "ddns" => deliver_ddns_from_vault(args, &mut vault),
+        "caddy" => deliver_caddy_from_vault(args, vault, transport, activation)?,
+        "ddns" => deliver_ddns_from_vault(args, vault, transport, activation)?,
         "smtp" => {
             let input = skillet_workstation::smtp_provisioning::input(
                 args.environment.policy(),
@@ -78,21 +94,20 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
             skillet_workstation::smtp_provisioning::deliver(
                 &args.hostname,
                 &input,
-                &credential_transport(args)?,
+                transport,
+                activation,
             )?;
-            Ok(())
         }
-        "datadog" => {
-            let transport = credential_transport(args)?;
-            deliver_datadog_from_vault(
-                &args.hostname,
-                args.environment.policy(),
-                &vault,
-                &transport,
-            )
-        }
-        _ => Err(anyhow!("unsupported secret service {}", args.service)),
+        "datadog" => deliver_datadog_from_vault(
+            &args.hostname,
+            args.environment.policy(),
+            vault,
+            transport,
+            activation,
+        )?,
+        _ => return Err(anyhow!("unsupported secret service {}", args.service)),
     }
+    Ok(())
 }
 
 fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_hosts::HostProfile> {
@@ -119,6 +134,7 @@ fn deliver_datadog_from_vault(
     policy: skillet_workstation::provisioning_policy::ProvisioningPolicy,
     vault: &Vault,
     transport: &impl GuestTransport,
+    activation: skillet_vm::credential::ActivationPolicy,
 ) -> Result<()> {
     let input = skillet_workstation::configuration_templates::render(
         "datadog",
@@ -127,12 +143,17 @@ fn deliver_datadog_from_vault(
         vault,
     )?;
     skillet_workstation::credential_delivery::deliver_datadog_credential(
-        host, policy, &input, transport,
+        host, policy, &input, transport, activation,
     )?;
     Ok(())
 }
 
-fn deliver_ddns_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Result<()> {
+fn deliver_ddns_from_vault(
+    args: &SecretDeliverArgs,
+    vault: &mut Vault,
+    transport: &impl GuestTransport,
+    activation: skillet_vm::credential::ActivationPolicy,
+) -> Result<()> {
     let policy = args.environment.policy();
     if policy.environment() != skillet_workstation::provisioning_policy::Environment::Production {
         return Err(anyhow!(
@@ -153,7 +174,6 @@ fn deliver_ddns_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Resul
         .get("skillet/cloudflare/token-creator")?
         .ok_or_else(|| anyhow!("KeePassXC Cloudflare token creator is missing"))?;
     let prefix = vault.get(&policy.ui_domain_entry())?;
-    let transport = credential_transport(args)?;
     let provider = skillet_workstation::cloudflare::Cloudflare::new();
     let mut store =
         skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref());
@@ -168,12 +188,18 @@ fn deliver_ddns_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Resul
         },
         &mut store,
         &provider,
-        &transport,
+        transport,
+        activation,
     )?;
     Ok(())
 }
 
-fn deliver_caddy_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Result<()> {
+fn deliver_caddy_from_vault(
+    args: &SecretDeliverArgs,
+    vault: &mut Vault,
+    transport: &impl GuestTransport,
+    activation: skillet_vm::credential::ActivationPolicy,
+) -> Result<()> {
     let users = tailnet_ui_users(&args.hostname, vault)?;
     let policy = args.environment.policy();
     let domain_path = policy.ui_domain_entry();
@@ -191,7 +217,6 @@ fn deliver_caddy_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Resu
             )
         })?;
     let tailnet = tailscale_credentials(vault)?;
-    let transport = credential_transport(args)?;
     let cloudflare = skillet_workstation::cloudflare::Cloudflare::new();
     let mut token_store =
         skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref());
@@ -207,7 +232,8 @@ fn deliver_caddy_from_vault(args: &SecretDeliverArgs, vault: &mut Vault) -> Resu
         &mut token_store,
         &cloudflare,
         &tailnet,
-        &transport,
+        transport,
+        activation,
     )?;
     Ok(())
 }
@@ -287,23 +313,13 @@ fn tailscale_credentials(vault: &Vault) -> Result<tailscale::OAuthCredentials> {
     Ok(tailscale::OAuthCredentials::new(client_id, client_secret)?)
 }
 
-fn credential_transport(args: &SecretDeliverArgs) -> Result<skillet_vm::transport::SshTransport> {
-    let (user, address) = args
-        .target
-        .split_once('@')
-        .filter(|(user, address)| !user.is_empty() && !address.is_empty())
-        .ok_or_else(|| anyhow!("SSH target must be USER@HOST"))?;
-    skillet_vm::transport::SshTransport::new(
-        skillet_vm::SshTarget {
-            user: user.to_string(),
-            address: address.to_string(),
-            port: args.port,
-            identity: args.identity.clone(),
-            known_hosts: args.known_hosts.clone(),
-        },
-        skillet_vm::transport::HostKeyPolicy::Verify,
+pub(super) fn credential_transport(args: &SecretDeliverArgs) -> Result<SshTransport> {
+    super::ssh::transport(
+        &args.target,
+        args.port,
+        args.identity.as_deref(),
+        args.known_hosts.as_deref(),
     )
-    .context("validating credential delivery SSH target")
 }
 
 fn default_database_path() -> Result<std::path::PathBuf> {
@@ -388,7 +404,13 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
         provision_vm_ddns(args, &run_dir, &transport, &mut vault)?;
     }
     if args.with_datadog {
-        deliver_datadog_from_vault(&args.hostname, policy, &vault, &transport)?;
+        deliver_datadog_from_vault(
+            &args.hostname,
+            policy,
+            &vault,
+            &transport,
+            skillet_vm::credential::ActivationPolicy::StartConsumer,
+        )?;
     }
     if profile.supports_service("smtp") {
         let input = skillet_workstation::smtp_provisioning::input(policy, &|_, _| {
@@ -396,7 +418,12 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
                 "test policy must not read credentials".into(),
             ))
         })?;
-        skillet_workstation::smtp_provisioning::deliver(&args.hostname, &input, &transport)?;
+        skillet_workstation::smtp_provisioning::deliver(
+            &args.hostname,
+            &input,
+            &transport,
+            skillet_vm::credential::ActivationPolicy::StartConsumer,
+        )?;
     }
     provisioning_state::remove_tailscale_pending(&run_dir)?;
     println!("Tailscale connected VM {expected_hostname}");
@@ -673,7 +700,12 @@ fn provision_vm_smtp(args: &VmProvisionArgs, transport: &impl GuestTransport) ->
             ))
         })?
     };
-    skillet_workstation::smtp_provisioning::deliver(&args.hostname, &input, transport)?;
+    skillet_workstation::smtp_provisioning::deliver(
+        &args.hostname,
+        &input,
+        transport,
+        skillet_vm::credential::ActivationPolicy::StartConsumer,
+    )?;
     if args.live_smtp {
         println!("Configured live SMTP provider; submission remains explicit and loopback-only");
     } else {
