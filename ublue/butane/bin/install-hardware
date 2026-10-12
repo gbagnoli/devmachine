@@ -14,6 +14,11 @@ mok_is_enrolled() {
   esac
 }
 
+disk_confirmation_matches() {
+  local prepared_disk="$1" resolved_disk="$2" confirmation="$3"
+  [[ -n "$confirmation" && ( "$confirmation" == "$prepared_disk" || "$confirmation" == "${resolved_disk##*/}" ) ]]
+}
+
 [[ $EUID -eq 0 ]] || { echo 'Run with sudo.' >&2; exit 1; }
 [[ $# -le 1 ]] || { echo 'Usage: skillet-install /path/to/destination.ign' >&2; exit 2; }
 config="${1:-/etc/skillet-install/config.ign}"
@@ -60,9 +65,15 @@ lsblk -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINTS "$disk"
 if lsblk -nr -o MOUNTPOINTS "$disk" | grep -q '[^[:space:]]'; then
   echo 'Target has mounted filesystems; stop and inspect before installation.' >&2; exit 1
 fi
-echo "Installation will erase $disk. Root profile: $profile"
-printf 'Type the complete disk identifier to install: '
+resolved_disk="$(readlink -f -- "$disk")"
+[[ "$resolved_disk" == /dev/* && -b "$resolved_disk" ]] || { echo 'Cannot resolve the prepared disk.' >&2; exit 1; }
+disk_name="${resolved_disk##*/}"
+echo "Installation will erase $disk ($disk_name). Root profile: $profile"
+printf 'Type the disk name (example: %s) or the complete prepared identifier to ERASE it: ' "$disk_name"
 read -r confirmation </dev/tty
-[[ "$confirmation" == "$disk" ]] || { echo 'Cancelled.' >&2; exit 1; }
+disk_confirmation_matches "$disk" "$resolved_disk" "$confirmation" || { echo 'Cancelled.' >&2; exit 1; }
+[[ -b "$disk" && "$(readlink -f -- "$disk")" == "$resolved_disk" ]] || {
+  echo 'Prepared disk changed during confirmation; refusing installation.' >&2; exit 1;
+}
 coreos-installer install "$disk" --ignition-file "$staged_config"
 echo 'Installed. Remove the USB before booting the installed system.'

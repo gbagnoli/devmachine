@@ -46,6 +46,29 @@ if mok_is_enrolled "$work/ublue.der"; then
 fi
 echo 'PASS missing_certificate'
 
+# Confirmation acknowledges the existing target; it never selects a new disk.
+sed -n '/^disk_confirmation_matches() {$/,/^}$/p' "$butane_dir/bin/install-hardware" > "$work/disk-check.sh"
+# shellcheck source=/dev/null
+source "$work/disk-check.sh"
+check_confirmation() {
+  local name="$1" resolved="$2" confirmation="$3" expected="$4" actual=0
+  disk_confirmation_matches /dev/disk/by-id/prepared-test-disk "$resolved" "$confirmation" || actual=$?
+  if [[ "$actual" != "$expected" ]]; then
+    echo "FAIL $name: exit=$actual expected=$expected" >&2
+    exit 1
+  fi
+  echo "PASS $name"
+}
+check_confirmation short_nvme /dev/nvme0n1 nvme0n1 0
+check_confirmation short_sata /dev/sda sda 0
+check_confirmation full_identifier /dev/nvme0n1 /dev/disk/by-id/prepared-test-disk 0
+check_confirmation wrong_disk /dev/nvme0n1 nvme1n1 1
+check_confirmation wrong_sata /dev/nvme0n1 sda 1
+check_confirmation partition /dev/nvme0n1 nvme0n1p1 1
+check_confirmation wrong_identifier /dev/nvme0n1 /dev/disk/by-id/other-test-disk 1
+check_confirmation empty /dev/nvme0n1 '' 1
+check_confirmation unrelated_path /dev/nvme0n1 /tmp/nvme0n1 1
+
 printf '{"ignition":{"version":"3.5.0"}}\n' > "$work/config.ign"
 printf /dev/disk/by-id/skillet-nonexistent-test-disk > "$work/disk"
 printf unencrypted > "$work/profile"

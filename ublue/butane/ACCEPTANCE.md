@@ -1,3 +1,15 @@
+## Physical installer disk confirmation — 2026-10-12
+
+- Confirmation now accepts the prepared disk's resolved kernel name or its
+  complete by-id identifier. The prompt shows the actual short name as its
+  example; the response acknowledges the fixed target and cannot select another.
+  The helper rechecks the prepared link before invoking the installer by-id.
+- Nine isolated confirmation regressions passed, covering NVMe/SATA short
+  names, the full identifier, wrong disks/partitions, empty input and unrelated
+  paths. The 11 MOK cases, both hardware refusal cases, bootstrap regressions,
+  CI ShellCheck and whitespace checks also passed. Physical installation is
+  still in progress; these checks do not erase any real disk.
+
 ## Physical installer MOK status compatibility — 2026-10-12
 
 - The operator confirmed physical TPM 2.0, enabled Secure Boot and MOK
