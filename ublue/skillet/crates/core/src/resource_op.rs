@@ -49,6 +49,10 @@ pub enum ResourceOp {
         name: String,
     },
     DaemonReload,
+    RefreshUsbRules {
+        vendor: u16,
+        product: u16,
+    },
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
