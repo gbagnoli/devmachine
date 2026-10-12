@@ -1,3 +1,32 @@
+## Local NUT UPS protection — 2026-10-12
+
+- The shared image now declares Fedora `nut` and `nut-client`, with NUT services
+  and enumeration disabled by default. Skillet's optional native module uses
+  `/etc/ups`. Only clamps currently selects it: CyberPower CP1500 AVR,
+  `usbhid-ups`, USB `0764:0501`, `MODE=standalone` and loopback-only port 3493.
+- The root-only retained monitor password is generated locally; root:nut
+  configuration grants only `upsmon primary`. The packaged monitor uses normal
+  critical-battery handling and `/run/nut/killpower`. Driver/server/monitor
+  conditions and scoped udev activation tolerate an absent UPS in ordinary VMs.
+  An existing monitor is not stopped when the USB cable vanishes.
+- Local musl-target workspace tests, formatting and strict all-target Clippy
+  passed. The Fedora joey base integration applied twice without start/restart
+  on repeat. Image recipe YAML and both repository whitespace checks passed.
+  Pure regressions cover exact USB IDs, no-device convergence, retained secrets,
+  repeat apply, interrupted activation and rejected declaration/secret inputs.
+- The routine CI consumer check passed against Fedora NUT 2.8.5 in a disposable
+  rootless container. It verified the generated udev rule and systemd drop-ins,
+  packaged driver-instance lookup and a non-executing USB driver start plan.
+  A dummy UPS then answered `OL` over IPv4 and IPv6 loopback; the packaged
+  monitor started and accepted reload. The consumer used a harmless shutdown
+  command and no USB passthrough; no real host/UPS shutdown was attempted.
+- Full BlueBuild image publication, a boot/rebase check of the rebuilt image,
+  real USB permissions/polling, battery shutdown, UPS load cycling and firmware
+  power-return startup remain **unverified**. BlueBuild CLI is unavailable
+  locally; the current published smoke image does not contain these new packages.
+  Consumer unit verification is not signed-uCore boot or hardware acceptance.
+  See [the UPS design](../design/ups.md).
+
 ## Mikochi and shared tailnet identity — 2026-10-11
 
 - Shared Syncthing composition selects Mikochi on clamps and joey. It serves

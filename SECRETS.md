@@ -57,6 +57,10 @@ Prepare the shared Cloudflare token creator and Zone ID. [DDNS setup](ublue/skil
 
 No application password; uses the shared Tailnet UI allowlist. [Setup](ublue/skillet/README.md#private-file-browsing).
 
+## NUT
+
+No vault entry required. Skillet generates a local-only monitoring password on each opted-in host; no operator login. [UPS setup](ublue/skillet/README.md#local-ups-protection).
+
 ## Pi-hole
 
 [Delivery](ublue/skillet/README.md#secret-setup-and-delivery).

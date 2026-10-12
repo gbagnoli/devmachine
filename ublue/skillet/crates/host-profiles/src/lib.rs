@@ -90,6 +90,8 @@ pub enum ApplyError {
     #[error("Syncthing apply error: {0}")]
     Syncthing(#[from] skillet_syncthing::SyncthingError),
     #[error(transparent)]
+    Nut(#[from] skillet_nut::NutError),
+    #[error(transparent)]
     Mikochi(#[from] skillet_mikochi::MikochiError),
     #[error("Btrbk apply error: {0}")]
     Btrbk(#[from] skillet_btrbk::BtrbkError),
@@ -330,6 +332,9 @@ fn apply_profile(
             }
             ServiceConfig::Syncthing { .. } => apply_syncthing(system, files, profile, service)?,
             ServiceConfig::Mikochi { .. } => apply_mikochi(system, files, profile, service)?,
+            ServiceConfig::Nut(config) => {
+                skillet_nut::apply(system, files, *config)?;
+            }
             ServiceConfig::Unifi => skillet_unifi::apply(system, files)?,
             ServiceConfig::Tailscale {
                 state_path,
@@ -475,6 +480,13 @@ fn apply_datadog_host(
                 .iter()
                 .map(|unit| (*unit).to_string()),
         );
+    }
+    for service in &profile.services {
+        if let ServiceConfig::Nut(config) = service.config {
+            if system.usb_device_present(config.vendor, config.product)? {
+                monitored_units.extend(skillet_nut::monitored_units(config));
+            }
+        }
     }
     skillet_datadog::apply(
         system,

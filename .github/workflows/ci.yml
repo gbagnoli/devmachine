@@ -119,6 +119,13 @@ jobs:
           cd ublue/skillet
           cargo test -p skillet_mikochi real_mikochi_has_no_second_login_and_supports_owned_file_operations -- --ignored
 
+      - name: Test native UPS configuration without hardware
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          podman build -t localhost/skillet-nut-runtime crates/nut/tests
+          cargo test -p skillet_nut real_fedora_nut_accepts_config_and_monitors_a_safe_dummy_ups -- --ignored
+
       - name: Run installation and bootstrap regressions
         if: steps.filter.outputs.rust == 'true'
         run: |

@@ -7,6 +7,7 @@ members = [
     "crates/unifi",
     "crates/syncthing",
     "crates/mikochi",
+    "crates/nut",
     "crates/btrbk",
     "crates/caddy",
     "crates/ddns",
@@ -31,6 +32,7 @@ skillet_core = { path = "crates/core" }
 skillet_hardening = { path = "crates/hardening" }
 skillet_pihole = { path = "crates/pihole" }
 skillet_unifi = { path = "crates/unifi" }
+skillet_nut = { path = "crates/nut" }
 skillet_mikochi = { path = "crates/mikochi" }
 skillet_syncthing = { path = "crates/syncthing" }
 skillet_btrbk = { path = "crates/btrbk" }

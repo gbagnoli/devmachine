@@ -60,6 +60,7 @@ pub enum ServiceConfig {
         container_uid: u32,
         container_gid: u32,
     },
+    Nut(skillet_nut::Config),
     Unifi,
     Smtp,
     Ddns,
@@ -88,6 +89,7 @@ impl HostService {
             ServiceConfig::Pihole { .. } => "pihole",
             ServiceConfig::Syncthing { .. } => "syncthing",
             ServiceConfig::Mikochi { .. } => "mikochi",
+            ServiceConfig::Nut(_) => "nut",
             ServiceConfig::Unifi => "unifi",
             ServiceConfig::Ddns => "ddns",
             ServiceConfig::Datadog { .. } => "datadog",
@@ -213,7 +215,7 @@ impl HostProfile {
             .filter(|service| {
                 !matches!(
                     service.config,
-                    ServiceConfig::Datadog { .. } | ServiceConfig::Smtp
+                    ServiceConfig::Datadog { .. } | ServiceConfig::Smtp | ServiceConfig::Nut(_)
                 ) && (with_ddns || !matches!(service.config, ServiceConfig::Ddns))
             })
             .map(|service| acceptance_service(self.id.as_str(), service))
@@ -343,6 +345,15 @@ impl HostProfile {
 
 fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService {
     match service.config {
+        ServiceConfig::Nut(_) => AcceptanceService {
+            unit: "nut-monitor.service".into(),
+            container: None,
+            network_mode: None,
+            bind_paths: Vec::new(),
+            owner: None,
+            listeners: Vec::new(),
+            health_probe: None,
+        },
         ServiceConfig::Smtp => smtp_acceptance(),
         ServiceConfig::Datadog { .. } => datadog_acceptance(),
         ServiceConfig::Ddns => AcceptanceService {
@@ -499,6 +510,15 @@ fn clamps() -> HostProfile {
                     container_gid: 1000,
                 },
                 ui: Some(SYNCTHING_UI),
+            },
+            HostService {
+                config: ServiceConfig::Nut(skillet_nut::Config {
+                    name: "cyberpower",
+                    vendor: 0x0764,
+                    product: 0x0501,
+                    description: "CyberPower CP1500 AVR",
+                }),
+                ui: None,
             },
             HostService {
                 config: ServiceConfig::Unifi,
