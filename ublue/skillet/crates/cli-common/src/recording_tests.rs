@@ -76,3 +76,20 @@ fn recording_failure_preserves_apply_cause() {
         matches!(result, Err(CliCommonError::ApplyAndRecord { apply, .. }) if apply == "original apply cause")
     );
 }
+
+#[test]
+fn network_recording_is_rejected_before_credential_loading_or_mutation() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("network.yml");
+    let result = handle_host_apply(
+        "clamps",
+        ApplyPhase::Network,
+        Some(path.clone()),
+        |_, _, _| panic!("must not run"),
+    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("cannot be recorded"));
+    assert!(!path.exists());
+}

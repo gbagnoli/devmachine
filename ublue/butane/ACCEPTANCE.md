@@ -2680,3 +2680,30 @@ update / rollback matrix cases. A header backup is not a service-data backup.
 - Remaining parity: private Pi-hole v6 DNS configuration delivery, boxy's subnet
   routing/acceptance/SNAT policy, private cross-host UI/probes, source data/ACLs,
   physical deployment and cutover. See `../plan/JOEY-MIGRATION.md`.
+
+
+## 2026-10-13 — native host networking (local validation)
+
+- Shared caller-selected wired/Wi-Fi configuration and encrypted production
+  delivery implemented. Clamps declares both; other callers and disposable
+  provisioning retain DHCP. Network input is separate from full application.
+- Injected tests cover address/subnet/field validation, private error handling,
+  DNS order, Wi-Fi escaping, metadata, fresh live staging, boot autoconnect,
+  repeat preparation, retained DHCP recovery, host binding and test-policy refusal
+  before any production vault read. The phase rejects diagnostic recording.
+- Actual `nmcli` 1.54.3 offline parser accepted both fixture keyfiles, including
+  byte-encoded SSID and escaped PSK, and retained IPv4/DNS/security policy through
+  a consumer roundtrip. No live NetworkManager connection was loaded or activated.
+- Local checks passed: workspace formatting, strict pedantic Clippy, 433
+  workspace/all-target tests (five routine ignores), explicit offline consumer
+  test, static musl release builds, and Fedora `test run joey --phase base
+  --image fedora:latest`: both applies succeeded without repeated service starts.
+- Operator-unlocked production vault audit: 10 required entries checked,
+  zero missing/invalid, zero unused. Separate in-memory typed validation passed
+  for host/subnet/Wi-Fi settings and confirmed loopback as dns2 on both
+  interfaces. No private network values, SSID or key were printed or persisted
+  in diagnostic artifacts; the temporary verifier source was removed.
+- No production network configuration was delivered or activated. Generic/host
+  binary deployment, image Wi-Fi support, real systemd boot ordering, static
+  address adoption, physical Wi-Fi association, LAN/Tailscale reachability and
+  reboot recovery remain unverified. See `../plan/HOST-NETWORKING.md`.

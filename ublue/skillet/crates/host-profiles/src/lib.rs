@@ -25,6 +25,7 @@ pub enum HostApplyPhase {
     Ddns,
     Datadog,
     Smtp,
+    Network,
 }
 
 pub fn credentials_for_phase(
@@ -46,11 +47,13 @@ pub fn credentials_for_phase(
                     | "cloudflare-ddns.service"
                     | "datadog-agent.service"
                     | "postfix.service"
+                    | skillet_network::PREPARE_UNIT
             ),
             HostApplyPhase::Caddy => consumer.unit == "caddy.service",
             HostApplyPhase::Ddns => consumer.unit == "cloudflare-ddns.service",
             HostApplyPhase::Datadog => consumer.unit == "datadog-agent.service",
             HostApplyPhase::Smtp => consumer.unit == "postfix.service",
+            HostApplyPhase::Network => consumer.unit == skillet_network::PREPARE_UNIT,
             HostApplyPhase::Base => false,
         })
         .map(|consumer| consumer.credential)
@@ -103,6 +106,8 @@ pub enum ApplyError {
     Datadog(#[from] skillet_datadog::DatadogError),
     #[error("SMTP apply error: {0}")]
     Smtp(#[from] skillet_smtp::SmtpError),
+    #[error(transparent)]
+    Network(#[from] skillet_network::NetworkError),
     #[error("Podman error: {0}")]
     Podman(#[from] skillet_podman::PodmanError),
     #[error("Fixture input error: {0}")]
@@ -113,7 +118,9 @@ pub enum ApplyError {
 
 /// Shared host baseline used by both CLI entry points.
 pub fn apply_base(system: &dyn SystemResource, files: &dyn FileResource) -> Result<(), ApplyError> {
-    skillet_hardening::apply(system, files).map_err(|e| ApplyError::Hardening(e.to_string()))
+    skillet_hardening::apply(system, files).map_err(|e| ApplyError::Hardening(e.to_string()))?;
+    skillet_network::install(system, files)?;
+    Ok(())
 }
 
 /// Name of the systemd credential (and podman secret) holding the Pi-hole
@@ -297,7 +304,10 @@ fn apply_profile(
     for service in &profile.services {
         match &service.config {
             // Independently credential-gated optional services have their own phase.
-            ServiceConfig::Ddns | ServiceConfig::Datadog { .. } | ServiceConfig::Smtp => {}
+            ServiceConfig::Ddns
+            | ServiceConfig::Datadog { .. }
+            | ServiceConfig::Smtp
+            | ServiceConfig::Network(_) => {}
             ServiceConfig::Pihole { custom_dns } => {
                 let password = credentials
                     .require(PIHOLE_WEB_PASSWORD_CREDENTIAL)?
@@ -408,6 +418,20 @@ pub fn apply_host_phase(
         HostApplyPhase::Caddy => apply_caddy_host(hostname, system, files, credentials),
         HostApplyPhase::Ddns => apply_ddns_host(hostname, system, files, credentials),
         HostApplyPhase::Datadog => apply_datadog_host(hostname, system, files, credentials),
+        HostApplyPhase::Network => {
+            let selection = profile_for_name(hostname)
+                .and_then(|profile| profile.host_network_selection())
+                .ok_or_else(|| {
+                    ApplyError::FixtureInput("host does not declare native networking".into())
+                })?;
+            let input = skillet_network::Input::parse(
+                credentials.require(skillet_network::CREDENTIAL)?,
+                hostname,
+                selection,
+            )?;
+            skillet_network::prepare(system, files, &input, hostname, selection)?;
+            Ok(())
+        }
         HostApplyPhase::Smtp => {
             profile_for_name(hostname)
                 .filter(|profile| profile.supports_service("smtp"))

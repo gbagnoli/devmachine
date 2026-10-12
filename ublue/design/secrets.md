@@ -230,3 +230,11 @@ remains unchanged on refusal or failed encrypted readback verification.
 
 Historical headers retain their keyslots, so encrypted vault backups remain
 sensitive after a key is retired.
+
+
+Native networking uses the same encrypted delivery path. Structured entries at
+`skillet/hosts/<host>/network/{wired,wifi}` supply private network fields;
+Wi-Fi Username/Password contain SSID/PSK. The shared catalog audits required
+fields; delivery validates subnet relationships. A host-bound versioned payload
+regenerates volatile root-only profiles before networking starts. Test policy
+never reads these production inputs. See [networking](host-networking.md).

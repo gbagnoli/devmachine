@@ -57,6 +57,15 @@ Prepare the shared Cloudflare token creator and Zone ID. [DDNS setup](ublue/skil
 
 No application password; uses the shared Tailnet UI allowlist. [Setup](ublue/skillet/README.md#private-file-browsing).
 
+## Network
+
+Caller-selected native static IPv4 and personal WPA Wi-Fi. Test VMs retain DHCP; no physical network values are delivered to test. [Setup](ublue/skillet/README.md#native-host-networking).
+
+| Entry | Status | Fields / how to obtain them |
+| --- | --- | --- |
+| `skillet/hosts/<host>/network/wired` | Required | Create custom fields interface, address, mask (prefix or dotted mask), gateway, dns1 and dns2. Use the wired interface name. DNS order is preserved; Username and Password are unused. |
+| `skillet/hosts/<host>/network/wifi` | Required | Username = SSID; Password = WPA personal key (8–63 printable ASCII bytes or 64 hex digits). Custom fields interface, address, mask, gateway, dns1 and dns2 follow the wired schema. DNS entries may include loopback for a local resolver. |
+
 ## NUT
 
 No vault entry required. Skillet generates a local-only monitoring password on each opted-in host; no operator login. [UPS setup](ublue/skillet/README.md#local-ups-protection).

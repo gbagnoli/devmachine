@@ -188,7 +188,13 @@ where
         ApplyPhase::Ddns => skillet_hosts::HostApplyPhase::Ddns,
         ApplyPhase::Datadog => skillet_hosts::HostApplyPhase::Datadog,
         ApplyPhase::Smtp => skillet_hosts::HostApplyPhase::Smtp,
+        ApplyPhase::Network => skillet_hosts::HostApplyPhase::Network,
     };
+    if phase == skillet_hosts::HostApplyPhase::Network && record_path.is_some() {
+        return Err(CliCommonError::Config(
+            "network preparation cannot be recorded".into(),
+        ));
+    }
     let required = skillet_hosts::credentials_for_phase(hostname, phase)
         .map_err(|error| CliCommonError::Config(error.to_string()))?;
     let mut credentials = CredentialInputs::default();

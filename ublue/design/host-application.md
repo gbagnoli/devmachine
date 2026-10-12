@@ -20,3 +20,9 @@ selection unless overridden, while retaining strict host verification and
 noninteractive authentication. VM keys remain explicit run-owned artifacts.
 The workflow assumes installed guest binaries and temporary provisioning sudo;
 it does not deploy binaries, migrate data, finalize access or isolate controllers.
+
+
+Caller-selected native networking prepares boot profiles before monitoring,
+without switching the live management connection. Its credentials are excluded
+from full guest application and disposable provisioning. See
+[networking](host-networking.md).

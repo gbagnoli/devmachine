@@ -76,6 +76,7 @@ fn optional_phases_follow_only_canonical_host_capabilities() {
             skillet_hosts::ServiceConfig::Ddns
                 | skillet_hosts::ServiceConfig::Datadog { .. }
                 | skillet_hosts::ServiceConfig::Smtp
+                | skillet_hosts::ServiceConfig::Network(_)
         )
     });
     for service in &mut profile.services {

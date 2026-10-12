@@ -35,6 +35,7 @@ pub fn steps(profile: &HostProfile) -> Vec<Step> {
     for (service, unit) in [
         ("smtp", "skillet-smtp-apply.service"),
         ("ddns", "skillet-ddns-apply.service"),
+        ("network", "skillet-network-prepare.service"),
         ("datadog", "skillet-datadog-apply.service"),
     ] {
         if profile.supports_service(service) {

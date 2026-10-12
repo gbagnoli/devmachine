@@ -106,6 +106,7 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
             .map(HostService::name)
             .collect::<Vec<_>>(),
         [
+            "network",
             "pihole",
             "tailscale",
             "syncthing",
@@ -741,4 +742,36 @@ fn nut_metrics_follow_the_datadog_phase_and_same_host_declaration() {
         .unwrap();
         assert_eq!(system.restart_count.load(Ordering::SeqCst), before);
     }
+}
+
+#[test]
+fn native_networking_is_separate_from_full_apply_and_container_acceptance() {
+    use super::{credentials_for_phase, HostApplyPhase};
+    assert_eq!(
+        credentials_for_phase("clamps", HostApplyPhase::Network).unwrap(),
+        ["network_config"]
+    );
+    assert!(!credentials_for_phase("clamps", HostApplyPhase::Full)
+        .unwrap()
+        .contains(&"network_config"));
+    assert!(super::profile_for_name("joey")
+        .unwrap()
+        .host_network_selection()
+        .is_none());
+    assert!(super::profile_for_name("clamps")
+        .unwrap()
+        .acceptance_plan()
+        .services
+        .iter()
+        .all(|service| service.unit != "skillet-network-prepare.service"));
+    let files = skillet_core::test_utils::MockFiles::new();
+    assert!(super::apply_host_phase(
+        "clamps",
+        HostApplyPhase::Network,
+        &MockSystem::new(),
+        &files,
+        &CredentialInputs::default()
+    )
+    .is_err());
+    assert!(files.files.lock().unwrap().is_empty());
 }

@@ -58,6 +58,11 @@
 
 ## Shared infrastructure boundaries
 
+- Management connectivity changes require a separate explicit activation
+  boundary. Staging preserves the current control connection. Boot preparation
+  avoids network-online dependency cycles, retains a recovery profile, and keeps
+  physical network inputs out of disposable provisioning.
+
 - Disabling application authentication requires explicit proxy authorization
   and a private backend boundary. Preserve the actual connection peer, replace
   untrusted identity headers, and deny unknown/tagged sources or lookup failures.

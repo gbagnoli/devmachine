@@ -230,3 +230,11 @@ All Home Assistant implementation and acceptance remain pending.
 - [Quadlet enablement](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html#enabling-unit-files)
 - [Podman secret drivers and replacement](https://docs.podman.io/en/latest/markdown/podman-secret-create.1.html)
 - [Pi-hole configuration and password files](https://docs.pi-hole.net/docker/configuration/)
+
+
+## Physical native networking
+
+Clamps declares wired and Wi-Fi static profiles with private fields in KeePassXC.
+Boot preparation is implemented; image prerequisites, physical activation and
+reboot reachability remain unverified. Follow [the networking plan](HOST-NETWORKING.md)
+before adopting the new management addresses.
