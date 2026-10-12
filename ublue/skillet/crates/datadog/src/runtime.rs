@@ -17,6 +17,8 @@ pub const CREDENTIAL: &str = "datadog_config";
 /// Official Agent 7 index selected on 2026-10-06.
 pub const IMAGE: &str = "registry.datadoghq.com/agent@sha256:161a43ad2b290f7527a70e70c8880c1b3d65b39411552a8cb41398049546daf5";
 const CONFIG_DIR: &str = "/etc/skillet/datadog/conf.d";
+pub const DOGSTATSD_DIR: &str = "/run/skillet-dogstatsd";
+pub const DOGSTATSD_SOCKET: &str = "/run/skillet-dogstatsd/dsd.socket";
 
 #[derive(Debug, Error)]
 pub enum DatadogError {
@@ -135,14 +137,25 @@ where
         || runtime.monitored_units.iter().any(|unit| {
             unit == "datadog-agent.service"
                 || !matches!(unit.rsplit_once('.'), Some((_, "service" | "timer")))
-                || !unit
-                    .bytes()
-                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+                || !unit.bytes().all(|byte| {
+                    byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-' | b'@')
+                })
         })
     {
         return Err(DatadogError::Invalid);
     }
     files.require_btrfs_subvolume_mount(Path::new("/var/lib/data"), Path::new("/var"), "/data")?;
+    let root = Ownership::named(Some("root"), Some("root"));
+    // The pinned Agent creates a write-only 0722 socket. Restrict traversal of
+    // its directory instead of relying on an unsupported socket-mode setting.
+    files.ensure_directory(Path::new(DOGSTATSD_DIR), Some(0o700), &root)?;
+    files.ensure_directory(Path::new("/etc/tmpfiles.d"), Some(0o755), &root)?;
+    files.ensure_file(
+        Path::new("/etc/tmpfiles.d/skillet-dogstatsd.conf"),
+        format!("d {DOGSTATSD_DIR} 0700 root root -\n").as_bytes(),
+        Some(0o644),
+        &root,
+    )?;
     let mut revisions = Vec::new();
     for (name, instance) in [
         ("btrfs", json!({})),
@@ -207,7 +220,9 @@ fn container_config(
         "Environment=DD_PROCESS_AGENT_ENABLED=true".into(),
         "Environment=DD_APM_ENABLED=false".into(),
         "Environment=DD_LOGS_ENABLED=false".into(),
-        "Environment=DD_USE_DOGSTATSD=false".into(),
+        "Environment=DD_USE_DOGSTATSD=true".into(),
+        "Environment=DD_DOGSTATSD_PORT=0".into(),
+        format!("Environment=DD_DOGSTATSD_SOCKET={DOGSTATSD_SOCKET}"),
     ];
     if runtime.network_monitoring {
         // Podman's default seccomp profile allows perf_event_open only when
@@ -237,6 +252,7 @@ fn container_config(
         host_ownership: None,
     })
     .collect::<Vec<_>>();
+    volumes.push(dogstatsd_volume());
     // Preserve the image's built-in integrations and auto-configuration.
     for name in ["btrfs", "network", "tcp_check", "systemd"] {
         volumes.push(Volume {
@@ -297,6 +313,16 @@ fn container_config(
             ("Service".into(), vec!["Restart=always".into()]),
             ("Install".into(), vec!["WantedBy=multi-user.target".into()]),
         ]),
+    }
+}
+
+fn dogstatsd_volume() -> Volume {
+    Volume {
+        host_path: DOGSTATSD_DIR.into(),
+        container_path: DOGSTATSD_DIR.into(),
+        options: Some("rw".into()),
+        host_mode: Some(0o700),
+        host_ownership: Some(Ownership::named(Some("root"), Some("root"))),
     }
 }
 
