@@ -74,6 +74,11 @@
   must preserve later operator password changes; routine apply must not reopen
   temporary privileged access or repeat password expiry.
 
+- Hardware-dependent services use an injected observation boundary. Converge
+  configuration without absent-device startup failures, order startup after
+  device discovery, and preserve existing outage handling when hardware vanishes.
+  Validate simulated shutdown paths only in isolated disposable state.
+
 - Optional services require explicit selection in the canonical host caller
   declaration. Shared baseline services retain their common defaults; the
   presence of environment configuration or credentials must not enable an

@@ -745,3 +745,27 @@ builds a private USB-ready ISO without writing a block device. Follow
 [the hardware runbook](../butane/HARDWARE.md) for inputs, USB writing, live checks,
 MOK enrollment and cutover. Installation requires confirmation on the server;
 TPM prerequisites are checked there. The VM `/dev/vda` path remains supported.
+
+### Local UPS protection
+
+Clamps opts into the shared NUT module for the CyberPower CP1500 AVR USB UPS
+(`0764:0501`). Rebase onto the rebuilt image containing `nut` and `nut-client`,
+then run the usual full Skillet apply. Configuration is in `/etc/ups`, with
+`MODE=standalone`; the server listens only on `127.0.0.1:3493` and `[::1]:3493`.
+
+The local monitor credential is generated automatically and retained under
+`/var/lib/skillet/nut`; do not create a KeePass entry. Its configuration files
+are root:nut readable. The packaged driver/server/monitor start when the
+matching USB device is attached. Ordinary VMs without that device only converge
+configuration. Other host callers can select `ServiceConfig::Nut` with their
+own device name, USB IDs and description.
+
+Read status locally with `upsc cyberpower@localhost`. Inspect
+`nut-driver@cyberpower.service`, `nut-server.service` and `nut-monitor.service`
+with `systemctl status` or `journalctl -u`. After attaching hardware, rerun
+Datadog apply to include its native units in monitoring.
+
+Before relying on protection, verify battery status and arrange a supervised
+power-loss/shutdown/restart test on the physical machine. Routine smoke tests
+must not run `upsmon -c fsd` or command the real UPS to turn off.
+See [the UPS design](../design/ups.md).

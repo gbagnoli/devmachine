@@ -2480,6 +2480,7 @@ dependencies = [
  "skillet_ddns",
  "skillet_hardening",
  "skillet_mikochi",
+ "skillet_nut",
  "skillet_pihole",
  "skillet_podman",
  "skillet_smtp",
@@ -2499,6 +2500,18 @@ dependencies = [
  "skillet_podman",
  "tempfile",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "skillet_nut"
+version = "0.1.0"
+dependencies = [
+ "sha2 0.10.9",
+ "skillet_core",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

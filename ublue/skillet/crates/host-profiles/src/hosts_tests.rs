@@ -109,6 +109,7 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
             "pihole",
             "tailscale",
             "syncthing",
+            "nut",
             "unifi",
             "ddns",
             "datadog",
@@ -660,4 +661,38 @@ fn every_syncthing_caller_has_matching_private_file_browsing() {
             assert_eq!(acceptance.health_probe, Some(crate::HealthProbe::Mikochi));
         }
     }
+}
+
+#[test]
+fn ups_opt_in_is_hardware_scoped_without_vm_or_ui_requirements() {
+    let clamps = super::profile_for_name("clamps").unwrap();
+    assert!(clamps.supports_service("nut"));
+    assert!(!super::profile_for_name("joey")
+        .unwrap()
+        .supports_service("nut"));
+    let config = clamps
+        .services
+        .iter()
+        .find_map(|service| {
+            if let ServiceConfig::Nut(config) = service.config {
+                Some(config)
+            } else {
+                None
+            }
+        })
+        .unwrap();
+    assert_eq!(
+        (config.name, config.vendor, config.product),
+        ("cyberpower", 0x0764, 0x0501)
+    );
+    assert!(!clamps.ui_services().iter().any(|ui| ui.name == "nut"));
+    assert!(!clamps
+        .acceptance_plan()
+        .services
+        .iter()
+        .any(|service| service.unit.starts_with("nut-")));
+    assert!(!clamps
+        .credential_consumers()
+        .iter()
+        .any(|consumer| consumer.unit.starts_with("nut-")));
 }
