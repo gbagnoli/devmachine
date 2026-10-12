@@ -2,7 +2,7 @@
 //!
 //! Agent activation is separate from ordinary application convergence.
 mod runtime;
-pub use runtime::{apply, DatadogError, Input, RuntimeConfig, CREDENTIAL, IMAGE};
+pub use runtime::{apply, DatadogError, Input, RuntimeConfig, CREDENTIAL, DOGSTATSD_SOCKET, IMAGE};
 use serde_json::{json, Value};
 
 fn label(integration: &str, instance: &Value) -> String {

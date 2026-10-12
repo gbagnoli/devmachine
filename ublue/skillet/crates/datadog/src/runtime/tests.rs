@@ -50,6 +50,10 @@ fn rootful_secrets_and_host_observation_are_explicit() {
         "AddCapability=SYS_ADMIN SYS_RESOURCE SYS_PTRACE NET_ADMIN NET_BROADCAST NET_RAW IPC_LOCK CHOWN PERFMON",
         "Volume=/run/podman:/run/podman:ro",
         "Environment=DOCKER_HOST=unix:///run/podman/podman.sock",
+        "Environment=DD_USE_DOGSTATSD=true",
+        "Environment=DD_DOGSTATSD_PORT=0",
+        "Environment=DD_DOGSTATSD_SOCKET=/run/skillet-dogstatsd/dsd.socket",
+        "Volume=/run/skillet-dogstatsd:/run/skillet-dogstatsd:rw",
         "DD_HOSTNAME=clamps-test-monitoring",
         "Secret=datadog_api_key,type=env,target=DD_API_KEY",
         "/sys/kernel/debug",
@@ -77,6 +81,37 @@ fn rootful_secrets_and_host_observation_are_explicit() {
     let systemd =
         String::from_utf8_lossy(&state["/etc/skillet/datadog/conf.d/systemd.d/conf.yaml"]);
     assert!(systemd.contains("btrbk.timer"));
+    assert_eq!(
+        files.directory_metadata.lock().unwrap()[DOGSTATSD_DIR].0,
+        Some(0o700)
+    );
+    assert!(state.contains_key("/etc/tmpfiles.d/skillet-dogstatsd.conf"));
+}
+
+#[test]
+fn instantiated_units_are_accepted_but_unsafe_names_are_rejected() {
+    for (unit, valid) in [
+        ("nut-driver@cyberpower.service", true),
+        ("bad name.service", false),
+        ("bad%H.service", false),
+        ("bad\nunit.service", false),
+    ] {
+        let system = MockSystem::new();
+        let files = mounted_files();
+        let units = vec![unit.into()];
+        let mut config = runtime(false);
+        config.monitored_units = &units;
+        assert_eq!(
+            apply(
+                &system,
+                &files,
+                &payload("0123456789abcdef0123456789abcdef"),
+                &config
+            )
+            .is_ok(),
+            valid
+        );
+    }
 }
 
 #[test]
