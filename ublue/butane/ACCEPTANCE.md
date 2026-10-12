@@ -1,3 +1,18 @@
+## Physical installer MOK status compatibility — 2026-10-12
+
+- The operator confirmed physical TPM 2.0, enabled Secure Boot and MOK
+  enrollment. The live image reported `is already enrolled` with exit status 1;
+  the prior installer incorrectly refused that evidence. Installation and
+  encrypted first boot are still pending.
+- The helper now accepts the exact enrolled-certificate result with status
+  0 or 1 under the C locale. Regression checks reject pending enrollment,
+  blocked certificates, unknown success, tool errors and a missing certificate.
+- All 11 trust-predicate cases and both isolated hardware refusal cases passed,
+  together with bootstrap regressions, CI ShellCheck and whitespace checks.
+  No workstation disk or firmware was modified. Existing prepared media can
+  receive only the corrected helper over SSH, retaining its Ignition checksum,
+  disk identity and encryption profile.
+
 ## NUT collector delivery-path correction — 2026-10-12
 
 - Corrected the timer to invoke `/var/usrlocal/bin/skillet`, matching both

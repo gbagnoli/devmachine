@@ -122,6 +122,9 @@
 - Installation profiles are explicit and independent of host identity. Preserve
   compatible defaults and reject missing prerequisites rather than silently
   weakening a requested security policy. Convergence never reformats live data.
+- Trust predicates must verify explicit positive evidence as well as supported
+  tool statuses; pending requests, blocked resources and unknown results must
+  fail closed. Cover supported consumer-version semantics in regression checks.
 - Preserve downstream schema types when parsing and re-emitting configuration.
   Validate staged output with the actual consumer/compiler where possible, not
   only with a parser round trip.
