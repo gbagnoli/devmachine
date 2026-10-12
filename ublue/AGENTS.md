@@ -156,6 +156,9 @@
 - Persist independently usable recovery credentials before enrolling them. Bind
   recovery records to the resource identity, retain pending state for retries,
   and refuse silent replacement or re-enrollment of verified credentials.
+- Verify serialized replacement as well as initial insertion. Preserve unrelated
+  data and historical/shared references; reject a mutation when the persistence
+  library cannot preserve them. Cover repeated updates through actual readback.
 - Persist ownership before mutations and preserve it across partial failures.
   Cleanup must tolerate already-absent owned resources while refusing ambiguous
   or unrelated resources. Remove recovery metadata only after cleanup completes.
