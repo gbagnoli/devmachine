@@ -1,3 +1,22 @@
+## Recovery header attachment refresh — 2026-10-12
+
+- A synthetic KDBX regression reproduced the physical backup command's
+  `saved vault did not retain the recovery attachment` error when refreshing
+  an existing header. The writer retained a sparse binary ID after replacement;
+  encrypted serialization packed the binaries without remapping its reference.
+- Removing the named reference before adding its replacement fixes the refresh.
+  Twelve vault tests passed, including repeated refresh through reopen,
+  unrelated binary preservation, unchanged credentials, rejected incorrect
+  readback without publication, and refusal to destroy historical references.
+  Same-entry history/alias sharing remains explicitly unsupported for changed
+  attachment bytes with this library; identical protected content is a no-op.
+- Formatting, strict workspace Clippy, all 405 workspace tests and the Fedora
+  joey base repeat-apply check passed. These checks use synthetic vaults and
+  credentials; they do not establish physical backup or reboot acceptance.
+- The operator verified the new physical slot 2 binding against its LUKS slot
+  with exit zero after booting signed uCore and adding a temporary passphrase.
+  The refreshed physical vault backup and unattended reboot are still pending.
+
 ## Physical installer disk confirmation — 2026-10-12
 
 - Confirmation now accepts the prepared disk's resolved kernel name or its

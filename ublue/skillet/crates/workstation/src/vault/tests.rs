@@ -301,6 +301,10 @@ fn recovery_store_round_trips_pending_and_verified_metadata_without_rotation() {
     record.header = Some(Zeroizing::new(b"sensitive binary header fixture".to_vec()));
     store.save(entry, &record).unwrap();
     assert_eq!(store.load(entry).unwrap().unwrap().header, record.header);
+    // Refresh an existing header: replacing the binary must survive KDBX reopen.
+    record.header = Some(Zeroizing::new(b"refreshed binary header fixture".to_vec()));
+    store.save(entry, &record).unwrap();
+    assert_eq!(store.load(entry).unwrap().unwrap().header, record.header);
     let before = std::fs::read(&path).unwrap();
     store
         .vault
@@ -347,5 +351,160 @@ fn recovery_store_round_trips_pending_and_verified_metadata_without_rotation() {
             .unwrap()
             .unwrap(),
         record.volume
+    );
+}
+
+#[test]
+fn attachment_refresh_preserves_other_binaries_across_reopen_and_retry() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("fixture.kdbx");
+    let password = "fixture unlock";
+    let database = Database::new();
+    let mut original = Vec::new();
+    database
+        .save(&mut original, DatabaseKey::new().with_password(password))
+        .unwrap();
+    std::fs::write(&path, &original).unwrap();
+    let mut vault = Vault {
+        path: path.clone(),
+        original,
+        database,
+        password: password.into(),
+        password_cached: false,
+    };
+    let entry = "skillet/hosts/clamps/storage/root-recovery-key";
+    let other = "personal/attachment-fixture";
+    vault.insert(entry, "fixture recovery key").unwrap();
+    vault.insert(other, "unrelated credential").unwrap();
+    vault
+        .set_attachment(entry, "root-luks.header", b"old header")
+        .unwrap();
+    vault
+        .set_attachment(entry, "notes.txt", b"unrelated notes")
+        .unwrap();
+    vault
+        .set_attachment(other, "other.bin", &[0, 255, 7])
+        .unwrap();
+    vault
+        .save_verified_attachment(
+            None,
+            entry,
+            "fixture recovery key",
+            "root-luks.header",
+            b"old header",
+        )
+        .unwrap();
+
+    for header in [b"new header".as_slice(), b"next header", b"next header"] {
+        vault
+            .set_attachment(entry, "root-luks.header", header)
+            .unwrap();
+        vault
+            .save_verified_attachment(
+                None,
+                entry,
+                "fixture recovery key",
+                "root-luks.header",
+                header,
+            )
+            .unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        let reopened = Database::open(
+            &mut bytes.as_slice(),
+            DatabaseKey::new().with_password(password),
+        )
+        .unwrap();
+        assert_eq!(reopened.num_attachments(), 3);
+        vault.database = reopened;
+        assert_eq!(
+            vault
+                .get_attachment(entry, "root-luks.header")
+                .unwrap()
+                .unwrap()
+                .as_slice(),
+            header
+        );
+        assert_eq!(
+            vault
+                .get_attachment(entry, "notes.txt")
+                .unwrap()
+                .unwrap()
+                .as_slice(),
+            b"unrelated notes"
+        );
+        assert_eq!(
+            vault
+                .get_attachment(other, "other.bin")
+                .unwrap()
+                .unwrap()
+                .as_slice(),
+            &[0, 255, 7]
+        );
+        assert_eq!(
+            vault.get(other).unwrap().as_deref(),
+            Some("unrelated credential")
+        );
+    }
+}
+
+#[test]
+fn attachment_refresh_refuses_to_destroy_historical_binary_references() {
+    let mut database = Database::new();
+    let entry = "skillet/hosts/clamps/storage/root-recovery-key";
+    super::create_entry(&mut database, entry, "fixture recovery key").unwrap();
+    let id = super::find_entry(&database, entry).unwrap().unwrap().id();
+    database.entry_mut(id).unwrap().add_attachment(
+        "root-luks.header",
+        keepass::db::Value::protected(b"old header".to_vec()),
+    );
+    database
+        .entry_mut(id)
+        .unwrap()
+        .edit_tracking(|tracked| tracked.set_unprotected("notes", "retained history"));
+    let mut bytes = Vec::new();
+    database
+        .save(
+            &mut bytes,
+            DatabaseKey::new().with_password("fixture unlock"),
+        )
+        .unwrap();
+    let database = Database::open(
+        &mut bytes.as_slice(),
+        DatabaseKey::new().with_password("fixture unlock"),
+    )
+    .unwrap();
+    let mut vault = Vault {
+        path: std::path::PathBuf::new(),
+        original: bytes,
+        database,
+        password: "fixture unlock".into(),
+        password_cached: false,
+    };
+    // Identical content is a no-op, even when it is shared with history.
+    vault
+        .set_attachment(entry, "root-luks.header", b"old header")
+        .unwrap();
+    let error = vault
+        .set_attachment(entry, "root-luks.header", b"new header")
+        .unwrap_err();
+    assert!(error.to_string().contains("entry history"));
+    let current = super::find_entry(&vault.database, entry).unwrap().unwrap();
+    assert_eq!(
+        current
+            .attachment_by_name("root-luks.header")
+            .unwrap()
+            .data
+            .as_slice(),
+        b"old header"
+    );
+    assert_eq!(
+        current
+            .historical(0)
+            .unwrap()
+            .attachment_by_name("root-luks.header")
+            .unwrap()
+            .data
+            .as_slice(),
+        b"old header"
     );
 }

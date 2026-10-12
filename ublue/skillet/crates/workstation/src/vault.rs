@@ -166,10 +166,39 @@ impl Vault {
         let id = find_entry(&self.database, path)?
             .ok_or_else(|| VaultError::Invalid("vault attachment entry is absent".into()))?
             .id();
-        self.database
+        let mut entry = self
+            .database
             .entry_mut(id)
-            .ok_or_else(|| VaultError::Invalid("vault entry disappeared".into()))?
-            .add_attachment(name, keepass::db::Value::protected(bytes.to_vec()));
+            .ok_or_else(|| VaultError::Invalid("vault entry disappeared".into()))?;
+        // keepass 0.13.25 does not remap sparse binary IDs when saving KDBX4.
+        // Remove the named reference first so adding its replacement reuses the
+        // freed ID. Never remove a binary referenced by another name or history
+        // on this entry: the library's removal clears all this entry's references.
+        if let Some(existing) = entry.as_ref().attachment_by_name(name) {
+            if existing.data.as_slice() == bytes && existing.data.is_protected() {
+                return Ok(());
+            }
+            let aliases = entry
+                .as_ref()
+                .attachments()
+                .filter(|item| item.id() == existing.id())
+                .count();
+            let historical = entry.history.as_ref().is_some_and(|history| {
+                (0..history.get_entries().len()).any(|index| {
+                    entry.as_ref().historical(index).is_some_and(|version| {
+                        version.attachments().any(|item| item.id() == existing.id())
+                    })
+                })
+            });
+            if aliases > 1 || historical {
+                return Err(VaultError::Invalid(
+                    "cannot replace an attachment shared with another name or entry history safely"
+                        .into(),
+                ));
+            }
+        }
+        entry.remove_attachment_by_name(name);
+        entry.add_attachment(name, keepass::db::Value::protected(bytes.to_vec()));
         Ok(())
     }
 

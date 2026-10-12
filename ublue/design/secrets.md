@@ -214,5 +214,12 @@ the encrypted vault. Verified legacy entries without an attachment are upgraded
 by the same recovery-key command. Re-running refreshes changed enrollment
 metadata. Disk-clone acceptance retains separate source and replacement archives.
 
+Attachment refresh removes the current named reference before adding its
+replacement, preserving the dense binary IDs required by the current KDBX
+writer. Identical protected bytes are a no-op. Replacement refuses a binary
+also referenced by another name or history on the same entry: the library's
+removal API cannot safely detach only the current reference. The existing vault
+remains unchanged on refusal or failed encrypted readback verification.
+
 Historical headers retain their keyslots, so encrypted vault backups remain
 sensitive after a key is retired.
