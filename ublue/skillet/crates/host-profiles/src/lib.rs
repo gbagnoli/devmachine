@@ -483,6 +483,7 @@ fn apply_datadog_host(
     }
     for service in &profile.services {
         if let ServiceConfig::Nut(config) = service.config {
+            monitored_units.push(skillet_nut::METRICS_TIMER.into());
             if system.usb_device_present(config.vendor, config.product)? {
                 monitored_units.extend(skillet_nut::monitored_units(config));
             }
@@ -498,6 +499,16 @@ fn apply_datadog_host(
             monitored_units: &monitored_units,
         },
     )?;
+    for service in &profile.services {
+        if let ServiceConfig::Nut(config) = service.config {
+            skillet_nut::apply_metrics(
+                system,
+                files,
+                config,
+                std::path::Path::new(skillet_datadog::DOGSTATSD_SOCKET),
+            )?;
+        }
+    }
     Ok(())
 }
 

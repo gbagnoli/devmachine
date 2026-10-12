@@ -1,5 +1,15 @@
 # Datadog port
 
+Update, 2026-10-12: optional NUT metric collection is implemented in the static
+guest binary (`metrics nut`). The official Agent enables Unix-socket DogStatsD
+with UDP disabled. Successful Datadog apply configures the selected NUT module's
+timer; ordinary application apply does not enable telemetry. Offline protocol,
+transport, CLI and repeat-apply tests are in routine workspace CI. An explicit
+ignored consumer test validates the pinned Agent without network access or a
+real key. Live forwarded UPS collection and isolated Agent parsing passed.
+Native uCore timer/SELinux/reboot recovery and cloud ingestion for these new
+metrics remain pending; record their acceptance separately.
+
 Status, 2026-10-08: rootful Agent, credential delivery and caller-derived boot
 ordering are implemented. Two reboots of `clamps-test-discovery` automatically restored one Syncthing
 HTTP and four process checks, without an Agent restart. Offline checks pass

@@ -23,6 +23,11 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Commands {
+    /// Collect guest service metrics without unlocking the vault
+    Metrics {
+        #[command(subcommand)]
+        command: skillet_cli_common::MetricsCommands,
+    },
     /// Run the guest private UI authorization endpoint
     TailnetUi {
         #[command(subcommand)]
@@ -355,6 +360,7 @@ fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     match args.command {
+        Commands::Metrics { command } => skillet_cli_common::run_metrics(command)?,
         Commands::TailnetUi { command } => skillet_cli_common::run_tailnet_ui(command)?,
         Commands::Install { command } => installation::dispatch(command)?,
         Commands::Access { command } => skillet_cli_common::access::dispatch(command)?,

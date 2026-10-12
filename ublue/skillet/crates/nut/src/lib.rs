@@ -9,6 +9,10 @@ use skillet_core::{
 use std::path::Path;
 use thiserror::Error;
 
+pub mod metrics;
+mod monitoring;
+pub use monitoring::{apply_metrics, METRICS_TIMER};
+
 pub const MONITORED_UNITS: &[&str] = &["nut-server.service", "nut-monitor.service"];
 const STATE: &str = "/var/lib/skillet/nut";
 const PASSWORD: &str = "/var/lib/skillet/nut/monitor-password";
@@ -54,16 +58,7 @@ pub enum Outcome {
 
 impl Config {
     fn validate(self) -> Result<(), NutError> {
-        if self
-            .name
-            .as_bytes()
-            .first()
-            .is_none_or(|b| !b.is_ascii_alphanumeric())
-            || self.name.len() > 40
-            || !self
-                .name
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+        if metrics::validate_name(self.name).is_err()
             || self.description.is_empty()
             || !self
                 .description

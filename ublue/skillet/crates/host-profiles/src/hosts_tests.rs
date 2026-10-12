@@ -696,3 +696,49 @@ fn ups_opt_in_is_hardware_scoped_without_vm_or_ui_requirements() {
         .iter()
         .any(|consumer| consumer.unit.starts_with("nut-")));
 }
+
+#[test]
+fn nut_metrics_follow_the_datadog_phase_and_same_host_declaration() {
+    use skillet_core::{files::FileReadResource as _, test_utils::MockFiles};
+    use std::{path::Path, sync::atomic::Ordering};
+    for attached in [false, true] {
+        let files = MockFiles::new();
+        files.record_btrfs_mount(Path::new("/var"), "/dev/test", "/", "btrfs");
+        files.record_btrfs_mount(Path::new("/var/lib/data"), "/dev/test", "/data", "btrfs");
+        let system = MockSystem::new();
+        if attached {
+            system.usb_devices.lock().unwrap().insert((0x0764, 0x0501));
+        }
+        let mut credentials = CredentialInputs::default();
+        credentials.insert("datadog_config", r#"{"version":1,"api_key":"00000000000000000000000000000000","site":"datadoghq.com","tags":["env:test"]}"#.into());
+        super::apply_host_phase(
+            "clamps",
+            super::HostApplyPhase::Datadog,
+            &system,
+            &files,
+            &credentials,
+        )
+        .unwrap();
+        assert!(files
+            .read_file(Path::new("/etc/systemd/system/skillet-nut-metrics.timer"))
+            .unwrap()
+            .is_some());
+        let config = files
+            .read_file(Path::new("/etc/skillet/datadog/conf.d/systemd.d/conf.yaml"))
+            .unwrap()
+            .unwrap();
+        let config = String::from_utf8(config).unwrap();
+        assert!(config.contains("skillet-nut-metrics.timer"));
+        assert_eq!(config.contains("nut-driver@cyberpower.service"), attached);
+        let before = system.restart_count.load(Ordering::SeqCst);
+        super::apply_host_phase(
+            "clamps",
+            super::HostApplyPhase::Datadog,
+            &system,
+            &files,
+            &credentials,
+        )
+        .unwrap();
+        assert_eq!(system.restart_count.load(Ordering::SeqCst), before);
+    }
+}

@@ -33,8 +33,25 @@ Approved agent deployment, 2026-10-07: a pinned official rootful Agent container
 Skillet. Datadog recommends container deployment for Podman over native host
 installation, which requires additional permission handling. The OS image
 continues to provide Podman and kernel tooling; Skillet owns activation,
-credentials, and changing integration configuration. Community integrations,
-if required, belong in a separately built agent image, not runtime downloads.
+credentials, and changing integration configuration. Packaged community
+integrations with extra dependencies require a reviewed image build; never
+install them through runtime downloads.
+
+Decision, 2026-10-12: native service collectors may instead use the existing
+static musl guest binary and submit through DogStatsD. The official Agent stays
+unchanged. DogStatsD uses a Unix datagram socket under a root-only `/run`
+directory, recreated by tmpfiles on boot; its UDP listener is disabled. The
+Agent owns the socket and ingestion credentials. Collectors receive neither
+API keys nor vault access. Module-owned timers are configured only after the
+credential-gated Agent phase succeeds, and must not activate that Agent or an
+optional application themselves.
+
+The NUT collector performs bounded read-only protocol queries. It exports a
+fixed numeric inventory and UPS status flags, with `service:nut` and a declared
+UPS-name tag; host/environment/location follow the Agent's existing tags.
+Failed queries emit a communication failure check without invented zero
+readings. Unix datagram submission proves local receipt, not cloud ingestion.
+These `nut.*` gauges are custom metrics; keep their inventory and tags bounded.
 
 Implemented agent runtime and credential delivery. Host monitoring
 needs host PID/cgroup visibility, read-only proc/cgroup/filesystem mounts, and
@@ -105,4 +122,5 @@ Sources: [pinned container collector](https://github.com/DataDog/datadog-agent/b
 [Autodiscovery](https://docs.datadoghq.com/containers/docker/integrations/),
 [network monitoring](https://docs.datadoghq.com/network_monitoring/cloud_network_monitoring/setup/),
 [Btrfs](https://docs.datadoghq.com/integrations/btrfs/),
-[systemd](https://docs.datadoghq.com/integrations/systemd/).
+[systemd](https://docs.datadoghq.com/integrations/systemd/),
+[DogStatsD](https://docs.datadoghq.com/extend/dogstatsd/).

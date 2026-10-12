@@ -12,6 +12,8 @@ use tracing_subscriber::FmtSubscriber;
 
 pub mod access;
 pub mod hosts;
+mod metrics;
+pub use metrics::{run_metrics, MetricsCommands};
 mod smtp_runtime;
 use hosts::ApplyPhase;
 
@@ -56,6 +58,11 @@ pub struct HostArgs {
 
 #[derive(clap::Subcommand, Debug)]
 pub enum HostCommands {
+    /// Collect service metrics without workstation credentials
+    Metrics {
+        #[command(subcommand)]
+        command: MetricsCommands,
+    },
     /// Run the private tailnet identity authorization endpoint
     TailnetUi {
         #[command(subcommand)]
@@ -122,6 +129,7 @@ where
     tracing::subscriber::set_global_default(subscriber)?;
 
     match args.command {
+        HostCommands::Metrics { command } => run_metrics(command),
         HostCommands::TailnetUi { command } => run_tailnet_ui(command),
         HostCommands::Access { command } => access::dispatch(command),
         HostCommands::Smtp {
