@@ -1,3 +1,19 @@
+## Physical clamps production credential preflight — 2026-10-12
+
+- The operator supplied cold-boot journal evidence of successful base apply and
+  findmnt evidence of Btrfs `/data` at `/var/lib/data` on the encrypted root
+  mapper. The production host vault audit reports eight checked, zero missing
+  and zero unused entries. This audit does not establish provider permissions.
+- The operator confirmed both production Pi-hole and Tailscale delivery
+  commands succeeded. The supplied `podman ps` snapshot shows Pi-hole,
+  Tailscale (healthy), Syncthing, UniFi (starting) and Mikochi running. It shows
+  Pi-hole publishing TCP/UDP port 53 on both IP families and Syncthing publishing
+  TCP/UDP port 22000; their GUI ports remain container-only.
+- The snapshot does not prove UniFi readiness, LAN DNS reachability, restored
+  production identities, Caddy/SMTP/DDNS/Datadog acceptance or cutover. Keep the
+  existing controller/data authoritative until migration; a restored controller
+  must be isolated or the prior one stopped.
+
 ## Recovery header attachment refresh — 2026-10-12
 
 - A synthetic KDBX regression reproduced the physical backup command's
@@ -18,8 +34,9 @@
   The operator subsequently confirmed successful physical vault/header backup
   and automatic unlocking on an unmasked reboot after one failed attempt.
   Supplied status confirms the signed uCore digest is booted, bootstrap finished
-  successfully/active-exited, and no units are failed. Base apply is inactive
-  with Result=success; journal evidence of execution remains pending.
+  successfully/active-exited, and no units are failed. The supplied cold-boot
+  journal confirms base apply executed and finished successfully; findmnt
+  confirms `/var/lib/data` is Btrfs `/data` on the encrypted root mapper.
   The operator removed obsolete slot 1 and supplied a Clevis listing containing
   only slot 2. The operator subsequently reports successful unattended
   power-off/power-on, completing physical cold-boot unlock acceptance after
