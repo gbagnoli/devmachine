@@ -10,6 +10,8 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 pub struct MockSystem {
+    pub usb_devices: Arc<Mutex<HashSet<(u16, u16)>>>,
+    pub usb_refresh_count: Arc<AtomicUsize>,
     pub groups: Arc<Mutex<HashSet<String>>>,
     pub users: Arc<Mutex<HashSet<String>>>,
     pub user_identities: Arc<Mutex<HashMap<String, UserIdentity>>>,
@@ -27,6 +29,8 @@ pub struct MockSystem {
 impl MockSystem {
     pub fn new() -> Self {
         Self {
+            usb_devices: Arc::new(Mutex::new(HashSet::new())),
+            usb_refresh_count: Arc::new(AtomicUsize::new(0)),
             groups: Arc::new(Mutex::new(HashSet::new())),
             users: Arc::new(Mutex::new(HashSet::new())),
             user_identities: Arc::new(Mutex::new(HashMap::new())),
@@ -572,5 +576,19 @@ impl FileMutationResource for MockFiles {
         let m_removed = metadata.remove(&path_str).is_some();
 
         Ok(f_removed || m_removed)
+    }
+}
+
+impl crate::usb::UsbResource for MockSystem {
+    fn usb_device_present(&self, vendor: u16, product: u16) -> Result<bool, SystemError> {
+        Ok(self
+            .usb_devices
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains(&(vendor, product)))
+    }
+    fn refresh_usb_rules(&self, _vendor: u16, _product: u16) -> Result<(), SystemError> {
+        self.usb_refresh_count.fetch_add(1, Ordering::SeqCst);
+        Ok(())
     }
 }

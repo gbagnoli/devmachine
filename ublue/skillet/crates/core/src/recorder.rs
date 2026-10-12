@@ -259,3 +259,17 @@ impl<T: AccountResource> AccountResource for Recorder<T> {
 #[cfg(test)]
 #[path = "recorder_tests.rs"]
 mod tests;
+
+impl<T: crate::usb::UsbResource> crate::usb::UsbResource for Recorder<T> {
+    fn usb_device_present(&self, vendor: u16, product: u16) -> Result<bool, SystemError> {
+        self.inner.usb_device_present(vendor, product)
+    }
+    fn refresh_usb_rules(&self, vendor: u16, product: u16) -> Result<(), SystemError> {
+        let result = self.inner.refresh_usb_rules(vendor, product);
+        self.record(
+            ResourceOp::RefreshUsbRules { vendor, product },
+            succeeded(&result),
+        );
+        result
+    }
+}

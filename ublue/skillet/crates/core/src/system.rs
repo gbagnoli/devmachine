@@ -108,12 +108,20 @@ pub trait ServiceResource {
 /// Aggregate retained for host composition and adapters while consumers move
 /// to narrower account, service, and Podman-secret capabilities.
 pub trait SystemResource:
-    AccountLookupResource + AccountResource + PodmanSecretResource + ServiceResource
+    AccountLookupResource
+    + AccountResource
+    + PodmanSecretResource
+    + ServiceResource
+    + crate::usb::UsbResource
 {
 }
 
 impl<T> SystemResource for T where
-    T: AccountLookupResource + AccountResource + PodmanSecretResource + ServiceResource
+    T: AccountLookupResource
+        + AccountResource
+        + PodmanSecretResource
+        + ServiceResource
+        + crate::usb::UsbResource
 {
 }
 

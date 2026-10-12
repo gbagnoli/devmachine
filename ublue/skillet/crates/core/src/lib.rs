@@ -8,6 +8,7 @@ pub mod system;
 pub mod templates;
 #[cfg(any(test, feature = "test-utils"))]
 pub mod test_utils;
+pub mod usb;
 
 #[cfg(test)]
 #[path = "resource_contract_tests.rs"]
