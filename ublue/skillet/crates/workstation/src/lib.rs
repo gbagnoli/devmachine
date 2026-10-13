@@ -20,3 +20,5 @@ pub mod host_apply;
 pub mod installation;
 
 pub mod network_provisioning;
+
+pub mod deployment;

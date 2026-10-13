@@ -2743,3 +2743,22 @@ update / rollback matrix cases. A header backup is not a service-data backup.
 - Formatting, strict workspace Clippy and 437 workspace/all-target tests passed
   (five routine ignores). Fedora joey base repeat apply passed with no repeated
   service start/restart. Physical binaries were not deployed by this change.
+
+## 2026-10-13 — production deployment before apply
+
+- Added `deploy --host HOST --target USER@HOST`; remote apply deploys first by
+  default, with `--no-deploy` restricted to remote use. Both paths print versions;
+  standalone deployment has no vault or service activation dependency.
+- Physical and VM updates share Cargo-reported artifact selection and verified
+  per-executable atomic delivery. VM run guards/capture evidence are preserved.
+  Uploaded bytes/root ownership/mode are checked before promotion, SELinux labels
+  are restored, and both installed hashes and versions are checked. A failed
+  partial pair prevents apply and retry converges the remaining executable.
+- Local checks passed: formatting, strict workspace Clippy, 445 workspace/all-target
+  tests (five routine ignores), deploy/apply CLI help, and Fedora joey base repeat
+  apply with no repeated service start/restart. Stateful fake transport tests
+  cover both files, corrupt staging, partial replacement/retry, no-op delivery,
+  profile mismatch before build/upload, and retained VM disposal guards.
+- Live deployment to physical clamps and native/Flatpak VM update were not run.
+  The last read-only SSH probe to the physical host timed out; mock delivery and
+  container baseline results do not establish real SSH/SELinux deployment acceptance.

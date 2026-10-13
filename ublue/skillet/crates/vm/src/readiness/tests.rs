@@ -95,8 +95,13 @@ impl GuestTransport for FakeGuest {
                 return Ok(output(i32::from(!self.files.borrow().contains_key(*path)), ""));
             }
             ("test", ["-e", path]) if path.starts_with("/var/lib/ucore-bootstrap/") => String::new(),
-            ("install", ["-m", "0755", source, destination]) => {
+            ("install", ["-o", "0", "-g", "0", "-m", "0755", source, destination]) => {
                 let hash = self.files.borrow().get(*source).cloned().ok_or_else(|| Error::Invalid("unstaged fake file".into()))?;
+                self.files.borrow_mut().insert((*destination).into(), hash);
+                String::new()
+            }
+            ("mv", ["-T", source, destination]) => {
+                let hash = self.files.borrow_mut().remove(*source).ok_or_else(|| Error::Invalid("unstaged fake rename".into()))?;
                 self.files.borrow_mut().insert((*destination).into(), hash);
                 String::new()
             }
@@ -129,7 +134,7 @@ impl GuestTransport for FakeGuest {
             ("systemctl", ["status", "--no-pager", "skillet-apply.service"]) => "Active: active (exited)\n".into(),
             ("cat", ["/etc/resolv.conf"]) => "nameserver 192.0.2.53\n".into(),
             ("systemctl", ["is-enabled", "fixture-masked.service"]) => return Ok(output(1, "masked\n")),
-            ("true", []) | ("/home/linuxbrew/.linuxbrew/bin/brew", ["bundle", "check", "--file", _]) => String::new(),
+            ("restorecon", ["-F", _]) | ("true", []) | ("/home/linuxbrew/.linuxbrew/bin/brew", ["bundle", "check", "--file", _]) => String::new(),
             _ => return Err(Error::Invalid(format!("unsupported fake operation: {program} {args:?}"))),
         };
         Ok(output(0, stdout))

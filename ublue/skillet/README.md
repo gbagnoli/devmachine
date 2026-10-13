@@ -70,8 +70,8 @@ root with `bash ublue/butane/tests/bootstrap.sh`.
    [secrets checklist](../../SECRETS.md). The
    [host/module index](crates/host-profiles/README.md) links each service guide.
    Stop conflicting production identities and DNS writers before migration.
-7. **Apply the host.** Installed guest binaries and units must match the selected
-   profile. From the workstation:
+7. **Apply the host.** Remote apply builds and deploys the current
+   binaries before configuring services. From the workstation:
 
    ```sh
    cargo run --release -p skillet -- secrets unlock
