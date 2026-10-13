@@ -15,7 +15,7 @@ mod vm;
 mod vm_encryption;
 
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version = skillet_cli_common::version::version(), about, long_about = None)]
 struct Args {
     #[command(subcommand)]
     command: Commands,
@@ -1454,6 +1454,15 @@ fn podman_capture(name: &str, shell: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn cli_uses_shared_version() {
+        use clap::CommandFactory as _;
+        assert_eq!(
+            super::Args::command().get_version(),
+            Some(skillet_cli_common::version::version())
+        );
+    }
+
     use super::Args;
     use clap::Parser;
 

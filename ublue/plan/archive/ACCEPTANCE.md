@@ -2728,3 +2728,18 @@ update / rollback matrix cases. A header backup is not a service-data backup.
 - Documentation metadata links changed; runtime behavior did not. No vault,
   provider, VM lifecycle or physical-host operation was performed by this cleanup.
   Remote CI and existing parked live acceptance remain separate open checks.
+
+## 2026-10-13 — shared binary build identity
+
+- Generic, clamps and joey binaries reported the same shared release/revision
+  with their own executable names; guest base apply logged that version.
+- Release version is centralized in `[workspace.package].version`; vergen-gix
+  captures revision/dirty state with build-only Rust Git dependencies.
+- An isolated temporary repository exercised the actual build script/version
+  module: clean checkout, tracked dirty edit, restored source, new empty commit,
+  packed refs, empty commit after packing, detached HEAD and removal of `.git`.
+  All incremental rebuild checks passed without `cargo clean`; archives reported
+  `git.unknown`. No production repository refs were mutated by this probe.
+- Formatting, strict workspace Clippy and 437 workspace/all-target tests passed
+  (five routine ignores). Fedora joey base repeat apply passed with no repeated
+  service start/restart. Physical binaries were not deployed by this change.

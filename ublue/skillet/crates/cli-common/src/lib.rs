@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{CommandFactory, FromArgMatches, Parser};
 use serde::Serialize;
 use skillet_core::credentials::{CredentialInputs, CredentialManager};
 use skillet_core::files::{FileResource, LocalFileResource};
@@ -13,6 +13,7 @@ use tracing_subscriber::FmtSubscriber;
 pub mod access;
 pub mod hosts;
 mod metrics;
+pub mod version;
 pub use metrics::{run_metrics, MetricsCommands};
 mod smtp_runtime;
 use hosts::ApplyPhase;
@@ -46,7 +47,7 @@ struct DiagnosticRecording<'a> {
 }
 
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version = version::version(), about, long_about = None)]
 pub struct HostArgs {
     #[command(subcommand)]
     pub command: HostCommands,
@@ -107,6 +108,11 @@ pub enum CredentialCommands {
     },
 }
 
+/// Caller identity determines the executable's display name, not the library package.
+pub fn host_command(hostname: &str) -> clap::Command {
+    HostArgs::command().display_name(format!("skillet-{hostname}"))
+}
+
 pub fn run_host<F>(hostname: &str, apply_fn: F) -> Result<(), CliCommonError>
 where
     F: Fn(
@@ -116,7 +122,8 @@ where
         &CredentialInputs,
     ) -> Result<(), String>,
 {
-    let args = HostArgs::parse();
+    let matches = host_command(hostname).get_matches();
+    let args = HostArgs::from_arg_matches(&matches).unwrap_or_else(|error| error.exit());
 
     let subscriber = FmtSubscriber::builder()
         .with_max_level(if args.verbose {
@@ -216,7 +223,10 @@ fn handle_apply_with_credentials<F>(
 where
     F: Fn(&dyn SystemResource, &dyn FileResource, &CredentialInputs) -> Result<(), String>,
 {
-    info!("Starting Skillet configuration for {}...", hostname);
+    info!(
+        version = version::version(),
+        "Starting Skillet configuration for {}...", hostname
+    );
 
     let system = LinuxSystemResource::new();
     let files = LocalFileResource::new();
