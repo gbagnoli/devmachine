@@ -22,6 +22,7 @@ fn remote_apply_has_simple_defaults_and_production_policy() {
     assert_eq!(args.phase, ApplyPhase::Full);
     assert!(matches!(args.environment, UiEnvironmentName::Production));
     assert_eq!(args.port, 22);
+    assert!(!args.no_deploy);
     assert!(args.identity.is_none());
     assert!(args.known_hosts.is_none());
 }
@@ -97,4 +98,43 @@ fn invalid_remote_profile_or_policy_fails_before_connection_and_unlock() {
             .to_string()
             .contains("all production services"));
     }
+}
+
+#[test]
+fn deployment_can_only_be_skipped_for_remote_apply() {
+    let args = parse(&[
+        "skillet",
+        "apply",
+        "--host",
+        "clamps",
+        "--target",
+        "admin@example.invalid",
+        "--no-deploy",
+    ]);
+    assert!(args.no_deploy);
+    assert!(
+        crate::Args::try_parse_from(["skillet", "apply", "--host", "clamps", "--no-deploy"])
+            .is_err()
+    );
+}
+
+#[test]
+fn standalone_deploy_requires_profile_and_target_and_has_ssh_defaults() {
+    assert!(crate::Args::try_parse_from(["skillet", "deploy", "--host", "clamps"]).is_err());
+    assert!(crate::Args::try_parse_from([
+        "skillet",
+        "deploy",
+        "--target",
+        "admin@example.invalid"
+    ])
+    .is_err());
+    assert!(crate::Args::try_parse_from([
+        "skillet",
+        "deploy",
+        "--host",
+        "clamps",
+        "--target",
+        "admin@example.invalid"
+    ])
+    .is_ok());
 }

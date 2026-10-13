@@ -18,13 +18,38 @@ pub fn deliver(
             "VM is not available for binary delivery; finish creation or disposal first".into(),
         ));
     }
+    deliver_host(
+        run.identity.host(),
+        transport,
+        host_artifact,
+        generic_artifact,
+    )
+}
+
+/// Deliver a binary pair without imposing a VM identity on a physical host.
+/// VM callers retain their lifecycle and ownership guards around this operation.
+pub fn deliver_host(
+    host: &str,
+    transport: &impl GuestTransport,
+    host_artifact: &Path,
+    generic_artifact: &Path,
+) -> Result<ArtifactHashes> {
+    if host.is_empty()
+        || host.len() > 63
+        || !host
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+    {
+        return Err(Error::Invalid("invalid deployment host identity".into()));
+    }
     let hashes = ArtifactHashes {
         host: sha256(host_artifact)?,
         generic: sha256(generic_artifact)?,
     };
-    let host_staging = format!("/var/tmp/skillet-{}-update", run.identity.host());
-    let generic_staging = "/var/tmp/skillet-generic-update";
-    let host_destination = format!("/var/usrlocal/bin/skillet-{}", run.identity.host());
+    let nonce = uuid::Uuid::new_v4();
+    let host_staging = format!("/var/tmp/skillet-{host}-update-{nonce}");
+    let generic_staging = format!("/var/tmp/skillet-generic-update-{nonce}");
+    let host_destination = format!("/var/usrlocal/bin/skillet-{host}");
     let generic_destination = "/var/usrlocal/bin/skillet";
     for (artifact, source, destination, expected) in [
         (
@@ -35,17 +60,31 @@ pub fn deliver(
         ),
         (
             generic_artifact,
-            generic_staging,
+            &generic_staging[..],
             generic_destination,
             &hashes.generic[..],
         ),
     ] {
         if !matches_installed(transport, destination, expected)? {
             transport.upload(artifact, source)?;
+            let incoming = format!("{destination}.new-{nonce}");
             checked(
                 transport,
                 "sudo",
-                &["-n", "install", "-m", "0755", source, destination],
+                &[
+                    "-n", "install", "-o", "0", "-g", "0", "-m", "0755", source, &incoming,
+                ],
+            )?;
+            checked(transport, "sudo", &["-n", "restorecon", "-F", &incoming])?;
+            if !matches_installed(transport, &incoming, expected)? {
+                return Err(Error::Invalid(
+                    "staged binary bytes or metadata differ from the selected binary".into(),
+                ));
+            }
+            checked(
+                transport,
+                "sudo",
+                &["-n", "mv", "-T", &incoming, destination],
             )?;
         }
     }
@@ -59,7 +98,7 @@ pub fn deliver(
             ));
         }
     }
-    checked(transport, "rm", &["-f", &host_staging, generic_staging])?;
+    checked(transport, "rm", &["-f", &host_staging, &generic_staging])?;
     Ok(hashes)
 }
 

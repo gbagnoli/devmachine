@@ -232,3 +232,8 @@ skillet/
 - Keep release and source identity shared across generic and host binaries.
   Version metadata must refresh after Git or tracked-source changes without
   requiring a clean build; report unavailable provenance explicitly.
+
+- Remote application deploys its matching artifacts before consumer activation
+  unless reuse is explicit. Share artifact selection and verified replacement
+  across physical and disposable targets while retaining target-specific trust
+  guards; stop application after incomplete deployment.

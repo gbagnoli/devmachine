@@ -18,8 +18,16 @@ it. Caddy staging still performs scoped-token and DNS provider operations.
 Workstation SSH uses the operator's usual known-hosts file and OpenSSH identity
 selection unless overridden, while retaining strict host verification and
 noninteractive authentication. VM keys remain explicit run-owned artifacts.
-The workflow assumes installed guest binaries and temporary provisioning sudo;
-it does not deploy binaries, migrate data, finalize access or isolate controllers.
+Remote apply deploys current generic and caller binaries before vault access or
+service activation; `--no-deploy` explicitly reuses installed binaries. Standalone
+`deploy` has no vault or service side effects. Both use Cargo-reported artifacts
+and the VM delivery owner without manufacturing a VM identity. VM callers retain
+run locks and ownership guards. Delivery verifies identity, bytes, root metadata
+and version, and uses unique staging plus atomic replacement per executable.
+A failed partial pair stops apply and can be retried; pair-wide atomicity and
+concurrent independent deployment are not guaranteed. Temporary provisioning
+sudo is required. Deployment does not migrate data, finalize access or isolate
+controllers.
 
 
 Caller-selected native networking prepares boot profiles before monitoring,

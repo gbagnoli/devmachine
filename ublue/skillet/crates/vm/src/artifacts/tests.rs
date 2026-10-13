@@ -62,3 +62,15 @@ fn relative_artifacts_resolve_against_the_cargo_working_directory() {
         Path::new("/workspace/custom/debug/skillet")
     );
 }
+
+#[test]
+fn version_output_is_bounded_and_terminal_safe() {
+    assert_eq!(
+        super::version_text(b"skillet 0.1.0+git.abcdef\n").unwrap(),
+        "skillet 0.1.0+git.abcdef"
+    );
+    for bytes in [b"".as_slice(), b"bad\nsecond", b"\x1b[31mred", b"\xff"] {
+        assert!(super::version_text(bytes).is_err());
+    }
+    assert!(super::version_text(&[b'a'; 201]).is_err());
+}

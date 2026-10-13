@@ -45,11 +45,27 @@ After signed bootstrap, data/identity migration preparation and the vault audit:
 cargo run --release -p skillet -- apply --host HOST --target USER@ADDRESS
 ```
 
-This configures all caller-selected services. Keep temporary passwordless sudo
+Remote apply first builds and deploys both current binaries, prints their verified
+versions, then configures all caller-selected services. Deployment requires this
+source checkout, Cargo and the musl compiler; it honors Cargo's target directory.
+Use `apply --host HOST --target USER@ADDRESS --no-deploy` to reuse installed
+binaries (their versions are still printed).
+
+Deploy binaries separately, without vault access or service activation:
+
+```sh
+cargo run --release -p skillet -- deploy --host HOST --target USER@ADDRESS
+```
+
+Keep temporary passwordless sudo
 until provisioning/recovery operations finish. Stop old DNS writers and restored
 controller identities before activating their replacements. Apply does not
-migrate service data or upload replacement binaries; installed guest binaries
-and phase units must already match the profile.
+migrate service data. Deployment verifies host identity before
+building and again before transfer, installs each binary through a unique staged
+file and atomic rename, restores its SELinux label, then checks hashes, root
+ownership, mode and versions. The pair is not an atomic transaction: failed
+partial deployment stops apply; retry converges the remaining binary. Service
+units converge through the newly deployed guest base phase.
 
 SSH defaults to port 22, `~/.ssh/known_hosts`, and OpenSSH identity/configuration
 and agent selection. First verify the fingerprint at the server console and

@@ -1,10 +1,7 @@
 use super::{SecretDeliverArgs, UiEnvironmentName};
 use anyhow::{anyhow, Context, Result};
 use skillet_cli_common::hosts::ApplyPhase;
-use skillet_vm::{
-    credential::ActivationPolicy,
-    transport::{GuestCommand, GuestTransport, SshTransport},
-};
+use skillet_vm::{credential::ActivationPolicy, transport::SshTransport};
 use skillet_workstation::{host_apply, vault::Vault};
 use std::path::PathBuf;
 
@@ -22,6 +19,9 @@ pub(super) struct Args {
     /// Provision all declared services over verified SSH to USER@HOST
     #[arg(long, requires = "host")]
     target: Option<String>,
+    /// Reuse installed guest binaries instead of deploying current source
+    #[arg(long, requires = "target")]
+    no_deploy: bool,
     #[arg(long, default_value_t = 22)]
     port: u16,
     /// SSH private key; omitted uses OpenSSH configuration, defaults and agent
@@ -88,17 +88,17 @@ fn remote(args: &Args) -> Result<()> {
         args.identity.as_deref(),
         args.known_hosts.as_deref(),
     )?;
-    let identity = transport.execute(
-        &GuestCommand {
-            program: "cat",
-            arguments: &["/etc/skillet/host"],
-        },
-        None,
-    )?;
-    if !identity.status.success() || std::str::from_utf8(&identity.stdout)?.trim() != host {
-        return Err(anyhow!(
-            "SSH host identity differs from selected host; no credentials delivered"
-        ));
+    skillet_workstation::deployment::verify_host(host, &transport)?;
+    if args.no_deploy {
+        println!(
+            "Workstation Skillet {}; deployment skipped (--no-deploy)",
+            skillet_cli_common::version::version()
+        );
+        let installed = skillet_workstation::deployment::installed_versions(host, &transport)?;
+        println!("Installed: {}", installed.generic_version);
+        println!("Installed: {}", installed.host_version);
+    } else {
+        super::deploy::deploy(host, &transport)?;
     }
     let path = args.database.clone().map_or_else(Vault::default_path, Ok)?;
     let mut vault = Vault::open(&path, args.key_file.as_deref())?;

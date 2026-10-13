@@ -31,3 +31,7 @@ apply prepares networking without switching the active connection. See
 Offline parser validation and injected tests do not establish physical wireless
 association or actual reboot reachability. Record evidence separately in
 `plan/archive/ACCEPTANCE.md`. Live switching/checkpoint rollback remains future work.
+
+Physical binary updates now use `skillet deploy --host HOST --target USER@HOST`;
+remote `apply` performs that deployment by default. Network-only delivery still
+requires running the guest base phase once to install the preparation unit.

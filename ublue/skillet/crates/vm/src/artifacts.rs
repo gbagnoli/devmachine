@@ -54,6 +54,35 @@ pub fn build(request: &BuildRequest<'_>) -> Result<BTreeMap<String, PathBuf>> {
         .collect()
 }
 
+/// Inspect a selected executable with a bounded read-only command.
+pub fn binary_version(path: &Path) -> Result<String> {
+    let mut command = Command::new(path);
+    command.arg("--version");
+    let output = crate::process::capture(command, std::time::Duration::from_secs(10))?;
+    if !output.status.success() {
+        return Err(Error::Invalid(
+            "selected binary could not report its version".into(),
+        ));
+    }
+    version_text(&output.stdout)
+}
+
+/// Version output is a single bounded printable line, safe for terminal display.
+pub fn version_text(bytes: &[u8]) -> Result<String> {
+    let text = std::str::from_utf8(bytes)
+        .map_err(|_| Error::Invalid("invalid binary version output".into()))?
+        .trim();
+    if text.is_empty()
+        || text.len() > 200
+        || !text
+            .bytes()
+            .all(|byte| byte.is_ascii_graphic() || byte == b' ')
+    {
+        return Err(Error::Invalid("invalid binary version output".into()));
+    }
+    Ok(text.into())
+}
+
 #[derive(Deserialize)]
 struct CargoMessage {
     reason: String,
