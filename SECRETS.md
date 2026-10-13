@@ -18,7 +18,7 @@ No vault entries for the current local snapshot configuration.
 
 ## Caddy
 
-Prepare the shared Cloudflare entries. [UI setup](ublue/skillet/README.md#caddy-ui-credentials).
+Prepare the shared Cloudflare entries. [UI setup](ublue/skillet/crates/caddy/README.md#credentials-and-dns).
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
@@ -31,13 +31,13 @@ Shared inputs for Caddy and DDNS.
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
-| `skillet/cloudflare/token-creator` | Required | Create an account-owned Cloudflare API token with Account API Tokens Write and Zone Read, restricted to the selected zones. [Permissions guide](ublue/skillet/README.md#secret-setup-and-delivery). |
+| `skillet/cloudflare/token-creator` | Required | Create an account-owned Cloudflare API token with Account API Tokens Write and Zone Read, restricted to the selected zones. [Permissions guide](ublue/skillet/crates/workstation/docs/cloudflare.md). |
 | `skillet/environments/<environment>/dns/cloudflare-zone-id` | Required | Copy the Zone ID from the selected zone's Cloudflare Overview page. |
 | `skillet/environments/<environment>/dns/ui-domain` | Optional | Choose a relative UI prefix, such as ui; absent defaults to ui. Skillet appends the zone domain. Do not enter a full domain. |
 
 ## Datadog
 
-One shared key serves production and test. No application key required for ingestion. Site is public template configuration, defaulting to datadoghq.com. [Setup](ublue/skillet/README.md#datadog).
+One shared key serves production and test. No application key required for ingestion. Site is public template configuration, defaulting to datadoghq.com. [Setup](ublue/skillet/crates/datadog/README.md).
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
@@ -46,7 +46,7 @@ One shared key serves production and test. No application key required for inges
 
 ## DDNS
 
-Prepare the shared Cloudflare token creator and Zone ID. [DDNS setup](ublue/skillet/README.md#optional-cloudflare-ddns).
+Prepare the shared Cloudflare token creator and Zone ID. [DDNS setup](ublue/skillet/crates/ddns/README.md).
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
@@ -55,11 +55,11 @@ Prepare the shared Cloudflare token creator and Zone ID. [DDNS setup](ublue/skil
 
 ## Mikochi
 
-No application password; uses the shared Tailnet UI allowlist. [Setup](ublue/skillet/README.md#private-file-browsing).
+No application password; uses the shared Tailnet UI allowlist. [Setup](ublue/skillet/crates/mikochi/README.md).
 
 ## Network
 
-Caller-selected native static IPv4 and personal WPA Wi-Fi. Test VMs retain DHCP; no physical network values are delivered to test. [Setup](ublue/skillet/README.md#native-host-networking).
+Caller-selected native static IPv4 and personal WPA Wi-Fi. Test VMs retain DHCP; no physical network values are delivered to test. [Setup](ublue/skillet/crates/network/README.md).
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
@@ -68,11 +68,11 @@ Caller-selected native static IPv4 and personal WPA Wi-Fi. Test VMs retain DHCP;
 
 ## NUT
 
-No vault entry required. Skillet generates a local-only monitoring password on each opted-in host; no operator login. [UPS setup](ublue/skillet/README.md#local-ups-protection).
+No vault entry required. Skillet generates a local-only monitoring password on each opted-in host; no operator login. [UPS setup](ublue/skillet/crates/nut/README.md).
 
 ## Pi-hole
 
-[Delivery](ublue/skillet/README.md#secret-setup-and-delivery).
+[Delivery](ublue/skillet/crates/pihole/README.md#credentials-and-apply).
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
@@ -80,7 +80,7 @@ No vault entry required. Skillet generates a local-only monitoring password on e
 
 ## SMTP
 
-Production-only native Postfix relay credentials; smoke machines use a local sink without these values. [SMTP plan](ublue/plan/CLAMPS-EMAIL.md).
+Production-only native Postfix relay credentials; smoke machines use a local sink without these values. [SMTP setup](ublue/skillet/crates/smtp/README.md#setup).
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
@@ -88,7 +88,7 @@ Production-only native Postfix relay credentials; smoke machines use a local sin
 
 ## Storage
 
-Generated independent LUKS root recovery passphrases. [Enrollment](ublue/skillet/README.md#root-recovery-keys). Password contains the printable passphrase; custom luks-uuid and recovery-state fields and the protected root-luks.header attachment are managed by Skillet.
+Generated independent LUKS root recovery passphrases. [Enrollment](ublue/skillet/crates/workstation/docs/tpm.md#production-recovery-key). Password contains the printable passphrase; custom luks-uuid and recovery-state fields and the protected root-luks.header attachment are managed by Skillet.
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
@@ -101,7 +101,7 @@ No vault entries currently required; Skillet manages the private UI configuratio
 
 ## Tailnet UI
 
-Identity authorization for caller-declared private UIs. Uses the existing host-network daemon; no second login. [Setup](ublue/skillet/README.md#private-file-browsing).
+Identity authorization for caller-declared private UIs. Uses the existing host-network daemon; no second login. [Setup](ublue/skillet/crates/caddy/README.md#identity-protected-uis).
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
@@ -109,7 +109,7 @@ Identity authorization for caller-declared private UIs. Uses the existing host-n
 
 ## Tailscale
 
-Create an OAuth client in Tailscale Trust credentials with Auth Keys Write and Devices Core Read/Write, restricted to the provisioner tag. [Tag and scope guide](ublue/skillet/README.md#tailscale-setup-for-skillet). Skillet mints enrollment keys; do not create per-host auth-key entries.
+Create an OAuth client in Tailscale Trust credentials with Auth Keys Write and Devices Core Read/Write, restricted to the provisioner tag. [Tag and scope guide](ublue/skillet/crates/host-profiles/docs/tailscale.md). Skillet mints enrollment keys; do not create per-host auth-key entries.
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |

@@ -27,7 +27,7 @@ DHCP/RA DNS is ignored while IPv6 addresses remain automatic.
 
 Physical boot selection, association and reachability remain acceptance gates.
 Live connection switching/checkpoint rollback is not implemented. See
-[setup](../skillet/README.md#native-host-networking) and
+[setup](../skillet/crates/network/README.md) and
 [acceptance plan](../plan/HOST-NETWORKING.md).
 
 Reference: [NetworkManager keyfiles](https://networkmanager.pages.freedesktop.org/NetworkManager/NetworkManager/nm-settings-keyfile.html).

@@ -48,7 +48,7 @@ No new clamps service crate is required to start
   DDNS and Datadog. Validate its full production run after migration prerequisites
   and the one-writer DDNS handover; the new orchestration has no live production
   acceptance yet. See [host application](../design/host-application.md) and
-  [README](../skillet/README.md#apply-a-production-host-remotely).
+  [README](../skillet/crates/workstation/README.md#apply-a-production-host).
 - Temporary recovery-passphrase removal, final header refresh, networkless /
   update / rollback acceptance, final disk and production service cutover remain
   tracked by their existing plans. Keep rupik and its production SSD available.

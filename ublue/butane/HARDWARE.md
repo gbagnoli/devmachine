@@ -178,7 +178,7 @@ See [storage policy](../design/storage.md) and [remaining encryption checks](../
 8. Unlock KeePassXC and check the production secret audit. Use
    `skillet apply --host clamps --target giacomo@HOST` from the workstation to
    deliver credentials and apply all declared services; see
-   [Skillet's README](../skillet/README.md#apply-a-production-host-remotely).
+   [Skillet's README](../skillet/crates/workstation/README.md#apply-a-production-host).
    Complete data/identity migration and stop the old DDNS writer first. Keep
    restored controllers isolated until the planned migration. Individual
    `secrets deliver` commands stage by default; `--activate` starts their consumer.
