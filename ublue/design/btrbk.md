@@ -27,6 +27,5 @@ snapshots share the source disk's failure domain and are not an independent
 backup. Verify recovery by restoring a disposable snapshot to a separate path
 before relying on the schedule.
 
-Status: implementation and real-VM snapshot/restore verification are complete.
-See the [implementation milestone](../plan/CLAMPS-BTRBK.md) and
-[shared storage design](storage.md).
+Instructions: [btrbk](../skillet/crates/btrbk/README.md).
+Storage contract: [design](storage.md).

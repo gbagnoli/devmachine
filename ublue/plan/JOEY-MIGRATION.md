@@ -2,7 +2,7 @@
 
 Status: host/boot slice implemented; native base readiness and fixture
 repeat-apply/reboot accepted, 2026-10-11. Full application/provider acceptance
-is pending a vault unlock; the rebuilt image change and remote CI are unverified.
+is pending a vault unlock; the rebuilt image publication and remote CI are unverified in this record.
 Host identity changed to `joey` on 2026-10-11; the earlier native acceptance
 used its previous identity. Fresh joey boot/application acceptance and publication
 of `ghcr.io/gbagnoli/ucore-joey` remain pending. Existing VM manifests and vault
@@ -67,4 +67,4 @@ Use `skillet test vm create joey INSTANCE --port FREE_PORT`, then
 need cached vault access; do independent work if unlock would block. Install
 nothing on the workstation. Commit focused changes after validation; do not push.
 
-Evidence: [ACCEPTANCE.md](../butane/ACCEPTANCE.md).
+Evidence: [ACCEPTANCE.md](archive/ACCEPTANCE.md).

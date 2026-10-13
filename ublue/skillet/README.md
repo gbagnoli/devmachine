@@ -16,7 +16,8 @@ cargo build --workspace --bins
 cargo build --release --workspace --bins
 ```
 
-Cargo reports the artifact paths. Without `CARGO_TARGET_DIR`, release binaries
+Artifact locations follow Cargo target configuration. Without `CARGO_TARGET_DIR`,
+release binaries
 are in `target/x86_64-unknown-linux-musl/release/`: `skillet` and
 `skillet-HOST`. Both are included in prepared installation payloads.
 

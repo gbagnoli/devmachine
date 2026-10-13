@@ -1,16 +1,19 @@
 # Milestone 3 discussion: storage and credentials
 
-Prerequisite: complete [the Skillet refactoring roadmap](SKILLET-REFACTOR.md)
+> Archived documentation snapshot. Current tasks are in [active plans](../README.md);
+> dates, command identities and results below describe their original scope.
+
+Prerequisite: complete [the Skillet refactoring roadmap](../SKILLET-REFACTOR.md)
 before proceeding with the remaining feature milestones in this plan.
 Existing acceptance evidence and deferred tasks remain applicable.
 
 Status: remaining work, 2026-09-27. Base provisioning is implemented. The
 storage mount path and subvolume layout are decided in
-[the storage design](../design/storage.md); final physical disk remains open.
-Credential decisions are recorded in [the secret design](../design/secrets.md).
+[the storage design](../../design/storage.md); final physical disk remains open.
+Credential decisions are recorded in [the secret design](../../design/secrets.md).
 Shared Butane storage setup, rootful Podman graphroot configuration, Skillet
 mount guards and Pi-hole path changes passed fresh-VM, reboot, repeat-apply,
-and mount-failure checks; see [the acceptance record](../butane/ACCEPTANCE.md).
+and mount-failure checks; see [the acceptance record](ACCEPTANCE.md).
 The include is host independent and must be merged by each future host's
 Butane template.
 
@@ -20,7 +23,7 @@ delivery through the host Rust binary, a full-apply unit, and Pi-hole secret
 file wiring are implemented.
 Workspace checks, dummy credential delivery, repeated apply, rotation, reboot,
 and VM smoke passed;
-see [the acceptance record](../butane/ACCEPTANCE.md). The first smoke exposed
+see [the acceptance record](ACCEPTANCE.md). The first smoke exposed
 that the workstation denied expiry on keys
 stored directly in the user keyring. Skillet now uses a named session keyring,
 retained across CLI invocations through a link from the user keyring; its
@@ -41,7 +44,7 @@ settle storage before migrating production Pi-hole state.
 
 Decided: one Btrfs filesystem sharing space between OS and data, with a `data`
 subvolume mounted at `/var/lib/data` and child `pihole` and `containers`
-subvolumes. See [storage design](../design/storage.md). Final disk selection
+subvolumes. See [storage design](../../design/storage.md). Final disk selection
 remains open; the Samsung remains in rupik until cutover.
 
 Read-only SSH inspection of boxy confirmed:
@@ -102,7 +105,7 @@ Snapshots, Syncthing data transfer and final disk cutover are later milestones. 
 
 ## 3B: one credential end to end
 
-Implement the [KeePassXC and delivery decision](../design/secrets.md):
+Implement the [KeePassXC and delivery decision](../../design/secrets.md):
 
 - Read exact KDBX entries in workstation Rust code. Use a disposable test database
   to verify lookup, unlock failure and recovery on another workstation.
@@ -124,7 +127,7 @@ Implement the [KeePassXC and delivery decision](../design/secrets.md):
   a Podman secret exists. A new workstation with a missing vault cannot create one.
 
 Cloudflare per-VM issuance and cleanup follow in the live ACME milestone, using
-the [VM lifecycle decision](../design/smoke-vms.md).
+the [VM lifecycle decision](../../design/smoke-vms.md).
 
 Exit criteria for 3B:
 

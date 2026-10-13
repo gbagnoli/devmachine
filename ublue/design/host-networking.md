@@ -25,8 +25,8 @@ have higher autoconnect priority than default DHCP; existing profiles are retain
 for recovery. Wi-Fi uses its permanent MAC. DNS order is preserved exactly;
 DHCP/RA DNS is ignored while IPv6 addresses remain automatic.
 
-Physical boot selection, association and reachability remain acceptance gates.
-Live connection switching/checkpoint rollback is not implemented. See
+Live connection switching/checkpoint rollback is outside this boot-preparation
+contract. See
 [setup](../skillet/crates/network/README.md) and
 [acceptance plan](../plan/HOST-NETWORKING.md).
 

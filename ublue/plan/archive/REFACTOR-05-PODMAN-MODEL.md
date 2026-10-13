@@ -1,7 +1,10 @@
 # 5. Podman configuration with explicit host policy
 
+> Archived documentation snapshot. Current tasks are in [active plans](../README.md);
+> dates, command identities and results below describe their original scope.
+
 Status: implementation and clamps live acceptance complete. See
-workstreams 2–4 in the [prerequisite roadmap](SKILLET-REFACTOR.md).
+workstreams 2–4 in the [prerequisite roadmap](../SKILLET-REFACTOR.md).
 
 ## Read and locate
 

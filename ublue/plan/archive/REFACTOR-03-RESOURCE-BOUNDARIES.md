@@ -1,9 +1,12 @@
 # 3. Cohesive effect interfaces and unified ownership
 
+> Archived documentation snapshot. Current tasks are in [active plans](../README.md);
+> dates, command identities and results below describe their original scope.
+
 Status: implementation complete; live mount/subvolume, service ownership, and
 descendant-metadata preservation checks passed. This follows
 workstream 2 in
-[the prerequisite roadmap](SKILLET-REFACTOR.md); further feature milestones
+[the prerequisite roadmap](../SKILLET-REFACTOR.md); further feature milestones
 wait for the full roadmap gate.
 
 ## Read and locate

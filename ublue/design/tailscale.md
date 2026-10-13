@@ -1,34 +1,23 @@
 # Tailscale host routing
 
-Run Tailscale rootfully with host networking and persistent state. The canonical
-host caller selects `advertise_exit_node`; clamps and joey enable it. Production delivery
-resolves that declaration into a versioned encrypted enrollment payload. Disposable
-delivery always selects false. Never infer environment from a runtime hostname.
-Only the decoded enrollment key becomes the Podman secret; policy stays in clear
-managed Quadlet configuration. No new vault entries or OAuth scopes are required.
+Use a rootful host-network container with persistent state, giving the host a
+normal interface and preserving host-level forwarding. Caller-selected routing
+is separate from environment/instance identity. Versioned encrypted enrollment
+carries the resolved policy; only the decoded one-use key becomes a Podman secret.
+Workstation OAuth never reaches the host.
 
-Keep `TS_AUTH_ONCE=true` to preserve one-use enrollment. Extra startup arguments
-alone cannot converge preferences on already authenticated nodes. A native
-`tailscale set --advertise-exit-node=<bool>` runs after the container's status
-healthcheck satisfies Quadlet `Notify=healthy`, including every service startup.
-Explicit false withdraws a retained advertisement. No shell program is embedded.
-The existing host baseline already enables IPv4 and IPv6 forwarding.
+Production resolves advertise_exit_node from the caller; disposable policy
+always disables it. TS_AUTH_ONCE preserves one-use enrollment. Startup auth-only
+modes can skip later preferences, so supported tailscale set commands converge
+routing after healthy readiness on every startup, including explicit withdrawal.
 
-Retained raw-key credentials remain readable and default to no advertisement.
-Redeliver production Tailscale credentials to enable caller-selected routing;
-new disposable credentials explicitly disable it. Invalid versioned payloads
-fail without exposing values. Host composition rejects advertisements its caller
-did not select.
+Retained raw-key payloads default to no advertisement; malformed versions fail
+without exposing values. The guest rejects policy the caller did not select.
+Approval/access grants and client exit-node selection remain operator policy,
+not implicit effects of credential delivery. Exit-node selection does not imply
+LAN subnet advertisement, route acceptance or disabled subnet SNAT.
 
-Tailnet exit-node approval remains operator policy; this change does not edit
-access controls or make clients select an exit node. Local policy, compatibility,
-rendering and Quadlet compilation are checked. Live routing exercises are omitted
-by operator decision; they are not an additional acceptance gate for this slice.
-
-References: [exit-node policy](https://tailscale.com/docs/features/exit-nodes),
-[container startup](https://github.com/tailscale/tailscale/blob/main/cmd/containerboot/tailscaled.go),
-[Quadlet readiness](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html#notify-defaults-to-false).
-
-Boxy's LAN subnet advertisement, route acceptance and disabled subnet SNAT are
-not supplied by this exit-node switch. Shared private routing policy is the next
-[joey slice](../plan/JOEY-MIGRATION.md); no LAN routes are guessed.
+[Setup and commands](../skillet/crates/host-profiles/docs/tailscale.md).
+Joey's private routing work: [migration plan](../plan/JOEY-MIGRATION.md).
+References: [exit nodes](https://tailscale.com/docs/features/exit-nodes),
+[container startup](https://github.com/tailscale/tailscale/blob/main/cmd/containerboot/tailscaled.go).

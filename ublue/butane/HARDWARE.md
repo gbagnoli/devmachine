@@ -128,7 +128,7 @@ See [storage policy](../design/storage.md) and [remaining encryption checks](../
    The helper copies the supplied file into root-only live tmpfs and checks its
    SHA-256 against the digest embedded in this USB. A payload from another bundle
    is refused. Destination Ignition remains in the private bundle and travels
-   over SSH. See [the media design](../design/storage.md#physical-installation-media).
+   over SSH. See [the media design](../design/storage.md#installation-boundary).
    An offline alternative is a separate data USB: mount it and pass the Ignition
    path to the same helper.
 

@@ -262,7 +262,7 @@ Each code slice runs the applicable checks from `AGENTS.md`, with routine CI
 requiring no vault or external API. Real tests use a named disposable VM through
 the Rust lifecycle owner; cache unlock prompts never block independent work.
 Do not install workstation tools. Record honest evidence in
-[ACCEPTANCE.md](../butane/ACCEPTANCE.md), update designs and this plan, and maintain
+[ACCEPTANCE.md](archive/ACCEPTANCE.md), update designs and this plan, and maintain
 the shared secret-requirement catalog/root checklist when exact entries are added.
 The shared identity allowlist is implemented at `skillet/tailscale/ui-users`.
 Gokapi application-account mapping and other migration-specific inputs remain
@@ -280,4 +280,12 @@ Syncthing callers (clamps and joey), including encrypted allowlist delivery,
 canonical DNS/Caddy declarations, ownership, private backend and CI regressions.
 Donbot still needs its profile; the shared composition will include file browsing.
 Gokapi identity/account mapping and Headscale acceptance remain pending. See
-[Butane acceptance](../butane/ACCEPTANCE.md) for live checks and limitations.
+[Butane acceptance](archive/ACCEPTANCE.md) for live checks and limitations.
+
+
+## Resolver topology follow-up
+
+Select and provision donbot's third Pi-hole explicitly, with private DNS policy
+and independent state, to complement the colocated clamps/joey pair. Record
+remote-client reachability and failure-domain behavior without inferring it from
+UI DNS publication. See [fleet topology](../design/fleet-hosts.md).

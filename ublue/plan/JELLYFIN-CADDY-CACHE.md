@@ -98,7 +98,7 @@ policy and certificates; reboot starts correctly with retained or absent cache.
 Changing/removing a cache policy must not delete application data or enable
 caching elsewhere. Pin/update the service image through the shared container
 workflow and record named-VM evidence in
-[ACCEPTANCE.md](../butane/ACCEPTANCE.md).
+[ACCEPTANCE.md](archive/ACCEPTANCE.md).
 
 Sources: [cache-handler](https://github.com/caddyserver/cache-handler),
 [storage/build integration](https://docs.souin.io/docs/middlewares/caddy/), and

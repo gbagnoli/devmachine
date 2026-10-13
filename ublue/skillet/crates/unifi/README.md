@@ -16,7 +16,7 @@ Use a compatible `.unf` backup through the setup/UI flow. Keep backups private
 and outside version control. Do not copy ARM MongoDB files to the x86_64 target.
 Stop the old production controller before enabling its replacement.
 
-For a disposable restore, follow the [isolated restore procedure](../../../plan/CLAMPS-UNIFI.md).
+For a disposable restore, follow the [isolated restore procedure](docs/restore.md).
 Install and verify the persistent test network fence **before** importing live
 state; do not enable cloud access or change device inform addresses there.
 From `ublue/skillet`, open its local UI with the owned forward:

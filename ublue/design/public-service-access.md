@@ -5,15 +5,15 @@
 Calculon's replacement, donbot, needs publicly reachable HTTPS for Plex and
 Jellyfin without a Tailscale client. Former OAuth-protected administrative UIs
 move to tailnet-only access. Gokapi retains public sharing/upload flows with
-private administration; inventory Airtrail's current public API exception and
-Joplin's conditional public endpoint before selecting their policy.
+private administration; Airtrail's public API exception and Joplin's conditional endpoint require explicit
+source policy rather than inheriting generic private access.
 
 The private file-management capability should be shared by Syncthing hosts.
 The magiusstaff second instance is deferred. File browsing requires no internal
 password prompt; use the [shared tailnet identity policy](tailnet-ui-authentication.md)
 for the two intended users and reuse it for Gokapi administration.
 
-## Proposed implementation, not yet accepted or implemented
+## Proposed access contract
 
 Extend the existing generic Caddy and provider lifecycle with explicit service
 access policies. Keep private as the default and deny unspecified mixed routes.
@@ -34,11 +34,10 @@ and [Caddy cache module status](https://caddyserver.com/docs/modules/http.handle
 
 The original [File Browser](https://github.com/filebrowser/filebrowser) is
 archived. [File browsing](file-browsing.md) records the shortlist, with Mikochi
-as the selected shared implementation on clamps and joey; browser acceptance
-is still pending. Keep any
+as the selected shared implementation on clamps and joey. Keep any
 persistent app state outside synchronized user files and serve declared folders.
 
-## Status
+## Boundary
 
 Current code serves every declared Caddy UI with a tailnet restriction; it has
 no generic public or mixed policy. Existing private behavior remains authoritative

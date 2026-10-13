@@ -1,7 +1,7 @@
 # Home Assistant
 
-Status: decision recorded on 2026-10-11; implementation and acceptance pending.
-See the [implementation plan](../plan/HOME-ASSISTANT.md).
+Proposed deployment/backup decision. Implementation belongs to
+[the Home Assistant plan](../plan/HOME-ASSISTANT.md); this is not a deployed service.
 
 ## Deployment and access
 

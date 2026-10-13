@@ -47,9 +47,15 @@ This document defines the architectural mandates and project structure for `skil
 
 ## Architecture and refactoring rules
 
-Follow [the refactoring roadmap](../plan/SKILLET-REFACTOR.md) before further
-feature milestones. These rules describe the target architecture; the roadmap
-tracks existing violations and their migration, not completed implementation.
+The rules below are the current architecture contract. Implementation history
+is [archived](../plan/archive/README.md); remaining backend/runtime acceptance
+is tracked in [the refactor plan](../plan/SKILLET-REFACTOR.md). Preserve each
+unverified scope while following the active user-authorized work.
+
+Keep the workspace README as a build/test/install entry point. Module operation
+belongs in crate guides; rationale in design; tasks/history in plan/archive.
+Maintain the [module index](crates/host-profiles/README.md) and shared secret
+checklist links when documentation moves.
 
 - Route effectful observations and mutations through the same explicit
   boundary. Recipe and orchestration code must not bypass an injected resource

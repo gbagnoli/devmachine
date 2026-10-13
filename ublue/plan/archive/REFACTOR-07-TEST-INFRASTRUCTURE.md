@@ -1,12 +1,15 @@
 # 7. Test layers, fixtures, build artifacts and CI
 
+> Archived documentation snapshot. Current tasks are in [active plans](../README.md);
+> dates, command identities and results below describe their original scope.
+
 Status: implementation and named fixture acceptance passed; remote CI and live
 Syncthing acceptance after correcting the declared host/container identity
 mapping remain open, 2026-10-05. Rust-owned smoke, storage/service fake contracts,
 bootstrap CI execution, and capability-selected application acceptance are
 implemented. The named fixture smoke and retained update passed. Scripted
 interrupted-reboot recovery passed; see the
-[acceptance log](../butane/ACCEPTANCE.md#interrupted-reboot-checkpoint-recovery-2026-10-05).
+[acceptance log](ACCEPTANCE.md#interrupted-reboot-checkpoint-recovery-2026-10-05).
 An optional repeated application check exposed a mismatch between the host
 account owning `/var/lib/data/syncthing` and Syncthing's container identity.
 The profile now declares the container UID/GID separately and maps them to the
@@ -14,7 +17,7 @@ host owner; live acceptance after this change is parked until Flatpak libvirt
 access returns. See the
 [follow-up plan](REFACTOR-FOLLOWUP.md).
 Live legacy import and controlled interrupted-provisioning recovery passed;
-see the [prerequisite roadmap](SKILLET-REFACTOR.md).
+see the [prerequisite roadmap](../SKILLET-REFACTOR.md).
 
 ## Read and locate
 

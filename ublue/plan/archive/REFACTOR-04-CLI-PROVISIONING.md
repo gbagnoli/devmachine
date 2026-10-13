@@ -1,10 +1,13 @@
 # 4. Thin CLIs and shared workstation provisioning
 
+> Archived documentation snapshot. Current tasks are in [active plans](../README.md);
+> dates, command identities and results below describe their original scope.
+
 Status: implementation and disposable VM acceptance complete, including
 credential rotation, interrupted recovery, and cleanup. Production delivery
 is deferred. This follows
 workstreams 1–3 in
-[the prerequisite roadmap](SKILLET-REFACTOR.md); further feature milestones
+[the prerequisite roadmap](../SKILLET-REFACTOR.md); further feature milestones
 wait for the full roadmap gate.
 
 ## Read and locate

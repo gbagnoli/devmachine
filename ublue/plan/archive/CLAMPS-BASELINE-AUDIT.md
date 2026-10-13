@@ -1,5 +1,8 @@
 # Clamps baseline audit
 
+> Archived documentation snapshot. Current tasks are in [active plans](../README.md);
+> dates, command identities and results below describe their original scope.
+
 Status: audited 2026-10-09. Subsequent operator decisions accept UID 1001
 and require passwordless provisioning followed by explicit password-required
 sudo and first-login password change; see `../design/administrative-access.md`.

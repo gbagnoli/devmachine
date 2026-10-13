@@ -35,6 +35,7 @@ stores; resolve Syncthing conflict copies before retrying.
 unused checks cover all declared hosts and both environments. It prints no
 values and makes no provider calls. Optional/generated entries may be absent.
 Terminal links use OSC 8 when supported; `FORCE_HYPERLINK=0` disables them.
+`FORCE_HYPERLINK=1` overrides detection on terminal stdout; pipes keep plain text.
 
 ## Apply a production host
 

@@ -130,7 +130,7 @@ btrbk snapshot. An unavailable peer is recorded as an open check, not success.
 Exit: both replicated-archive and snapshot recovery work; original backup and
 independent recovery key remain usable. No restored instance contacts live
 home devices or production cloud integrations. Record aggregate evidence and
-limitations in `../butane/ACCEPTANCE.md`.
+limitations in `../plan/archive/ACCEPTANCE.md`.
 
 ## 5. Production activation and documentation
 

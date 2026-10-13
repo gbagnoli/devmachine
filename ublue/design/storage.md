@@ -1,149 +1,65 @@
-# Shared uCore persistent storage
+# Shared persistent storage and root protection
 
-Decision: use the Btrfs filesystem backing uCore's writable `/var` and
-`/sysroot`, with a `data` subvolume mounted at `/var/lib/data`. This follows
-boxy's shared-space OS/data layout while preserving uCore's deployment layout.
-This layout is shared by all uCore hosts. On the disposable clamps VM, `/` is a
-composefs overlay and `/var` is on the Btrfs root partition; an `/os` root
-subvolume must not be copied from boxy. The physical disk for clamps is still
-undecided.
+## Layout
 
-`/var/lib/data` is the host's canonical service-state root. Create child
-subvolumes only for independently managed data: initially `pihole`,
-`syncthing`, and `containers`. Pi-hole's container `/etc/pihole` maps to
-`/var/lib/data/pihole/etc`; any retained dnsmasq configuration and logs live
-under that Pi-hole tree. Rootful Podman's graphroot is
-`/var/lib/data/containers/system` on fresh installs, with runroot under
-`/run/containers/storage`. Chef set `driver=btrfs` for rupik and boxy; uCore
-currently uses overlay, so the shared config keeps overlay while moving the
-graphroot. Its SELinux file-context equivalence matches the former graphroot.
-Rootless storage is added only for a host that needs rootless containers.
+Use uCore's Btrfs backing filesystem for writable /var and /sysroot, with a data
+subvolume mounted at `/var/lib/data`. Keep uCore's composefs deployment layout;
+boxy's `/os` subvolume is not copied onto this OS. Shared space follows the
+existing fleet convention without a separate data partition.
 
-XDG base directories describe user-specific files, so they do not improve the
-location of system service state. `/srv` suits site data served directly to
-clients; Pi-hole's database and Podman's image layers are internal state.
-`/var/lib/data` also matches boxy's and calculon's existing convention.
+Service state belongs under /var/lib/data, with independently managed leaf
+subvolumes. Rootful Podman graphroot is `containers/system`, preserving uCore's
+overlay driver and SELinux equivalence; runroot stays volatile. Rootless storage
+is selected separately. XDG describes user files, not system container layers or
+service databases; /srv is not needed for these internal state trees.
 
-The shared `butane/includes/data-storage.bu` include creates the top-level
-`data` subvolume on the Btrfs filesystem backing `/var`, mounts it, prepares
-the `containers` subvolume, and configures rootful Podman. It verifies the filesystem UUID backing `/var` and mounts the filesystem
-labelled `root`, whether it resides on a plain partition or a LUKS mapper. Each host's Butane template must merge
-the include; clamps currently does. Host Skillet creates application
-subvolumes and directories. Existing populated Podman stores require an
-explicit migration; changing an installed host's graphroot is not automatic.
-Skillet must not format a populated disk.
-Skillet, managed application services, and Podman auto-update require the
-mounted data subvolume and fail when it is absent, preventing their writes to
-a fallback directory. A manually invoked Podman command does not have this
-unit dependency and must only run after validating the mount.
-Btrfs snapshots do not include nested subvolume contents, so backup policy
-must list service subvolumes explicitly. Snapshot source subvolumes are leaf
-subvolumes: nested subvolumes inside them are unsupported. Syncthing follows
-this rule by design. The `containers` subvolume can then be omitted from
-service-data snapshots. A shared filesystem shares free space and physical
-failure; snapshots are not independent backups.
+Ignition owns new-install formatting. The shared data include checks the backing
+filesystem identity and prepares/mounts data and containers. Skillet converges
+application directories/subvolumes without formatting existing disks. Managed
+services and auto-update require the verified mount, preventing writes into a
+fallback directory. Manual Podman is outside those unit dependencies.
 
-## Optional native encryption
+Snapshots list selected leaf subvolumes explicitly; nested sources are unsupported.
+Container layers are excluded. Shared space also shares device failure;
+[btrbk](btrbk.md) history is not an independent backup. Existing populated stores
+need explicit migration, not a graphroot edit followed by automatic data movement.
 
-Decision, 2026-10-02: add LUKS2 beneath the shared Btrfs backing filesystem
-and prefer local TPM2 unlock on both local and remote physical hosts. Normal
-boots must not need a network or operator. This protects persistent service
-state, including Podman's disk copies of secrets, while retaining the existing
-subvolume layout. Tang is deferred; assess each remote host's TPM first.
-EFI and `/boot` remain outside encryption. An explicit boot-integrity policy
-and update/rollback compatibility must be proved before claiming protection
-against theft of the whole machine. Keep an independent recovery key in the
-private vault and a protected off-machine LUKS header backup.
-Decision, 2026-10-10: the first profile uses native Ignition/Clevis TPM2 with
-SHA256 PCR 7 and requires Secure Boot. Its accepted protection scope is removal
-or loss of the encrypted disk; separate GRUB kernel/initramfs files do not
-provide authenticated whole-machine boot. Custom UKIs and signed PCR policies
-are deferred. No network service participates in unlock.
+## Native root encryption
 
-Implemented for disposable installs: `unencrypted` remains the default;
-explicit `tpm` selects LUKS2 beneath Btrfs and fails when prerequisites are
-missing. There is no automatic downgrade. Profile selection is independent of
-host identity. Filesystem UUID/label checks support both layouts. TPM enrollment
-occurs during native Ignition installation; the same firmware policy must
-survive the signed-uCore bootstrap. Changing Secure Boot/MOK policy requires a
-working recovery path before enrollment changes. On physical hardware, enroll
-any required image signing/MOK keys before the first encrypted Ignition boot;
-QEMU success with its enrolled firmware keys does not replace that procedure.
+LUKS2 sits below Btrfs, preserving data layout and protecting persistent runtime
+secret copies. Native Ignition/Clevis TPM2 SHA256 PCR 7 with Secure Boot enables
+network/operator-free normal unlock. Plain root remains the default for hardware
+without suitable TPM; explicit TPM selection fails on missing prerequisites.
+Root profile is independent of host identity and never silently downgrades.
 
-Disposable acceptance creates an independent random recovery key and header
-backup under the private run directory, then checks recovery without TPM and
-cold-boots through the lifecycle owner. Only TPM and recovery keyslots are
-accepted. These artifacts are deleted on disposal. Production vault enrollment
-is implemented with write-ahead persistence and volume identity checks.
-Live VM vault enrollment/retry and cold-boot persistence passed on 2026-10-10;
-invalid-passphrase rejection confirms the independent passphrase path.
-Header export is implemented: the recovery-key command archives a verified
-LUKS2 header as the protected `root-luks.header` attachment on the same KDBX
-entry. It refreshes after enrollment changes without rotating the passphrase.
-The encrypted vault, backed up independently, carries both recovery artifacts.
-A header backup is not a data backup. Physical-disk selection and physical
-recovery acceptance remain planned. Skillet convergence never formats an installed filesystem.
-QEMU functional tests and physical acceptance are specified in the
-[TPM encrypted-root plan](../plan/TPM-ENCRYPTED-ROOT.md).
+EFI and /boot remain outside encryption. The accepted scope is encrypted-disk
+loss/removal, not authenticated whole-machine boot. PCR 7 measures Secure Boot
+policy/authorities, not every kernel/initramfs/command-line byte. Ostree's image
+verification label does not itself explain or fix TPM policy mismatches. Final
+MOK/Secure Boot policy and independently verified recovery are required before
+changing enrollment. Routine convergence never replaces TPM bindings.
 
-The clamps VM passed fresh provisioning, mount, SELinux, reboot, repeat apply,
-and unavailable/wrong-mount recovery. A post-provision OS rebase and the
-physical disk choice remain open in
-[the storage plan](../plan/CLAMPS-STORAGE-CREDENTIALS.md).
+Recovery uses a printable independent passphrase and protected volume-bound
+header in the portable vault. Refresh headers after enrollment changes; a header
+is not a data backup. Write-ahead persistence/readback protects the original
+unlock path, including stopped clones with independent TPM/NVRAM and unlogged
+recovery consoles. [Secret archives](secrets.md#root-recovery-archives).
 
-References: [XDG base directories](https://specifications.freedesktop.org/basedir/),
-[FHS `/srv`](https://specifications.freedesktop.org/fhs/latest/srv.html),
-[Btrfs subvolumes](https://btrfs.readthedocs.io/en/stable/btrfs-subvolume.html).
+## Installation boundary
 
+Physical media selects an explicit whole-disk by-id path. Workstation generation
+never opens block devices; the live helper verifies the actual server and asks
+for destructive confirmation. Private bootstrap access replaces inherited keys
+and hashes. The small live Ignition embeds access/helper/destination digest;
+the full payload travels separately and is verified in root-only live tmpfs,
+respecting CoreOS's embedding limit. VM /dev/vda remains a separate template.
 
-## TPM capability audit (2026-10-10)
+Disk choice and hardware/update acceptance are in [clamps migration](../plan/CLAMPS-MIGRATION.md)
+and [TPM acceptance](../plan/TPM-ENCRYPTED-ROOT.md). Stock-SSD installation evidence
+must not accept an uninstalled final production disk. [Operating procedures](../butane/HARDWARE.md).
 
-The retained signed-uCore VM has Clevis 21, cryptsetup 2.8.8, systemd 259.8
-with TPM2 support, and TPM2 tools. Its deployed initramfs contains Clevis TPM2,
-cryptsetup/systemd TPM token support and Btrfs. No extra package installation is
-currently justified for native Clevis unlock; actual encrypted-boot acceptance
-must also check the initial FCOS image and each subsequent deployment.
-
-The native Rocky test backend has KVM, swtpm and q35 OVMF Secure Boot firmware
-with enrolled-key NVRAM templates. The workstation exposes no physical TPM;
-virtual-TPM tests do not require one. Existing smoke domains boot BIOS without
-TPM. New encrypted tests must explicitly select UEFI/Secure Boot, independent
-TPM2 state and owned persistent NVRAM. Firmware capability is not boot acceptance.
-
-Current boot entries use separate kernel/initramfs files under GRUB. Neither
-ukify nor systemd-measure was found on the deployed guest; no signed PCR-policy
-pipeline exists in our image recipes. PCR 7 binds Secure Boot policy, not all
-kernel/initramfs/command-line bytes. TPM-only unlock must not be described as
-protection against whole-machine theft or tampering. Signed-policy boot integrity
-requires a separate implemented update/rollback chain; adding packages alone
-would not establish it. The operator accepted the narrower native profile above; stronger boot integrity
-is a separate future project. Virtual acceptance does not establish physical
-firmware compatibility.
-
-Sources: [FCOS encrypted root](https://github.com/coreos/fedora-coreos-docs/blob/main/modules/ROOT/pages/storage.adoc#encrypted-storage-luks),
-[Clevis TPM threat model](https://github.com/latchset/clevis/blob/master/src/pins/tpm2/clevis-encrypt-tpm2.1.adoc#threat-model),
-[systemd PCR policies](https://github.com/systemd/systemd/blob/main/man/systemd-cryptenroll.xml).
-
-Recovery acceptance uses a stopped, base-only disk clone with independent TPM
-and NVRAM. It preserves the source TPM and archive; provider-provisioned VMs
-are excluded to prevent impersonation. Recovery consoles have no serial log.
-New TPM enrollment is explicit, verifies the new binding before removing the
-old one, and archives the refreshed clone header separately. Routine convergence
-never replaces TPM bindings. Native header restoration, TPM-loss recovery/re-enrollment, completed retry and
-unattended cold boot passed on 2026-10-11; evidence is in Butane's record.
-
-## Physical installation media
-
-Physical installation uses an explicit destination whole-disk by-id path and
-reuses the VM-tested root-profile transform. Workstation media generation never
-opens a block device. A separate live helper checks the actual server and asks
-for disk confirmation before installation; TPM media requires the final Secure
-Boot/MOK policy before first encrypted boot. VM staging retains `/dev/vda`.
-The live ISO contains a small bootstrap configuration, operator public key and
-expected destination-Ignition digest. CoreOS's 256 KiB embedding limit excludes
-our application binaries, so the full destination payload is transferred over
-verified SSH (or separate data media), then checked in root-only live tmpfs.
-Production media requires private bootstrap-access inputs instead of inheriting
-committed keys/password hashes. USB media generation is implemented; physical
-boot and installation acceptance remain unverified. See the
-[hardware runbook](../butane/HARDWARE.md).
+References: [XDG](https://specifications.freedesktop.org/basedir/),
+[Btrfs](https://btrfs.readthedocs.io/en/stable/btrfs-subvolume.html),
+[FCOS encryption](https://github.com/coreos/fedora-coreos-docs/blob/main/modules/ROOT/pages/storage.adoc#encrypted-storage-luks),
+[Clevis threat model](https://github.com/latchset/clevis/blob/master/src/pins/tpm2/clevis-encrypt-tpm2.1.adoc#threat-model),
+[PCR policies](https://github.com/systemd/systemd/blob/main/man/systemd-cryptenroll.xml).
