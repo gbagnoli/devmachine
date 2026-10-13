@@ -38,7 +38,6 @@ attachment. See [monitoring composition](monitoring.md).
 Removing the declaration leaves existing resources unmanaged; explicit removal
 is required to disable previously configured protection.
 
-Validate configuration with real Fedora NUT tools and a simulated driver whose
-shutdown command is harmless. USB polling, real battery shutdown and UPS load
-cycling remain physical acceptance; never invoke forced shutdown during routine
-smoke tests. See [acceptance](../butane/ACCEPTANCE.md).
+Instructions: [NUT](../skillet/crates/nut/README.md). Physical and metric recovery
+acceptance: [plan](../plan/CLAMPS-DATADOG.md). Forced real shutdown is excluded
+from routine smoke checks.

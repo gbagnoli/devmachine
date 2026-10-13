@@ -178,7 +178,7 @@
   power-return startup remain **unverified**. BlueBuild CLI is unavailable
   locally; the current published smoke image does not contain these new packages.
   Consumer unit verification is not signed-uCore boot or hardware acceptance.
-  See [the UPS design](../design/ups.md).
+  See [the UPS design](../../design/ups.md).
 
 ## Mikochi and shared tailnet identity — 2026-10-11
 
@@ -237,7 +237,7 @@ Current profiles/artifacts use `joey` (formerly beelzebot) and `donbot`
 the values actually used; they are not acceptance of freshly renamed machines.
 Retained run manifests, provider ownership and vault entries were not mutated.
 New image publication and a fresh joey boot/application check remain pending;
-see [the joey migration plan](../plan/JOEY-MIGRATION.md).
+see [the joey migration plan](../JOEY-MIGRATION.md).
 Rename validation passed: offline locked workspace/all-target compile check,
 strict all-target Clippy, formatting and all 372 workspace tests. Nine bootstrap
 regressions (including joey/donbot image selection), both hardware refusal cases,
@@ -397,7 +397,7 @@ and final disposable cleanup remain pending.**
   No production controller or device was modified. Only documentation changed
   in this follow-up; existing code validation is recorded below.
 
-Email delivery follow-up: [server email plan](../plan/CLAMPS-EMAIL.md).
+Email delivery follow-up: [server email plan](../CLAMPS-EMAIL.md).
 
 ## UniFi restore preparation — 2026-10-09
 
@@ -1586,7 +1586,7 @@ host tool; it still uses normal command approvals.
 - Repeated the full apply. It completed with status 0, UniFi remained active,
   and the container ID stayed unchanged. Backup restore, reboot persistence,
   and expected host listener checks remain pending; see
-  [the UniFi plan](../plan/CLAMPS-UNIFI.md).
+  [the UniFi plan](../CLAMPS-UNIFI.md).
 
 ### Rust VM local artifact preparation, 2026-10-03
 
@@ -2638,7 +2638,7 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   Private evidence was retained before disposing of this regression VM.
 - Unverified: booting the new USB ISO itself, actual S13 disk installation,
   physical TPM/Secure Boot/MOK enrollment, LAN and production cutover. See
-  [the physical runbook](HARDWARE.md). Existing smoke VM was not modified.
+  [the physical runbook](../../butane/HARDWARE.md). Existing smoke VM was not modified.
 
 
 ## 2026-10-11 — boxy replacement host/boot slice
@@ -2707,3 +2707,24 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   binary deployment, image Wi-Fi support, real systemd boot ordering, static
   address adoption, physical Wi-Fi association, LAN/Tailscale reachability and
   reboot recovery remain unverified. See `../plan/HOST-NETWORKING.md`.
+
+
+## 2026-10-13 — documentation ownership and archive reconciliation
+
+- Main Skillet README reduced to build, brief testing and numbered physical
+  installation steps. Module operating instructions now live with their crate;
+  Tailscale/TPM use focused pages under their existing owners. VM instructions
+  have one crate guide; Butane documents compiler inputs and the hardware helper.
+- Current plans retain unfinished work/acceptance; completed workstreams and
+  previous milestone versions are archived. Designs retain decisions and
+  constraints. The historical acceptance body and archived plan bodies were
+  compared against commit `32eaea3`: observations/commands/dates were preserved,
+  with only link rebasing and archive banners. No test was marked passed merely
+  because its implementation or a different backend had evidence.
+- Local validation: Markdown files/anchors checked, eight documented CLI help
+  groups verified, generated secret-checklist equality, formatting, strict
+  workspace Clippy, 433 workspace/all-target tests (five routine ignores), and
+  Fedora base repeat apply passed. Repeat apply issued no service start/restart.
+- Documentation metadata links changed; runtime behavior did not. No vault,
+  provider, VM lifecycle or physical-host operation was performed by this cleanup.
+  Remote CI and existing parked live acceptance remain separate open checks.

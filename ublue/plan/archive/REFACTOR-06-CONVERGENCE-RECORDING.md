@@ -1,8 +1,11 @@
 # 6. Explicit convergence outcomes and failure-safe recording
 
+> Archived documentation snapshot. Current tasks are in [active plans](../README.md);
+> dates, command identities and results below describe their original scope.
+
 Status: implementation complete; fixture failure-recovery/reboot, host
 credential rotation, and unchanged repeat-apply acceptance passed. See the
-[prerequisite roadmap](SKILLET-REFACTOR.md).
+[prerequisite roadmap](../SKILLET-REFACTOR.md).
 
 ## Read and locate
 

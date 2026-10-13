@@ -1,134 +1,49 @@
 # Private web UI access
 
-## Decision
+Use one private hostname per administrative UI, Caddy HTTPS and named-container
+bridge upstreams. Separate hostnames avoid subpath incompatibilities. Keep DNS
+and Syncthing transfer listeners separate from web UI access; never publish an
+unauthenticated backend as a recovery route.
 
-Use a private hostname per administrative UI, with Caddy terminating HTTPS and
-proxying to the named container on the shared Podman bridge. Pi-hole and
-Syncthing are the first targets. Their UIs are reachable only through the
-tailnet; neither needs a public listener or an OAuth2 proxy. Keep Pi-hole's LAN
-DNS listener and Syncthing's peer-transfer ports separate from their UIs.
+## Connectivity and naming
 
-Run Tailscale in its Podman container with `Network=host`, matching the
-existing Chef configuration on rupik, calculon, and boxy. This gives the host
-a normal Tailscale interface for host-level routing and port forwarding.
-Persist its state under `/var/lib/data/tailscale`. Caller-selected production
-exit-node policy and its enrollment migration are documented in
-[host routing](tailscale.md). Use separate tagged
-identities and access rules for production servers and smoke VMs. The
-workstation uses a narrowly scoped OAuth client to mint one-use enrollment
-keys; only those short-lived keys are delivered to a host, never the OAuth
-client secret.
+Host-network Tailscale gives the server a normal routing interface. Caller policy
+selects routing; production and smoke have separate tags/access rules. One-use
+keys reach hosts while workstation OAuth remains private. [Routing](tailscale.md).
 
-Use host-specific names in existing Cloudflare-managed production and smoke-test
-zones rather than `*.ts.net`, so UI URLs and Caddy routes can survive a move
-between hosted Tailscale and Headscale. Publish DNS-only A/AAAA records for
-`<host>.<ui-domain>` pointing to its tailnet addresses. Canonical UI names CNAME to that machine name;
-caller-declared aliases CNAME to their canonical UI names. Caddy serves every
-name with matching certificate coverage and the same upstream/access policy.
-The machine/CNAME/alias model is implemented; see the
-[Cloudflare lifecycle](cloudflare-ui-lifecycle.md). Do not enable Cloudflare
-proxying. Keep literal
-zones and records outside this public repository; public DNS still exposes the
-names and addresses. Some resolvers block public answers containing tailnet
-addresses as DNS rebinding, so check resolution from real clients before
-cutover. Caddy gets publicly trusted certificates through Cloudflare DNS-01;
-the UIs need no public route. Cloudflare's certificate is not used for DNS-only
-records: Caddy serves the certificate.
+Own Cloudflare DNS-only names survive changing tailnet control planes and avoid
+a Pi-hole/split-DNS dependency for UI resolution. Machine A/AAAA point to verified
+tailnet addresses, UI CNAMEs to that machine and aliases to canonical UIs. Domains
+and IDs stay in private configuration; public DNS still exposes names/addresses.
+[Cloudflare lifecycle](cloudflare-ui-lifecycle.md) owns issuance and records.
 
-Do not configure Tailscale split DNS for the UI names. A VM can enroll before
-its DNS record exists. After enrollment, the workstation reads its tailnet
-addresses and reconciles the machine address records and UI/alias CNAMEs
-with a short-lived token scoped to the smoke-test zone. VM destruction deletes
-only its recorded DNS records and
-revokes that token. Production records use a separately scoped credential;
-update them if a host's tailnet address changes. Tailscale enrollment needs no
-DNS-management OAuth scope. Keep the Cloudflare token creator on the workstation.
+Caddy DNS-01 supplies publicly trusted certificates without a public UI route.
+DNS-only records do not use a Cloudflare proxy certificate. Resolver rebinding
+filters can reject tailnet-address answers; actual client resolution is its own
+acceptance scope. ACME propagation uses explicit public resolvers, independent
+of the host/Pi-hole path; this does not prevent external issuer DNS failures.
 
-Plan a second Pi-hole on joey beside clamps. They cover individual host
-failure but share power and internet failure. A third Pi-hole on donbot,
-the calculon replacement in the other country, would add a separate site.
-These Pi-hole instances provide redundant client DNS service, independent of
-UI name publication in Cloudflare. A healthy resolver can resolve an offline
-host's name but cannot make its UI available. Give each Pi-hole UI its own
-host-specific name; do not promise a floating service name without health-aware
-routing.
+## Authorization
 
-Restrict Caddy's UI listener to tailnet traffic and grant access only to the
-intended user identities. Tailnet access authorizes the connection; it does not
-create an application login. Keep application passwords for existing services until the private path
-and absence of direct UI access have been verified, then decide per application
-whether a second login is useful. File browsing and Gokapi administration now
-have an explicit no-second-login requirement: the shared
-[tailnet identity gate](tailnet-ui-authentication.md) authenticates and authorizes
-the two intended users before proxying. It is implemented for Mikochi; Gokapi
-integration remains planned. An IP-range check alone is insufficient
-for those services. In particular, Syncthing's current wildcard
-host publication of GUI port 8384 must be removed or limited to a safe local
-proxy path before relying on tailnet access alone.
+Tailnet source restrictions and grants protect connectivity; they do not create
+an application session. Retain existing application passwords unless that route
+explicitly selects [verified tailnet identity](tailnet-ui-authentication.md).
+File browsing and Gokapi administration require no second login; their identity
+policy rejects unknown/tagged/disallowed sources and failed lookups. An address
+range alone is not user authentication.
 
-Retain access to each host by its tailnet device name or address, and SSH
-access for DNS recovery. Do not expose an unauthenticated UI as the recovery
-path.
+Private backends must not bypass Caddy. Syncthing's GUI port is unpublished;
+identity-protected file browsing has its own strictly isolated bridge. Host root
+remains trusted. Retain SSH/tailnet-device access for DNS recovery.
 
-## Why
+Public/mixed ingress is a distinct [proposed access contract](public-service-access.md),
+not a relaxation of private defaults. Implementation and acceptance are tracked
+in [private UIs](../plan/GENERIC-PRIVATE-UIS.md) and
+[donbot migration](../plan/DONBOT-MIGRATION.md). Resolver deployment/site redundancy
+belongs to the host migration plans, independent of UI DNS publication.
 
-Separate hostnames avoid applications' subpath problems. Tailnet identity and
-grants keep admin UIs private without maintaining a public OAuth2 proxy.
-Cloudflare DNS-only records remove the Pi-hole and tailnet DNS configuration
-dependency from UI name resolution, while keeping our own names across control
-planes. The names and tailnet IPs are public DNS data.
-
-## Status and references
-
-The [Cloudflare ownership lifecycle](cloudflare-ui-lifecycle.md) now issues
-credentials automatically and cleans owned DNS even when a disposable token has
-expired. Staging ACME acceptance passed; no manually created VM token is required.
-
-Host UI service declarations now drive a shared versioned Caddy payload.
-Provisioning derives `<service>.<host>.<ui-domain>` from the selected
-environment's resolved namespace: the optional KeePassXC `dns/ui-domain`
-relative prefix (default `ui`) appended to the zone domain fetched using the
-mandatory `dns/cloudflare-zone-id`. Caddy validates the payload against the host's
-declaration and renders each route through bridge DNS with tailnet source
-restrictions. Shared Butane units call the generic `skillet` CLI and read the
-stable host profile from `/etc/skillet/host`; VM hostnames remain independent.
-Host-specific apply units and credential gates live in host-specific Butane
-includes. Manual delivery accepts production or test environments.
-Cloudflare token/DNS lifecycle and opt-in VM provisioning are implemented.
-Staging ACME and HTTPS acceptance passed on 2026-10-02; production renewal and
-outside-tailnet access remain pending. See the
-[implementation plan](../plan/GENERIC-PRIVATE-UIS.md).
-
-Skillet configures host-network Tailscale and manages tagged enrollment and
-removal for clamps smoke VMs; live smoke enrollment and cleanup were accepted
-on 2026-09-30. Caddy now has a generic Quadlet configuration for the UI
-services declared by the host, using bridge DNS, persistent certificate storage, Cloudflare
-DNS-01, and source-address restrictions for Tailscale's IPv4 and IPv6 ranges.
-Its hostname and token credentials are separate from normal full apply.
-Syncthing no longer publishes its GUI port on the host. Staging Caddy/ACME and
-disposable token/DNS cleanup passed live acceptance. Real-client DNS/HTTPS,
-production renewal, and denial from a separate network remain open in the UI
-plan. The Syncthing ownership-fix runtime check is separately parked.
-
-References: [Tailscale DNS](https://tailscale.com/docs/reference/dns-in-tailscale/),
-[Cloudflare DNS-only records](https://developers.cloudflare.com/dns/proxy-status/),
-[DNS rebinding](https://tailscale.com/docs/reference/faq/dns-rebinding/),
-[Let's Encrypt DNS-01](https://letsencrypt.org/docs/challenge-types/),
+Instructions: [Caddy](../skillet/crates/caddy/README.md).
+References: [DNS-only records](https://developers.cloudflare.com/dns/proxy-status/),
+[rebinding](https://tailscale.com/docs/reference/faq/dns-rebinding/),
+[DNS-01](https://letsencrypt.org/docs/challenge-types/),
 [Caddy DNS challenge](https://caddyserver.com/docs/caddyfile/directives/tls).
-
-## ACME resolver policy
-
-DNS-01 propagation checks use explicit public Cloudflare resolvers, separately
-from Podman DNS used for container upstreams. This keeps ACME independent of
-the host's filtering/private DNS path. A diagnostic run completed issuance
-with explicit resolvers; this does not eliminate external ACME validator DNS
-failures, observed on the fresh VM. Keep this policy in shared rendering,
-including aliases, and distinguish local reachability from issuer acceptance.
-
-## Planned public services
-
-Donbot adds public media and mixed file-sharing requirements. These are tracked
-in [public service access](public-service-access.md) and
-[its migration plan](../plan/DONBOT-MIGRATION.md). They require a generic access
-policy extension; the current private renderer does not support them. Public
-routes must preserve every existing private UI restriction.

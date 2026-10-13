@@ -15,6 +15,11 @@ Public policy is in the DDNS template in
 Private names use typed `$secret` references. A host override replaces the whole
 shared template. Do not store a JSON configuration document in the vault.
 
+For a legacy vault-held JSON document, move its name into `ddns-dns-name`, keep
+proxied/takeover policy in the reviewed template, validate the new delivery, then
+remove the obsolete document entry. Multi-record callers use a complete template
+override with one typed secret reference per private record.
+
 ## Provision
 
 Stop the prior writer and approve the selected record set first:

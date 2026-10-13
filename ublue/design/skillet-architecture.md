@@ -1,84 +1,44 @@
-# Skillet architecture refactoring
+# Skillet architecture
 
-Decision, 2026-10-03: complete the seven refactoring workstreams before further
-service migrations, encryption implementation, or production cutover. Existing
-service behavior and unfinished acceptance requirements remain authoritative.
-Status: follow-up implementation and scripted interrupted-reboot recovery are
-complete; remote CI and a Syncthing data ownership divergence found during
-repeat application acceptance remain open. Rust-owned fixture smoke, retained
-VM update, and the earlier capability-selected application acceptance passed
-locally; see the
-[follow-up plan](../plan/REFACTOR-FOLLOWUP.md) and
-[acceptance log](../butane/ACCEPTANCE.md). Production acceptance remains
-explicitly deferred.
+Keep one canonical host declaration for composition, credentials, UI exposure,
+boot expectations and acceptance. Generic and per-host binaries dispatch that
+same declaration; synthetic fixtures are test targets, not production identities.
 
-Implementation progress: `skillet_vm` now supplies validated run identity and
-versioned manifests with explicit, non-destructive legacy import. Rust status
-and disposal use a focused libvirt adapter and a locked cleanup orchestrator;
-listing is also in Rust. Shared Cargo JSON artifact discovery selects the exact
-reported binary and now serves the container runner and retained VM updates.
-Updates share the ownership lock and SSH transport, preserve captured hashes,
-and record deployed hashes only after verifying both installed artifacts.
-Readiness now uses the same locked owner and SSH transport, with explicit
-boot expectations from the canonical host profile, bounded probes and private
-diagnostics. It verifies original artifacts and signed boot evidence before
-recording readiness. A retry first clears the persisted Ready checkpoint and
-restores it only after acceptance. Guest operations are guarded by ownership
-checks before and after each call. Production and disposable-VM credential
-delivery use the same verified guest transport and typed credential installer.
-Workstation modules now own host credential delivery, UI/DNS derivation,
-provider mutations, and recovery cleanup; the CLI opens the vault, loads the
-canonical VM manifest, and dispatches typed operations. Disposable provisioning
-holds the VM run lock and revalidates recorded backend ownership around each
-guest operation through a shared checked transport. Transport's bounded I/O
-stays in memory; payload copies are zeroized after stdin transfer. Earlier
-fixture and provisioning acceptance passed. Rust now owns smoke reboot and
-capability-selected application acceptance. The latter has passing injected
-tests and a named-VM repeat-apply/reboot acceptance. Production acceptance
-remains deferred.
+Separate service recipes, guest resource adapters, host composition, workstation
+providers/vault operations, VM lifecycle and CLI parsing. Effects cross injected
+capability boundaries for both observations and mutations. Pure validation,
+rendering and composition use data/functions rather than extra traits. Libraries
+use thiserror; CLI boundaries handle presentation. Shell adapters must not become
+parallel lifecycle owners or contain programs embedded in Rust.
 
-Workstream 2 adds `skillet_hosts` as the single host capability declaration.
-It owns host composition and supplies boot, service, network, UI, storage, and
-credential policy to entry points. The explicit `agent` baseline is the generic
-no-service apply profile. Synthetic smoke fixture composition lives in a
-separate test command and is not dispatched as a host identity. Workstation
-Tailscale enrollment now accepts provider, profile/environment, VM identity,
-state path, and guest transport as explicit inputs. Retained-VM
-runtime acceptance remains pending.
+Account identity, container process identity, host ownership and namespace mapping
+are distinct. File/directory ownership has one named-or-numeric contract; missing
+identity/ranges fail rather than silently choosing IDs. See
+[Podman policy](podman-runtime.md).
 
-Workstream 3 implementation is complete. Account observations and
-subordinate-ID files enter composition through injected resource interfaces;
-missing or invalid subordinate ranges fail closed. File and directory
-mutations share the typed named-or-numeric `Ownership` contract, including
-numeric IDs that do not require a matching host account. Entry points pass
-required systemd credentials to host composition. Host composition retains
-aggregate effect interfaces during migration. The completion audit added
-stricter Btrfs and service-state behavior to the fakes; those contract
-corrections are tracked by the [follow-up plan](../plan/REFACTOR-FOLLOWUP.md).
+The Rust VM owner holds per-run locks and validates recorded UUID/disk/firmware
+ownership around bounded guest operations. Native and Flatpak adapters share
+that policy. Build-result APIs select Cargo-reported artifacts; capture evidence
+and later verified deployments remain distinct. Compatibility imports are explicit
+and nondestructive; cleanup preserves journals until owned resources are gone.
+[VM lifecycle](smoke-vms.md) owns these details.
 
-Keep application crates as reusable recipes. Separate canonical host profiles
-and composition from guest runtime adapters, CLI parsing, workstation
-provisioning, and synthetic test fixtures. Effects need injectable capability
-boundaries covering both observations and mutations. Pure configuration and
-composition use ordinary data and functions. This makes host tests independent
-of the workstation and keeps one declaration authoritative across entry points.
-Podman runtime identity, host data ownership, and namespace mappings remain
-separate configuration concepts; see [Podman runtime configuration](podman-runtime.md).
+Workstation libraries own vault/provider mutations and credential delivery.
+Guest apply receives explicit credential inputs, never a workstation vault or
+interactive unlock flow. Verified SSH transfers arguments separately and keeps
+secret-bearing stdin/output in memory with bounded I/O and zeroization.
+[Secret delivery](secrets.md) and [host application](host-application.md).
 
-Move VM lifecycle orchestration from Bash into Rust. One orchestrator owns the
-typed manifest, identity validation, readiness, recovery, and destruction,
-including external-resource cleanup before deleting local recovery metadata.
-Native and Flatpak execution remain supported. Initially invoke focused
-`virsh`, SSH, and existing compiler tools through subprocess adapters; native
-libvirt linkage would add requirements to the static musl build and Flatpak
-workstations. Keep that choice behind an interface. Do not embed shell programs
-in Rust or install workstation dependencies during the migration.
+Convergence distinguishes definition changes, activation, retry and no-op.
+Applied receipts follow successful consuming effects, so interrupted activation
+can retry. Omission/removal semantics are explicit and preserve application data.
+Diagnostic recording stores sanitized attempted-operation outcomes, survives
+failures and is not desired state or proof of idempotence.
 
-Preserve command behavior and import existing run manifests before replacing
-their format. Guest assertion scripts may remain standalone fixtures. Recording
-is diagnostic; fast tests establish decisions and adapter contracts, while
-named disposable VMs establish real service and reboot behavior.
+Fast fixtures establish pure/resource contracts; adapters/fakes preserve actual
+resource types, metadata, state and failure semantics. Real named VMs establish
+runtime/reboot behavior. Fixture-only, native-backend and production acceptance
+are separate evidence scopes; unavailable checks stay unverified.
 
-Implementation order and exit criteria:
-[refactoring roadmap](../plan/SKILLET-REFACTOR.md). Existing runtime design:
-[smoke VMs](smoke-vms.md), [secrets](secrets.md), and [storage](storage.md).
+Current follow-up acceptance: [refactor tracker](../plan/SKILLET-REFACTOR.md).
+Historical implementation decisions/results: [archive](../plan/archive/README.md).

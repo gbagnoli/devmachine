@@ -1,8 +1,11 @@
 # 2. Canonical host profiles and capabilities
 
+> Archived documentation snapshot. Current tasks are in [active plans](../README.md);
+> dates, command identities and results below describe their original scope.
+
 Status: implementation complete; retained clamps base/full apply acceptance
 passed and synthetic-profile tests cover genericity. See the
-[prerequisite roadmap](SKILLET-REFACTOR.md).
+[prerequisite roadmap](../SKILLET-REFACTOR.md).
 
 ## Read and locate
 

@@ -1,13 +1,16 @@
 # Next milestone: btrbk snapshots on clamps
 
+> Archived documentation snapshot. Current tasks are in [active plans](../README.md);
+> dates, command identities and results below describe their original scope.
+
 Status: implemented and verified on the retained disposable clamps VM. Scope is
 local snapshot parity for rupik; remote backup and Pi-hole snapshot policy are
 separate work.
-The [snapshot design](../design/btrbk.md) records the chosen scope and why.
+The [snapshot design](../../design/btrbk.md) records the chosen scope and why.
 
 ## Starting point
 
-- Rupik's [Chef recipe](../../site-cookbooks/rupik/recipes/btrbk.rb) runs btrbk
+- Rupik's [Chef recipe](../../../site-cookbooks/rupik/recipes/btrbk.rb) runs btrbk
   hourly against `/srv/sync`, with `timestamp_format long`,
   `snapshot_preserve_min 6h` and
   `snapshot_preserve 24h 31d 6m`.

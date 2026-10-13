@@ -1,5 +1,8 @@
 # Refactor follow-up: close the completion audit gaps
 
+> Archived documentation snapshot. Current tasks are in [active plans](../README.md);
+> dates, command identities and results below describe their original scope.
+
 Status: implementation and local VM acceptance substantially complete,
 2026-10-05. Code and local regression coverage for all six findings are in
 place. Rust-owned fixture smoke, retained-VM update, and scripted interrupted

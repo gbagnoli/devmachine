@@ -1,15 +1,26 @@
 # uBlue agent instructions
 
-## Current priority
+## Current work and acceptance
 
-- Complete the seven workstreams in [the Skillet refactoring roadmap](plan/SKILLET-REFACTOR.md)
-  before proceeding with further service migrations, encryption features, or
-  production cutover. VM management's Bash-to-Rust migration is included.
-- Follow the roadmap's ordering and validation gates. Existing feature plans
-  retain their unfinished work but are gated by this prerequisite. Fixes and
-  acceptance work necessary to complete the refactoring are in scope.
+- Use [the active plan index](plan/README.md) for unfinished work and
+  [refactor acceptance](plan/SKILLET-REFACTOR.md) for its parked checks.
+  Implementation history belongs in `plan/archive/`; preserve unverified gates
+  without treating them as blockers for independent user-authorized work.
+- Follow each active plan's ordering and acceptance scope. Native, Flatpak,
+  fixture, provider and physical results are distinct; preserve original evidence.
 
 ## Design documentation
+
+- Keep `skillet/README.md` limited to build, brief test instructions and numbered
+  physical installation steps. Put module setup/commands/troubleshooting in its
+  owning crate README; use a focused `docs/` page under the existing owner when
+  there is no dedicated crate. Maintain the module index and links when moving
+  instructions; do not create crates solely to house documentation.
+- READMEs describe current operation, designs record decisions/rationale, active
+  plans describe unfinished work/acceptance, and `plan/archive/` holds completed
+  plans and dated history. Append evidence to `plan/archive/ACCEPTANCE.md`.
+  Archive superseded instructions before removing them from active documents;
+  do not copy status timelines or task lists into setup guides or designs.
 
 - Maintain the repository-root [secrets checklist](../SECRETS.md) whenever a
   vault entry or secret requirement is added, changed, or removed. Group entries
@@ -31,7 +42,7 @@
   Unused-entry auditing must consider all declared hosts and both environments,
   including optional/generated entries and retained migration readers.
 
-- Read the relevant documents in [design/](design/) before changing architecture
+- Read the relevant documents in [design/](design) before changing architecture
   or behavior they describe, including [secrets](design/secrets.md) and
   [smoke VM lifecycle](design/smoke-vms.md).
 - Keep those documents updated in the same change as the implementation or
@@ -44,11 +55,11 @@
 
 ## Implementation plans
 
-- Keep implementation plans in [plan/](plan/), not in the `ublue/` root.
+- Keep implementation plans in [plan/](plan), not in the `ublue/` root.
 - Read relevant plans before starting work and update their remaining steps,
   status, and links as work progresses. Plans describe tasks and acceptance
   criteria; architectural decisions and rationale belong in `design/`.
-- Remove completed or superseded plans after preserving any unfinished work
+- Retire completed or superseded plans into `plan/archive/` after preserving unfinished work
   in an active plan. Retain implementation evidence in the relevant acceptance
   record; do not label unverified checks as passed.
 - Each refactoring handoff must name the implemented slice, remaining work,

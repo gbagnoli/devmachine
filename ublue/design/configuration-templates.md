@@ -29,13 +29,6 @@ configuration. For example, DDNS keeps policy in its template and its relative
 record name in
 `skillet/environments/<environment>/hosts/<host>/cloudflare/ddns-dns-name`.
 
-When converting an existing vault-held JSON document, move its structural policy
-into the source template and each private leaf into its own KeePassXC entry.
-For DDNS, move `name` to `ddns-dns-name`; keep `proxied` and
-`takeover_existing` in the template. Multi-record hosts can provide a complete
-host override with one typed reference per record. Remove the obsolete whole
-document entry after the new template and leaf values have been validated.
-
 Datadog resolves one shared `skillet/datadog/api-key` for both environments.
 Its site is ordinary template configuration, defaulting to `datadoghq.com`,
 with optional host overrides/private tags. Delivery

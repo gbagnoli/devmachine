@@ -1,8 +1,11 @@
 # 1. One VM lifecycle owner; migrate Bash management to Rust
 
+> Archived documentation snapshot. Current tasks are in [active plans](../README.md);
+> dates, command identities and results below describe their original scope.
+
 Status: implementation and required VM acceptance complete. Fresh/retained
 cycles, live legacy-manifest import, and interrupted provisioning recovery
-passed. See the [roadmap](SKILLET-REFACTOR.md) and 2026-10-05 acceptance entry.
+passed. See the [roadmap](../SKILLET-REFACTOR.md) and 2026-10-05 acceptance entry.
 
 ## Progress, 2026-10-03
 
@@ -52,9 +55,9 @@ verified SSH transport. Boot expectations are resolved by the canonical host
 profile. Workstation provisioning state owns provider cleanup journals
 separately from the VM manifest and local artifact ownership. Fresh and
 retained VM create/readiness/provision/smoke/reboot/cleanup checks passed. See
-[creation validation](../butane/ACCEPTANCE.md#recoverable-vm-creation-intent-2026-10-03)
-and [native XML validation](../butane/ACCEPTANCE.md#native-xml-rendering-2026-10-03),
-plus [readiness validation](../butane/ACCEPTANCE.md#readiness-retry-recovery-2026-10-03).
+[creation validation](ACCEPTANCE.md#recoverable-vm-creation-intent-2026-10-03)
+and [native XML validation](ACCEPTANCE.md#native-xml-rendering-2026-10-03),
+plus [readiness validation](ACCEPTANCE.md#readiness-retry-recovery-2026-10-03).
 
 Progress, 2026-10-05: on the retained clamps VM, temporarily withheld `vm.json`
 and ran `test vm ready clamps smoke --verbose`. Skillet imported the legacy
@@ -105,7 +108,7 @@ Fresh creation, readiness, interrupted retry, and cleanup have passed live.
    bookkeeping. Rust invokes the standalone Butane compiler. Build
    artifacts through a shared Cargo helper. Validate required
    tools and SSH-port conflicts before costly provisioning. See
-   [native XML validation](../butane/ACCEPTANCE.md#native-xml-rendering-2026-10-03).
+   [native XML validation](ACCEPTANCE.md#native-xml-rendering-2026-10-03).
 5. Persist creation intent and a generated UUID before domain definition;
    advance through explicit recoverable phases as side effects complete.
    Failed starts retain owned state for inspect/retry/disposal. Distinguish

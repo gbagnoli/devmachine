@@ -30,4 +30,4 @@ apply prepares networking without switching the active connection. See
 
 Offline parser validation and injected tests do not establish physical wireless
 association or actual reboot reachability. Record evidence separately in
-`butane/ACCEPTANCE.md`. Live switching/checkpoint rollback remains future work.
+`plan/archive/ACCEPTANCE.md`. Live switching/checkpoint rollback remains future work.

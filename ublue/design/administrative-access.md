@@ -24,6 +24,6 @@ SSH provisioning automation currently assumes passwordless sudo; after finalizat
 use interactive sudo/root administration until an authenticated transport is added.
 The policy applies to the selected account; other accounts remain unchanged.
 
-The current production Butane bootstrap password hash is retained by this change.
-Private bootstrap-password delivery is a separate future decision; never include
-hashes, password fingerprints or passwords in logs, manifests or audit records.
+Private installation inputs are supplied at media generation; never include
+passwords/hashes/fingerprints in logs, manifests or audit records.
+Instructions: [access finalization](../skillet/crates/cli-common/README.md#administrative-access).

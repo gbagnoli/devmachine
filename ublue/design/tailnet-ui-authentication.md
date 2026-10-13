@@ -52,18 +52,13 @@ Podman 6's newer default. Verify the actual bridge boundary during acceptance.
 Cross-origin browser requests are rejected before authentication/proxying.
 
 Using the Tailscale client LocalAPI with Headscale is the intended portable
-approach, but compatibility, returned identity and authorization must be tested.
+approach, but this does not establish compatible returned identities or authorization.
 This is an inference from the client-side integration, not accepted Headscale
 support. Hosted Tailscale workstation enrollment remains separate. Do not match
 only the username before `@`, infer people from tags or equate a tagged test
 server with an authorized human client.
 
-Status: implemented for Mikochi on clamps and joey; Gokapi remains planned.
-No-vault tests cover both allowed users, other/tagged/mismatched identities,
-forged headers, daemon failure, IPv4/IPv6 and immediate host-policy revocation.
-Live LocalAPI authorization, repeat apply and IPv4/IPv6 backend readiness and
-sibling-network isolation passed. End-to-end HTTPS source preservation, both
-human users, denied users, revocation/outage and file operations remain pending;
-see [the acceptance record](../butane/ACCEPTANCE.md) for external ACME and
-connectivity failures. CI file operations do not establish browser acceptance.
-See [donbot migration](../plan/DONBOT-MIGRATION.md).
+Current route selection is in the caller; operating setup is in
+[Caddy](../skillet/crates/caddy/README.md#identity-protected-uis). Browser/identity
+acceptance belongs to [the UI plan](../plan/GENERIC-PRIVATE-UIS.md); Gokapi
+integration belongs to [donbot migration](../plan/DONBOT-MIGRATION.md).
