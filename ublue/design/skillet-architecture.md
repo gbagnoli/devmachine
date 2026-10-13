@@ -42,3 +42,9 @@ are separate evidence scopes; unavailable checks stay unverified.
 
 Current follow-up acceptance: [refactor tracker](../plan/SKILLET-REFACTOR.md).
 Historical implementation decisions/results: [archive](../plan/archive/README.md).
+
+Build identity has one owner in `cli-common`: Cargo release version plus the
+Git revision and tracked dirty state, collected at build time with vergen-gix.
+All generic/host entry points expose it and guest apply logs it. Build metadata
+contains no timestamp or workstation identity. Git and tracked-source changes
+refresh metadata without a clean build; unavailable provenance is explicit.

@@ -25,6 +25,9 @@ members = [
     "crates/workstation",
 ]
 
+[workspace.package]
+version = "0.1.0"
+
 [workspace.dependencies]
 osc8 = "0.1"
 pulldown-cmark = { version = "0.13", default-features = false }

@@ -1,6 +1,6 @@
 [package]
 name = "skillet_cli_common"
-version = "0.1.0"
+version.workspace = true
 edition = "2021"
 
 [lints]
@@ -26,3 +26,7 @@ tempfile.workspace = true
 
 [dev-dependencies]
 skillet_core = { workspace = true, features = ["test-utils"] }
+
+[build-dependencies]
+vergen-gix = { version = "10", default-features = false }
+gix = { version = "0.87", default-features = false, features = ["index"] }

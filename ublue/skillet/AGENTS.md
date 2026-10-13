@@ -226,3 +226,9 @@ skillet/
 - **Service Modules**: Service crates compose shared primitives and own their application configuration. Supporting libraries own cohesive runtime, host-profile, or workstation responsibilities.
 - **Binary per Host**: Host binaries select a shared canonical profile. Keep their behavior consistent with the generic entry point; do not duplicate recipe composition between binaries.
 - **Core Primitives**: Found in `skillet_core`, providing the building blocks for all modules.
+
+## Build identity
+
+- Keep release and source identity shared across generic and host binaries.
+  Version metadata must refresh after Git or tracked-source changes without
+  requiring a clean build; report unavailable provenance explicitly.
