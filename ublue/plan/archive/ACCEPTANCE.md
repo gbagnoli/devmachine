@@ -2864,3 +2864,14 @@ update / rollback matrix cases. A header backup is not a service-data backup.
 - No physical deployment, operator SSH-key unlock, vault or provider operation
   was performed. Real authenticated access with the operator's configured alias
   and agent remains an operator check; this change does not unlock private keys.
+
+## 2026-10-14 — SSH-agent setup help
+
+- Added workstation agent setup instructions and links from apply/deploy help.
+  Authentication errors distinguish unset/empty SSH_AUTH_SOCK from an advertised
+  socket, without treating a set variable as proof of a working agent or key.
+  Skillet does not start agents or unlock private keys; setup is operator-run.
+- Formatting, strict workspace Clippy, 450 workspace/all-target tests (five
+  routine ignores) and Fedora joey base repeat apply passed. Direct CLI help
+  and isolated fake-SSH missing/present-agent error probes passed without
+  accessing a vault, starting an agent or contacting a production guest.
