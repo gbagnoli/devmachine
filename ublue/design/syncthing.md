@@ -63,8 +63,7 @@ zone. Initialization uses the same numeric namespace mapping and HOME as the
 main container, a network-disabled upstream generator, and bound private staging
 that can recover incomplete publication.
 
-Bootstrap acceptance is tracked in
-[the initial configuration plan](../plan/SYNCTHING-INITIAL-CONFIG.md).
+Acceptance: [dated checks](../plan/archive/ACCEPTANCE.md#2026-10-14--syncthing-missing-only-bootstrap).
 
 The container requires successful bootstrap when settings are delivered. A
 missing credential skips the initializer condition and permits retained installs

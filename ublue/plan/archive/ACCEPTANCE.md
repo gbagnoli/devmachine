@@ -3033,3 +3033,28 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   fixture checks passed; broad application acceptance failed because Caddy stayed
   inactive for 120 seconds. UI provisioning and a fresh acceptance run are pending;
   this run is not recorded as successful.
+
+- Deployed and verified final generic/host binaries at `ef3c690` on physical
+  clamps. Full apply retained the seeded XML/identity and installed the stricter
+  initializer dependency; Syncthing, Caddy and the identity broker remained active.
+  The private device name is edited only in XML, never passed in generator argv.
+- Retained native VM `clamps-test-files`: readiness initially found an outdated
+  guest Homebrew `uv`; updated that guest package and readiness passed. A later
+  broad smoke attempt found the old shared Syncthing bridge: `ready` had restored
+  original captured binaries. This was not a pass for current source. Updated the
+  recorded generic/host artifacts after readiness, then converged baseline/full/UI
+  using installed encrypted credentials. No workstation software was installed.
+- On that updated owned VM, XML-only bootstrap passed environment/runtime-host
+  binding, expected authoritative device name, GUI acknowledgement, generated API
+  key and API readiness. Exact existing certificate/key bytes and device ID were
+  retained. Repeat initialization preserved XML bytes, inode, mode, owner and
+  timestamp. Private XML/identity backups are under
+  `/var/lib/skillet/syncthing-initial-acceptance`; no data or database was erased.
+- VM provisioning now explicitly converges full services when enrollment is
+  reused. Final local formatting, strict workspace Clippy, 466 workspace tests
+  and repeat Fedora joey base integration passed with that change.
+- Final updated native `clamps-test-files --with-applications` run passed all
+  pre/post-reboot fixture cases, then application runtime/configuration/identity
+  comparisons across repeat full/UI apply for Pi-hole, Tailscale, Syncthing,
+  UniFi, btrbk, Mikochi, Caddy and the identity broker. This supersedes neither
+  the original failures above nor the independently parked backend/provider gates.

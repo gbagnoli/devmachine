@@ -57,6 +57,12 @@ Tagged-client HTTPS still returns 403. An isolated physical systemd fixture prov
 missing-credential conditions permit a requiring consumer while initializer errors
 block it; fixture units were removed. No synchronized data was erased.
 
-Remaining: complete owned-VM UI provisioning/application acceptance after its first
-broad smoke attempt passed reboot/fixtures but found Caddy inactive. Revalidate the
-final stricter dependency after deployment. Keep the VM failure as original evidence.
+Final stricter dependency is deployed and verified on physical clamps. Updated
+owned-VM bootstrap also passed environment/runtime binding, identity preservation,
+API readiness, GUI acknowledgement and byte/metadata preservation.
+
+Updated owned-VM broad application acceptance passed all selected services after
+reboot and repeat apply, including Syncthing, Caddy and the identity broker.
+Original Caddy-inactive and stale-binary/network failures remain in the dated
+acceptance log. Implementation and bootstrap acceptance are complete; an actual
+Android GUI check for the warning is an optional operator observation.
