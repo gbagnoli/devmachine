@@ -34,3 +34,26 @@ DNS available; real peer connectivity is separate from bridge configuration.
 
 References: [official Syncthing container guidance](https://github.com/syncthing/syncthing/blob/main/README-Docker.md),
 [shared storage design](storage.md), [Pi-hole network design](pihole-network.md).
+
+## Initial configuration
+
+Bootstrap settings apply only while `config/config.xml` is absent. Syncthing owns
+that file after initialization: subsequent provisioning preserves preferences,
+shares and device definitions, even if bootstrap settings change. Initialize via
+the upstream generator and publish the completed configuration atomically;
+never overwrite an existing file or depend on an incomplete handwritten XML seed.
+
+The initial device name uses the selected environment's authoritative Cloudflare
+zone (the same Zone ID as DDNS), not the UI namespace. Derive the production name
+from host identity and zone; disposable names use their recorded instance identity.
+Keep resolved names in encrypted runtime delivery, never in public recipes.
+
+For an identity-protected private backend, initialize `gui.insecureAdminAccess`
+to acknowledge external proxy authentication and suppress the open-GUI banner.
+Retain CSRF and the proxy/backend boundary. This setting can still produce a
+Syncthing startup log warning. Do not clear a retained native GUI password.
+
+An explicitly authorized reset backs up only the XML and preserves certificate,
+private key, database and synchronized data. The initializer reuses retained
+identity keys. Bootstrap implementation/acceptance is tracked in
+[the initial configuration plan](../plan/SYNCTHING-INITIAL-CONFIG.md).

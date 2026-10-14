@@ -10,6 +10,7 @@ Only unfinished implementation and acceptance belongs here. Commands live in
 | Clamps | [Migration/cutover](CLAMPS-MIGRATION.md), [source parity](CLAMPS-PARITY.md) |
 | Networking | [Static profiles and physical adoption](HOST-NETWORKING.md) |
 | Encryption | [TPM/recovery acceptance](TPM-ENCRYPTED-ROOT.md) |
+| Syncthing | [Missing-only initial configuration](SYNCTHING-INITIAL-CONFIG.md) |
 | UIs | [Private UI/browser acceptance](GENERIC-PRIVATE-UIS.md) |
 | DDNS | [Rotation and production handover](CLAMPS-CLOUDFLARE-DDNS.md) |
 | Monitoring / UPS | [Physical Agent and NUT recovery/ingestion](CLAMPS-DATADOG.md) |
