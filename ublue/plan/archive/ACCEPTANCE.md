@@ -2999,3 +2999,4 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   Broker/Caddy remained active and SELinux Enforcing; a tagged client's
   query-bearing request with a forged allowed-phone header still returned 403.
   Android usability confirmation is still an operator check.
+- Operator confirmed Android UI usable after the auth-query correction.
