@@ -368,13 +368,22 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
             ui_domain: "ui.example.invalid".into(),
             acme_staging: true,
         },
-        &[UiService {
-            name: "files".into(),
-            upstream: "mikochi".into(),
-            port: 8080,
-            aliases: Vec::new(),
-            tailnet_identity: true,
-        }],
+        &[
+            UiService {
+                name: "files".into(),
+                upstream: "mikochi".into(),
+                port: 8080,
+                aliases: Vec::new(),
+                tailnet_identity: true,
+            },
+            UiService {
+                name: "syncthing".into(),
+                upstream: "syncthing".into(),
+                port: 8384,
+                aliases: vec!["sync.{host}".into()],
+                tailnet_identity: true,
+            },
+        ],
     )
     .unwrap();
     let path = temp.path().join("Caddyfile");

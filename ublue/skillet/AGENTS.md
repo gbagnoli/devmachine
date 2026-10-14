@@ -237,3 +237,7 @@ skillet/
   unless reuse is explicit. Share artifact selection and verified replacement
   across physical and disposable targets while retaining target-specific trust
   guards; stop application after incomplete deployment.
+
+- Identity-protected UI aliases, backend network selection and runtime acceptance
+  must derive from the same caller declaration. Do not leave a shared backend
+  attachment that bypasses the proxy's authentication decision.

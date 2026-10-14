@@ -252,6 +252,13 @@ fn apply_syncthing(
             "syncthing apply received an incompatible service declaration".to_string(),
         ));
     };
+    let network_name = if let Some(ui) = service.ui.filter(|ui| ui.tailnet_identity) {
+        let network = skillet_caddy::private_network(profile.id.as_str(), ui.name);
+        skillet_podman::ensure_network(system, files, &network)?;
+        network.unit_name
+    } else {
+        profile.id.as_str().to_string()
+    };
     skillet_syncthing::apply(
         system,
         files,
@@ -262,7 +269,7 @@ fn apply_syncthing(
             data_group: data_group.to_string(),
             container_uid,
             container_gid,
-            network_name: profile.id.as_str().to_string(),
+            network_name,
         },
     )?;
     Ok(())

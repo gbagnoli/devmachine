@@ -411,7 +411,10 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
         } => AcceptanceService {
             unit: "syncthing.service".into(),
             container: Some("syncthing".into()),
-            network_mode: Some(profile.into()),
+            network_mode: Some(service.ui.filter(|ui| ui.tailnet_identity).map_or_else(
+                || profile.into(),
+                |ui| skillet_caddy::private_network(profile, ui.name).unit_name,
+            )),
             bind_paths: vec![data_path.into()],
             owner: Some(AcceptanceOwner::Named {
                 user: data_owner.into(),
@@ -496,7 +499,7 @@ const SYNCTHING_UI: UiServiceDeclaration = UiServiceDeclaration {
     name: "syncthing",
     upstream: "syncthing",
     port: 8384,
-    tailnet_identity: false,
+    tailnet_identity: true,
     aliases: &["sync.{host}"],
 };
 

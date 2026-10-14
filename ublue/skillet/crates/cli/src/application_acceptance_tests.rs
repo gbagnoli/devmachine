@@ -21,10 +21,15 @@ impl GuestTransport for AcceptanceTransport {
         let output = match (request.program, arguments) {
             ("systemctl", ["is-active", _]) if self.active => b"active\n".to_vec(),
             ("systemctl", ["is-active", _]) => b"inactive\n".to_vec(),
-            ("sudo", ["-n", "podman", "inspect", "--format", _, _]) => {
+            ("sudo", ["-n", "podman", "inspect", "--format", _, container]) => {
+                let network = if *container == "syncthing" {
+                    format!("{}-syncthing", self.network)
+                } else {
+                    self.network.clone()
+                };
                 format!(
                     "true|bridge|{}|{{\"{}\":{{}}}}|/var/lib/data/syncthing;/var/lib/data/caddy/data;\n",
-                    self.container_id, self.network
+                    self.container_id, network
                 )
                 .into_bytes()
             }

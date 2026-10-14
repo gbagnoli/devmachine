@@ -38,6 +38,8 @@ untrusted; the staging test performs its own certificate checks.
 
 ## Identity-protected UIs
 
+Syncthing (canonical name and aliases) and Mikochi use identity protection.
+
 For caller-declared identity protection:
 
 1. Put complete allowed Tailscale `LoginName` values in Password at

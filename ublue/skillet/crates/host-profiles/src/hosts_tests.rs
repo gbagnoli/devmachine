@@ -297,12 +297,14 @@ fn host_ui_declarations_include_only_the_services_each_host_runs() {
     assert_eq!(clamps.services[0].aliases, Vec::<String>::new());
     assert_eq!(clamps.services[1].upstream, "syncthing");
     assert_eq!(clamps.services[1].port, 8384);
+    assert!(clamps.services[1].tailnet_identity);
     assert_eq!(clamps.services[1].aliases, ["sync.{host}"]);
 
     let joey = ui_config_for_host("joey").expect("joey UI declaration");
     assert_eq!(joey.services.len(), 3);
     assert_eq!(joey.services[0].name, "pihole");
     assert_eq!(joey.services[1].name, "syncthing");
+    assert!(joey.services[1].tailnet_identity);
     assert_eq!(joey.services[1].aliases, ["sync.{host}"]);
     assert_eq!(joey.network_name, "joey");
     assert!(ui_config_for_host("unknown-host").is_none());
@@ -383,10 +385,7 @@ fn application_acceptance_tracks_each_profiles_declared_services() {
     assert!(joey
         .services
         .iter()
-        .filter(|service| matches!(
-            service.container.as_deref(),
-            Some("pihole" | "syncthing" | "caddy")
-        ))
+        .filter(|service| matches!(service.container.as_deref(), Some("pihole" | "caddy")))
         .all(|service| service.network_mode.as_deref() == Some("joey")));
 }
 
@@ -622,6 +621,16 @@ fn joey_full_apply_uses_shared_services_and_is_repeatable() {
     let pihole =
         String::from_utf8(before["/etc/containers/systemd/pihole.container"].clone()).unwrap();
     assert!(pihole.contains("Network=joey.network"));
+    let syncthing = String::from_utf8_lossy(&before["/etc/containers/systemd/syncthing.container"]);
+    assert!(syncthing.contains("Network=joey-syncthing.network"));
+    assert!(!syncthing.lines().any(|line| line == "Network=joey.network"));
+    assert!(!syncthing
+        .lines()
+        .any(|line| line.starts_with("PublishPort=") && line.contains("8384")));
+    let network =
+        String::from_utf8_lossy(&before["/etc/containers/systemd/joey-syncthing.network"]);
+    assert!(network.contains("Options=isolate=strict"));
+    assert!(network.contains("Internal=false"));
     for address in ["0.0.0.0", "[::]"] {
         for protocol in ["tcp", "udp"] {
             assert!(pihole.contains(&format!("PublishPort={address}:53:53/{protocol}")));
@@ -774,4 +783,73 @@ fn native_networking_is_separate_from_full_apply_and_container_acceptance() {
     )
     .is_err());
     assert!(files.files.lock().unwrap().is_empty());
+}
+
+#[test]
+fn syncthing_canonical_and_alias_use_the_identity_gate_and_private_backend() {
+    for profile in super::declared_profiles() {
+        let Some(service) = profile
+            .services
+            .iter()
+            .find(|service| matches!(service.config, ServiceConfig::Syncthing { .. }))
+        else {
+            continue;
+        };
+        let ui = service.ui.unwrap();
+        assert!(ui.tailnet_identity);
+        let upstreams = profile.ui_services();
+        let mut sites = skillet_caddy::CaddySites::from_host(
+            profile.id.as_str(),
+            &skillet_caddy::UiEnvironment {
+                ui_domain: "ui.example.invalid".into(),
+                acme_staging: true,
+            },
+            &upstreams,
+        )
+        .unwrap();
+        sites.tailnet_users = vec!["alice@example.invalid".into()];
+        let site = sites
+            .services
+            .iter()
+            .find(|site| site.name == "syncthing")
+            .unwrap();
+        for hostname in std::iter::once(&site.hostname).chain(&site.aliases) {
+            let section = sites
+                .render()
+                .split(&format!("\n{hostname} {{"))
+                .nth(1)
+                .unwrap()
+                .split("\n}\n")
+                .next()
+                .unwrap()
+                .to_owned();
+            assert!(section.contains("forward_auth unix//run/skillet-tailnet-ui/auth.sock"));
+            assert!(section.find("forward_auth").unwrap() < section.find("reverse_proxy").unwrap());
+            assert!(section.contains("request_header -X-Skillet-User"));
+        }
+        let expected = skillet_caddy::private_network(profile.id.as_str(), ui.name).unit_name;
+        let plan = profile.acceptance_plan();
+        assert_eq!(
+            plan.services
+                .iter()
+                .find(|service| service.unit == "syncthing.service")
+                .unwrap()
+                .network_mode
+                .as_deref(),
+            Some(expected.as_str())
+        );
+        let mut stale = sites.clone();
+        stale
+            .services
+            .iter_mut()
+            .find(|site| site.name == "syncthing")
+            .unwrap()
+            .tailnet_identity = false;
+        assert!(skillet_caddy::CaddySites::parse(
+            &serde_json::to_string(&stale).unwrap(),
+            profile.id.as_str(),
+            &upstreams
+        )
+        .is_err());
+    }
 }
