@@ -424,6 +424,9 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
         &transport,
     )?;
 
+    // Enrollment reuse does not converge changed service/network declarations.
+    // Both encrypted prerequisites and the optional bootstrap are ready here.
+    skillet_workstation::host_apply::activate(&transport, "skillet-full-apply.service")?;
     if args.with_ui {
         provision_vm_ui(args, &run_dir, &transport, &mut vault, &record)?;
     }

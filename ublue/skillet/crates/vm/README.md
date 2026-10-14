@@ -40,18 +40,24 @@ The default smoke checks a namespaced synthetic fixture, not the actual host
 applications. For declared application checks on an existing ready VM:
 
 ```sh
+cargo run --release -p skillet -- test vm update clamps smoke
 cargo run --release -p skillet -- secrets unlock
 cargo run --release -p skillet -- test vm provision clamps smoke --with-ui
 cargo run --release -p skillet -- test smoke clamps --instance smoke --with-applications
 ```
 
 Provision generates a disposable Pi-hole password and enrolls Tailscale through
-workstation OAuth. Repeat provision reuses identity/password; `--rotate` replaces
-the disposable password. `--with-ui` enables staging Caddy/Cloudflare lifecycle.
+workstation OAuth and converges the declared application services. Repeat
+provision reuses identity/password; `--rotate` replaces the disposable password.
+`--with-ui` enables staging Caddy/Cloudflare lifecycle.
 Opt-in [DDNS](../ddns/README.md) and [Datadog](../datadog/README.md) use
 `--with-ddns` and `--with-datadog`. [SMTP-only capture](../smtp/README.md#disposable-checks)
 needs neither provider delivery nor Tailscale. Production networking entries are
 never delivered by disposable provisioning.
+
+`ready` (also called at the end of smoke) reinstalls captured bootstrap binaries. After `ready` on a retained VM,
+run `update` to select current code before provisioning or smoke. Smoke verifies
+the recorded installed binaries; it does not replace them with the current source.
 
 Smoke uses manifest-bound SSH settings. Optional target/port/identity overrides
 must match the manifest. It builds/transfers a separate fixture and verifies
