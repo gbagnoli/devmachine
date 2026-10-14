@@ -1,0 +1,6 @@
+SSH_AUTH_SOCK is set. Check that the agent is reachable and holds your key:
+  ssh-add -l
+  ssh-add /path/to/your/key
+Enter the key passphrase in your terminal, then retry.
+An SSH failure can also indicate a wrong key, destination, or host trust setting.
+Setup: ublue/skillet/crates/workstation/README.md#ssh-agent

@@ -10,10 +10,11 @@ use std::path::Path;
 pub enum DeploymentError {
     #[error("unknown deployment host profile")]
     UnknownProfile,
-    #[error("SSH connection/authentication failed (exit {code:?}): {diagnostic}. For an encrypted key, load it into the SSH agent with ssh-add, then retry")]
+    #[error("SSH connection/authentication failed (exit {code:?}): {diagnostic}\n{agent_hint}")]
     Connection {
         code: Option<i32>,
         diagnostic: String,
+        agent_hint: &'static str,
     },
     #[error("could not read /etc/skillet/host on the guest (exit {code:?}); no binaries or credentials delivered")]
     IdentityRead { code: Option<i32> },
@@ -23,6 +24,14 @@ pub enum DeploymentError {
     Operation(#[from] VmError),
 }
 type Result<T> = std::result::Result<T, DeploymentError>;
+
+fn ssh_agent_hint(socket: Option<&std::ffi::OsStr>) -> &'static str {
+    if socket.is_some_and(|value| !value.is_empty()) {
+        include_str!("help/ssh-agent-present.txt")
+    } else {
+        include_str!("help/ssh-agent-missing.txt")
+    }
+}
 
 pub fn verify_host(host: &str, guest: &impl GuestTransport) -> Result<()> {
     if skillet_hosts::profile_for_name(host).is_none() {
@@ -44,6 +53,7 @@ pub fn verify_host(host: &str, guest: &impl GuestTransport) -> Result<()> {
         return Err(DeploymentError::Connection {
             code: output.status.code(),
             diagnostic: diagnostic.trim().into(),
+            agent_hint: ssh_agent_hint(std::env::var_os("SSH_AUTH_SOCK").as_deref()),
         });
     }
     if !output.status.success() {

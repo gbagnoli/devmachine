@@ -3,6 +3,7 @@ use skillet_vm::transport::GuestTransport;
 use std::path::PathBuf;
 
 #[derive(clap::Args, Debug)]
+#[command(after_help = include_str!("help/ssh-agent.txt"))]
 pub(super) struct Args {
     /// Canonical host profile and default SSH alias
     host: String,

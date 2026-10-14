@@ -81,3 +81,20 @@ fn ssh_failure_is_not_a_host_identity_mismatch() {
         Err(DeploymentError::IdentityRead { .. })
     ));
 }
+
+#[test]
+fn agent_setup_hints_cover_missing_empty_and_advertised_sockets_without_mutating_environment() {
+    use std::ffi::OsStr;
+    for socket in [None, Some(OsStr::new(""))] {
+        let hint = ssh_agent_hint(socket);
+        assert!(hint.contains("SSH_AUTH_SOCK is unset or empty"));
+        assert!(hint.contains("ssh-agent -s"));
+        assert!(hint.contains("ssh-add /path/to/your/key"));
+        assert!(hint.contains("same shell"));
+    }
+    let hint = ssh_agent_hint(Some(OsStr::new("/tmp/example-agent.sock")));
+    assert!(hint.contains("SSH_AUTH_SOCK is set"));
+    assert!(hint.contains("ssh-add -l"));
+    assert!(!hint.contains("eval"));
+    assert!(!hint.contains("example-agent.sock"));
+}
