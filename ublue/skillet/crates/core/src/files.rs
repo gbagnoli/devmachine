@@ -75,6 +75,15 @@ pub trait FileReadResource {
 }
 
 pub trait FileMutationResource {
+    /// Atomically publish a new regular file. Existing files retain all bytes and
+    /// metadata; symlinks and directories are rejected without modification.
+    fn create_file_if_absent(
+        &self,
+        path: &Path,
+        content: &[u8],
+        mode: Option<u32>,
+        ownership: &Ownership,
+    ) -> Result<bool, FileError>;
     fn ensure_file(
         &self,
         path: &Path,
@@ -361,6 +370,41 @@ impl FileReadResource for LocalFileResource {
 }
 
 impl FileMutationResource for LocalFileResource {
+    fn create_file_if_absent(
+        &self,
+        path: &Path,
+        content: &[u8],
+        mode: Option<u32>,
+        ownership: &Ownership,
+    ) -> Result<bool, FileError> {
+        match fs::symlink_metadata(path) {
+            Ok(metadata) if metadata.is_file() => return Ok(false),
+            Ok(_) => return Err(FileError::NotAFile(path.display().to_string())),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+        let parent = path
+            .parent()
+            .ok_or_else(|| FileError::InvalidPath(path.display().to_string()))?;
+        let mut temporary = NamedTempFile::new_in(parent)?;
+        temporary.write_all(content)?;
+        Self::apply_metadata_to_file(temporary.as_file(), mode, ownership)?;
+        temporary.as_file().sync_all()?;
+        match temporary.persist_noclobber(path) {
+            Ok(_) => {
+                File::open(parent)?.sync_all()?;
+                Ok(true)
+            }
+            Err(error) if error.error.kind() == io::ErrorKind::AlreadyExists => {
+                if fs::symlink_metadata(path)?.is_file() {
+                    Ok(false)
+                } else {
+                    Err(FileError::NotAFile(path.display().to_string()))
+                }
+            }
+            Err(error) => Err(FileError::Persist(path.display().to_string(), error.error)),
+        }
+    }
     fn ensure_file(
         &self,
         path: &Path,

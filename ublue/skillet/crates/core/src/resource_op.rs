@@ -3,6 +3,11 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub enum ResourceOp {
+    CreateFileIfAbsent {
+        path: String,
+        mode: Option<String>,
+        ownership: Ownership,
+    },
     EnsureFile {
         path: String,
         mode: Option<String>,
