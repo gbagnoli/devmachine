@@ -218,3 +218,8 @@
 - Render dual-stack port exposure using non-overlapping runtime bindings.
   Preserve explicit address/family restrictions and validate forwarding cleanup
   across repeated restarts; successful initial connectivity alone is insufficient.
+
+- Host/container Unix socket integration must validate process-domain connect
+  permissions as well as inode labels and Unix ownership. Prefer a dedicated
+  confined broker domain with explicit permissions; do not grant containers
+  access to arbitrary host daemons or disable enforcement to fix a denial.

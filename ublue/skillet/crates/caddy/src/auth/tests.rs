@@ -206,3 +206,63 @@ fn authorization_endpoint_ignores_forged_headers_and_reloads_revocations() {
     auth_thread.join().unwrap();
     api_thread.join().unwrap();
 }
+
+#[test]
+fn socket_policy_precedes_broker_and_repeat_apply_does_not_reload_it() {
+    use skillet_core::test_utils::{MockFiles, MockSystem};
+    use std::sync::atomic::Ordering;
+    let system = MockSystem::new();
+    let files = MockFiles::new();
+    let policy = Policy::new(vec!["alice@example.invalid".into()]).unwrap();
+    apply(&system, &files, &policy).unwrap();
+    let managed = files.files.lock().unwrap();
+    let unit = String::from_utf8_lossy(&managed["/etc/systemd/system/skillet-tailnet-ui.service"]);
+    assert!(unit.contains("Requires=skillet-tailnet-ui-policy.service"));
+    assert!(unit.contains("After=skillet-tailnet-ui-policy.service tailscale.service"));
+    assert!(unit.contains("SELinuxContext=system_u:system_r:skillet_tailnet_ui_t:s0"));
+    assert!(unit.contains("RuntimeDirectoryMode=0700"));
+    assert!(unit.contains("NoNewPrivileges=yes"));
+    assert!(unit.contains("RestrictAddressFamilies=AF_UNIX"));
+    assert_eq!(
+        managed["/etc/skillet/selinux/skillet-tailnet-ui.cil"],
+        SOCKET_POLICY.as_bytes()
+    );
+    assert!(SOCKET_POLICY_UNIT.contains("ConditionSecurity=selinux"));
+    assert!(SOCKET_POLICY
+        .contains("(allow container_t skillet_tailnet_ui_t (unix_stream_socket (connectto)))"));
+    assert!(!SOCKET_POLICY.contains("(allow container_t unconfined_service_t"));
+    assert!(!SOCKET_POLICY.contains("typeattributeset unconfined"));
+    drop(managed);
+    let starts = system.start_count.load(Ordering::SeqCst);
+    let restarts = system.restart_count.load(Ordering::SeqCst);
+    apply(&system, &files, &policy).unwrap();
+    assert_eq!(system.start_count.load(Ordering::SeqCst), starts);
+    assert_eq!(system.restart_count.load(Ordering::SeqCst), restarts);
+}
+
+#[test]
+fn failed_socket_policy_load_blocks_broker_and_retries_without_applied_marker() {
+    use skillet_core::{
+        system::ServiceResource,
+        test_utils::{MockFiles, MockSystem},
+    };
+    use std::sync::atomic::Ordering;
+    let system = MockSystem::new();
+    let files = MockFiles::new();
+    let policy = Policy::new(vec!["alice@example.invalid".into()]).unwrap();
+    system
+        .service_start("skillet-tailnet-ui-policy.service")
+        .unwrap();
+    system.fail_restart_once.store(true, Ordering::SeqCst);
+    assert!(apply(&system, &files, &policy).is_err());
+    {
+        let managed = files.files.lock().unwrap();
+        assert!(!managed.contains_key("/var/lib/skillet/tailnet-ui/policy.applied"));
+        assert!(!managed.contains_key("/etc/systemd/system/skillet-tailnet-ui.service"));
+        assert!(!managed.contains_key(POLICY_FILE));
+    }
+    apply(&system, &files, &policy).unwrap();
+    let managed = files.files.lock().unwrap();
+    assert!(managed.contains_key("/var/lib/skillet/tailnet-ui/policy.applied"));
+    assert!(managed.contains_key("/etc/systemd/system/skillet-tailnet-ui.service"));
+}

@@ -229,9 +229,11 @@ where
 {
     let root = Ownership::named(Some("root"), Some("root"));
     files.ensure_directory(Path::new("/etc/skillet"), Some(0o755), &root)?;
+    files.ensure_directory(Path::new("/var/lib/skillet/tailnet-ui"), Some(0o700), &root)?;
+    apply_socket_policy(system, files, &root)?;
     let payload = serde_json::to_vec(policy)?;
     let policy_changed = files.ensure_file(Path::new(POLICY_FILE), &payload, Some(0o600), &root)?;
-    let unit = "[Unit]\nDescription=Skillet tailnet UI authorization\nAfter=tailscale.service\n\n[Service]\nExecStart=/var/usrlocal/bin/skillet tailnet-ui serve\nRuntimeDirectory=skillet-tailnet-ui\nRuntimeDirectoryMode=0700\nRuntimeDirectoryPreserve=yes\nRestart=on-failure\nUMask=0077\nNoNewPrivileges=yes\nProtectSystem=strict\nProtectHome=yes\nPrivateTmp=yes\nReadWritePaths=/run/skillet-tailnet-ui\nRestrictAddressFamilies=AF_UNIX\n\n[Install]\nWantedBy=multi-user.target\n";
+    let unit = "[Unit]\nDescription=Skillet tailnet UI authorization\nRequires=skillet-tailnet-ui-policy.service\nAfter=skillet-tailnet-ui-policy.service tailscale.service\n\n[Service]\nExecStart=/var/usrlocal/bin/skillet tailnet-ui serve\nRuntimeDirectory=skillet-tailnet-ui\nRuntimeDirectoryMode=0700\nRuntimeDirectoryPreserve=yes\nRestart=on-failure\nUMask=0077\nSELinuxContext=system_u:system_r:skillet_tailnet_ui_t:s0\nNoNewPrivileges=yes\nProtectSystem=strict\nProtectHome=yes\nPrivateTmp=yes\nReadWritePaths=/run/skillet-tailnet-ui\nRestrictAddressFamilies=AF_UNIX\n\n[Install]\nWantedBy=multi-user.target\n";
     let changed = files.ensure_file(
         Path::new("/etc/systemd/system/skillet-tailnet-ui.service"),
         unit.as_bytes(),
@@ -244,6 +246,7 @@ where
     let mut revision = Sha256::new();
     revision.update(&payload);
     revision.update(unit);
+    revision.update(SOCKET_POLICY);
     activate(
         system,
         files,
@@ -254,6 +257,49 @@ where
             definition_changed: changed || policy_changed,
             reload_daemon: true,
             consumer_kind: ConsumerKind::Persistent,
+        },
+    )?;
+    Ok(())
+}
+
+const SOCKET_POLICY: &str = include_str!("auth/skillet-tailnet-ui.cil");
+const SOCKET_POLICY_UNIT: &str = include_str!("auth/skillet-tailnet-ui-policy.service");
+
+fn apply_socket_policy<S, F>(
+    system: &S,
+    files: &F,
+    root: &Ownership,
+) -> Result<(), super::CaddyError>
+where
+    S: ServiceResource + ?Sized,
+    F: FileMutationResource + FileReadResource + ?Sized,
+{
+    files.ensure_directory(Path::new("/etc/skillet/selinux"), Some(0o755), root)?;
+    let policy_changed = files.ensure_file(
+        Path::new("/etc/skillet/selinux/skillet-tailnet-ui.cil"),
+        SOCKET_POLICY.as_bytes(),
+        Some(0o644),
+        root,
+    )?;
+    let unit_changed = files.ensure_file(
+        Path::new("/etc/systemd/system/skillet-tailnet-ui-policy.service"),
+        SOCKET_POLICY_UNIT.as_bytes(),
+        Some(0o644),
+        root,
+    )?;
+    let mut revision = Sha256::new();
+    revision.update(SOCKET_POLICY);
+    revision.update(SOCKET_POLICY_UNIT);
+    activate(
+        system,
+        files,
+        &ActivationRequest {
+            service: "skillet-tailnet-ui-policy.service".into(),
+            state_path: "/var/lib/skillet/tailnet-ui/policy.applied".into(),
+            revision: revision.finalize().to_vec(),
+            definition_changed: policy_changed || unit_changed,
+            reload_daemon: true,
+            consumer_kind: ConsumerKind::OneShot,
         },
     )?;
     Ok(())

@@ -34,6 +34,15 @@ its private Unix socket. The gate calls only LocalAPI WhoIs and never caches
 identity decisions. The full daemon socket is available to the root-owned gate,
 not to Caddy or application containers. The reviewed gate is therefore trusted
 with daemon access; a read-only socket mount would not restrict API operations.
+The broker has its own `skillet_tailnet_ui_t` SELinux process type with
+explicit file/Unix-socket permissions. A separate loader unit installs the
+reviewed CIL before broker startup on SELinux hosts. Only the broker connection
+permission is granted to container processes; no permission to arbitrary host
+daemons is added. Caddy receives the root-only authorization socket directory,
+not the delivered identity policy or tailscaled socket. Systemd filesystem and
+address-family restrictions remain in place. This policy implementation has
+passed offline compilation; live enforcement acceptance is pending approval.
+
 This avoids the experimental Caddy plugin and a custom Caddy image. Policy is
 part of the encrypted version 3 Caddy payload and converges to a root-only host
 file. `skillet/tailscale/ui-users` supplies complete LoginName values separated

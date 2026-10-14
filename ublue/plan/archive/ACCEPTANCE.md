@@ -2898,3 +2898,44 @@ update / rollback matrix cases. A header backup is not a service-data backup.
 - Pending: approved scoped cleanup/deployment, dual-family HTTPS and user
   authorization checks, transfer reachability, and repeated rootful restarts
   proving forwarding cleanup. Local unit/base checks do not establish these.
+
+## 2026-10-14 — Physical forwarding recovery and confined broker preparation
+
+- After explicit approval, revalidated host identity, immutable container IDs,
+  exclusive published-port ownership, every candidate rule's exact expression,
+  owned network prefixes and unused destinations. Syntax-checked the transaction
+  before atomically removing the twelve originally identified stale DNAT rules.
+- Deployed and verified generic/host binaries at `0a31d2f`, then activated full
+  and Caddy convergence using existing encrypted credentials. All DNS/transfer/
+  HTTPS Quadlets now contain one wildcard publication per transport. Old mapping
+  cleanup leaked twenty-one additional obsolete DNAT rules during transition;
+  removed those after the same exact ownership/destination/snapshot validation.
+- First fixed-mapping restart removed legacy redundant jump/mark rules (counts
+  decreased; no new/stale destinations). Two subsequent restart cycles kept
+  every chain's rule count unchanged, all DNAT destinations current and all three
+  services active. No Netavark cleanup errors in the final observation window.
+- Trusted HTTPS reaches Caddy over IPv4 and IPv6, returning 502. Syncthing TCP
+  22000 connects in both families. DNS answers over UDP/TCP through the host's
+  published port and over the tailnet. UDP Syncthing session transfer was not
+  exercised. This is forwarding acceptance, not successful UI acceptance.
+- Confirmed SELinux enforcing-mode `connectto` denial from Caddy's container
+  domain to the host broker's `unconfined_service_t`, despite correct root Unix
+  ownership and shared socket inode labels. Host-only broker requests accepted
+  the allowed client in both families (204) and rejected tagged/unknown peers
+  (403); this does not prove proxy-to-broker connectivity.
+- Automatic approval review rejected live installation of the first policy
+  proposal because it created an unconfined domain and its scope was unproven.
+  It was not installed. Replaced it with a dedicated confined broker domain,
+  explicit file/Unix-socket permissions, preserved systemd filesystem/address
+  restrictions, and a loader ordered before broker startup. No arbitrary-host-
+  daemon connect permission, unconfined attribute, or enforcement disablement.
+- Final CIL compiled against an isolated temporary copy of the guest's actual
+  SELinux store with alternate roots and no reload. Temporary stores removed;
+  live policy and broker domain remain unchanged. Local regression covers unit
+  ordering, repeat apply and failed loader recovery. Live installation/startup,
+  enforcing-mode WhoIs access and successful/prohibited HTTPS requests remain
+  pending approval and are not recorded as passed.
+- Formatting, strict workspace Clippy and 453 workspace/all-target tests (five
+  routine ignores) passed. Fedora joey base repeat apply passed; its container
+  stop again required the runner's SIGKILL fallback after ten seconds. These
+  checks do not validate live SELinux process transitions or proxy authorization.

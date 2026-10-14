@@ -52,7 +52,10 @@ For caller-declared identity protection:
 Requests from unknown, tagged or disallowed clients are denied. The authorization
 socket is `/run/skillet-tailnet-ui/auth.sock`; tailscaled's socket is
 `/run/skillet-tailscale/tailscaled.sock`. Do not forward private backend ports or
-mount these sockets into unrelated containers. The backend needs Netavark
+mount these sockets into unrelated containers. On SELinux hosts, inspect
+`skillet-tailnet-ui-policy.service` as well as `skillet-tailnet-ui.service`;
+the loader must succeed before the broker starts. The managed policy is
+`/etc/skillet/selinux/skillet-tailnet-ui.cil`. Keep enforcement enabled. The backend needs Netavark
 `isolate=strict` support. [Mikochi](../mikochi/README.md) uses this gate without
 an additional application login. Headscale identity acceptance is not established.
 
