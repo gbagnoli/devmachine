@@ -3109,3 +3109,8 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   full/UI apply for all eight selected service units, including the new Pi-hole
   private network. The runner's final capture-based readiness step is still
   finishing; this records application acceptance rather than its final exit.
+- The complete named VM smoke command then exited 0, including final signed-boot,
+  base and user-environment readiness. Restored the current committed generic/host
+  binaries afterward, since readiness deliberately reinstalls the creation capture.
+  Physical API/isolation and separate-client denial checks are complete; an allowed
+  person's browser observation remains an operator check.
