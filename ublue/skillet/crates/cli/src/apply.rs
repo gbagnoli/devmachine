@@ -6,6 +6,7 @@ use skillet_workstation::{host_apply, vault::Vault};
 use std::path::PathBuf;
 
 #[derive(clap::Args, Debug)]
+#[command(after_help = include_str!("help/ssh-agent.txt"))]
 #[command(
     override_usage = "skillet apply [OPTIONS] <HOST>\n       skillet apply --host-file <PATH> [OPTIONS]"
 )]

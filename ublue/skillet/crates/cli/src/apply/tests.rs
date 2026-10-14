@@ -110,3 +110,19 @@ fn deploy_requires_positional_host_but_target_is_an_optional_override() {
     assert!(crate::Args::try_parse_from(["skillet", "deploy"]).is_err());
     assert!(crate::Args::try_parse_from(["skillet", "deploy", "--host", "clamps"]).is_err());
 }
+
+#[test]
+fn apply_and_deploy_help_link_to_ssh_agent_setup() {
+    use clap::CommandFactory as _;
+    for command in ["apply", "deploy"] {
+        let mut cli = crate::Args::command();
+        let help = cli
+            .find_subcommand_mut(command)
+            .unwrap()
+            .render_help()
+            .to_string();
+        assert!(help.contains("SSH keys:"));
+        assert!(help.contains("README.md#ssh-agent"));
+        assert!(help.contains("KeePass"));
+    }
+}

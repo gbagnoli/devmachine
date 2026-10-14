@@ -76,18 +76,54 @@ host profile. `--port`, `--identity` and `--known-hosts` override only those set
 Guest units keep `apply --host-file /etc/skillet/host --phase PHASE`; for an
 explicit local invocation use `apply HOST --local --phase PHASE`.
 
-SSH runs noninteractively with strict host verification. Load encrypted keys
-into your SSH agent before applying, for example `ssh-add ~/.ssh/operator_key`.
-SSH authentication/connection failure is reported separately from a successful
-connection whose `/etc/skillet/host` mismatches the selected profile. First verify the fingerprint at the server console and
-establish trust with SSH. Unknown/changed keys are refused. Override with
-`--port`, `--identity /absolute/key`, or `--known-hosts /absolute/known_hosts`.
-A protected key must already be available to noninteractive SSH.
+SSH runs noninteractively with strict host verification. Follow
+[SSH-agent setup](#ssh-agent) for password-protected keys. SSH failures are
+reported separately from guest identity mismatches. Verify the host fingerprint
+at the server console and establish trust with SSH; unknown/changed keys are
+refused.
 
 Failure stops later phases. Repair the reported prerequisite and repeat apply.
 Installed Tailscale enrollment and persistent Cloudflare child tokens are reused.
 Networking preparation does not switch the live connection; follow its module
 README for reboot adoption. Monitoring runs after selected workloads.
+
+## SSH agent
+
+Run these commands on the workstation, not inside the remote SSH session.
+Check for a reachable agent and loaded keys:
+
+```sh
+ssh-add -l
+```
+
+If it cannot connect to an agent (or `SSH_AUTH_SOCK` is unset), start one in the
+current shell:
+
+```sh
+eval "$(ssh-agent -s)"
+```
+
+Load the private key used for your host alias; replace the example path:
+
+```sh
+ssh-add ~/.ssh/operator_key
+cargo run --release -p skillet -- apply HOST
+```
+
+Enter the SSH-key passphrase at the terminal prompt. Keep using that same shell
+so Skillet inherits `SSH_AUTH_SOCK`. This unlock is separate from KeePass and its
+three-hour cache. Do not start another agent when an existing one is reachable.
+List configured key paths when needed (use the override destination if supplied):
+
+```sh
+ssh -G HOST | sed -n '/^identityfile /p'
+```
+
+An advertised socket alone does not establish a working agent or a loaded key.
+If authentication still fails, verify the configured destination/user/key and
+server authorized keys. Skillet does not automatically start an agent or unlock
+private keys. For an agent you started solely for this shell, `ssh-agent -k`
+stops it when finished; do not stop a shared desktop/session agent.
 
 ## Deliver one service
 
