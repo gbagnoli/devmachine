@@ -3058,3 +3058,7 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   comparisons across repeat full/UI apply for Pi-hole, Tailscale, Syncthing,
   UniFi, btrbk, Mikochi, Caddy and the identity broker. This supersedes neither
   the original failures above nor the independently parked backend/provider gates.
+- The complete command `skillet test smoke clamps --instance files
+  --with-applications` exited 0, including its final signed-boot/base/user
+  readiness check. The runner leaves captured bootstrap artifacts installed;
+  restore current binaries with `test vm update` before further development.
