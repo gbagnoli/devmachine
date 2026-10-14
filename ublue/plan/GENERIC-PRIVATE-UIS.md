@@ -61,9 +61,9 @@ Acceptance in progress:
 1. Completed: strict workspace checks (470 tests), Butane regressions and
    provider-free real Pi-hole retained-password/restart, Caddy refresh/denial and
    Mikochi file-operation tests.
-2. Owned native VM application acceptance passed after update, matching test UI
-   provisioning, reboot and repeat full/UI apply. Finish capture-based readiness
-   and restore current binaries before further development.
+2. Completed on the owned native VM: matching test UI provisioning, reboot,
+   repeat full/UI apply and final signed/base/user readiness all passed. Current
+   binaries were restored after capture-based readiness.
 3. Completed on physical clamps: matching Caddy policy/full apply, anonymous
    Pi-hole API, separate-client TCP/UDP DNS, sibling-backend isolation and
    tagged-client HTTPS denial in both IP families.
