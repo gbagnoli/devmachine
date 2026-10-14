@@ -53,3 +53,29 @@ fn file_recording_preserves_numeric_ownership() {
         } if recorded_ownership == &ownership
     ));
 }
+
+#[test]
+fn missing_only_recording_reports_creation_and_preservation_without_content() {
+    let recorder = Recorder::new(MockFiles::new());
+    let path = std::path::Path::new("/private/seed");
+    let owner = Ownership {
+        uid: Some(OwnerIdentity::Id(1234)),
+        gid: None,
+    };
+    let payload = b"private-bootstrap-payload";
+    assert!(recorder
+        .create_file_if_absent(path, payload, Some(0o600), &owner)
+        .unwrap());
+    assert!(!recorder
+        .create_file_if_absent(path, b"replacement", Some(0o777), &Ownership::default())
+        .unwrap());
+    let operations = recorder.get_ops();
+    assert_eq!(operations[0].result, EffectResult::Changed(true));
+    assert_eq!(operations[1].result, EffectResult::Changed(false));
+    assert!(
+        matches!(&operations[0].operation, ResourceOp::CreateFileIfAbsent { ownership, .. } if ownership == &owner)
+    );
+    assert!(!serde_yml::to_string(&operations)
+        .unwrap()
+        .contains("private-bootstrap-payload"));
+}

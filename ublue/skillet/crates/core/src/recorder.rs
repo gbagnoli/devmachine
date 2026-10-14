@@ -89,6 +89,27 @@ impl<T: FileReadResource> FileReadResource for Recorder<T> {
 }
 
 impl<T: FileMutationResource> FileMutationResource for Recorder<T> {
+    fn create_file_if_absent(
+        &self,
+        path: &Path,
+        content: &[u8],
+        mode: Option<u32>,
+        ownership: &Ownership,
+    ) -> Result<bool, FileError> {
+        let result = self
+            .inner
+            .create_file_if_absent(path, content, mode, ownership);
+        self.record(
+            ResourceOp::CreateFileIfAbsent {
+                path: path.display().to_string(),
+                mode: mode.map(|m| format!("0o{m:o}")),
+                ownership: ownership.clone(),
+            },
+            changed(&result),
+        );
+        result
+    }
+
     fn ensure_file(
         &self,
         path: &Path,

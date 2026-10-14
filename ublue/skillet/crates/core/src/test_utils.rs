@@ -460,6 +460,42 @@ impl FileReadResource for MockFiles {
 }
 
 impl FileMutationResource for MockFiles {
+    fn create_file_if_absent(
+        &self,
+        path: &Path,
+        content: &[u8],
+        mode: Option<u32>,
+        ownership: &Ownership,
+    ) -> Result<bool, FileError> {
+        let key = path.display().to_string();
+        if self
+            .directories
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains(&key)
+        {
+            return Err(FileError::NotAFile(key));
+        }
+        let mut files = self
+            .files
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if files.contains_key(&key) {
+            return Ok(false);
+        }
+        if self.fail_file_write_once.swap(false, Ordering::SeqCst) {
+            return Err(FileError::Io(std::io::Error::other(
+                "injected file write failure",
+            )));
+        }
+        files.insert(key.clone(), content.to_vec());
+        self.metadata
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(key, (mode, ownership.clone()));
+        Ok(true)
+    }
+
     fn ensure_file(
         &self,
         path: &Path,
