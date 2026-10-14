@@ -2939,3 +2939,31 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   routine ignores) passed. Fedora joey base repeat apply passed; its container
   stop again required the runner's SIGKILL fallback after ten seconds. These
   checks do not validate live SELinux process transitions or proxy authorization.
+
+## 2026-10-14 — Confined broker live activation
+
+- With explicit approval, deployed and verified both binaries at `1d6ea99` and
+  ran the existing credential-bearing Caddy apply unit. The policy loader exited
+  successfully, the broker ran as `skillet_tailnet_ui_t`, and Caddy retained its
+  normal `container_t` domain. SELinux remained Enforcing throughout.
+- Real allowed-client requests to both declared Syncthing names and the files UI
+  returned trusted HTTPS 200 over IPv4 and IPv6. Initial IPv6 probes had transient
+  timeouts; subsequent retries and the full post-restart six-request sweep all
+  passed. A previously used nonconfigured hostname failed DNS and was not added.
+- Real tagged-server IPv4 HTTPS returned the broker's 403 response even with a
+  forged allowed-peer header. Tagged IPv6 identity lookup and unknown identity
+  lookup returned 403 through the host-only broker socket. The tagged-server IPv6
+  HTTPS hairpin request timed out, so that full-path case remains unverified.
+- Allowed-client forged peer/user/forwarding headers could not override the
+  actual peer (200); an untrusted Origin was rejected (403).
+- Pi-hole sibling-container direct probes to Syncthing and Mikochi GUI addresses
+  timed out in both IP families, proving those private backend paths unavailable
+  from the unrelated bridge. No GUI ports were published for recovery.
+- Restarted broker/Caddy successfully in enforcing mode; all configured UI
+  names returned 200 in both families afterward. Repeat Caddy convergence kept
+  the broker PID and Caddy container ID unchanged. Final inspection found five
+  relevant units active, fourteen current DNS/HTTPS/transfer DNAT rules, and no
+  broker AVC or Netavark cleanup errors in the final observation window.
+- Did not reboot or mutate application policy/data, issue new certificates,
+  exercise browser operations or UDP transfers. Separate-device tagged IPv6,
+  browser/REST/WebSocket, revocation/outage and reboot checks remain in the plan.

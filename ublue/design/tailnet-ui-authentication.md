@@ -40,8 +40,8 @@ reviewed CIL before broker startup on SELinux hosts. Only the broker connection
 permission is granted to container processes; no permission to arbitrary host
 daemons is added. Caddy receives the root-only authorization socket directory,
 not the delivered identity policy or tailscaled socket. Systemd filesystem and
-address-family restrictions remain in place. This policy implementation has
-passed offline compilation; live enforcement acceptance is pending approval.
+address-family restrictions remain in place. The loader skips policy installation
+when SELinux is disabled; enforcing hosts retain the same private socket boundary.
 
 This avoids the experimental Caddy plugin and a custom Caddy image. Policy is
 part of the encrypted version 3 Caddy payload and converges to a root-only host

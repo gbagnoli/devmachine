@@ -36,22 +36,14 @@ and unavailable checks honestly. Designs: [private access](../design/private-ui-
 
 ## Syncthing identity rollout
 
-Syncthing canonical and alias routes now declare user identity protection; its
-GUI backend moves off the shared bridge onto a dedicated strict network.
-Validate redelivery/repeat apply on a named target, allowed versus tagged or
-unlisted clients, direct backend denial in both IP families, alias/browser/REST
-and WebSocket behavior, and continued published TCP/UDP 22000 reachability.
-Application state and existing GUI credentials are preserved.
+Syncthing canonical and alias routes declare user identity protection; its GUI
+uses a dedicated strict bridge. Physical forwarding, confined SELinux broker
+startup/restart, repeat convergence, allowed-client HTTPS and sibling-backend
+denial passed in both IP families. Tagged IPv4 HTTPS and unknown/tagged identity
+lookups were denied; forged identity headers and untrusted origins were checked.
+See the dated [acceptance evidence](archive/ACCEPTANCE.md).
 
-
-Shared wildcard publication and approved physical forwarding repair passed
-repeated rootful restart checks, dual-family ingress, TCP transfer reachability
-and UDP/TCP DNS. See the dated [acceptance evidence](archive/ACCEPTANCE.md).
-End-to-end identity-protected HTTPS remains pending the broker fix below.
-
-
-Forwarding repair and repeated rootful restart cleanup passed on physical
-hardware on 2026-10-14. HTTPS now reaches the proxy in both families but returns
-502: SELinux denies container-to-host broker `connectto`. A dedicated confined
-broker policy and ordered loader are implemented and compile offline; live
-policy installation/authorization acceptance remains unverified pending approval.
+Remaining rollout checks: tagged/disallowed-client HTTPS over IPv6 from a
+separate device (the host's IPv6 hairpin probe timed out), browser/REST/WebSocket
+behavior, application-policy revocation/daemon outage, full UDP transfer and
+reboot. Application state and existing GUI credentials are preserved.
