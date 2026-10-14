@@ -42,3 +42,11 @@ Validate redelivery/repeat apply on a named target, allowed versus tagged or
 unlisted clients, direct backend denial in both IP families, alias/browser/REST
 and WebSocket behavior, and continued published TCP/UDP 22000 reachability.
 Application state and existing GUI credentials are preserved.
+
+
+Before physical rollout acceptance, repair retained stale forwarding rules with
+explicit authorization and revalidate ownership immediately before mutation.
+Verify the shared wildcard publication change through repeated rootful restarts,
+both IP families and Syncthing transfer listeners. Source rendering is fixed;
+physical repair and connectivity acceptance remain pending. See the dated
+[acceptance evidence](archive/ACCEPTANCE.md).

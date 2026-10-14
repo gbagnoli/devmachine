@@ -214,3 +214,7 @@
   installation templates and image. Identity renames require an explicit
   compatibility decision; never silently rewrite retained manifests or vault
   entries. Preserve historical acceptance evidence as recorded.
+
+- Render dual-stack port exposure using non-overlapping runtime bindings.
+  Preserve explicit address/family restrictions and validate forwarding cleanup
+  across repeated restarts; successful initial connectivity alone is insufficient.

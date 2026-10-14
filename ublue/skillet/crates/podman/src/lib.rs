@@ -167,6 +167,7 @@ pub enum PortProtocol {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PortPublication {
+    /// Matching IPv4/IPv6 unspecified bindings are rendered as one dual-stack publication.
     pub host_address: IpAddr,
     pub host_port: u16,
     pub container_port: u16,
@@ -240,6 +241,36 @@ impl PortPublication {
             self.host_port, self.container_port, protocol
         ))
     }
+}
+
+// Netavark versions can overlap family-specific wildcard mappings. Use the
+// native dual-stack form when the caller requests both families, without
+// broadening a single-family or explicitly addressed publication.
+fn port_publication_directives(
+    publications: &[PortPublication],
+) -> Result<Vec<String>, PodmanError> {
+    let mut directives = Vec::new();
+    for publication in publications {
+        let mut directive = publication.to_directive()?;
+        let paired = publication.host_address.is_unspecified()
+            && publications.iter().any(|other| {
+                other.host_address.is_unspecified()
+                    && other.host_address.is_ipv4() != publication.host_address.is_ipv4()
+                    && other.host_port == publication.host_port
+                    && other.container_port == publication.container_port
+                    && other.protocol == publication.protocol
+            });
+        if paired {
+            let (_, ports) = directive
+                .rsplit_once(':')
+                .ok_or(PodmanError::InvalidPortPublication)?;
+            directive = format!("PublishPort={}:{ports}", publication.host_port);
+        }
+        if !directives.contains(&directive) {
+            directives.push(directive);
+        }
+    }
+    Ok(directives)
 }
 
 /// Configure Aardvark's host-wide listener before applying services that
@@ -339,11 +370,11 @@ where
             .or_default()
             .push(directive);
     }
-    for publication in &config.port_publications {
+    for directive in port_publication_directives(&config.port_publications)? {
         extra_config
             .entry("Container".to_string())
             .or_default()
-            .push(publication.to_directive()?);
+            .push(directive);
     }
     if let Some(dependency) = &config.storage_dependency {
         extra_config

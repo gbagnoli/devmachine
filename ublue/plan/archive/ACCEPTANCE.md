@@ -2875,3 +2875,26 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   routine ignores) and Fedora joey base repeat apply passed. Direct CLI help
   and isolated fake-SSH missing/present-agent error probes passed without
   accessing a vault, starting an agent or contacting a production guest.
+
+## 2026-10-14 — Wildcard port publication repair preparation
+
+- Read-only physical diagnostics found active Caddy and Syncthing containers,
+  but twelve retained DNAT rules still targeted their old, unused endpoints.
+  Netavark 1.17.2 cleanup errors match upstream issue
+  [1338](https://github.com/containers/netavark/issues/1338).
+- Shared Quadlet rendering now collapses matching IPv4/IPv6 wildcard mappings
+  into one native dual-stack publication, retaining single-family, explicit
+  address, protocol and container-port distinctions. Tests cover either input
+  order and affected Pi-hole/Syncthing host composition.
+- Formatting, strict workspace Clippy, 451 workspace/all-target tests (five
+  routine ignores), and Fedora joey base repeat apply passed. The integration
+  runner needed SIGKILL after its normal container-stop timeout; both applies
+  succeeded and the repeat issued no service start/restart.
+- Live mutation was rejected by automatic approval review because root firewall
+  deletion lacked explicit approval and its initial selection was too broad.
+  A local exact twelve-rule proposal was prepared after checking all live
+  container endpoints; it has not been executed. Do not reuse handles without
+  revalidating current rule expressions and container ownership.
+- Pending: approved scoped cleanup/deployment, dual-family HTTPS and user
+  authorization checks, transfer reachability, and repeated rootful restarts
+  proving forwarding cleanup. Local unit/base checks do not establish these.
