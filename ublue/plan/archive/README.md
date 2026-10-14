@@ -8,6 +8,7 @@ queue. Use [active plans](../README.md) and crate operating guides for current w
 - [Design progress snapshot](DESIGN-PROGRESS.md): status notes removed from designs.
 - Refactor workstreams/follow-up: `REFACTOR-*.md`; previous roadmap:
   [SKILLET-REFACTOR.md](SKILLET-REFACTOR.md).
+- [Syncthing missing-only bootstrap](SYNCTHING-INITIAL-CONFIG.md).
 - Previous clamps milestones: migration, baseline audit, snapshots, storage and
   credentials, DDNS, Datadog, SMTP, UniFi, UI provisioning and TPM root.
 

@@ -57,4 +57,4 @@ For a reset, stop Syncthing and back up `config/config.xml` before removing only
 that file. Preserve `cert.pem`, `key.pem`, the database and synchronized files.
 Then activate the initializer and restart Syncthing. See the
 [design](../../../design/syncthing.md) and
-[acceptance plan](../../../plan/SYNCTHING-INITIAL-CONFIG.md).
+[acceptance plan](../../../plan/archive/SYNCTHING-INITIAL-CONFIG.md).
