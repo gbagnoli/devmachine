@@ -309,6 +309,8 @@ fn file_ui_is_gated_before_proxy_and_cannot_disable_declared_identity() {
     );
     assert!(config.find("forward_auth").unwrap() < config.find("reverse_proxy mikochi").unwrap());
     assert!(config.contains("header_up X-Skillet-Peer {http.request.remote}"));
+    assert_eq!(config.matches("uri /auth?\n").count(), 2);
+    assert!(!config.contains("uri /auth\n"));
     assert!(config.contains("request_header -X-Skillet-User"));
     assert!(config.contains("respond @cross_origin 403"));
     let encoded = serde_json::to_string(&sites).unwrap();
@@ -411,5 +413,65 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
         output.status.success(),
         "{}",
         String::from_utf8_lossy(&output.stderr)
+    );
+
+    let adapted = std::process::Command::new("podman")
+        .args([
+            "run",
+            "--rm",
+            "--network",
+            "none",
+            "--volume",
+            &volume,
+            "ghcr.io/caddybuilds/caddy-cloudflare:2",
+            "caddy",
+            "adapt",
+            "--config",
+            "/etc/caddy/Caddyfile",
+            "--adapter",
+            "caddyfile",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        adapted.status.success(),
+        "{}",
+        String::from_utf8_lossy(&adapted.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&adapted.stdout).unwrap();
+    assert_identity_query_rewrites(&json, 3);
+}
+
+fn assert_identity_query_rewrites(json: &serde_json::Value, route_count: usize) {
+    let mut nodes = vec![json];
+    let mut auth_count = 0;
+    let mut application_count = 0;
+    while let Some(node) = nodes.pop() {
+        match node {
+            serde_json::Value::Object(fields) => {
+                if fields.get("handler").and_then(serde_json::Value::as_str)
+                    == Some("reverse_proxy")
+                {
+                    if let Some(rewrite) = fields.get("rewrite") {
+                        assert_eq!(rewrite["method"], "GET");
+                        assert_eq!(rewrite["uri"], "/auth?");
+                        auth_count += 1;
+                    } else {
+                        application_count += 1;
+                    }
+                }
+                nodes.extend(fields.values());
+            }
+            serde_json::Value::Array(items) => nodes.extend(items),
+            _ => {}
+        }
+    }
+    assert_eq!(
+        auth_count, route_count,
+        "every identity route must clear its auth query"
+    );
+    assert_eq!(
+        application_count, route_count,
+        "application requests must retain their original URI"
     );
 }

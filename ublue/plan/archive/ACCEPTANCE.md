@@ -2967,3 +2967,28 @@ update / rollback matrix cases. A header backup is not a service-data backup.
 - Did not reboot or mutate application policy/data, issue new certificates,
   exercise browser operations or UDP transfers. Separate-device tagged IPv6,
   browser/REST/WebSocket, revocation/outage and reboot checks remain in the plan.
+
+## 2026-10-14 — Query-bearing browser requests through identity auth
+
+- Android reproduction repeatedly loaded HTML/assets, then received broker 403
+  on events and versioned fonts. Sanitized access logging confirmed the response
+  came from identity auth, not Syncthing CSRF. The same allowed peer received 204
+  for `/auth` and 403 for `/auth?probe=1`: application query strings had reached
+  the strictly matched authorization endpoint.
+- The generic renderer now uses `uri /auth?` to clear the query on the cloned
+  authentication subrequest. Original backend requests remain untouched; identity,
+  origin and private-backend policies are preserved. No app CSRF bypass added.
+- Extended the existing credential-free real-Caddy CI test to inspect adapted
+  configuration: every identity route rewrites auth to GET `/auth?`, and ordinary
+  application proxies have no rewrite. Pure rendering checks cover aliases.
+- A disposable localhost-only Caddy container with mock auth/backend servers
+  proved query-bearing event/font GETs and a POST all reached auth as exact
+  `GET /auth`, while application method, URL/query and POST body were retained.
+  The owned container and temporary fixture were removed after the check.
+- Formatting, strict Clippy, 453 workspace/all-target tests (five routine ignores),
+  the real-Caddy consumer test and Fedora joey base repeat apply passed. The base
+  runner again used its SIGKILL fallback after the normal stop timeout.
+- Applied the query-clearing change on the physical proxy for reproduction.
+  Temporary sanitized access logs/Origin fields were diagnostic configuration;
+  durable deployment and cleanup are recorded below after completion. Android
+  usability confirmation remains pending; do not infer it from the fixture.
