@@ -6,40 +6,49 @@ use skillet_workstation::{host_apply, vault::Vault};
 use std::path::PathBuf;
 
 #[derive(clap::Args, Debug)]
+#[command(
+    override_usage = "skillet apply [OPTIONS] <HOST>\n       skillet apply --host-file <PATH> [OPTIONS]"
+)]
+#[command(group(clap::ArgGroup::new("local_mode").args(["host_file", "local"]).multiple(false)))]
 pub(super) struct Args {
     #[arg(long, value_enum, default_value_t = ApplyPhase::Full)]
     phase: ApplyPhase,
-    #[arg(long)]
+    /// Required host profile and default SSH alias (except with --host-file)
+    #[arg(required_unless_present = "host_file", conflicts_with = "host_file")]
     host: Option<String>,
-    #[arg(long, conflicts_with = "target")]
+    #[arg(long, conflicts_with_all = ["target", "local", "no_deploy", "identity", "known_hosts", "database", "key_file", "port"])]
     host_file: Option<PathBuf>,
+    /// Apply on this guest rather than connecting over SSH
+    #[arg(long, conflicts_with_all = ["target", "no_deploy", "identity", "known_hosts", "database", "key_file", "port"])]
+    local: bool,
     /// Record local guest resource operations
-    #[arg(long, conflicts_with = "target")]
+    #[arg(long, requires = "local_mode")]
     record: Option<PathBuf>,
-    /// Provision all declared services over verified SSH to USER@HOST
-    #[arg(long, requires = "host")]
+    /// Override SSH destination: HOST, alias, or USER@HOST
+    #[arg(long)]
     target: Option<String>,
     /// Reuse installed guest binaries instead of deploying current source
-    #[arg(long, requires = "target")]
+    #[arg(long)]
     no_deploy: bool,
-    #[arg(long, default_value_t = 22)]
-    port: u16,
+    /// Override SSH config port
+    #[arg(long)]
+    port: Option<u16>,
     /// SSH private key; omitted uses OpenSSH configuration, defaults and agent
-    #[arg(long, requires = "target")]
+    #[arg(long)]
     identity: Option<PathBuf>,
-    /// Recorded host keys; defaults to `~/.ssh/known_hosts`
-    #[arg(long, requires = "target")]
+    /// Override recorded host keys; omitted uses OpenSSH settings
+    #[arg(long)]
     known_hosts: Option<PathBuf>,
-    #[arg(long, requires = "target")]
+    #[arg(long)]
     database: Option<PathBuf>,
-    #[arg(long, requires = "target")]
+    #[arg(long)]
     key_file: Option<PathBuf>,
     #[arg(long, value_enum, default_value_t = UiEnvironmentName::Production)]
     environment: UiEnvironmentName,
 }
 
 pub(super) fn dispatch(args: &Args) -> Result<()> {
-    if args.target.is_some() {
+    if !args.local && args.host_file.is_none() {
         return remote(args);
     }
     let mut hostname = args.host.clone().unwrap_or_else(|| "agent".into());
@@ -75,13 +84,10 @@ fn remote(args: &Args) -> Result<()> {
     let host = args
         .host
         .as_deref()
-        .ok_or_else(|| anyhow!("remote apply requires --host"))?;
+        .ok_or_else(|| anyhow!("remote apply requires HOST"))?;
     let profile = skillet_hosts::profile_for_name(host)
         .ok_or_else(|| anyhow!("unknown host profile: {host}"))?;
-    let target = args
-        .target
-        .as_deref()
-        .ok_or_else(|| anyhow!("remote apply requires --target"))?;
+    let target = args.target.as_deref().unwrap_or(host);
     let transport = super::ssh::transport(
         target,
         args.port,

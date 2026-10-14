@@ -64,7 +64,7 @@ fn ddns_commands_parse_and_test_delivery_refuses_before_vault_access() {
         .to_string()
         .contains("test DDNS must be provisioned through an owned disposable VM"));
     assert!(crate::Args::try_parse_from([
-        "skillet", "apply", "--host", "clamps", "--phase", "ddns"
+        "skillet", "apply", "clamps", "--local", "--phase", "ddns"
     ])
     .is_ok());
 }
@@ -98,7 +98,7 @@ fn delivery_eligibility_uses_declared_service_capabilities() {
 #[test]
 fn datadog_commands_parse_and_test_delivery_refuses_before_vault_access() {
     assert!(crate::Args::try_parse_from([
-        "skillet", "apply", "--host", "clamps", "--phase", "datadog"
+        "skillet", "apply", "clamps", "--local", "--phase", "datadog"
     ])
     .is_ok());
     assert!(crate::Args::try_parse_from([
@@ -229,7 +229,7 @@ fn delivery_defaults_to_staging_with_openssh_identity_selection() {
         assert_eq!(args.activate, activate);
         assert!(args.identity.is_none());
         assert!(args.known_hosts.is_none());
-        assert_eq!(args.port, 22);
+        assert!(args.port.is_none());
     }
 }
 

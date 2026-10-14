@@ -4,12 +4,14 @@ use std::path::PathBuf;
 
 #[derive(clap::Args, Debug)]
 pub(super) struct Args {
-    #[arg(long)]
+    /// Canonical host profile and default SSH alias
     host: String,
+    /// Override SSH destination: HOST, alias, or USER@HOST
     #[arg(long)]
-    target: String,
-    #[arg(long, default_value_t = 22)]
-    port: u16,
+    target: Option<String>,
+    /// Override SSH config port
+    #[arg(long)]
+    port: Option<u16>,
     #[arg(long)]
     identity: Option<PathBuf>,
     #[arg(long)]
@@ -20,7 +22,7 @@ pub(super) fn dispatch(args: &Args) -> Result<()> {
     skillet_hosts::profile_for_name(&args.host)
         .ok_or_else(|| anyhow::anyhow!("unknown host profile: {}", args.host))?;
     let transport = super::ssh::transport(
-        &args.target,
+        args.target.as_deref().unwrap_or(&args.host),
         args.port,
         args.identity.as_deref(),
         args.known_hosts.as_deref(),

@@ -28,7 +28,7 @@ cargo run --release -p skillet -- secrets deliver HOST network \
 ```
 
 `--activate` runs the preparation unit only: it never restarts/reloads
-NetworkManager or changes live addresses. Remote `apply --host HOST --target ...`
+NetworkManager or changes live addresses. Remote `apply HOST --target ...`
 also prepares networking in the full workflow.
 
 Profiles are root-only under `/run/NetworkManager/system-connections`; persistent

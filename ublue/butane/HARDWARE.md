@@ -176,7 +176,7 @@ See [storage policy](../design/storage.md) and [remaining encryption checks](../
 ## Provision and cut over
 
 8. Unlock KeePassXC and check the production secret audit. Use
-   `skillet apply --host clamps --target giacomo@HOST` from the workstation to
+   `skillet apply clamps --target giacomo@HOST` from the workstation to
    deliver credentials and apply all declared services; see
    [Skillet's README](../skillet/crates/workstation/README.md#apply-a-production-host).
    Complete data/identity migration and stop the old DDNS writer first. Keep

@@ -137,7 +137,7 @@ fn workstation_identity_discovery_preserves_noninteractive_strict_host_trust() {
     assert!(args.iter().any(|arg| *arg == "BatchMode=yes"));
     let mut missing = SshConnection::from(target(dir.path()));
     missing.identity = None;
-    fs::remove_file(&missing.known_hosts).unwrap();
+    fs::remove_file(missing.known_hosts.as_ref().unwrap()).unwrap();
     assert!(SshTransport::workstation(missing).is_err());
 }
 
@@ -310,4 +310,59 @@ fn interactive_forwards_are_loopback_only_and_fail_on_bind_error() {
         assert!(args.contains(&option));
     }
     assert!(transport.interactive_command(&[forward, forward]).is_err());
+}
+
+#[test]
+fn workstation_alias_uses_openssh_config_without_overriding_user_port_or_known_hosts() {
+    let transport = SshTransport::workstation(SshConnection {
+        user: None,
+        address: "clamps".into(),
+        port: None,
+        identity: None,
+        known_hosts: None,
+    })
+    .unwrap();
+    let cmd = transport
+        .command(&GuestCommand {
+            program: "true",
+            arguments: &[],
+        })
+        .unwrap();
+    let args: Vec<_> = cmd
+        .get_args()
+        .map(|value| value.to_str().unwrap())
+        .collect();
+    assert_eq!(args[args.len() - 2], "clamps");
+    assert!(!args.contains(&"-p"));
+    assert!(!args.contains(&"-i"));
+    assert!(!args
+        .iter()
+        .any(|arg| arg.starts_with("UserKnownHostsFile=")));
+    assert!(args.contains(&"StrictHostKeyChecking=yes"));
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("binary");
+    fs::write(&source, b"binary").unwrap();
+    let upload = transport
+        .upload_command(&source, "/var/tmp/binary")
+        .unwrap();
+    assert_eq!(upload.get_args().last().unwrap(), "clamps:/var/tmp/binary");
+    assert!(!upload.get_args().any(|arg| arg == "-P"));
+    let config = dir.path().join("config");
+    fs::write(
+        &config,
+        "Host clamps\n HostName server.example.invalid\n User operator\n Port 2227\n",
+    )
+    .unwrap();
+    let mut inspect = std::process::Command::new("ssh");
+    inspect.args(["-G", "-F"]).arg(&config);
+    transport.options(&mut inspect, "-p");
+    inspect.arg(transport.remote_target());
+    let output = inspect.output().unwrap();
+    assert!(output.status.success());
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(text
+        .lines()
+        .any(|line| line == "hostname server.example.invalid"));
+    assert!(text.lines().any(|line| line == "user operator"));
+    assert!(text.lines().any(|line| line == "port 2227"));
 }

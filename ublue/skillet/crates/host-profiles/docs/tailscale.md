@@ -21,7 +21,7 @@ The caller selects a rootful host-network Tailscale container. State is under
 
 ```sh
 cargo run --release -p skillet -- secrets unlock
-cargo run --release -p skillet -- apply --host HOST --target USER@ADDRESS
+cargo run --release -p skillet -- apply HOST --target USER@ADDRESS
 # Existing owned disposable VM:
 cargo run --release -p skillet -- test vm provision HOST INSTANCE
 ```

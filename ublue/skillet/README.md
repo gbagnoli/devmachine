@@ -76,7 +76,7 @@ root with `bash ublue/butane/tests/bootstrap.sh`.
    ```sh
    cargo run --release -p skillet -- secrets unlock
    cargo run --release -p skillet -- secrets check --host HOST --environment production
-   cargo run --release -p skillet -- apply --host HOST --target USER@ADDRESS
+   cargo run --release -p skillet -- apply HOST
    ```
 
    [Remote apply](crates/workstation/README.md#apply-a-production-host) explains

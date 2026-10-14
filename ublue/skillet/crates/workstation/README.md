@@ -42,19 +42,19 @@ Terminal links use OSC 8 when supported; `FORCE_HYPERLINK=0` disables them.
 After signed bootstrap, data/identity migration preparation and the vault audit:
 
 ```sh
-cargo run --release -p skillet -- apply --host HOST --target USER@ADDRESS
+cargo run --release -p skillet -- apply HOST
 ```
 
 Remote apply first builds and deploys both current binaries, prints their verified
 versions, then configures all caller-selected services. Deployment requires this
 source checkout, Cargo and the musl compiler; it honors Cargo's target directory.
-Use `apply --host HOST --target USER@ADDRESS --no-deploy` to reuse installed
+Use `apply HOST --no-deploy` to reuse installed
 binaries (their versions are still printed).
 
 Deploy binaries separately, without vault access or service activation:
 
 ```sh
-cargo run --release -p skillet -- deploy --host HOST --target USER@ADDRESS
+cargo run --release -p skillet -- deploy HOST
 ```
 
 Keep temporary passwordless sudo
@@ -67,8 +67,19 @@ ownership, mode and versions. The pair is not an atomic transaction: failed
 partial deployment stops apply; retry converges the remaining binary. Service
 units converge through the newly deployed guest base phase.
 
-SSH defaults to port 22, `~/.ssh/known_hosts`, and OpenSSH identity/configuration
-and agent selection. First verify the fingerprint at the server console and
+The positional host is mandatory and also the default SSH alias: `apply HOST`
+and `deploy HOST` connect as the equivalent of `ssh HOST`. OpenSSH reads its
+normal configuration, including HostName, User, Port, IdentityFile and known-host
+settings; otherwise its standard defaults apply. `--target OTHER_ALIAS` or
+`--target USER@ADDRESS` overrides the destination while retaining the selected
+host profile. `--port`, `--identity` and `--known-hosts` override only those settings.
+Guest units keep `apply --host-file /etc/skillet/host --phase PHASE`; for an
+explicit local invocation use `apply HOST --local --phase PHASE`.
+
+SSH runs noninteractively with strict host verification. Load encrypted keys
+into your SSH agent before applying, for example `ssh-add ~/.ssh/operator_key`.
+SSH authentication/connection failure is reported separately from a successful
+connection whose `/etc/skillet/host` mismatches the selected profile. First verify the fingerprint at the server console and
 establish trust with SSH. Unknown/changed keys are refused. Override with
 `--port`, `--identity /absolute/key`, or `--known-hosts /absolute/known_hosts`.
 A protected key must already be available to noninteractive SSH.

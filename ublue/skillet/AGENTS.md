@@ -241,3 +241,8 @@ skillet/
 - Identity-protected UI aliases, backend network selection and runtime acceptance
   must derive from the same caller declaration. Do not leave a shared backend
   attachment that bypasses the proxy's authentication decision.
+
+- Omitted SSH overrides must preserve native alias configuration rather than
+  invent user/port/key/trust defaults. Keep explicit VM connection fields and
+  profile identity separate; distinguish transport/authentication failure from
+  a successfully observed guest identity mismatch.

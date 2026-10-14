@@ -89,12 +89,13 @@ struct RootRecoveryArgs {
     vault: SecretUnlockArgs,
     #[arg(long)]
     target: String,
-    #[arg(long, default_value_t = 22)]
-    port: u16,
+    /// Override SSH config port
+    #[arg(long)]
+    port: Option<u16>,
     /// SSH private key; omitted uses OpenSSH configuration, default keys and agent
     #[arg(long)]
     identity: Option<PathBuf>,
-    /// Recorded host keys; defaults to `~/.ssh/known_hosts`
+    /// Override recorded host keys; omitted uses OpenSSH settings
     #[arg(long)]
     known_hosts: Option<PathBuf>,
 }
@@ -146,12 +147,13 @@ struct SecretDeliverArgs {
     environment: UiEnvironmentName,
     #[arg(long)]
     target: String,
-    #[arg(long, default_value_t = 22)]
-    port: u16,
+    /// Override SSH config port
+    #[arg(long)]
+    port: Option<u16>,
     /// SSH private key; omitted uses OpenSSH configuration, default keys and agent
     #[arg(long)]
     identity: Option<PathBuf>,
-    /// Recorded host keys; defaults to `~/.ssh/known_hosts`
+    /// Override recorded host keys; omitted uses OpenSSH settings
     #[arg(long)]
     known_hosts: Option<PathBuf>,
     /// Explicitly start the consuming apply unit after credential delivery

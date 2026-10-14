@@ -1,49 +1,37 @@
 use anyhow::{anyhow, Context, Result};
 use skillet_vm::transport::{SshConnection, SshTransport};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub(super) fn connection(
     target: &str,
-    port: u16,
+    port: Option<u16>,
     identity: Option<&Path>,
     known_hosts: Option<&Path>,
-    home: Option<&Path>,
 ) -> Result<SshConnection> {
-    let (user, address) = target
-        .split_once('@')
-        .filter(|(user, address)| !user.is_empty() && !address.is_empty())
-        .ok_or_else(|| anyhow!("SSH target must be USER@HOST"))?;
-    let known_hosts = match known_hosts {
-        Some(path) => path.to_path_buf(),
-        None => home
-            .filter(|path| path.is_absolute())
-            .ok_or_else(|| anyhow!("set an absolute HOME or pass --known-hosts"))?
-            .join(".ssh/known_hosts"),
+    let (user, address) = match target.split_once('@') {
+        Some((user, address)) if !user.is_empty() && !address.is_empty() => {
+            (Some(user.to_owned()), address)
+        }
+        Some(_) => return Err(anyhow!("SSH target must be HOST or USER@HOST")),
+        None => (None, target),
     };
     Ok(SshConnection {
-        user: user.into(),
+        user,
         address: address.into(),
         port,
         identity: identity.map(Path::to_path_buf),
-        known_hosts,
+        known_hosts: known_hosts.map(Path::to_path_buf),
     })
 }
 
 pub(super) fn transport(
     target: &str,
-    port: u16,
+    port: Option<u16>,
     identity: Option<&Path>,
     known_hosts: Option<&Path>,
 ) -> Result<SshTransport> {
-    let home = std::env::var_os("HOME").map(PathBuf::from);
-    SshTransport::workstation(connection(
-        target,
-        port,
-        identity,
-        known_hosts,
-        home.as_deref(),
-    )?)
-    .context("validating workstation SSH connection")
+    SshTransport::workstation(connection(target, port, identity, known_hosts)?)
+        .context("validating workstation SSH connection")
 }
 
 #[cfg(test)]
