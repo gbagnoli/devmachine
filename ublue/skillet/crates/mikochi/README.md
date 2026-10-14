@@ -3,6 +3,10 @@
 Syncthing hosts run Mikochi at `https://files.<host>.<ui-domain>`. With the default
 prefix the name is `files.<host>.ui.<zone-domain>`.
 
+Mikochi uses `docker.io/zer0tonin/mikochi:latest` and `AutoUpdate=registry`.
+The enabled rootful `podman-auto-update.timer` pulls updated images and restarts
+the service; no OS reboot is required. Apply once to update existing Quadlets.
+
 ## Setup
 
 Configure [Caddy identity protection](../caddy/README.md#identity-protected-uis)

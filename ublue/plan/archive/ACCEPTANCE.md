@@ -2799,3 +2799,20 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   Physical rollback, networkless cold boot and data/credential preservation
   across the wider update matrix remain separate checks. No automatic reboot
   schedule or changed container pinning policy was configured here.
+
+## 2026-10-14 — Mikochi moving-tag updates
+
+- Operator selected upstream `:latest` for Mikochi. The generated Quadlet now
+  declares `AutoUpdate=registry`; the real-container trial uses the same image
+  constant and `--pull=always`. OS update policy remains stage/manual reboot;
+  no automatic reboot unit or policy was changed.
+- Freshly pulled image digest:
+  `sha256:4d26e7615337d7bb516649c4bce4237220b2ec697400785494048df778042683`.
+  Real-container no-second-login, browsing, 3 MiB download/upload, folder creation,
+  mapped file ownership and denial of an out-of-mount host symlink target passed.
+- Formatting, strict workspace Clippy, 445 workspace/all-target tests (five
+  routine ignores), the separately invoked live Mikochi test, and Fedora joey
+  base repeat apply passed. Repeat base apply issued no service start/restart.
+- The Quadlet change was not applied to physical clamps or a named VM here.
+  Timed replacement and proxy authorization/browser acceptance remain separate
+  from the directly tested application behavior.

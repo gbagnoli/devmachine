@@ -47,6 +47,8 @@ fn private_scope_and_namespace_match_syncthing_without_publishing_a_port() {
     let quadlet =
         String::from_utf8_lossy(&definitions["/etc/containers/systemd/mikochi.container"]);
     for directive in [
+        "Image=docker.io/zer0tonin/mikochi:latest",
+        "AutoUpdate=registry",
         "Network=example-files.network",
         "Environment=NO_AUTH=true",
         "User=1000:1000",
@@ -175,6 +177,7 @@ fn start_trial(
         .args([
             "run",
             "--detach",
+            "--pull=always",
             "--name",
             &container.0,
             "--userns",
@@ -193,7 +196,7 @@ fn start_trial(
             "HOST=:8080",
             "--env",
             "NO_AUTH=true",
-            "docker.io/zer0tonin/mikochi:1.12.0",
+            IMAGE,
         ])
         .output()
         .unwrap();
