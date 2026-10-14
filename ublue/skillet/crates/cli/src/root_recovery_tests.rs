@@ -23,7 +23,7 @@ fn production_recovery_requires_explicit_verified_ssh_target() {
     else {
         panic!("wrong command");
     };
-    assert_eq!(args.port, 22);
+    assert!(args.port.is_none());
     assert_eq!(args.vault.database, Some(PathBuf::from("/tmp/vault")));
 }
 #[test]

@@ -87,21 +87,21 @@ pub struct SshTransport {
 /// SSH configuration for a workstation target. An omitted identity delegates
 /// authentication to OpenSSH configuration, default keys and the SSH agent.
 pub struct SshConnection {
-    pub user: String,
+    pub user: Option<String>,
     pub address: String,
-    pub port: u16,
+    pub port: Option<u16>,
     pub identity: Option<std::path::PathBuf>,
-    pub known_hosts: std::path::PathBuf,
+    pub known_hosts: Option<std::path::PathBuf>,
 }
 
 impl From<SshTarget> for SshConnection {
     fn from(target: SshTarget) -> Self {
         Self {
-            user: target.user,
+            user: Some(target.user),
             address: target.address,
-            port: target.port,
+            port: Some(target.port),
             identity: Some(target.identity),
-            known_hosts: target.known_hosts,
+            known_hosts: Some(target.known_hosts),
         }
     }
 }
@@ -117,29 +117,29 @@ impl SshTransport {
     }
 
     fn from_connection(target: SshConnection, policy: HostKeyPolicy) -> Result<Self> {
-        if target.user.is_empty()
-            || target.user.starts_with('-')
-            || !target
-                .user
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-            || !valid_address(&target.address)
-            || target.port == 0
+        if target.user.as_ref().is_some_and(|user| {
+            user.is_empty()
+                || user.starts_with('-')
+                || !user
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+        }) || !valid_address(&target.address)
+            || target.port == Some(0)
         {
             return Err(Error::Invalid("invalid SSH user, address or port".into()));
         }
-        for path in target
-            .identity
-            .iter()
-            .chain(std::iter::once(&target.known_hosts))
-        {
+        for path in target.identity.iter().chain(target.known_hosts.iter()) {
             crate::manifest::reject_symlinks(path)?;
             if !path.is_absolute() {
                 return Err(Error::Invalid("SSH key paths must be absolute".into()));
             }
         }
         if target.identity.as_ref().is_some_and(|path| !path.is_file())
-            || (policy == HostKeyPolicy::Verify && !target.known_hosts.is_file())
+            || (policy == HostKeyPolicy::Verify
+                && target
+                    .known_hosts
+                    .as_ref()
+                    .is_some_and(|path| !path.is_file()))
         {
             return Err(Error::Invalid(
                 "SSH identity or recorded host key is absent".into(),
@@ -169,22 +169,27 @@ impl SshTransport {
                     HostKeyPolicy::Enroll => "accept-new",
                     HostKeyPolicy::Verify => "yes",
                 }
-            ))
-            .arg("-o")
-            .arg(format!(
-                "UserKnownHostsFile={}",
-                self.target.known_hosts.display()
             ));
+        if let Some(known_hosts) = &self.target.known_hosts {
+            command
+                .arg("-o")
+                .arg(format!("UserKnownHostsFile={}", known_hosts.display()));
+        }
         if let Some(identity) = &self.target.identity {
             command
                 .args(["-o", "IdentitiesOnly=yes", "-i"])
                 .arg(identity);
         }
-        command.arg(port_flag).arg(self.target.port.to_string());
+        if let Some(port) = self.target.port {
+            command.arg(port_flag).arg(port.to_string());
+        }
     }
 
     fn remote_target(&self) -> String {
-        format!("{}@{}", self.target.user, self.target.address)
+        self.target.user.as_ref().map_or_else(
+            || self.target.address.clone(),
+            |user| format!("{user}@{}", self.target.address),
+        )
     }
 
     fn command(&self, request: &GuestCommand<'_>) -> Result<Command> {
@@ -236,9 +241,10 @@ impl SshTransport {
         command.arg("-O");
         self.options(&mut command, "-P");
         let target = match self.target.address.parse::<std::net::IpAddr>() {
-            Ok(std::net::IpAddr::V6(_)) => {
-                format!("{}@[{}]", self.target.user, self.target.address)
-            }
+            Ok(std::net::IpAddr::V6(_)) => self.target.user.as_ref().map_or_else(
+                || format!("[{}]", self.target.address),
+                |user| format!("{user}@[{}]", self.target.address),
+            ),
             _ => self.remote_target(),
         };
         command.arg(source).arg(format!("{target}:{destination}"));

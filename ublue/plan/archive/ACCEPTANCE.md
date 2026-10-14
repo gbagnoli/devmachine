@@ -2839,3 +2839,28 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   inspection failed because noninteractive sudo required a password. Live
   browser/identity, dual-stack backend denial and peer-port reachability remain
   in the UI plan; configuration/fake tests are not those runtime results.
+
+## 2026-10-14 — positional profiles and native SSH aliases
+
+- Workstation `apply HOST` and `deploy HOST` require the positional profile and
+  default to the equivalent SSH alias. Optional targets accept bare aliases or
+  `USER@HOST`. Omitted user/port/key/known-host overrides delegate to native
+  OpenSSH configuration; production delivery/recovery preserve configured ports
+  too. Strict host verification and noninteractive authentication remain.
+- Generic guest `apply --host-file PATH --phase PHASE` remains compatible with
+  installed bootstrap/service units; explicit `apply HOST --local` selects a
+  local profile. Removed `--host` syntax is intentionally unsupported. VM
+  manifests still supply explicit user/port/key/known-host fields unchanged.
+- Deployment distinguishes SSH exit 255, failed guest identity-file reads and
+  successful profile mismatches. The SSH error includes a bounded printable
+  diagnostic and an encrypted-key SSH-agent hint, without a VM-state label.
+- Formatting, strict workspace Clippy, 448 workspace/all-target tests (five
+  routine ignores) and Fedora joey base repeat apply passed. Native `ssh -G`
+  against a disposable config verified HostName/User/Port resolution; command
+  tests cover no implicit overrides, bare-alias upload, explicit VM IPv6 upload
+  and unchanged strict trust. CLI help shows the positional/default target and
+  retained guest form. An isolated fake-SSH CLI probe reproduced publickey
+  failure for apply/deploy and verified classification before build/vault access.
+- No physical deployment, operator SSH-key unlock, vault or provider operation
+  was performed. Real authenticated access with the operator's configured alias
+  and agent remains an operator check; this change does not unlock private keys.
