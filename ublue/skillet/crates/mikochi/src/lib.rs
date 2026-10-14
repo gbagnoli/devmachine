@@ -1,4 +1,7 @@
 //! Private file browsing over a caller-declared user-file scope.
+
+/// Moving upstream image used by both provisioning and real-container checks.
+pub const IMAGE: &str = "docker.io/zer0tonin/mikochi:latest";
 use skillet_core::{
     files::{FileError, FileMutationResource, FileReadResource, Ownership},
     system::{
@@ -68,7 +71,7 @@ where
         files,
         PodmanConfig {
             name: "mikochi".into(),
-            image: "docker.io/zer0tonin/mikochi:1.12.0".into(),
+            image: IMAGE.into(),
             network_attachments: vec![NetworkAttachment::Bridge(config.private_network.into())],
             port_publications: Vec::new(),
             storage_dependency: Some(MountDependency::shared_service_data()),
@@ -93,6 +96,7 @@ where
                     "Container".into(),
                     vec![
                         "ContainerName=mikochi".into(),
+                        "AutoUpdate=registry".into(),
                         "Environment=NO_AUTH=true".into(),
                         "Environment=HOST=:8080".into(),
                         "Environment=DATA_DIR=/data".into(),

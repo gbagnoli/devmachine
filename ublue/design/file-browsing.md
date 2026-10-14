@@ -19,8 +19,11 @@ native auth disabled, the explicit proxy allowlist controls entry and both users
 share the declared mount. Different folder rights require evaluating a richer
 application rather than pretending this mapping supplies them.
 
-The pinned Mikochi deployment shares Syncthing's mapped numeric process identity
-and uses its data directory, outside config. Only Caddy joins the strictly isolated
+Mikochi follows upstream `:latest` with Podman registry auto-update, matching
+the operator-selected unattended application update policy. Its original pinned
+trial established the initial behavior; future upstream changes require continued
+private-proxy and file-operation acceptance. The deployment shares Syncthing's
+mapped numeric process identity and uses its data directory, outside config. Only Caddy joins the strictly isolated
 backend; no host port is published. Existing synchronized paths are not moved
 implicitly. NO_AUTH is allowed only with that verified sole private entry point.
 
