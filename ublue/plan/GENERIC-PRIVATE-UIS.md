@@ -44,9 +44,14 @@ and WebSocket behavior, and continued published TCP/UDP 22000 reachability.
 Application state and existing GUI credentials are preserved.
 
 
-Before physical rollout acceptance, repair retained stale forwarding rules with
-explicit authorization and revalidate ownership immediately before mutation.
-Verify the shared wildcard publication change through repeated rootful restarts,
-both IP families and Syncthing transfer listeners. Source rendering is fixed;
-physical repair and connectivity acceptance remain pending. See the dated
-[acceptance evidence](archive/ACCEPTANCE.md).
+Shared wildcard publication and approved physical forwarding repair passed
+repeated rootful restart checks, dual-family ingress, TCP transfer reachability
+and UDP/TCP DNS. See the dated [acceptance evidence](archive/ACCEPTANCE.md).
+End-to-end identity-protected HTTPS remains pending the broker fix below.
+
+
+Forwarding repair and repeated rootful restart cleanup passed on physical
+hardware on 2026-10-14. HTTPS now reaches the proxy in both families but returns
+502: SELinux denies container-to-host broker `connectto`. A dedicated confined
+broker policy and ordered loader are implemented and compile offline; live
+policy installation/authorization acceptance remains unverified pending approval.
