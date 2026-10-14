@@ -33,3 +33,12 @@ Use owned named VMs and private inputs; routine CI uses fixtures. Record passes
 and unavailable checks honestly. Designs: [private access](../design/private-ui-access.md),
 [identity](../design/tailnet-ui-authentication.md),
 [Cloudflare lifecycle](../design/cloudflare-ui-lifecycle.md).
+
+## Syncthing identity rollout
+
+Syncthing canonical and alias routes now declare user identity protection; its
+GUI backend moves off the shared bridge onto a dedicated strict network.
+Validate redelivery/repeat apply on a named target, allowed versus tagged or
+unlisted clients, direct backend denial in both IP families, alias/browser/REST
+and WebSocket behavior, and continued published TCP/UDP 22000 reachability.
+Application state and existing GUI credentials are preserved.

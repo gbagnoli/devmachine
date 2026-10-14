@@ -58,6 +58,9 @@ support. Hosted Tailscale workstation enrollment remains separate. Do not match
 only the username before `@`, infer people from tags or equate a tagged test
 server with an authorized human client.
 
+Syncthing canonical and alias routes now share this identity gate and use a
+dedicated strict backend, while its native application state is preserved.
+
 Current route selection is in the caller; operating setup is in
 [Caddy](../skillet/crates/caddy/README.md#identity-protected-uis). Browser/identity
 acceptance belongs to [the UI plan](../plan/GENERIC-PRIVATE-UIS.md); Gokapi

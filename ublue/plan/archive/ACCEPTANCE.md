@@ -2816,3 +2816,26 @@ update / rollback matrix cases. A header backup is not a service-data backup.
 - The Quadlet change was not applied to physical clamps or a named VM here.
   Timed replacement and proxy authorization/browser acceptance remain separate
   from the directly tested application behavior.
+
+## 2026-10-14 — Syncthing tailnet identity declaration
+
+- Shared Syncthing UI policy now requires the existing LocalAPI WhoIs user gate
+  on both its canonical hostname and `sync` alias. The application moves off
+  the shared service bridge onto a dedicated non-internal strict backend; Caddy
+  joins it from the same declaration. TCP/UDP 22000 publications remain defined.
+  Syncthing passwords/API keys, device identity and folders are not rewritten.
+- Caller-driven runtime acceptance reflects the dedicated bridge. Tests cover
+  protection on both names, gate-before-proxy/header replacement, no published
+  GUI port, absence of shared bridge attachment, repeat apply and rejection of
+  stale Caddy payloads without the declared protection. Existing gate tests
+  cover allowed/full identities, tagged/unknown denial, revocation, forged
+  headers and lookup failures.
+- Formatting, strict workspace Clippy and 446 workspace/all-target tests passed
+  (five routine ignores). Generated Syncthing canonical/alias plus file-browser
+  identity configuration validated with the real Caddy image. Fedora joey base
+  repeat apply passed without repeated service start/restart.
+- Physical rollout and named-VM acceptance were not performed. Strict SSH to
+  clamps failed with `Permission denied (publickey)`; local rootful Podman
+  inspection failed because noninteractive sudo required a password. Live
+  browser/identity, dual-stack backend denial and peer-port reachability remain
+  in the UI plan; configuration/fake tests are not those runtime results.

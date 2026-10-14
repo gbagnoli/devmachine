@@ -1,9 +1,23 @@
 # Syncthing service
 
-Run Syncthing as its own Quadlet container on the host's declared bridge, with
+Run Syncthing as its own Quadlet container on the caller-declared dedicated
+strictly isolated GUI backend bridge, with
 `ContainerName=syncthing`. Caddy can reach its UI at
 `http://syncthing:8384`. The GUI port is not published on the host;
-peer-transfer ports remain published. Tailnet-restricted Caddy provides UI access. See the [private UI design](private-ui-access.md).
+peer-transfer ports remain published. Caddy and Syncthing are the only declared
+members of that backend. The canonical hostname and every alias require the
+shared LocalAPI WhoIs user allowlist before proxying, including cross-origin
+checks and stripping caller-supplied identity headers. Tagged, unknown or
+unlisted clients and daemon lookup failures are denied. See the
+[identity design](tailnet-ui-authentication.md).
+
+Application configuration, passwords, API keys, device identities and folders
+are preserved. A deployment with no native GUI login gets tailnet-only login;
+retained native GUI credentials are not silently cleared by network convergence.
+Moving an existing container off the shared bridge requires its recreation;
+Caddy redelivery joins the matching private bridge and installs the revised gate.
+Old payloads that omit the declared protection are rejected, so normal remote
+apply must regenerate the Caddy credential; do not manually retain the old one.
 
 Mount `/var/lib/data/syncthing` at `/var/syncthing`. Keep the upstream
 directory layout there, including `config/` and synced folders, so a
