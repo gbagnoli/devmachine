@@ -252,3 +252,7 @@ skillet/
   durable, bound staging for interrupted publication. Order bootstrap before
   normal startup and use the same declared namespace/ownership policy as the
   long-running consumer.
+
+- Reusing enrollment or credentials must not skip convergence of declared
+  workloads. Keep credential enrollment state separate from application
+  activation so updated units and network declarations apply on retries.
