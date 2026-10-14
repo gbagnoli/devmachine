@@ -40,7 +40,8 @@ References: [official Syncthing container guidance](https://github.com/syncthing
 Bootstrap settings apply only while `config/config.xml` is absent. Syncthing owns
 that file after initialization: subsequent provisioning preserves preferences,
 shares and device definitions, even if bootstrap settings change. Initialize via
-the upstream generator and publish the completed configuration atomically;
+the upstream generator, apply the private device name through the XML editor
+(never a generator command-line argument), and publish the completed configuration atomically;
 never overwrite an existing file or depend on an incomplete handwritten XML seed.
 
 The initial device name uses the selected environment's authoritative Cloudflare
