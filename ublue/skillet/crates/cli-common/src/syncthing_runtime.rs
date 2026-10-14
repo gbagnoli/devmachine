@@ -95,7 +95,6 @@ pub fn dispatch(command: Commands) -> Result<(), CliCommonError> {
     .map_err(|e| CliCommonError::Config(e.to_string()))?;
     let runtime = OfflineGenerator {
         directives,
-        hostname: settings.device_name.clone(),
         home: skillet_syncthing::container_home(&config)
             .map_err(|e| CliCommonError::Config(e.to_string()))?,
     };
@@ -163,7 +162,6 @@ fn config_error(error: initial::Error) -> CliCommonError {
 
 struct OfflineGenerator {
     directives: Vec<String>,
-    hostname: String,
     home: String,
 }
 impl Generator for OfflineGenerator {
@@ -189,8 +187,6 @@ impl Generator for OfflineGenerator {
             "--rm",
             "--network",
             "none",
-            "--hostname",
-            &self.hostname,
             "--entrypoint",
             "/bin/syncthing",
         ]);
