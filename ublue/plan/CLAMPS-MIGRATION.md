@@ -2,19 +2,23 @@
 
 Current implementation and source parity are in [the parity checklist](CLAMPS-PARITY.md).
 Stock-SSD installation reached signed uCore, an encrypted Btrfs data mount,
-TPM unattended boot and base configuration. Operator container observations do
+TPM unattended boot and base configuration. The operator confirmed physical
+wired/Wi-Fi configuration and Wi-Fi connectivity after deployment/apply.
+Operator container observations do
 not establish production service-data migration or client reachability.
 See [historical evidence](archive/ACCEPTANCE.md) and
 [the previous milestone record](archive/CLAMPS-MIGRATION.md).
 
 ## Work order
 
-1. Finish [native networking](HOST-NETWORKING.md): verify image Wi-Fi support,
-   deploy matching binaries, prepare the private profiles, and prove static
-   Ethernet/Wi-Fi adoption and management recovery across controlled boot.
-2. Finish [TPM/recovery acceptance](TPM-ENCRYPTED-ROOT.md): temporary passphrase
-   cleanup/header refresh, networkless boot and update/rollback. Stock-SSD
-   acceptance is separate from final production disk selection/installation.
+1. Wired/Wi-Fi setup and Wi-Fi connectivity are operator-confirmed. Finish the
+   detailed [networking checks](HOST-NETWORKING.md): DNS/outage behavior, route
+   preference/permanent MAC and unattended repeat boot with management recovery.
+2. Temporary passphrase cleanup, recovery/header verification and unattended
+   reboot are operator-confirmed. Remaining [TPM checks](TPM-ENCRYPTED-ROOT.md)
+   include networkless boot, rollback and wider update preservation checks; one
+   signed image rebase/reboot is operator-confirmed. Stock-SSD acceptance is separate
+   from final production disk selection/installation.
 3. Implement private Pi-hole v6 custom-DNS delivery. The current recipe writes
    static `custom.list`; a reversible `dns.hosts` acceptance probe does not
    verify that production path. Supply private DNS values and migrate Pi-hole
@@ -26,7 +30,8 @@ See [historical evidence](archive/ACCEPTANCE.md) and
    [private UI](GENERIC-PRIVATE-UIS.md) handover gates.
 5. Validate complete production remote apply with matching guest artifacts:
    [operating guide](../skillet/crates/workstation/README.md#apply-a-production-host).
-   Source observations of running containers do not verify this orchestration.
+   The operator reports the new deployment/apply workflow worked. Repeat apply
+   and individual production service/data acceptance remain separate checks.
 6. Verify physical repeat apply, reboot and an approved OS update; client access,
    peer synchronization, UniFi devices/cloud access, and SSH/sudo/ET. Follow
    [baseline parity](CLAMPS-PARITY.md). Approve the production exit node; routed

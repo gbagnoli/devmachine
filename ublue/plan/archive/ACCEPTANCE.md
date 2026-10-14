@@ -2762,3 +2762,40 @@ update / rollback matrix cases. A header backup is not a service-data backup.
 - Live deployment to physical clamps and native/Flatpak VM update were not run.
   The last read-only SSH probe to the physical host timed out; mock delivery and
   container baseline results do not establish real SSH/SELinux deployment acceptance.
+
+## 2026-10-13 — clamps physical networking (operator report)
+
+- After deployment-before-apply was implemented, the operator reported that
+  provisioning worked and wired/Wi-Fi were correctly configured on physical
+  clamps. Wi-Fi connectivity was also exercised successfully.
+- This establishes operator-observed physical interface configuration and
+  wireless connectivity; no independent guest diagnostics were captured here.
+  Exact DNS order/outage behavior, route metrics/permanent MAC, preparation
+  ordering, repeat apply and another unattended reboot were not reported and
+  remain explicit networking acceptance checks. Application migration, client
+  access and TPM update/recovery checks are separate.
+
+## 2026-10-14 — clamps recovery cleanup (operator report)
+
+- Operator confirmed completion of the supplied physical cleanup procedure:
+  verified independent vault recovery/header before removal, removed the
+  temporary short LUKS passphrase, retained the TPM binding, reran Skillet
+  recovery provisioning to verify the retained key and refresh the vault header,
+  backed up/synced the updated vault, and confirmed unattended reboot.
+- This is operator-reported acceptance on the stock disk, not an independently
+  captured diagnostic run. Networkless cold boot, an approved OS update/rollback,
+  physical rescue/TPM replacement and final-disk acceptance remain separate.
+
+## 2026-10-14 — clamps signed update and update timers (operator report)
+
+- Operator confirmed successful rebase/reboot. Posted status shows signed
+  `ucore-clamps:latest` booted at digest
+  `90f1e28fc31a5bcdd5ea637990493fe85c3cfcfd88d53637aee0fb8453782c05`,
+  with the preceding signed digest retained as rollback deployment.
+- Posted status shows `AutomaticUpdates: stage`, both OS and Podman auto-update
+  timers enabled, and future triggers scheduled. OS updater reports no runs
+  since this boot: scheduling is confirmed, not a completed unattended update.
+- This establishes one operator-confirmed signed image transition/reboot.
+  Physical rollback, networkless cold boot and data/credential preservation
+  across the wider update matrix remain separate checks. No automatic reboot
+  schedule or changed container pinning policy was configured here.
