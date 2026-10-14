@@ -31,7 +31,9 @@ App-native passwords are not the chosen user flow for these services.
 
 Implementation: Caddy's built-in `forward_auth` calls the Skillet Rust gate on
 its private Unix socket. The gate calls only LocalAPI WhoIs and never caches
-identity decisions. The full daemon socket is available to the root-owned gate,
+identity decisions. Auth subrequests explicitly clear application query strings
+and use `GET /auth`; backend requests retain their original method, path, query
+and body. The full daemon socket is available to the root-owned gate,
 not to Caddy or application containers. The reviewed gate is therefore trusted
 with daemon access; a read-only socket mount would not restrict API operations.
 The broker has its own `skillet_tailnet_ui_t` SELinux process type with

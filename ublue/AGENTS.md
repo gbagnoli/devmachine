@@ -223,3 +223,8 @@
   permissions as well as inode labels and Unix ownership. Prefer a dedicated
   confined broker domain with explicit permissions; do not grant containers
   access to arbitrary host daemons or disable enforcement to fix a denial.
+
+- Authentication subrequests must explicitly normalize their method/path/query
+  without altering the original application request. Validate the consumer's
+  adapted configuration and query-bearing API/assets, rather than testing only
+  a successful HTML root response.
