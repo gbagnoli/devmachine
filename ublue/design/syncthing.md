@@ -55,5 +55,18 @@ Syncthing startup log warning. Do not clear a retained native GUI password.
 
 An explicitly authorized reset backs up only the XML and preserves certificate,
 private key, database and synchronized data. The initializer reuses retained
-identity keys. Bootstrap implementation/acceptance is tracked in
+identity keys. The encrypted initial-settings consumer is installed during baseline convergence
+and activated before full application. Production resolves the authoritative zone
+with the existing token creator; provider-free test provisioning uses a fixture
+zone. Initialization uses the same numeric namespace mapping and HOME as the
+main container, a network-disabled upstream generator, and bound private staging
+that can recover incomplete publication.
+
+Bootstrap acceptance is tracked in
 [the initial configuration plan](../plan/SYNCTHING-INITIAL-CONFIG.md).
+
+The container requires successful bootstrap when settings are delivered. A
+missing credential skips the initializer condition and permits retained installs
+to start; a bootstrap error prevents default auto-generation. This is the
+[systemd Requires/condition contract](https://github.com/systemd/systemd/blob/main/man/systemd.unit.xml),
+verified with isolated units on the physical host.

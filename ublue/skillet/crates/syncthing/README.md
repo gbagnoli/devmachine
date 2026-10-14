@@ -31,3 +31,30 @@ that live identity into an ordinary smoke VM.
 subvolumes are unsupported.
 
 Design: [Syncthing](../../../design/syncthing.md).
+
+## Initial device configuration
+
+Remote `skillet apply <host>` resolves the device name as `<host>.<zone>` using
+`skillet/environments/<environment>/dns/cloudflare-zone-id` and the existing
+Cloudflare token creator's Zone Read permission. The UI prefix is not used.
+No additional Syncthing password or API key needs to be added to the vault.
+
+The encrypted `syncthing_initial` credential feeds
+`skillet-syncthing-initialize.service` before full application starts the
+container. It generates complete upstream configuration offline, preserves
+existing device keys, and atomically installs XML only when it is absent.
+Existing configuration is never updated by this bootstrap, including later
+folder/device changes or GUI passwords. Interrupted publication retains private
+staging under `config/.skillet-initial` for retry.
+
+Identity-protected UIs initialize `gui.insecureAdminAccess=true` to acknowledge
+proxy authentication. This suppresses the GUI banner; Syncthing may still log a
+startup warning. CSRF protection and the private backend remain enabled.
+Disposable provisioning with UI/DDNS uses the test zone and recorded VM hostname;
+provider-free VM provisioning uses an explicit `example.invalid` fixture name.
+
+For a reset, stop Syncthing and back up `config/config.xml` before removing only
+that file. Preserve `cert.pem`, `key.pem`, the database and synchronized files.
+Then activate the initializer and restart Syncthing. See the
+[design](../../../design/syncthing.md) and
+[acceptance plan](../../../plan/SYNCTHING-INITIAL-CONFIG.md).

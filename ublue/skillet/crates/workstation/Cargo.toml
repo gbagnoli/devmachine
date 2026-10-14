@@ -7,6 +7,7 @@ edition = "2021"
 workspace = true
 
 [dependencies]
+skillet_syncthing.workspace = true
 skillet_network.workspace = true
 base64 = "0.22"
 serde_yml.workspace = true

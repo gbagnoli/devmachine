@@ -114,6 +114,12 @@ jobs:
           cd ublue/skillet
           cargo test -p skillet_caddy generated_identity_caddyfile_validates_with_the_real_consumer -- --ignored
 
+      - name: Test Syncthing bootstrap without external credentials
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          cargo test -p skillet_syncthing real_upstream_generator_preserves_identity_and_user_edits -- --ignored
+
       - name: Test Mikochi file operations without external credentials
         if: steps.filter.outputs.rust == 'true'
         run: |

@@ -27,7 +27,7 @@ Prepare the shared Cloudflare entries. [UI setup](ublue/skillet/crates/caddy/REA
 
 ## Cloudflare
 
-Shared inputs for Caddy and DDNS.
+Shared inputs for Caddy, DDNS and the authoritative Syncthing device name.
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
@@ -97,7 +97,7 @@ Generated independent LUKS root recovery passphrases. [Enrollment](ublue/skillet
 
 ## Syncthing
 
-No vault entries currently required; Skillet manages the private UI configuration.
+No application credential to create. Bootstrap reuses the shared Cloudflare Zone ID and token creator to resolve the device name; provider-free tests use fixture names. Existing configuration is preserved.
 
 ## Tailnet UI
 

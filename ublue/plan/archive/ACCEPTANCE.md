@@ -3000,3 +3000,36 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   query-bearing request with a forged allowed-phone header still returned 403.
   Android usability confirmation is still an operator check.
 - Operator confirmed Android UI usable after the auth-query correction.
+
+
+## 2026-10-14 — Syncthing missing-only bootstrap
+
+- Added durable atomic file creation without replacement, including native/fake
+  contracts, concurrent publication, type conflicts, numeric metadata and
+  payload-free recording. Formatting, strict workspace Clippy and 466 workspace
+  tests passed (six runtime tests excluded from the routine suite). Repeat Joey
+  base integration passed without repeated service actions; container cleanup
+  used the existing SIGKILL fallback.
+- Credential-free real Syncthing consumer test passed first generation/API startup,
+  authoritative fixture name, proxy acknowledgement, generated API key, later edit
+  preservation/restart and XML-only reset with the same device ID/keypair. CI runs
+  this test explicitly using the actual upstream image.
+- Physical clamps: deployed binaries, converged baseline and staged encrypted
+  settings resolved through the production Cloudflare zone. Backed up only XML
+  plus identity fingerprints under root-private
+  `/var/lib/skillet/syncthing-initial-reset`, removed only XML, initialized and
+  restarted. API checks confirmed expected device name and GUI acknowledgement;
+  device ID and exact certificate/key bytes unchanged. Repeat bootstrap preserved
+  XML bytes, inode, owner, mode and timestamp. Full apply retained the settings
+  and identity; Syncthing/Caddy/broker active. A tagged client still received HTTPS
+  403. No synchronized files or database were removed. The GUI flag is verified;
+  no new Android browser session is claimed.
+- Automatic review initially rejected a stronger startup dependency over legacy
+  credential availability. Isolated temporary units on physical systemd then
+  proved an absent condition permits a requiring consumer and an initializer
+  failure prevents execution. Removed all fixture units and reset their failed
+  state. The source was updated only after this evidence allowed approval.
+- Original `clamps-test-files --with-applications` smoke: reboot and synthetic
+  fixture checks passed; broad application acceptance failed because Caddy stayed
+  inactive for 120 seconds. UI provisioning and a fresh acceptance run are pending;
+  this run is not recorded as successful.

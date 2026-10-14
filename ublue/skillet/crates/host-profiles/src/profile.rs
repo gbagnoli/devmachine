@@ -103,6 +103,10 @@ impl HostService {
 
     pub fn credential_consumers(&self) -> Vec<CredentialConsumer> {
         match self.config {
+            ServiceConfig::Syncthing { .. } => vec![CredentialConsumer {
+                credential: skillet_syncthing::initial::CREDENTIAL,
+                unit: skillet_syncthing::initial::UNIT,
+            }],
             ServiceConfig::Network(_) => vec![CredentialConsumer {
                 credential: skillet_network::CREDENTIAL,
                 unit: skillet_network::PREPARE_UNIT,
