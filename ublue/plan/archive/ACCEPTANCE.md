@@ -2992,3 +2992,10 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   Temporary sanitized access logs/Origin fields were diagnostic configuration;
   durable deployment and cleanup are recorded below after completion. Android
   usability confirmation remains pending; do not infer it from the fixture.
+- Deployed and verified both binaries at `3e0b564`, then ran the retained
+  credential-bearing Caddy apply unit. The converged configuration matched the
+  original exactly except for query clearing on all three identity auth routes.
+  Temporary access logging, Origin/fetch-site fields and rollback copy removed.
+  Broker/Caddy remained active and SELinux Enforcing; a tagged client's
+  query-bearing request with a forged allowed-phone header still returned 403.
+  Android usability confirmation is still an operator check.
