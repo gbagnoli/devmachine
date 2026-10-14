@@ -11,6 +11,7 @@ fn syncthing_only() -> Vec<UiService> {
         upstream: "syncthing".to_string(),
         port: 8384,
         tailnet_identity: false,
+        anonymous_token_refresh: false,
         aliases: Vec::new(),
     }]
 }
@@ -97,6 +98,7 @@ fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
             upstream: "pihole".to_string(),
             port: 8088,
             tailnet_identity: false,
+            anonymous_token_refresh: false,
             aliases: Vec::new(),
         },
         syncthing_only().remove(0),
@@ -188,6 +190,7 @@ fn renders_declared_aliases_and_rejects_conflicting_names() {
         upstream: "syncthing".to_string(),
         port: 8384,
         tailnet_identity: false,
+        anonymous_token_refresh: false,
         aliases: vec!["sync".to_string(), "sync.{host}".to_string()],
     }];
     let sites = CaddySites::from_host(
@@ -216,6 +219,7 @@ fn renders_declared_aliases_and_rejects_conflicting_names() {
     for alias in ["", ".sync", "sync.", "*.sync", "bad{host}", "clamps"] {
         let invalid = vec![UiService {
             tailnet_identity: false,
+            anonymous_token_refresh: false,
             aliases: vec![alias.to_string()],
             ..services[0].clone()
         }];
@@ -288,6 +292,7 @@ fn file_ui_is_gated_before_proxy_and_cannot_disable_declared_identity() {
         port: 8080,
         aliases: vec!["browse.{host}".into()],
         tailnet_identity: true,
+        anonymous_token_refresh: true,
     }];
     let mut sites = CaddySites::from_host(
         "joey",
@@ -313,6 +318,22 @@ fn file_ui_is_gated_before_proxy_and_cannot_disable_declared_identity() {
     assert!(!config.contains("uri /auth\n"));
     assert!(config.contains("request_header -X-Skillet-User"));
     assert!(config.contains("respond @cross_origin 403"));
+    assert!(
+        config.find("forward_auth").unwrap() < config.find("respond @anonymous_refresh").unwrap()
+    );
+    assert!(config.contains("method GET\n            path /api/refresh"));
+    assert!(config.contains("Cache-Control no-store"));
+    let mut unsafe_services = services.clone();
+    unsafe_services[0].tailnet_identity = false;
+    assert!(CaddySites::from_host(
+        "joey",
+        &UiEnvironment {
+            ui_domain: "ui.example.invalid".into(),
+            acme_staging: true
+        },
+        &unsafe_services
+    )
+    .is_err());
     let encoded = serde_json::to_string(&sites).unwrap();
     assert_eq!(
         CaddySites::parse(&encoded, "joey", &services).unwrap(),
@@ -341,6 +362,7 @@ fn identity_caddy_has_only_the_authorization_socket_and_a_private_backend() {
             port: 8080,
             aliases: Vec::new(),
             tailnet_identity: true,
+            anonymous_token_refresh: false,
         }],
     )
     .unwrap();
@@ -377,6 +399,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
                 port: 8080,
                 aliases: Vec::new(),
                 tailnet_identity: true,
+                anonymous_token_refresh: true,
             },
             UiService {
                 name: "syncthing".into(),
@@ -384,6 +407,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
                 port: 8384,
                 aliases: vec!["sync.{host}".into()],
                 tailnet_identity: true,
+                anonymous_token_refresh: false,
             },
         ],
     )

@@ -3062,3 +3062,50 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   --with-applications` exited 0, including its final signed-boot/base/user
   readiness check. The runner leaves captured bootstrap artifacts installed;
   restore current binaries with `test vm update` before further development.
+
+## 2026-10-15 — Pi-hole and Mikochi proxy authentication
+
+- Read-only physical inspection confirmed Mikochi already had `NO_AUTH=true`
+  and the Caddy identity broker was active. The upstream refresh handler requires
+  a token ID skipped by no-auth middleware; anonymous file APIs alone had not
+  established that the browser could leave its native login screen.
+- Caller-selected Pi-hole identity protection now selects a dedicated strict
+  backend and empty native-password environment, omitting password secrets.
+  Native-password caller support remains explicit and separately tested. Baseline
+  convergence resets retained full-apply credential prerequisites to canonical
+  consumers, with retry state for interrupted daemon reload. Unused old vault
+  passwords are reported rather than deleted or regenerated.
+- Added a typed Caddy no-auth refresh response, available only after identity and
+  origin checks. It is a nonsecret marker with no-store caching policy; every
+  subsequent request remains gated. Old Caddy payloads require redelivery.
+- Final strict Clippy, formatting and 470 workspace/all-target tests passed
+  (eight runtime tests excluded from that suite). Butane bootstrap state checks
+  and repeat Fedora joey base integration passed; cleanup used the existing
+  SIGKILL fallback after the normal stop timeout.
+- Provider-free real consumers passed: Caddy validates/adapts the actual config;
+  a running Caddy fixture returned refresh JSON to its allowed fixture client,
+  denied revoked/forged and cross-origin requests, and proxied unrelated methods
+  and paths normally. Actual Mikochi file operations passed and reproduced the
+  refresh 500. Actual Pi-hole migrated retained native-password state to anonymous
+  API access, preserved an application-state marker and retained access after
+  restart. CI explicitly runs all these consumer regressions without a vault.
+- Live named-VM provisioning/smoke and physical rollout are in progress; browser
+  observations remain separate from the API/fixture results above.
+- Physical clamps: deployed/verified both binaries and converged the baseline
+  credential drop-in. Activated the stronger Caddy policy before full application
+  moved Pi-hole to its dedicated backend and disabled native login. Full apply
+  returned success; Pi-hole, Syncthing, Mikochi, Caddy and broker stayed active.
+  Pi-hole's anonymous stats API succeeded with no password-file environment or
+  secret mount. A sibling shared-bridge test container could not reach its web
+  API over either IP family; the temporary owned container was removed.
+- A separate tagged tailnet client received HTTPS 403 for Pi-hole and Mikochi
+  refresh over IPv4 and IPv6, while DNS queries on host port 53 succeeded over
+  TCP and UDP in both families. An initial host `::1` DNS hairpin probe timed
+  out; the successful separate-client checks use actual tailnet addresses and
+  do not claim support for that loopback path. No application data was reset.
+- Updated owned native `clamps-test-files`, provisioned its matching UI payload
+  from the unlocked vault and passed pre/post-reboot fixture checks. Declared
+  application runtime/configuration/identity comparisons passed across repeat
+  full/UI apply for all eight selected service units, including the new Pi-hole
+  private network. The runner's final capture-based readiness step is still
+  finishing; this records application acceptance rather than its final exit.

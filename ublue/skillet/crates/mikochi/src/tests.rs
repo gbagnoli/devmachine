@@ -78,7 +78,7 @@ impl Drop for TrialContainer {
 
 #[test]
 #[ignore = "requires Podman and the Mikochi image"]
-fn real_mikochi_has_no_second_login_and_supports_owned_file_operations() {
+fn real_mikochi_no_auth_backend_supports_owned_file_operations() {
     let temp = tempfile::tempdir().unwrap();
     let data = temp.path().join("data");
     std::fs::create_dir(&data).unwrap();
@@ -105,6 +105,10 @@ fn real_mikochi_has_no_second_login_and_supports_owned_file_operations() {
         std::thread::sleep(std::time::Duration::from_millis(200));
     }
     assert!(client.get(&base).send().unwrap().status().is_success());
+    // Upstream NO_AUTH skips token middleware without supplying the jti expected
+    // by Refresh. The proxy must provide its gated compatibility response.
+    let refresh = client.get(format!("{base}/api/refresh")).send().unwrap();
+    assert_eq!(refresh.status().as_u16(), 500);
     let listed = client.get(format!("{base}/api/browse/")).send().unwrap();
     assert!(listed.status().is_success());
     assert!(listed.text().unwrap().contains("source file.txt"));

@@ -283,3 +283,31 @@ fn production_recovery_ssh_overrides_are_optional() {
     assert!(args.identity.is_none());
     assert!(args.known_hosts.is_none());
 }
+
+#[test]
+fn protected_pihole_delivery_does_not_open_vault_or_connect_to_a_guest() {
+    let parsed = crate::Args::try_parse_from([
+        "skillet",
+        "secrets",
+        "deliver",
+        "clamps",
+        "pihole",
+        "--activate",
+        "--database",
+        "/nonexistent/vault.kdbx",
+        "--target",
+        "nobody@localhost",
+        "--identity",
+        "/nonexistent/key",
+        "--known-hosts",
+        "/nonexistent/known_hosts",
+    ])
+    .unwrap();
+    let crate::Commands::Secret {
+        command: crate::SecretCommands::Deliver(args),
+    } = parsed.command
+    else {
+        panic!("wrong command");
+    };
+    super::deliver_from_vault(&args).unwrap();
+}

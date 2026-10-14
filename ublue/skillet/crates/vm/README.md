@@ -46,9 +46,9 @@ cargo run --release -p skillet -- test vm provision clamps smoke --with-ui
 cargo run --release -p skillet -- test smoke clamps --instance smoke --with-applications
 ```
 
-Provision generates a disposable Pi-hole password and enrolls Tailscale through
-workstation OAuth and converges the declared application services. Repeat
-provision reuses identity/password; `--rotate` replaces the disposable password.
+Provision enrolls Tailscale through workstation OAuth and converges the declared application services. Repeat
+provision reuses identity. Identity-protected Pi-hole needs no password;
+`--rotate` affects only callers retaining native Pi-hole login.
 `--with-ui` enables staging Caddy/Cloudflare lifecycle.
 Opt-in [DDNS](../ddns/README.md) and [Datadog](../datadog/README.md) use
 `--with-ddns` and `--with-datadog`. [SMTP-only capture](../smtp/README.md#disposable-checks)

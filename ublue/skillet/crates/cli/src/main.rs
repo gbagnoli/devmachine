@@ -310,7 +310,7 @@ struct VmProvisionArgs {
     database: Option<PathBuf>,
     #[arg(long)]
     key_file: Option<PathBuf>,
-    /// Replace the disposable password and restart its consumer
+    /// Rotate a native Pi-hole password (unused with identity-protected Pi-hole)
     #[arg(long)]
     rotate: bool,
 }

@@ -3768,9 +3768,11 @@ name = "skillet_pihole"
 version = "0.1.0"
 dependencies = [
  "askama",
+ "reqwest",
  "skillet_core",
  "skillet_datadog",
  "skillet_podman",
+ "tempfile",
  "thiserror 1.0.69",
  "tracing",
  "users",

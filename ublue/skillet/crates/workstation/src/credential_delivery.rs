@@ -95,6 +95,23 @@ pub fn deliver_pihole_credential(
             "host {host} does not declare Pi-hole credential delivery"
         )));
     }
+    deliver_pihole_for_profile(&profile, store, guest, activation)
+}
+
+fn deliver_pihole_for_profile(
+    profile: &skillet_hosts::HostProfile,
+    store: &mut impl SecretStore,
+    guest: &impl GuestTransport,
+    activation: credential::ActivationPolicy,
+) -> Result<(), CredentialDeliveryError> {
+    if !profile
+        .credential_consumers()
+        .iter()
+        .any(|consumer| consumer.credential == skillet_hosts::PIHOLE_WEB_PASSWORD_CREDENTIAL)
+    {
+        return Ok(());
+    }
+    let host = profile.id.as_str();
     let path = format!("skillet/hosts/{host}/pihole/web-password");
     let password = if let Some(password) = store.get(&path)? {
         store.ensure_unchanged()?;
@@ -168,6 +185,22 @@ pub fn ensure_disposable_pihole_credential(
             "host {host} does not declare Pi-hole"
         )));
     }
+    ensure_disposable_pihole_for_profile(&profile, rotate, guest)
+}
+
+fn ensure_disposable_pihole_for_profile(
+    profile: &skillet_hosts::HostProfile,
+    rotate: bool,
+    guest: &impl GuestTransport,
+) -> Result<(), CredentialDeliveryError> {
+    if !profile
+        .credential_consumers()
+        .iter()
+        .any(|consumer| consumer.credential == skillet_hosts::PIHOLE_WEB_PASSWORD_CREDENTIAL)
+    {
+        return Ok(());
+    }
+    let host = profile.id.as_str();
     let output = guest.execute(
         &skillet_vm::transport::GuestCommand {
             program: "/usr/bin/sudo",

@@ -113,6 +113,13 @@ jobs:
         run: |
           cd ublue/skillet
           cargo test -p skillet_caddy generated_identity_caddyfile_validates_with_the_real_consumer -- --ignored
+          cargo test -p skillet_caddy real_caddy_no_auth_refresh_stays_behind_identity_gate -- --ignored
+
+      - name: Test Pi-hole proxy authentication without external credentials
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          cargo test -p skillet_pihole real_pihole_proxy_mode_overrides_retained_password_and_survives_restart -- --ignored
 
       - name: Test Syncthing bootstrap without external credentials
         if: steps.filter.outputs.rust == 'true'
@@ -124,7 +131,7 @@ jobs:
         if: steps.filter.outputs.rust == 'true'
         run: |
           cd ublue/skillet
-          cargo test -p skillet_mikochi real_mikochi_has_no_second_login_and_supports_owned_file_operations -- --ignored
+          cargo test -p skillet_mikochi real_mikochi_no_auth_backend_supports_owned_file_operations -- --ignored
 
       - name: Test native UPS configuration without hardware
         if: steps.filter.outputs.rust == 'true'

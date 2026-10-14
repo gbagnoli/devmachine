@@ -53,7 +53,8 @@ UI hostnames; namespace collisions fail. The [Cloudflare owner](cloudflare-ui-li
 journals records/tokens and cleans them before the Tailscale device/local VM.
 Expiry is not cleanup, and failed cleanup retains metadata.
 
-Generated Pi-hole passwords never use production entries. Hosted Tailscale
+Identity-protected Pi-hole needs no password; retained native-password callers
+use disposable credentials without production entries. Hosted Tailscale
 OAuth mints one-use tagged keys; journals bind enrolled device IDs/addresses to
 the complete test identity. Provider secrets stay off manifests and diagnostics.
 Fixture success, application success, separate-network denial and production

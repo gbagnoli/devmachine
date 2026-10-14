@@ -42,7 +42,8 @@ fn related_credentials_stage_before_full_apply_and_monitoring_is_last() {
             .iter()
             .position(|step| *step == Step::Activate("skillet-full-apply.service"))
             .unwrap();
-        for service in ["pihole", "tailscale", "syncthing"] {
+        assert!(!actions.events.contains(&Step::Stage("pihole")));
+        for service in ["tailscale", "syncthing"] {
             assert!(
                 actions
                     .events

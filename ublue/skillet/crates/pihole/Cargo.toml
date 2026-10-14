@@ -15,5 +15,7 @@ tracing.workspace = true
 askama.workspace = true
 
 [dev-dependencies]
+reqwest.workspace = true
+tempfile.workspace = true
 skillet_core = { path = "../core", features = ["test-utils"] }
 users.workspace = true

@@ -15,6 +15,9 @@ use thiserror::Error;
 pub mod auth;
 
 #[cfg(test)]
+mod refresh_tests;
+
+#[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
 
@@ -27,6 +30,10 @@ pub struct UiService {
     pub aliases: Vec<String>,
     #[serde(default)]
     pub tailnet_identity: bool,
+    /// Compatibility for a no-auth frontend expecting a successful token refresh.
+    /// This response is only available after the identity gate authorizes it.
+    #[serde(default)]
+    pub anonymous_token_refresh: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -58,6 +65,10 @@ pub struct CaddySite {
     pub port: u16,
     #[serde(default)]
     pub tailnet_identity: bool,
+    /// Compatibility for a no-auth frontend expecting a successful token refresh.
+    /// This response is only available after the identity gate authorizes it.
+    #[serde(default)]
+    pub anonymous_token_refresh: bool,
 }
 
 #[derive(Debug, Error)]
@@ -98,6 +109,11 @@ impl CaddySites {
         for service in services {
             validate_label(&service.name, "service name")?;
             validate_label(&service.upstream, "upstream name")?;
+            if service.anonymous_token_refresh && !service.tailnet_identity {
+                return Err(CaddyError::InvalidConfiguration(
+                    "anonymous token refresh requires identity protection".into(),
+                ));
+            }
             if service.port == 0 {
                 return Err(CaddyError::InvalidConfiguration(format!(
                     "service {} has an invalid upstream port",
@@ -146,6 +162,7 @@ impl CaddySites {
                 upstream: service.upstream.clone(),
                 port: service.port,
                 tailnet_identity: service.tailnet_identity,
+                anonymous_token_refresh: service.anonymous_token_refresh,
             });
         }
         Ok(Self {
@@ -213,6 +230,11 @@ impl CaddySites {
                     // A trailing '?' clears the inherited application query on the
                     // cloned auth request; the backend keeps its original URI.
                     config.push_str("        request_header -X-Skillet-Peer\n        request_header -X-Skillet-User\n        request_header -X-Webauth-User\n        request_header -Remote-User\n        request_header -Tailscale-User\n        forward_auth unix//run/skillet-tailnet-ui/auth.sock {\n            uri /auth?\n            header_up X-Skillet-Peer {http.request.remote}\n            copy_headers X-Skillet-User\n        }\n");
+                }
+                if service.tailnet_identity && service.anonymous_token_refresh {
+                    // No application identity/token is minted. NO_AUTH backends ignore
+                    // this marker; Caddy must authorize every subsequent request too.
+                    config.push_str("        @anonymous_refresh {\n            method GET\n            path /api/refresh\n        }\n        header @anonymous_refresh Content-Type application/json\n        header @anonymous_refresh Cache-Control no-store\n        respond @anonymous_refresh `{\"token\":\"skillet-tailnet-authenticated\"}` 200\n");
                 }
                 let _ = writeln!(
                     config,

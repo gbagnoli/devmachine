@@ -72,6 +72,22 @@ server with an authorized human client.
 Syncthing canonical and alias routes now share this identity gate and use a
 dedicated strict backend, while its native application state is preserved.
 
+Pi-hole now uses the same identity gate and dedicated backend as the other
+private UIs. Its DNS port remains published; its web port does not. Current host
+callers disable native Pi-hole login only in this mode and do not require a web
+password credential. Retained units converge their credential prerequisites from
+the same host declaration; obsolete encrypted passwords are no longer loaded.
+
+Mikochi's upstream `NO_AUTH=true` middleware skips JWT parsing, but its refresh
+handler still requires the omitted token ID. The browser therefore stays on its
+login screen despite working anonymous file APIs. For this caller-selected
+frontend only, Caddy answers GET `/api/refresh` with a nonsecret compatibility
+marker after identity authorization and origin checks, with `Cache-Control:
+no-store`. It grants no app identity or bearer capability: every file/API request
+still passes the same gate. Other paths/methods retain normal proxy behavior.
+The typed payload declares this compatibility mode and rejects it without the
+gate; stale credentials must be redelivered. No upstream image fork is needed.
+
 Current route selection is in the caller; operating setup is in
 [Caddy](../skillet/crates/caddy/README.md#identity-protected-uis). Browser/identity
 acceptance belongs to [the UI plan](../plan/GENERIC-PRIVATE-UIS.md); Gokapi

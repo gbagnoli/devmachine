@@ -30,7 +30,7 @@ fn pihole_uses_dual_stack_dns_network_and_registry_updates() {
             name: "pihole".to_string(),
             group_name: "pihole".to_string(),
         },
-        vec![QuadletSecret {
+        crate::WebAuthentication::Password(vec![QuadletSecret {
             secret_name: "pihole_web_password".to_string(),
             target: SecretTarget::File {
                 target_path: "/run/secrets/pihole_web_password".to_string(),
@@ -38,7 +38,7 @@ fn pihole_uses_dual_stack_dns_network_and_registry_updates() {
                 uid: None,
                 gid: None,
             },
-        }],
+        }]),
         BTreeMap::new(),
         "clamps".to_string(),
     )

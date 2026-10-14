@@ -101,7 +101,8 @@ fn unused_audit_keeps_both_environments_hosts_generated_and_legacy_paths() {
     ]
     .map(str::to_string);
     let unused = unused_paths(&skillet_hosts::profile::declared_profiles(), &stored).unwrap();
-    assert_eq!(unused.len(), 4);
+    assert_eq!(unused.len(), 5);
+    assert!(unused.contains(&"skillet/hosts/clamps/pihole/web-password".into()));
     assert!(unused.contains(&"skillet/environments/test/datadog/api-key".into()));
     assert!(unused.contains(&"skillet/environments/test/datadog/site".into()));
     assert!(unused.contains(&"skillet/environments/dns/cloudflare-zone-id".into()));

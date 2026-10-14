@@ -19,7 +19,9 @@ pub trait Actions {
 pub fn steps(profile: &HostProfile) -> Vec<Step> {
     let mut result = vec![Step::Activate("skillet-apply.service")];
     for service in ["pihole", "tailscale"] {
-        if profile.supports_service(service) {
+        if profile.services.iter().any(|declaration| {
+            declaration.name() == service && !declaration.credential_consumers().is_empty()
+        }) {
             result.push(Step::Stage(service));
         }
     }
