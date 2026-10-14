@@ -30,6 +30,25 @@ struct CustomListTemplate {
     custom: BTreeMap<String, String>,
 }
 
+/// Native credentials remain available for callers without an identity-protected UI.
+pub enum WebAuthentication {
+    Password(Vec<QuadletSecret>),
+    /// The caller must isolate the backend and authorize every proxy request.
+    TailnetProxy,
+}
+
+impl WebAuthentication {
+    fn configuration(self) -> (Vec<QuadletSecret>, &'static str) {
+        match self {
+            Self::Password(secrets) => (
+                secrets,
+                "Environment=WEBPASSWORD_FILE=/run/secrets/pihole_web_password",
+            ),
+            Self::TailnetProxy => (Vec::new(), "Environment=FTLCONF_webserver_api_password="),
+        }
+    }
+}
+
 pub struct PiholeUser {
     pub uid: Option<u32>,
     pub gid: Option<u32>,
@@ -44,7 +63,7 @@ pub fn apply<S, F>(
     system: &S,
     files: &F,
     user_config: &PiholeUser,
-    secrets: Vec<QuadletSecret>,
+    authentication: WebAuthentication,
     custom_records: BTreeMap<String, String>,
     network_name: String,
 ) -> Result<(), PiholeError>
@@ -79,14 +98,7 @@ where
     files.ensure_directory(Path::new(logs), Some(0o755), &Ownership::default())?;
 
     // 3. Custom list template (records supplied by the host)
-    let template = CustomListTemplate {
-        custom: custom_records,
-    };
-    let custom_list = template.render().map_err(|error| {
-        FileError::Io(std::io::Error::other(format!(
-            "Template rendering failed: {error}"
-        )))
-    })?;
+    let custom_list = render_custom_list(custom_records)?;
     files.ensure_file(
         &Path::new(etc).join("custom.list"),
         custom_list.as_bytes(),
@@ -121,6 +133,7 @@ where
         },
     ];
 
+    let (secrets, authentication_directive) = authentication.configuration();
     let mut extra_config = BTreeMap::new();
     extra_config.insert("Service".to_string(), vec!["Restart=always".to_string()]);
     extra_config.insert(
@@ -132,7 +145,7 @@ where
             "Environment=FTLCONF_dns_listeningMode=ALL".to_string(),
             "Environment=FTLCONF_webserver_port=8088o,[::]:8088o".to_string(),
             "Environment=TZ=Europe/Madrid".to_string(),
-            "Environment=WEBPASSWORD_FILE=/run/secrets/pihole_web_password".to_string(),
+            authentication_directive.to_string(),
         ],
     );
     extra_config.insert(
@@ -168,6 +181,14 @@ where
     Ok(())
 }
 
+fn render_custom_list(custom: BTreeMap<String, String>) -> Result<String, FileError> {
+    CustomListTemplate { custom }.render().map_err(|error| {
+        FileError::Io(std::io::Error::other(format!(
+            "Template rendering failed: {error}"
+        )))
+    })
+}
+
 fn dns_port_publications() -> Vec<PortPublication> {
     [
         std::net::Ipv6Addr::UNSPECIFIED.into(),
@@ -188,3 +209,6 @@ fn dns_port_publications() -> Vec<PortPublication> {
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
+
+#[cfg(test)]
+mod auth_tests;

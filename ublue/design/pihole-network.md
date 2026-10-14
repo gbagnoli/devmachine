@@ -1,7 +1,8 @@
 # Pi-hole container network
 
 Run Pi-hole and Caddy as separate containers on one Quadlet-managed
-dual-stack bridge. Keep Podman's network DNS enabled and refer to Pi-hole by
+dual-stack dedicated backend bridge with strict isolation. Only Pi-hole and Caddy
+join it; other application bridges cannot reach the web listener. Keep Podman's network DNS enabled and refer to Pi-hole by
 its container name (`pihole`) from Caddy, so neither container needs a fixed
 address and they keep independent lifecycles. Do not use a shared pod.
 
@@ -12,6 +13,14 @@ uses `dns_listeningMode=ALL` for bridge-network clients. Mark its fully
 qualified registry image for Quadlet auto-update; the OS image already enables
 the auto-update timer. The private UI route and Cloudflare DNS-only
 records are described in the [private UI design](private-ui-access.md).
+
+Pi-hole UI declarations use the same per-request Tailscale user identity gate as
+Syncthing and file browsing. Tagged servers, unknown users and failed lookups are
+denied. Only in that explicit mode, set `FTLCONF_webserver_api_password=` and omit
+the password secret; the empty environment value persists across restarts and
+overrides a retained native password without resetting DNS settings or databases.
+Callers without identity protection retain native secret-based authentication.
+See [upstream configuration](https://docs.pi-hole.net/docker/configuration/#setting-the-web-interface-password).
 
 The planned second Pi-hole on joey beside clamps is a separate DNS
 instance on the same power and internet connection. A possible third on remote

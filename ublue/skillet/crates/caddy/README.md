@@ -38,7 +38,7 @@ untrusted; the staging test performs its own certificate checks.
 
 ## Identity-protected UIs
 
-Syncthing (canonical name and aliases) and Mikochi use identity protection.
+Pi-hole, Syncthing (canonical name and aliases) and Mikochi use identity protection.
 
 For caller-declared identity protection:
 

@@ -9,6 +9,7 @@ use skillet_podman::{PodmanConfig, ProcessIdentity, QuadletSecret, SecretTarget,
 use std::collections::BTreeMap;
 use thiserror::Error;
 
+mod application_unit;
 pub mod profile;
 pub mod tailscale;
 pub use profile::{
@@ -34,10 +35,14 @@ pub fn credentials_for_phase(
 ) -> Result<Vec<&'static str>, ApplyError> {
     let profile =
         profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.to_string()))?;
+    Ok(credential_names_for_phase(&profile, phase))
+}
+
+fn credential_names_for_phase(profile: &HostProfile, phase: HostApplyPhase) -> Vec<&'static str> {
     if phase == HostApplyPhase::Base {
-        return Ok(Vec::new());
+        return Vec::new();
     }
-    Ok(profile
+    profile
         .credential_consumers()
         .into_iter()
         .filter(|consumer| match phase {
@@ -58,7 +63,7 @@ pub fn credentials_for_phase(
             HostApplyPhase::Base => false,
         })
         .map(|consumer| consumer.credential)
-        .collect())
+        .collect()
 }
 
 /// Explicit guest boot expectations. Consolidated with the canonical capability
@@ -277,6 +282,65 @@ fn apply_syncthing(
     Ok(())
 }
 
+fn apply_pihole(
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    profile: &HostProfile,
+    service: &HostService,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let ServiceConfig::Pihole { custom_dns } = service.config else {
+        return Err(ApplyError::FixtureInput(
+            "incompatible Pi-hole declaration".into(),
+        ));
+    };
+    let protected = service.ui.filter(|ui| ui.tailnet_identity);
+    let (authentication, network_name) = if let Some(ui) = protected {
+        let network = skillet_caddy::private_network(profile.id.as_str(), ui.name);
+        skillet_podman::ensure_network(system, files, &network)?;
+        (
+            skillet_pihole::WebAuthentication::TailnetProxy,
+            network.unit_name,
+        )
+    } else {
+        let password = credentials
+            .require(PIHOLE_WEB_PASSWORD_CREDENTIAL)?
+            .to_string();
+        system.ensure_podman_secret(PIHOLE_WEB_PASSWORD_CREDENTIAL, &password)?;
+        (
+            skillet_pihole::WebAuthentication::Password(vec![QuadletSecret {
+                secret_name: PIHOLE_WEB_PASSWORD_CREDENTIAL.to_string(),
+                target: SecretTarget::File {
+                    target_path: "/run/secrets/pihole_web_password".to_string(),
+                    mode: Some("0400".to_string()),
+                    uid: None,
+                    gid: None,
+                },
+            }]),
+            profile.id.as_str().to_string(),
+        )
+    };
+    let user = system.user_by_name("pihole")?;
+    let group = system.group_by_name("pihole")?;
+    skillet_pihole::apply(
+        system,
+        files,
+        &skillet_pihole::PiholeUser {
+            uid: user.map(|identity| identity.uid),
+            gid: group.map(|identity| identity.gid),
+            name: "pihole".to_string(),
+            group_name: "pihole".to_string(),
+        },
+        authentication,
+        custom_dns
+            .iter()
+            .map(|(ip, domain)| ((*ip).to_string(), (*domain).to_string()))
+            .collect::<BTreeMap<_, _>>(),
+        network_name,
+    )?;
+    Ok(())
+}
+
 /// Apply a canonical host profile. Unknown identities are rejected.
 pub fn apply_host(
     hostname: &str,
@@ -297,6 +361,7 @@ fn apply_profile(
     credentials: &CredentialInputs,
 ) -> Result<(), ApplyError> {
     apply_base(system, files)?;
+    application_unit::install(system, files, profile)?;
     if profile.requires_data_mount {
         files.require_btrfs_subvolume_mount(
             std::path::Path::new("/var/lib/data"),
@@ -317,37 +382,8 @@ fn apply_profile(
             | ServiceConfig::Datadog { .. }
             | ServiceConfig::Smtp
             | ServiceConfig::Network(_) => {}
-            ServiceConfig::Pihole { custom_dns } => {
-                let password = credentials
-                    .require(PIHOLE_WEB_PASSWORD_CREDENTIAL)?
-                    .to_string();
-                system.ensure_podman_secret(PIHOLE_WEB_PASSWORD_CREDENTIAL, &password)?;
-                let user = system.user_by_name("pihole")?;
-                let group = system.group_by_name("pihole")?;
-                skillet_pihole::apply(
-                    system,
-                    files,
-                    &skillet_pihole::PiholeUser {
-                        uid: user.map(|identity| identity.uid),
-                        gid: group.map(|identity| identity.gid),
-                        name: "pihole".to_string(),
-                        group_name: "pihole".to_string(),
-                    },
-                    vec![QuadletSecret {
-                        secret_name: PIHOLE_WEB_PASSWORD_CREDENTIAL.to_string(),
-                        target: SecretTarget::File {
-                            target_path: "/run/secrets/pihole_web_password".to_string(),
-                            mode: Some("0400".to_string()),
-                            uid: None,
-                            gid: None,
-                        },
-                    }],
-                    custom_dns
-                        .iter()
-                        .map(|(ip, domain)| ((*ip).to_string(), (*domain).to_string()))
-                        .collect::<BTreeMap<_, _>>(),
-                    profile.id.as_str().to_string(),
-                )?;
+            ServiceConfig::Pihole { .. } => {
+                apply_pihole(system, files, profile, service, credentials)?;
             }
             ServiceConfig::Syncthing { .. } => apply_syncthing(system, files, profile, service)?,
             ServiceConfig::Mikochi { .. } => apply_mikochi(system, files, profile, service)?,
@@ -422,7 +458,12 @@ pub fn apply_host_phase(
     credentials: &CredentialInputs,
 ) -> Result<(), ApplyError> {
     match phase {
-        HostApplyPhase::Base => apply_base(system, files),
+        HostApplyPhase::Base => {
+            let profile = profile_for_name(hostname)
+                .ok_or_else(|| ApplyError::UnknownHost(hostname.to_string()))?;
+            apply_base(system, files)?;
+            application_unit::install(system, files, &profile)
+        }
         HostApplyPhase::Full => apply_host(hostname, system, files, credentials),
         HostApplyPhase::Caddy => apply_caddy_host(hostname, system, files, credentials),
         HostApplyPhase::Ddns => apply_ddns_host(hostname, system, files, credentials),

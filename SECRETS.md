@@ -72,11 +72,11 @@ No vault entry required. Skillet generates a local-only monitoring password on e
 
 ## Pi-hole
 
-[Delivery](ublue/skillet/crates/pihole/README.md#credentials-and-apply).
+Identity-protected UIs use the shared Tailscale allowlist and no application password. [Setup](ublue/skillet/crates/pihole/README.md#credentials-and-apply).
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
-| `skillet/hosts/<host>/pihole/web-password` | Generated | Skillet generates and saves the web admin password for a fresh host; optionally create it to choose a password. For an existing host, restore its entry rather than inventing a replacement. |
+| `skillet/hosts/<host>/pihole/web-password` | Generated | Only for a caller retaining native Pi-hole authentication (current hosts do not need it). Skillet generates and saves the web admin password for a fresh host; optionally create it to choose a password. For an existing host, restore its entry rather than inventing a replacement. |
 
 ## SMTP
 

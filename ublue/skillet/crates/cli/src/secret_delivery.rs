@@ -16,7 +16,7 @@ use skillet_workstation::vault::Vault;
 use std::path::Path;
 
 pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
-    validate_delivery_service(&args.hostname, &args.service)?;
+    let profile = validate_delivery_service(&args.hostname, &args.service)?;
     if args.environment.policy().environment()
         != skillet_workstation::provisioning_policy::Environment::Production
     {
@@ -32,6 +32,15 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
         return Err(anyhow!(
             "test {service} must be provisioned through an owned disposable VM"
         ));
+    }
+    if args.service == "pihole"
+        && !profile
+            .credential_consumers()
+            .iter()
+            .any(|consumer| consumer.credential == skillet_hosts::PIHOLE_WEB_PASSWORD_CREDENTIAL)
+    {
+        println!("Pi-hole uses tailnet identity authentication; no password delivery is needed. Use `skillet apply {}` to converge the service and Caddy policy", args.hostname);
+        return Ok(());
     }
     let database = match &args.database {
         Some(path) => path.clone(),
@@ -403,9 +412,9 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     let credentials = tailscale_credentials(&vault)?;
     let expected_hostname = run.guest_hostname.as_str();
     let policy = UiEnvironmentName::Test.policy();
-    // The host full-apply unit requires both encrypted credentials. Deliver
-    // Pi-hole first; Tailscale delivery then starts full apply with the full
-    // credential set, which creates the Tailscale container on a fresh VM.
+    // Native-password callers stage their optional Pi-hole credential first.
+    // Identity-protected callers need none; Tailscale delivery starts full apply
+    // only after the Syncthing bootstrap and required credentials are ready.
     skillet_workstation::credential_delivery::ensure_disposable_pihole_credential(
         &args.hostname,
         args.rotate,

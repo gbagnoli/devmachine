@@ -47,3 +47,25 @@ Remaining rollout checks: tagged/disallowed-client HTTPS over IPv6 from a
 separate device (the host's IPv6 hairpin probe timed out), browser/REST/WebSocket
 behavior, application-policy revocation/daemon outage, full UDP transfer and
 reboot. Application state and existing GUI credentials are preserved.
+
+## Pi-hole and Mikochi no-password rollout
+
+Source now derives Pi-hole's dedicated strict backend, identity gate and optional
+native credential from the caller declaration. Existing units receive canonical
+credential drop-ins; old passwords are preserved but unused by protected hosts.
+Mikochi's browser refresh compatibility response is typed, identity-gated and
+noncacheable. Old Caddy payloads must be redelivered through normal provisioning.
+
+Acceptance in progress:
+
+1. Completed: strict workspace checks (470 tests), Butane regressions and
+   provider-free real Pi-hole retained-password/restart, Caddy refresh/denial and
+   Mikochi file-operation tests.
+2. Owned native VM application acceptance passed after update, matching test UI
+   provisioning, reboot and repeat full/UI apply. Finish capture-based readiness
+   and restore current binaries before further development.
+3. Completed on physical clamps: matching Caddy policy/full apply, anonymous
+   Pi-hole API, separate-client TCP/UDP DNS, sibling-backend isolation and
+   tagged-client HTTPS denial in both IP families.
+4. An allowed person's browser must open both UIs without an application login.
+   Record browser observations separately from API/fixture results.

@@ -101,6 +101,13 @@ impl HostService {
         }
     }
 
+    fn backend_network(&self, host: &str) -> String {
+        self.ui.filter(|ui| ui.tailnet_identity).map_or_else(
+            || host.into(),
+            |ui| skillet_caddy::private_network(host, ui.name).unit_name,
+        )
+    }
+
     pub fn credential_consumers(&self) -> Vec<CredentialConsumer> {
         match self.config {
             ServiceConfig::Syncthing { .. } => vec![CredentialConsumer {
@@ -123,10 +130,12 @@ impl HostService {
                 credential: super::CLOUDFLARE_DDNS_CONFIG_CREDENTIAL,
                 unit: "cloudflare-ddns.service",
             }],
-            ServiceConfig::Pihole { .. } => vec![CredentialConsumer {
-                credential: super::PIHOLE_WEB_PASSWORD_CREDENTIAL,
-                unit: "pihole.service",
-            }],
+            ServiceConfig::Pihole { .. } if !self.ui.is_some_and(|ui| ui.tailnet_identity) => {
+                vec![CredentialConsumer {
+                    credential: super::PIHOLE_WEB_PASSWORD_CREDENTIAL,
+                    unit: "pihole.service",
+                }]
+            }
             ServiceConfig::Tailscale { .. } => vec![CredentialConsumer {
                 credential: super::TAILSCALE_AUTH_KEY_CREDENTIAL,
                 unit: "tailscale.service",
@@ -286,22 +295,25 @@ impl HostProfile {
 
     pub fn requires_full_apply_credentials(&self) -> bool {
         self.services.iter().any(|service| {
-            matches!(
-                service.config,
-                ServiceConfig::Pihole { .. } | ServiceConfig::Tailscale { .. }
-            )
+            service.credential_consumers().iter().any(|consumer| {
+                matches!(
+                    consumer.credential,
+                    super::PIHOLE_WEB_PASSWORD_CREDENTIAL | super::TAILSCALE_AUTH_KEY_CREDENTIAL
+                )
+            })
         })
     }
 
     pub fn ui_services(&self) -> Vec<skillet_caddy::UiService> {
         self.services
             .iter()
-            .filter_map(|service| service.ui.as_ref())
-            .map(|ui| skillet_caddy::UiService {
+            .filter_map(|service| service.ui.as_ref().map(|ui| (service, ui)))
+            .map(|(service, ui)| skillet_caddy::UiService {
                 name: ui.name.to_string(),
                 upstream: ui.upstream.to_string(),
                 port: ui.port,
                 tailnet_identity: ui.tailnet_identity,
+                anonymous_token_refresh: matches!(service.config, ServiceConfig::Mikochi { .. }),
                 aliases: ui
                     .aliases
                     .iter()
@@ -392,7 +404,7 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
         ServiceConfig::Pihole { .. } => AcceptanceService {
             unit: "pihole.service".into(),
             container: Some("pihole".into()),
-            network_mode: Some(profile.into()),
+            network_mode: Some(service.backend_network(profile)),
             bind_paths: vec![
                 "/var/lib/data/pihole/etc".into(),
                 "/var/lib/data/pihole/log".into(),
@@ -415,10 +427,7 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
         } => AcceptanceService {
             unit: "syncthing.service".into(),
             container: Some("syncthing".into()),
-            network_mode: Some(service.ui.filter(|ui| ui.tailnet_identity).map_or_else(
-                || profile.into(),
-                |ui| skillet_caddy::private_network(profile, ui.name).unit_name,
-            )),
+            network_mode: Some(service.backend_network(profile)),
             bind_paths: vec![data_path.into()],
             owner: Some(AcceptanceOwner::Named {
                 user: data_owner.into(),
@@ -535,7 +544,7 @@ fn clamps() -> HostProfile {
                     name: "pihole",
                     upstream: "pihole",
                     port: 8088,
-                    tailnet_identity: false,
+                    tailnet_identity: true,
                     aliases: &[],
                 }),
             },
@@ -611,7 +620,7 @@ fn joey() -> HostProfile {
                     name: "pihole",
                     upstream: "pihole",
                     port: 8088,
-                    tailnet_identity: false,
+                    tailnet_identity: true,
                     aliases: &[],
                 }),
             },

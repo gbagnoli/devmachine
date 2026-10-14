@@ -240,6 +240,12 @@ fn entry_selected(entry: &Entry, profile: &HostProfile) -> bool {
 }
 
 fn selected_capability(service: &str, profile: &HostProfile) -> bool {
+    if service == "pihole-password" {
+        return profile
+            .credential_consumers()
+            .iter()
+            .any(|consumer| consumer.credential == skillet_hosts::PIHOLE_WEB_PASSWORD_CREDENTIAL);
+    }
     if service == "network-wired" {
         profile
             .host_network_selection()

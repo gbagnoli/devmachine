@@ -256,3 +256,8 @@ skillet/
 - Reusing enrollment or credentials must not skip convergence of declared
   workloads. Keep credential enrollment state separate from application
   activation so updated units and network declarations apply on retries.
+
+- No-auth acceptance must exercise the browser's session/bootstrap endpoint as
+  well as anonymous backend APIs. Confine compatibility responses behind the
+  same identity/origin checks, keep them nonsecret and noncacheable, and reject
+  configurations that enable them without their required authorization boundary.

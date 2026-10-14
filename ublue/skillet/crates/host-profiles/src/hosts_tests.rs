@@ -120,9 +120,9 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
         ]
     );
     let credentials = clamps.credential_consumers();
-    assert!(credentials.iter().any(|use_| {
-        use_.credential == super::PIHOLE_WEB_PASSWORD_CREDENTIAL && use_.unit == "pihole.service"
-    }));
+    assert!(!credentials
+        .iter()
+        .any(|use_| { use_.credential == super::PIHOLE_WEB_PASSWORD_CREDENTIAL }));
     assert!(credentials.iter().any(|use_| {
         use_.credential == super::TAILSCALE_AUTH_KEY_CREDENTIAL && use_.unit == "tailscale.service"
     }));
@@ -218,10 +218,7 @@ fn credential_values_are_selected_by_host_and_apply_phase() {
     );
     assert_eq!(
         super::credentials_for_phase("clamps", super::HostApplyPhase::Full).unwrap(),
-        [
-            super::PIHOLE_WEB_PASSWORD_CREDENTIAL,
-            super::TAILSCALE_AUTH_KEY_CREDENTIAL
-        ]
+        [super::TAILSCALE_AUTH_KEY_CREDENTIAL]
     );
     assert_eq!(
         super::credentials_for_phase("clamps", super::HostApplyPhase::Caddy).unwrap(),
@@ -232,10 +229,7 @@ fn credential_values_are_selected_by_host_and_apply_phase() {
     );
     assert_eq!(
         super::credentials_for_phase("joey", super::HostApplyPhase::Full).unwrap(),
-        [
-            super::PIHOLE_WEB_PASSWORD_CREDENTIAL,
-            super::TAILSCALE_AUTH_KEY_CREDENTIAL
-        ]
+        [super::TAILSCALE_AUTH_KEY_CREDENTIAL]
     );
     assert!(super::credentials_for_phase("unknown", super::HostApplyPhase::Base).is_err());
 }
@@ -294,6 +288,8 @@ fn host_ui_declarations_include_only_the_services_each_host_runs() {
     assert_eq!(clamps.network_name, "clamps");
     assert_eq!(clamps.services[0].upstream, "pihole");
     assert_eq!(clamps.services[0].port, 8088);
+    assert!(clamps.services[0].tailnet_identity);
+    assert!(clamps.services[2].anonymous_token_refresh);
     assert_eq!(clamps.services[0].aliases, Vec::<String>::new());
     assert_eq!(clamps.services[1].upstream, "syncthing");
     assert_eq!(clamps.services[1].port, 8384);
@@ -303,6 +299,8 @@ fn host_ui_declarations_include_only_the_services_each_host_runs() {
     let joey = ui_config_for_host("joey").expect("joey UI declaration");
     assert_eq!(joey.services.len(), 3);
     assert_eq!(joey.services[0].name, "pihole");
+    assert!(joey.services[0].tailnet_identity);
+    assert!(joey.services[2].anonymous_token_refresh);
     assert_eq!(joey.services[1].name, "syncthing");
     assert!(joey.services[1].tailnet_identity);
     assert_eq!(joey.services[1].aliases, ["sync.{host}"]);
@@ -385,7 +383,7 @@ fn application_acceptance_tracks_each_profiles_declared_services() {
     assert!(joey
         .services
         .iter()
-        .filter(|service| matches!(service.container.as_deref(), Some("pihole" | "caddy")))
+        .filter(|service| matches!(service.container.as_deref(), Some("caddy")))
         .all(|service| service.network_mode.as_deref() == Some("joey")));
 }
 
@@ -601,10 +599,6 @@ fn joey_full_apply_uses_shared_services_and_is_repeatable() {
     }
     let mut credentials = CredentialInputs::default();
     credentials.insert(
-        super::PIHOLE_WEB_PASSWORD_CREDENTIAL,
-        "fixture-password".into(),
-    );
-    credentials.insert(
         super::TAILSCALE_AUTH_KEY_CREDENTIAL,
         super::tailscale::EnrollmentInput::new("fixture-auth-key".into(), false)
             .payload()
@@ -620,7 +614,11 @@ fn joey_full_apply_uses_shared_services_and_is_repeatable() {
     assert_eq!(system.start_count.load(Ordering::SeqCst), starts);
     let pihole =
         String::from_utf8(before["/etc/containers/systemd/pihole.container"].clone()).unwrap();
-    assert!(pihole.contains("Network=joey.network"));
+    assert!(pihole.contains("Network=joey-pihole.network"));
+    assert!(pihole.contains("Environment=FTLCONF_webserver_api_password=\n"));
+    assert!(!pihole.contains("WEBPASSWORD_FILE"));
+    assert!(!pihole.contains("Secret="));
+    assert!(!pihole.lines().any(|line| line == "Network=joey.network"));
     let syncthing = String::from_utf8_lossy(&before["/etc/containers/systemd/syncthing.container"]);
     assert!(syncthing.contains("Network=joey-syncthing.network"));
     assert!(!syncthing.lines().any(|line| line == "Network=joey.network"));

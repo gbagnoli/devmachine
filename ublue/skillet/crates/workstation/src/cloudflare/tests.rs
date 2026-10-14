@@ -12,6 +12,7 @@ fn desired_dns_contains_dual_stack_machine_ui_and_alias_records() {
         upstream: "syncthing".to_string(),
         port: 8384,
         tailnet_identity: false,
+        anonymous_token_refresh: false,
         aliases: vec!["sync.{host}".to_string()],
     }];
     let sites = skillet_caddy::CaddySites::from_host(
@@ -61,6 +62,7 @@ fn desired_dns_rejects_missing_address_family() {
             upstream: "syncthing".to_string(),
             port: 8384,
             tailnet_identity: false,
+            anonymous_token_refresh: false,
             aliases: Vec::new(),
         }],
     )

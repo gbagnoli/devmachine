@@ -4,29 +4,29 @@ The caller must declare Pi-hole. Run Cargo commands from `ublue/skillet`.
 
 ## Credentials and apply
 
-Production uses `skillet/hosts/<host>/pihole/web-password` in KeePassXC Password.
-For a fresh host with no installed credential/Podman secret, Skillet generates
-and saves a missing entry. For an existing host, restore its original vault
-entry rather than inventing a replacement. Close KeePassXC before generated saves.
+Clamps and Joey use [Caddy identity protection](../caddy/README.md#identity-protected-uis).
+Open the Pi-hole hostname from an allowed person's untagged Tailscale client;
+there is no additional Pi-hole password. DNS remains available on host port 53.
 
 ```sh
-cargo run --release -p skillet -- secrets deliver HOST pihole --target USER@ADDRESS
+cargo run --release -p skillet -- apply HOST
 ```
 
-This stages only. Add `--activate` to run the full-apply consumer, which also
-configures other declared applications. [Remote apply](../workstation/README.md#apply-a-production-host)
-stages both Pi-hole and Tailscale first. Test VMs get a generated disposable
-password via `test vm provision HOST INSTANCE`; repeat provision reuses it,
-`--rotate` replaces it. No production password reaches a smoke VM.
+Apply updates the private backend and redelivers the matching Caddy policy.
+Do not clear a password manually on an old shared network. Existing DNS settings,
+lists and query data are preserved. Old web-password vault entries are unused for
+these hosts and may be removed after migration; Skillet does not delete them.
 
-If a credential is missing/undecryptable, redeliver the vault entry. For a corrupt
-disposable credential, use `--rotate`. Do not replace a production value with an
-empty/default password.
+A caller without identity protection retains native login. Only that mode uses
+`skillet/hosts/<host>/pihole/web-password` in KeePassXC Password and
+`secrets deliver HOST pihole`; fresh native credentials are generated and saved,
+while missing entries for an existing host require restoring the original entry.
+Disposable native credentials remain separate from production.
 
 ## Service and storage
 
 Pi-hole publishes host IPv4/IPv6 port 53 over TCP and UDP. The UI is private on
-bridge port 8088 through [Caddy](../caddy/README.md), not published on the host.
+dedicated strictly isolated bridge port 8088 through [Caddy](../caddy/README.md), not published on the host.
 Persistent configuration/logs are under `/var/lib/data/pihole/{etc,log}`.
 Inspect `pihole.service` and its journal. Preserve a working bootstrap resolver
 while Pi-hole is down; follow [native networking](../network/README.md) for DNS.

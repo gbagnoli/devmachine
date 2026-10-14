@@ -18,7 +18,9 @@ cargo run --release -p skillet -- test vm provision HOST INSTANCE --with-ui
 ```
 
 Open the files hostname from an allowed person's untagged tailnet client.
-There is no additional Mikochi password or public host port. Redeliver Caddy
+There is no additional Mikochi password or public host port. Apply and redeliver
+Caddy configuration when upgrading: its identity-protected refresh response lets
+the upstream no-auth frontend open without displaying the native login form. Redeliver Caddy
 credentials after changing users or the caller's UI inventory.
 
 The default file scope is `/var/lib/data/syncthing/data`, with the same declared

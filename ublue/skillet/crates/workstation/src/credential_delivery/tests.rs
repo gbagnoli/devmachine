@@ -427,3 +427,55 @@ fn enrollment_presence_does_not_confuse_failed_inspection_with_absence() {
         assert!(calls[0].1.is_none());
     }
 }
+
+// Exercise retained native-password delivery through an explicit fixture profile.
+fn native_profile(host: &str) -> skillet_hosts::HostProfile {
+    let mut profile = skillet_hosts::profile_for_name(host).unwrap();
+    for service in &mut profile.services {
+        if matches!(service.config, skillet_hosts::ServiceConfig::Pihole { .. }) {
+            service.ui = None;
+        }
+    }
+    profile
+}
+
+fn deliver_pihole_credential(
+    host: &str,
+    store: &mut impl SecretStore,
+    guest: &impl GuestTransport,
+    activation: credential::ActivationPolicy,
+) -> Result<(), CredentialDeliveryError> {
+    if !native_profile(host).supports_service("pihole") {
+        return super::deliver_pihole_credential(host, store, guest, activation);
+    }
+    super::deliver_pihole_for_profile(&native_profile(host), store, guest, activation)
+}
+
+fn ensure_disposable_pihole_credential(
+    host: &str,
+    rotate: bool,
+    guest: &impl GuestTransport,
+) -> Result<(), CredentialDeliveryError> {
+    super::ensure_disposable_pihole_for_profile(&native_profile(host), rotate, guest)
+}
+
+#[test]
+fn protected_pihole_never_reads_or_replaces_native_credentials() {
+    let guest = FakeGuest::default();
+    let mut store = FakeStore {
+        changed: Cell::new(true),
+        ..FakeStore::default()
+    };
+    for host in ["clamps", "joey"] {
+        super::deliver_pihole_credential(
+            host,
+            &mut store,
+            &guest,
+            credential::ActivationPolicy::StartConsumer,
+        )
+        .unwrap();
+        super::ensure_disposable_pihole_credential(host, true, &guest).unwrap();
+    }
+    assert_eq!(store.saves.get(), 0);
+    assert!(guest.calls.lock().unwrap().is_empty());
+}
