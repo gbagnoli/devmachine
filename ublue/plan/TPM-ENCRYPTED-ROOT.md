@@ -11,11 +11,18 @@ and [acceptance evidence](archive/ACCEPTANCE.md).
 Operating procedures: [TPM/recovery](../skillet/crates/workstation/docs/tpm.md),
 [hardware installation](../butane/HARDWARE.md).
 
+## Physical cleanup accepted
+
+On 2026-10-14 the operator confirmed removal of the temporary short passphrase,
+retained recovery/TPM verification, refreshed and backed-up vault header, and
+unattended reboot on the stock disk. The operator also confirmed a successful
+signed image rebase/reboot onto the moving `:latest` tag. Rollback and wider
+data/credential preservation checks remain open. See [acceptance](archive/ACCEPTANCE.md).
+
 ## Remaining matrix
 
 | Check | Required evidence |
 | --- | --- |
-| Physical keyslot cleanup | Remove the temporary short passphrase deliberately; retain verified independent recovery and final TPM binding; refresh/read back the vault header after changes |
 | Fresh bootstrap under final policy | All approved transition boots unlock unattended, or explicitly document the recovery/rebind boundary; do not infer PCR behavior from ostree signature labels |
 | Networkless cold boot | Root/data unlock and base storage work with NIC disconnected after images/bootstrap are present; network-dependent apps are a separate check |
 | Approved OS update/rebase/rollback | Unattended unlock with unchanged data/credentials across the agreed deployed-image matrix; bounded failure and recovery when policy changes |

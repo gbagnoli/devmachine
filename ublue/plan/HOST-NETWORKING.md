@@ -9,7 +9,14 @@ in to both interfaces. Other hosts and smoke VMs retain DHCP. Remote all-service
 apply prepares networking without switching the active connection. See
 [design](../design/host-networking.md).
 
-## Acceptance before physical activation
+## Physical acceptance status
+
+On 2026-10-13 the operator confirmed successful provisioning and correctly
+configured wired/Wi-Fi on physical clamps, including a successful Wi-Fi test.
+See [the operator evidence](archive/ACCEPTANCE.md#2026-10-13--clamps-physical-networking-operator-report).
+This does not establish the detailed DNS, route, MAC or repeat-boot checks below.
+
+## Detailed acceptance checklist
 
 1. Install matching generic and host binaries using the existing deployment
    paths. Verify the deployed image has NetworkManager Wi-Fi support and a
