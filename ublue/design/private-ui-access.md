@@ -17,6 +17,11 @@ tailnet addresses, UI CNAMEs to that machine and aliases to canonical UIs. Domai
 and IDs stay in private configuration; public DNS still exposes names/addresses.
 [Cloudflare lifecycle](cloudflare-ui-lifecycle.md) owns issuance and records.
 
+Matching IPv4/IPv6 wildcard port publications render as one native dual-stack
+Podman mapping. Explicit single-family/address bindings retain their scope.
+Overlapping wildcard mappings can leak Netavark nftables rules on restart;
+rendering changes do not repair already-retained runtime rules.
+
 Caddy DNS-01 supplies publicly trusted certificates without a public UI route.
 DNS-only records do not use a Cloudflare proxy certificate. Resolver rebinding
 filters can reject tailnet-address answers; actual client resolution is its own

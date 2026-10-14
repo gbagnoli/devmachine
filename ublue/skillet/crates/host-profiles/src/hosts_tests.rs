@@ -631,10 +631,8 @@ fn joey_full_apply_uses_shared_services_and_is_repeatable() {
         String::from_utf8_lossy(&before["/etc/containers/systemd/joey-syncthing.network"]);
     assert!(network.contains("Options=isolate=strict"));
     assert!(network.contains("Internal=false"));
-    for address in ["0.0.0.0", "[::]"] {
-        for protocol in ["tcp", "udp"] {
-            assert!(pihole.contains(&format!("PublishPort={address}:53:53/{protocol}")));
-        }
+    for protocol in ["tcp", "udp"] {
+        assert!(pihole.contains(&format!("PublishPort=53:53/{protocol}")));
     }
     let tailscale =
         String::from_utf8(before["/etc/containers/systemd/tailscale.container"].clone()).unwrap();

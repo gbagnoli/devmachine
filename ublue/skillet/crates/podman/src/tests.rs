@@ -581,3 +581,51 @@ fn quadlet_directives_preserve_configuration_quotes() {
     assert!(!quadlet.contains("&quot;"));
     assert!(!quadlet.contains("&amp;"));
 }
+
+#[test]
+fn wildcard_pairs_render_once_in_either_order_without_changing_other_bindings() {
+    let v4 = PortPublication {
+        host_address: std::net::Ipv4Addr::UNSPECIFIED.into(),
+        host_port: 443,
+        container_port: 8443,
+        protocol: PortProtocol::Tcp,
+    };
+    let v6 = PortPublication {
+        host_address: std::net::Ipv6Addr::UNSPECIFIED.into(),
+        ..v4.clone()
+    };
+    for pair in [vec![v4.clone(), v6.clone()], vec![v6.clone(), v4.clone()]] {
+        assert_eq!(
+            port_publication_directives(&pair).unwrap(),
+            ["PublishPort=443:8443/tcp"]
+        );
+    }
+    let udp = PortPublication {
+        protocol: PortProtocol::Udp,
+        ..v6.clone()
+    };
+    let explicit = PortPublication {
+        host_address: std::net::Ipv4Addr::LOCALHOST.into(),
+        ..v4.clone()
+    };
+    assert_eq!(
+        port_publication_directives(&[v4.clone(), v6, udp, explicit]).unwrap(),
+        [
+            "PublishPort=443:8443/tcp",
+            "PublishPort=[::]:443:8443/udp",
+            "PublishPort=127.0.0.1:443:8443/tcp"
+        ]
+    );
+    let different_port = PortPublication {
+        host_address: std::net::Ipv6Addr::UNSPECIFIED.into(),
+        container_port: 9443,
+        ..v4.clone()
+    };
+    assert_eq!(
+        port_publication_directives(&[v4, different_port]).unwrap(),
+        [
+            "PublishPort=0.0.0.0:443:8443/tcp",
+            "PublishPort=[::]:443:9443/tcp"
+        ]
+    );
+}

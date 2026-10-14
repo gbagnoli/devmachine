@@ -61,10 +61,8 @@ fn syncthing_uses_persistent_data_and_shared_dns_network() {
         "UIDMap=1000:1042:1",
         "GIDMap=1000:2047:1",
         "Network=clamps.network",
-        "PublishPort=[::]:22000:22000/tcp",
-        "PublishPort=0.0.0.0:22000:22000/tcp",
-        "PublishPort=[::]:22000:22000/udp",
-        "PublishPort=0.0.0.0:22000:22000/udp",
+        "PublishPort=22000:22000/tcp",
+        "PublishPort=22000:22000/udp",
         "Volume=/var/lib/data/syncthing:/var/syncthing:z",
     ] {
         assert!(quadlet.contains(directive), "missing directive {directive}");

@@ -57,10 +57,8 @@ fn pihole_uses_dual_stack_dns_network_and_registry_updates() {
         "Environment=FTLCONF_dns_listeningMode=ALL",
         "Environment=FTLCONF_webserver_port=8088o,[::]:8088o",
         "Environment=TZ=Europe/Madrid",
-        "PublishPort=[::]:53:53/tcp",
-        "PublishPort=[::]:53:53/udp",
-        "PublishPort=0.0.0.0:53:53/tcp",
-        "PublishPort=0.0.0.0:53:53/udp",
+        "PublishPort=53:53/tcp",
+        "PublishPort=53:53/udp",
     ] {
         assert!(
             quadlet.contains(directive),
