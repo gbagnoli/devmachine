@@ -16,10 +16,13 @@ mod metrics;
 pub mod version;
 pub use metrics::{run_metrics, MetricsCommands};
 mod smtp_runtime;
+pub mod syncthing_runtime;
 use hosts::ApplyPhase;
 
 #[derive(Error, Debug)]
 pub enum CliCommonError {
+    #[error(transparent)]
+    SyncthingInitial(#[from] skillet_syncthing::initial::Error),
     #[error("Configuration error: {0}")]
     Config(String),
     #[error("System error: {0}")]
@@ -59,6 +62,10 @@ pub struct HostArgs {
 
 #[derive(clap::Subcommand, Debug)]
 pub enum HostCommands {
+    Syncthing {
+        #[command(subcommand)]
+        command: syncthing_runtime::Commands,
+    },
     /// Collect service metrics without workstation credentials
     Metrics {
         #[command(subcommand)]
@@ -136,6 +143,7 @@ where
     tracing::subscriber::set_global_default(subscriber)?;
 
     match args.command {
+        HostCommands::Syncthing { command } => syncthing_runtime::dispatch(command),
         HostCommands::Metrics { command } => run_metrics(command),
         HostCommands::TailnetUi { command } => run_tailnet_ui(command),
         HostCommands::Access { command } => access::dispatch(command),

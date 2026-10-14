@@ -47,6 +47,7 @@ pub fn credentials_for_phase(
                     | "cloudflare-ddns.service"
                     | "datadog-agent.service"
                     | "postfix.service"
+                    | "skillet-syncthing-initialize.service"
                     | skillet_network::PREPARE_UNIT
             ),
             HostApplyPhase::Caddy => consumer.unit == "caddy.service",
@@ -120,6 +121,7 @@ pub enum ApplyError {
 pub fn apply_base(system: &dyn SystemResource, files: &dyn FileResource) -> Result<(), ApplyError> {
     skillet_hardening::apply(system, files).map_err(|e| ApplyError::Hardening(e.to_string()))?;
     skillet_network::install(system, files)?;
+    skillet_syncthing::initial::install(system, files)?;
     Ok(())
 }
 

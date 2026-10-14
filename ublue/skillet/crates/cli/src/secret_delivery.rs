@@ -86,6 +86,14 @@ pub(super) fn deliver_with_vault(
                 activation,
             )?;
         }
+        "syncthing" => skillet_workstation::syncthing_provisioning::deliver(
+            &args.hostname,
+            &args.hostname,
+            args.environment.policy(),
+            vault,
+            transport,
+            activation,
+        )?,
         "caddy" => deliver_caddy_from_vault(args, vault, transport, activation)?,
         "ddns" => deliver_ddns_from_vault(args, vault, transport, activation)?,
         "network" => {
@@ -131,7 +139,7 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
     let profile = skillet_hosts::profile_for_name(hostname)
         .ok_or_else(|| anyhow!("unknown host profile: {hostname}"))?;
     match service {
-        "pihole" | "tailscale" | "ddns" | "datadog" | "smtp" | "network"
+        "pihole" | "tailscale" | "ddns" | "datadog" | "smtp" | "network" | "syncthing"
             if !profile.supports_service(service) =>
         {
             Err(anyhow!(
@@ -141,7 +149,8 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
         "caddy" if profile.ui_services().is_empty() => {
             Err(anyhow!("host {hostname} declares no UI services"))
         }
-        "pihole" | "tailscale" | "caddy" | "ddns" | "datadog" | "smtp" | "network" => Ok(profile),
+        "pihole" | "tailscale" | "caddy" | "ddns" | "datadog" | "smtp" | "network"
+        | "syncthing" => Ok(profile),
         unsupported => Err(anyhow!("unsupported secret service {unsupported}")),
     }
 }
@@ -402,6 +411,7 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
         args.rotate,
         &transport,
     )?;
+    provision_vm_syncthing(args, expected_hostname, &vault, &transport)?;
     let record = skillet_workstation::tailscale_enrollment::enroll_disposable_vm(
         &skillet_workstation::tailscale_enrollment::DisposableEnrollment {
             host: &args.hostname,
@@ -444,6 +454,44 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     }
     provisioning_state::remove_tailscale_pending(&run_dir)?;
     println!("Tailscale connected VM {expected_hostname}");
+    Ok(())
+}
+
+fn provision_vm_syncthing(
+    args: &VmProvisionArgs,
+    runtime_hostname: &str,
+    vault: &Vault,
+    transport: &impl GuestTransport,
+) -> Result<()> {
+    let profile = skillet_hosts::profile_for_name(&args.hostname)
+        .ok_or_else(|| anyhow!("unknown Syncthing host"))?;
+    if !profile.supports_service("syncthing") {
+        return Ok(());
+    }
+    // New bootstrap units must converge before credential installation.
+    skillet_workstation::host_apply::activate(transport, "skillet-apply.service")?;
+    let policy = UiEnvironmentName::Test.policy();
+    let activation = skillet_vm::credential::ActivationPolicy::StartConsumer;
+    if args.with_ui || args.with_ddns {
+        skillet_workstation::syncthing_provisioning::deliver(
+            &args.hostname,
+            runtime_hostname,
+            policy,
+            vault,
+            transport,
+            activation,
+        )?;
+    } else {
+        let input = skillet_workstation::syncthing_provisioning::settings(
+            &args.hostname,
+            runtime_hostname,
+            policy,
+            "example.invalid",
+        )?;
+        skillet_workstation::syncthing_provisioning::deliver_settings(
+            &input, transport, activation,
+        )?;
+    }
     Ok(())
 }
 

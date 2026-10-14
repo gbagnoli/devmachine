@@ -47,4 +47,16 @@ No real domains, Zone IDs or resolved private payloads belong in this repository
   desired name, GUI warning behaviour, protected HTTPS and subsequent no-op apply.
   Record results without private names or credential values in acceptance.
 
-Status: implementation pending. Physical XML has not been removed.
+Status: implementation and local checks complete (466 workspace tests, strict
+Clippy, formatting and repeat base integration). Credential-free real-consumer
+acceptance passed API readiness, GUI acknowledgement, user-edit preservation and
+XML-only reset with unchanged device ID. Physical clamps XML-only reset and full
+apply passed with private backup, exact keypair/device-ID preservation, desired
+name, GUI acknowledgement, API readiness and repeat-init byte/metadata preservation.
+Tagged-client HTTPS still returns 403. An isolated physical systemd fixture proved
+missing-credential conditions permit a requiring consumer while initializer errors
+block it; fixture units were removed. No synchronized data was erased.
+
+Remaining: complete owned-VM UI provisioning/application acceptance after its first
+broad smoke attempt passed reboot/fixtures but found Caddy inactive. Revalidate the
+final stricter dependency after deployment. Keep the VM failure as original evidence.

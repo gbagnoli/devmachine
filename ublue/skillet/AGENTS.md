@@ -246,3 +246,9 @@ skillet/
   invent user/port/key/trust defaults. Keep explicit VM connection fields and
   profile identity separate; distinguish transport/authentication failure from
   a successfully observed guest identity mismatch.
+
+- Application bootstrap must publish complete consumer-generated configuration
+  only while absent. Preserve later application edits and identity keys; keep
+  durable, bound staging for interrupted publication. Order bootstrap before
+  normal startup and use the same declared namespace/ownership policy as the
+  long-running consumer.

@@ -7,6 +7,8 @@ edition = "2021"
 workspace = true
 
 [dependencies]
+skillet_syncthing.workspace = true
+skillet_podman.workspace = true
 nix.workspace = true
 sha2.workspace = true
 zeroize = "1.9"

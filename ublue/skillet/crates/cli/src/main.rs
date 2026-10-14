@@ -26,6 +26,11 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Commands {
+    /// Initialize missing guest Syncthing configuration
+    Syncthing {
+        #[command(subcommand)]
+        command: skillet_cli_common::syncthing_runtime::Commands,
+    },
     /// Collect guest service metrics without unlocking the vault
     Metrics {
         #[command(subcommand)]
@@ -136,7 +141,7 @@ struct SecretLockArgs {
 #[derive(clap::Args, Debug)]
 struct SecretDeliverArgs {
     hostname: String,
-    #[arg(value_parser = ["pihole", "tailscale", "caddy", "ddns", "datadog", "smtp", "network"])]
+    #[arg(value_parser = ["pihole", "tailscale", "caddy", "ddns", "datadog", "smtp", "network", "syncthing"])]
     service: String,
     #[arg(long)]
     database: Option<PathBuf>,
@@ -364,6 +369,9 @@ fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     match args.command {
+        Commands::Syncthing { command } => {
+            skillet_cli_common::syncthing_runtime::dispatch(command)?;
+        }
         Commands::Metrics { command } => skillet_cli_common::run_metrics(command)?,
         Commands::TailnetUi { command } => skillet_cli_common::run_tailnet_ui(command)?,
         Commands::Install { command } => installation::dispatch(command)?,

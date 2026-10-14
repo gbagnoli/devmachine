@@ -22,3 +22,5 @@ pub mod installation;
 pub mod network_provisioning;
 
 pub mod deployment;
+
+pub mod syncthing_provisioning;

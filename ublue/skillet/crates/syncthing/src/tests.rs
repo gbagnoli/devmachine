@@ -55,6 +55,8 @@ fn syncthing_uses_persistent_data_and_shared_dns_network() {
     let quadlet = String::from_utf8_lossy(quadlet);
     for directive in [
         "AutoUpdate=registry",
+        "Requires=skillet-syncthing-initialize.service",
+        "After=network-online.target skillet-syncthing-initialize.service",
         "ContainerName=syncthing",
         "Environment=HOME=/var/syncthing/data",
         "User=1000:1000",
@@ -67,6 +69,14 @@ fn syncthing_uses_persistent_data_and_shared_dns_network() {
     ] {
         assert!(quadlet.contains(directive), "missing directive {directive}");
     }
+    let initializer = String::from_utf8_lossy(
+        managed_files
+            .get("/etc/systemd/system/skillet-syncthing-initialize.service")
+            .unwrap(),
+    );
+    assert!(initializer.contains("Before=syncthing.service"));
+    assert!(initializer
+        .contains("ConditionPathExists=/etc/credstore.encrypted/skillet/syncthing_initial.cred"));
     assert!(!quadlet.contains("Environment=PGID="));
     assert!(!quadlet.contains("Environment=PUID="));
     assert!(

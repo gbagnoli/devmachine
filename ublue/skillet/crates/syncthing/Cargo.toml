@@ -12,6 +12,10 @@ skillet_core.workspace = true
 skillet_podman.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+quick-xml.workspace = true
 
 [dev-dependencies]
+tempfile.workspace = true
 skillet_core = { workspace = true, features = ["test-utils"] }

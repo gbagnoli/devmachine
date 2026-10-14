@@ -628,6 +628,21 @@ where
     )
 }
 
+/// The same identity directives used by Quadlet, for focused one-shot consumers.
+pub fn process_identity_directives<
+    S: AccountLookupResource + ?Sized,
+    F: FileReadResource + ?Sized,
+>(
+    system: &S,
+    files: &F,
+    identity: &ProcessIdentity,
+    mapping: Option<&UserNamespaceMapping>,
+) -> Result<Vec<String>, PodmanError> {
+    let mut directives = BTreeMap::new();
+    add_process_identity(system, files, identity, mapping, &mut directives)?;
+    Ok(directives.remove("Container").unwrap_or_default())
+}
+
 fn validate_process_identity(config: &PodmanConfig) -> Result<(), PodmanError> {
     for line in config.extra_config.get("Container").into_iter().flatten() {
         for (key, prefix) in [

@@ -23,6 +23,12 @@ pub fn steps(profile: &HostProfile) -> Vec<Step> {
             result.push(Step::Stage(service));
         }
     }
+    if profile.supports_service("syncthing") {
+        result.extend([
+            Step::Stage("syncthing"),
+            Step::Activate("skillet-syncthing-initialize.service"),
+        ]);
+    }
     result.push(Step::Activate("skillet-full-apply.service"));
     // UI DNS needs the enrolled device addresses. Monitoring is last so all
     // selected workloads have been activated before the Agent discovers them.

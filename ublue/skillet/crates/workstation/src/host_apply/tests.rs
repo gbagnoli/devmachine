@@ -42,7 +42,7 @@ fn related_credentials_stage_before_full_apply_and_monitoring_is_last() {
             .iter()
             .position(|step| *step == Step::Activate("skillet-full-apply.service"))
             .unwrap();
-        for service in ["pihole", "tailscale"] {
+        for service in ["pihole", "tailscale", "syncthing"] {
             assert!(
                 actions
                     .events
@@ -88,6 +88,8 @@ fn optional_phases_follow_only_canonical_host_capabilities() {
             Step::Activate("skillet-apply.service"),
             Step::Stage("pihole"),
             Step::Stage("tailscale"),
+            Step::Stage("syncthing"),
+            Step::Activate("skillet-syncthing-initialize.service"),
             Step::Activate("skillet-full-apply.service")
         ]
     );

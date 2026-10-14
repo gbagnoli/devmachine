@@ -1,3 +1,4 @@
+pub mod initial;
 use skillet_core::files::{
     FileError, FileMutationResource, FileReadResource, Ownership, StorageResource,
 };
@@ -62,6 +63,7 @@ where
     }
 
     prepare_storage(files, &config)?;
+    initial::install(system, files)?;
     let volumes = vec![Volume {
         host_path: config.data_path,
         container_path: "/var/syncthing".to_string(),
@@ -85,7 +87,8 @@ where
         "Unit".to_string(),
         vec![
             "Description=Syncthing file synchronization".to_string(),
-            "After=network-online.target".to_string(),
+            "After=network-online.target skillet-syncthing-initialize.service".to_string(),
+            "Requires=skillet-syncthing-initialize.service".to_string(),
         ],
     );
     extra_config.insert(
@@ -148,7 +151,7 @@ where
 #[path = "tests.rs"]
 mod tests;
 
-fn container_home(config: &SyncthingConfig) -> Result<String, SyncthingError> {
+pub fn container_home(config: &SyncthingConfig) -> Result<String, SyncthingError> {
     let file_scope = Path::new(&config.files_path)
         .strip_prefix(&config.data_path)
         .map_err(|_| SyncthingError::InvalidFileScope)?;
@@ -163,7 +166,7 @@ fn container_home(config: &SyncthingConfig) -> Result<String, SyncthingError> {
     Ok(format!("/var/syncthing/{}", file_scope.display()))
 }
 
-fn prepare_storage<F>(files: &F, config: &SyncthingConfig) -> Result<(), SyncthingError>
+pub fn prepare_storage<F>(files: &F, config: &SyncthingConfig) -> Result<(), SyncthingError>
 where
     F: FileMutationResource + StorageResource + ?Sized,
 {
