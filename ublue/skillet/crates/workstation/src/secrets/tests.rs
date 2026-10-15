@@ -32,9 +32,10 @@ fn manual_requirements_follow_profiles_environment_and_template_references() {
     .unwrap();
     assert_eq!(report.checked, 7);
     assert_eq!(report.missing.len(), 7);
-    assert!(report.missing.iter().any(
-        |entry| entry.path == "skillet/environments/test/hosts/clamps/cloudflare/ddns-dns-name"
-    ));
+    assert!(report
+        .missing
+        .iter()
+        .any(|entry| entry.path == "skillet/environments/test/dns/local-prefix"));
     assert!(report
         .missing
         .iter()
@@ -89,7 +90,7 @@ fn unused_audit_keeps_both_environments_hosts_generated_and_legacy_paths() {
         "skillet/datadog/api-key",
         "skillet/environments/test/datadog/api-key",
         "skillet/environments/test/datadog/site",
-        "skillet/environments/test/hosts/clamps/cloudflare/ddns-dns-name",
+        "skillet/environments/test/dns/local-prefix",
         "skillet/environments/prod/hosts/joey/cloudflare/acme-token",
         "skillet/environments/test/hosts/joey/cloudflare/acme-token",
         "skillet/hosts/clamps/cloudflare/acme-token",
@@ -101,7 +102,7 @@ fn unused_audit_keeps_both_environments_hosts_generated_and_legacy_paths() {
     ]
     .map(str::to_string);
     let unused = unused_paths(&skillet_hosts::profile::declared_profiles(), &stored).unwrap();
-    assert_eq!(unused.len(), 5);
+    assert_eq!(unused.len(), 6);
     assert!(unused.contains(&"skillet/hosts/clamps/pihole/web-password".into()));
     assert!(unused.contains(&"skillet/environments/test/datadog/api-key".into()));
     assert!(unused.contains(&"skillet/environments/test/datadog/site".into()));
@@ -109,9 +110,7 @@ fn unused_audit_keeps_both_environments_hosts_generated_and_legacy_paths() {
     assert!(
         unused.contains(&"skillet/environments/prod/hosts/unknown/cloudflare/acme-token".into())
     );
-    assert!(
-        !unused.contains(&"skillet/environments/test/hosts/joey/cloudflare/ddns-dns-name".into())
-    );
+    assert!(!unused.contains(&"skillet/environments/test/dns/local-prefix".into()));
 }
 
 #[test]
@@ -337,4 +336,47 @@ fn network_requirements_follow_selected_interfaces_and_keep_test_dhcp_private() 
         unused_paths(&[profile], &stored).unwrap(),
         [stored[1].clone()]
     );
+}
+
+#[test]
+fn private_dns_collection_audit_follows_environment_and_validates_custom_fields() {
+    let profiles = [skillet_hosts::profile_for_name("clamps").unwrap()];
+    let policy = ProvisioningPolicy::new(Environment::Test);
+    let path = "skillet/environments/test/dns/entries/printer".to_string();
+    let stored = vec![
+        path.clone(),
+        "skillet/environments/prod/dns/entries/private".into(),
+    ];
+    let lookup = |p: &str, field: &str| -> Result<Option<String>, VaultError> {
+        Ok(if p.ends_with("local-prefix") {
+            Some("home".into())
+        } else if p == path && field == "ipv4" {
+            Some("192.0.2.20".into())
+        } else if p == path {
+            None
+        } else {
+            Some(
+                match field {
+                    "port" => "587",
+                    "tls" => "starttls",
+                    "sender" => "server@example.invalid",
+                    _ => "fixture",
+                }
+                .into(),
+            )
+        })
+    };
+    let report = check_with_entries(&profiles, policy, &stored, &lookup).unwrap();
+    assert!(report.missing.is_empty());
+    assert!(!unused_paths(&profiles, &stored).unwrap().contains(&path));
+    let report = check_with_entries(&profiles, policy, &stored, &|p, f| {
+        if p == path && f == "ipv4" {
+            Ok(Some("not-an-ip-private-value".into()))
+        } else {
+            lookup(p, f)
+        }
+    })
+    .unwrap();
+    assert_eq!(report.missing.len(), 1);
+    assert!(!report.missing[0].guide.contains("not-an-ip-private-value"));
 }

@@ -216,6 +216,11 @@ pub fn unused_paths(
 }
 
 fn matches_entry(pattern: &str, path: &str) -> bool {
+    if let Some(prefix) = pattern.strip_suffix("<record>") {
+        return path
+            .strip_prefix(prefix)
+            .is_some_and(skillet_pihole::dns::valid_name);
+    }
     let Some((prefix, suffix)) = pattern.split_once("<instance>") else {
         return pattern == path;
     };
@@ -373,6 +378,40 @@ pub fn check(
             .cmp(&b.module.to_lowercase())
             .then(a.path.cmp(&b.path))
     });
+    Ok(report)
+}
+
+/// Audit dynamic DNS inventory through the same pure compiler used by delivery.
+pub fn check_with_entries(
+    profiles: &[HostProfile],
+    policy: ProvisioningPolicy,
+    stored: &[String],
+    lookup: &impl Fn(&str, &str) -> Result<Option<String>, VaultError>,
+) -> Result<CheckReport, CheckError> {
+    let mut report = check(profiles, policy, lookup)?;
+    if profiles.iter().any(|p| p.supports_service("pihole")) {
+        let prefix = format!("{}/entries/", crate::pihole_dns::prefix(policy));
+        report.checked += stored.iter().filter(|p| p.starts_with(&prefix)).count();
+        // Provider-free validation uses a reserved zone; live delivery resolves
+        // and validates the real provider zone before any guest mutation.
+        if let Err(error) = crate::pihole_dns::input(policy, "example.invalid", stored, lookup) {
+            let path = match error {
+                crate::pihole_dns::Error::Vault(error) => return Err(error.into()),
+                crate::pihole_dns::Error::Entry(path) => path,
+                _ => prefix,
+            };
+            let schema = catalog()?
+                .into_iter()
+                .find(|m| m.module == "Pi-hole")
+                .and_then(|m| m.entries.into_iter().find(|e| e.path.ends_with("<record>")))
+                .map(|entry| entry.help)
+                .unwrap_or_default();
+            report.missing.push(MissingEntry {
+                module: "Pi-hole".into(), path,
+                guide: format!("Invalid private DNS inventory or generated-host/UI namespace conflict. Use the exact dns/entries group name without whitespace. {schema}"), invalid: true,
+            });
+        }
+    }
     Ok(report)
 }
 

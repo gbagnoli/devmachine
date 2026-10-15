@@ -44,12 +44,12 @@ No private addresses, domains, keys or effective Chef overrides belong here.
    compatibility, converge preferences after authentication, and force disposable
    policy to omit advertisements. Test rendering, validation, repeat convergence
    and no production routes on smoke machines. Do not publish the LAN subnet.
-3. **Private Pi-hole configuration:** replace static/sample DNS declarations
-   with private runtime template delivery shared by both hosts. Use Pi-hole v6's
-   supported configuration API/format; current `custom.list` rendering and the
-   manual accepted `dns.hosts` test do not prove automatic v6 convergence. Validate
-   empty/configured records, repeat apply, reboot and private-value redaction.
-   Settle whether omission preserves restored records before production import.
+3. **Private Pi-hole configuration:** shared encrypted v6 delivery is implemented
+   using environment `dns/local-prefix` and `dns/entries`. Complete private
+   inventory migration and joey-specific runtime/production acceptance. The DNS
+   phase owns the complete custom-host list; container-only apply leaves it
+   untouched. Empty inventory removes managed entries. Preserve source state
+   before import and validate repeat apply/reboot and actual client answers.
 4. **Named application acceptance:** unlock with the existing workflow; run
    joey full provisioning and capability-selected repeat-apply/reboot checks,
    then opted-in UI, DDNS, Datadog and isolated SMTP checks. Use disposable

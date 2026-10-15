@@ -109,9 +109,10 @@ fn remote(args: &Args) -> Result<()> {
     }
     let path = args.database.clone().map_or_else(Vault::default_path, Ok)?;
     let mut vault = Vault::open(&path, args.key_file.as_deref())?;
-    let report = skillet_workstation::secrets::check(
+    let report = skillet_workstation::secrets::check_with_entries(
         std::slice::from_ref(&profile),
         args.environment.policy(),
+        &vault.entry_paths(),
         &|path, field| vault.get_field(path, field),
     )?;
     if !report.missing.is_empty() {

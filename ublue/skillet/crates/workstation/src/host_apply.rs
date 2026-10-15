@@ -20,7 +20,11 @@ pub fn steps(profile: &HostProfile) -> Vec<Step> {
     let mut result = vec![Step::Activate("skillet-apply.service")];
     for service in ["pihole", "tailscale"] {
         if profile.services.iter().any(|declaration| {
-            declaration.name() == service && !declaration.credential_consumers().is_empty()
+            declaration.name() == service
+                && declaration
+                    .credential_consumers()
+                    .iter()
+                    .any(|c| c.unit != skillet_pihole::dns::UNIT)
         }) {
             result.push(Step::Stage(service));
         }
@@ -32,6 +36,12 @@ pub fn steps(profile: &HostProfile) -> Vec<Step> {
         ]);
     }
     result.push(Step::Activate("skillet-full-apply.service"));
+    if profile.supports_service("pihole") {
+        result.extend([
+            Step::Stage("pihole-dns"),
+            Step::Activate(skillet_pihole::dns::UNIT),
+        ]);
+    }
     // UI DNS needs the enrolled device addresses. Monitoring is last so all
     // selected workloads have been activated before the Agent discovers them.
     if !profile.ui_services().is_empty() {

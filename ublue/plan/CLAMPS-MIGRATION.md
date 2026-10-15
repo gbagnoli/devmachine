@@ -19,10 +19,10 @@ See [historical evidence](archive/ACCEPTANCE.md) and
    include networkless boot, rollback and wider update preservation checks; one
    signed image rebase/reboot is operator-confirmed. Stock-SSD acceptance is separate
    from final production disk selection/installation.
-3. Implement private Pi-hole v6 custom-DNS delivery. The current recipe writes
-   static `custom.list`; a reversible `dns.hosts` acceptance probe does not
-   verify that production path. Supply private DNS values and migrate Pi-hole
-   state only after the target path is verified.
+3. Private Pi-hole v6 delivery is implemented through the shared environment DNS
+   inventory and dedicated encrypted phase. Complete the vault migration to
+   `dns/local-prefix` and `dns/entries`, verify production answers, then migrate
+   Pi-hole state. Runtime validation is recorded in the acceptance log.
 4. Inventory and migrate production data/identities from rupik. Stop source
    Syncthing/UniFi identities before enabling replacements. Retain the source
    SSD and independent backups until rollback/cutover is accepted. Follow

@@ -4,7 +4,6 @@ use skillet_core::{
     test_utils::{MockFiles, MockSystem},
 };
 use skillet_podman::{QuadletSecret, SecretTarget};
-use std::collections::BTreeMap;
 
 #[test]
 fn pihole_uses_dual_stack_dns_network_and_registry_updates() {
@@ -39,7 +38,6 @@ fn pihole_uses_dual_stack_dns_network_and_registry_updates() {
                 gid: None,
             },
         }]),
-        BTreeMap::new(),
         "clamps".to_string(),
     )
     .unwrap();

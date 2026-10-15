@@ -266,3 +266,12 @@ skillet/
   the services they observe. For apparent TLS failures, check the resolved target
   and actual verified connection before changing certificate or protocol policy;
   prove end-to-end delivery rather than relying only on an active process.
+
+- Collection-based vault configuration must use the same compiler for auditing
+  and delivery, with environment-scoped enumeration and cross-entry conflict
+  checks. Derive generated values from canonical configuration and keep private
+  inputs outside images, source templates and diagnostics.
+
+- Verify atomic replacement metadata with the real filesystem adapter, not only
+  mocks. Omitted ownership/permission fields on existing regular files must be
+  preserved through content changes as well as no-op writes.

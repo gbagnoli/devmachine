@@ -203,6 +203,7 @@ where
         ApplyPhase::Ddns => skillet_hosts::HostApplyPhase::Ddns,
         ApplyPhase::Datadog => skillet_hosts::HostApplyPhase::Datadog,
         ApplyPhase::Smtp => skillet_hosts::HostApplyPhase::Smtp,
+        ApplyPhase::PiholeDns => skillet_hosts::HostApplyPhase::PiholeDns,
         ApplyPhase::Network => skillet_hosts::HostApplyPhase::Network,
     };
     if phase == skillet_hosts::HostApplyPhase::Network && record_path.is_some() {

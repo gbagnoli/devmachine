@@ -7,15 +7,19 @@ The caller must declare DDNS. Run Cargo commands from `ublue/skillet`.
 Complete [Cloudflare issuer setup](../workstation/docs/cloudflare.md). In Password:
 
 - `skillet/environments/prod/dns/cloudflare-zone-id`: selected environment Zone ID.
-- `skillet/environments/prod/hosts/<host>/cloudflare/ddns-dns-name`: approved
-  relative DNS record name, without the zone suffix.
+- `skillet/environments/prod/dns/local-prefix`: approved relative site name,
+  shared with private Pi-hole records, without the zone suffix.
+
+Move the former per-host `cloudflare/ddns-dns-name` value into this shared entry
+before first delivery with the new default template. Retain the old entry until
+publication is verified.
 
 Public policy is in the DDNS template in
 [configuration-templates.json](../workstation/src/configuration-templates.json).
 Private names use typed `$secret` references. A host override replaces the whole
 shared template. Do not store a JSON configuration document in the vault.
 
-For a legacy vault-held JSON document, move its name into `ddns-dns-name`, keep
+For a legacy vault-held JSON document, move its name into `dns/local-prefix`, keep
 proxied/takeover policy in the reviewed template, validate the new delivery, then
 remove the obsolete document entry. Multi-record callers use a complete template
 override with one typed secret reference per private record.

@@ -19,7 +19,7 @@
         "records": [
           {
             "name": {
-              "$secret": "skillet/environments/{environment}/hosts/{host}/cloudflare/ddns-dns-name"
+              "$secret": "skillet/environments/{environment}/dns/local-prefix"
             },
             "proxied": false
           }

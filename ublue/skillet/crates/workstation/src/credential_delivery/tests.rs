@@ -432,7 +432,7 @@ fn enrollment_presence_does_not_confuse_failed_inspection_with_absence() {
 fn native_profile(host: &str) -> skillet_hosts::HostProfile {
     let mut profile = skillet_hosts::profile_for_name(host).unwrap();
     for service in &mut profile.services {
-        if matches!(service.config, skillet_hosts::ServiceConfig::Pihole { .. }) {
+        if matches!(service.config, skillet_hosts::ServiceConfig::Pihole) {
             service.ui = None;
         }
     }

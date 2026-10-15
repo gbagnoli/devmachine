@@ -3163,3 +3163,59 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   following the identity/no-password rollout. This closes the basic allowed-user
   browser gate; extended transfer/containment and policy-failure cases remain
   separate checks.
+
+## 2026-10-15 — Shared private Pi-hole v6 DNS inventory
+
+- Removed the baked-in sample/custom.list writer. Workstation compilation now
+  consumes environment-scoped `dns/local-prefix` and structured `dns/entries`
+  fields (`names`, `ipv4`, `ipv6`), resolving the existing Cloudflare zone at
+  delivery. The default DDNS template uses the same prefix. Generated production
+  host names reuse selected wired/Wi-Fi address fields; test compilation never
+  reads physical network addresses. DHCP remains outside this implementation.
+- Added a canonical separate DNS credential/phase and guest unit installed by
+  baseline convergence. Complete remote apply selects it only for Pi-hole
+  callers, after container convergence. Test provisioning has explicit
+  `--with-pihole-dns`; direct test delivery remains forbidden outside the VM owner.
+  DNS apply owns only v6 `dns.hosts`, stops the consumer before mutation, preserves
+  unrelated TOML/settings/comments and persists activation after success. Native
+  container-only apply leaves restored DNS settings untouched. Empty managed
+  inventory explicitly clears the list.
+- `secrets check` uses the same compiler, validating collection custom fields,
+  address families, names/conflicts, generated host records and separation from
+  the tailnet UI namespace. Both environments count as used in unused auditing;
+  former default per-host DDNS-name leaves are now correctly unused. A live test
+  entry exposed a trailing-space collection-group typo; added a regression and
+  explicit invalid result instead of silently accepting an empty collection.
+- Live unlocked-vault audit: production checked 17 required entries with zero
+  missing/invalid. Test audit explicitly rejected its malformed collection path
+  and printed the documented schema. Six unused entries included that malformed
+  path, former per-host DDNS-name leaves and the former native web password.
+  No vault entries or production services were mutated. Production record
+  delivery/client answers and corrected test-vault delivery remain separate.
+- Formatting, strict workspace Clippy and workspace/all-target tests passed:
+  482 passed, nine real-runtime tests excluded from that suite. Fedora joey base
+  repeat integration passed with the final release build; cleanup retained its
+  existing stop-timeout SIGKILL fallback. Release binaries built successfully.
+- Provider/vault-free actual Pi-hole tests passed (two): retained native-password
+  migration and the new v6 record test. The latter verified A/AAAA answers over
+  TCP/UDP with IPv4/IPv6 DNS transports, aliases, preservation of unrelated web
+  configuration and repeat starts. CI explicitly runs both real consumer tests.
+  Initial fixture staging failed because the app changed volume ownership;
+  moving staging outside the application volume fixed the harness.
+- Updated owned native `clamps-test-files`; encrypted a reserved-name fixture
+  through the actual host credential command and activated the new systemd unit.
+  Verified answers in both transports/families, unrelated settings and stable
+  container identity across repeat DNS apply. An initial immediate query raced
+  FTL startup; bounded consumer readiness checks then passed.
+- `skillet test smoke clamps --instance files` exited 0, covering the existing
+  synthetic fixture before/after reboot and final signed/base/user readiness.
+  Restored final binaries after capture-based readiness. Separately changed the
+  DNS fixture through the final phase, verified actual file UID/GID/mode and
+  unrelated settings, rebooted through the Rust VM owner, and verified retained
+  A/AAAA answers, settings/metadata and encrypted credential reuse without
+  container replacement on repeated DNS apply. This is targeted DNS acceptance,
+  not a claim that all production applications were reaccepted.
+- The new mutation exposed a real-vs-mock file-resource mismatch: atomic content
+  replacement had reset omitted metadata while the mock preserved it. Fixed the
+  real adapter, retained numeric IDs and mode bits, and added actual filesystem
+  coverage. Ownership is applied before mode because chown can clear mode bits.

@@ -42,9 +42,7 @@ pub struct CredentialConsumer {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ServiceConfig {
-    Pihole {
-        custom_dns: &'static [(&'static str, &'static str)],
-    },
+    Pihole,
     Syncthing {
         files_path: &'static str,
         data_path: &'static str,
@@ -87,7 +85,7 @@ pub struct HostService {
 impl HostService {
     pub fn name(&self) -> &'static str {
         match self.config {
-            ServiceConfig::Pihole { .. } => "pihole",
+            ServiceConfig::Pihole => "pihole",
             ServiceConfig::Syncthing { .. } => "syncthing",
             ServiceConfig::Mikochi { .. } => "mikochi",
             ServiceConfig::Nut(_) => "nut",
@@ -130,11 +128,18 @@ impl HostService {
                 credential: super::CLOUDFLARE_DDNS_CONFIG_CREDENTIAL,
                 unit: "cloudflare-ddns.service",
             }],
-            ServiceConfig::Pihole { .. } if !self.ui.is_some_and(|ui| ui.tailnet_identity) => {
-                vec![CredentialConsumer {
-                    credential: super::PIHOLE_WEB_PASSWORD_CREDENTIAL,
-                    unit: "pihole.service",
-                }]
+            ServiceConfig::Pihole => {
+                let mut consumers = vec![CredentialConsumer {
+                    credential: skillet_pihole::dns::CREDENTIAL,
+                    unit: skillet_pihole::dns::UNIT,
+                }];
+                if !self.ui.is_some_and(|ui| ui.tailnet_identity) {
+                    consumers.push(CredentialConsumer {
+                        credential: super::PIHOLE_WEB_PASSWORD_CREDENTIAL,
+                        unit: "pihole.service",
+                    });
+                }
+                consumers
             }
             ServiceConfig::Tailscale { .. } => vec![CredentialConsumer {
                 credential: super::TAILSCALE_AUTH_KEY_CREDENTIAL,
@@ -279,16 +284,14 @@ impl HostProfile {
     pub fn requires_pihole_dns_listener_policy(&self) -> bool {
         self.services
             .iter()
-            .any(|service| matches!(service.config, ServiceConfig::Pihole { .. }))
+            .any(|service| matches!(service.config, ServiceConfig::Pihole))
     }
 
     pub fn requires_service_network(&self) -> bool {
         self.services.iter().any(|service| {
             matches!(
                 service.config,
-                ServiceConfig::Pihole { .. }
-                    | ServiceConfig::Syncthing { .. }
-                    | ServiceConfig::Ddns
+                ServiceConfig::Pihole | ServiceConfig::Syncthing { .. } | ServiceConfig::Ddns
             ) || service.ui.is_some()
         })
     }
@@ -401,7 +404,7 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
             listeners: Vec::new(),
             health_probe: None,
         },
-        ServiceConfig::Pihole { .. } => AcceptanceService {
+        ServiceConfig::Pihole => AcceptanceService {
             unit: "pihole.service".into(),
             container: Some("pihole".into()),
             network_mode: Some(service.backend_network(profile)),
@@ -507,7 +510,6 @@ fn caddy_acceptance(profile: &str) -> AcceptanceService {
     }
 }
 
-const CLAMPS_DNS: &[(&str, &str)] = &[("192.168.1.100", "my.custom.domain")];
 const SYNCTHING_UI: UiServiceDeclaration = UiServiceDeclaration {
     name: "syncthing",
     upstream: "syncthing",
@@ -537,9 +539,7 @@ fn clamps() -> HostProfile {
                 ui: None,
             },
             HostService {
-                config: ServiceConfig::Pihole {
-                    custom_dns: CLAMPS_DNS,
-                },
+                config: ServiceConfig::Pihole,
                 ui: Some(UiServiceDeclaration {
                     name: "pihole",
                     upstream: "pihole",
@@ -615,7 +615,7 @@ fn joey() -> HostProfile {
         requires_data_mount: true,
         services: vec![
             HostService {
-                config: ServiceConfig::Pihole { custom_dns: &[] },
+                config: ServiceConfig::Pihole,
                 ui: Some(UiServiceDeclaration {
                     name: "pihole",
                     upstream: "pihole",
