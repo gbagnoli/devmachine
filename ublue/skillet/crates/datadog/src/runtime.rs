@@ -10,12 +10,16 @@ use skillet_podman::{
     MountDependency, NetworkAttachment, PodmanConfig, PodmanError, ProcessIdentity, QuadletSecret,
     SecretTarget, Volume,
 };
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    net::IpAddr,
+    path::Path,
+};
 use thiserror::Error;
 
 pub const CREDENTIAL: &str = "datadog_config";
-/// Official Agent 7 index selected on 2026-10-06.
-pub const IMAGE: &str = "registry.datadoghq.com/agent@sha256:161a43ad2b290f7527a70e70c8880c1b3d65b39411552a8cb41398049546daf5";
+/// Official supported major channel; Quadlet auto-update follows Agent 7 fixes.
+pub const IMAGE: &str = "registry.datadoghq.com/agent:7";
 const CONFIG_DIR: &str = "/etc/skillet/datadog/conf.d";
 pub const DOGSTATSD_DIR: &str = "/run/skillet-dogstatsd";
 pub const DOGSTATSD_SOCKET: &str = "/run/skillet-dogstatsd/dsd.socket";
@@ -41,6 +45,12 @@ pub struct Input {
     site: String,
     #[serde(default)]
     tags: Vec<String>,
+    #[serde(default = "default_dns_servers")]
+    dns_servers: Vec<IpAddr>,
+}
+
+fn default_dns_servers() -> Vec<IpAddr> {
+    vec![IpAddr::from([1, 1, 1, 1]), IpAddr::from([1, 0, 0, 1])]
 }
 
 impl Input {
@@ -83,6 +93,13 @@ impl Input {
     pub fn parse(input: &str) -> Result<Self, DatadogError> {
         let value: Self = serde_json::from_str(input).map_err(|_| DatadogError::Invalid)?;
         if value.version != 1
+            || value.dns_servers.is_empty()
+            || value.dns_servers.iter().any(|ip| {
+                ip.is_unspecified()
+                    || ip.is_multicast()
+                    || matches!(ip, IpAddr::V4(ip) if ip.is_broadcast())
+            })
+            || value.dns_servers.iter().collect::<BTreeSet<_>>().len() != value.dns_servers.len()
             || value.api_key.len() != 32
             || !value.api_key.bytes().all(|byte| byte.is_ascii_hexdigit())
             || !matches!(
@@ -146,7 +163,7 @@ where
     }
     files.require_btrfs_subvolume_mount(Path::new("/var/lib/data"), Path::new("/var"), "/data")?;
     let root = Ownership::named(Some("root"), Some("root"));
-    // The pinned Agent creates a write-only 0722 socket. Restrict traversal of
+    // The Agent creates a write-only 0722 socket. Restrict traversal of
     // its directory instead of relying on an unsupported socket-mode setting.
     files.ensure_directory(Path::new(DOGSTATSD_DIR), Some(0o700), &root)?;
     files.ensure_directory(Path::new("/etc/tmpfiles.d"), Some(0o755), &root)?;
@@ -201,7 +218,7 @@ where
     skillet_podman::container(
         system,
         files,
-        container_config(runtime, revisions, &input.site),
+        container_config(runtime, revisions, &input.site, &input.dns_servers),
     )?;
     Ok(())
 }
@@ -210,9 +227,11 @@ fn container_config(
     runtime: &RuntimeConfig<'_>,
     revisions: Vec<Vec<u8>>,
     site: &str,
+    dns_servers: &[IpAddr],
 ) -> PodmanConfig {
     let mut settings = vec![
         "ContainerName=datadog-agent".into(),
+        "AutoUpdate=registry".into(),
         "PodmanArgs=--pid=host --cgroupns=host --security-opt=label=disable".into(),
         "Environment=DOCKER_HOST=unix:///run/podman/podman.sock".into(),
         format!("Environment=DD_HOSTNAME={}", runtime.hostname),
@@ -224,6 +243,8 @@ fn container_config(
         "Environment=DD_DOGSTATSD_PORT=0".into(),
         format!("Environment=DD_DOGSTATSD_SOCKET={DOGSTATSD_SOCKET}"),
     ];
+    // Monitoring must not depend on a filtered/unavailable resolver it observes.
+    settings.extend(dns_servers.iter().map(|ip| format!("DNS={ip}")));
     if runtime.network_monitoring {
         // Podman's default seccomp profile allows perf_event_open only when
         // PERFMON is explicitly selected. SYS_ADMIN alone leaves the syscall

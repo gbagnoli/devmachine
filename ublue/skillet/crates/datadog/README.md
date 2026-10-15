@@ -18,6 +18,16 @@ not filter telemetry. Optional workstation monitor administration uses
 `skillet/datadog/monitor-setup-key` in Password, with `monitors_read` and
 `monitors_write` application-key scopes. Never deliver that key to the Agent.
 
+The official `registry.datadoghq.com/agent:7` image follows Agent 7 updates through
+`podman-auto-update.timer`. No OS reboot is needed for an Agent update.
+
+`dns_servers` is clear template configuration, defaulting to `1.1.1.1` and
+`1.0.0.1`. Use an independent unfiltered resolver; the Agent must still report if
+Pi-hole fails or blocks a Datadog intake hostname. Host/client resolvers are
+unchanged. Override the nonempty IP list in the same template when needed, then
+redeliver Datadog configuration. Retained credentials use these defaults when the
+field is absent. TLS certificate verification remains enabled.
+
 ## Provision
 
 ```sh

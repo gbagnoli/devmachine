@@ -261,3 +261,8 @@ skillet/
   well as anonymous backend APIs. Confine compatibility responses behind the
   same identity/origin checks, keep them nonsecret and noncacheable, and reject
   configurations that enable them without their required authorization boundary.
+
+- Monitoring and recovery paths must have explicit prerequisites independent of
+  the services they observe. For apparent TLS failures, check the resolved target
+  and actual verified connection before changing certificate or protocol policy;
+  prove end-to-end delivery rather than relying only on an active process.
