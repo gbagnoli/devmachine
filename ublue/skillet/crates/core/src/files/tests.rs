@@ -289,3 +289,34 @@ fn test_delete_file() {
     let changed_again = resource.delete_file(&file_path).unwrap();
     assert!(!changed_again);
 }
+
+#[test]
+fn atomic_content_replacement_preserves_omitted_file_metadata() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("retained.toml");
+    let resource = LocalFileResource::new();
+    resource
+        .ensure_file(&path, b"original", Some(0o2640), &Ownership::default())
+        .unwrap();
+    let before = fs::metadata(&path).unwrap();
+    resource
+        .ensure_file(&path, b"replacement", None, &Ownership::default())
+        .unwrap();
+    let after = fs::metadata(&path).unwrap();
+    assert_eq!(after.mode() & 0o7777, before.mode() & 0o7777);
+    assert_eq!((after.uid(), after.gid()), (before.uid(), before.gid()));
+    resource
+        .ensure_file(
+            &path,
+            b"another replacement",
+            Some(0o600),
+            &Ownership {
+                uid: Some(OwnerIdentity::Id(before.uid())),
+                gid: None,
+            },
+        )
+        .unwrap();
+    let after = fs::metadata(&path).unwrap();
+    assert_eq!(after.mode() & 0o7777, 0o600);
+    assert_eq!((after.uid(), after.gid()), (before.uid(), before.gid()));
+}
