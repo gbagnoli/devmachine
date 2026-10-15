@@ -10,9 +10,12 @@ Operating guides: [Datadog](../skillet/crates/datadog/README.md),
 
 ## Remaining acceptance
 
-1. Verify Agent/system-probe on the physical Secure Boot uCore host with
-   enforcing SELinux. BIOS VM success is not physical/UEFI acceptance; retain
-   default seccomp, explicit PERFMON and read-only debugfs.
+1. Physical steady-state Agent/system-probe acceptance passed on Secure Boot
+   uCore with enforcing SELinux, default seccomp, explicit PERFMON and read-only
+   debugfs. Agent health and live cloud metric submissions passed after the
+   independent resolver fix; system-probe reported fresh network-tracer activity.
+   Physical cold-boot recovery remains unverified for this rollout; native VM
+   reboot evidence is separate. See the dated acceptance record.
 2. Verify selected NUT timer/socket labels, hotplug/absence behavior, repeat
    apply and cold-boot recovery on uCore. Correlate the bounded collector output
    with real cloud ingestion; local UDP-disabled Agent parsing is insufficient.

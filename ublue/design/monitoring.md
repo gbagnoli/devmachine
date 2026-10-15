@@ -7,7 +7,9 @@ Container/process liveness and application correctness remain distinct checks.
 
 ## Agent boundary
 
-Use a pinned official rootful Agent container. Skillet owns runtime integration
+Use the official rootful Agent `:7` channel with Quadlet registry auto-update.
+Patch/minor updates follow the supported major version; major upgrades remain
+explicit. Skillet owns runtime integration
 configuration/activation; the OS supplies Podman/kernel tooling. Community checks
 requiring extra dependencies need a reviewed image rather than runtime downloads.
 A shared vault API key serves both environments; site is public template policy.
@@ -22,10 +24,18 @@ socket bind still grants API authority. Mount integrations individually to retai
 upstream default checks.
 
 Order the Agent after caller-selected monitored units without activation
-Wants/Requires dependencies. The pinned collector's initial inventory follows
+Wants/Requires dependencies. The collector's initial inventory follows
 startup; Podman event delivery alone did not reliably recover concurrent boot
 labels. Ordering does not guarantee later event reconciliation. Credentials and
 caller opt-in gate telemetry; merely installing a monitored module does not.
+
+The Agent gets its own unfiltered DNS resolver list (default Cloudflare public
+resolvers) through Quadlet rather than inheriting Pi-hole. Monitoring must keep
+reporting when its observed DNS service is unavailable or filters telemetry.
+Resolvers are typed clear template configuration; retained payloads receive the
+same defaults. Host/client filtering stays unchanged and strict TLS validation
+remains enabled. DNS sinkhole replies can otherwise send intake HTTPS to the
+local proxy and masquerade as a TLS failure.
 
 ## Native collectors
 

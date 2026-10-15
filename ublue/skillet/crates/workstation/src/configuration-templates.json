@@ -8,6 +8,7 @@
           "$secret": "skillet/datadog/api-key"
         },
         "site": "datadoghq.com",
+        "dns_servers": ["1.1.1.1", "1.0.0.1"],
         "tags": []
       },
       "hosts": {}

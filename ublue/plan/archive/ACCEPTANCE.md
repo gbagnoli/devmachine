@@ -3114,3 +3114,45 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   binaries afterward, since readiness deliberately reinstalls the creation capture.
   Physical API/isolation and separate-client denial checks are complete; an allowed
   person's browser observation remains an operator check.
+
+## 2026-10-15 — Datadog DNS isolation and supported image channel
+
+- Physical diagnosis: inherited DNS returned sinkhole addresses (`0.0.0.0` and
+  `::`) for the running Agent intake hostname. HTTPS consequently reached the
+  local listener and failed TLS; manually selecting latest had not fixed it.
+  A temporary credential-free container using independent resolvers completed
+  strict certificate-verified TLS. No certificate validation was disabled.
+- Canonical Agent configuration now selects the official Agent 7 major channel
+  with registry auto-update and a typed, configurable independent DNS list.
+  Existing schema-1 payloads receive the same resolver defaults; host/client
+  DNS and Pi-hole filtering remain unchanged.
+- Deployed both binaries and delivered canonical monitoring configuration to
+  physical clamps. Verified generated and effective DNS, image channel, healthy
+  Agent, successful metric submissions, zero forwarder TLS errors and zero check
+  scheduler errors. Repeat Datadog apply preserved the container identity.
+  Removed the temporary diagnostic configuration backup after convergence.
+- Physical Secure Boot is enabled and SELinux enforcing. Default seccomp,
+  explicit PERFMON and read-only debugfs remain configured; Agent health passed
+  all 21 components and system-probe reported fresh network-tracer activity.
+  Two initial startup errors preceded core/probe socket readiness; these were
+  startup observations, not ongoing forwarding failures. No physical reboot or
+  supervised UPS shutdown was performed for this change.
+- Formatting, strict workspace Clippy and all-target workspace tests passed:
+  471 passed, eight runtime tests excluded from that suite. Fedora joey base
+  integration passed repeated apply (existing stop-timeout SIGKILL cleanup
+  fallback). Release binaries built successfully.
+- Updated/provisioned owned native `clamps-test-files` with test UI and Datadog
+  configuration. Verified Agent channel, independent DNS, effective test/lab
+  tags, health, real metric submissions, zero TLS/scheduler errors and stable
+  container identity across repeat apply. An initial diagnostic assertion looked
+  for secret-backed tags in container inspect; corrected it to inspect the
+  running Agent process environment in memory without printing credentials.
+- `skillet test smoke clamps --instance files` exited 0: fixture repeat-apply,
+  startup/interruption recovery, reboot persistence and final signed-boot/base/
+  user-environment readiness all passed. This invocation exercised the synthetic
+  fixture; Datadog-specific live assertions are separate from its fixture checks.
+- Restored current binaries after capture-based readiness. The same Datadog
+  assertions passed after reboot: independent effective DNS, Agent 7 channel,
+  test/lab policy, healthy Agent, actual metric delivery, zero TLS/scheduler
+  errors and unchanged container identity on repeat monitoring apply. The named
+  VM remains available with the current build for further operator inspection.

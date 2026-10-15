@@ -43,6 +43,10 @@ fn rootful_secrets_and_host_observation_are_explicit() {
         String::from_utf8_lossy(&state["/etc/containers/systemd/datadog-agent.container"]);
     for expected in [
         "Network=host",
+        "Image=registry.datadoghq.com/agent:7",
+        "AutoUpdate=registry",
+        "DNS=1.1.1.1",
+        "DNS=1.0.0.1",
         "User=0:0",
         "--pid=host",
         "--cgroupns=host",
@@ -243,4 +247,42 @@ fn environment_and_region_follow_deployment_policy() {
             .render_for_environment(environment, region)
             .is_err());
     }
+}
+
+#[test]
+fn resolver_configuration_is_typed_and_legacy_payloads_keep_independent_defaults() {
+    let legacy = payload("0123456789abcdef0123456789abcdef");
+    assert_eq!(
+        Input::parse(&legacy).unwrap().dns_servers,
+        default_dns_servers()
+    );
+    for resolvers in [
+        json!([]),
+        json!(["0.0.0.0"]),
+        json!(["::"]),
+        json!(["224.0.0.1"]),
+        json!(["255.255.255.255"]),
+        json!(["1.1.1.1", "1.1.1.1"]),
+        json!(["not-an-ip"]),
+    ] {
+        let mut value: serde_json::Value = serde_json::from_str(&legacy).unwrap();
+        value["dns_servers"] = resolvers;
+        assert!(Input::parse(&value.to_string()).is_err());
+    }
+    let mut value: serde_json::Value = serde_json::from_str(&legacy).unwrap();
+    value["dns_servers"] = json!(["9.9.9.9", "2620:fe::fe"]);
+    let system = MockSystem::new();
+    let files = mounted_files();
+    let config = RuntimeConfig {
+        hostname: "fixture",
+        network_monitoring: false,
+        monitored_units: &["example.service".into()],
+    };
+    apply(&system, &files, &value.to_string(), &config).unwrap();
+    let state = files.files.lock().unwrap();
+    let unit = String::from_utf8_lossy(&state["/etc/containers/systemd/datadog-agent.container"]);
+    assert!(unit.contains("DNS=9.9.9.9"));
+    assert!(unit.contains("DNS=2620:fe::fe"));
+    assert!(!unit.contains("DNS=1.1.1.1"));
+    assert!(!unit.contains("DD_SKIP_SSL_VALIDATION"));
 }
