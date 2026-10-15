@@ -1,4 +1,4 @@
-use askama::Template;
+pub mod dns;
 use skillet_core::files::{
     FileError, FileMutationResource, FileReadResource, Ownership, StorageResource,
 };
@@ -22,12 +22,6 @@ pub enum PiholeError {
     File(#[from] FileError),
     #[error("Podman error: {0}")]
     Podman(#[from] PodmanError),
-}
-
-#[derive(Template)]
-#[template(path = "pihole/custom.list.j2")]
-struct CustomListTemplate {
-    custom: BTreeMap<String, String>,
 }
 
 /// Native credentials remain available for callers without an identity-protected UI.
@@ -56,15 +50,12 @@ pub struct PiholeUser {
     pub group_name: String,
 }
 
-/// Host-specific Pi-hole configuration: custom DNS records (`ip -> fqdn`)
-/// rendered into `custom.list`. Kept out of the shared crate so each host
-/// supplies its own LAN topology.
+/// Converge the container; private DNS has a separate encrypted apply phase.
 pub fn apply<S, F>(
     system: &S,
     files: &F,
     user_config: &PiholeUser,
     authentication: WebAuthentication,
-    custom_records: BTreeMap<String, String>,
     network_name: String,
 ) -> Result<(), PiholeError>
 where
@@ -96,15 +87,6 @@ where
         &Ownership::default(),
     )?;
     files.ensure_directory(Path::new(logs), Some(0o755), &Ownership::default())?;
-
-    // 3. Custom list template (records supplied by the host)
-    let custom_list = render_custom_list(custom_records)?;
-    files.ensure_file(
-        &Path::new(etc).join("custom.list"),
-        custom_list.as_bytes(),
-        Some(0o640),
-        &Ownership::default(),
-    )?;
 
     // 4. Define container
     // SELinux relabeling (:z, shared) so the container can access these
@@ -173,20 +155,12 @@ where
             namespace_mapping: None,
             volumes,
             secrets,
-            config_revisions: vec![custom_list.into_bytes()],
+            config_revisions: Vec::new(),
             extra_config,
         },
     )?;
 
     Ok(())
-}
-
-fn render_custom_list(custom: BTreeMap<String, String>) -> Result<String, FileError> {
-    CustomListTemplate { custom }.render().map_err(|error| {
-        FileError::Io(std::io::Error::other(format!(
-            "Template rendering failed: {error}"
-        )))
-    })
 }
 
 fn dns_port_publications() -> Vec<PortPublication> {

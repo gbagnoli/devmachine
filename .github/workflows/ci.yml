@@ -119,7 +119,7 @@ jobs:
         if: steps.filter.outputs.rust == 'true'
         run: |
           cd ublue/skillet
-          cargo test -p skillet_pihole real_pihole_proxy_mode_overrides_retained_password_and_survives_restart -- --ignored
+          cargo test -p skillet_pihole real_pihole_ -- --ignored
 
       - name: Test Syncthing bootstrap without external credentials
         if: steps.filter.outputs.rust == 'true'

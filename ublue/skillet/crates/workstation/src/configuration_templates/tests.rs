@@ -9,8 +9,7 @@ fn catalog(default: &Value, hosts: &Value) -> String {
 #[test]
 fn embedded_ddns_template_resolves_each_environment_and_validates_consumer_schema() {
     for environment in ["prod", "test"] {
-        let expected =
-            format!("skillet/environments/{environment}/hosts/clamps/cloudflare/ddns-dns-name");
+        let expected = format!("skillet/environments/{environment}/dns/local-prefix");
         let rendered = render_catalog(TEMPLATE_CATALOG, "ddns", "clamps", environment, &|path| {
             assert_eq!(path, expected);
             Ok(Some("edge".into()))

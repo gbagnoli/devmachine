@@ -31,8 +31,57 @@ Persistent configuration/logs are under `/var/lib/data/pihole/{etc,log}`.
 Inspect `pihole.service` and its journal. Preserve a working bootstrap resolver
 while Pi-hole is down; follow [native networking](../network/README.md) for DNS.
 
-The current recipe's custom-record input is a static declaration writing
-`custom.list`; do not treat that as accepted private Pi-hole v6 configuration.
-See the [migration tracker](../../../plan/CLAMPS-MIGRATION.md) for that gap.
+## Private DNS records
+
+Create `skillet/environments/<environment>/dns/local-prefix` in Password: the
+relative site name below the Cloudflare zone selected by the existing
+`dns/cloudflare-zone-id`. The zone name is resolved through the workstation's
+Cloudflare token creator. The default DDNS template uses this same prefix for
+its public A record; local device records are delivered only to Pi-hole.
+
+Under `skillet/environments/<environment>/dns/entries/`, create one entry per
+device. Username/Password are unused; custom fields are:
+
+| Field | Value |
+| --- | --- |
+| `names` | Optional comma/newline-separated relative names; defaults to the entry title |
+| `ipv4` | Optional single IPv4 address |
+| `ipv6` | Optional single IPv6 address |
+
+At least one address is required. For example, title `printer`, prefix `home`
+and zone `example.invalid` produce `printer.home.example.invalid`. Multiple
+names are hosts aliases, not CNAME records. Do not enter full zone-qualified
+names. Conflicting names, malformed addresses and nested entry groups fail
+validation. Records inside the tailnet UI namespace are rejected to preserve
+its existing access path. No DHCP configuration is created.
+
+All selected production Pi-hole hosts receive the same inventory. Host records
+are generated from caller-selected static networking: `<host>` uses wired when
+selected, otherwise Wi-Fi; `<host>-wifi` names the additional Wi-Fi address.
+Do not duplicate these names manually. Generated records currently use IPv4;
+manual entries accept IPv6 independently. Test delivery reads only test entries
+and never reads physical network addresses.
+
+`skillet apply HOST` stages and applies DNS after the container is configured.
+To deliver only local records:
+
+```sh
+cargo run --release -p skillet -- secrets deliver HOST pihole-dns --activate
+```
+
+Use `test vm provision HOST INSTANCE --with-pihole-dns` for an owned VM. With
+`--activate`, only the DNS apply unit is started. On the guest it stops Pi-hole
+when changes are needed, updates only `dns.hosts` in its existing v6 TOML file,
+and restarts it. Other settings/comments are preserved. Activation failures
+remain retryable. Routine container convergence no longer writes `custom.list`.
+Existing legacy files are left intact for inspection; migrate their records
+into the vault explicitly. Skillet owns the complete `dns.hosts` list: GUI edits
+to that list are replaced on the next DNS apply. An empty inventory clears the
+managed list; it does not leave old records unmanaged.
+
+Before first apply, move the old per-host `cloudflare/ddns-dns-name` value to
+shared `dns/local-prefix` in each used environment. Verify delivery before
+removing the old entry. Host-specific multi-record DDNS template overrides
+remain explicit and must reference their own documented leaves.
 
 Design: [service network](../../../design/pihole-network.md).

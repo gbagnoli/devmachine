@@ -27,6 +27,7 @@ pub enum HostApplyPhase {
     Datadog,
     Smtp,
     Network,
+    PiholeDns,
 }
 
 pub fn credentials_for_phase(
@@ -53,12 +54,14 @@ fn credential_names_for_phase(profile: &HostProfile, phase: HostApplyPhase) -> V
                     | "datadog-agent.service"
                     | "postfix.service"
                     | "skillet-syncthing-initialize.service"
+                    | skillet_pihole::dns::UNIT
                     | skillet_network::PREPARE_UNIT
             ),
             HostApplyPhase::Caddy => consumer.unit == "caddy.service",
             HostApplyPhase::Ddns => consumer.unit == "cloudflare-ddns.service",
             HostApplyPhase::Datadog => consumer.unit == "datadog-agent.service",
             HostApplyPhase::Smtp => consumer.unit == "postfix.service",
+            HostApplyPhase::PiholeDns => consumer.unit == skillet_pihole::dns::UNIT,
             HostApplyPhase::Network => consumer.unit == skillet_network::PREPARE_UNIT,
             HostApplyPhase::Base => false,
         })
@@ -94,6 +97,8 @@ pub enum ApplyError {
     Hardening(String),
     #[error("Pihole apply error: {0}")]
     Pihole(#[from] skillet_pihole::PiholeError),
+    #[error(transparent)]
+    PiholeDns(#[from] skillet_pihole::dns::Error),
     #[error("UniFi apply error: {0}")]
     Unifi(#[from] skillet_unifi::UnifiError),
     #[error("Syncthing apply error: {0}")]
@@ -289,7 +294,7 @@ fn apply_pihole(
     service: &HostService,
     credentials: &CredentialInputs,
 ) -> Result<(), ApplyError> {
-    let ServiceConfig::Pihole { custom_dns } = service.config else {
+    let ServiceConfig::Pihole = service.config else {
         return Err(ApplyError::FixtureInput(
             "incompatible Pi-hole declaration".into(),
         ));
@@ -332,10 +337,6 @@ fn apply_pihole(
             group_name: "pihole".to_string(),
         },
         authentication,
-        custom_dns
-            .iter()
-            .map(|(ip, domain)| ((*ip).to_string(), (*domain).to_string()))
-            .collect::<BTreeMap<_, _>>(),
         network_name,
     )?;
     Ok(())
@@ -382,7 +383,7 @@ fn apply_profile(
             | ServiceConfig::Datadog { .. }
             | ServiceConfig::Smtp
             | ServiceConfig::Network(_) => {}
-            ServiceConfig::Pihole { .. } => {
+            ServiceConfig::Pihole => {
                 apply_pihole(system, files, profile, service, credentials)?;
             }
             ServiceConfig::Syncthing { .. } => apply_syncthing(system, files, profile, service)?,
@@ -462,7 +463,8 @@ pub fn apply_host_phase(
             let profile = profile_for_name(hostname)
                 .ok_or_else(|| ApplyError::UnknownHost(hostname.to_string()))?;
             apply_base(system, files)?;
-            application_unit::install(system, files, &profile)
+            application_unit::install(system, files, &profile)?;
+            install_pihole_dns_unit(system, files, &profile)
         }
         HostApplyPhase::Full => apply_host(hostname, system, files, credentials),
         HostApplyPhase::Caddy => apply_caddy_host(hostname, system, files, credentials),
@@ -480,6 +482,16 @@ pub fn apply_host_phase(
                 selection,
             )?;
             skillet_network::prepare(system, files, &input, hostname, selection)?;
+            Ok(())
+        }
+        HostApplyPhase::PiholeDns => {
+            profile_for_name(hostname)
+                .filter(|p| p.supports_service("pihole"))
+                .ok_or_else(|| ApplyError::FixtureInput("host does not declare Pi-hole".into()))?;
+            let input = skillet_pihole::dns::Input::parse(
+                credentials.require(skillet_pihole::dns::CREDENTIAL)?,
+            )?;
+            skillet_pihole::dns::apply(system, files, &input)?;
             Ok(())
         }
         HostApplyPhase::Smtp => {
@@ -657,5 +669,31 @@ fn apply_mikochi(
             private_network: &network.unit_name,
         },
     )?;
+    Ok(())
+}
+
+fn install_pihole_dns_unit(
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    profile: &HostProfile,
+) -> Result<(), ApplyError> {
+    if !profile.supports_service("pihole") {
+        return Ok(());
+    }
+    let root = skillet_core::files::Ownership::named(Some("root"), Some("root"));
+    let directory = std::path::Path::new("/etc/systemd/system");
+    files.ensure_directory(directory, Some(0o755), &root)?;
+    let content = include_bytes!("pihole-dns-apply.service");
+    let changed = files.ensure_file(
+        &directory.join(skillet_pihole::dns::UNIT),
+        content,
+        Some(0o644),
+        &root,
+    )?;
+    let state = directory.join("skillet-pihole-dns.applied");
+    if changed || files.read_file(&state)?.as_deref() != Some(content) {
+        system.daemon_reload()?;
+        files.ensure_file(&state, content, Some(0o644), &root)?;
+    }
     Ok(())
 }

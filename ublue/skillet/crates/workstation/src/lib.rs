@@ -20,6 +20,7 @@ pub mod host_apply;
 pub mod installation;
 
 pub mod network_provisioning;
+pub mod pihole_dns;
 
 pub mod deployment;
 

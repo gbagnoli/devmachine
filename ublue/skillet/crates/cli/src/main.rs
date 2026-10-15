@@ -141,7 +141,7 @@ struct SecretLockArgs {
 #[derive(clap::Args, Debug)]
 struct SecretDeliverArgs {
     hostname: String,
-    #[arg(value_parser = ["pihole", "tailscale", "caddy", "ddns", "datadog", "smtp", "network", "syncthing"])]
+    #[arg(value_parser = ["pihole", "pihole-dns", "tailscale", "caddy", "ddns", "datadog", "smtp", "network", "syncthing"])]
     service: String,
     #[arg(long)]
     database: Option<PathBuf>,
@@ -303,6 +303,9 @@ struct VmProvisionArgs {
     /// Provision public DDNS records from test-environment `KeePassXC` config
     #[arg(long)]
     with_ddns: bool,
+    /// Deliver private DNS records from the test environment (never physical network addresses)
+    #[arg(long)]
+    with_pihole_dns: bool,
     /// Deliver the shared Datadog key and enable test-tagged VM telemetry
     #[arg(long)]
     with_datadog: bool,
@@ -1407,6 +1410,7 @@ fn run_twice_and_check(name: &str, phase: ApplyPhase, inspect: bool) -> Result<(
     let phase = match phase {
         ApplyPhase::Base => "base",
         ApplyPhase::Full => "full",
+        ApplyPhase::PiholeDns => "pihole-dns",
         ApplyPhase::Caddy => "caddy",
         ApplyPhase::Ddns => "ddns",
         ApplyPhase::Datadog => "datadog",

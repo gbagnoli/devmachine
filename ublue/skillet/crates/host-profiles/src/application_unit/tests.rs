@@ -24,7 +24,7 @@ fn interrupted_unit_reload_is_retried_and_native_callers_keep_their_credential()
     use std::sync::atomic::Ordering;
     let mut profile = crate::profile_for_name("clamps").unwrap();
     for service in &mut profile.services {
-        if matches!(service.config, crate::ServiceConfig::Pihole { .. }) {
+        if matches!(service.config, crate::ServiceConfig::Pihole) {
             service.ui = None;
         }
     }

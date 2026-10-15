@@ -95,6 +95,13 @@ pub(super) fn deliver_with_vault(
                 activation,
             )?;
         }
+        "pihole-dns" => skillet_workstation::pihole_dns::deliver(
+            &args.hostname,
+            args.environment.policy(),
+            vault,
+            transport,
+            activation,
+        )?,
         "syncthing" => skillet_workstation::syncthing_provisioning::deliver(
             &args.hostname,
             &args.hostname,
@@ -147,6 +154,9 @@ pub(super) fn deliver_with_vault(
 fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_hosts::HostProfile> {
     let profile = skillet_hosts::profile_for_name(hostname)
         .ok_or_else(|| anyhow!("unknown host profile: {hostname}"))?;
+    if service == "pihole-dns" && profile.supports_service("pihole") {
+        return Ok(profile);
+    }
     match service {
         "pihole" | "tailscale" | "ddns" | "datadog" | "smtp" | "network" | "syncthing"
             if !profile.supports_service(service) =>
@@ -298,9 +308,10 @@ pub(super) fn check_vault(args: &SecretCheckArgs) -> Result<()> {
         .clone()
         .map_or_else(default_database_path, Ok)?;
     let vault = Vault::open(&path, args.key_file.as_deref())?;
-    let report = skillet_workstation::secrets::check(
+    let report = skillet_workstation::secrets::check_with_entries(
         &profiles,
         args.environment.policy(),
+        &vault.entry_paths(),
         &|path, field| vault.get_field(path, field),
     )?;
     let unused = skillet_workstation::secrets::unused_paths(&all_profiles, &vault.entry_paths())?;
@@ -361,9 +372,10 @@ fn default_database_path() -> Result<std::path::PathBuf> {
     Ok(Vault::default_path()?)
 }
 
-pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
-    let profile = skillet_hosts::profile_for_name(&args.hostname)
-        .ok_or_else(|| anyhow!("unknown host profile: {}", args.hostname))?;
+fn validate_vm_provision(
+    args: &VmProvisionArgs,
+    profile: &skillet_hosts::HostProfile,
+) -> Result<()> {
     if args.smtp_only && !profile.supports_service("smtp") {
         return Err(anyhow!("host {} does not declare SMTP", args.hostname));
     }
@@ -381,11 +393,24 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     if args.with_datadog && !profile.supports_service("datadog") {
         return Err(anyhow!("host {} does not declare Datadog", args.hostname));
     }
-    if args.smtp_only && (args.with_ui || args.with_ddns || args.with_datadog || args.rotate) {
+    if args.smtp_only
+        && (args.with_ui
+            || args.with_ddns
+            || args.with_datadog
+            || args.with_pihole_dns
+            || args.rotate)
+    {
         return Err(anyhow!(
             "--smtp-only cannot be combined with application provisioning switches"
         ));
     }
+    Ok(())
+}
+
+pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
+    let profile = skillet_hosts::profile_for_name(&args.hostname)
+        .ok_or_else(|| anyhow!("unknown host profile: {}", args.hostname))?;
+    validate_vm_provision(args, &profile)?;
     let butane = butane_root()?;
     let run_identity = RunIdentity::new(&args.hostname, &args.instance)?;
     let store = ManifestStore::new(&butane.join("runs"), skillet_vm::current_uid())?;
@@ -402,6 +427,9 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     let transport = OwnershipCheckedTransport::new(&base_transport, &verify_ownership);
     if args.smtp_only {
         return provision_vm_smtp(args, &transport);
+    }
+    if args.with_pihole_dns {
+        skillet_workstation::host_apply::activate(&transport, "skillet-apply.service")?;
     }
     validate_vm_tailscale_delivery(&transport)?;
     let vault_path = match &args.database {
@@ -436,6 +464,15 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     // Enrollment reuse does not converge changed service/network declarations.
     // Both encrypted prerequisites and the optional bootstrap are ready here.
     skillet_workstation::host_apply::activate(&transport, "skillet-full-apply.service")?;
+    if args.with_pihole_dns {
+        skillet_workstation::pihole_dns::deliver(
+            &args.hostname,
+            policy,
+            &vault,
+            &transport,
+            skillet_vm::credential::ActivationPolicy::StartConsumer,
+        )?;
+    }
     if args.with_ui {
         provision_vm_ui(args, &run_dir, &transport, &mut vault, &record)?;
     }

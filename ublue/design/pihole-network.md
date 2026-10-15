@@ -45,3 +45,26 @@ recreation with its consumers stopped.
 References: [Podman network Quadlets](https://docs.podman.io/en/stable/markdown/podman-network.unit.5.html),
 [Quadlet container networking](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html),
 [Pi-hole Docker networking](https://docs.pi-hole.net/docker/).
+
+## Private record ownership
+
+The environment DNS namespace owns a shared relative site prefix and a collection
+of structured per-device entries; it reuses the Cloudflare zone identity already
+used by DDNS/UI provisioning. DDNS publishes the site name with its WAN address;
+Pi-hole publishes explicit children with private addresses. Do not create a
+catch-all private zone that hides unrelated public records. Private UI records
+retain their existing Cloudflare/tailnet lifecycle; private records overlapping
+that UI namespace are rejected.
+
+Workstation compilation expands relative names and validates optional IPv4/IPv6
+addresses and conflicts before encrypted delivery. Production host addresses
+come from the canonical caller's selected networking configuration rather than
+separate DNS copies. Test compilation never reads physical network entries.
+DHCP is not enabled or implied by this inventory.
+
+The dedicated DNS phase owns only Pi-hole v6 `dns.hosts`. Container convergence
+never requires the private inventory. DNS apply stops the consumer before file
+mutation, preserves other TOML settings/comments and records activation only
+after success, so interrupted starts are retryable. All selected resolvers receive
+the same environment inventory. Manual GUI edits to this managed list are
+replaced. Independent off-machine backups remain necessary.

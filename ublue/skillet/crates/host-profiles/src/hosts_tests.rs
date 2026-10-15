@@ -176,7 +176,7 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
     assert!(joey
         .services
         .iter()
-        .any(|service| matches!(service.config, ServiceConfig::Pihole { custom_dns: [] })));
+        .any(|service| matches!(service.config, ServiceConfig::Pihole)));
 }
 
 #[test]
@@ -466,7 +466,7 @@ fn a_credential_service_remains_eligible_when_its_ui_is_not_exposed() {
         },
         requires_data_mount: false,
         services: vec![HostService {
-            config: ServiceConfig::Pihole { custom_dns: &[] },
+            config: ServiceConfig::Pihole,
             ui: None,
         }],
     };
@@ -476,10 +476,16 @@ fn a_credential_service_remains_eligible_when_its_ui_is_not_exposed() {
     );
     assert_eq!(
         profile.credential_consumers(),
-        [super::CredentialConsumer {
-            credential: super::PIHOLE_WEB_PASSWORD_CREDENTIAL,
-            unit: "pihole.service",
-        }]
+        [
+            super::CredentialConsumer {
+                credential: skillet_pihole::dns::CREDENTIAL,
+                unit: skillet_pihole::dns::UNIT,
+            },
+            super::CredentialConsumer {
+                credential: super::PIHOLE_WEB_PASSWORD_CREDENTIAL,
+                unit: "pihole.service",
+            }
+        ]
     );
 }
 

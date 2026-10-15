@@ -91,7 +91,9 @@ fn optional_phases_follow_only_canonical_host_capabilities() {
             Step::Stage("tailscale"),
             Step::Stage("syncthing"),
             Step::Activate("skillet-syncthing-initialize.service"),
-            Step::Activate("skillet-full-apply.service")
+            Step::Activate("skillet-full-apply.service"),
+            Step::Stage("pihole-dns"),
+            Step::Activate("skillet-pihole-dns-apply.service")
         ]
     );
 }

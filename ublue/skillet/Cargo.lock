@@ -3767,13 +3767,16 @@ dependencies = [
 name = "skillet_pihole"
 version = "0.1.0"
 dependencies = [
- "askama",
  "reqwest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
  "skillet_core",
  "skillet_datadog",
  "skillet_podman",
  "tempfile",
  "thiserror 1.0.69",
+ "toml_edit",
  "tracing",
  "users",
 ]
@@ -3869,6 +3872,7 @@ dependencies = [
  "skillet_ddns",
  "skillet_hosts",
  "skillet_network",
+ "skillet_pihole",
  "skillet_smtp",
  "skillet_syncthing",
  "skillet_vm",
@@ -4136,6 +4140,7 @@ dependencies = [
  "indexmap 2.13.0",
  "toml_datetime",
  "toml_parser",
+ "toml_writer",
  "winnow",
 ]
 
@@ -4147,6 +4152,12 @@ checksum = "a2abe9b86193656635d2411dc43050282ca48aa31c2451210f4202550afb7526"
 dependencies = [
  "winnow",
 ]
+
+[[package]]
+name = "toml_writer"
+version = "1.1.2+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d56353a2a665ad0f41a421187180aab746c8c325620617ad883a99a1cbe66d2"
 
 [[package]]
 name = "tower"

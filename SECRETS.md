@@ -27,7 +27,7 @@ Prepare the shared Cloudflare entries. [UI setup](ublue/skillet/crates/caddy/REA
 
 ## Cloudflare
 
-Shared inputs for Caddy, DDNS and the authoritative Syncthing device name.
+Shared zone inputs for Caddy, DDNS, private Pi-hole records and the authoritative Syncthing device name.
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
@@ -50,7 +50,7 @@ Prepare the shared Cloudflare token creator and Zone ID. [DDNS setup](ublue/skil
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
-| `skillet/environments/<environment>/hosts/<host>/cloudflare/ddns-dns-name` | Required | Choose the relative DNS record name, not a full domain. |
+| `skillet/environments/<environment>/dns/local-prefix` | Required | Password = relative site name below the selected Cloudflare zone, shared with private Pi-hole names. Move the former host cloudflare/ddns-dns-name value here; remove the old entry after verified delivery. |
 | `skillet/environments/prod/hosts/<host>/cloudflare/ddns-token` | Generated | Skillet creates the persistent scoped token; disposable tokens are lifecycle-owned. |
 
 ## Mikochi
@@ -77,6 +77,8 @@ Identity-protected UIs use the shared Tailscale allowlist and no application pas
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
 | `skillet/hosts/<host>/pihole/web-password` | Generated | Only for a caller retaining native Pi-hole authentication (current hosts do not need it). Skillet generates and saves the web admin password for a fresh host; optionally create it to choose a password. For an existing host, restore its entry rather than inventing a replacement. |
+| `skillet/environments/<environment>/dns/local-prefix` | Required | Password = relative site prefix below the Cloudflare zone. Shared with the default DDNS record; e.g. home (example only). |
+| `skillet/environments/<environment>/dns/entries/<record>` | Optional | One entry per local device. Username/Password unused. Custom names = relative comma/newline-separated names (defaults to title); ipv4 and/or ipv6 = one address of that family. At least one address required. All selected Pi-hole hosts share this inventory. Do not duplicate generated host names. [Schema](ublue/skillet/crates/pihole/README.md#private-dns-records). |
 
 ## SMTP
 
