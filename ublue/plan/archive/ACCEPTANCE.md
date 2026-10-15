@@ -3156,3 +3156,10 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   test/lab policy, healthy Agent, actual metric delivery, zero TLS/scheduler
   errors and unchanged container identity on repeat monitoring apply. The named
   VM remains available with the current build for further operator inspection.
+
+## 2026-10-15 — Physical UI browser confirmation
+
+- The operator confirmed Pi-hole, Syncthing and Mikochi work from the browser
+  following the identity/no-password rollout. This closes the basic allowed-user
+  browser gate; extended transfer/containment and policy-failure cases remain
+  separate checks.

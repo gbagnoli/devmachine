@@ -67,5 +67,6 @@ Acceptance in progress:
 3. Completed on physical clamps: matching Caddy policy/full apply, anonymous
    Pi-hole API, separate-client TCP/UDP DNS, sibling-backend isolation and
    tagged-client HTTPS denial in both IP families.
-4. An allowed person's browser must open both UIs without an application login.
-   Record browser observations separately from API/fixture results.
+4. Completed by operator report: Pi-hole, Syncthing and Mikochi work from an
+   allowed person's browser after the identity/no-password rollout. This does
+   not establish every transfer, containment or policy-failure case above.
