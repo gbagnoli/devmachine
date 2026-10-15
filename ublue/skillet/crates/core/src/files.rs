@@ -124,6 +124,31 @@ impl LocalFileResource {
         Self
     }
 
+    fn replacement_metadata(
+        path: &Path,
+        mode: Option<u32>,
+        ownership: &Ownership,
+    ) -> Result<(Option<u32>, Ownership), FileError> {
+        match fs::symlink_metadata(path) {
+            Ok(meta) if meta.is_file() => Ok((
+                mode.or(Some(meta.permissions().mode() & 0o7777)),
+                Ownership {
+                    uid: ownership
+                        .uid
+                        .clone()
+                        .or(Some(OwnerIdentity::Id(meta.uid()))),
+                    gid: ownership
+                        .gid
+                        .clone()
+                        .or(Some(OwnerIdentity::Id(meta.gid()))),
+                },
+            )),
+            Ok(_) => Ok((mode, ownership.clone())),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok((mode, ownership.clone())),
+            Err(error) => Err(FileError::Read(path.display().to_string(), error)),
+        }
+    }
+
     fn check_metadata(
         path: &Path,
         mode: Option<u32>,
@@ -157,12 +182,6 @@ impl LocalFileResource {
     ) -> Result<(), FileError> {
         use std::os::unix::io::AsRawFd;
 
-        if let Some(m) = mode {
-            let mut perms = file.metadata().map_err(FileError::Io)?.permissions();
-            perms.set_mode(m);
-            file.set_permissions(perms).map_err(FileError::Io)?;
-        }
-
         if ownership.uid.is_some() || ownership.gid.is_some() {
             let uid = ownership
                 .uid
@@ -179,6 +198,13 @@ impl LocalFileResource {
 
             fchown(file.as_raw_fd(), uid, gid)
                 .map_err(|e| FileError::SetOwnership("temp file".to_string(), e.to_string()))?;
+        }
+
+        // Ownership changes can clear set-id bits; apply the desired mode last.
+        if let Some(m) = mode {
+            let mut perms = file.metadata().map_err(FileError::Io)?.permissions();
+            perms.set_mode(m);
+            file.set_permissions(perms).map_err(FileError::Io)?;
         }
 
         Ok(())
@@ -452,8 +478,9 @@ impl FileMutationResource for LocalFileResource {
             // Write to temp file in same directory (for atomic rename)
             let mut temp_file = NamedTempFile::new_in(parent)?;
             temp_file.write_all(content)?;
-            // Apply metadata to temp file before persist
-            Self::apply_metadata_to_file(temp_file.as_file(), mode, ownership)?;
+            // Preserve omitted fields when replacing a retained regular file.
+            let (mode, ownership) = Self::replacement_metadata(path, mode, ownership)?;
+            Self::apply_metadata_to_file(temp_file.as_file(), mode, &ownership)?;
             temp_file
                 .persist(path)
                 .map_err(|e| FileError::Persist(path.display().to_string(), e.error))?;
