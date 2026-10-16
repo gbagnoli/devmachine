@@ -1,17 +1,71 @@
 # Home Assistant on clamps
 
-Status: planned, 2026-10-11. No Home Assistant deployment or acceptance is
+Status: planned; reviewed against current clamps and upstream documentation
+2026-10-16. No Home Assistant deployment or acceptance is
 implemented. This is an optional addition, not a Chef parity requirement or an
 additional gate for retiring rupik.
 
-Prerequisite: respect the remaining gates in the
-[refactoring roadmap](SKILLET-REFACTOR.md). Implement one slice at a time and
+Preserve the separately parked gates in the
+[refactoring roadmap](SKILLET-REFACTOR.md); they do not block independent slices.
+Implement one slice at a time and
 validate it before the next. Follow `../AGENTS.md` and `../skillet/AGENTS.md`.
 Read the [Home Assistant decision](../design/home-assistant.md),
 [storage](../design/storage.md), [Syncthing](../design/syncthing.md),
 [btrbk](../design/btrbk.md), [private UI access](../design/private-ui-access.md),
 [secrets](../design/secrets.md), [monitoring](../design/monitoring.md),
 and [VM lifecycle](../design/smoke-vms.md).
+
+## Short implementation order
+
+1. **Container module and clamps selection:** add a reusable optional module and
+   select it only on clamps. Start a fresh official release with persistent
+   configuration, host networking and no radio/device permissions by default.
+   Exit: empty-instance readiness, repeat apply and reboot in a named clamps VM.
+2. **Private HTTPS:** extend generic Caddy upstreams for a host-network listener,
+   retaining current bridge consumers. Use the existing environment DNS/TLS and
+   verified tailnet-user policy; keep Home Assistant native authentication.
+   Exit: onboarding/login, WebSocket/API and companion-client flows work;
+   external clients and direct port 8123 cannot bypass the proxy policy.
+3. **Backups:** configure daily encrypted native backups, initially seven local
+   copies; atomically publish completed original archives into
+   `/var/lib/data/syncthing/data/backups/homeassistant`. Explicitly share that
+   folder or include it in an existing declared share. Reuse the `syncthing`
+   btrbk leaf and independently retained off-machine copies.
+   Exit: encrypted backup, completed-only publication, peer receipt and snapshot
+   inclusion verified; recovery key/emergency kit retained in KeePassXC.
+4. **Restore rehearsal:** use synthetic integrations and a separately owned,
+   isolated VM. Restore from both a replicated archive and snapshot copy.
+   Exit: settings, test automation and database state return, wrong-key refusal
+   works, and reboot/reapply preserve state without contacting real devices.
+5. **Physical activation:** deploy on clamps, complete onboarding and confirm
+   the first actual device/integration inventory. Add only required USB radios,
+   Bluetooth or companion containers. Exit: real discovery/control, phone access,
+   monitoring and encrypted backup/off-machine recovery readiness confirmed.
+
+No existing Home Assistant installation needs importing. No MQTT broker, Zigbee
+bridge, public webhook route or voice stack is assumed in this first slice.
+Their selection depends on actual devices/integrations. This plan does not
+select Home Assistant on joey or donbot, or require new workstation packages.
+
+## Ownership, inputs and upgrade policy
+
+- Skillet owns the Quadlet, storage preparation, proxy declaration and backup
+  export/monitoring workflow. Home Assistant owns users, integrations, automations,
+  its recorder database and application settings after onboarding.
+- Reuse existing private UI domain/zone and user allowlist; no second Cloudflare
+  token-creation path. Keep real names, device identifiers and credentials private.
+- Home Assistant onboarding creates native accounts. Recovery material and any
+  exporter API token use the existing KeePassXC workflow, with exact requirements
+  added to the shared audit catalog/checklist during implementation. Missing
+  optional device/integration secrets do not enable an unselected companion service.
+- Keep live `/config` outside Syncthing. Publish backups only; never mirror the
+  running SQLite database or `.storage` tree as the recovery mechanism.
+- Initial application release is pinned and automatic container updates disabled.
+  Upgrades require a completed independent backup; image rollback alone may not
+  reverse database migrations. OS updates remain under existing fleet policy.
+- Host networking needs explicit listener isolation and correct Caddy proxy trust;
+  container DNS cannot resolve this service as an ordinary bridge upstream. The
+  minimal working SELinux/capability policy is a runtime acceptance result.
 
 ## 1. Optional container and persistent state
 
@@ -60,7 +114,10 @@ with SELinux enforcing. Real radio discovery remains a physical check.
   Current documentation describes UI-managed settings since 2026.8; do not
   repeatedly overwrite `.storage` or assume a legacy YAML block remains the
   convergence interface. Document any required one-time onboarding step.
-- Preserve Home Assistant authentication. Do not add OAuth proxy, Tailscale
+- Retain Home Assistant native authentication and the existing verified
+  tailnet-user gate. Validate companion app login/refresh and WebSockets; do not
+  replace native accounts with proxy identity. No public ingress or webhook
+  exception is selected. Do not add OAuth proxy, Tailscale
   split DNS or Pi-hole UI-zone configuration.
 
 Exit: CI covers host upstream validation, existing bridge routes, aliases,
@@ -75,7 +132,8 @@ and record any unavailable source/network checks as pending.
 - Use Home Assistant native automatic backups, initially daily with seven local
   copies and encryption explicitly enabled. Inspect/configure the supported
   backup interface for the pinned release; document any one-time UI setup.
-  Container archives are under `/config/backups`, corresponding to
+  Verify the selected release's effective local backup directory before exporting.
+  Current Container archives are under `/config/backups`, corresponding to
   `/var/lib/data/homeassistant/config/backups` on the host.
 - Add a bounded Rust export workflow using existing effect boundaries. Establish
   successful completion through the supported backup state/API, not file age,
@@ -83,7 +141,7 @@ and record any unavailable source/network checks as pending.
   the ordinary UI download decrypts backups and is unsuitable for this export.
 - Copy a completed archive to an ignored temporary file in the destination
   filesystem, verify bytes, then rename atomically into
-  `/var/lib/data/syncthing/backups/homeassistant`. Interrupted work must be
+  `/var/lib/data/syncthing/data/backups/homeassistant`. Interrupted work must be
   safely retryable, duplicate exports must be no-ops, and malformed/incomplete
   archives must never be published. Do not embed shell programs in Rust.
 - Create the destination as an ordinary directory in the existing Syncthing

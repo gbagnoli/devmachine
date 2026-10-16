@@ -24,21 +24,24 @@ Caddy/Cloudflare DNS-01 path. Add a shared host-upstream representation because
 Caddy uses bridge networking and cannot resolve a host-network application as a
 bridge container. Validate the Podman host gateway, proxy trust and listener
 isolation together. Raw port 8123 must not bypass the private UI policy.
-Retain Home Assistant login; tailnet authorization does not create an application
-session. Machine A/AAAA records and UI CNAMEs remain unchanged; Pi-hole local
+Reuse verified tailnet-user authorization and retain Home Assistant login;
+proxy identity does not create an application session. Validate companion app
+login/refresh and WebSockets. No public webhook exception is selected. Machine A/AAAA records and UI CNAMEs remain unchanged; Pi-hole local
 records and MagicDNS are not dependencies of this route.
 
 ## Backup and recovery
 
 Use Home Assistant's scheduled native backups, with encryption enabled. The
 Container local directory is `/config/backups`. Publish completed encrypted
-archives to `/var/lib/data/syncthing/backups/homeassistant` using a bounded,
+archives to `/var/lib/data/syncthing/data/backups/homeassistant` using a bounded,
 retryable exporter and atomic replacement in the destination filesystem. Keep
 unfinished archives outside the synchronized namespace. This separates live
 SQLite/configuration writes from replication and prevents partial backups from
 becoming advertised recovery copies.
 
-Explicitly share the backups folder in Syncthing. Prepare typed ownership/ACLs
+Place published backups under the caller-declared synchronized files path
+(`syncthing/data` on clamps), and explicitly share that folder or include it in
+an existing share. Prepare typed ownership/ACLs
 for its mapped identity; never recursively change the live application tree.
 The destination is an ordinary directory within the existing Syncthing leaf
 subvolume. Clamps' existing btrbk selection snapshots it without adding the
