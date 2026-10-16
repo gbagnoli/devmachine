@@ -16,7 +16,7 @@ Only unfinished implementation and acceptance belongs here. Commands live in
 | SMTP | [Sender checks and separate enhancements](CLAMPS-EMAIL.md) |
 | UniFi | [Production adoption and backup cutover](CLAMPS-UNIFI.md) |
 | Refactor | [Parked backend/CI checks and artifact audit](SKILLET-REFACTOR.md) |
-| Joey | [Boxy migration](JOEY-MIGRATION.md) |
+| Joey | [Replacement hardware and full-service VM rehearsal](JOEY-MIGRATION.md) |
 | Donbot | [Calculon migration](DONBOT-MIGRATION.md), [source inventory](DONBOT-INVENTORY.md) |
 | Media cache | [Jellyfin Caddy cache](JELLYFIN-CADDY-CACHE.md) |
 | Optional service | [Home Assistant](HOME-ASSISTANT.md) |
