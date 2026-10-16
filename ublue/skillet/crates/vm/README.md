@@ -141,3 +141,19 @@ journals for retry. An inaccessible libvirt runtime is an error, not absence.
 
 Design: [VM lifecycle](../../../design/smoke-vms.md).
 Deferred acceptance: [refactor tracker](../../../plan/SKILLET-REFACTOR.md).
+
+## Owned guest assertions
+
+For a guest-side acceptance executable/script, the `guest_command` example holds
+this run's lock, validates UUID/disk ownership around every operation and uses
+manifest-bound SSH trust. Keep credentials out of assertion output.
+
+```sh
+cargo run -p skillet_vm --example guest_command -- "$PWD/../butane" clamps homeassistant /usr/bin/true
+```
+
+`--upload ABSOLUTE_SOURCE /var/tmp/FILENAME` verifies the uploaded artifact hash.
+Large application images can exceed the source FCOS disk capacity. For an existing
+disposable run, `--grow-disk 64` grows its owned virtual disk to 64 GiB (never
+shrinks); the guest partition and filesystem still need explicit expansion through
+an owned guest assertion. This does not change physical installation storage.
