@@ -2,8 +2,14 @@
 
 Status: source review completed 2026-10-11. This inventories declarations, not
 running services. Private Chef overrides, deployed image versions, effective
-nginx configuration and live storage have not been inspected. The target name
+nginx configuration and live storage have not been inspected. A bounded local
+service-status check on 2026-10-16 confirmed active generated Quadlet services
+for Prowlarr, Radarr, Sonarr, Lidarr and putioarr; this is not effective-config
+or end-to-end acceptance. `systemctl cat` exposes generated units without sudo;
+direct application configuration files remain unreadable to the agent. The target name
 is **donbot**. Implementation is tracked in [the migration plan](DONBOT-MIGRATION.md).
+Joplin and Airtrail are required migration targets; their access policies and
+restore details still require effective inventory.
 No literal domains, addresses, zone IDs or credential values belong here.
 
 ## Source and scope
@@ -30,10 +36,10 @@ to the portal, with dedicated exceptions described below.
 
 | Service | Source image | Current access | Target access / scope |
 | --- | --- | --- | --- |
-| Prowlarr | `lscr.io/linuxserver/prowlarr:latest` | OAuth portal `/prowlarr`, 9696 | Tailnet-only UI |
-| Radarr | `lscr.io/linuxserver/radarr:latest` | OAuth portal `/radarr`, 7878 | Tailnet-only UI |
-| Sonarr | `lscr.io/linuxserver/sonarr:latest` | OAuth portal `/sonarr`, 8989 | Tailnet-only UI |
-| Lidarr | `lscr.io/linuxserver/lidarr:nightly` | OAuth portal `/lidarr`, 8686 | Tailnet-only UI; confirm release channel before restore |
+| Prowlarr | `lscr.io/linuxserver/prowlarr:latest` | OAuth portal `/prowlarr`, 9696 | Verified tailnet-user authentication; no second UI login |
+| Radarr | `lscr.io/linuxserver/radarr:latest` | OAuth portal `/radarr`, 7878 | Verified tailnet-user authentication; no second UI login |
+| Sonarr | `lscr.io/linuxserver/sonarr:latest` | OAuth portal `/sonarr`, 8989 | Verified tailnet-user authentication; no second UI login |
+| Lidarr | `lscr.io/linuxserver/lidarr:nightly` | OAuth portal `/lidarr`, 8686 | Tailnet-only UI; select release channel for fresh installation |
 | putioarr | `ghcr.io/wouterdebie/putioarr:latest` | Shared web pod, 9091; no declared nginx UI route | Internal download integration for Arr; no public UI needed |
 | Jellyfin | `lscr.io/linuxserver/jellyfin:latest` | Dedicated public HTTPS vhost when media domain is set, backend 8096, no OAuth | Public HTTPS, native application authentication |
 | Plex | `docker.io/plexinc/pms-docker:latest` | Direct dual-stack host ports; **no Plex nginx vhost in this cookbook** | Public HTTPS; native Plex authentication and client discovery |
@@ -41,8 +47,8 @@ to the portal, with dedicated exceptions described below.
 | Main Filebrowser | `docker.io/filebrowser/filebrowser:latest` | OAuth portal `/files`; backend 8080 via bridge-gateway port 8385 | Shared file-browsing UI on Syncthing hosts, tailnet-only |
 | Tenant Syncthing | Same Syncthing image | Separate OAuth portal `/sync`; GUI gateway port 8386, peer TCP/UDP 22200 → 22000 | Deferred: preserve source data; no second instance in this migration |
 | Tenant Filebrowser | Same Filebrowser image | Separate OAuth portal `/files`; backend 8080 via gateway port 8387 | Deferred alongside tenant Syncthing |
-| Joplin Server | `docker.io/joplin/server:latest` | Backend 22300: public dedicated notes vhost **if configured**, otherwise OAuth portal `/joplin` | Preserve effective mode after private inventory |
-| Airtrail | `docker.io/johly/airtrail:latest` | Dedicated vhost, backend 3214: OAuth **except `/api/*`** | Private UI; inventory whether authenticated public API access is still needed |
+| Joplin Server | `docker.io/joplin/server:latest` | Backend 22300: public dedicated notes vhost **if configured**, otherwise OAuth portal `/joplin` | Proposed tailnet-only HTTPS with native Joplin authentication; verify mobile sync |
+| Airtrail | `docker.io/johly/airtrail:latest` | Dedicated vhost, backend 3214: OAuth **except `/api/*`** | Tailnet-user authentication if supported; verify account integration and any required public API |
 | Gokapi | `docker.io/f0rc3/gokapi` (implicit latest) | Backend 53842: OAuth admin plus public downloads/uploads/assets | Mixed: private administration, explicit public sharing routes |
 | PostgreSQL: Joplin | `docker.io/postgres:18` resource default | Shared web pod, 5959; app connects over loopback | Internal named-container connection, no host publication |
 | PostgreSQL: Airtrail | Same resource default | Shared web pod, 5858; app connects over loopback | Internal named-container connection, no host publication |
@@ -67,6 +73,30 @@ A Google Photos Takeout Helper binary is installed by the Syncthing recipe;
 it is a manual utility, not a web service. An rclone template exists without a
 recipe reference. Inventory manual uses before deciding either utility's fate.
 
+## Arr installation scope
+
+Donbot's Arr stack is a fresh installation, not an import of Calculon's app state.
+Generate new internal API keys and deploy linked configurations. Use this source
+inventory as a capability/schema reference only. The operator will move selected
+media files after the new installation works; no legacy Arr database, watchlist
+or Chef-key import is required.
+
+## Confirmed putioarr/Lidarr capability
+
+The operator confirms putioarr already works with Lidarr on calculon. The Chef
+media recipe configures Sonarr, Radarr and Lidarr callbacks with separate API
+keys and shared-pod loopback URLs/application subpaths. Target composition must
+preserve all three and use container DNS in place of pod loopback. The recipe
+also documents a possible manual putioarr binary override. Read-only
+`systemctl cat` inspection on 2026-10-16 shows putioarr using its upstream
+`:latest` image with config/download mounts and no binary bind override. Lidarr
+uses `:nightly`, mounting its config, synchronized music and shared downloads.
+The running image digest and binary version remain unverified; capture them
+before choosing the target build. Do not infer absent
+support from omission in the upstream README. Live key matching/download-client
+settings were not inspected: root-owned files are unreadable to the agent and
+noninteractive sudo requires a password.
+
 ## Persistent state and jobs
 
 All paths below are **Chef defaults**. Confirm overrides, subvolumes, sizes,
@@ -74,8 +104,8 @@ ownership, ACLs, labels and application paths before any copy.
 
 | State | Current default under `/var/lib/data` | Migration consequence |
 | --- | --- | --- |
-| Arr configuration | `prowlarr`, `radarr`, `sonarr`, `lidarr` → `/config` | Preserve databases, API keys, base URLs and download-client configuration |
-| Download integration | `putioarr` → `/config`; `media/downloads` → `/downloads` | TOML contains Put.io token, client password and Arr API keys; move private leaves through shared delivery |
+| Arr configuration | `prowlarr`, `radarr`, `sonarr`, `lidarr` → `/config` | Historical source only; fresh target configuration/new keys, no database import |
+| Download integration | `putioarr` → `/config`; `media/downloads` → `/downloads` | Reference for integration schema; generate new internal credentials/API keys and deliver required external account credentials separately |
 | Media library | `media/{movies,series}/{downloads,library}`, additional yoga/pilates library | Downloads bind-mounted into movie/series trees; do not copy bind views twice |
 | Music | `sync/music`; Lidarr `/music`, media servers `/data/music` | Preserve shared ownership; cross-subvolume moves cannot be assumed atomic/hardlinked |
 | Jellyfin | `jellyfin` → `/config` | Accounts, library metadata and settings; series mount currently has `/dara/tvshows` typo—inspect stored library paths before correcting |
@@ -180,15 +210,13 @@ clients exist and whether application authentication protects those requests.
 
 ## Filebrowser selection
 
-The legacy [File Browser project](https://github.com/filebrowser/filebrowser)
-is archived and states it will receive no further security fixes. Keep the
-requested private file-management capability, but review the application choice
-before deploying that image fleet-wide. [FileBrowser Quantum](https://github.com/gtsteffaniak/filebrowser)
-is a candidate to evaluate, not a selected replacement or a proven drop-in DB
-migration. Preserve old browser DBs/configs until account/permission migration
-is settled. [Mikochi and other candidates](../design/file-browsing.md) are now
-being evaluated for the primary instance. The target uses Caddy tailnet identity
-and no internal password prompt; no application has been selected yet.
+Target selection reconciled 2026-10-16: Mikochi replaces the legacy Filebrowser
+for the primary Syncthing instance. Shared composition and verified tailnet-user
+authorization are implemented for clamps/joey; donbot needs its host declaration
+and acceptance, not another browser module or authentication system. No internal
+password prompt is intended. Preserve old browser databases/configuration until
+required permissions and served paths are explicitly migrated; do not assume a
+compatible database import. See [file browsing](../design/file-browsing.md).
 
 ## Infrastructure retained through shared support
 

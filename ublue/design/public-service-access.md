@@ -5,13 +5,38 @@
 Calculon's replacement, donbot, needs publicly reachable HTTPS for Plex and
 Jellyfin without a Tailscale client. Former OAuth-protected administrative UIs
 move to tailnet-only access. Gokapi retains public sharing/upload flows with
-private administration; Airtrail's public API exception and Joplin's conditional endpoint require explicit
-source policy rather than inheriting generic private access.
+private administration. Airtrail's public API exception requires explicit source
+policy. Joplin and Airtrail are required migration services.
 
 The private file-management capability should be shared by Syncthing hosts.
 The magiusstaff second instance is deferred. File browsing requires no internal
 password prompt; use the [shared tailnet identity policy](tailnet-ui-authentication.md)
 for the two intended users and reuse it for Gokapi administration.
+
+## Application authentication policy
+
+Arr browser UIs use the shared verified tailnet-user allowlist with no second
+application login, through supported external-authentication configuration.
+Internal integration calls retain their API keys and private network boundaries.
+Airtrail should use the same user authentication where its account/session model
+supports it; compatibility and identity mapping need verification. Retain native
+login behind the tailnet gate if unsupported, documenting the limitation. Do not
+mistake tailnet reachability for application authentication or carry forward a
+blanket public API exemption.
+
+## Joplin access
+
+Use tailnet-only HTTPS with Joplin native account/session authentication for sync.
+Native clients authenticate to Joplin itself; a browser-only proxy login must not
+intercept their API traffic. The existing noninteractive tailnet identity gate
+may additionally restrict clients without replacing application authentication.
+This keeps sync private while requiring Tailscale connectivity on mobile/desktop;
+real mobile/background sync acceptance is still pending. Native Joplin
+authentication remains enabled regardless of proxy authorization. Public note sharing or
+clients without Tailscale would require an explicit policy change. Configure the
+canonical HTTPS `APP_BASE_URL` consistently. See the
+[official server guide](https://github.com/laurent22/joplin/blob/dev/packages/server/README.md)
+for native sync accounts and reverse-proxy setup.
 
 ## Proposed access contract
 
