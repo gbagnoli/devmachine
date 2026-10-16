@@ -144,4 +144,5 @@ jobs:
         if: steps.filter.outputs.rust == 'true'
         run: |
           bash ublue/butane/tests/bootstrap.sh
+          bash ublue/butane/tests/storage-bootstrap.sh
           bash ublue/butane/tests/hardware.sh
