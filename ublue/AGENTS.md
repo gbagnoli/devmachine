@@ -228,3 +228,9 @@
   without altering the original application request. Validate the consumer's
   adapted configuration and query-bearing API/assets, rather than testing only
   a successful HTML root response.
+
+- Prepare declared storage identities before every first consumer, including OS
+  image import and early background jobs. Application service ordering alone
+  cannot prevent another consumer from creating an incompatible ordinary directory.
+  Existing incompatible state requires explicit inspection/recovery, never silent
+  conversion or deletion during ordinary convergence.

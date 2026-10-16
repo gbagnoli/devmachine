@@ -36,14 +36,20 @@ storage:
           }
           trap cleanup EXIT
           mount -t btrfs -o subvolid=5 "$root_device" "$top"
-          if btrfs subvolume show "$top/data" >/dev/null 2>&1; then
-            exit 0
+          if ! btrfs subvolume show "$top/data" >/dev/null 2>&1; then
+            [[ ! -e "$top/data" ]] || {
+              echo 'Top-level data path exists but is not a Btrfs subvolume' >&2
+              exit 1
+            }
+            btrfs subvolume create "$top/data"
           fi
-          [[ ! -e "$top/data" ]] || {
-            echo 'Top-level data path exists but is not a Btrfs subvolume' >&2
-            exit 1
-          }
-          btrfs subvolume create "$top/data"
+          if ! btrfs subvolume show "$top/data/containers" >/dev/null 2>&1; then
+            [[ ! -e "$top/data/containers" ]] || {
+              echo 'Container path exists but is not a Btrfs subvolume' >&2
+              exit 1
+            }
+            btrfs subvolume create "$top/data/containers"
+          fi
     - path: /var/usrlocal/bin/skillet-data-prepare
       mode: 0755
       contents:
@@ -75,6 +81,15 @@ storage:
           restorecon /var/lib/data/containers/system
 systemd:
   units:
+    # OCI image import can initialize the configured graphroot before application
+    # preparation; create its containing subvolume before the first rebase.
+    - name: ucore-bootstrap.service
+      dropins:
+        - name: 10-skillet-data.conf
+          contents: |
+            [Unit]
+            Requires=var-lib-data.mount
+            After=var-lib-data.mount
     - name: skillet-data-top.service
       contents: |
         [Unit]
