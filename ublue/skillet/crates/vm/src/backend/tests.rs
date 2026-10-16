@@ -348,3 +348,52 @@ fn recovery_console_stops_when_ownership_changes_after_inspection() {
     assert!(backend.recovery_console(&run).is_err());
     assert_eq!(backend.executor.calls.borrow().len(), 7);
 }
+
+#[test]
+fn growth_uses_immutable_identity_and_never_shrinks() {
+    for requested in [16, 64] {
+        let (_tmp, store, identity) = legacy_run();
+        let run = store.load(&identity).unwrap();
+        let mut responses = vec![
+            output(&run.uuid.to_string()),
+            output(&xml(&run)),
+            output("running\n"),
+            output("Capacity: 21474836480\nAllocation: 100\n"),
+        ];
+        if requested == 64 {
+            for _ in 0..2 {
+                responses.extend([
+                    output(&run.uuid.to_string()),
+                    output(&xml(&run)),
+                    output("running\n"),
+                ]);
+                if responses.len() == 7 {
+                    responses.push(output("Block device resized\n"));
+                }
+            }
+        }
+        let backend = VirshBackend::new(
+            run.connection.clone(),
+            run.owner_uid,
+            Path::new("/wrapper"),
+            executor(responses),
+        )
+        .unwrap();
+        assert_eq!(backend.grow_disk(&run, requested).is_ok(), requested == 64);
+        let calls = backend.executor.calls.borrow();
+        let mutations: Vec<_> = calls
+            .iter()
+            .filter(|c| c.arguments.iter().any(|a| a == "blockresize"))
+            .collect();
+        if requested == 64 {
+            assert_eq!(mutations.len(), 1);
+            assert_eq!(
+                mutations[0].arguments[3],
+                OsString::from(run.uuid.to_string())
+            );
+            assert_eq!(mutations[0].arguments.last().unwrap(), "64G");
+        } else {
+            assert_eq!(mutations.len(), 0);
+        }
+    }
+}

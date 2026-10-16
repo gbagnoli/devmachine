@@ -342,6 +342,34 @@ impl<E: VirshExecutor> VirshBackend<E> {
         Ok(())
     }
 
+    /// Grow the owned live disk; the caller holds the run lock. Never shrink it.
+    pub fn grow_disk(&self, run: &VmRun, gib: u32) -> Result<()> {
+        self.validate_connection(run)?;
+        let validate = || {
+            self.inspect(run)?
+                .ok_or_else(|| Error::Invalid("owned domain absent".into()))?
+                .validate_owned(run)
+        };
+        validate()?;
+        let uuid = run.uuid.to_string();
+        let information = self.invoke(&["domblkinfo", &uuid, "vda"])?;
+        let capacity = information
+            .lines()
+            .find_map(|line| line.strip_prefix("Capacity:")?.trim().parse::<u64>().ok())
+            .ok_or_else(|| Error::Invalid("missing disk capacity".into()))?;
+        let requested = u64::from(gib) * 1024 * 1024 * 1024;
+        if requested < capacity || !(16..=256).contains(&gib) {
+            return Err(Error::Invalid(
+                "disk growth requires 16..256 GiB and cannot shrink".into(),
+            ));
+        }
+        validate()?;
+        if requested != capacity {
+            self.invoke(&["blockresize", &uuid, "vda", &format!("{gib}G")])?;
+        }
+        validate()
+    }
+
     /// Resolve the emulator advertised for the architecture used by native
     /// test guests. Keep capability parsing beside the selected libvirt
     /// adapter so alternate runtimes use their own connection and environment.
