@@ -3419,3 +3419,8 @@ acceptance; no production host or private DNS values were committed.
   this generalized script has not itself run a second live restore.
 - No production peer receipt, btrbk snapshot-copy recovery, browser login after
   the restart or device integration was established by this drill.
+- The operator manually copied the exported encrypted archive to calculon with
+  rsync pending Syncthing enrollment after clamps is reinstalled. Source and
+  destination SHA-256 digests and 92,160-byte sizes match; the destination file
+  has mode `0600`. This is a verified off-machine copy, not Syncthing receipt or
+  an independent retention policy.
