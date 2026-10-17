@@ -76,8 +76,11 @@ pub fn run<A: Actions>(profile: &HostProfile, actions: &mut A) -> Result<(), A::
     Ok(())
 }
 
-/// A skipped condition is not a completed oneshot. Verify actual execution.
+/// A skipped condition is not a completed oneshot. Some systemd versions unload
+/// inactive oneshots before a follow-up SSH query, so retain a journal cursor and
+/// use the manager's completion event as execution evidence when runtime fields vanish.
 pub fn activate(guest: &impl GuestTransport, unit: &str) -> skillet_vm::Result<()> {
+    let cursor = journal_cursor(guest, unit)?;
     let started = guest.execute(
         &GuestCommand {
             program: "/usr/bin/sudo",
@@ -111,10 +114,53 @@ pub fn activate(guest: &impl GuestTransport, unit: &str) -> skillet_vm::Result<(
         },
         None,
     )?;
-    let text = std::str::from_utf8(&status.stdout)
-        .map_err(|_| skillet_vm::Error::Invalid("invalid apply status".into()))?;
-    if !status.status.success()
-        || ![
+    if runtime_state_confirms_execution(&status) {
+        return Ok(());
+    }
+    if journal_confirms_start(guest, unit, &cursor)? {
+        return Ok(());
+    }
+    Err(skillet_vm::Error::Invalid(format!(
+        "{unit} did not execute successfully; inspect its journal"
+    )))
+}
+
+fn journal_cursor(guest: &impl GuestTransport, unit: &str) -> skillet_vm::Result<String> {
+    let output = guest.execute(
+        &GuestCommand {
+            program: "/usr/bin/sudo",
+            arguments: &[
+                "-n",
+                "journalctl",
+                "-u",
+                unit,
+                "--no-pager",
+                "-n",
+                "0",
+                "--show-cursor",
+            ],
+        },
+        None,
+    )?;
+    if !output.status.success() {
+        return Err(skillet_vm::Error::Invalid(
+            "could not capture the systemd journal cursor before apply".into(),
+        ));
+    }
+    std::str::from_utf8(&output.stdout)
+        .map_err(|_| skillet_vm::Error::Invalid("invalid systemd journal cursor".into()))?
+        .lines()
+        .find_map(|line| line.strip_prefix("-- cursor: "))
+        .map(str::to_owned)
+        .ok_or_else(|| skillet_vm::Error::Invalid("missing systemd journal cursor".into()))
+}
+
+fn runtime_state_confirms_execution(status: &std::process::Output) -> bool {
+    let Ok(text) = std::str::from_utf8(&status.stdout) else {
+        return false;
+    };
+    status.status.success()
+        && [
             "LoadState=loaded",
             "ConditionResult=yes",
             "Result=success",
@@ -122,17 +168,57 @@ pub fn activate(guest: &impl GuestTransport, unit: &str) -> skillet_vm::Result<(
         ]
         .iter()
         .all(|required| text.lines().any(|line| line == *required))
-        || text
+        && text
             .lines()
             .find_map(|line| line.strip_prefix("ExecMainStartTimestampMonotonic="))
             .and_then(|value| value.parse::<u64>().ok())
-            .is_none_or(|value| value == 0)
-    {
-        return Err(skillet_vm::Error::Invalid(format!(
-            "{unit} did not execute successfully; inspect its journal"
-        )));
+            .is_some_and(|value| value != 0)
+}
+
+fn journal_confirms_start(
+    guest: &impl GuestTransport,
+    unit: &str,
+    cursor: &str,
+) -> skillet_vm::Result<bool> {
+    let output = guest.execute(
+        &GuestCommand {
+            program: "/usr/bin/sudo",
+            arguments: &[
+                "-n",
+                "journalctl",
+                "-u",
+                unit,
+                "--no-pager",
+                "--output=json",
+                "--after-cursor",
+                cursor,
+            ],
+        },
+        None,
+    )?;
+    if !output.status.success() {
+        return Ok(false);
     }
-    Ok(())
+    let entries = std::str::from_utf8(&output.stdout)
+        .map_err(|_| skillet_vm::Error::Invalid("invalid systemd apply journal".into()))?;
+    Ok(journal_has_successful_start(entries, unit))
+}
+
+fn journal_has_successful_start(entries: &str, unit: &str) -> bool {
+    const FINISHED_MESSAGE_ID: &str = "39f53479d3a045ac8e11786248231fbf";
+    entries
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .any(|entry| {
+            entry.get("MESSAGE_ID").and_then(serde_json::Value::as_str) == Some(FINISHED_MESSAGE_ID)
+                && entry.get("UNIT").and_then(serde_json::Value::as_str) == Some(unit)
+                && entry.get("JOB_TYPE").and_then(serde_json::Value::as_str) == Some("start")
+                && entry.get("JOB_RESULT").and_then(serde_json::Value::as_str) == Some("done")
+                && entry
+                    .get("INVOCATION_ID")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|value| !value.is_empty())
+        })
 }
 
 #[cfg(test)]
