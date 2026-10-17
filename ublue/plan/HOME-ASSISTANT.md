@@ -2,9 +2,11 @@
 
 Status: container, private host-loopback HTTPS transport, native encrypted
 backup/export and optional credential delivery are implemented. First disposable
-runtime acceptance passed 2026-10-16; remaining checks are listed below and in
-[the evidence record](archive/ACCEPTANCE.md). Physical activation is deferred;
-no Home Assistant devices, MQTT or companion services are selected yet. Their
+runtime acceptance passed 2026-10-16. Physical clamps activation, owner setup,
+encrypted export, offline archive extraction and a live restore passed on
+2026-10-17; remaining checks are listed below and in
+[the evidence record](archive/ACCEPTANCE.md). No Home Assistant devices, MQTT
+or companion services are selected yet. Their
 deployment and recovery are tracked in the
 [home automation companions plan](HOME-AUTOMATION-INTEGRATIONS.md). This optional
 addition is not a Chef parity requirement or a gate for retiring rupik.
@@ -22,11 +24,11 @@ and [VM lifecycle](../design/smoke-vms.md).
 
 | Slice | Implementation | Acceptance still required |
 | --- | --- | --- |
-| 1. Container | Implemented; clamps opts in, other callers do not; repeat apply and reboot accepted in the disposable VM | Physical deployment remains separate |
+| 1. Container | Implemented; clamps opts in, other callers do not; repeat apply and reboot accepted in the disposable VM; running on physical clamps | Device-specific capability acceptance awaits real devices |
 | 2. Private HTTPS | Implemented; real local TLS/native API/WebSocket checks pass | Provider staging ACME/DNS and explicit source/identity denial pass; allowed-user browser/phone/companion and separate-network denial remain live checks |
-| 3. Backups | Implemented; native encryption/export, independent rootless receiver and btrbk inclusion pass | Production vault/onboarding/share setup and independent receiving retention |
-| 4. Restore | Not implemented as an automated rehearsal | Isolated full restore from replicated and snapshot copies; wrong-key refusal alone does not prove restoration |
-| 5. Hardware | Deferred | No devices are available; MQTT/radios remain unselected |
+| 3. Backups | Implemented; native encryption/export, independent rootless receiver and btrbk inclusion pass in disposable acceptance; production token, key and first encrypted export now pass | Production off-machine receipt and independent receiving retention |
+| 4. Restore | Offline extraction and live clamps restore from the exported archive passed; a reusable host procedure is saved | Isolated full restore from a received peer and snapshot copy in a disposable VM, with synthetic state and reboot/reapply |
+| 5. Hardware | HA runs on clamps with no device permissions selected | No devices are available; MQTT/radios remain unselected |
 
 ## Short implementation order
 

@@ -3391,3 +3391,31 @@ identifiers, tokens or credentials are included in this record.
 Private diagnostics: `/tmp/skillet-ha-boot-policy-*.log`. The existing standard
 fixture smoke result remains separate from this targeted real-ingress reboot
 acceptance; no production host or private DNS values were committed.
+
+## 2026-10-17 — Physical Home Assistant backup and recovery on clamps
+
+- The owner was created through the real private UI. A one-time service restart
+  selected that owner in the managed trusted-network provider; the native
+  password fallback remained. The user's browser had reached the native login
+  before that restart. Passwordless login after the restart is not yet confirmed
+  from an allowed user device.
+- The production vault audit passed with 19 checked, zero missing/invalid and
+  zero unused entries. Encrypted credential delivery activated the backup unit.
+  It completed a native encrypted backup and exported one byte-identical archive
+  into the Syncthing backup directory. The backup exporter succeeded again after
+  recovery. Placement in that directory does not prove peer receipt.
+- The exported archive restored offline through the pinned application's own
+  restore module in a container with `--network=none`; one active owner and the
+  configuration returned. The live service was then stopped, its config moved
+  aside, and the same exported archive restored through the application startup
+  path. Logs recorded restore completion. The owner, managed shared-auth include,
+  HTTP 200, archive bytes and backup exporter all passed afterward. The prior
+  config remains on the host for rollback; the disposable offline copy was
+  removed.
+- The application removed its `.HA_RESTORE_RESULT` during the subsequent
+  container startup. The one-off drill used an ephemeral verified-success marker
+  to finish its waiting script, then removed that marker. The saved reusable
+  script checks restored owner/state and HTTP instead of requiring that file;
+  this generalized script has not itself run a second live restore.
+- No production peer receipt, btrbk snapshot-copy recovery, browser login after
+  the restart or device integration was established by this drill.
