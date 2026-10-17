@@ -45,7 +45,7 @@ and [VM lifecycle](../design/smoke-vms.md).
    folder or include it in an existing declared share. Reuse the `syncthing`
    btrbk leaf and independently retained off-machine copies.
    Exit: encrypted backup, completed-only publication, peer receipt and snapshot
-   inclusion verified; recovery key/emergency kit retained in KeePassXC.
+   inclusion verified; recovery password retained in KeePassXC.
 4. **Restore rehearsal:** use synthetic integrations and a separately owned,
    isolated VM. Restore from both a replicated archive and snapshot copy.
    Exit: settings, test automation and database state return, wrong-key refusal
@@ -173,8 +173,8 @@ and record any unavailable source/network checks as pending.
   copy. Initial publication performs no automatic deletion; monitor disk space and
   establish independent receiving retention before selecting export pruning. Any
   later pruning must preserve the last verified recovery copy.
-- Retain the native encryption key/emergency kit in KeePassXC and independently
-  back up the encrypted vault. If exporting requires an application API token,
+- Retain only the native encryption password in KeePassXC and independently
+  back up the encrypted vault; keep archives outside it. If exporting requires an application API token,
   use supported least-privilege access and existing encrypted delivery, never
   command-line credentials. When implementing key/token requirements, update
   shared secret-audit metadata and regenerate the root secrets checklist;

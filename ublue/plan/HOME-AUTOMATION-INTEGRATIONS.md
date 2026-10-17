@@ -105,10 +105,11 @@ are denied; cloud-dependent devices are identified in the acceptance record.
   ESPHome source YAML/secrets. Exclude rebuildable caches and logs. Capture
   service versions and checksums in a manifest. Never treat a live directory
   copy as a consistent backup.
-- Encrypt the archive with an `age` recipient before publishing it atomically
+- Encrypt the archive with a separate generated `age` passphrase before publishing it atomically
   under the caller-declared Syncthing files root, in `backups/home-automation`.
-  Keep the decryption identity independently backed up in KeePassXC; only the
-  recipient is delivered to the host. Reuse the existing `syncthing` btrbk leaf.
+  Store only that short password in KeePassXC's Password field and deliver it
+  through the existing encrypted credential path. Never attach archives, device
+  data or backup bundles to the vault. Reuse the existing `syncthing` btrbk leaf.
   Define receiving-side retention before enabling pruning. Preserve completed
   archives on retry or interruption, and alert on missing/stale exports and
   missing peer receipt without paging for disposable `lab` machines.
