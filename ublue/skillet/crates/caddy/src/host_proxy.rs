@@ -50,7 +50,7 @@ where
         Some(0o644),
         &root,
     )?;
-    let policy_unit = "[Unit]\nDescription=Load Skillet host UI relay policy\nConditionSecurity=selinux\n[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=/usr/bin/semodule -i /etc/skillet/selinux/skillet-ui-host.cil\nTimeoutStartSec=120\n";
+    let policy_unit = "[Unit]\nDescription=Load Skillet host UI relay policy\nConditionSecurity=selinux\nAfter=skillet-tailnet-ui-policy.service\n[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=/usr/bin/semodule -i /etc/skillet/selinux/skillet-ui-host.cil\nTimeoutStartSec=120\n";
     let unit_changed = files.ensure_file(
         Path::new("/etc/systemd/system/skillet-ui-host-policy.service"),
         policy_unit.as_bytes(),

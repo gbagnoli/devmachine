@@ -81,6 +81,9 @@
   revocation, daemon outages, browser origin checks, and direct backend isolation.
   Verify effective forwarding isolation in both IP families; network flags can
   change whether the runtime generates firewall rules at all.
+- Concurrent boot consumers that mutate a process-global resource must serialize
+  those mutations explicitly. Verify the full production ingress path after
+  reboot; a local fixture proxy cannot establish that the deployed proxy started.
 - Shared application login must select one explicit account behind the same
   per-request proxy authorization. Preserve client addresses, exclude direct
   backend access and retain local recovery; an existing application session
