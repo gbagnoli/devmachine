@@ -1,0 +1,551 @@
+//! Caddy reverse proxy for administrative interfaces.
+
+use serde::{Deserialize, Serialize};
+use skillet_core::files::{FileError, FileMutationResource, FileReadResource, Ownership};
+use skillet_core::system::{
+    AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
+};
+use skillet_podman::{
+    self, MountDependency, NetworkAttachment, PodmanConfig, PodmanError, PortProtocol,
+    PortPublication, ProcessIdentity, QuadletSecret, SecretTarget, Volume,
+};
+use std::{collections::BTreeMap, path::Path};
+use thiserror::Error;
+
+pub mod auth;
+pub mod host_proxy;
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UpstreamTransport {
+    #[default]
+    Bridge,
+    HostLoopback,
+}
+
+#[cfg(test)]
+mod refresh_tests;
+
+#[cfg(test)]
+#[path = "tests.rs"]
+mod tests;
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UiService {
+    pub name: String,
+    pub upstream: String,
+    #[serde(default)]
+    pub transport: UpstreamTransport,
+    pub port: u16,
+    #[serde(default)]
+    pub aliases: Vec<String>,
+    #[serde(default)]
+    pub tailnet_identity: bool,
+    /// Compatibility for a no-auth frontend expecting a successful token refresh.
+    /// This response is only available after the identity gate authorizes it.
+    #[serde(default)]
+    pub anonymous_token_refresh: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UiEnvironment {
+    pub ui_domain: String,
+    pub acme_staging: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaddySites {
+    pub version: u8,
+    pub host: String,
+    pub ui_domain: String,
+    pub acme_staging: bool,
+    pub machine_hostname: String,
+    pub services: Vec<CaddySite>,
+    #[serde(default)]
+    pub tailnet_users: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaddySite {
+    pub name: String,
+    pub hostname: String,
+    pub aliases: Vec<String>,
+    pub upstream: String,
+    #[serde(default)]
+    pub transport: UpstreamTransport,
+    pub port: u16,
+    #[serde(default)]
+    pub tailnet_identity: bool,
+    /// Compatibility for a no-auth frontend expecting a successful token refresh.
+    /// This response is only available after the identity gate authorizes it.
+    #[serde(default)]
+    pub anonymous_token_refresh: bool,
+}
+
+#[derive(Debug, Error)]
+pub enum CaddyError {
+    #[error("Caddy host proxy I/O: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("System error: {0}")]
+    System(#[from] SystemError),
+    #[error("File error: {0}")]
+    File(#[from] FileError),
+    #[error("Podman error: {0}")]
+    Podman(#[from] PodmanError),
+    #[error("invalid Caddy configuration: {0}")]
+    InvalidConfiguration(String),
+    #[error("invalid Caddy sites credential: {0}")]
+    InvalidSites(#[from] serde_json::Error),
+    #[error(transparent)]
+    Auth(#[from] auth::AuthError),
+    #[error(transparent)]
+    Activation(#[from] skillet_core::activation::ActivationError),
+}
+
+impl CaddySites {
+    pub fn from_host(
+        host: &str,
+        environment: &UiEnvironment,
+        services: &[UiService],
+    ) -> Result<Self, CaddyError> {
+        validate_label(host, "host")?;
+        validate_domain(&environment.ui_domain)?;
+        if services.is_empty() {
+            return Err(CaddyError::InvalidConfiguration(
+                "host declares no UI services".to_string(),
+            ));
+        }
+        let machine_hostname = format!("{host}.{}", environment.ui_domain);
+        validate_domain(&machine_hostname)?;
+        let mut sites = Vec::with_capacity(services.len());
+        let mut all_hostnames = BTreeMap::from([(machine_hostname.clone(), "machine")]);
+        for service in services {
+            validate_label(&service.name, "service name")?;
+            validate_label(&service.upstream, "upstream name")?;
+            if service.transport == UpstreamTransport::HostLoopback && !service.tailnet_identity {
+                return Err(CaddyError::InvalidConfiguration(
+                    "host upstream requires identity protection".into(),
+                ));
+            }
+            if service.anonymous_token_refresh && !service.tailnet_identity {
+                return Err(CaddyError::InvalidConfiguration(
+                    "anonymous token refresh requires identity protection".into(),
+                ));
+            }
+            if service.port == 0 {
+                return Err(CaddyError::InvalidConfiguration(format!(
+                    "service {} has an invalid upstream port",
+                    service.name
+                )));
+            }
+            if sites
+                .iter()
+                .any(|site: &CaddySite| site.name == service.name)
+            {
+                return Err(CaddyError::InvalidConfiguration(format!(
+                    "duplicate UI service {}",
+                    service.name
+                )));
+            }
+            let hostname = format!("{}.{}.{}", service.name, host, environment.ui_domain);
+            validate_domain(&hostname)?;
+            if all_hostnames
+                .insert(hostname.clone(), "canonical UI")
+                .is_some()
+            {
+                return Err(CaddyError::InvalidConfiguration(
+                    "duplicate UI hostname".to_string(),
+                ));
+            }
+            let mut aliases = Vec::with_capacity(service.aliases.len());
+            for alias in &service.aliases {
+                let expanded = expand_alias(alias, host)?;
+                let alias_hostname = format!("{expanded}.{}", environment.ui_domain);
+                validate_domain(&alias_hostname)?;
+                if all_hostnames
+                    .insert(alias_hostname.clone(), "UI alias")
+                    .is_some()
+                {
+                    return Err(CaddyError::InvalidConfiguration(format!(
+                        "duplicate UI hostname for alias on service {}",
+                        service.name
+                    )));
+                }
+                aliases.push(alias_hostname);
+            }
+            sites.push(CaddySite {
+                name: service.name.clone(),
+                hostname,
+                aliases,
+                upstream: service.upstream.clone(),
+                transport: service.transport,
+                port: service.port,
+                tailnet_identity: service.tailnet_identity,
+                anonymous_token_refresh: service.anonymous_token_refresh,
+            });
+        }
+        Ok(Self {
+            version: if services
+                .iter()
+                .any(|s| s.transport == UpstreamTransport::HostLoopback)
+            {
+                4
+            } else {
+                3
+            },
+            host: host.to_string(),
+            ui_domain: environment.ui_domain.clone(),
+            acme_staging: environment.acme_staging,
+            machine_hostname,
+            services: sites,
+            tailnet_users: Vec::new(),
+        })
+    }
+
+    pub fn parse(contents: &str, host: &str, services: &[UiService]) -> Result<Self, CaddyError> {
+        let sites: Self = serde_json::from_str(contents)?;
+        if !matches!(sites.version, 2..=4) {
+            return Err(CaddyError::InvalidConfiguration(format!(
+                "unsupported payload version {}",
+                sites.version
+            )));
+        }
+        let mut expected = Self::from_host(
+            host,
+            &UiEnvironment {
+                ui_domain: sites.ui_domain.clone(),
+                acme_staging: sites.acme_staging,
+            },
+            services,
+        )?;
+        auth::Policy::new(sites.tailnet_users.clone())?;
+        if sites.version == 2 && sites.services.iter().any(|site| site.tailnet_identity) {
+            return Err(CaddyError::InvalidConfiguration(
+                "identity protection requires payload version 3; redeliver Caddy credentials"
+                    .into(),
+            ));
+        }
+        if sites.version < 4
+            && sites
+                .services
+                .iter()
+                .any(|s| s.transport != UpstreamTransport::Bridge)
+        {
+            return Err(CaddyError::InvalidConfiguration(
+                "host upstreams require version 4; redeliver Caddy credentials".into(),
+            ));
+        }
+        expected.version = sites.version;
+        expected.tailnet_users.clone_from(&sites.tailnet_users);
+        if sites != expected {
+            return Err(CaddyError::InvalidConfiguration(
+                "payload does not match this host's declared UI services".to_string(),
+            ));
+        }
+        Ok(expected)
+    }
+
+    pub fn needs_identity_gate(&self) -> bool {
+        self.services.iter().any(|site| site.tailnet_identity)
+    }
+
+    pub fn render(&self) -> String {
+        let acme = if self.acme_staging {
+            "    acme_ca https://acme-staging-v02.api.letsencrypt.org/directory\n"
+        } else {
+            ""
+        };
+        let mut config =
+            format!("{{\n    admin off\n{acme}    acme_dns cloudflare {{env.CF_API_TOKEN}}\n}}\n");
+        for service in &self.services {
+            use std::fmt::Write as _;
+            for hostname in std::iter::once(&service.hostname).chain(&service.aliases) {
+                let _ = writeln!(config, "\n{hostname} {{\n    tls {{\n        resolvers 1.1.1.1 1.0.0.1\n    }}\n    route {{\n        @outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48\n        respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403");
+                if service.tailnet_identity {
+                    let _ = writeln!(config, "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {{http.request.header.Origin}} != \"https://{hostname}\"`\n        respond @cross_origin 403\n        @cross_site header Sec-Fetch-Site cross-site\n        respond @cross_site 403");
+                    // A trailing '?' clears the inherited application query on the
+                    // cloned auth request; the backend keeps its original URI.
+                    config.push_str("        request_header -X-Skillet-Peer\n        request_header -X-Skillet-User\n        request_header -X-Webauth-User\n        request_header -Remote-User\n        request_header -Tailscale-User\n        forward_auth unix//run/skillet-tailnet-ui/auth.sock {\n            uri /auth?\n            header_up X-Skillet-Peer {http.request.remote}\n            copy_headers X-Skillet-User\n        }\n");
+                }
+                if service.tailnet_identity && service.anonymous_token_refresh {
+                    // No application identity/token is minted. NO_AUTH backends ignore
+                    // this marker; Caddy must authorize every subsequent request too.
+                    config.push_str("        @anonymous_refresh {\n            method GET\n            path /api/refresh\n        }\n        header @anonymous_refresh Content-Type application/json\n        header @anonymous_refresh Cache-Control no-store\n        respond @anonymous_refresh `{\"token\":\"skillet-tailnet-authenticated\"}` 200\n");
+                }
+                let _ = writeln!(
+                    config,
+                    "        reverse_proxy {}\n    }}\n}}",
+                    match service.transport {
+                        UpstreamTransport::Bridge =>
+                            format!("{}:{}", service.upstream, service.port),
+                        UpstreamTransport::HostLoopback =>
+                            format!("unix//run/skillet-ui-host/{}.sock", service.name),
+                    }
+                );
+            }
+        }
+        config
+    }
+}
+
+fn expand_alias(alias: &str, host: &str) -> Result<String, CaddyError> {
+    if alias.is_empty() || alias.len() > 253 || alias.starts_with('.') || alias.ends_with('.') {
+        return Err(CaddyError::InvalidConfiguration(
+            "invalid relative UI alias".to_string(),
+        ));
+    }
+    let mut labels = Vec::new();
+    for label in alias.split('.') {
+        if label == "{host}" {
+            labels.push(host);
+        } else {
+            if label.contains('{') || label.contains('}') {
+                return Err(CaddyError::InvalidConfiguration(
+                    "the {host} alias placeholder must be a complete DNS label".to_string(),
+                ));
+            }
+            validate_label(label, "UI alias")?;
+            labels.push(label);
+        }
+    }
+    Ok(labels.join("."))
+}
+
+fn validate_label(label: &str, field: &str) -> Result<(), CaddyError> {
+    let valid = !label.is_empty()
+        && label.len() <= 63
+        && label.as_bytes()[0].is_ascii_alphanumeric()
+        && label.as_bytes()[label.len() - 1].is_ascii_alphanumeric()
+        && label
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-');
+    if valid {
+        Ok(())
+    } else {
+        Err(CaddyError::InvalidConfiguration(format!(
+            "invalid {field} DNS label"
+        )))
+    }
+}
+
+pub fn validate_domain(domain: &str) -> Result<(), CaddyError> {
+    if domain.len() > 253 || domain.split('.').count() < 2 {
+        return Err(CaddyError::InvalidConfiguration(
+            "UI domain must be a fully qualified DNS domain".to_string(),
+        ));
+    }
+    for label in domain.split('.') {
+        validate_label(label, "UI domain")?;
+    }
+    Ok(())
+}
+
+/// Resolve an optional relative UI namespace beneath the authoritative zone.
+pub fn resolve_ui_domain(zone: &str, prefix: Option<&str>) -> Result<String, CaddyError> {
+    validate_domain(zone)?;
+    let prefix = prefix.unwrap_or("ui").trim();
+    for label in prefix.split('.') {
+        validate_label(label, "relative UI domain prefix")?;
+    }
+    let domain = format!("{prefix}.{zone}");
+    validate_domain(&domain)?;
+    Ok(domain)
+}
+
+pub fn validate_domain_in_zone(domain: &str, zone: &str) -> Result<(), CaddyError> {
+    validate_domain(domain)?;
+    validate_domain(zone)?;
+    if domain != zone && !domain.ends_with(&format!(".{zone}")) {
+        return Err(CaddyError::InvalidConfiguration(
+            "UI domain is outside the selected Cloudflare zone".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+pub fn apply<S, F>(
+    system: &S,
+    files: &F,
+    sites: &CaddySites,
+    network_name: &str,
+) -> Result<(), CaddyError>
+where
+    S: AccountLookupResource + AccountResource + PodmanSecretResource + ServiceResource + ?Sized,
+    F: FileMutationResource + FileReadResource + ?Sized,
+{
+    let (networks, auth_volumes) = backend_resources(system, files, sites, network_name)?;
+    let caddyfile = sites.render();
+    let config_dir = Path::new("/etc/skillet/caddy");
+    files.ensure_directory(
+        config_dir,
+        Some(0o755),
+        &Ownership::named(Some("root"), Some("root")),
+    )?;
+    files.ensure_file(
+        &config_dir.join("Caddyfile"),
+        caddyfile.as_bytes(),
+        Some(0o644),
+        &Ownership::named(Some("root"), Some("root")),
+    )?;
+
+    let mut container = BTreeMap::new();
+    container.insert(
+        "Container".to_string(),
+        vec![
+            "AutoUpdate=registry".to_string(),
+            "ContainerName=caddy".to_string(),
+            skillet_datadog::process("caddy", "caddy run"),
+        ],
+    );
+    container.insert("Service".to_string(), vec!["Restart=always".to_string()]);
+    container.insert(
+        "Unit".to_string(),
+        vec![
+            "Description=Caddy private UI reverse proxy".to_string(),
+            "After=network-online.target".to_string(),
+        ],
+    );
+
+    if sites.needs_identity_gate() {
+        container.entry("Unit".into()).or_default().extend([
+            "Requires=skillet-tailnet-ui.service".into(),
+            "After=skillet-tailnet-ui.service".into(),
+        ]);
+        container.entry("Container".into()).or_default().extend([
+            "Sysctl=net.ipv4.ip_forward=0".into(),
+            "Sysctl=net.ipv6.conf.all.forwarding=0".into(),
+        ]);
+    }
+    for site in sites
+        .services
+        .iter()
+        .filter(|s| s.transport == UpstreamTransport::HostLoopback)
+    {
+        container.entry("Unit".into()).or_default().extend([
+            format!("Requires=skillet-ui-host-{}.service", site.name),
+            format!("After=skillet-ui-host-{}.service", site.name),
+        ]);
+    }
+    let mut config = PodmanConfig {
+        name: "caddy".to_string(),
+        image: "ghcr.io/caddybuilds/caddy-cloudflare:2".to_string(),
+        network_attachments: networks,
+        port_publications: ["::", "0.0.0.0"]
+            .into_iter()
+            .map(|address| PortPublication {
+                host_address: match address {
+                    "::" => std::net::Ipv6Addr::UNSPECIFIED.into(),
+                    _ => std::net::Ipv4Addr::UNSPECIFIED.into(),
+                },
+                host_port: 443,
+                container_port: 443,
+                protocol: PortProtocol::Tcp,
+            })
+            .collect(),
+        storage_dependency: Some(MountDependency::shared_service_data()),
+        process_identity: ProcessIdentity::ImageDefault,
+        namespace_mapping: None,
+        volumes: state_volumes(),
+        secrets: vec![QuadletSecret {
+            secret_name: "cloudflare_acme_token".to_string(),
+            target: SecretTarget::Environment {
+                env_var_name: "CF_API_TOKEN".to_string(),
+            },
+        }],
+        config_revisions: vec![caddyfile.into_bytes()],
+        extra_config: container,
+    };
+    config.volumes.extend(auth_volumes);
+    // Preserve the caller's network configuration and let Podman create its
+    // persistent directories on the shared data filesystem.
+    for path in ["/var/lib/data/caddy/data", "/var/lib/data/caddy/config"] {
+        files.ensure_directory(
+            Path::new(path),
+            Some(0o755),
+            &Ownership::named(Some("root"), Some("root")),
+        )?;
+    }
+    skillet_podman::container(system, files, config)?;
+    Ok(())
+}
+
+fn backend_resources<S, F>(
+    system: &S,
+    files: &F,
+    sites: &CaddySites,
+    network_name: &str,
+) -> Result<(Vec<NetworkAttachment>, Vec<Volume>), CaddyError>
+where
+    S: ServiceResource + ?Sized,
+    F: FileMutationResource + FileReadResource + ?Sized,
+{
+    let policy = auth::Policy::new(sites.tailnet_users.clone())?;
+    let mut networks = vec![NetworkAttachment::Bridge(network_name.to_string())];
+    let mut auth_volumes = Vec::new();
+    if sites.needs_identity_gate() {
+        auth::apply(system, files, &policy)?;
+        auth_volumes.push(Volume {
+            host_path: "/run/skillet-tailnet-ui".into(),
+            container_path: "/run/skillet-tailnet-ui".into(),
+            options: Some("ro,z".into()),
+            host_mode: None,
+            host_ownership: None,
+        });
+        for site in sites
+            .services
+            .iter()
+            .filter(|site| site.tailnet_identity && site.transport == UpstreamTransport::Bridge)
+        {
+            let network = private_network(&sites.host, &site.name);
+            skillet_podman::ensure_network(system, files, &network)?;
+            networks.push(NetworkAttachment::Bridge(network.unit_name));
+        }
+    }
+    host_proxy::apply(system, files, sites, &mut auth_volumes)?;
+    Ok((networks, auth_volumes))
+}
+
+/// A private backend whose strict firewall isolation allows only joined containers.
+pub fn private_network(host: &str, service: &str) -> skillet_podman::PodmanNetwork {
+    let name = format!("{host}-{service}");
+    skillet_podman::PodmanNetwork {
+        unit_name: name.clone(),
+        options: vec![
+            "Driver=bridge".into(),
+            // Netavark skips firewall/isolation rules for internal networks.
+            "Internal=false".into(),
+            "DisableDNS=false".into(),
+            "IPv6=true".into(),
+            "Options=isolate=strict".into(),
+            format!("NetworkName={name}"),
+        ],
+    }
+}
+
+fn state_volumes() -> Vec<Volume> {
+    vec![
+        Volume {
+            host_path: "/etc/skillet/caddy".to_string(),
+            container_path: "/etc/caddy".to_string(),
+            options: Some("ro,Z".to_string()),
+            host_mode: None,
+            host_ownership: None,
+        },
+        Volume {
+            host_path: "/var/lib/data/caddy/data".to_string(),
+            container_path: "/data".to_string(),
+            options: Some("Z".to_string()),
+            host_mode: None,
+            host_ownership: None,
+        },
+        Volume {
+            host_path: "/var/lib/data/caddy/config".to_string(),
+            container_path: "/config".to_string(),
+            options: Some("Z".to_string()),
+            host_mode: None,
+            host_ownership: None,
+        },
+    ]
+}

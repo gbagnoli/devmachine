@@ -1,0 +1,26 @@
+table inet skillet_restore {}
+flush table inet skillet_restore
+table inet skillet_restore {
+    chain input {
+        type filter hook input priority 0; policy drop;
+        iifname "lo" accept
+        tcp dport 22 accept
+        udp sport 67 udp dport 68 accept
+        udp sport 547 udp dport 546 accept
+        icmpv6 type { nd-router-solicit, nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert } accept
+        counter drop
+    }
+    chain output {
+        type filter hook output priority 0; policy drop;
+        oifname "lo" accept
+        tcp sport 22 accept
+        udp sport 68 udp dport 67 accept
+        udp sport 546 udp dport 547 accept
+        icmpv6 type { nd-router-solicit, nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert } accept
+        counter drop
+    }
+    chain forward {
+        type filter hook forward priority 0; policy drop;
+        counter drop
+    }
+}

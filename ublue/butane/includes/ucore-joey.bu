@@ -1,0 +1,14 @@
+# Host-selected signed image and day-zero DNS listener policy.
+variant: fcos
+version: 1.6.0
+storage:
+  files:
+    - path: /etc/ucore-bootstrap-image
+      mode: 0644
+      contents:
+        inline: |
+          ghcr.io/gbagnoli/ucore-joey
+systemd:
+  units:
+    - name: systemd-resolved.service
+      mask: true

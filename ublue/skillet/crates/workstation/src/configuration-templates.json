@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "services": {
+    "datadog": {
+      "default": {
+        "version": 1,
+        "api_key": {
+          "$secret": "skillet/datadog/api-key"
+        },
+        "site": "datadoghq.com",
+        "dns_servers": ["1.1.1.1", "1.0.0.1"],
+        "tags": []
+      },
+      "hosts": {}
+    },
+    "ddns": {
+      "default": {
+        "version": 1,
+        "records": [
+          {
+            "name": {
+              "$secret": "skillet/environments/{environment}/dns/local-prefix"
+            },
+            "proxied": false
+          }
+        ],
+        "takeover_existing": false
+      },
+      "hosts": {}
+    }
+  }
+}

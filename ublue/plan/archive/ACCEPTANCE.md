@@ -1,0 +1,3393 @@
+## Remote all-services application — 2026-10-12
+
+- Added workstation `apply --host HOST --target USER@HOST` for all canonically
+  declared production services. Related Pi-hole/Tailscale credentials stage
+  before full apply; tailnet readiness precedes Caddy DNS; SMTP/DDNS/Datadog
+  phases follow selection, with monitoring last. Existing enrollment input is
+  reused; explicit Tailscale delivery remains the refresh path.
+- Standalone production `secrets deliver` stages by default. `--activate`
+  explicitly requests its consumer. Both Caddy inputs stage before activation;
+  staging still performs the existing scoped-token/DNS reconciliation.
+- Workstation SSH defaults to `~/.ssh/known_hosts` and OpenSSH key/agent
+  selection, retaining strict trust and noninteractive authentication. VM
+  manifests retain their explicit temporary identity and host-key paths.
+- Formatting, strict pedantic workspace Clippy and all 422 workspace/all-target
+  tests passed (four existing runtime-dependent tests remain ignored). Fedora
+  `test run joey --phase base --image fedora:latest` passed both applies; repeat
+  apply issued no service start/restart. Added regressions cover credential
+  staging, capability selection, failure/retry ordering, skipped-unit refusal,
+  bounded enrollment readiness and SSH defaults without vault/provider access.
+- Full production orchestration and a named-VM end-to-end run of the new command
+  have not been performed. The Fedora check is a base fixture, not application
+  or provider acceptance. Existing physical containers were not mutated by
+  validation. Complete production data/identity and one-writer DDNS handover
+  prerequisites before the operator runs all-services apply.
+
+## Physical clamps production credential preflight — 2026-10-12
+
+- The operator supplied cold-boot journal evidence of successful base apply and
+  findmnt evidence of Btrfs `/data` at `/var/lib/data` on the encrypted root
+  mapper. The production host vault audit reports eight checked, zero missing
+  and zero unused entries. This audit does not establish provider permissions.
+- The operator confirmed both production Pi-hole and Tailscale delivery
+  commands succeeded. The supplied `podman ps` snapshot shows Pi-hole,
+  Tailscale (healthy), Syncthing, UniFi (starting) and Mikochi running. It shows
+  Pi-hole publishing TCP/UDP port 53 on both IP families and Syncthing publishing
+  TCP/UDP port 22000; their GUI ports remain container-only.
+- The snapshot does not prove UniFi readiness, LAN DNS reachability, restored
+  production identities, Caddy/SMTP/DDNS/Datadog acceptance or cutover. Keep the
+  existing controller/data authoritative until migration; a restored controller
+  must be isolated or the prior one stopped.
+
+## Recovery header attachment refresh — 2026-10-12
+
+- A synthetic KDBX regression reproduced the physical backup command's
+  `saved vault did not retain the recovery attachment` error when refreshing
+  an existing header. The writer retained a sparse binary ID after replacement;
+  encrypted serialization packed the binaries without remapping its reference.
+- Removing the named reference before adding its replacement fixes the refresh.
+  Twelve vault tests passed, including repeated refresh through reopen,
+  unrelated binary preservation, unchanged credentials, rejected incorrect
+  readback without publication, and refusal to destroy historical references.
+  Same-entry history/alias sharing remains explicitly unsupported for changed
+  attachment bytes with this library; identical protected content is a no-op.
+- Formatting, strict workspace Clippy, all 405 workspace tests and the Fedora
+  joey base repeat-apply check passed. These checks use synthetic vaults and
+  credentials; they do not establish physical backup or reboot acceptance.
+- The operator verified the new physical slot 2 binding against its LUKS slot
+  with exit zero after booting signed uCore and adding a temporary passphrase.
+  The operator subsequently confirmed successful physical vault/header backup
+  and automatic unlocking on an unmasked reboot after one failed attempt.
+  Supplied status confirms the signed uCore digest is booted, bootstrap finished
+  successfully/active-exited, and no units are failed. The supplied cold-boot
+  journal confirms base apply executed and finished successfully; findmnt
+  confirms `/var/lib/data` is Btrfs `/data` on the encrypted root mapper.
+  The operator removed obsolete slot 1 and supplied a Clevis listing containing
+  only slot 2. The operator subsequently reports successful unattended
+  power-off/power-on, completing physical cold-boot unlock acceptance after
+  manual recovery. Confirmation of post-removal header refresh remains pending;
+  first-rebase ordering and physical update/rollback are not covered by this
+  successful boot. The earlier failed attempt is consistent with the old binding.
+
+## Physical installer disk confirmation — 2026-10-12
+
+- Confirmation now accepts the prepared disk's resolved kernel name or its
+  complete by-id identifier. The prompt shows the actual short name as its
+  example; the response acknowledges the fixed target and cannot select another.
+  The helper rechecks the prepared link before invoking the installer by-id.
+- Nine isolated confirmation regressions passed, covering NVMe/SATA short
+  names, the full identifier, wrong disks/partitions, empty input and unrelated
+  paths. The 11 MOK cases, both hardware refusal cases, bootstrap regressions,
+  CI ShellCheck and whitespace checks also passed. Physical installation is
+  still in progress; these checks do not erase any real disk.
+
+## Physical installer MOK status compatibility — 2026-10-12
+
+- The operator confirmed physical TPM 2.0, enabled Secure Boot and MOK
+  enrollment. The live image reported `is already enrolled` with exit status 1;
+  the prior installer incorrectly refused that evidence. Installation and
+  encrypted first boot are still pending.
+- The helper now accepts the exact enrolled-certificate result with status
+  0 or 1 under the C locale. Regression checks reject pending enrollment,
+  blocked certificates, unknown success, tool errors and a missing certificate.
+- All 11 trust-predicate cases and both isolated hardware refusal cases passed,
+  together with bootstrap regressions, CI ShellCheck and whitespace checks.
+  No workstation disk or firmware was modified. Existing prepared media can
+  receive only the corrected helper over SSH, retaining its Ignition checksum,
+  disk identity and encryption profile.
+
+## NUT collector delivery-path correction — 2026-10-12
+
+- Corrected the timer to invoke `/var/usrlocal/bin/skillet`, matching both
+  shared Ignition injection and verified VM binary delivery. A regression
+  compares its executable with the actual Butane include; consumer verification
+  now creates its harmless placeholder at that same path.
+- Formatting, strict workspace Clippy, all 403 workspace tests, the Fedora joey
+  base repeat-apply scenario and the real Fedora NUT/systemd consumer passed.
+  Native uCore timer execution remains pending; this is delivery-contract and
+  consumer validation, not live timer or cloud ingestion acceptance.
+
+## Native NUT metrics and local DogStatsD — 2026-10-12
+
+- Implemented `skillet metrics nut` in the shared static musl guest binary.
+  It performs only `LIST VAR`, with a bounded whole-query deadline and response
+  sizes, and emits a fixed gauge inventory plus independent UPS status flags.
+  Optional absent readings are omitted; query failure submits only a failed
+  `nut.communication` check and exits nonzero. No Python, `upsc`, runtime plugin
+  downloads, derived Agent image or additional credential is required.
+- Successful Datadog apply configures the same caller-selected NUT module's
+  `skillet-nut-metrics.timer`, polling every 30 seconds. The collector is
+  conditioned on the USB alias and Agent socket. Its unit orders startup
+  without activating optional consumers. Repeat apply and interrupted timer
+  activation are covered. Driver-instance unit names are now accepted by the
+  Agent's monitored-unit validation.
+- The official pinned Agent uses a Unix datagram socket under root:root `0700`
+  `/run/skillet-dogstatsd`; tmpfiles recreates the directory at boot. UDP port
+  is explicitly disabled. Only this socket directory is a writable additional
+  mount; host monitoring mounts retain their existing policy.
+- Local validation passed: 403 workspace tests, formatting, strict all-target
+  Clippy, whitespace checks and the Fedora joey base scenario, with no service
+  start/restart on repeat apply. Routine CI needs no vault/provider access:
+  parsing tests, local TCP/Unix datagram transports, real CLI success/failure,
+  status transitions and canonical profile composition use isolated fixtures.
+- Named VM regression `test smoke clamps --instance files` passed its fixture
+  checks before/after reboot and restored signed-boot/base/user-environment
+  readiness on `clamps-test-files`. This is fixture/runtime evidence, not UPS
+  timer or Datadog cloud acceptance.
+- The explicit ignored CLI consumer test passed against official Agent 7.84.1
+  with a dummy key and `--network none`. The Agent parsed expected gauges and
+  both service checks with zero parse errors; actual metric names/tags were
+  visible in DogStatsD statistics. Both UDP listener tables were empty. The
+  disposable container was removed after the test.
+- Read-only live collection passed against the forwarded UPS on both IPv4 and
+  IPv6 loopback. It reported model BR1000ELCD, status `OL`, charge 100%, runtime
+  3301 seconds and load 11%. A separate network-isolated Agent parsed its
+  15 gauges and two service checks, with zero parse errors and no UDP listener.
+  No telemetry was sent to Datadog and no UPS control command was issued.
+- The safe Fedora NUT consumer check also passed real systemd verification of
+  generated collector service/timer syntax. Verification uses a harmless
+  executable placeholder; actual collector execution is covered separately.
+  Native uCore timer execution, socket permission/SELinux behavior and recovery
+  across reboot, cloud ingestion, and physical power-loss acceptance remain
+  **unverified**; local receipt is not evidence of those checks.
+
+## Local NUT UPS protection — 2026-10-12
+
+- The shared image now declares Fedora `nut` and `nut-client`, with NUT services
+  and enumeration disabled by default. Skillet's optional native module uses
+  `/etc/ups`. Only clamps currently selects it: CyberPower CP1500 AVR,
+  `usbhid-ups`, USB `0764:0501`, `MODE=standalone` and loopback-only port 3493.
+- The root-only retained monitor password is generated locally; root:nut
+  configuration grants only `upsmon primary`. The packaged monitor uses normal
+  critical-battery handling and `/run/nut/killpower`. Driver/server/monitor
+  conditions and scoped udev activation tolerate an absent UPS in ordinary VMs.
+  An existing monitor is not stopped when the USB cable vanishes.
+- Local musl-target workspace tests, formatting and strict all-target Clippy
+  passed. The Fedora joey base integration applied twice without start/restart
+  on repeat. Image recipe YAML and both repository whitespace checks passed.
+  Pure regressions cover exact USB IDs, no-device convergence, retained secrets,
+  repeat apply, interrupted activation and rejected declaration/secret inputs.
+- The routine CI consumer check passed against Fedora NUT 2.8.5 in a disposable
+  rootless container. It verified the generated udev rule and systemd drop-ins,
+  packaged driver-instance lookup and a non-executing USB driver start plan.
+  A dummy UPS then answered `OL` over IPv4 and IPv6 loopback; the packaged
+  monitor started and accepted reload. The consumer used a harmless shutdown
+  command and no USB passthrough; no real host/UPS shutdown was attempted.
+- Full BlueBuild image publication, a boot/rebase check of the rebuilt image,
+  real USB permissions/polling, battery shutdown, UPS load cycling and firmware
+  power-return startup remain **unverified**. BlueBuild CLI is unavailable
+  locally; the current published smoke image does not contain these new packages.
+  Consumer unit verification is not signed-uCore boot or hardware acceptance.
+  See [the UPS design](../../design/ups.md).
+
+## Mikochi and shared tailnet identity — 2026-10-11
+
+- Shared Syncthing composition selects Mikochi on clamps and joey. It serves
+  only the declared user-file directory, using Syncthing's process/host mapping,
+  without a native login or published port. Caddy receives the authorization
+  socket; the gate alone receives daemon access. Encrypted version 3 UI payloads
+  carry the shared allowlist from `skillet/tailscale/ui-users` (Password, commas
+  or newlines). The unlocked vault audit passed: seven required, none missing,
+  invalid or unused. No private identifiers or credential values are recorded here.
+- Local musl-target formatting, strict all-target Clippy and all 385 workspace
+  tests passed. The Fedora joey base integration applied twice without service
+  activation on repeat apply. Bootstrap and hardware regressions passed.
+  New CI checks validate generated identity Caddy configuration using the real
+  Caddy image and exercise pinned Mikochi 1.12.0 without a vault/provider API:
+  no app authentication, 3-MiB upload/download, spaced filenames, mkdir, rename,
+  delete, preserved host ownership and denial of an unmounted host symlink target.
+- The first disposable `clamps / files` probe rejected `Internal=true` as unsafe:
+  Netavark 1.17.2 skips firewall generation for internal networks, allowing direct
+  backend access. Mikochi was stopped and that VM disposed through the owner.
+  The final profile uses a dedicated **non-internal**, strictly isolated bridge;
+  Caddy forwarding is disabled. Runtime smoke now requires positive IPv4/IPv6
+  readiness and negative sibling connections, rejecting broken probe commands.
+- Fresh `clamps / files`, native `qemu:///session`, SSH port 2203, captured the
+  corrected binaries and passed signed image/bootstrap/base/user readiness.
+  A temporary Rust driver held the per-run lock and checked domain ownership
+  around every guest command: positive readiness passed over IPv4 and IPv6,
+  while both sibling bridge connections timed out. There was one Mikochi backend
+  network and no host publication. After the synthetic reboot, independent full
+  apply and Caddy apply preserved Mikochi's container ID and start timestamp. Real LocalAPI lookup
+  matched this workstation's untagged user to the allowlist; the authorization
+  endpoint returned 204. This does not establish two-person browser acceptance.
+- A preliminary VM obtained four staging ACME certificates and returned its
+  explicit non-tailnet 403 after a diagnostic public-resolver change. Public
+  ACME resolvers are now in shared rendering, separately from upstream Podman
+  DNS. On the fresh VM, provisioning still failed its HTTPS denial/readiness
+  check: Let's Encrypt reported **secondary-validation DNS networking errors**.
+  Certificate issuance is retrying; fresh live ACME acceptance remains pending.
+- End-to-end user HTTPS/file operations remain pending: this workstation's
+  connection to the tailnet VM returned `Host is unreachable`. The operator was
+  asked to verify human-user TCP 443 grants to the smoke tag. Do not equate
+  direct authorization-socket success or direct-container CI file operations
+  with successful HTTPS file operations. Irene, unknown-user live requests,
+  live revocation/outage, broader symlink behavior and Headscale remain unverified.
+  Gokapi mapping and donbot implementation remain planned.
+- Synthetic smoke passed first apply, repeat apply and reboot checks. The full
+  `--with-applications` run failed because the fresh UniFi controller did not
+  listen on UDP 10001 within 120 seconds; it stopped before the Mikochi roster
+  probe. The independent Mikochi checks above passed afterward. Full-profile
+  application acceptance remains failed; no UniFi requirement was relaxed.
+
+## Fleet rename — 2026-10-11
+
+Current profiles/artifacts use `joey` (formerly beelzebot) and `donbot`
+(formerly bender). Dated commands, VM identities and evidence paths below retain
+the values actually used; they are not acceptance of freshly renamed machines.
+Retained run manifests, provider ownership and vault entries were not mutated.
+New image publication and a fresh joey boot/application check remain pending;
+see [the joey migration plan](../JOEY-MIGRATION.md).
+Rename validation passed: offline locked workspace/all-target compile check,
+strict all-target Clippy, formatting and all 372 workspace tests. Nine bootstrap
+regressions (including joey/donbot image selection), both hardware refusal cases,
+and changed-script ShellCheck passed. The Fedora CI base integration for joey
+applied twice, issued no service start/restart on repeat apply and cleaned its
+container (exit 0). Document/include links and the image recipe matrix/base-build
+dependency resolve. Fresh named-VM acceptance and image builds were not run for
+this rename; previous dated results remain historical evidence.
+
+## Live vault-backed root recovery — 2026-10-10
+
+- Fresh native `clamps / vault-recovery`, SSH port 2202, explicitly selected
+  `--root-profile tpm`. Native Ignition created LUKS2/Btrfs; both bootstrap
+  rebases unlocked unattended and signed-uCore/base/user readiness passed.
+  Creation printed the expected `test vm recovery-key` follow-up.
+- The first enrollment attempt failed while creating the vault write lock: the
+  synced parent directory was read-only for the operator despite a writable
+  database file. An owner-checked guest probe confirmed only the original TPM
+  slot remained. After the operator granted a narrow directory ACL, enrollment
+  succeeded and the test-scoped vault record was saved with verified state and
+  the matching LUKS UUID. No production recovery entry was created.
+- Repeated `test vm recovery-key clamps vault-recovery` succeeded without
+  changing encrypted vault bytes. Guest inspection confirmed exactly two slots:
+  TPM plus independent printable recovery passphrase.
+- A temporary Rust acceptance driver used the per-run lock, manifest/backend
+  ownership validation and guarded SSH transport. It flushed a Btrfs data marker,
+  checked a complete cold stop/start, then normal `test vm ready` passed with
+  unattended unlock. The boot ID changed; volume UUID, two slots and data marker
+  survived. Direct cryptsetup verification accepted the vault passphrase and
+  rejected an invalid passphrase. No transient recovery file remained in `/run`.
+- Lifecycle disposal removed the test domain and its owned run artifacts;
+  encrypted vault bytes stayed unchanged, preserving the test archive. The
+  retained `clamps / smoke` VM remained running on port 2201.
+- This establishes the live test-scoped vault enrollment/retry/cold-boot slice.
+  It does not establish physical production enrollment, header export or recovery
+  after simulated TPM loss; those remain pending. No workstation packages installed.
+
+## Recovery-key vault commands — 2026-10-10
+
+- Implemented `secrets root-recovery-key HOST` for production and lifecycle-owned
+  `test vm recovery-key HOST INSTANCE` for separately scoped vault archives.
+  TPM VM creation prints the follow-up. Vault unlock uses the existing prompt/cache.
+- Unit tests cover interrupted pending enrollment, reuse without rotation,
+  refusal of mismatched host/volume, persistence failure before enrollment,
+  verify-only failure for previously verified keys, CLI argument separation,
+  instance-aware unused-entry auditing, and real encrypted KDBX round trips
+  preserving recovery identity/state through atomic saves.
+- Local fmt, pedantic Clippy, workspace tests, CI ShellCheck and Fedora base/repeat
+  apply passed. A private regular-file LUKS2 fixture accepted and verified the
+  128-character printable recovery passphrase; no real host disks were touched.
+- Not run: new SSH-to-TPM-VM vault archive acceptance or production enrollment.
+  No production vault key was created. Header export and physical recovery remain
+  pending. This slice does not simulate TPM loss or replace the earlier disposable
+  cold-boot acceptance; the two enrollment commands have separate key lifetimes.
+
+## Native optional TPM root — 2026-10-10
+
+- A fresh `clamps / tpm-native` disposable VM used native `qemu:///session`,
+  q35 UEFI Secure Boot with enrolled keys, independent NVRAM and an emulated
+  TPM2 with SHA256 PCR bank. No workstation packages or physical disks changed.
+- Native Ignition created LUKS2 beneath Btrfs; the FCOS 44.20260829.3.1 boot
+  and both unsigned/signed uCore bootstrap reboots unlocked unattended. The
+  final signed deployment was 44.20260913.3.2, kernel 7.2.5, following the
+  initial FCOS kernel 7.1.10. Secure Boot remained enabled. Clevis reported one
+  binding to SHA256 PCR 7. No signing/MOK-policy change was performed.
+- `test vm encryption-check clamps tpm-native` passed: a generated independent
+  64-byte recovery key opens this volume through the passphrase path; only TPM
+  and recovery keyslots remain; Btrfs `/var` and `/var/lib/data` share the same
+  filesystem, with `/data` mounted at the latter. Root label matches that UUID.
+  The flushed data marker and recovery key worked after an owned cold stop/start
+  without an unlock prompt. Private recovery directory is 0700; key and 16-MiB
+  header backup are 0600 and belong to the disposable run.
+- Formatting, pedantic workspace Clippy, all 347 workspace tests, ShellCheck
+  for the adapter/acceptance helper/extracted storage helpers, bootstrap state
+  regressions, and Fedora base/repeat-apply container checks passed. Routine CI
+  needs no vault or provider API. New tests cover retained defaults, capability
+  rejection, firmware/TPM ownership, conflicting formatting, account-only input
+  staging, symlink refusal and wrong Secure Boot/PCR policy.
+- `test smoke clamps --instance tpm-native` passed the real-systemd fixture:
+  repeated apply, native Podman/network behavior, stored test credentials/data
+  and another unattended reboot. A fresh `plain-native` VM also passed signed
+  bootstrap/base/user readiness; `/var` remained plain `/dev/vda4` Btrfs.
+  Both original test runs were disposed through the owner, including the
+  encrypted disk, TPM/NVRAM and private recovery artifacts. Recreation used a
+  different UUID and fresh firmware/TPM state, created a nonempty 0600 serial
+  log, reached SSH, and passed the final label/UUID data-subvolume guard. Its
+  serial log confirmed successful data-top preparation and data mount. This
+  final lifecycle probe was intentionally stopped before another complete
+  image bootstrap and disposed; the retained original smoke VM was untouched.
+- Flatpak, physical hardware,
+  network-disconnected boot, post-bootstrap rollback, TPM-loss/PCR-negative
+  boot tests and production vault-backed recovery remain unverified. This is
+  the accepted disk-loss/removal scope, not authenticated whole-machine boot.
+
+## Structured SMTP vault audit — 2026-10-09
+
+- `skillet secrets check --host clamps --environment test` opened the unlocked
+  vault and passed: seven required entries, zero missing/invalid, zero unused.
+  The shared `skillet/smtp` entry includes required Username/Password and custom
+  host/port/tls fields. The audit checks format and required STARTTLS policy;
+  it makes no provider calls and prints no field values.
+- Shared metadata drives field validation, missing-field instructions and the
+  root checklist. SMTP is a shared fleet preparation requirement in prod/test;
+  credential-free synthetic agent profiles are excluded. Runtime SMTP delivery
+  is still planned. Existing single-value readers retain Password semantics.
+- Formatting, pedantic workspace Clippy and all 311 workspace tests passed.
+  Added coverage for missing/invalid structured fields, protected custom reads,
+  exact-path ambiguity, deduplication and both-environment unused auditing.
+  Fedora base/repeat check passed with no service start/restart on the second apply.
+- No container behavior changed; no additional VM or Mailjet delivery acceptance
+  is claimed. Postfix provisioning and verified-sender setup remain pending.
+
+## UniFi isolated restore completed — 2026-10-09
+
+**Passed: cross-architecture backup restore, operator UI inspection, repeat
+module apply, reboot/data persistence and owned disposable cleanup.**
+
+- Operator successfully logged in and confirmed the restored devices and
+  configuration look correct. This completes the authenticated inspection
+  left pending in the entry below; no password/database reset was needed.
+- Restored state and configuration persistence checks are recorded below.
+  This remains module-only acceptance; production adoption and Site Manager
+  connectivity were intentionally excluded by the persistent isolation fence.
+- Stopped `unifi.service` through the ownership-checked transport, then ran
+  `skillet test vm destroy clamps unifi-restore`; disposal succeeded.
+  Owned `test vm list clamps` shows only the existing smoke instance, and
+  the restore run directory is absent. The original and protected independent
+  backup copies remain present. Existing smoke VM was not modified.
+- No production controller/device changes or outgoing recovery emails occurred.
+
+## UniFi restored-data persistence — 2026-10-09
+
+**UI import and restored-data persistence verified; authenticated UI acceptance
+and final disposable cleanup remain pending.**
+
+- Operator uploaded the supplied backup using the setup UI. Aggregate database
+  state now contains two sites, one network, four WLANs, three devices and one
+  admin, versus one WLAN/zero devices/zero admins before UI import. Source
+  inventory equivalence has not been independently verified.
+- The actual UniFi module-only driver passed repeat apply before and after an
+  owned reboot. Network/WLAN collection hashes matched the post-import baseline
+  throughout. No import occurs during ordinary apply.
+- After boot startup completed, UniFi was active/running with Result=success,
+  NRestarts=0 and local HTTPS HTTP 200. Rootful host networking and image user
+  `unifi` remain configured; data-root metadata was 999:999, mode 0750.
+- The persistent fence was active after reboot; UniFi Requires/After still
+  includes it. Both-family drop policies remained installed, with 48 dropped
+  output packets observed. A subsequent public IPv4 HTTPS probe timed out.
+  Dedicated LAN/tailnet/IPv6 endpoint probes remain unverified.
+- Operator cannot log in with the recorded password; password age is uncertain
+  and SMTP is not configured. No password reset, database credential edits or
+  cloud enrollment were attempted. Authenticated inspection is still pending.
+- Retain the isolated `clamps-test-unifi-restore` VM for login investigation.
+  Do not remove its fence. Final controller stop/disposal is deferred until the
+  operator completes that inspection; independent private backups are retained.
+- This is module-only acceptance, not full-host/device/Site Manager acceptance.
+  No production controller or device was modified. Only documentation changed
+  in this follow-up; existing code validation is recorded below.
+
+Email delivery follow-up: [server email plan](../CLAMPS-EMAIL.md).
+
+## UniFi restore preparation — 2026-10-09
+
+**Preparation passed; backup restore remains unverified.**
+
+- User supplied an October 1 `.unf` Network backup, 212,880 bytes. Its original
+  automatic-backup filename identifies UniFi 10.0.162. The private original is
+  retained and ignored by Git; a mode-0600 working copy is outside the checkout
+  in a mode-0700 directory. Production SSH rejected this workstation's key;
+  current production runtime/version and source inventory counts are unverified.
+- A dedicated native `clamps-test-unifi-restore` VM on SSH port 2202 passed
+  fresh signed-image, base and user-environment readiness. The retained smoke
+  VM's configuration was untouched. No provider credentials were provisioned.
+- The real UniFi recipe was applied alone using the `acceptance_apply` test
+  driver. Observed package `10.0.162-32076-1`, MongoDB 3.6.8 x86_64, rootful
+  host networking and numeric data-root ownership 999:999, mode 0750.
+  Local HTTPS returned 200.
+- First isolation attempt blocked SSH before any controller or backup import;
+  that empty VM was disposed successfully and recreated. The revised nftables
+  policy uses standard filter priority, preserves loopback/SSH/DHCP/IPv6
+  neighbour discovery, and drops other input/output/forwarding for both IP
+  families. Its empty-guest rollback timer was stopped before backup delivery.
+- The revised policy passed fresh management access. Direct HTTPS to a public
+  IPv4 address timed out, with the output drop counter showing blocked packets.
+  An empty-controller reboot preserved SSH and both active fence/controller
+  services; the fence remained installed and counted 67 dropped output packets
+  when inspected. The controller's unit Requires/After includes the fence.
+  This is not an individual live IPv6/LAN/tailnet reachability probe.
+- The provided backup was copied privately only after those checks. Installed
+  command help lists `restore <file>`; attempting it while live reports
+  `Already running`. A stopped-controller restore using the same image/data
+  paths in a one-off `network=none` container exits unsuccessfully with a
+  missing Spring bean (`com.ubnt.service.system.status.o0OO`). No successful
+  import or backup validity is established.
+- Normal service restarted behind the fence and HTTPS returned 200. Database
+  aggregate observations were two sites, one network, one WLAN, zero devices
+  and zero admins. Awaiting setup/UI restore via owned localhost forwarding;
+  post-restore configuration, repeat apply, reboot/data survival and final
+  VM cleanup remain pending. Site Manager/adoption remain cutover checks.
+- Formatting, pedantic Clippy and all 307 workspace tests passed, including
+  compilation of the UniFi-only driver. Cargo reported the deployed driver
+  artifact at the selected musl release path. Fedora base/repeat validation
+  and Butane bootstrap regression checks passed. No workstation packages
+  were installed.
+
+Private diagnostics are under `/tmp/skillet-unifi-restore-isolation/`; readiness,
+image-pull and fence preparation logs use `/tmp/skillet-unifi-*` paths. Do not
+publish their contents or treat a failed restore command as acceptance.
+
+## Owned localhost UI forwarding — 2026-10-08
+
+- `test vm ssh HOST INSTANCE --forward LOCAL:GUEST` retains the existing run
+  lock and domain UUID/disk checks. Both listener and destination are IPv4
+  loopback; duplicate ports and malformed/nonlocal targets are rejected.
+- Native live check used an interactive, read-only session to the retained
+  `clamps-test-smoke`, forwarding workstation port 18443 to guest port 22.
+  Curl received `SSH-2.0-OpenSSH_10.2`; its two-second timeout was expected
+  because no SSH negotiation was sent. On successful shell exit the local
+  listener disappeared. Guest configuration was not changed.
+- SSH multiplexing is disabled for forwarded sessions so a persistent master
+  cannot retain the listener. Bind failure is fatal. Unit tests cover the
+  arguments, invalid ports/addresses, duplicate ports and CLI parsing.
+- Formatting, pedantic workspace Clippy, all 307 workspace tests and the
+  Fedora base/repeat container check passed. Flatpak backend acceptance remains
+  parked; this live check used native libvirt.
+
+# Clamps VM acceptance log
+
+## Datadog NPM/USM and lab isolation, 2026-10-08
+
+- Created fresh `clamps-test-datadog`, native `qemu:///session`, SSH 2202, from
+  `69e908d`. Signed boot, base/user-environment readiness, Pi-hole/Tailscale/full
+  application provisioning and `--with-datadog` succeeded with the cached vault.
+  Caddy and DDNS were outside this scoped run. The retained smoke VM was untouched.
+- Baseline Agent had `SYS_ADMIN` but no `PERFMON`. A software perf-event syscall
+  returned ENOSYS (38); tracer logs reproduced unsupported perf attachment and
+  read-only fallback tracing failures. The installed seccomp profile explicitly
+  gates the perf-event allow rule on `CAP_PERFMON`.
+- Deployed the working-tree fix through owned `test vm update`; original capture
+  evidence was preserved. Added `PERFMON` only for caller-selected network
+  monitoring. Effective default seccomp and read-only debugfs remained in place;
+  no privileged mode or extra host installation. The syscall then returned a
+  valid descriptor (4, errno 0). NPM/USM network tracer, event monitor and discovery
+  modules started. Kernel: `7.2.5-200.fc44.x86_64`; SELinux enforcing; BIOS VM, so
+  Secure Boot was unavailable and remains unverified.
+- System-probe connection endpoint returned HTTP 200 and 63 connections. A private
+  Syncthing health request returned OK; six tracked connections involving port
+  8384 had nonzero byte counters, HTTP classification and HTTP aggregates. These
+  are connection records, not a count of distinct requests. USM reported Running.
+- Agent reported `env:test` / `region:lab`, successful submissions (56 core
+  forwarder transactions at one sample), no Autodiscovery errors, one Syncthing
+  HTTP check, three process checks, one Btrfs and one systemd check. Repeat
+  Datadog apply preserved every container ID; Agent `NRestarts=0`.
+- Named fixture smoke and guarded reboot/readiness recovery passed. After reboot,
+  without manual Agent restart, `PERFMON`, default seccomp, USM Running, tracer
+  polling, tags and the same application check counts were present; successful
+  submissions reached 92 in the sampled boot. A new health request yielded ten
+  bridge records with HTTP classification, HTTP aggregates and nonzero byte
+  counters. Agent remained active/running with `NRestarts=0`; no ERROR logs in
+  the sampled two-minute steady-state window. Startup socket/remote-config
+  retries before warmup were transient. Readiness restores original captured
+  binaries by design; this reboot used the explicitly deployed fix at boot.
+- Provider monitor read-back before/after reboot: both all-host monitors retain
+  their test exclusions and return zero test-host groups. Host-tag read-back
+  returned HTTP 403 with the monitor-only key; remote tag receipt and PagerDuty
+  incident delivery were not independently verified. Appropriate host-read
+  access is still needed for the former.
+- Formatting, pedantic workspace Clippy, workspace tests and Fedora base repeat
+  apply passed. Regression assertions cover the explicit capability and retained
+  default seccomp/read-only debugfs; the non-network caller has no added caps.
+  Smoke evidence was generated under `/var/lib/skillet-smoke/`; private local
+  command logs are under `/tmp/skillet-datadog-*.log`.
+- Owned Tailscale identity cleanup and VM disposal passed. The run directory
+  was removed and the retained smoke VM remained running.
+
+
+## Datadog monitor setup, 2026-10-08
+
+- Verified the API/application key pair from KeePassXC using
+  `skillet/datadog/api-key` and `skillet/datadog/monitor-setup-key`.
+  Key-pair validation and the six-monitor inventory returned HTTP 200.
+- The all-host Agent no-data and NTP service-check queries now include
+  `.exclude("env:test")`. Both provider validations succeeded before mutations;
+  query-only updates returned HTTP 200 and read-back confirmed the exclusion.
+- Compared options, messages, names, types, tags and priority before/after;
+  notification routing and production no-data policy were preserved. Other
+  monitors have explicit production targets and were not changed. Historical
+  test-group reevaluation and actual PagerDuty notification behavior were not
+  observed in this check.
+- Complete original monitor snapshots are in a private local temporary
+  directory outside the repository. The setup key was used only in memory on
+  the workstation; no credentials or real provider identifiers were committed.
+- Updated the secret inventory to the user's chosen setup-key path. No VM
+  operations or new Agent submissions were performed. Live region-tag
+  ingestion remains pending.
+
+## Datadog test alert isolation, 2026-10-08
+
+- Credential delivery retains `env:prod`/`env:test` and now derives production
+  region from the canonical host caller (`ftwo` for Clamps). Every test uses
+  `region:lab`; conflicting template region tags are replaced.
+- Formatting, pedantic workspace Clippy, workspace tests and the Fedora base
+  scenario passed. New offline tests cover production/test tag policy, different
+  caller regions, retained unrelated tags, conflicting template regions,
+  idempotent rendering, invalid inputs and stdin-only delivery. Fedora repeat
+  apply issued no service start/restart.
+- At this slice's validation, provider monitor edits were pending. The
+  subsequent monitor setup above completed the query exclusions using the
+  optional workstation application key; ingestion credentials alone cannot
+  administer monitors.
+- Live Datadog tag/submission acceptance was deferred to avoid generating
+  unwanted notifications before monitor setup. Region-tag ingestion remains
+  unverified. No VM
+  was created, provisioned or destroyed for this slice.
+
+## Datadog automatic boot discovery, 2026-10-08
+
+- Implemented Agent `After=` ordering from the existing caller-selected
+  monitored unit list. No application `Wants=` or `Requires=` was added; missing
+  optional credentials do not activate their consumers. Reject Agent self-ordering
+  before any mutation. No changes to container privileges or eBPF policy.
+- Formatting, pedantic workspace Clippy, all 301 workspace tests and Fedora
+  base integration passed on 2026-10-07. Repeat base apply issued no service
+  activation. The actual Quadlet compiler retained the ordering. New offline
+  regressions cover caller-provided units, ordering versus activation, and
+  self-dependency rejection; routine CI needs no vault or external runtime.
+- Created fresh `clamps-test-discovery` on port 2202 from the working-tree fix
+  based on `869c438`; the retained smoke VM on port 2201 was untouched. The
+  source capture includes the fix. Signed boot/readiness and Pi-hole, Tailscale,
+  DDNS and Datadog provisioning succeeded. Local debug image hashing was stopped
+  before VM definition and the recorded preparation resumed using release CLI.
+- Initial status: one Syncthing HTTP check, four process instances, no current
+  check/submission errors. Direct owned reboot automatically restored the same
+  checks without an Agent restart. Startup timestamps confirmed the five active
+  monitored containers started before the Agent. Status was sampled again after
+  initial Agent warm-up; an early probe before auth-token creation was inconclusive.
+- Repeating the Datadog credential phase preserved every container ID.
+  `test smoke clamps --instance discovery` passed all fixture cases across a
+  second reboot and readiness recovery, using release binaries. Smoke initially
+  refused the Started lifecycle state after direct reboot; explicit `test vm
+  ready` completed before retry. `--with-applications` was not used.
+- After the second reboot: one HTTP and four process checks, no current check,
+  Autodiscovery or submission errors; Agent `NRestarts=0`. No manual Agent
+  restart was used during either recovery check. Caddy was not provisioned;
+  later application-start/event reconciliation is not established by this test.
+- eBPF remains the separate unresolved acceptance gap from 2026-10-07. This
+  slice changes boot ordering only; it does not establish probe/kernel/Secure
+  Boot compatibility or richer application metrics.
+- Owned Cloudflare/Tailscale cleanup and VM disposal completed successfully.
+  The run directory was removed; the retained smoke VM remained running.
+  Private zones, tokens and status payloads were kept out of tracked files.
+
+## DDNS and Datadog named-VM acceptance, 2026-10-07
+
+- Used separate `clamps-test-monitoring`, instance `monitoring`, SSH port 2202,
+  on native `qemu:///session`. The retained `clamps-test-smoke` stayed running
+  on port 2201. KVM is available outside the sandbox. Tested working-tree
+  changes based on `bbfcae8`; the run's original capture preceded live fixes.
+- Shared Datadog API-key/public site change passed the six-required-entry vault
+  audit, formatting, pedantic workspace Clippy, all 299 workspace tests, and
+  Fedora base integration (two applies, no repeat service activation). The
+  actual Quadlet generator accepted the Agent and Autodiscovery fixtures.
+- Provisioned Pi-hole, Tailscale, DDNS and Agent using cached vault access and
+  the ownership-checked CLI. DDNS published one allowlisted, marked public A
+  record and verified publication on repeat provisioning and after reboot.
+  Disposable reprovisioning replaces its bounded token by design; it does not
+  establish token reuse. Ordinary repeat apply preserved all container IDs.
+- Live acceptance found and fixed three defects: socket-as-directory volume
+  convergence, HTML escaping of Quadlet label quotes, and replacement of the
+  Agent's built-in integration directory. Mounted the socket's parent and
+  individual integration directories; machine templates preserve literal text.
+- Confirmed Agent 7.84.1, VM hostname, SELinux enforcing, API key validation,
+  successful submissions with no submission errors, Btrfs/network/systemd/SSH
+  checks, default host/container checks, Syncthing HTTP and four process checks.
+  Configured checks had no current errors; Docker had an initial historical
+  error but no current error/warning. Agent listeners observed on loopback
+  5000/5001; no 8125/8126 listener was observed. Dashboard/graph verification
+  and detailed host metric-value comparison were not performed.
+- `skillet test smoke clamps --instance monitoring` passed all synthetic
+  fixture cases across reboot and readiness. It did not run `--with-applications`.
+  Readiness reinstalled original captured binaries/definitions; restored the
+  current build with `test vm update`, reconverged phases, then used an owned
+  direct reboot for the monitoring recovery check.
+- DDNS and Agent units and credential apply phases recovered successfully.
+  Host checks and submissions resumed. Application Autodiscovery did not
+  recover automatically: HTTP/process instances were absent despite running
+  labelled containers. A manual Agent restart restored one HTTP and four
+  process checks. Automatic application monitoring recovery remains failed.
+- eBPF network tracing remains failed: probe attachment reported “function not
+  implemented”, and fallback kprobe registration could not write read-only
+  tracing files. Secure Boot state was not verified. Do not claim eBPF parity;
+  the active container and successful host network check do not prove it.
+- `test vm destroy clamps monitoring` completed Cloudflare owned-record/token
+  cleanup, Tailscale cleanup and VM disposal. The run directory was removed;
+  native libvirt listed only retained `clamps-test-smoke`. No production
+  handover was attempted. Unrelated provider-resource preservation has offline
+  ownership coverage; a full live provider inventory comparison was not done.
+- Next: fix boot-time Autodiscovery reconciliation and review eBPF kernel,
+  seccomp and tracing access; see `../plan/CLAMPS-DATADOG.md`. Private ping,
+  richer application metrics and production acceptance remain separate work.
+
+## Datadog offline validation, 2026-10-07
+
+- Approved rootful Agent recipe and delivery implemented; Clamps selects it
+  separately from ordinary full apply. No live telemetry was enabled here.
+- Formatting, pedantic Clippy, all 291 workspace tests, the Fedora base
+  integration scenario (two applies, repeat with no service activation), and
+  all eight Butane bootstrap regressions passed on the musl target.
+- The installed Quadlet generator accepted the actual Agent recipe emitted by
+  the offline `skillet_datadog` `agent` example. Generated ExecStart retains
+  host PID/cgroup/network namespaces, optional eBPF capabilities, read-only
+  mounts without host relabeling, and native Podman environment-secret
+  references. No literal API key or published ports appear in the Quadlet.
+- Unit regressions cover input validation, storage prerequisites, independent
+  credential phase, environment tags, stdin-only delivery, repeat apply,
+  secret rotation, and retry after a failed restart.
+- Official pinned image metadata reports Agent 7.84.1. The image's startup
+  requires `DD_API_KEY`; native Podman environment-secret injection is used.
+- Live named-VM Agent acceptance was unverified at this stage. The absent
+  `/dev/kvm` observation was inside the sandbox; a later native workstation
+  check confirmed KVM and session libvirt are available. Agent status/version, socket discovery, actual host/Btrfs
+  observations, systemd/SSH checks, eBPF under uCore Secure Boot/SELinux,
+  listener exposure, reboot recovery, and Datadog ingestion still need tests
+  with the shared `skillet/datadog/api-key` and public template site configuration.
+  No vault unlock was attempted for this Agent validation.
+
+## Disposable DDNS attempt and cleanup, 2026-10-06
+
+- Built the current Skillet CLI with Rust 1.99 and created a separate
+  `clamps-test-ddns` VM on the native session libvirt runtime, leaving the
+  retained `clamps-test-smoke` VM untouched. The guest completed signed boot
+  and Skillet readiness.
+- Ran `skillet test vm provision clamps ddns --with-ddns`. Pi-hole and
+  Tailscale provisioning completed, then DDNS preflight stopped because the
+  test KeePassXC entry
+  `skillet/environments/test/hosts/clamps/cloudflare/ddns-config` is absent.
+  The failure occurred before Cloudflare mutation: no DDNS child token,
+  ownership journal, or DNS record was created.
+- Ran `skillet test vm destroy clamps ddns`. Skillet removed the recorded
+  Tailscale identity and disposed the VM and its temporary SSH material. No
+  production DNS or other VM was touched.
+- Live DDNS record creation, updater convergence, and exact-record cleanup are
+  still parked until the test-only DDNS config entry is added to KeePassXC.
+  The disposable ownership/create/cleanup paths are covered by workstation
+  fake-provider tests; this attempt is not live DDNS ownership acceptance.
+
+## DDNS lifecycle local validation, 2026-10-06
+
+- Passed `cargo fmt --all -- --check`, `git diff --check`, strict workspace
+  Clippy, and `cargo test --workspace --all-targets --offline` using Rust 1.99
+  and the configured x86_64 musl target. The full suite passed; workstation
+  coverage now includes 77 tests.
+- Added a Cloudflare API fixture regression proving cleanup refuses an extra,
+  unjournaled record carrying the disposable marker before sending any DELETE.
+  Disposable provisioning tests cover bounded credentials, exact configured
+  names, journal identity, mismatch refusal, cleanup/retry and safe errors.
+- Did not run live DDNS container/record acceptance: test configuration was
+  missing, so no DDNS guest credential or service was activated. The VM attempt
+  and recorded Tailscale cleanup are described above.
+
+## DDNS local implementation checks, 2026-10-06
+
+- Evaluated upstream 2.2.0 (source revision
+  `7c6d5b43c1d400f4977f2b25bd44d784bb601ae3`) and its multi-platform image index
+  `sha256:5f2471be9efd9f0c95f973645cc87f05d501020ded94d380a2120fbfdf812d3d`.
+  Image inspect confirmed `/cloudflare-ddns --repeat`, working directory `/`,
+  and default root identity. Ran the exact image as `0:0`, `--network=none`,
+  `--dry-run` with a dummy JSON Podman secret at `/config.json`, mode `0400`.
+  The binary accepted the config and skipped updates after IP discovery failed,
+  as expected without networking. The container and dummy secret were removed.
+  This verifies consumer parsing/mount access, not DNS updates or rootful uCore.
+- DDNS and canonical profile tests cover caller selection, phase credentials,
+  missing storage/input, no published ports, no plaintext config files, repeat
+  apply, rotation, and failed-activation retry. Fake provider/transport tests
+  cover persistent token reuse, vault conflicts, saving/revocation failure,
+  interrupted delivery retry and record takeover/namespace protection. Routine
+  CI uses no vault, live Cloudflare, IP-discovery service or hypervisor.
+- Workspace musl tests, pedantic Clippy and formatting passed with Rust 1.99.
+  Fedora base integration applied twice without repeat service actions and
+  removed its container. Bootstrap regression tests passed all eight cases.
+- Superseded by the later disposable DDNS attempt recorded above. That attempt
+  created and disposed a named uCore VM using the native session libvirt runtime;
+  test-only config was missing, so live DDNS records and provider cleanup remain
+  unverified. No production activation or old-writer handover was attempted.
+
+## CI lint recovery, 2026-10-06
+
+- [CI run 37440317671](https://github.com/gbagnoli/devmachine/actions/runs/37440317671)
+  at `c8f5d7e` failed strict Rust 1.99 Clippy's `assert_is_empty` lint and
+  ShellCheck SC2015 on the desktop llama helper's intentional best-effort stop.
+  Replaced affected collection assertions with equality assertions that expose
+  actual values on failure. The workflow excludes only SC2015 for that helper
+  and still runs its other ShellCheck checks; desktop runtime files are unchanged.
+- After the user updated local Rust to 1.99, passed the musl-target commands
+  `cargo fmt --all -- --check`,
+  `cargo clippy --workspace --all-targets --offline -- -D warnings`,
+  `cargo test --workspace --all-targets --offline`, and
+  `cargo run --bin skillet -- test run beezelbot --phase base --image fedora:latest`.
+  Used the existing cross compiler on PATH and existing Cargo build cache.
+  The Fedora container applied successfully twice without repeat service actions
+  and was removed afterward. The complete workspace suite, including provider
+  HTTP fixtures, passed outside the sandbox's localhost-listener restrictions.
+- The exact updated workflow ShellCheck command and
+  `bash ublue/butane/tests/bootstrap.sh` passed. Remote CI must rerun after push;
+  Syncthing live VM acceptance remains parked. No vault/provider/VM contact was
+  required by these local checks.
+
+## Migration documentation audit, 2026-10-06
+
+- Reconciled the refactor/migration status against current source and recorded
+  acceptance. Refactor code is committed; Syncthing ownership-fix VM acceptance
+  stays parked until Flatpak libvirt access returns. Remote CI remains pending.
+- Added the source-level Rupik parity checklist and DDNS implementation plan.
+  The active Chef path includes DDNS and Datadog. Chef's Tailscale exit-node
+  advertisement has no corresponding option in current Skillet composition.
+  The legacy NAT/second updater recipe is outside the default include path;
+  its effective live state remains unknown.
+- Recorded the user's decision to retain Datadog. DDNS remains planned;
+  Datadog port and isolated UniFi backup/restore follow it. No provider mutation,
+  guest operation, production data transfer, or new runtime acceptance occurred.
+- Prior ownership-fix validation passed formatting, GNU-target strict workspace
+  Clippy, and Syncthing/host-profile/Podman tests. The full workspace run had 10
+  provider-fixture failures (`Operation not permitted` creating local HTTP
+  listeners) in this sandbox. Do not treat that run as a full-suite pass.
+
+## Interrupted reboot checkpoint recovery, 2026-10-05
+
+- Added `bash ../skillet/integration_tests/interrupted-reboot-recovery.sh HOST INSTANCE`
+  to exercise the persisted checkpoint and recovery across separate Skillet
+  processes. The first smoke run intentionally exits after recording
+  `Started`, before asking libvirt to reboot; the script verifies that phase,
+  runs `test vm ready`, verifies `Ready`, then runs an ordinary fixture smoke
+  reboot. The fault point is hidden from normal CLI help and is only available
+  to the disposable-VM smoke command.
+- Passed on the existing `clamps/smoke` VM without the optional application
+  check. The interrupted run remained `Started`; separate readiness restored
+  `Ready`; the normal fixture reboot passed and the VM returned to `Ready`.
+- The optional `--with-applications` variant also reached the injected
+  interruption and recovered readiness, but its final application check
+  failed because `/var/lib/data/syncthing` was `core:core` after reboot while
+  the profile declares `giacomo:giacomo`. Syncthing's journal also showed
+  permission denied opening its config lock. The profile now separates the
+  host data owner from container UID/GID 1000 and maps that container identity
+  to the host account through Podman's typed namespace mapping. Regression
+  coverage is added; live acceptance of this fix is parked until workstation
+  access to the Flatpak libvirt backend returns.
+- Passed workspace formatting check, `cargo test -p skillet --no-run`,
+  `cargo clippy -p skillet --all-targets -- -D warnings`, ShellCheck for the
+  recovery script, and `git diff --check`. The complete workspace suite and
+  remote CI have not been rerun for this change.
+
+## Refactor follow-up, 2026-10-05
+
+- The first live UI retry exposed a host/Podman rootless networking mismatch:
+  the VM could not connect to Caddy through `127.0.0.1`, while direct access to
+  Caddy's dynamically inspected bridge address returned the intended 403. The
+  denial probe now discovers the current Caddy container IPv4 at runtime.
+  Disposable provisioning then passed and reused its journaled state.
+- Passed `cargo run --release -p skillet -- test smoke clamps --instance
+  smoke --with-applications` on the provisioned named VM. After fixture reboot,
+  Skillet verified active Pi-hole, Tailscale, Syncthing, UniFi,
+  `skillet-btrbk.timer`, and Caddy; container network/mount state, declared
+  ownership, listeners, Pi-hole and Tailscale health; unchanged runtime after
+  repeat apply; and marker persistence across reboot. The VM returned to
+  `Ready`. Application acceptance derives from the host profile.
+- Passed `cargo fmt --all -- --check`, strict workspace Clippy, workspace
+  all-target tests, the CI Fedora container command
+  (`cargo run --bin skillet -- test run beezelbot --phase base --image
+  fedora:latest`), bootstrap state regressions, and the workflow ShellCheck
+  command. Exact commands are in `../AGENTS.md` and `../skillet/AGENTS.md`.
+- Existing `clamps/smoke` ownership was verified with
+  `cargo run --release -p skillet -- test vm status clamps smoke`. `test vm
+  update clamps smoke` delivered current binaries, and `test vm ready clamps
+  smoke` passed. Then `cargo run --release -p skillet -- test smoke clamps
+  --instance smoke` passed fixture convergence, pre/post-reboot assertions,
+  new boot detection, captured binary verification, and readiness recovery.
+- Injected tests cover active services, container network, bind paths, named
+  versus numeric host ownership, listeners, health probes, repeat-apply
+  identity, data mount, and reboot persistence. Live checks corrected the
+  initial ownership expectations: Pi-hole may change writable directory owners,
+  and Syncthing's declared host account differs from its container UID.
+- Remote CI is pending until these working-tree changes are pushed. Production
+  renewal, external-network denial, and interrupted-reboot fault injection
+  remain outside this local acceptance result.
+
+## Refactoring and disposable UI revalidation, 2026-10-04
+
+- Passed `cargo fmt --all -- --check`, strict workspace Clippy, and
+  `cargo test --workspace --all-targets --offline`. The CI Fedora repeat-apply
+  command passed: `cargo run --offline --bin skillet -- test run beezelbot
+  --phase base --image fedora:latest`.
+- A fresh `clamps-test-generic-ui` VM was created on SSH port 2202 and reached
+  `Ready` through signed uCore boot, bootstrap, and user-environment checks.
+  `cargo run --offline --bin skillet -- test smoke clamps --instance
+  generic-ui` passed its real systemd/Podman apply, failure-recovery, and
+  reboot-persistence cases. `test vm destroy clamps generic-ui` removed the
+  disposable VM and its recorded Tailscale device.
+- Live provisioning exposed two fresh-host issues and they are fixed in code:
+  staged Butane `mode` values are normalized to numeric values before compile,
+  and Pi-hole credentials are delivered before Tailscale so the full-apply
+  unit receives its complete credential prerequisites. Tailscale enrollment
+  now treats a confirmed absent container as unenrolled while keeping other
+  Podman probe failures fail-closed. Unit coverage and all local checks pass.
+- The corrected environment paths were exercised from a fresh credential-empty
+  VM. `test vm provision clamps generic-ui --with-ui` completed using the test
+  KeePass group. Caddy's guest journal confirmed successful certificate
+  issuance from `acme-staging-v02.api.letsencrypt.org-directory` for all three
+  declared UI names. The provisioning probes also received the configured 403
+  tailnet-denial response over HTTPS for the UI names.
+- `test vm destroy clamps generic-ui` completed Cloudflare ownership cleanup,
+  removed the disposable Tailscale device, and deleted the VM. No production
+  DNS or credentials were changed. A separate tailnet-client URL check,
+  cryptographic SAN/chain verification, and denial from a separate outside
+  network remain unverified; staging certificates are intentionally untrusted.
+
+## Recoverable VM creation intent, 2026-10-03
+
+- Creation now writes a mode-0600 Rust manifest with a generated domain UUID
+  before installer staging. Repeated preparation resumes only the same
+  `Preparing` intent with matching backend, runtime, SSH port, and source
+  revision; ambiguous and progressed directories are refused.
+- The UUID is embedded in native libvirt XML and passed to Flatpak `virt-install`.
+  Native definition is recorded as `Defined` before start. Failed start no
+  longer undefines the guest. Re-running create checks UUID and disk ownership,
+  starts a verified stopped domain, or resumes staging when no domain exists.
+  Captured hashes and `Started` are written after the helper succeeds.
+- Local regression tests cover intent reuse/conflict, private run-directory
+  permissions, and phase transitions. Passed `cargo fmt --all --check`,
+  offline workspace all-target Clippy with `-D warnings`, offline workspace
+  tests/build, the CI Fedora repeat-apply container integration, ShellCheck for
+  both changed helpers, CLI help, and `git diff --check`. No VM, libvirt domain,
+  vault, or provider resource was contacted for this change.
+
+## Native XML rendering, 2026-10-03
+
+- Native domain XML is rendered in `skillet_vm` with `quick-xml`, written
+  atomically as a private file under the manifest's run directory, and consumed
+  by the existing `virt-xml-validate` and `virsh define` steps. The renderer
+  carries the manifest UUID, exact disk and Ignition paths, QEMU fw_cfg input,
+  passt loopback SSH forwarding, serial console, and original machine profile.
+  Attribute escaping is checked using a path containing `&`.
+- Removed the Python XML generator and the Python 3 VM preflight requirement.
+  Backend/emulator selection and subsequent define/start remain in Bash for now;
+  Flatpak still delegates VM construction to `virt-install`.
+- Passed format, offline workspace all-target Clippy (`-D warnings`), workspace
+  tests (51 VM tests), build, ShellCheck for both changed helpers, and the CI
+  Fedora repeat-apply container integration. The renderer test validates the
+  generated XML against the same name, UUID and disk ownership parser used by
+  status inspection. No VM/libvirt domain was contacted.
+
+## Rust readiness migration, 2026-10-03
+
+- The CLI's `test vm ready HOST INSTANCE`, create's readiness phase,
+  `test-vm HOST ready INSTANCE` and the retained RUN_DIR helper now share
+  Rust readiness. It uses the run lock, recorded SSH target, ownership checks
+  after waits, captured binaries, bounded probes and explicit profile boot
+  expectations. It does not use embedded shell or `systemctl --wait`.
+- Preserved signed-origin, base-unit, artifact bytes/metadata, SELinux,
+  resolver/DNS, masked-unit, Homebrew and dotfiles acceptance checks. Both
+  binaries are verified again after apply. Ready/deployed state is saved only
+  after all checks and final domain ownership validation.
+- Forty-nine VM tests pass, including success/retry, SSH/signed-boot timeout,
+  bootstrap/apply failure, ownership loss, capture tampering, signed-origin
+  refusal, guest security/user-environment failures and directory-based legacy
+  identity lookup. Failure retains private diagnostic logs; ownership loss
+  refuses further guest contact. The temporary boot policy lookup remains to
+  be consolidated in workstream 2.
+- Passed static-musl `cargo fmt --all --check`, offline workspace all-target
+  Clippy with `-D warnings`, offline workspace tests/build, the routine Fedora
+  base integration (both applies; no repeat service start/restart), readiness
+  CLI help, ShellCheck for both changed helpers, and `git diff --check`.
+- Live native/Flatpak readiness, rebase and retained-run import remain
+  unverified. The user's VM and provider resources were not contacted or
+  modified. No vault unlock or workstation installation was needed.
+
+## Readiness retry recovery, 2026-10-03
+
+- A readiness retry now persists `Started` before guest work, so failure after
+  updating a previously `Ready` run cannot leave the prior success checkpoint
+  in place. Only full acceptance plus a final owner check persists `Ready` and
+  the captured deployed hashes.
+- A guarded transport checks domain identity before and after every guest
+  command and upload, including systemd service starts. A changed owner halts
+  the sequence before subsequent service operations or diagnostics.
+- Regression tests begin timeout/bootstrap/apply retry cases in `Ready` and
+  verify the saved phase becomes `Started`; an ownership-loss case during the
+  Brew start confirms dotfiles is not started afterward. Full validation is
+  complete: formatting, all-target offline Clippy, workspace tests/build,
+  Fedora repeat-apply integration, readiness CLI help, ShellCheck for both VM
+  wrappers and `git diff --check` pass. Live VM acceptance remains pending.
+
+## Retained VM update migration, 2026-10-03
+
+- Rust now builds both binaries from Cargo-reported paths, checks recorded
+  domain ownership, and delivers through the shared noninteractive SSH adapter.
+  Updates and disposal use the same per-run lock. Original captured hashes are
+  preserved; deployed hashes are saved only after both installed files verify.
+- Adapter tests cover repeated delivery without upload/install, interrupted
+  installation and retry, hash mismatch, cleanup-phase refusal, shared lock
+  contention and rejection of nonregular manifest files. Forty VM tests pass.
+- Passed `cargo fmt --all --check`, offline workspace all-target pedantic
+  Clippy with `-D warnings`, offline workspace tests and static musl build.
+  Passed `skillet test run beezelbot --phase base --image fedora:latest`:
+  both applies succeeded and the repeat issued no service start/restart.
+  ShellCheck for `bin/test-vm` and `git diff --check` passed.
+- No live VM was contacted or changed: VM creation is running in the user's
+  other panel. Live update, boot, and migration acceptance remain unverified.
+
+## VM refactoring foundation, 2026-10-03
+
+- Source slice: after roadmap commit `471068f`, added `skillet_vm` manifest
+  types and shared CLI identity validation. No guest service behavior changed.
+- Passed on the static-musl target, with the existing cross compiler on PATH:
+  `cargo fmt --all --check`,
+  `cargo clippy --offline --workspace --all-targets -- -D warnings`,
+  `cargo test --offline --workspace`, and `cargo build --offline`, followed by
+  `./target/x86_64-unknown-linux-musl/debug/skillet test run beezelbot --phase base --image fedora:latest`.
+  The isolated Fedora container passed both applies with no repeat start/restart
+  and was removed afterward. Eight new manifest tests cover strict import,
+  preserved journals/hashes, metadata permissions and ownership/path refusal.
+- Initial GNU-target checks under `/tmp` ran out of space. Only this task's
+  temporary build directory was removed; subsequent builds used `/home`.
+  The cross compiler was present outside the restricted filesystem view; no
+  software was installed.
+- Live creation/import/readiness/destruction checks are deferred. The user is
+  creating a smoke VM in another panel; it and its artifacts were left alone.
+  No vault, Cloudflare or Tailscale request was needed for this slice.
+
+## Shared SSH transport contract, 2026-10-03
+
+- Source slice: follows `67d8f54`. Added `GuestTransport` and `SshTransport`
+  for literal executable/argument requests, explicit target and host-key policy,
+  noninteractive SSH/SCP, and stdin delivery. No live SSH command was run.
+- Subprocess I/O is memory-backed with concurrent pipe readers/writer, bounded
+  output and complete-operation timeout. Tests cover a 1 MiB round trip, a
+  blocked stdin writer, unconsumed input on nonzero exit, key/target validation,
+  shell metacharacter quoting, upload traversal refusal, DNS/IPv6 targets and
+  explicit host-key enrollment versus verification. Thirty-five VM tests pass.
+- Passed static-musl workspace format, all-target pedantic Clippy,
+  workspace tests/build and the routine Fedora base container integration.
+  Readiness/delivery migration and live transport acceptance remain pending;
+  no vault unlock, provider mutation or change to the user's VM was attempted.
+
+## Interrupted local artifact removal, 2026-10-03
+
+- Follow-up to `d799ace`: disposal now removes application artifacts before
+  deleting authoritative/legacy recovery records. A deterministic local
+  removal failure leaves both the versioned manifest and original identity/
+  hash records readable; retry finishes artifact deletion.
+- Twenty-seven VM tests, workspace tests, all-target pedantic Clippy,
+  formatting, routine Fedora container integration and whitespace checks pass.
+  This is local fault injection; live VM disposal remains deferred.
+
+## Rust catalog and Cargo artifact selection, 2026-10-03
+
+- Source slice: follows `d799ace`. Both list entry points delegate to Rust
+  catalog/inspection, without rewriting manifests. Cargo JSON selection now
+  supplies the container runner. Twenty-six VM tests cover catalog availability,
+  partial-run discovery, non-default artifact paths/profiles, missing/duplicate
+  artifacts, and existing ownership/cleanup cases.
+- Passed static-musl formatting, workspace all-target pedantic Clippy,
+  workspace tests/build, helper ShellCheck and whitespace checks. Also passed:
+  `CARGO_TARGET_DIR=/home/giacomo/.cache/devmachine-target ./target/x86_64-unknown-linux-musl/debug/skillet test run beezelbot --phase base --image fedora:latest`.
+  The runner selected the cache directory's Cargo-reported host binary rather
+  than a conventional workspace path; both applies passed and cleanup completed.
+- Live VM catalog/runtime checks and retained-run lifecycle acceptance remain
+  deferred. No VM mutation, vault prompt or external provider call was attempted.
+
+## Rust VM inspection and disposal, 2026-10-03
+
+- Source slice: follows `544b8e5`. `test vm status` and both destroy entry
+  points use `skillet_vm`. Native and Flatpak command contracts are covered
+  without contacting libvirt. Destructive actions use the recorded UUID.
+- Twenty-one VM regression tests pass, including absent guests, failed runtime
+  queries, reused names/renamed UUIDs, wrong disks, literal subprocess arguments,
+  bounded command timeout, concurrent disposal, external cleanup failure/retry,
+  and local cleanup retry after the external phase was already completed.
+- Passed the same static-musl workspace format, all-target pedantic Clippy,
+  workspace tests/build and Fedora base integration commands listed above;
+  also passed `shellcheck -x butane/bin/test-vm` and `git diff --check`.
+- No live VM mutation, retained-run import, provider call or vault unlock was
+  attempted. Live cleanup and Flatpak runtime acceptance remain unverified.
+  The user's concurrent VM creation was left untouched.
+
+Status: clean disposable VM create, readiness, and the real Skillet smoke
+scenario passed on 2026-09-26. A subsequent fresh VM reached the signed
+deployment and installed the full user environment. Bootstrap interruption
+recovery remains unverified.
+
+## Shared bootstrap and user environment
+
+- The host-independent `ucore-bootstrap.service` read clamps' image reference
+  from `/etc/ucore-bootstrap-image` and completed both rebases on a fresh VM.
+- `brew-install.service` and `dotfiles-install.service` completed with status
+  0. The `core` Brewfile bundle check passed, and the Brewfile and SSH key
+  symlinks resolve into the dotfiles checkout. Completion markers survive
+  reboot and allow an interrupted installation to retry.
+- The first readiness run failed only because its symlink check compared a
+  resolved `/var/home` path with an unresolved `/home` path. After correcting
+  the comparison, `test-vm clamps ready smoke` passed on that same VM.
+- `test-vm clamps reboot smoke` followed by `test-vm clamps ready smoke` passed; the
+  temporary SSH key and completion markers survived the reboot.
+- The VM interface is now `test-vm <host> <command> <instance>`, with `list`
+  also accepting a host or listing all hosts. The Skillet wrapper accepts
+  host and instance for `test vm create` and `test vm destroy`.
+  `test-vm clamps status smoke` confirmed the retained domain. `test-vm list`
+  showed clamps as available, smoke as running, a prior incomplete run as
+  invalid, and beezelbot as unavailable because its Butane file is absent.
+  Other hosts still need their own Butane configuration and host artifact.
+- A second fresh VM, `clamps-test-generic` on port 2202, was created with the
+  generalized command and passed signed-boot and full user-environment
+  readiness.
+
+## Passing clean run
+
+- `cargo run --release -p skillet -- test vm create` created
+  `clamps-test-smoke` from a fresh FCOS qcow2 and returned success without
+  manual guest repair. The VM remains available for smoke runs.
+- `runs/clamps-test-smoke/final-status.json` records the booted origin as
+  `ostree-image-signed:docker://ghcr.io/gbagnoli/ucore-clamps:latest`; the
+  previous deployment is the unsigned clamps image.
+- The readiness helper verified the generated SSH key, guest binary SHA, successful
+  repeated base apply, enforcing SELinux, NetworkManager's resolver, working
+  DNS, and masked `systemd-resolved`.
+- Ignition keys survived under `~/.ssh/authorized_keys.d/ignition`. Skillet's
+  SSH config now includes that path. The image repo has the matching change,
+  which will take effect after its next image build.
+- `cargo run --release -p skillet -- test smoke clamps` passed the real
+  Podman/systemd fixture, repeated apply, config and secret changes, injected
+  startup failures, and post-reboot persistence. Snapshots and journals remain
+  under `/var/lib/skillet-smoke` in the disposable VM.
+
+## Preflight and failed attempts
+
+- Native `virsh -c qemu:///session list --all` worked with host execution and
+  showed no existing domains before provisioning. Host has `passt` and
+  `virt-install`; a read-only XML preview showed loopback-bound passt forwarding.
+- Initial launcher attempt `clamps-agent2-0925-01` stopped before VM creation
+  on an invalid yq expression; fixed in `bin/butane`.
+- `clamps-agent2-0925-02` compiled strict Butane output but QEMU refused to
+  open the fw_cfg Ignition file in the workspace (`Permission denied`).
+- `clamps-agent2-0925-03` produced the same QEMU error with artifacts under
+  `/tmp`. No domain remained after either failed virt-install. The current
+  source adds the Ignition file as a read-only libvirt-managed raw attachment;
+  a later clean VM create passed. Per-VM confinement was not
+  disabled and host security policy was not changed.
+- Failed generated artifacts remain in ignored `runs/` and `/tmp` paths for
+  diagnosis. They contain private test SSH keys and should not be committed.
+- A later `runs/clamps-test-0925-05` directory contains generated artifacts
+  but no recorded domain UUID or acceptance results. This is not evidence of
+  a successful guest boot. The helper now selects a separate native libvirt
+  runtime to avoid mixing native and Flatpak daemon filesystem views; that
+  approach passed the clean create recorded above.
+- `runs/clamps-test-smoke` created a running VM, but SSH on port 2201 never
+  became available. The serial console showed Ignition still reading the
+  2.5 MiB `fw_cfg` payload after about 30 host minutes; the dominant
+  embedded entry was the 4.9 MiB `skillet-clamps` binary. Ignition documents
+  that large QEMU `fw_cfg` configs can take an unreasonable time to read
+  ([release notes](https://coreos.github.io/ignition/release-notes/)). The VM
+  launcher now omits that binary from the VM-only Ignition config and
+  the readiness helper transfers it over SSH after first boot. The clean create
+  recorded above validated this change.
+
+## Static checks
+
+- ShellCheck passes for the four launcher/readiness scripts, bootstrap
+  regression script and both Skillet smoke scripts.
+- Full strict Butane compilation passed on 2026-09-26 with an earlier staged
+  source and rebuilt host artifact. Local output:
+  `/tmp/clamps-commit-validation-93upz2et/ignition/clamps.ign`.
+- `bash tests/bootstrap.sh` passes eight mocked deployment-state cases:
+  fresh clamps and bender boots, unsigned boot with signed rollback, signed pending, signed
+  booted (tag and digest), reboot retry limit, and rebase failure.
+  These are regression checks, not a replacement for actual VM boots.
+- Review corrected duplicate `:latest` matching, rollback selection as a
+  pending deployment, and reuse of a stale default Skillet build. The default
+  launcher now rebuilds; `--artifact` remains an explicit override.
+- Skillet review passed formatting, 25 workspace tests, configured pedantic
+  Clippy with warnings denied, and the offline static release build.
+- Current VM Skillet artifact SHA256:
+  `6cdb80f03221c0fb9521f7ff9a58ee33844fb7262651ff47793b9a9f70ec7784`.
+
+## Exit criteria
+
+| Criterion | Result | Evidence / next command |
+| --- | --- | --- |
+| Clean install | Pass | Clean `test vm create` returned success |
+| Access | Pass | Generated key authenticated after signed boot |
+| Rebase sequence | Pass | Booted signed and previous unsigned clamps deployments |
+| Resolver continuity | Partial | Final boot passed; each intermediate boot not checked |
+| Artifact delivery | Pass | Guest SHA matched `skillet.sha256` |
+| Automatic apply | Pass | Boot unit completed with status 0 |
+| Repeat apply | Pass | `test-vm clamps ready smoke` reran the base unit with `systemctl --wait` |
+| Reboot | Pass | Smoke reboot preserved data and container state |
+| Interruption | Not run | Interrupt an isolated bootstrap, then recover |
+| Repeatability | Not run | Second fresh VM after first passes |
+| Real Skillet scenario | Pass | `skillet test smoke clamps` returned success |
+
+The passing VM is retained for further inspection. The mutable
+source-tree helper has not been installed as a frozen, persistently approved
+host tool; it still uses normal command approvals.
+
+## Pi-hole credential slice, 2026-09-27
+
+- Fresh `clamps-test-pihole` VM on port 2202 passed `test vm create clamps
+  pihole`, including unsigned/signed image rebases and base readiness. Its
+  ignored `runs/clamps-test-pihole/` directory retains build and VM evidence.
+- `test vm provision clamps pihole` delivered a generated dummy password via
+  SSH stdin. The guest installed mode 0600, root-owned encrypted credential
+  and loaded it through `skillet-full-apply.service`. A comparison of decrypted
+  credential bytes with the live container's `/run/secrets/pihole_web_password`
+  passed without printing the value.
+- First full apply exposed a pre-existing `useradd` same-name group bug and a
+  non-root Pi-hole startup failure. Both were fixed. `test vm update clamps
+  pihole` deployed the current host binary while retaining the creation
+  snapshot. Pi-hole then stayed active.
+- Repeat provision kept container ID
+  `de3716fc0a698771f792a1c909cec4f5486bbbe15f5fb74292da5a4b94c05e8c`.
+  Explicit `--rotate` changed it to
+  `dc4a8970644a44684b0d00b0f7dbf0d9bd242848b3a3ab2ff7b46bff94c55e87`,
+  and the mounted secret matched the new credential. A reboot brought Pi-hole
+  back active with the encrypted file intact.
+- `skillet test smoke clamps --port 2202 --identity
+  ../butane/runs/clamps-test-pihole/ssh/id_ed25519` passed its real-systemd
+  fixture, including its own reboot. Evidence is under
+  `/var/lib/skillet-smoke/` on the retained VM.
+- Final workspace checks passed: 32 Rust tests, pedantic Clippy with warnings
+  denied, `shellcheck` and `bash -n` for `bin/test-vm`, and `git diff --check`.
+- Post-delivery OS rebase, interruption recovery, production TPM binding,
+  Cloudflare token migration, and Pi-hole DNS/web behavior were not checked.
+
+## Fresh default smoke VM, 2026-09-27
+
+- The retained `clamps-test-smoke` VM predated `skillet-full-apply.service`:
+  readiness passed, but `test vm provision clamps smoke` failed because that
+  unit was absent. The owned disposable domain and run directory were removed.
+- `test vm create clamps smoke` then built a fresh VM from current Butane and
+  passed signed-image readiness and the user-environment checks. The run
+  artifacts remain in the ignored `runs/clamps-test-smoke/` directory.
+- `test vm provision clamps smoke` delivered a generated dummy credential and
+  completed full apply. `test smoke clamps` passed all real-systemd/Podman
+  fixture cases, including repeat apply, recovery, secret rotation, and reboot
+  persistence. Guest evidence remains under `/var/lib/skillet-smoke/`.
+- This run used no KeePassXC vault or Cloudflare token. It did not check
+  storage mounts, Pi-hole DNS/web behavior, or post-delivery OS rebase.
+
+## Shared Btrfs data storage, 2026-09-27
+
+- Fresh `clamps-test-storage` VM on port 2203 booted from Butane with the
+  shared `data-storage.bu` include. After the signed uCore bootstrap,
+  `/var/lib/data` mounted as Btrfs `/data` on the same filesystem as `/var`.
+  `skillet-data-prepare.service` created the `containers` subvolume and
+  restored the rootful graphroot SELinux label. Podman reported graphroot
+  `/var/lib/data/containers/system`, runroot `/run/containers/storage`, and
+  driver `overlay`.
+- Dummy-credential provisioning created the `pihole` child subvolume and
+  started Pi-hole with bind paths under `/var/lib/data/pihole/{etc,dnsmasq.d,log}`.
+  Repeated full apply retained the subvolume and running container. After
+  Pi-hole changed ownership of its own files, two further applies made no
+  metadata changes or container replacement.
+- A sentinel in the Pi-hole data tree survived VM reboot. Temporarily masking
+  `var-lib-data.mount` caused full apply to fail without creating fallback
+  Pi-hole or container paths. A wrong tmpfs mount was rejected by both the
+  shared preparation script and Skillet before either wrote to it. Restoring
+  the real mount and running normal convergence recovered Pi-hole and retained
+  the sentinel. The temporary mount override was removed.
+- The real Podman/systemd `test smoke clamps` scenario passed against this VM,
+  including its reboot and recovery cases, after deployment of the final
+  shared full-apply guard. Workspace tests, pedantic Clippy, ShellCheck for
+  both storage scripts, and `git diff --check` passed. These checks did not include a
+  post-provision OS rebase or the physical stock SSD. Other host templates do
+  not yet merge the shared include because they do not yet exist.
+
+## KeePass use-or-create smoke, 2026-09-28
+
+- Fresh `clamps-test-credential-e2e` VM on port 2202 passed current Butane
+  readiness, including signed uCore boot and the user environment. The updated
+  Rust host command installed a generated dummy Pi-hole credential; full apply
+  completed and Pi-hole became active. The guest credential is root-owned and
+  mode 0600.
+- `skillet test smoke clamps --port 2202 --identity
+  ../butane/runs/clamps-test-credential-e2e/ssh/id_ed25519` passed all fixture
+  cases and reboot persistence. Guest snapshots remain under
+  `/var/lib/skillet-smoke/` on the retained VM.
+- An empty disposable KDBX could not replace the VM's existing credential.
+  After removing only that VM's dummy credential and Podman secret, the same
+  vault created `skillet/hosts/clamps/pihole/web-password` and delivered it.
+  A repeat delivery reopened the saved entry and completed full apply. The
+  encrypted vault backup was retained, the host reported `present`, Pi-hole
+  was active, and full apply reported `Result=success` and `ExecMainStatus=0`.
+- On this workstation, both Skillet and `keyctl timeout` received permission
+  denied when setting expiry on a new user key. Skillet unlinked that key and
+  continued without caching the dummy unlock; the user keyring was empty after
+  the run. The three-hour kernel expiry path remains unverified here. No
+  production vault, production host, or physical disk was used.
+- Follow-up: `keyctl timeout` succeeded for a dummy key stored in a named
+  session keyring. Linking that keyring from the user keyring kept the same
+  named ring and dummy key available to a later process. Skillet now uses that
+  arrangement for the three-hour cache; the KeePass-backed end-to-end flow has
+  not yet been repeated with this implementation.
+
+## Post-delivery OS update/rebase and credential recovery, 2026-09-28
+
+- On `clamps-test-credential-e2e`, the signed `latest` ref had a newer image
+  available (digest `5d11f1003ffa1cb2a528c2e6943fa505dad86c2d3e5bf87b5330978111f3e0d2`).
+  `rpm-ostree upgrade` staged it, and `test-vm clamps ready credential-e2e`
+  passed after reboot. The encrypted Pi-hole credential remained present and
+  decryptable; full apply returned success, the Podman secret was present, and
+  Pi-hole was active.
+- An explicit signed rebase to that same image digest also staged and booted.
+  Readiness passed again; credential decryption and full apply succeeded, and
+  Pi-hole returned active. A same-tag rebase had been a no-op because the refs
+  were equal, so the newer signed image was staged first.
+- To exercise delivery recovery, a runtime-only systemd drop-in temporarily
+  forced `skillet-full-apply.service` to fail. Skillet `test vm provision
+  clamps credential-e2e --rotate` returned the expected activation error after
+  atomically installing a new encrypted credential. `systemd-creds decrypt`
+  validated it; the existing Podman secret and running Pi-hole were retained.
+  After removing the drop-in, normal `test vm provision clamps credential-e2e`
+  reused the installed credential, full apply succeeded, the Podman secret ID
+  changed, and Pi-hole remained active. The runtime drop-in was removed and
+  systemd reloaded.
+- This tests recovery after guest-side atomic credential installation when
+  activation fails. A disconnect during the input stream or encryption is
+  still untested. The software-only VM also reports that its systemd host key
+  is not on encrypted media; production TPM binding remains open.
+
+## Syncthing service, 2026-09-28
+
+- On the named disposable `clamps-test-credential-e2e` VM, a full apply created
+  `/var/lib/data/syncthing` as a Btrfs subvolume and started the separate
+  `syncthing` Quadlet container on the shared clamps network. Container-name
+  DNS resolved both bridge addresses, and `http://syncthing:8384` returned
+  HTTP 200 from another container.
+- The VM showed the Chef-equivalent host publications for GUI port 8384 and
+  transfer port 22000 on IPv4 and IPv6. A repeated full apply preserved the
+  container ID and configuration hash. Its empty data tree generated a VM-only
+  device identity; no production Syncthing identity was copied or run.
+- These are the previous session's runtime results. On the current workstation,
+  `test-vm clamps list` reports this domain as `missing`, so no fresh VM
+  rerun was made before committing. Real peer connectivity and production
+  state transfer remain cutover work. The GUI publication must be removed or
+  locally restricted before tailnet access can serve as its sole gate.
+
+## Btrbk image and VM attempt, 2026-09-29
+
+- Image workflow [run 36552978960](https://github.com/gbagnoli/ucore-images/actions/runs/36552978960)
+  succeeded for `ucore-common` and all three host images. The published clamps
+  image digest is
+  `sha256:e6c0cd35641199ddb5e2d9ca0f281dc1d640126ae5b2a04fa87c65163cedfd7c`.
+- The user created `clamps-test-smoke` with `./butane/bin/test-vm clamps
+  create smoke`. The guest booted the expected signed image and confirmed
+  `btrbk-0.32.7-1.fc44.noarch` is present, `btrbk.timer` is masked, and
+  `/var/lib/data` is Btrfs subvolume `/data` on the expected UUID.
+- The first readiness attempt hung during baseline convergence. Guest
+  `systemd-sysctl.service` is `Type=oneshot`, `RemainAfterExit=yes`; passing
+  `--wait` made systemctl wait for this persistent unit to stop. The rule was
+  corrected: ordinary `systemctl start` and `restart` wait for the requested
+  job. Skillet, credential delivery, the VM readiness helper, and its usage
+  example now omit `--wait`. Rebuilt clamps completed base apply successfully.
+
+## Btrbk snapshot verification, 2026-09-29
+
+- Dummy-credential provisioning completed full apply. Pi-hole and Syncthing
+  started, the `/var/lib/data/syncthing` Btrfs subvolume was present, and
+  `/etc/btrbk/btrbk.conf` contained only that source with the Chef-equivalent
+  hourly retention (`6h`, `24h 31d 6m`). `skillet-btrbk.timer` was active and
+  enabled while the packaged daily `btrbk.timer` remained masked.
+- `btrbk -n -v run` showed only `/var/lib/data/syncthing` as its source and
+  `/var/lib/data/snapshots/syncthing/syncthing.<timestamp>` as its target.
+  A real run created read-only snapshot `syncthing.20260929T1402`. A disposable
+  sentinel was changed in the live tree, then restored from that snapshot into
+  `/var/tmp/skillet-btrbk-restore`; byte comparison passed. The temporary
+  restore subvolume and sentinel were deleted, while the btrbk snapshot was
+  retained.
+- Repeated full apply preserved the btrbk config and timer hashes and retained
+  the existing snapshots. The timer fired at 14:00:30 and created
+  `syncthing.20260929T1400`. After a VM reboot, Pi-hole, Syncthing, and
+  `skillet-btrbk.timer` were active; the timer remained enabled, the package
+  timer remained masked, both snapshots remained, and the next hourly run was
+  scheduled for 15:00 CEST.
+- `cargo run --release -p skillet -- test smoke clamps` passed the real-runtime
+  systemd/Podman fixture checks through reboot. Local validation passed:
+  formatting, 45 workspace tests, pedantic Clippy with warnings denied, the
+  CI-style container command, `bash -n` and ShellCheck for `test-vm-ready`,
+  and `git diff --check`. The CI-style command ran from `/tmp` because the
+  checked-out workspace mount is read-only to shell commands.
+- Fail-closed behavior for missing and wrong `/var/lib/data` mounts was already
+  exercised against the shared storage configuration (see the shared Btrfs
+  data storage section above); btrbk unit tests also reject a wrong mount
+  before writing managed state. The disposable VM used an empty Syncthing
+  subvolume. The user confirms Syncthing data is designed without nested
+  subvolumes; the btrbk design treats selected sources as leaf subvolumes and
+  does not support nested subvolumes.
+
+## Generic private UI slice, 2026-10-01
+
+- `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, `cargo
+  build`, and the CI command `skillet test run beezelbot --phase base --image
+  fedora:latest` passed. New tests cover a non-clamps Syncthing-only declaration
+  in production and test, derived names, multi-service rendering, zone suffix
+  validation, rejection of invalid/duplicate services, and receiver-side
+  payload matching. A repeated Caddy apply test confirms unchanged generated
+  config does not restart the proxy container. Existing container tests still
+  pass.
+- Fresh `clamps-test-generic-ui` completed Ignition, signed uCore rebase,
+  base apply, Homebrew, and dotfiles installation using the pre-correction
+  static host-binary unit. A `%H` experiment failed because systemd expands it
+  to the full VM hostname, which is distinct from the host profile. The shared
+  unit now invokes the generic CLI with `/etc/skillet/host`; clamps writes the
+  stable profile `clamps`, and its credential-gated full-apply unit is in a
+  clamps-specific include.
+- On the existing `clamps-test-generic-ui` disposable VM, installed the current
+  generic and clamps binaries, wrote the stable host profile, and used a
+  temporary systemd drop-in to run the base unit through the generic
+  `--host-file` invocation. The unit reported success while the VM hostname
+  remained `clamps-test-generic-ui`. The real `skillet test smoke clamps
+  --port 2202 --identity <run-dir>/ssh/id_ed25519` passed through reboot. This
+  verifies the generic runtime path; a fresh VM from the updated Ignition and
+  binary-staging flow is still pending. The prior guest evidence remains in its
+  ignored run directory.
+- Strict Butane compilation passed for the updated clamps config and both
+  shared and clamps-specific unit fragments. Running the normal wrapper built
+  and staged both current static binaries; decoded merged Ignition confirmed
+  `/etc/skillet/host=clamps`, generic `skillet` commands for base/full/Caddy,
+  and the host binary at `/var/usrlocal/bin/skillet-clamps`.
+  `bash -n`, ShellCheck, and `git diff --check` also passed for the changed
+  launchers. The exact CI integration command passed in a writable temporary
+  checkout after the workspace mount rejected Cargo output; that run used the
+  default CI test image and reported repeat apply with no extra service starts.
+- The earlier Caddy gate check had no credentials and confirmed only that the
+  unit remained skipped. No domain/token was delivered;
+  Caddy startup, ACME issuance, HTTPS proxy access, renewal, and DNS lifecycle
+  remain unverified. `beezelbot` has no Butane template, so its real-runtime
+  service behavior remains unverified.
+
+## Cloudflare UI lifecycle implementation, 2026-10-02
+
+- `cargo fmt --all` passed.
+- `CARGO_TARGET_DIR=/home/giacomo/.cache/devmachine-target
+  CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
+  cargo test --workspace --target x86_64-unknown-linux-gnu` passed (63 tests).
+- `CARGO_TARGET_DIR=/home/giacomo/.cache/devmachine-target
+  CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
+  cargo clippy --workspace --all-targets --target x86_64-unknown-linux-gnu --
+  -D warnings` passed. Cloudflare tests use a local mock HTTP server and need
+  no KeePassXC unlock, Cloudflare account, or live zone.
+- The CI integration command `skillet test run beezelbot --phase base --image
+  fedora:latest` passed using the GNU-target CLI. Its repeat apply issued no
+  extra service starts.
+- `skillet test vm list clamps` found `generic-ui` and `smoke` running. Updating
+  `generic-ui` for the integration test was attempted, but `test-vm update`
+  requires both x86_64 musl artifacts; the generic CLI artifact was missing.
+  The musl Rust target is installed, and the existing cross compiler requires
+  `/opt/x86_64-linux-musl-cross/bin` in PATH. The earlier diagnosis of a missing
+  compiler was incorrect. No packages or toolchains were installed. The VM smoke script,
+  `--with-ui` provisioning, real Cloudflare mutations, staging ACME, and HTTPS
+  acceptance remain unverified.
+
+### Musl build and live UI attempt, 2026-10-02
+
+- With `/opt/x86_64-linux-musl-cross/bin` prepended to PATH and
+  `CARGO_TARGET_DIR=/home/giacomo/.cache/devmachine-target`,
+  `cargo build --release --target x86_64-unknown-linux-musl -p skillet
+  -p skillet-clamps` passed using the existing toolchain.
+- `skillet test vm update clamps generic-ui` installed both static binaries
+  in the existing named disposable VM.
+- `skillet test vm provision clamps generic-ui --with-ui` stopped at vault
+  unlock: the kernel cache was unavailable and the tool process had no terminal
+  (`reading database password from terminal: No such device or address`).
+  No Cloudflare API or live certificate acceptance is claimed. User terminal
+  unlock is needed before continuing retained-VM checks and the fresh
+  destroy/create/provision/verify/dispose cycle.
+
+### Cloudflare zone preflight permissions, 2026-10-02
+
+- After user unlock, `skillet test vm provision clamps generic-ui --with-ui`
+  reached Cloudflare and returned HTTP 403 / code 9109 during the configured
+  zone lookup using the workstation issuer. This occurs before child-token
+  issuance and DNS reconciliation. Caddy ACME/HTTPS remain unverified.
+- The README had incorrectly excluded zone permissions from the issuer.
+  Corrected setup requires Zone Read on configured zones as well as User API
+  Tokens Read/Edit; DNS Write is still confined to child tokens. The rebuilt
+  CLI reproduced the error with zone-preflight permission context.
+- `cargo fmt --all --check`, workspace tests (64 tests), and all-target
+  pedantic Clippy passed with `--target x86_64-unknown-linux-gnu` for tests and
+  Clippy. The CI integration scenario `skillet test run beezelbot --phase base
+  --image fedora:latest` passed; repeat apply issued no service restarts.
+  `cargo build --release --target x86_64-unknown-linux-musl -p skillet` passed
+  with the documented compiler PATH. The HTTP mock regression test verifies
+  useful 403 context without token or configured zone ID disclosure.
+- Live acceptance is pending issuer zone access being updated in Cloudflare;
+  no live certificate issuance or fresh full cycle is claimed.
+
+### Relative UI namespace, 2026-10-02
+
+- `dns/cloudflare-zone-id` remains mandatory. Workstation production delivery,
+  opt-in VM UI provisioning, and VM cleanup now resolve the optional
+  `dns/ui-domain` as a relative prefix appended to the fetched zone domain.
+  An absent entry defaults to `ui`; an empty entry is invalid. Full-domain
+  values are also treated as relative and require deliberate local migration.
+- `cargo fmt --all --check`, workspace tests (66 tests), and all-target
+  pedantic Clippy passed; tests and Clippy used the GNU target. Tests cover
+  default/multiple-label prefixes, environment isolation, always-appended
+  zone suffixes, invalid prefixes and excessive total domain length.
+- Both musl release binaries built successfully with the documented compiler
+  PATH. `skillet test run beezelbot --phase base --image fedora:latest` passed
+  with no repeat-apply service restart. The named `clamps-test-generic-ui` VM
+  was updated with both binaries.
+- `integration_tests/smoke-ssh.sh --target giacomo@127.0.0.1 --port 2202
+  --identity ../butane/runs/clamps-test-generic-ui/ssh/id_ed25519
+  --disposable-target --binary
+  /home/giacomo/.cache/devmachine-target/x86_64-unknown-linux-musl/release/skillet
+  --clamps-binary /var/usrlocal/bin/skillet-clamps` passed all fixture cases,
+  failure recovery and reboot persistence. Evidence is retained in the guest
+  under `/var/lib/skillet-smoke/`. This fixture check is not live ACME acceptance.
+- Live Cloudflare/Caddy acceptance remains pending migration of the existing
+  vault prefix. No new DNS mutations or certificate issuance are claimed for
+  this change.
+
+### Live issuer retry, 2026-10-02
+
+- Retried `skillet test vm provision clamps generic-ui --with-ui` using the
+  cached vault unlock. Zone lookup and relative namespace resolution succeeded.
+- The first retry found that the saved issuer is account-owned and correctly
+  has Account API Tokens Write. The original Skillet implementation called
+  user-token endpoints, which returned HTTP 403 / code 9109. This endpoint
+  mismatch was corrected by deriving the account ID from the selected zone and
+  using account-token endpoints for discovery, creation, listing, and revoke.
+- See the live account-token and Caddy result below; the earlier blocked state
+  has been resolved.
+
+### Account token, Cloudflare DNS, and Caddy live acceptance, 2026-10-02
+
+- The account-owned issuer passed permission-group discovery and created the
+  scoped child token. Cloudflare DNS reconciliation created the expected five
+  owned records for the machine address, canonical UIs, and declared alias.
+- Caddy's disposable container started and obtained Let's Encrypt staging
+  certificates for Pi-hole, Syncthing, and the Syncthing alias using DNS-01.
+  OpenSSL checks confirmed each certificate SAN matched the requested name and
+  the issuer was staging.
+- From the workstation on the tailnet, DNS resolved over IPv4 and IPv6. HTTPS
+  returned Pi-hole `/admin/` login redirects (302) and Syncthing canonical and
+  alias pages (200) over both address families. Bare Pi-hole `/` returns 403;
+  its UI is at `/admin/`.
+- `skillet test vm destroy clamps generic-ui` completed. It removed the owned
+  Cloudflare records and child tokens through account endpoints, removed the
+  Tailscale device, undefined the libvirt domain, and removed Cloudflare
+  ownership metadata. The retained unrelated `clamps-test-smoke` VM remains.
+- `cargo fmt --all --check`, workspace GNU tests (67 tests), all-target
+  pedantic Clippy, and `skillet test run beezelbot --phase base --image
+  fedora:latest` passed. The account create/list/revoke endpoints and Caddy
+  config directory mount have regression coverage.
+- This validates staging only. A request from outside the tailnet and
+  production ACME issuance/renewal were not tested.
+
+### Cloudflare API failure recovery tests, 2026-10-02
+
+- Added local mocked-HTTP tests under `skillet/crates/cli/src/cloudflare_tests.rs`.
+  They run as part of the existing workspace `cargo test` CI job and require
+  no vault, Cloudflare account, credentials, or DNS zone.
+- The token test models Cloudflare committing a named token while returning an
+  error; retry lists and revokes that orphan before creating exactly one
+  replacement. DNS reconciliation retries after a create failure and adopts
+  the already committed records without duplicates. Cleanup retries after a
+  partial delete failure and preserves a record owned by another marker.
+- Focused Cloudflare tests pass (10 tests). `cargo fmt --all --check`, all 70
+  workspace tests, `cargo clippy --all-targets -- -D warnings`, and
+  `skillet test run beezelbot --phase base --image fedora:latest` all pass.
+
+### Non-tailnet Caddy denial probe, 2026-10-02
+
+- Caddy now returns a distinctive 403 body for requests outside the Tailscale
+  IPv4/IPv6 ranges. Opt-in `test vm provision --with-ui` probes each declared
+  canonical name and alias from the guest's loopback address, using the UI
+  hostname for TLS SNI and the HTTP Host header.
+- The user completed live `test vm provision clamps generic-ui --with-ui` on
+  the disposable VM. Provisioning returned successfully, which means the
+  loopback probe received the exact configured 403 for every declared UI name
+  and alias. Follow-up inspection found the Caddy container running and three
+  successful certificate issuance events in its logs.
+- The Caddy renderer test, workspace suite, Clippy, and routine integration
+  scenario pass. This loopback check does not replace a request from an
+  independent network outside the VM. The disposable VM remains running for
+  manual inspection.
+
+### Pi-hole DNS behavior on smoke VM, 2026-10-02
+
+- On the running `clamps-test-smoke` VM, Pi-hole was active and published DNS
+  listeners on wildcard IPv4 and IPv6 addresses. Queries for a public test
+  name succeeded over UDP and TCP through the VM's IPv4 and IPv6 interface
+  addresses.
+- A temporary Pi-hole v6 `dns.hosts` record using the documented
+  `"IP HOSTNAME"` format resolved over both transports and address families.
+  The original empty custom-host setting was restored and verified afterward.
+  The unauthenticated admin page redirected to login (302), and the unauthenticated
+  API auth endpoint returned 401.
+- This VM uses libvirt's user-mode `passt` network with only SSH forwarded to
+  the workstation. Its active firewalld zone has no explicit DNS service or
+  port allowance. Guest-local queries do not establish client ingress, so LAN
+  reachability and host-firewall behavior remain unverified; validate them on
+  a bridged/physical clamps network before cutover. No production DNS records
+  were supplied or changed.
+
+### UniFi rupik source inventory, 2026-10-02
+
+- The sanitized inventory log is `/tmp/rupik.log` on the workstation. Rupik is
+  ARM64 and runs `jacobalberty/unifi:latest`, package `10.0.162-32076-1`, in a
+  rootful host-network container as image user `unifi` (UID/GID 999). Podman
+  reports host UID 999 as `systemd-coredump`; Chef separately creates host
+  `unifi` UID/GID 2666. The data tree is owned by 999:999, mode 0750, and uses
+  1.2 GiB. `/srv` is Btrfs; the image's `/unifi/run` is a separate generated
+  Podman volume.
+- Observed listeners: TCP 8080, 8443, 6789, 8843, 8880; UDP 3478, 10001. HTTPS
+  on local 8443 returned 302. No UniFi nginx route appears in the Chef repo.
+  Eight small monthly `.unf` backup files were listed through October 2026;
+  validity and restore compatibility are unverified. Clamps is x86_64, so a
+  backup restore from the ARM64 controller must pass on an isolated VM before
+  any production migration. The full private controller settings were not
+  included in this log.
+
+### UniFi Skillet implementation, 2026-10-02
+
+- Added reusable `skillet_unifi` support and enabled it from clamps full
+  apply. It requires `/var/lib/data`, creates `/var/lib/data/unifi` as a Btrfs
+  subvolume, mounts it at `/unifi`, and configures rootful Podman with mandatory
+  host networking, the Chef image family, `User=unifi`, `TZ=Europe/Madrid`,
+  restart-at-boot, and registry auto-update.
+- Skillet updates only the subvolume root to numeric UID/GID 999; it does not
+  recursively alter existing controller data and does not require matching
+  host account names. The first disposable VM apply exposed that clamps uCore
+  has no passwd entry for UID 999. Numeric ownership handling and regression
+  tests were added in follow-up commit `6765ecb`.
+
+### UniFi empty-controller VM acceptance, 2026-10-03
+
+- Updated the running `clamps-test-unifi` disposable VM with the new `skillet`
+  and `skillet-clamps` binaries using `cargo run --release -p skillet -- test
+  vm update clamps unifi`.
+- Retried `skillet-full-apply.service`; it completed with status 0. The
+  `unifi.service` Quadlet is active and `podman inspect` reports
+  `network=host` with `/var/lib/data/unifi:/unifi` mounted.
+- `/var/lib/data/unifi` is a Btrfs subvolume with owner `999:999` and mode
+  `750`. The container started and emitted UniFi application initialization
+  logs.
+- Repeated the full apply. It completed with status 0, UniFi remained active,
+  and the container ID stayed unchanged. Backup restore, reboot persistence,
+  and expected host listener checks remain pending; see
+  [the UniFi plan](../CLAMPS-UNIFI.md).
+
+### Rust VM local artifact preparation, 2026-10-03
+
+- `skillet_vm::provisioning` now owns preparation of the disposable VM's copied
+  disk and Ed25519 SSH key. Disk copies are staged beside the destination and
+  atomically renamed; a SHA-256 sidecar records the selected image. Repeated
+  preparation reuses a byte-identical disk and matching key pair, repairs a
+  changed image while the run is still `Preparing`, and rejects partial keys,
+  symlinked inputs, or progressed runs. The hidden `skillet test vm
+  prepare-local` command bridges `coreos-install` to this library and returns
+  the public key for Ignition rendering.
+- `cargo fmt --all --check`, workspace pedantic Clippy with warnings denied,
+  all 131 workspace tests, and `cargo build --offline --workspace` passed.
+  `bash -n` and ShellCheck passed for `coreos-install`; `git diff --check`
+  passed. The CI-style `cargo run --release -p skillet -- test run beezelbot
+  --phase base --image fedora:latest` passed, including repeat apply without
+  service restarts.
+- No VM was created or changed for this slice. Template staging, Butane
+  compilation and native define/start remain in the Bash installer; Flatpak
+  creation and end-to-end VM acceptance remain pending.
+
+### Rust VM Butane source staging, 2026-10-03
+
+- `skillet_vm::staging` now copies the selected host config, `.bu` includes,
+  and both captured binaries into the owned run directory. It specializes the
+  guest hostname, injects the validated disposable SSH key, removes image
+  binary entries and VM-only password-expiry resources, and adds the test-only
+  sudoers file. Artifact hashes and `run.conf` compatibility metadata are
+  written atomically. Repeated staging is idempotent and requires the current
+  persisted run to remain `Preparing` while holding its run lock.
+- `coreos-install` delegates disk/key preparation and staging to hidden Rust
+  VM commands. Bash now invokes the standalone Butane compiler on the Rust-
+  staged tree. Native define/start and tool-version capture remain in Bash.
+- Formatting, workspace Clippy with warnings denied, all 134 workspace tests,
+  workspace build, `bash -n`, ShellCheck, and `git diff --check` passed. The
+  CI-style beezelbot base container scenario passed, including repeat apply
+  without service starts.
+- No VM was created or changed. The staged tree was exercised through fixture
+  tests, but a fresh VM create through the combined flow was not verified.
+  Native define/start remain in Bash; Flatpak creation is still unverified.
+
+### Rust native VM define and start, 2026-10-03
+
+- Native VM creation now resolves the x86_64 HVM emulator from the selected
+  libvirt connection, captures tool versions, renders the owned domain XML,
+  defines and starts the domain, and records its UUID in Rust. The lifecycle
+  validates UUID and disk ownership after each backend observation. A retry
+  after define or start can continue from the manifest and current domain
+  state. `test-vm` delegates native resume to the same Rust command; Flatpak
+  `virt-install` remains on its compatibility path.
+- Fake-backend coverage verifies successful creation, recovery from an
+  existing defined domain, idempotent running-domain retries, refusal of a
+  foreign UUID, start-failure retry, and x86_64 emulator selection. The VM crate's 62 tests and the
+  full workspace test suite and pedantic Clippy with warnings denied passed.
+  Formatting, ShellCheck, Bash syntax, and `git diff --check` passed.
+- No live VM was created or changed. The combined native flow and Flatpak
+  creation remain to be exercised on their respective backends.
+
+### Rust VM reboot and guest access, 2026-10-03
+
+- `test-vm` now delegates reboot, interactive SSH, and guest diagnostics to the
+  Skillet CLI. Rust holds the per-run lock, validates domain UUID/disks before
+  guest access, and validates ownership after each operation. Reboot marks a
+  previously Ready run Started before issuing the backend command, so stale
+  readiness cannot survive an interrupted reboot. Interactive SSH attaches a
+  terminal directly; captured logs remain bounded through the shared transport.
+- Unit coverage verifies that interactive SSH allocates a terminal and uses
+  the manifest target, and that a reboot invalidates Ready state. Workspace
+  tests and pedantic Clippy passed; shell checks and formatting passed.
+- No live VM was contacted. Reboot and interactive access remain unverified
+  against a live guest in this slice. The CI-style container integration
+  command was unavailable: Podman cannot set the sticky bit on
+  `/run/user/4000/libpod` because the filesystem is read-only. No container
+  was started.
+
+### Rust Flatpak VM creation adapter, 2026-10-03
+
+- Added a bounded `virt-install` adapter that uses the recorded Flatpak runtime
+  and preserves the manifest UUID, disk, Ignition, QEMU user-networking, and
+  forwarded SSH port. Flatpak definition now uses the common Rust phase and
+  ownership recovery logic, including a retry when `virt-install` created or
+  started the guest before an interrupted response. `coreos-install` delegates
+  both native and Flatpak domain creation; Bash no longer records the domain
+  UUID or start phase.
+- Fake adapter and lifecycle coverage checks the executable wrapper, runtime
+  environment, UUID, disk/network arguments, successful transition and retry
+  behavior. The workspace suite passed, including 66 VM crate tests, and
+  pedantic Clippy passed; formatting, ShellCheck, Bash syntax, and
+  `git diff --check` passed.
+- No Flatpak VM was created. Live acceptance remains unverified on Bazzite.
+
+### Rust-owned VM create orchestration, 2026-10-03
+
+- `skillet test vm create HOST INSTANCE` now owns the full create path: backend
+  selection/runtime startup, image resolution, guest binary build, disk/key
+  preparation, Butane staging/compilation, native or Flatpak define/start, and
+  readiness. Create holds a dedicated per-run orchestration lock while calling
+  the lower-level locked operations. Repeated create skips the SSH-port
+  availability probe once a guest is already running. It preflights KVM and
+  the forwarding port before expensive preparation. `bin/test-vm` is now a
+  narrow compatibility argument adapter; the separate Bash `coreos-install`
+  and hidden preparation/staging/creation CLI commands were removed.
+- Passed `cargo fmt --all --check`, offline workspace tests (72 VM crate tests
+  plus all other workspace suites), and offline workspace all-target Clippy
+  with warnings denied. Built the static-musl CLI using
+  `PATH=/opt/x86_64-linux-musl-cross/bin:$PATH` and the configured external
+  Cargo target directory. `shellcheck -x` and `bash -n` passed for all affected
+  VM/compiler wrapper scripts. CLI create help and `git diff --check` passed.
+- Passed the CI integration command:
+  ```bash
+  CARGO_TARGET_DIR=/home/giacomo/.cache/devmachine-target \
+    /home/giacomo/.cache/devmachine-target/x86_64-unknown-linux-musl/debug/skillet \
+    test run beezelbot --phase base --image fedora:latest
+  ```
+  Both applies
+  succeeded and the repeat issued no service restart; the test container was
+  removed.
+- Live VM acceptance was not run because this workstation has no `/dev/kvm`
+  device (`stat /dev/kvm` reports “No such file or directory”). The recorded
+  `clamps/smoke` run was reported as unavailable by `test vm list`; it was not
+  altered. Native/Flatpak create, readiness, reboot, and destroy remain
+  unverified live.
+
+### Canonical host profiles, 2026-10-03
+
+- Moved host service composition and boot expectations into the canonical
+  `skillet_hosts` crate. Profile-level unit coverage checks all current hosts'
+  service sets, UI ports/aliases, credential consumers, network parameters,
+  mount needs, and snapshot configuration. Added a profile with a credentialed
+  Pi-hole service without UI exposure, and an explicit no-service baseline.
+  Unknown hosts are rejected before effects. The smoke fixture is now selected
+  by a separate hidden test command rather than a synthetic host identity.
+- Passed `cargo fmt --manifest-path ublue/skillet/Cargo.toml --all`,
+  `cargo test --offline --manifest-path ublue/skillet/Cargo.toml --workspace`,
+  and `cargo clippy --offline --manifest-path ublue/skillet/Cargo.toml
+  --workspace --all-targets -- -D warnings`. Passed ShellCheck and Bash syntax
+  checks for `smoke-ssh.sh` and `smoke-guest.sh`.
+- Passed the CI container command using the Cargo-reported beezelbot binary:
+  `ublue/skillet/target/x86_64-unknown-linux-musl/debug/skillet test run
+  beezelbot --phase base --image fedora:latest`. Both applies succeeded and
+  the test container was removed.
+- Live base/full apply on a retained VM remains unverified because `/dev/kvm`
+  is absent. No VM was created, contacted, or changed in this slice.
+
+### Injected account, credential, and ownership inputs, 2026-10-04
+
+- Host composition now receives systemd credential values explicitly. The CLI
+  loads only the profile-declared credentials needed by the selected phase.
+  Account lookups use the injected system boundary. Podman reads subordinate
+  ID data via the injected file resource and refuses missing, malformed,
+  duplicate, overflowing, or undersized ranges instead of using a fixed range.
+- Directory ownership now uses one value supporting account names or numeric
+  IDs. The numeric-ID path does not require a host account, and the fake keeps
+  mode/ownership state through later existence-only checks. Tests preserve a
+  child file across repeat apply and cover file-versus-directory errors,
+  injected filesystem failures, account-ID mismatch, and mapping failures.
+- Passed offline workspace tests for core, Podman, UniFi, and full workspace;
+  pedantic Clippy with warnings denied; formatting; ShellCheck and Bash syntax
+  checks; and the CI container integration command (beezelbot base apply twice,
+  then remove the container).
+- Workstream 3 remains in progress: the remaining broad file/system trait
+  decomposition and live ownership/mount checks are outstanding. No live VM
+  was changed; `/dev/kvm` is absent on this workstation.
+
+### Cohesive file effect capabilities, 2026-10-04
+
+- Split file access into read, mutation, and Btrfs storage traits. Recorder,
+  local adapter, and fake implement those contracts individually. Updated
+  service and Podman recipe bounds to declare the operations their composition
+  uses; retained the aggregate for host composition during migration.
+- Passed `cargo fmt --manifest-path ublue/skillet/Cargo.toml --all`, offline
+  workspace tests, and offline workspace all-target Clippy with warnings
+  denied. Passed `git diff --check`.
+- Passed the CI container integration command:
+  `ublue/skillet/target/debug/skillet test run beezelbot --phase base --image
+  fedora:latest`. Both applies succeeded, the second caused no service restart,
+  and the test container was removed.
+- System capability splitting and live VM ownership/mount acceptance remain
+  pending. This workstation has no `/dev/kvm`; no VM was changed.
+
+### Cohesive system effect capabilities, 2026-10-04
+
+- Split system effects into account lookup, account mutation, Podman-secret,
+  and service capabilities. Narrowed Podman, hardening, service, and backup
+  crate bounds; host composition keeps the aggregate trait. Linux, recorder,
+  and mock adapters implement each capability.
+- Passed workspace formatting, offline workspace tests, and offline workspace
+  all-target Clippy with warnings denied. The full CI command
+  `ublue/skillet/target/debug/skillet test run beezelbot --phase base --image
+  fedora:latest` exited 0: both applies succeeded, repeat apply issued no
+  restart, and the disposable test container was removed.
+- Live ownership and Btrfs mount acceptance remains unverified because this
+  workstation has no `/dev/kvm`; no VM was changed.
+
+### Shared guest credential delivery, 2026-10-04
+
+- Production host secret delivery and disposable VM provisioning now call the
+  same `skillet_vm::credential::install` API over `GuestTransport`. The helper
+  validates host/credential/unit inputs, supports immediate or deferred unit
+  activation, delivers bytes on stdin, and returns sanitized guest errors.
+- Tests cover stdin-only delivery, deferred activation arguments, invalid
+  inputs before transport, and remote failure diagnostics. Passed offline
+  workspace tests, workspace formatting, and strict all-target Clippy.
+- The CI container integration command exited 0. Both base applies succeeded,
+  repeat apply did not restart a service, and the disposable test container
+  was removed. VM credential rotation/recovery acceptance remains pending; no
+  `/dev/kvm` is available here.
+
+### Tailscale Rust HTTP client, 2026-10-04
+
+- Replaced the curl-based Tailscale API adapter with the workspace `reqwest`
+  blocking client. The endpoint is injectable through a test-only constructor;
+  production uses the HTTPS endpoint with bounded connect/request timeouts and
+  Rustls.
+- Local HTTP fixture tests cover OAuth auth-key creation, bearer auth, tagged
+  device lookup/deletion, and a forbidden response. Full workspace
+  formatting/tests/strict Clippy passed. The static-musl CLI built with
+  `PATH=/opt/x86_64-linux-musl-cross/bin:$PATH`.
+- CI container integration exited 0: both applies succeeded, repeat apply
+  issued no service restart, and the container was removed. No live Tailscale
+  API request was made.
+
+### Workstation vault library, 2026-10-04
+
+- Added `skillet_workstation` and moved KeePassXC opening, exact secret lookup,
+  atomic encrypted save, backup/conflict checks, XDG location, lock operation,
+  and named-session kernel cache out of CLI code. The API returns `thiserror`
+  errors and keeps the unlocked database/password private.
+- Workstation tests passed for exact entries, XDG fallback, correct/wrong
+  KDBX passwords, symlink-target replacement and backup, concurrent-change
+  refusal, absent-vault error before prompting, and three-hour cache expiry and
+  clearing.
+- Passed workspace formatting, tests, strict all-target Clippy, and static
+  musl build. CI container integration exited 0; both applies succeeded,
+  repeat apply did not restart, and the container was removed. Live credential
+  delivery and rotation recovery on a disposable VM remain unverified because
+  `/dev/kvm` is unavailable.
+
+### Cloudflare workstation provider library, 2026-10-04
+
+- Moved the Cloudflare SDK adapter, scoped account-token issuance/revocation,
+  DNS reconciliation, desired record validation, and the local HTTP fixtures
+  into `skillet_workstation::cloudflare`. The library uses a `thiserror`
+  boundary preserving SDK/JSON sources; the CLI calls the library API.
+- The 10 Cloudflare provider tests passed, including DNS reconciliation and
+  ambiguous-token retry cases. Full workspace formatting/tests/strict
+  all-target Clippy and the static-musl build passed. CI container integration
+  exited 0; both applies succeeded, repeat apply issued no restart, and its
+  disposable container was removed. No live Cloudflare API mutation was made.
+
+### Tailscale workstation provider library, 2026-10-04
+
+- Moved OAuth, auth-key, tagged-device lookup, and device-removal operations
+  into `skillet_workstation::tailscale`; removed the CLI's direct `reqwest`
+  dependency. Provider errors use `thiserror` and preserve transport sources.
+- Local HTTP fixture tests passed for token/auth-key requests, tagged lookup and
+  removal, and API errors. Workspace formatting, offline tests, strict
+  all-target Clippy, and the CI container integration command passed. The
+  integration command applied the beezelbot base twice, confirmed the repeat
+  caused no service restart, and removed its disposable container.
+- Live Tailscale API/VM acceptance was not run. Lifecycle ownership and
+  production-versus-test orchestration remain pending in workstream 4.
+
+### Explicit workstation environment policy, 2026-10-04
+
+- Added typed production/test provisioning policy for UI domain lookup,
+  shared Cloudflare zone lookup, live versus staging ACME, Cloudflare token
+  lifetimes, cleanup-token lifetime, and production/disposable Tailscale tags.
+  Production UI delivery and disposable VM issue/cleanup now use that policy.
+- The two policy unit tests and full offline workspace tests passed. Strict
+  workspace all-target Clippy passed. The CI container integration exited 0:
+  both applies succeeded, the second caused no service restart, and the
+  disposable container was removed. No provider or VM resources were changed.
+
+### Podman host-wide DNS policy, 2026-10-04
+
+- Moved Aardvark's host-wide DNS listener config out of each container apply.
+  The canonical profile selects the policy when Pi-hole is declared; host
+  composition writes it before service recipes. Container apply now only owns
+  its Quadlet and declared network.
+- Podman and host-profile tests passed, including idempotent listener config
+  and profile selection. Full offline workspace tests, strict all-target
+  Clippy, formatting, and the CI container integration passed. The CI
+  beezelbot base fixture applied twice without restart and its container was
+  removed.
+- Live Pi-hole port 53 and service-name DNS behavior was not verified; no
+  `/dev/kvm` is available on this workstation.
+
+### Explicit Podman process identity, 2026-10-04
+
+- Replaced the ambiguous container UID/GID + host-user fields with explicit
+  image-default, named, and numeric identities. Namespace mapping is a separate
+  opt-in input requiring an existing host account and subordinate ranges; the
+  generic adapter no longer creates accounts. UniFi's named process user now
+  comes from the typed identity field.
+- Podman and UniFi tests passed for image-default, named, numeric, mapped
+  identity, map-range validation, and rejection of raw typed-field conflicts
+  before effects. Full offline workspace tests, strict all-target Clippy,
+  formatting, and the CI container integration passed. The container applied
+  beezelbot base twice with no restart on the second apply, then was removed.
+- No live container identity or ownership checks ran; `/dev/kvm` is unavailable
+  on this workstation.
+
+### Typed Podman networks and port publications, 2026-10-04
+
+- Host composition now creates each profile bridge network once; application
+  recipes attach by network name. Container network mode and port bindings are
+  typed values. Dual-stack Pi-hole, Syncthing, and Caddy publications plus
+  UniFi/Tailscale host networking retain their prior intent. Raw directives
+  that conflict with typed fields fail validation.
+- Podman, service, and full workspace tests passed. Strict all-target Clippy
+  passed. The CI container integration exited 0; beezelbot base applied twice
+  without a restart on the repeat and its container was removed.
+- No named-VM DNS/discovery or service networking test ran; `/dev/kvm` is not
+  available here.
+
+### Shared service-data mount dependency, 2026-10-04
+
+- Added a reusable typed Podman mount dependency that renders preparation,
+  bind, ordering, and mountpoint assertion directives. Persistent Pi-hole,
+  Syncthing, UniFi, Caddy, and Tailscale containers use it. Ignition still owns
+  filesystem and graphroot preparation; applications own their child data
+  directories and ownership.
+- The dependency rendering/rejection tests and full workspace tests passed.
+  Strict all-target Clippy and the CI container integration passed; both
+  beezelbot base applies succeeded with no restart on the second apply and the
+  disposable container was removed.
+- Live mount/boot-order checks need a named VM and remain unverified because
+  `/dev/kvm` is unavailable here.
+
+### Shared activation, sanitized recording, and test fixture split, 2026-10-04
+
+- Added shared activation/revision handling to hardening, Podman containers,
+  and the btrbk timer. Unit tests verify changed definitions, stopped services,
+  no-ops, oneshot semantics, and recovery after failed reload/start/restart.
+- `apply --record` now writes versioned YAML atomically after both successful
+  and failed applies. Records include operation outcomes, omit content and
+  secret fingerprints, and do not retain raw effect error messages. Tests cover
+  failed applies and combined apply/record persistence failure.
+- Extracted `skillet-smoke-fixture` from production host/CLI dispatch and moved
+  its guest entrypoint to a standalone shell file. Cargo-reported artifact
+  selection follows the invoked Skillet target/profile. The smoke runner
+  verifies the fixture transfer and the installed generic/host binaries against
+  the expected recorded hashes. CI includes Butane and helper paths, all-target
+  formatting/Clippy/tests, extensionless shell helpers, and the Fedora
+  container integration command.
+- Local full workspace tests, strict all-target Clippy, formatting, ShellCheck,
+  and the CI container integration passed. The beezelbot base phase applied
+  twice; the repeat issued no service start/restart and the disposable container
+  was removed. The container runtime needed SIGKILL after its 10-second stop
+  timeout during cleanup; this did not fail the test.
+- Fresh VM activation/reboot, host-profile acceptance, and retained-run recovery
+  are unverified because this workstation has no `/dev/kvm`.
+
+### Typed Podman volume-root ownership, 2026-10-04
+
+- Added optional typed host mode and ownership to each bind-volume declaration.
+  Podman applies these only to the mount root. UniFi now declares mode `0750`
+  and numeric UID/GID `999` as part of its volume; other existing volumes leave
+  ownership unspecified. Descendant data is not recursively changed.
+- The focused Podman and UniFi tests passed. The full offline workspace test
+  suite, strict all-target Clippy, formatting, and the documented beezelbot
+  Fedora container integration passed. The integration applied twice; the
+  second apply did not restart services. Podman needed SIGKILL after its
+  10-second stop timeout while removing the test container.
+- A regression test confirms the typed metadata does not change the existing
+  Quadlet bytes. VM verification of actual volume ownership, descendants, and
+  service restart behavior remains unverified because `/dev/kvm` is absent.
+
+### Workstation-owned disposable provisioning state, 2026-10-04
+
+- Moved Cloudflare ownership JSON, Tailscale pending-enrollment markers, and
+  enrolled-device records from the CLI into
+  `skillet_workstation::provisioning_state`. Filenames are unchanged. New
+  journals include separate host/environment/instance identity fields; readers
+  accept the prior JSON and hostname-only marker formats with exact identity
+  checks. Writes are atomic and mode `0600`; reads and writes reject
+  symlinks/non-regular files. Retrying with another VM identity fails closed.
+- Workspace all-target tests, strict Clippy, and formatting passed. State tests
+  cover private file mode, state round trips, symlink refusal, idempotent marker
+  writes, typed identity conflict refusal, legacy state compatibility, and
+  marker cleanup. The documented
+  beezelbot Fedora container integration passed twice without a restart on the
+  second apply; cleanup escalated to SIGKILL after its 10-second timeout.
+- No provider resources or live VMs were changed. Full enrollment/cleanup
+  acceptance remains pending; `/dev/kvm` is absent.
+
+### Shared private UI provisioning plan, 2026-10-04
+
+- Added `skillet_workstation::ui_provisioning` as the shared derivation for
+  profile-declared Caddy sites and Cloudflare A/AAAA/CNAME records. Production
+  and disposable VM delivery now use the same plan and explicit environment
+  policy. It reads the services from the canonical host profile, including
+  rendered aliases, without host-specific UI code in the delivery path.
+- The three focused UI plan tests passed, followed by all workspace tests
+  (including 33 workstation tests), strict all-target Clippy, and format check.
+- `cargo run --offline --manifest-path skillet/Cargo.toml --bin skillet --
+  test run beezelbot --phase base --image fedora:latest` exited 0. Both applies
+  succeeded; the repeat issued no service start/restart. Podman needed SIGKILL
+  after its 10-second stop timeout during test-container cleanup.
+- This exercised derivation and the existing base container fixture only. No
+  Cloudflare mutation, credential delivery, or live VM check was performed.
+  `/dev/kvm` is unavailable on this workstation.
+
+### Tailscale guest status parsing boundary, 2026-10-04
+
+- Moved guest `tailscale status --json` interpretation from CLI orchestration
+  into `skillet_workstation::tailscale`. The provider returns no addresses
+  until its backend is running and rejects malformed or incomplete running
+  responses; the CLI retains only remote invocation and bounded retry policy.
+- All seven Tailscale provider tests passed, including running/non-running,
+  invalid-address filtering, malformed JSON, and missing address arrays. The
+  full workspace tests, strict all-target Clippy, and formatter check passed.
+- The documented beezelbot container integration built its target executable
+  but produced no runtime output for over 45 seconds. No matching Skillet or
+  Podman worker appeared in the process listing; the command was interrupted.
+  Treat this integration as unverified for this slice.
+- No VM or live provider API was contacted. `/dev/kvm` remains unavailable.
+
+### Shared Tailscale guest enrollment retry, 2026-10-04
+
+- Moved the bounded retry loop into `skillet_workstation::tailscale` while
+  keeping the guest SSH probe in the CLI. Empty status and transient probe
+  errors retry until the supplied timeout; tests cover delayed success and
+  timeout without sleeping.
+- All 9 Tailscale provider tests passed. Workspace format, all-target tests,
+  and strict all-target Clippy passed.
+- The beezelbot Fedora base integration exited 0: both applies succeeded and
+  the repeated apply issued no service start/restart. The disposable container
+  needed SIGKILL after Podman's 10-second stop timeout during cleanup. This
+  successful retry supersedes the stalled integration attempt recorded above.
+- No VM or provider API was contacted. `/dev/kvm` remains unavailable.
+
+### Fail-closed Tailscale enrollment probe, 2026-10-04
+
+- Initial enrollment now propagates SSH/status command errors rather than
+  interpreting them as an empty device state. The new regression test confirms
+  a failed guest status command refuses enrollment even when stdout resembles
+  a valid `NeedsLogin` response.
+- The focused regression test, full offline workspace tests, strict all-target
+  Clippy, and format check passed. The beezelbot Fedora base integration exited
+  0; both applies succeeded, and the repeat issued no service start/restart.
+  Podman needed SIGKILL after its 10-second stop timeout while cleaning up the
+  disposable container.
+- No live VM or provider API was used. `/dev/kvm` remains unavailable.
+
+### Shared deferred credential-set delivery, 2026-10-04
+
+- Added `skillet_vm::credential::install_set`, which validates the full
+  duplicate-free credential set before any guest mutation and applies a single
+  consumer/activation policy. Production and disposable Caddy flows install
+  `caddy_sites` and `cloudflare_acme_token` as one deferred set, then activate
+  Caddy after successful delivery.
+- Credential delivery tests passed for stdin-only payloads, deferred
+  activation, complete-set validation, duplicate refusal, and guest failure.
+  Workspace formatting, all-target tests, and strict all-target Clippy passed.
+- The beezelbot Fedora base integration exited 0: two applies succeeded, the
+  repeat issued no service start/restart, and the disposable container was
+  removed. Podman needed SIGKILL after its 10-second stop timeout.
+- No VM credential delivery or live provider API was run; `/dev/kvm` is
+  unavailable.
+
+### Workstation-owned disposable Tailscale enrollment, 2026-10-04
+
+- Moved the test VM enrollment transaction into
+  `skillet_workstation::tailscale_enrollment`. The CLI supplies typed host,
+  environment, instance, VM hostname, run directory, provider credentials, and
+  verified guest transport. The workflow persists intent, reuses an existing
+  enrollment, refuses failed status probes before auth-key creation, delivers a
+  one-use key only after a successful empty observation, verifies the tagged
+  device, and saves the ownership record before removing pending state.
+- Four orchestration tests passed with fake guest transport and provider:
+  existing enrollment, new enrollment/key delivery, failed-probe recovery
+  state, and refusal of production policy. Full workspace tests, strict
+  all-target Clippy, and formatting passed.
+- The beezelbot Fedora base integration exited 0: both applies succeeded, the
+  repeat issued no service start/restart, and the disposable container was
+  removed. Podman needed SIGKILL after its 10-second stop timeout.
+- No VM or live Tailscale API was contacted. `/dev/kvm` is unavailable.
+
+### Workstream 3 ownership API audit, 2026-10-04
+
+- Static search found no `/etc/subuid` or `/etc/subgid` reads outside the
+  Podman adapter and no recipe reads of `CREDENTIALS_DIRECTORY`; account/NSS
+  lookups remain in the system adapter. File, systemd, and Btrfs observations
+  remain inside their declared core adapters.
+- The ownership contract still has a concrete gap: file mutation accepts
+  separate name-only owner/group arguments while directory mutation accepts
+  the shared named-or-numeric `Ownership` type. A proposed broad core API
+  migration was rejected by automatic review because it affects filesystem
+  behavior across recipes. No source changes were made for that rejected
+  migration. `/dev/kvm` is absent, so privileged ownership and mount checks
+  remain unavailable.
+
+### Workstation-owned non-UI credential delivery, 2026-10-04
+
+- Moved production Pi-hole password reuse/use-or-create and Tailscale auth-key
+  creation/delivery into `skillet_workstation::credential_delivery`. Disposable
+  Pi-hole secret reuse/rotation now uses the same module. The shared
+  `vault::SecretStore` and `VaultSecretStore` adapter also back Caddy token
+  provisioning. The CLI now selects its typed workflow and constructs the
+  verified transport.
+- The workstation suite passed (66 tests), including missing/existing Pi-hole
+  secrets, refusal when the guest already has an untracked secret, disposable
+  reuse/rotation and inspection failure, and production-tagged Tailscale key
+  delivery. Full workspace tests, strict all-target Clippy, and formatting
+  passed.
+- The documented Fedora Podman base integration exited 0: both applies
+  succeeded; the repeat issued no service start/restart and the container was
+  removed. Podman needed SIGKILL after its 10-second stop timeout.
+- No production vault, live provider API, or named VM was used. Production
+  credential acceptance remains unverified; `/dev/kvm` is unavailable.
+
+### Workstation-owned persistent private UI provisioning, 2026-10-04
+
+- Moved persistent Caddy provisioning into one workstation operation. It checks
+  the host profile, resolves the tagged Tailscale device, builds the shared UI
+  plan, reuses or mints a zone-scoped ACME token, migrates the prior production
+  KeePass entry when present, reconciles owned DNS, installs both Caddy
+  credentials before activation, and uses the existing verified guest
+  transport. Failed encrypted vault persistence revokes the newly issued
+  token. The CLI now supplies inputs and dispatches the operation.
+- Fake store/provider/guest tests cover token reuse, issuance-before-DNS,
+  legacy migration, vault conflict refusal, failed-save revocation, and
+  deferred activation after the full credential set. Full workspace tests,
+  strict all-target Clippy, and formatting passed (56 workstation tests).
+- The beezelbot Fedora base integration exited 0: both applies succeeded; the
+  repeat issued no service start/restart and the container was removed. Podman
+  needed SIGKILL after its 10-second stop timeout during cleanup.
+- No vault or live provider credentials were used here. Caddy certificate
+  acceptance and Tailscale device lookup on a named production host remain
+  unverified; `/dev/kvm` is unavailable.
+
+### Workstation-owned disposable Caddy guest delivery, 2026-10-04
+
+- Moved disposable Caddy credential-set installation, activation, per-name
+  non-tailnet denial probes, and superseded-token revocation into
+  `skillet_workstation::ui_provisioning`. Retry timing is bounded per hostname.
+  Old tokens are retained until guest activation and every canonical UI/alias
+  probe succeeds.
+- Fake guest/provider tests cover deferred credential delivery, all-name probe
+  arguments, revocation after success, and retaining older credentials when
+  the denial response fails. Full workspace tests, strict all-target Clippy,
+  and formatting passed (58 workstation tests).
+- The beezelbot Fedora base integration exited 0: both applies succeeded; the
+  repeat issued no service start/restart and the container was removed. Podman
+  needed SIGKILL after its 10-second stop timeout during cleanup.
+- No VM, vault, or live provider API was used. Live Caddy ACME/HTTPS acceptance
+  remains pending because `/dev/kvm` is unavailable.
+
+### Workstation-owned disposable Cloudflare UI transaction, 2026-10-04
+
+- Moved disposable UI token issuance and DNS reconciliation into
+  `skillet_workstation::ui_provisioning`. It persists intent before token
+  creation, checks the vault snapshot immediately before issuing, saves token
+  ID/expiry before DNS changes, and saves owned record IDs after reconciliation.
+- Six UI provisioning tests passed, including write-ahead ordering, vault
+  change refusal, and retaining token ownership when DNS reconciliation fails.
+- The full workspace tests, strict all-target Clippy, and formatting checks
+  passed (44 workstation tests in the workspace run).
+- The documented beezelbot Fedora base integration exited 0: both applies
+  succeeded; the repeat issued no service start/restart. Podman needed SIGKILL
+  after its 10-second stop timeout during cleanup.
+- Guest credential delivery, Caddy HTTPS acceptance, and live Cloudflare API
+  behavior were not exercised here. `/dev/kvm` is unavailable.
+
+### Workstation-owned disposable Cloudflare cleanup, 2026-10-04
+
+- Moved disposable UI cleanup into `skillet_workstation::ui_provisioning`.
+  Before provider mutations, it checks the test policy, typed VM identity,
+  deterministic token/marker names, configured zone, and current relative UI
+  namespace. It removes marker-owned DNS, revokes disposable and cleanup
+  tokens, then removes the journal. Failures leave ownership state retryable;
+  malformed and symlinked state paths are refused.
+- Cleanup tests cover successful revocation and journal removal, repeated
+  cleanup with no journal, identity mismatch before mutation, and DNS failure
+  retaining the journal. State tests cover regular-file presence/removal and
+  symlink refusal. The full workspace tests, strict all-target Clippy, and
+  formatting checks passed (48 workstation tests).
+- The beezelbot Fedora base integration exited 0: both applies succeeded; the
+  repeat issued no service start/restart and the container was removed. Podman
+  needed SIGKILL after its 10-second stop timeout during cleanup.
+- No VM or live Cloudflare API was contacted. `/dev/kvm` is unavailable.
+
+### Workstation-owned disposable Tailscale cleanup, 2026-10-04
+
+- Moved test-device cleanup into `skillet_workstation::tailscale_enrollment`.
+  The operation validates the disposable environment and typed host/instance/
+  VM hostname, verifies ownership journals, asks the provider to remove only
+  the recorded tagged device, and removes recovery files after provider success
+  or an already-absent device response. Provider errors retain the journal.
+- The workstation crate tests passed (51 tests), including provider failure
+  retry, recorded-device identity verification, local journal cleanup, and
+  identity mismatch refusal before provider calls. Full workspace tests,
+  strict all-target Clippy, and formatting also passed.
+- The beezelbot Fedora base integration exited 0: both applies succeeded; the
+  repeat issued no service start/restart and the container was removed. Podman
+  needed SIGKILL after its 10-second stop timeout during cleanup.
+- No VM or live Tailscale API was contacted. `/dev/kvm` is unavailable.
+
+### Manifest-backed disposable provisioning transport, 2026-10-04
+
+- Removed the disposable provisioner's call through the `test-vm` compatibility
+  wrapper and its parser for legacy `run.conf`. It now loads the typed run
+  manifest, holds the per-run lock, uses its recorded SSH target, and validates
+  the expected running domain before and after each guest operation.
+- Destroy's provider cleanup callback now receives the validated run identity
+  from the lifecycle orchestrator, checks it against the CLI request, and
+  derives the cleanup journal path from that recorded identity.
+- Extracted `OwnershipCheckedTransport` from readiness so both readiness and
+  workstation provisioning use the same pre/post ownership-check contract.
+  Transport tests cover both checks around execution/upload and report ownership
+  loss after a remote operation.
+- `cargo fmt --all -- --check`, `cargo test --workspace --all-targets --offline`,
+  and `cargo clippy --workspace --all-targets --offline -- -D warnings` passed.
+  The workspace suite includes 66 workstation tests.
+- `cargo run --offline --bin skillet -- test run beezelbot --phase base --image
+  fedora:latest` exited 0. Both applies succeeded and the repeat issued no
+  service start/restart; Podman needed SIGKILL after its 10-second stop timeout
+  during cleanup.
+- No named VM or production vault/provider was used. `/dev/kvm` is absent, so
+  named-VM delivery, cleanup, and production credential acceptance remain
+  unverified.
+
+### Unified typed file ownership API, 2026-10-04
+
+- File and directory mutation APIs now accept the same `Ownership` value for
+  optional named or numeric UID/GID. Local files and directories resolve named
+  identities consistently, while numeric IDs do not require a matching NSS
+  account. Existing metadata omitted from an ownership request is preserved.
+- Recorder operations serialize this common ownership value; diagnostic
+  recording schema is now version 2. Version 1 output remains historical and
+  is not rewritten.
+- Added local filesystem tests for numeric ownership and idempotent repeat
+  apply, plus a numeric comparison test that does not perform NSS lookup.
+  Existing shared mutation contract tests continue to exercise both the local
+  and fake file adapters.
+- `cargo fmt --all -- --check`,
+  `cargo test --workspace --all-targets --offline`, and strict all-target
+  Clippy passed. The beezelbot Fedora base integration exited 0: both applies
+  succeeded, the repeat issued no service start/restart, and the disposable
+  container was removed. Podman needed SIGKILL after its 10-second stop
+  timeout during cleanup.
+- Named-VM ownership/mount acceptance remains unverified because `/dev/kvm`
+  is unavailable on this workstation.
+
+### Standalone KeePassXC unlock, 2026-10-04
+
+- Added `skillet secret unlock` to verify the configured KeePassXC database
+  and establish the existing three-hour session-keyring cache without starting
+  host or VM provisioning. `--database` and `--key-file` override the defaults.
+- The command exits with an error if the vault opens but the cache cannot be
+  established. CLI parsing tests cover the default path and both overrides;
+  the vault cache tests cover the three-hour expiry and the cache result.
+- `cargo fmt --all -- --check`, offline workspace all-target tests, and strict
+  offline all-target Clippy passed. The beezelbot Fedora base integration
+  exited 0: both applies succeeded, the repeat issued no service start/restart,
+  and Podman removed the disposable container after its stop timeout.
+- Interactive validation against the user's vault was not run because the
+  password must be entered by the user.
+
+### Retained clamps smoke VM readiness and fixture, 2026-10-04
+
+- The retained `clamps-test-smoke` VM was running but its local run state was
+  not marked ready. The first readiness attempt reached signed boot and base
+  apply, then found `uv` missing from the cloned dotfiles Brewfile. Installed
+  the missing dependency inside the disposable VM with its existing Brewfile;
+  no workstation packages were installed.
+- Retried `cargo run --offline --bin skillet -- test vm ready clamps smoke`;
+  it passed signed boot, base apply, Homebrew bundle, and user-environment
+  checks. `cargo run --offline --bin skillet -- test smoke clamps` then passed
+  all fixture cases, including its reboot phase. Guest snapshots and journals
+  are under `/var/lib/skillet-smoke/`; the VM remains running for inspection.
+- Vault-backed Caddy/Cloudflare provisioning was not attempted. Although the
+  user unlocked the vault interactively, the assistant execution process could
+  not read that session keyring entry and has no interactive password input.
+  No provider mutations were made by this attempt.
+
+### Fresh disposable UI and roadmap acceptance, 2026-10-04
+
+- After the environment-scoped vault paths were corrected, a fresh
+  `clamps-test-generic-ui` VM completed create, signed readiness, and
+  `test vm provision clamps generic-ui --with-ui`. Provisioning used the test
+  vault entries, enrolled the disposable VM in Tailscale, reconciled owned
+  Cloudflare DNS, delivered credentials, and activated Caddy.
+- Guest Caddy logs confirmed successful Let's Encrypt staging ACME issuance
+  for every declared UI name. The in-guest HTTPS loopback denial probes returned
+  the expected 403 for each name. The fixture smoke passed, including its
+  failure-recovery and reboot cases. Destroy removed the journaled DNS/token
+  and Tailscale resources before deleting the VM. No production credential or
+  production issuer was used.
+- Local validation on this runner: `cargo fmt --all -- --check`, strict
+  all-target Clippy, and all workspace/all-target tests (244 passed) passed for
+  the configured musl target. The CI integration command
+  `cargo run --bin skillet -- test run beezelbot --phase base --image
+  fedora:latest` passed both applies; repeat apply caused no service
+  start/restart. Workflow-wide ShellCheck and
+  `bash ublue/butane/tests/bootstrap.sh` passed. A supplementary GNU-target
+  suite and integration also passed. The integration container needed SIGKILL
+  after its 10-second stop timeout.
+- At this checkpoint, retained-host repeat apply, live process/network/storage
+  assertions, credential rotation, and post-rotation reboot were outstanding.
+  They were completed in the following retained-VM acceptance entry. Remaining
+  live gaps are listed there.
+
+### Retained clamps VM apply, storage, and repeat-apply acceptance, 2026-10-04
+
+- Host-context verification confirmed `/dev/kvm` and the running retained
+  `clamps-test-smoke` VM. `test vm ready clamps smoke` passed, including signed
+  boot, captured-binary delivery, base apply, and user-environment checks.
+- `test vm provision clamps smoke` completed twice after one manually
+  interrupted attempt. The successful retries enrolled/verified the test VM in
+  Tailscale, delivered Pi-hole credentials, and completed the declared clamps
+  application. No Caddy or Cloudflare operation was requested in this run.
+- The fixture smoke passed after provisioning, including pre-reboot failure
+  recovery and post-reboot checks. `test vm status clamps smoke` confirmed the
+  recorded domain remained running and owned after the cycle.
+- Guest inspection through `test vm ssh` confirmed `/var/lib/data` is the
+  Btrfs `data` subvolume mounted from the VM disk; Podman graph storage and
+  Pi-hole, Syncthing, Tailscale, and UniFi use the expected paths under it.
+  Pi-hole and Syncthing use the bridge network; Tailscale and UniFi use host
+  networking. UniFi's container user and data-root ownership resolved to the
+  declared numeric identity. All four service containers were running, and
+  UniFi reported healthy.
+- A further full provisioning apply left the recorded Podman start timestamps
+  unchanged for all four service containers, confirming no restart on repeat.
+- `test vm provision clamps smoke --rotate` succeeded. Pi-hole's container
+  restarted with the new generated test credential; Syncthing, Tailscale, and
+  UniFi start times did not change. A normal apply afterward left all four
+  start times unchanged. After another fixture reboot, all four services and
+  the fixture container were running, the encrypted Pi-hole credential file
+  was present, and `skillet-full-apply.service` reported `Result=success`.
+- For the ownership check, created a temporary child with UID/GID `12345:12345`
+  and mode `0600`, then changed only its managed UniFi volume root to
+  `12345:12345`/`0700`. Host apply restored the volume root to `999:999`/`0750`
+  and preserved the child's UID/GID/mode. The temporary file was removed,
+  UniFi was healthy, and `systemctl --failed` was empty afterward.
+- At this checkpoint, controlled interrupted recovery and legacy-manifest
+  import remained open. Both passed in the following acceptance entry.
+  Production delivery/renewal and outside-tailnet denial remain separate
+  deferred acceptance.
+
+### Legacy manifest import and interrupted provisioning recovery, 2026-10-05
+
+- Legacy import: on the running retained `clamps-test-smoke` VM, temporarily
+  moved the current `vm.json` aside and ran
+  `skillet test vm ready clamps smoke --verbose`. Skillet read the legacy
+  `run.conf`, validated its UUID and disk against the live libvirt domain,
+  imported the state, reapplied signed-boot/readiness checks, and returned
+  success. The resulting `vm.json` was mode `0600`, phase `ready`, and retained
+  the captured/deployed artifact hashes. `run.conf` had the same SHA-256 before
+  and after; the original manifest backup was removed after verification.
+- Interrupted recovery: created the disposable `clamps-test-recovery` VM on
+  port 2202 and completed readiness. Started
+  `skillet test vm provision clamps recovery --verbose`, then sent Ctrl-C only
+  after `tailscale-pending` existed. Before and after interruption the marker
+  was mode `0600` with the expected test host/environment/instance identity;
+  `tailscale.json` was absent and the VM manifest remained `ready` with the
+  same UUID. The command exited on interruption without removing ownership
+  state.
+- Retried the same provision command. It delivered the Tailscale credential,
+  completed full service apply and enrollment, wrote `tailscale.json`, and
+  removed `tailscale-pending`. `skillet test smoke clamps --instance recovery`
+  passed all fixture cases, including reboot. `skillet test vm destroy clamps
+  recovery --verbose` removed the journaled Tailscale ownership and disposed
+  the VM. A final VM list showed only the retained `clamps-test-smoke`; its
+  libvirt domain and disk were untouched.
+- No production credentials, production DNS, or Cloudflare APIs were used for
+  this recovery check. Production delivery/renewal and outside-tailnet denial
+  remain deferred from the refactoring gate.
+
+
+### Native fleet SMTP provisioning, 2026-10-09
+
+- ucore-images commit `3223d48` adds Postfix and `cyrus-sasl-plain` to the common
+  image, initially disabled. The previously published common image was inspected
+  and lacked both packages. Package availability was verified in a disposable
+  Fedora image; the signed uCore image rebuild remains an operator step.
+- Passed `cargo fmt --all -- --check`, pedantic workspace Clippy, all 323 workspace
+  tests, Fedora beezelbot base integration (repeat apply issued no service
+  start/restart), Butane bootstrap regression tests, and Ruff check/format for
+  the native acceptance fixture. These checks require no provider credentials.
+- Production `secrets check --host clamps --environment production` passed:
+  7 required checked, 0 missing/invalid, 0 unused, including SMTP sender/custom
+  fields. This validates presence/formats, not Mailjet permissions or sender DNS.
+- Ran `crates/smtp/tests/native_acceptance.py` against the Cargo-reported musl CLI
+  in fresh disposable Fedora systemd containers with `--network none` and
+  synthetic credentials/addresses. Capture and production-policy runs passed;
+  both containers were removed. No provider APIs or external email were used.
+- Actual Postfix accepted host sendmail submission, preserved the recipient and
+  queued message across stop/apply-start, and delivered to the loopback capture
+  sink after an upstream outage. Repeated apply preserved the Postfix PID.
+  Credential preparation regenerated a deleted volatile map. The production
+  map was root-owned mode `0640`, under root/Postfix-group mode `0750`; a query
+  under the Postfix worker identity verified backend access.
+- With production policy and a synthetic upstream that did not offer STARTTLS,
+  Postfix retained the queued message and sent no AUTH, MAIL or message content.
+  Sender canonical rewriting preserved the recipient. This is not acceptance
+  of provider authentication or certificate validation against a TLS server.
+- Pending: rebuilt uCore VM with enforcing SELinux, boot/reboot/rebase map and
+  queue persistence, non-loopback access rejection, certificate/authentication
+  failures, explicit Mailjet/Gmail delivery with SPF/DKIM/DMARC inspection, and
+  UniFi recovery-email configuration. Bridge clients and queue-age/send-failure
+  metrics are separate remaining implementation slices; unit health is declared.
+
+
+### Rebuilt uCore SMTP capture acceptance, 2026-10-09
+
+- [Image workflow 37916306725](https://github.com/gbagnoli/ucore-images/actions/runs/37916306725)
+  succeeded for ucore-images `3223d48`. Created the owned disposable
+  `clamps-test-smtp` on port 2202; UUID
+  `59878d4b-8095-4ebb-81e9-dc9e4658914d`. The retained smoke VM was untouched.
+  Signed clamps boot/readiness passed; the guest contained
+  `postfix-3.10.14-1.fc44` and `cyrus-sasl-plain-2.1.28-35.fc44`.
+- Fresh activation exposed missing package `/var` state on ostree. Skillet now
+  initializes the full packaged queue directory layout, PID directory and
+  `/var/lib/postfix` with package ownership/modes before confined startup, then
+  restores security labels. Initializing only the queue root was insufficient:
+  confined startup could not initialize all remaining directory metadata.
+- Capture-only delivery used `test vm provision clamps smtp --smtp-only` without
+  vault/provider access. With SELinux enforcing, native Postfix and credential
+  preparation started, host sendmail queued a synthetic message, and connections
+  to the guest's non-loopback IPv4 address on port 25 were rejected.
+- Removed the volatile map, rebooted through `test vm reboot`, and ran owned
+  readiness. The encrypted credential survived, boot regenerated the map, and
+  the synthetic message persisted and delivered to a temporary loopback sink.
+  The first observation captured a transient maildrop ID; subsequent checks
+  waited for the finalized deferred ID before comparing identities.
+- Exercised signed common-image rebase and return to signed clamps. For the
+  direct common check, temporarily changed `/etc/ucore-bootstrap-image` to the
+  common image and restored it before returning. Disabling bootstrap alone is
+  insufficient because the base unit requires it and can start it again.
+  Confirmed actual signed common boot, unchanged finalized queue ID, regenerated
+  map, enforcing SELinux, and successful retry. Signed clamps readiness passed
+  after restoring its bootstrap target. All guest assertions used the owned
+  `test vm ssh` interface; reboot and readiness used the Rust lifecycle owner.
+- Local checks passed: formatting, pedantic workspace Clippy, 324 workspace
+  tests, Fedora base repeat-apply integration, and Ruff check/format. Both native
+  fixture policies additionally passed after deleting package queue/data state
+  inside isolated disposable containers; both containers were removed.
+- After returning to signed clamps, updated both guest binaries to the current
+  fix and repeated capture provisioning. Confirmed the restored image/target,
+  empty queue, retained encrypted credential, and unchanged Postfix PID on repeat
+  apply. Disposed `clamps-test-smtp`; final VM list retained only the running
+  `clamps-test-smoke` on port 2201.
+- No real provider credential or external email was used. Production credential
+  map access and certificate/authentication failures under enforcing SELinux,
+  Mailjet/Gmail delivery, sender-domain verification and UniFi SMTP settings
+  remain pending. Bridge clients and queue-age/send-failure metrics remain
+  implementation follow-ups in `plan/CLAMPS-EMAIL.md`.
+
+## 2026-10-09 — live Mailjet relay and Gmail receipt
+
+- Created fresh owned `clamps-test-mailjet` on native `qemu:///session`, SSH port
+  2202. Signed uCore boot and base readiness passed; retained smoke VM untouched.
+- Explicit `--smtp-only --live-smtp` provisioning used cached KeePass access and
+  shared encrypted credential delivery. Normal VM provisioning remains capture-only;
+  the override does not change VM environment or enable other production services.
+- Submitted one operator-authorized message. Initial delivery deferred because
+  the compatibility CA symlink was absent and the SMTP worker could not read
+  RAM credentials with the generic SELinux label. TLS policy prevented plaintext
+  fallback. Fixed the extracted trust-bundle path and runtime credential labeling,
+  updated both guest binaries, and retried the original queue entry without
+  submitting a duplicate.
+- Mailjet accepted the original message over verified TLS with SMTP authentication.
+  Operator confirmed Gmail receipt. SELinux remained enforcing; credentials have
+  `postfix_etc_t`, root/Postfix ownership and restricted Unix permissions. Queue
+  drained. Encrypted credential preparation recreated the deleted RAM map with
+  the correct label. Restarting the prerequisite stopped its dependent Postfix unit;
+  apply recovered it. A subsequent ordinary repeat production apply preserved
+  Postfix PID and empty queue.
+- Local checks: 328 workspace tests, formatting, pedantic Clippy, Fedora base
+  repeat-apply, and Ruff check/format passed. Isolated native capture and
+  production-policy fixtures passed from absent mutable package state; configured
+  CA bundle exists, and an upstream without STARTTLS receives no credentials/mail.
+- SPF/DKIM/DMARC headers, explicit invalid-certificate/authentication cases, and
+  UniFi recovery-email integration remain unverified. No additional provider
+  messages were submitted. The disposable Mailjet VM and fixture containers were
+  removed after acceptance; provider secrets/private sender details are not recorded.
+
+## 2026-10-09 — caller-selected Tailscale exit-node configuration
+
+- Clamps declares production exit-node advertisement. Production delivery wraps
+  its one-use key with resolved routing policy in a versioned encrypted payload;
+  disposable delivery explicitly disables advertisement. No hostname-based
+  environment inference, new vault entries, or control-plane ACL mutations.
+- Raw retained credentials remain readable with advertisement disabled;
+  production redelivery activates the declared policy. Only the decoded key is
+  delivered to the Podman secret. Invalid/unknown payload versions fail safely.
+- Retained host networking, state, capabilities and `TS_AUTH_ONCE=true`.
+  Quadlet health readiness orders native `tailscale set` after CLI availability,
+  so persisted preferences converge on service startups as well as first join.
+  Explicit false withdraws previous advertisement. Existing shared IPv4/IPv6
+  forwarding settings already enable routing; no image changes were needed.
+- Formatting, pedantic Clippy, all 331 workspace tests and Fedora base repeat-apply
+  passed. Installed Podman 6.1 Quadlet compiler accepted a focused directive
+  fixture for both true and false, including healthy notification and the native
+  post-start preference command. Fixtures did not start containers or enroll nodes.
+- Live VM/client routing was intentionally omitted by operator decision, rather
+  than recorded as passing. Production tailnet exit-node approval and client
+  selection remain operator deployment steps. Retained smoke VM was not modified.
+
+
+## 2026-10-09 — read-only host baseline audit
+
+- Used the owned `test vm ssh clamps smoke` transport for bounded read-only
+  inspection of the retained VM. No reapply, reboot, service or account changes.
+- SSH server syntax and client configuration parsing passed. Effective key-only
+  authentication, root policy, forwarding and SFTP match the public Chef role.
+  SSH service enabled/active; home and Ignition key permissions appropriate.
+- Sudo syntax passed. Base uCore sudo-group rule grants passwordless access,
+  independently of the VM override. This differs from Chef's default password
+  requirement. Production forced-password-change behavior is removed by VM
+  staging and was not accepted here.
+- Eternal Terminal installed/enabled/active with dual-stack TCP 2022 listeners;
+  an end-to-end ET client session and physical firewall access were not tested.
+- Giacomo UID/GID is 1001, versus Chef's declared 1000; Core owns 1000. Live
+  user authorized_keys contains seven keys in addition to the Ignition file;
+  no key material or password hashes copied into this record.
+- Brew and dotfiles oneshots succeeded and their markers exist. Installer `-V`
+  explicitly skips Vim plugins; plugin installation remains deferred.
+- SELinux enforcing, auditd active/enabled, both forwarding sysctls set to one.
+  OS-hardening placeholder and observed login-policy differences remain open.
+  WOL installed; private target shortcuts and actual wake-up were not tested.
+- Source comparison confirmed identical image/Skillet SSH and sysctl files.
+  Findings and ordered follow-ups: `../plan/CLAMPS-BASELINE-AUDIT.md`.
+
+
+## 2026-10-09 — explicit administrative access finalization
+
+- Operator accepted UID 1001 and selected temporary passwordless provisioning,
+  followed by password-required sudo and first-login password change.
+- Shared guest/host CLI now offers `access finalize --user <account>`; base apply
+  never invokes it. New production Butane inputs no longer run early automatic
+  expiry. Existing install media must be regenerated; installed legacy expiry
+  units require explicit retirement. No retained VM or production account changed.
+- Finalization validates sudo policy, installs the account's PASSWD override and
+  expires its existing password. Root-only intent/completion state and a lock
+  support retry without expiring a password already changed by the operator.
+- Formatting, pedantic Clippy, 338 workspace tests, Fedora base repeat-apply and
+  all eight bootstrap regressions passed. CI unit coverage includes command
+  parsing, one-time expiry, expiry failure/retry, interrupted recovery preserving
+  a changed password, invalid journal rejection and account-name validation.
+- An isolated Fedora container with native sudo/shadow tools passed temporary
+  passwordless access, final expiry, passwordless rejection, new-password sudo
+  acceptance, repeat finalization preserving password age, and sudo syntax.
+  Synthetic passwords only; fixture removed. No workstation packages installed.
+- Interactive first-login password change over SSH/console on a fresh uCore
+  install remains unverified. Later workstation delivery currently assumes
+  passwordless sudo; finish it first, then use interactive sudo/root administration.
+
+
+## 2026-10-10 — TPM/boot capability audit
+
+- Used the owned retained `clamps/smoke` SSH transport for read-only package,
+  boot-layout and deployed-initramfs inspection. No guest state mutation,
+  reboot, credential delivery, enrollment or formatting.
+- Deployed uCore: Clevis 21, cryptsetup 2.8.8, dracut 108, systemd 259.8 with
+  TPM2 support, TPM2 tools 5.7. Initramfs includes Clevis TPM2, cryptsetup,
+  systemd TPM token plugin and Btrfs. Boot entries use separate kernel/initrd;
+  EFI runtime and TPM devices absent in the existing BIOS VM. ukify and
+  systemd-measure were not found; signed PCR policies are not configured.
+- Workstation: KVM present; swtpm 0.8, QEMU 10.1, libvirt 11.10, edk2 OVMF
+  installed. q35 domain capabilities advertise EFI/Secure Boot and emulated
+  TPM2. Secure Boot firmware and enrolled-key NVRAM template files exist.
+  No physical TPM device exposed. No workstation packages installed.
+- Reviewed current CoreOS/Clevis/systemd upstream documentation. Native TPM
+  encryption and signed-PCR boot integrity are distinct guarantees; protection
+  scope choice remains pending. Initial FCOS image initramfs, PCR banks, actual
+  UEFI/Secure Boot/MOK startup and encrypted rebase/rollback are unverified.
+- Updated storage design and TPM plan. No encrypted profile or VM was created;
+  current install templates and both repositories' runtime code are unchanged.
+
+## 2026-10-11 — protected header backup and native TPM-loss recovery
+
+Native `qemu:///session`, fresh `clamps / header-recovery` (SSH 2202), recovery
+clone `clamps / tpm-loss` (2203). The existing `clamps / smoke` VM on 2201 was
+preserved. No workstation packages or physical disks/TPMs were changed.
+
+Passed:
+
+- Fresh TPM-profile install reached signed uCore and base/user readiness.
+- `test vm recovery-key clamps header-recovery` persisted the independent key,
+  volume UUID and verified `root-luks.header` attachment in the encrypted vault.
+  Repeating it left the encrypted vault bytes unchanged.
+- The archived header was restored onto a new 64 MiB tmpfs regular-file fixture;
+  the archived passphrase unlocked it. The fixture and plaintext inputs were removed.
+- A stopped disk copy received independent TPM/NVRAM and an unlogged console.
+  The fresh TPM failed automatic unlock and reached the passphrase prompt;
+  the vault passphrase booted the same encrypted volume.
+- Explicit re-enrollment verified the new TPM before deleting the old binding,
+  retained the independent recovery slot, and saved a separate clone header.
+- Two unattended cold boots preserved volume identity and the flushed data
+  sentinel, with exactly two keyslots. Repeating completed recovery left vault
+  bytes unchanged and introduced no additional slots.
+- The original TPM still unsealed its original key and unlocked its unchanged
+  volume. Its header archive matched the pre-clone hash throughout recovery.
+- Both owned recovery VMs, disks, TPM/NVRAM and run artifacts were disposed.
+  Vault archives remained unchanged; the original smoke VM remained running.
+
+Driver: `cargo run --release -p skillet_workstation --example tpm_recovery --
+../butane clamps header-recovery tpm-loss 2203 ACTION`, with `clone`, `unlock`,
+`rebind`, `verify` in order. Usage is in the Skillet README. Clone preflight
+allows known readiness evidence but rejects provider journals, containers,
+Podman secrets and delivered encrypted credentials.
+
+Local checks passed: formatting, pedantic workspace Clippy, all 363 workspace
+and example tests, ShellCheck for the three recovery helpers, and Fedora
+`test run beezelbot --phase base --image fedora:latest` (both applies succeeded;
+repeat apply issued no service start/restart). Routine CI uses fixture KDBX and
+fake transports; this live run used the cached vault unlock.
+
+Still unverified: physical TPM/firmware compatibility and rescue installation,
+Flatpak encrypted-VM acceptance, offline-network and remaining boot-policy /
+update / rollback matrix cases. A header backup is not a service-data backup.
+
+
+## 2026-10-11 — physical installation media
+
+- `skillet install prepare HOST` selects an explicit whole-disk by-id identifier,
+  private bootstrap key/hash, and independent plain/TPM root profile. It leaves
+  the committed VM `/dev/vda` template unchanged and never writes a block device.
+- Real FCOS 44.20260913.3.2 x86_64 live ISO downloaded and signature-verified by
+  the existing CoreOS installer container. Plain and TPM USB ISOs generated
+  successfully using disposable access inputs; TPM used a disposable DER
+  certificate, not an enrolled hardware key.
+- Extracted both ISOs with `iso ignition show`, recursively decoded their merge
+  payloads, and verified the embedded destination-Ignition digests. Destination
+  storage selected the requested by-id disk; plain retained raw Btrfs and TPM
+  selected LUKS2 -> `/dev/mapper/root` -> Btrfs with networkless Clevis policy.
+  Verified private output-directory and Ignition permissions and replaced access
+  inputs without printing credential values.
+- Full destination payload exceeded CoreOS's 256 KiB embedding limit. The
+  implemented flow embeds only the live helper/policy, operator public key and
+  payload digest; destination Ignition is transferred over verified SSH or
+  separate data media and verified in root-only live tmpfs before installation.
+- CI/local checks: fmt, pedantic Clippy, 370 workspace/all-target tests, Fedora
+  base integration (two applies, no repeated service starts), ShellCheck,
+  all eight bootstrap regressions and isolated hardware-helper refusal tests
+  passed. CI now lints the live helper and rejects mismatched payloads/absent
+  target disks without vault/provider access or host block-device exposure.
+- Native `clamps / physical-regression` on port 2202 booted the unchanged
+  `/dev/vda` installation, accepted SSH/binary delivery and reached signed
+  bootstrap. Initial readiness was paused to inspect slow image-layer downloads;
+  one retry lost SSH during a bootstrap reboot. The following retry reached
+  base/user-environment apply and temporarily received SSH connection resets.
+  After a quiet interval and retry, full readiness passed with recorded phase
+  `Ready`, including base apply, user environment and artifact verification.
+  Private evidence was retained before disposing of this regression VM.
+- Unverified: booting the new USB ISO itself, actual S13 disk installation,
+  physical TPM/Secure Boot/MOK enrollment, LAN and production cutover. See
+  [the physical runbook](../../butane/HARDWARE.md). Existing smoke VM was not modified.
+
+
+## 2026-10-11 — boxy replacement host/boot slice
+
+- Source inventory: `roles/boxy.rb` and the default cookbook includes. Shared
+  services selected by canonical `beelzebot`: Pi-hole, host-network Tailscale,
+  Syncthing, caller-selected Syncthing-only btrbk, DDNS, Datadog and SMTP;
+  generic Caddy exposes only the declared UIs. UniFi is not selected.
+- Operator explicitly authorized removing the misspelled profile/package without
+  compatibility. At that time commands and CI used `beelzebot`; earlier log entries
+  retain the command spelling actually executed. No vault or manifest migrated.
+- Local: all 372 workspace/all-target tests, formatting, strict pedantic Clippy,
+  Fedora `test run beelzebot --phase base --image fedora:latest` (two applies,
+  no repeated starts/restarts), ShellCheck, nine bootstrap regressions and both
+  guarded hardware-helper refusal cases passed. Routine checks used no vault,
+  provider or hypervisor credentials.
+- ucore-images: YAML parsing, Pi-hole DNS mask and serialized common-before-host
+  workflow assertions passed. The recipe change is committed; its rebuilt remote
+  image/CI has not been checked. The new Butane template also masks resolved
+  at day zero so the older correctly named image can boot with this policy.
+- Native named run: `test vm create beelzebot migration --port 2202`, plain root,
+  `/dev/vda`, existing verified FCOS image; the clamps smoke VM was preserved.
+  Strict compilation and decoded destination Ignition assertions passed for
+  canonical host/image, resolved mask, full-apply credentials and disk layout.
+  Captures were built from the working tree before commit `13961a1`; its manifest
+  records the previous HEAD. Recorded hashes bind the delivered artifacts.
+- Signed boot and binary delivery reached the base/user-environment stage;
+  full base/user readiness passed. `test smoke beelzebot --instance migration`
+  passed namespaced fixture convergence/failure/recovery checks, repeat apply,
+  reboot/persistence and final readiness. This was fixture mode, not full declared
+  application acceptance. The native run remains `Ready` on SSH port 2202 for
+  the next slice; final manifest/status/journals and command logs are preserved
+  privately at `/tmp/beelzebot-migration-evidence`.
+- Vault-dependent audit could not unlock: `secrets check --host beelzebot
+  --environment test` returned `reading database password from terminal: No such
+  device or address`; the cache was unavailable in this process. No provider
+  mutation, production identity, DNS publication or real service-data transfer.
+  Full application/provider acceptance remains pending an operator unlock.
+- Remaining parity: private Pi-hole v6 DNS configuration delivery, boxy's subnet
+  routing/acceptance/SNAT policy, private cross-host UI/probes, source data/ACLs,
+  physical deployment and cutover. See `../plan/JOEY-MIGRATION.md`.
+
+
+## 2026-10-13 — native host networking (local validation)
+
+- Shared caller-selected wired/Wi-Fi configuration and encrypted production
+  delivery implemented. Clamps declares both; other callers and disposable
+  provisioning retain DHCP. Network input is separate from full application.
+- Injected tests cover address/subnet/field validation, private error handling,
+  DNS order, Wi-Fi escaping, metadata, fresh live staging, boot autoconnect,
+  repeat preparation, retained DHCP recovery, host binding and test-policy refusal
+  before any production vault read. The phase rejects diagnostic recording.
+- Actual `nmcli` 1.54.3 offline parser accepted both fixture keyfiles, including
+  byte-encoded SSID and escaped PSK, and retained IPv4/DNS/security policy through
+  a consumer roundtrip. No live NetworkManager connection was loaded or activated.
+- Local checks passed: workspace formatting, strict pedantic Clippy, 433
+  workspace/all-target tests (five routine ignores), explicit offline consumer
+  test, static musl release builds, and Fedora `test run joey --phase base
+  --image fedora:latest`: both applies succeeded without repeated service starts.
+- Operator-unlocked production vault audit: 10 required entries checked,
+  zero missing/invalid, zero unused. Separate in-memory typed validation passed
+  for host/subnet/Wi-Fi settings and confirmed loopback as dns2 on both
+  interfaces. No private network values, SSID or key were printed or persisted
+  in diagnostic artifacts; the temporary verifier source was removed.
+- No production network configuration was delivered or activated. Generic/host
+  binary deployment, image Wi-Fi support, real systemd boot ordering, static
+  address adoption, physical Wi-Fi association, LAN/Tailscale reachability and
+  reboot recovery remain unverified. See `../plan/HOST-NETWORKING.md`.
+
+
+## 2026-10-13 — documentation ownership and archive reconciliation
+
+- Main Skillet README reduced to build, brief testing and numbered physical
+  installation steps. Module operating instructions now live with their crate;
+  Tailscale/TPM use focused pages under their existing owners. VM instructions
+  have one crate guide; Butane documents compiler inputs and the hardware helper.
+- Current plans retain unfinished work/acceptance; completed workstreams and
+  previous milestone versions are archived. Designs retain decisions and
+  constraints. The historical acceptance body and archived plan bodies were
+  compared against commit `32eaea3`: observations/commands/dates were preserved,
+  with only link rebasing and archive banners. No test was marked passed merely
+  because its implementation or a different backend had evidence.
+- Local validation: Markdown files/anchors checked, eight documented CLI help
+  groups verified, generated secret-checklist equality, formatting, strict
+  workspace Clippy, 433 workspace/all-target tests (five routine ignores), and
+  Fedora base repeat apply passed. Repeat apply issued no service start/restart.
+- Documentation metadata links changed; runtime behavior did not. No vault,
+  provider, VM lifecycle or physical-host operation was performed by this cleanup.
+  Remote CI and existing parked live acceptance remain separate open checks.
+
+## 2026-10-13 — shared binary build identity
+
+- Generic, clamps and joey binaries reported the same shared release/revision
+  with their own executable names; guest base apply logged that version.
+- Release version is centralized in `[workspace.package].version`; vergen-gix
+  captures revision/dirty state with build-only Rust Git dependencies.
+- An isolated temporary repository exercised the actual build script/version
+  module: clean checkout, tracked dirty edit, restored source, new empty commit,
+  packed refs, empty commit after packing, detached HEAD and removal of `.git`.
+  All incremental rebuild checks passed without `cargo clean`; archives reported
+  `git.unknown`. No production repository refs were mutated by this probe.
+- Formatting, strict workspace Clippy and 437 workspace/all-target tests passed
+  (five routine ignores). Fedora joey base repeat apply passed with no repeated
+  service start/restart. Physical binaries were not deployed by this change.
+
+## 2026-10-13 — production deployment before apply
+
+- Added `deploy --host HOST --target USER@HOST`; remote apply deploys first by
+  default, with `--no-deploy` restricted to remote use. Both paths print versions;
+  standalone deployment has no vault or service activation dependency.
+- Physical and VM updates share Cargo-reported artifact selection and verified
+  per-executable atomic delivery. VM run guards/capture evidence are preserved.
+  Uploaded bytes/root ownership/mode are checked before promotion, SELinux labels
+  are restored, and both installed hashes and versions are checked. A failed
+  partial pair prevents apply and retry converges the remaining executable.
+- Local checks passed: formatting, strict workspace Clippy, 445 workspace/all-target
+  tests (five routine ignores), deploy/apply CLI help, and Fedora joey base repeat
+  apply with no repeated service start/restart. Stateful fake transport tests
+  cover both files, corrupt staging, partial replacement/retry, no-op delivery,
+  profile mismatch before build/upload, and retained VM disposal guards.
+- Live deployment to physical clamps and native/Flatpak VM update were not run.
+  The last read-only SSH probe to the physical host timed out; mock delivery and
+  container baseline results do not establish real SSH/SELinux deployment acceptance.
+
+## 2026-10-13 — clamps physical networking (operator report)
+
+- After deployment-before-apply was implemented, the operator reported that
+  provisioning worked and wired/Wi-Fi were correctly configured on physical
+  clamps. Wi-Fi connectivity was also exercised successfully.
+- This establishes operator-observed physical interface configuration and
+  wireless connectivity; no independent guest diagnostics were captured here.
+  Exact DNS order/outage behavior, route metrics/permanent MAC, preparation
+  ordering, repeat apply and another unattended reboot were not reported and
+  remain explicit networking acceptance checks. Application migration, client
+  access and TPM update/recovery checks are separate.
+
+## 2026-10-14 — clamps recovery cleanup (operator report)
+
+- Operator confirmed completion of the supplied physical cleanup procedure:
+  verified independent vault recovery/header before removal, removed the
+  temporary short LUKS passphrase, retained the TPM binding, reran Skillet
+  recovery provisioning to verify the retained key and refresh the vault header,
+  backed up/synced the updated vault, and confirmed unattended reboot.
+- This is operator-reported acceptance on the stock disk, not an independently
+  captured diagnostic run. Networkless cold boot, an approved OS update/rollback,
+  physical rescue/TPM replacement and final-disk acceptance remain separate.
+
+## 2026-10-14 — clamps signed update and update timers (operator report)
+
+- Operator confirmed successful rebase/reboot. Posted status shows signed
+  `ucore-clamps:latest` booted at digest
+  `90f1e28fc31a5bcdd5ea637990493fe85c3cfcfd88d53637aee0fb8453782c05`,
+  with the preceding signed digest retained as rollback deployment.
+- Posted status shows `AutomaticUpdates: stage`, both OS and Podman auto-update
+  timers enabled, and future triggers scheduled. OS updater reports no runs
+  since this boot: scheduling is confirmed, not a completed unattended update.
+- This establishes one operator-confirmed signed image transition/reboot.
+  Physical rollback, networkless cold boot and data/credential preservation
+  across the wider update matrix remain separate checks. No automatic reboot
+  schedule or changed container pinning policy was configured here.
+
+## 2026-10-14 — Mikochi moving-tag updates
+
+- Operator selected upstream `:latest` for Mikochi. The generated Quadlet now
+  declares `AutoUpdate=registry`; the real-container trial uses the same image
+  constant and `--pull=always`. OS update policy remains stage/manual reboot;
+  no automatic reboot unit or policy was changed.
+- Freshly pulled image digest:
+  `sha256:4d26e7615337d7bb516649c4bce4237220b2ec697400785494048df778042683`.
+  Real-container no-second-login, browsing, 3 MiB download/upload, folder creation,
+  mapped file ownership and denial of an out-of-mount host symlink target passed.
+- Formatting, strict workspace Clippy, 445 workspace/all-target tests (five
+  routine ignores), the separately invoked live Mikochi test, and Fedora joey
+  base repeat apply passed. Repeat base apply issued no service start/restart.
+- The Quadlet change was not applied to physical clamps or a named VM here.
+  Timed replacement and proxy authorization/browser acceptance remain separate
+  from the directly tested application behavior.
+
+## 2026-10-14 — Syncthing tailnet identity declaration
+
+- Shared Syncthing UI policy now requires the existing LocalAPI WhoIs user gate
+  on both its canonical hostname and `sync` alias. The application moves off
+  the shared service bridge onto a dedicated non-internal strict backend; Caddy
+  joins it from the same declaration. TCP/UDP 22000 publications remain defined.
+  Syncthing passwords/API keys, device identity and folders are not rewritten.
+- Caller-driven runtime acceptance reflects the dedicated bridge. Tests cover
+  protection on both names, gate-before-proxy/header replacement, no published
+  GUI port, absence of shared bridge attachment, repeat apply and rejection of
+  stale Caddy payloads without the declared protection. Existing gate tests
+  cover allowed/full identities, tagged/unknown denial, revocation, forged
+  headers and lookup failures.
+- Formatting, strict workspace Clippy and 446 workspace/all-target tests passed
+  (five routine ignores). Generated Syncthing canonical/alias plus file-browser
+  identity configuration validated with the real Caddy image. Fedora joey base
+  repeat apply passed without repeated service start/restart.
+- Physical rollout and named-VM acceptance were not performed. Strict SSH to
+  clamps failed with `Permission denied (publickey)`; local rootful Podman
+  inspection failed because noninteractive sudo required a password. Live
+  browser/identity, dual-stack backend denial and peer-port reachability remain
+  in the UI plan; configuration/fake tests are not those runtime results.
+
+## 2026-10-14 — positional profiles and native SSH aliases
+
+- Workstation `apply HOST` and `deploy HOST` require the positional profile and
+  default to the equivalent SSH alias. Optional targets accept bare aliases or
+  `USER@HOST`. Omitted user/port/key/known-host overrides delegate to native
+  OpenSSH configuration; production delivery/recovery preserve configured ports
+  too. Strict host verification and noninteractive authentication remain.
+- Generic guest `apply --host-file PATH --phase PHASE` remains compatible with
+  installed bootstrap/service units; explicit `apply HOST --local` selects a
+  local profile. Removed `--host` syntax is intentionally unsupported. VM
+  manifests still supply explicit user/port/key/known-host fields unchanged.
+- Deployment distinguishes SSH exit 255, failed guest identity-file reads and
+  successful profile mismatches. The SSH error includes a bounded printable
+  diagnostic and an encrypted-key SSH-agent hint, without a VM-state label.
+- Formatting, strict workspace Clippy, 448 workspace/all-target tests (five
+  routine ignores) and Fedora joey base repeat apply passed. Native `ssh -G`
+  against a disposable config verified HostName/User/Port resolution; command
+  tests cover no implicit overrides, bare-alias upload, explicit VM IPv6 upload
+  and unchanged strict trust. CLI help shows the positional/default target and
+  retained guest form. An isolated fake-SSH CLI probe reproduced publickey
+  failure for apply/deploy and verified classification before build/vault access.
+- No physical deployment, operator SSH-key unlock, vault or provider operation
+  was performed. Real authenticated access with the operator's configured alias
+  and agent remains an operator check; this change does not unlock private keys.
+
+## 2026-10-14 — SSH-agent setup help
+
+- Added workstation agent setup instructions and links from apply/deploy help.
+  Authentication errors distinguish unset/empty SSH_AUTH_SOCK from an advertised
+  socket, without treating a set variable as proof of a working agent or key.
+  Skillet does not start agents or unlock private keys; setup is operator-run.
+- Formatting, strict workspace Clippy, 450 workspace/all-target tests (five
+  routine ignores) and Fedora joey base repeat apply passed. Direct CLI help
+  and isolated fake-SSH missing/present-agent error probes passed without
+  accessing a vault, starting an agent or contacting a production guest.
+
+## 2026-10-14 — Wildcard port publication repair preparation
+
+- Read-only physical diagnostics found active Caddy and Syncthing containers,
+  but twelve retained DNAT rules still targeted their old, unused endpoints.
+  Netavark 1.17.2 cleanup errors match upstream issue
+  [1338](https://github.com/containers/netavark/issues/1338).
+- Shared Quadlet rendering now collapses matching IPv4/IPv6 wildcard mappings
+  into one native dual-stack publication, retaining single-family, explicit
+  address, protocol and container-port distinctions. Tests cover either input
+  order and affected Pi-hole/Syncthing host composition.
+- Formatting, strict workspace Clippy, 451 workspace/all-target tests (five
+  routine ignores), and Fedora joey base repeat apply passed. The integration
+  runner needed SIGKILL after its normal container-stop timeout; both applies
+  succeeded and the repeat issued no service start/restart.
+- Live mutation was rejected by automatic approval review because root firewall
+  deletion lacked explicit approval and its initial selection was too broad.
+  A local exact twelve-rule proposal was prepared after checking all live
+  container endpoints; it has not been executed. Do not reuse handles without
+  revalidating current rule expressions and container ownership.
+- Pending: approved scoped cleanup/deployment, dual-family HTTPS and user
+  authorization checks, transfer reachability, and repeated rootful restarts
+  proving forwarding cleanup. Local unit/base checks do not establish these.
+
+## 2026-10-14 — Physical forwarding recovery and confined broker preparation
+
+- After explicit approval, revalidated host identity, immutable container IDs,
+  exclusive published-port ownership, every candidate rule's exact expression,
+  owned network prefixes and unused destinations. Syntax-checked the transaction
+  before atomically removing the twelve originally identified stale DNAT rules.
+- Deployed and verified generic/host binaries at `0a31d2f`, then activated full
+  and Caddy convergence using existing encrypted credentials. All DNS/transfer/
+  HTTPS Quadlets now contain one wildcard publication per transport. Old mapping
+  cleanup leaked twenty-one additional obsolete DNAT rules during transition;
+  removed those after the same exact ownership/destination/snapshot validation.
+- First fixed-mapping restart removed legacy redundant jump/mark rules (counts
+  decreased; no new/stale destinations). Two subsequent restart cycles kept
+  every chain's rule count unchanged, all DNAT destinations current and all three
+  services active. No Netavark cleanup errors in the final observation window.
+- Trusted HTTPS reaches Caddy over IPv4 and IPv6, returning 502. Syncthing TCP
+  22000 connects in both families. DNS answers over UDP/TCP through the host's
+  published port and over the tailnet. UDP Syncthing session transfer was not
+  exercised. This is forwarding acceptance, not successful UI acceptance.
+- Confirmed SELinux enforcing-mode `connectto` denial from Caddy's container
+  domain to the host broker's `unconfined_service_t`, despite correct root Unix
+  ownership and shared socket inode labels. Host-only broker requests accepted
+  the allowed client in both families (204) and rejected tagged/unknown peers
+  (403); this does not prove proxy-to-broker connectivity.
+- Automatic approval review rejected live installation of the first policy
+  proposal because it created an unconfined domain and its scope was unproven.
+  It was not installed. Replaced it with a dedicated confined broker domain,
+  explicit file/Unix-socket permissions, preserved systemd filesystem/address
+  restrictions, and a loader ordered before broker startup. No arbitrary-host-
+  daemon connect permission, unconfined attribute, or enforcement disablement.
+- Final CIL compiled against an isolated temporary copy of the guest's actual
+  SELinux store with alternate roots and no reload. Temporary stores removed;
+  live policy and broker domain remain unchanged. Local regression covers unit
+  ordering, repeat apply and failed loader recovery. Live installation/startup,
+  enforcing-mode WhoIs access and successful/prohibited HTTPS requests remain
+  pending approval and are not recorded as passed.
+- Formatting, strict workspace Clippy and 453 workspace/all-target tests (five
+  routine ignores) passed. Fedora joey base repeat apply passed; its container
+  stop again required the runner's SIGKILL fallback after ten seconds. These
+  checks do not validate live SELinux process transitions or proxy authorization.
+
+## 2026-10-14 — Confined broker live activation
+
+- With explicit approval, deployed and verified both binaries at `1d6ea99` and
+  ran the existing credential-bearing Caddy apply unit. The policy loader exited
+  successfully, the broker ran as `skillet_tailnet_ui_t`, and Caddy retained its
+  normal `container_t` domain. SELinux remained Enforcing throughout.
+- Real allowed-client requests to both declared Syncthing names and the files UI
+  returned trusted HTTPS 200 over IPv4 and IPv6. Initial IPv6 probes had transient
+  timeouts; subsequent retries and the full post-restart six-request sweep all
+  passed. A previously used nonconfigured hostname failed DNS and was not added.
+- Real tagged-server IPv4 HTTPS returned the broker's 403 response even with a
+  forged allowed-peer header. Tagged IPv6 identity lookup and unknown identity
+  lookup returned 403 through the host-only broker socket. The tagged-server IPv6
+  HTTPS hairpin request timed out, so that full-path case remains unverified.
+- Allowed-client forged peer/user/forwarding headers could not override the
+  actual peer (200); an untrusted Origin was rejected (403).
+- Pi-hole sibling-container direct probes to Syncthing and Mikochi GUI addresses
+  timed out in both IP families, proving those private backend paths unavailable
+  from the unrelated bridge. No GUI ports were published for recovery.
+- Restarted broker/Caddy successfully in enforcing mode; all configured UI
+  names returned 200 in both families afterward. Repeat Caddy convergence kept
+  the broker PID and Caddy container ID unchanged. Final inspection found five
+  relevant units active, fourteen current DNS/HTTPS/transfer DNAT rules, and no
+  broker AVC or Netavark cleanup errors in the final observation window.
+- Did not reboot or mutate application policy/data, issue new certificates,
+  exercise browser operations or UDP transfers. Separate-device tagged IPv6,
+  browser/REST/WebSocket, revocation/outage and reboot checks remain in the plan.
+
+## 2026-10-14 — Query-bearing browser requests through identity auth
+
+- Android reproduction repeatedly loaded HTML/assets, then received broker 403
+  on events and versioned fonts. Sanitized access logging confirmed the response
+  came from identity auth, not Syncthing CSRF. The same allowed peer received 204
+  for `/auth` and 403 for `/auth?probe=1`: application query strings had reached
+  the strictly matched authorization endpoint.
+- The generic renderer now uses `uri /auth?` to clear the query on the cloned
+  authentication subrequest. Original backend requests remain untouched; identity,
+  origin and private-backend policies are preserved. No app CSRF bypass added.
+- Extended the existing credential-free real-Caddy CI test to inspect adapted
+  configuration: every identity route rewrites auth to GET `/auth?`, and ordinary
+  application proxies have no rewrite. Pure rendering checks cover aliases.
+- A disposable localhost-only Caddy container with mock auth/backend servers
+  proved query-bearing event/font GETs and a POST all reached auth as exact
+  `GET /auth`, while application method, URL/query and POST body were retained.
+  The owned container and temporary fixture were removed after the check.
+- Formatting, strict Clippy, 453 workspace/all-target tests (five routine ignores),
+  the real-Caddy consumer test and Fedora joey base repeat apply passed. The base
+  runner again used its SIGKILL fallback after the normal stop timeout.
+- Applied the query-clearing change on the physical proxy for reproduction.
+  Temporary sanitized access logs/Origin fields were diagnostic configuration;
+  durable deployment and cleanup are recorded below after completion. Android
+  usability confirmation remains pending; do not infer it from the fixture.
+- Deployed and verified both binaries at `3e0b564`, then ran the retained
+  credential-bearing Caddy apply unit. The converged configuration matched the
+  original exactly except for query clearing on all three identity auth routes.
+  Temporary access logging, Origin/fetch-site fields and rollback copy removed.
+  Broker/Caddy remained active and SELinux Enforcing; a tagged client's
+  query-bearing request with a forged allowed-phone header still returned 403.
+  Android usability confirmation is still an operator check.
+- Operator confirmed Android UI usable after the auth-query correction.
+
+
+## 2026-10-14 — Syncthing missing-only bootstrap
+
+- Added durable atomic file creation without replacement, including native/fake
+  contracts, concurrent publication, type conflicts, numeric metadata and
+  payload-free recording. Formatting, strict workspace Clippy and 466 workspace
+  tests passed (six runtime tests excluded from the routine suite). Repeat Joey
+  base integration passed without repeated service actions; container cleanup
+  used the existing SIGKILL fallback.
+- Credential-free real Syncthing consumer test passed first generation/API startup,
+  authoritative fixture name, proxy acknowledgement, generated API key, later edit
+  preservation/restart and XML-only reset with the same device ID/keypair. CI runs
+  this test explicitly using the actual upstream image.
+- Physical clamps: deployed binaries, converged baseline and staged encrypted
+  settings resolved through the production Cloudflare zone. Backed up only XML
+  plus identity fingerprints under root-private
+  `/var/lib/skillet/syncthing-initial-reset`, removed only XML, initialized and
+  restarted. API checks confirmed expected device name and GUI acknowledgement;
+  device ID and exact certificate/key bytes unchanged. Repeat bootstrap preserved
+  XML bytes, inode, owner, mode and timestamp. Full apply retained the settings
+  and identity; Syncthing/Caddy/broker active. A tagged client still received HTTPS
+  403. No synchronized files or database were removed. The GUI flag is verified;
+  no new Android browser session is claimed.
+- Automatic review initially rejected a stronger startup dependency over legacy
+  credential availability. Isolated temporary units on physical systemd then
+  proved an absent condition permits a requiring consumer and an initializer
+  failure prevents execution. Removed all fixture units and reset their failed
+  state. The source was updated only after this evidence allowed approval.
+- Original `clamps-test-files --with-applications` smoke: reboot and synthetic
+  fixture checks passed; broad application acceptance failed because Caddy stayed
+  inactive for 120 seconds. UI provisioning and a fresh acceptance run are pending;
+  this run is not recorded as successful.
+
+- Deployed and verified final generic/host binaries at `ef3c690` on physical
+  clamps. Full apply retained the seeded XML/identity and installed the stricter
+  initializer dependency; Syncthing, Caddy and the identity broker remained active.
+  The private device name is edited only in XML, never passed in generator argv.
+- Retained native VM `clamps-test-files`: readiness initially found an outdated
+  guest Homebrew `uv`; updated that guest package and readiness passed. A later
+  broad smoke attempt found the old shared Syncthing bridge: `ready` had restored
+  original captured binaries. This was not a pass for current source. Updated the
+  recorded generic/host artifacts after readiness, then converged baseline/full/UI
+  using installed encrypted credentials. No workstation software was installed.
+- On that updated owned VM, XML-only bootstrap passed environment/runtime-host
+  binding, expected authoritative device name, GUI acknowledgement, generated API
+  key and API readiness. Exact existing certificate/key bytes and device ID were
+  retained. Repeat initialization preserved XML bytes, inode, mode, owner and
+  timestamp. Private XML/identity backups are under
+  `/var/lib/skillet/syncthing-initial-acceptance`; no data or database was erased.
+- VM provisioning now explicitly converges full services when enrollment is
+  reused. Final local formatting, strict workspace Clippy, 466 workspace tests
+  and repeat Fedora joey base integration passed with that change.
+- Final updated native `clamps-test-files --with-applications` run passed all
+  pre/post-reboot fixture cases, then application runtime/configuration/identity
+  comparisons across repeat full/UI apply for Pi-hole, Tailscale, Syncthing,
+  UniFi, btrbk, Mikochi, Caddy and the identity broker. This supersedes neither
+  the original failures above nor the independently parked backend/provider gates.
+- The complete command `skillet test smoke clamps --instance files
+  --with-applications` exited 0, including its final signed-boot/base/user
+  readiness check. The runner leaves captured bootstrap artifacts installed;
+  restore current binaries with `test vm update` before further development.
+
+## 2026-10-15 — Pi-hole and Mikochi proxy authentication
+
+- Read-only physical inspection confirmed Mikochi already had `NO_AUTH=true`
+  and the Caddy identity broker was active. The upstream refresh handler requires
+  a token ID skipped by no-auth middleware; anonymous file APIs alone had not
+  established that the browser could leave its native login screen.
+- Caller-selected Pi-hole identity protection now selects a dedicated strict
+  backend and empty native-password environment, omitting password secrets.
+  Native-password caller support remains explicit and separately tested. Baseline
+  convergence resets retained full-apply credential prerequisites to canonical
+  consumers, with retry state for interrupted daemon reload. Unused old vault
+  passwords are reported rather than deleted or regenerated.
+- Added a typed Caddy no-auth refresh response, available only after identity and
+  origin checks. It is a nonsecret marker with no-store caching policy; every
+  subsequent request remains gated. Old Caddy payloads require redelivery.
+- Final strict Clippy, formatting and 470 workspace/all-target tests passed
+  (eight runtime tests excluded from that suite). Butane bootstrap state checks
+  and repeat Fedora joey base integration passed; cleanup used the existing
+  SIGKILL fallback after the normal stop timeout.
+- Provider-free real consumers passed: Caddy validates/adapts the actual config;
+  a running Caddy fixture returned refresh JSON to its allowed fixture client,
+  denied revoked/forged and cross-origin requests, and proxied unrelated methods
+  and paths normally. Actual Mikochi file operations passed and reproduced the
+  refresh 500. Actual Pi-hole migrated retained native-password state to anonymous
+  API access, preserved an application-state marker and retained access after
+  restart. CI explicitly runs all these consumer regressions without a vault.
+- Live named-VM provisioning/smoke and physical rollout are in progress; browser
+  observations remain separate from the API/fixture results above.
+- Physical clamps: deployed/verified both binaries and converged the baseline
+  credential drop-in. Activated the stronger Caddy policy before full application
+  moved Pi-hole to its dedicated backend and disabled native login. Full apply
+  returned success; Pi-hole, Syncthing, Mikochi, Caddy and broker stayed active.
+  Pi-hole's anonymous stats API succeeded with no password-file environment or
+  secret mount. A sibling shared-bridge test container could not reach its web
+  API over either IP family; the temporary owned container was removed.
+- A separate tagged tailnet client received HTTPS 403 for Pi-hole and Mikochi
+  refresh over IPv4 and IPv6, while DNS queries on host port 53 succeeded over
+  TCP and UDP in both families. An initial host `::1` DNS hairpin probe timed
+  out; the successful separate-client checks use actual tailnet addresses and
+  do not claim support for that loopback path. No application data was reset.
+- Updated owned native `clamps-test-files`, provisioned its matching UI payload
+  from the unlocked vault and passed pre/post-reboot fixture checks. Declared
+  application runtime/configuration/identity comparisons passed across repeat
+  full/UI apply for all eight selected service units, including the new Pi-hole
+  private network. The runner's final capture-based readiness step is still
+  finishing; this records application acceptance rather than its final exit.
+- The complete named VM smoke command then exited 0, including final signed-boot,
+  base and user-environment readiness. Restored the current committed generic/host
+  binaries afterward, since readiness deliberately reinstalls the creation capture.
+  Physical API/isolation and separate-client denial checks are complete; an allowed
+  person's browser observation remains an operator check.
+
+## 2026-10-15 — Datadog DNS isolation and supported image channel
+
+- Physical diagnosis: inherited DNS returned sinkhole addresses (`0.0.0.0` and
+  `::`) for the running Agent intake hostname. HTTPS consequently reached the
+  local listener and failed TLS; manually selecting latest had not fixed it.
+  A temporary credential-free container using independent resolvers completed
+  strict certificate-verified TLS. No certificate validation was disabled.
+- Canonical Agent configuration now selects the official Agent 7 major channel
+  with registry auto-update and a typed, configurable independent DNS list.
+  Existing schema-1 payloads receive the same resolver defaults; host/client
+  DNS and Pi-hole filtering remain unchanged.
+- Deployed both binaries and delivered canonical monitoring configuration to
+  physical clamps. Verified generated and effective DNS, image channel, healthy
+  Agent, successful metric submissions, zero forwarder TLS errors and zero check
+  scheduler errors. Repeat Datadog apply preserved the container identity.
+  Removed the temporary diagnostic configuration backup after convergence.
+- Physical Secure Boot is enabled and SELinux enforcing. Default seccomp,
+  explicit PERFMON and read-only debugfs remain configured; Agent health passed
+  all 21 components and system-probe reported fresh network-tracer activity.
+  Two initial startup errors preceded core/probe socket readiness; these were
+  startup observations, not ongoing forwarding failures. No physical reboot or
+  supervised UPS shutdown was performed for this change.
+- Formatting, strict workspace Clippy and all-target workspace tests passed:
+  471 passed, eight runtime tests excluded from that suite. Fedora joey base
+  integration passed repeated apply (existing stop-timeout SIGKILL cleanup
+  fallback). Release binaries built successfully.
+- Updated/provisioned owned native `clamps-test-files` with test UI and Datadog
+  configuration. Verified Agent channel, independent DNS, effective test/lab
+  tags, health, real metric submissions, zero TLS/scheduler errors and stable
+  container identity across repeat apply. An initial diagnostic assertion looked
+  for secret-backed tags in container inspect; corrected it to inspect the
+  running Agent process environment in memory without printing credentials.
+- `skillet test smoke clamps --instance files` exited 0: fixture repeat-apply,
+  startup/interruption recovery, reboot persistence and final signed-boot/base/
+  user-environment readiness all passed. This invocation exercised the synthetic
+  fixture; Datadog-specific live assertions are separate from its fixture checks.
+- Restored current binaries after capture-based readiness. The same Datadog
+  assertions passed after reboot: independent effective DNS, Agent 7 channel,
+  test/lab policy, healthy Agent, actual metric delivery, zero TLS/scheduler
+  errors and unchanged container identity on repeat monitoring apply. The named
+  VM remains available with the current build for further operator inspection.
+
+## 2026-10-15 — Physical UI browser confirmation
+
+- The operator confirmed Pi-hole, Syncthing and Mikochi work from the browser
+  following the identity/no-password rollout. This closes the basic allowed-user
+  browser gate; extended transfer/containment and policy-failure cases remain
+  separate checks.
+
+## 2026-10-15 — Shared private Pi-hole v6 DNS inventory
+
+- Removed the baked-in sample/custom.list writer. Workstation compilation now
+  consumes environment-scoped `dns/local-prefix` and structured `dns/entries`
+  fields (`names`, `ipv4`, `ipv6`), resolving the existing Cloudflare zone at
+  delivery. The default DDNS template uses the same prefix. Generated production
+  host names reuse selected wired/Wi-Fi address fields; test compilation never
+  reads physical network addresses. DHCP remains outside this implementation.
+- Added a canonical separate DNS credential/phase and guest unit installed by
+  baseline convergence. Complete remote apply selects it only for Pi-hole
+  callers, after container convergence. Test provisioning has explicit
+  `--with-pihole-dns`; direct test delivery remains forbidden outside the VM owner.
+  DNS apply owns only v6 `dns.hosts`, stops the consumer before mutation, preserves
+  unrelated TOML/settings/comments and persists activation after success. Native
+  container-only apply leaves restored DNS settings untouched. Empty managed
+  inventory explicitly clears the list.
+- `secrets check` uses the same compiler, validating collection custom fields,
+  address families, names/conflicts, generated host records and separation from
+  the tailnet UI namespace. Both environments count as used in unused auditing;
+  former default per-host DDNS-name leaves are now correctly unused. A live test
+  entry exposed a trailing-space collection-group typo; added a regression and
+  explicit invalid result instead of silently accepting an empty collection.
+- Live unlocked-vault audit: production checked 17 required entries with zero
+  missing/invalid. Test audit explicitly rejected its malformed collection path
+  and printed the documented schema. Six unused entries included that malformed
+  path, former per-host DDNS-name leaves and the former native web password.
+  No vault entries or production services were mutated. Production record
+  delivery/client answers and corrected test-vault delivery remain separate.
+- Formatting, strict workspace Clippy and workspace/all-target tests passed:
+  482 passed, nine real-runtime tests excluded from that suite. Fedora joey base
+  repeat integration passed with the final release build; cleanup retained its
+  existing stop-timeout SIGKILL fallback. Release binaries built successfully.
+- Provider/vault-free actual Pi-hole tests passed (two): retained native-password
+  migration and the new v6 record test. The latter verified A/AAAA answers over
+  TCP/UDP with IPv4/IPv6 DNS transports, aliases, preservation of unrelated web
+  configuration and repeat starts. CI explicitly runs both real consumer tests.
+  Initial fixture staging failed because the app changed volume ownership;
+  moving staging outside the application volume fixed the harness.
+- Updated owned native `clamps-test-files`; encrypted a reserved-name fixture
+  through the actual host credential command and activated the new systemd unit.
+  Verified answers in both transports/families, unrelated settings and stable
+  container identity across repeat DNS apply. An initial immediate query raced
+  FTL startup; bounded consumer readiness checks then passed.
+- `skillet test smoke clamps --instance files` exited 0, covering the existing
+  synthetic fixture before/after reboot and final signed/base/user readiness.
+  Restored final binaries after capture-based readiness. Separately changed the
+  DNS fixture through the final phase, verified actual file UID/GID/mode and
+  unrelated settings, rebooted through the Rust VM owner, and verified retained
+  A/AAAA answers, settings/metadata and encrypted credential reuse without
+  container replacement on repeated DNS apply. This is targeted DNS acceptance,
+  not a claim that all production applications were reaccepted.
+- The new mutation exposed a real-vs-mock file-resource mismatch: atomic content
+  replacement had reset omitted metadata while the mock preserved it. Fixed the
+  real adapter, retained numeric IDs and mode bits, and added actual filesystem
+  coverage. Ownership is applied before mode because chown can clear mode bits.
+
+## 2026-10-16–17 — Home Assistant implementation and disposable acceptance
+
+Scope: optional clamps module, generic private host-loopback Caddy transport,
+native encrypted backups and publication into the existing Syncthing/btrbk leaf.
+No production Home Assistant deployment, real devices, MQTT or radios were selected.
+Named native KVM runs: `clamps/homeassistant` and `joey/ha-backup-peer`, plain-root
+profiles. Pre-existing VMs and their provider records were left alone.
+
+- Initial checks: workspace tests and strict pedantic Clippy, Fedora joey base
+  integration/repeat apply, real Caddy configuration/adaptation and identity-refresh
+  tests, real Syncthing initializer, Python/Ruff/Mypy, ShellCheck and bootstrap/
+  storage/hardware regressions passed. Final reruns follow source corrections.
+- Fresh joey bootstrap reached signed uCore and readiness with a real Btrfs
+  container subvolume. This proves the storage-ordering regression correction;
+  the earlier clamps fixture required explicit inspected repair, preserving its
+  original directory. Normal convergence never converts incompatible live paths.
+- The stock FCOS QEMU disk was 10 GiB and insufficient for reliable application
+  acceptance. The owned clamps virtual disk was grown to 64 GiB; its partition and
+  Btrfs filesystem were expanded without formatting. Physical layouts were unchanged.
+- First runtime check passed native onboarding, local Caddy TLS, API authentication,
+  WebSocket upgrade, encrypted native backup/export, repeat publication and wrong-key
+  refusal with SELinux enabled. Original encrypted archives matched btrbk snapshot
+  bytes. These first-request checks did not establish durable HTTP configuration:
+  reboot exposed the upstream unconfirmed HTTP migration's timed rollback.
+- Corrections: fresh bootstrap now uses the pinned application's own HTTP store
+  API to initialize confirmed loopback/proxy settings. An offline real-image probe
+  verified stable settings and no pending trial. Existing state is preserved;
+  only this disposable fixture's synthetic pre-fix config/credentials were moved
+  aside to rehearse a fresh install. The receiving-peer test also exposed a
+  root-only intermediate export directory; typed ancestor ownership and regression
+  coverage now include consumer traversal, without touching unrelated trees.
+- Provider UI provisioning refused an existing test DNS name owned by another
+  deployment. No takeover or manual record deletion was attempted. Local fixture
+  TLS uses its private CA; it is not Cloudflare ACME or an allowed human tailnet
+  client result. Full provider issuance, phone/companion access, separate-network
+  rejection and isolated full restore remain distinct acceptance scopes.
+
+Local diagnostics: `/tmp/skillet-ha-*.log` (private transient logs; not committed).
+
+- Replication correction verified: the temporary rootless Syncthing receiver on
+  the workstation received matching encrypted archive bytes from the VM. Its
+  folder enabled independent local file versioning; the fixture checked a matching
+  btrbk snapshot and removed its peer declaration/container afterward. This is a
+  transport/publication test, not production off-site retention or full restore.
+
+- Final corrected runtime: the standard `skillet test smoke clamps --instance
+  homeassistant` passed its before/after-reboot fixture checks and restored Ready
+  state. After updating the deployed binary pair again, the Home Assistant
+  acceptance executable passed `--verify`: confirmed HTTP policy with no pending
+  trial, loopback-only listener, trusted fixture TLS, anonymous API refusal,
+  authenticated API and WebSocket upgrade, encrypted native backup/export,
+  repeat publication, wrong-key refusal and the persisted synthetic marker.
+  This ran beyond the upstream trial window and after reboot. Captured bootstrap
+  binaries and updated binaries remain distinct in the VM manifest.
+- Tested official image: `ghcr.io/home-assistant/home-assistant:2026.10.1`, digest
+  `sha256:a7ecc966ffed643296af32d576ee081910a0362c01e695db24fbee6816175fbe`.
+- Final local workspace tests and strict Clippy passed; Python has five bootstrap
+  regressions, Ruff/Mypy pass including all new Python files, and the Fedora base
+  repeat-apply integration passed. CI includes bootstrap Python tests and typing.
+- The fresh-bootstrap joey VM was disposed through the Rust lifecycle. The clamps
+  VM is retained for inspection/provider follow-up; provider ownership journals
+  are preserved. The vault cache expired before this follow-up, so no provider
+  cleanup or DNS takeover was attempted. Complete host application smoke with
+  real Caddy issuance remains blocked by the existing DNS ownership conflict;
+  successful synthetic smoke and local TLS are not substitutes for that gate.
+
+## 2026-10-17 — Home Assistant provider ACME retry
+
+- With explicit user authorization, disposed the stale `clamps/files` VM through
+  the Rust lifecycle, including its journaled external resources. The first
+  attempt stopped safely on an expired vault cache; retry after unlock completed.
+  The unrelated retained migration VM and `clamps/homeassistant` were preserved.
+- Retried `skillet test vm provision clamps homeassistant --with-ui`: exit 0.
+  The previous DNS ownership conflict did not recur; the current test instance
+  journals seven DNS records. No manual DNS takeover/deletion was performed.
+- Caddy obtained five real Let's Encrypt **staging** certificates through
+  Cloudflare DNS-01: Home Assistant, Pi-hole, file browsing, Syncthing and its
+  alias. Inspected certificate issuers/validity and successful issuance events.
+  One initial authorization failed before successful issuance; all five
+  certificates were present at completion. This is staging issuance, not
+  publicly trusted production-certificate acceptance.
+- Provisioning's bridge-origin HTTPS probes verified the explicit tailnet-denial
+  response for every UI name. Separate workstation requests reached all five
+  actual DNS/TLS endpoints and received the explicit identity-policy 403.
+  Those probes allow staging TLS; normal public trust validation is not claimed.
+  Direct Home Assistant TCP 8123 was inaccessible over both resolved tailnet
+  IPv4 and IPv6 addresses. This is not a separate-network denial test.
+- Reran the owned guest's Home Assistant acceptance executable with `--verify`:
+  exit 0, preserving the synthetic marker, confined fixture HTTPS relay, native
+  API authentication/WebSocket upgrade, encrypted backup/export, repeat
+  publication and wrong-key refusal. Its API/WS success still uses the private
+  fixture proxy, not a bypass of real Caddy's identity authorization.
+- Allowed-user browser/phone/companion access through the real identity gate,
+  independent external-network rejection, production certificate trust and full
+  isolated restore remain unverified. No physical host was modified.
+
+Private transient diagnostics: `/tmp/skillet-ha-acme-retry.log` and
+`/tmp/skillet-ha-acme-native-verify.log`. Real DNS names and provider identifiers
+are omitted from this record.
+
+## 2026-10-17 — Shared Home Assistant login behind tailnet identity
+
+- User selected a shared HA account. Native trusted-network authentication now
+  selects only the active owner for forwarded tailnet IPv4/IPv6 clients and skips
+  the second password. Caddy retains its per-request verified-user policy; no
+  LAN/loopback trusted-login range or public route was added. Native password
+  authentication remains available for local recovery; account passwords and
+  existing token/integration state were preserved.
+- The initializer attaches an explicitly managed auth include and preserves a
+  one-time original config copy. Conflicting auth configuration and unmanaged or
+  linked include paths are refused. Existing includes, formatting and config
+  metadata are preserved; no owner leaves normal onboarding/password login.
+- Initial VM activation exposed AuthStore's dependency on initialized device and
+  entity registries. Corrected offline lookup to read through the pinned native
+  storage API without loading registries or modifying auth storage. The failed
+  original apply was retained; corrected packaged full apply succeeded twice.
+- Native disposable checks passed: both forwarded address families complete
+  passwordless authorization-code/token flows, authenticate API and WebSocket
+  sessions, and select the same HA owner. Test refresh tokens were revoked. LAN
+  and loopback trusted-login attempts abort; native password fallback remains.
+  These forwarded-address inputs are local guest assertions, not a simulation
+  of successful allowed-user Caddy authorization.
+- The real staging-HTTPS endpoint rejects this workstation's forged identity and
+  forwarded-address headers with its explicit identity-policy 403 for the UI,
+  providers, login-flow and WebSocket paths. No production host was modified.
+- Twelve Python regressions, Ruff/Mypy, workspace formatting, strict Clippy and
+  workspace/all-target tests passed. Fedora joey base/repeat integration passed
+  with no repeat service starts/restarts; its existing cleanup SIGTERM timeout
+  required the usual SIGKILL fallback. Allowed-user browser/phone/companion
+  acceptance remains a human-client check.
+- Standard `skillet test smoke clamps --instance homeassistant` exited 0 through
+  fixture cases, reboot and signed/base/user Ready. After reboot, native shared
+  login passed again in both families. Existing Home Assistant fixture HTTPS,
+  API/WebSocket, encrypted export, repeat publication, wrong-key refusal and the
+  persisted marker also passed; the pre-existing backup token remained usable.
+
+Private diagnostics: `/tmp/skillet-ha-shared-*.log`. No real DNS names, account
+identifiers, tokens or credentials are included in this record.
+
+## 2026-10-17 — Real Caddy ingress recovery after reboot
+
+- User's actual HTTPS request exposed a missed acceptance boundary: Home
+  Assistant and the private fixture proxy were healthy after the preceding
+  reboot, but real Caddy was inactive. The earlier post-reboot API/WebSocket
+  fixture result did not establish availability of the deployed ingress.
+- Guest evidence: simultaneous identity-gate and host-relay SELinux policy
+  loaders contended for libsemanage's transaction lock. The identity loader
+  failed, so its authorization service and the Caddy apply phase could not start.
+  Tailscale remained connected and the VM retained signed/base/user Ready.
+- Retrying the real Caddy apply phase after the transaction finished restored
+  HTTPS. Verified the actual DNS/TLS endpoint returns this tagged workstation's
+  explicit identity-policy 403, rather than a connection failure.
+- Added boot ordering from the host-relay policy loader to the identity policy
+  loader. This orders concurrent mutation without a Requires dependency that
+  would activate an absent optional service. Regression coverage checks both
+  properties. Formatting, strict workspace Clippy and workspace/all-target tests
+  passed; Fedora joey base/repeat apply passed with its existing cleanup timeout
+  fallback.
+- Owned reboot and standard signed/base/user Ready completed with the corrected
+  policy unit installed. Boot timestamps prove the host-relay loader started
+  after the identity loader completed; both succeeded and no transaction-lock
+  error appeared. Actual Caddy and authorization services were active. An early
+  HTTPS probe during startup failed; the probe after complete readiness returned
+  the expected identity-policy 403 over the real DNS/TLS endpoint.
+- Native forwarded IPv4/IPv6 shared-owner authorization, API and WebSocket checks
+  also passed after this reboot. Readiness restores the creation-captured binaries;
+  restore the current build afterward when retaining the VM for UI inspection.
+
+Private diagnostics: `/tmp/skillet-ha-boot-policy-*.log`. The existing standard
+fixture smoke result remains separate from this targeted real-ingress reboot
+acceptance; no production host or private DNS values were committed.
