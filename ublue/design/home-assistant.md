@@ -21,8 +21,9 @@ The [companion plan](../plan/HOME-AUTOMATION-INTEGRATIONS.md) covers Mosquitto,
 Zigbee2MQTT, ESPHome Device Builder and HA-managed device integrations. HA native
 archives do not include companion container state. Keep live companion data
 outside Syncthing and publish only completed encrypted archives into the same
-Syncthing leaf already selected for btrbk. The backup decryption identity stays
-in KeePassXC; the host needs only the encryption recipient. Zigbee coordinator
+Syncthing leaf already selected for btrbk. Store only recovery passwords in
+KeePassXC, with no archive or backup attachment. Deliver the companion archive
+password through the encrypted credential path. Zigbee coordinator
 state may also live in the radio and its backup support depends on the adapter.
 Place Mosquitto and Zigbee2MQTT on a private Podman network; Home Assistant's
 host-network container reaches a loopback broker listener. Device-facing MQTT
@@ -87,8 +88,9 @@ shares the source disk's failure domain, and synchronization propagates deletion
 Keep independent retention at the receiving site. Native local retention starts
 at seven copies; published archives are initially retained without automatic
 deletion, preserving recovery copies until an independent retention policy exists. Retain the backup encryption
-key/emergency kit in the portable KeePassXC vault with an independent recovery
-copy. Export original encrypted files, not the UI download that decrypts them.
+password in the portable KeePassXC vault with an independent recovery copy.
+Keep archives outside the vault. Export original encrypted files, not the UI
+download that decrypts them.
 Prove restoration into an isolated disposable instance before relying on backups.
 Never run a restored production automation/integration against live devices.
 
