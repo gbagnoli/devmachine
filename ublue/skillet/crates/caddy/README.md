@@ -38,7 +38,8 @@ untrusted; the staging test performs its own certificate checks.
 
 ## Identity-protected UIs
 
-Pi-hole, Syncthing (canonical name and aliases) and Mikochi use identity protection.
+Pi-hole, Syncthing (canonical name and aliases), Mikochi and Home Assistant use
+identity protection. Home Assistant also retains its native login.
 
 For caller-declared identity protection:
 
@@ -63,3 +64,11 @@ Designs: [private access](../../../design/private-ui-access.md),
 [identity gate](../../../design/tailnet-ui-authentication.md),
 [Cloudflare lifecycle](../../../design/cloudflare-ui-lifecycle.md).
 Acceptance backlog: [UI plan](../../../plan/GENERIC-PRIVATE-UIS.md).
+
+## Host-network upstreams
+
+Caller declarations select bridge DNS or `HostLoopback` transport. Host-loopback
+services bind their HTTP listener locally and use a dedicated confined Unix relay
+mounted only into Caddy. Version 4 delivery carries the transport; retained bridge
+payloads keep their existing defaults. Redeliver Caddy credentials after adding a
+new host UI. Native application authentication remains application-specific.

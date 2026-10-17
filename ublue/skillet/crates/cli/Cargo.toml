@@ -33,5 +33,7 @@ serde.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
+skillet_homeassistant.workspace = true
+reqwest.workspace = true
 skillet_core = { workspace = true, features = ["test-utils"] }
 skillet_datadog.workspace = true

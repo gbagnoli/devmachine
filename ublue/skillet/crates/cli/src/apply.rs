@@ -180,6 +180,7 @@ impl host_apply::Actions for Runner<'_> {
         }
         println!("Staging {service} credentials");
         super::secret_delivery::deliver_with_vault(&self.delivery, self.vault, self.transport, ActivationPolicy::DeferConsumer)
+            .map(|_| ())
             .with_context(|| format!("staging {service}; previously completed steps are retained, retry apply after resolving the failure"))
     }
 

@@ -234,3 +234,12 @@
   cannot prevent another consumer from creating an incompatible ordinary directory.
   Existing incompatible state requires explicit inspection/recovery, never silent
   conversion or deletion during ordinary convergence.
+
+- For artifacts shared between services, verify consumer traversal and read access
+  along the complete declared path and its namespace mapping. Leaf ownership alone
+  is insufficient. Converge only declared ancestors; preserve unrelated trees and
+  verify access through the actual consuming service.
+- Initialization acceptance must cross the consumer's configuration confirmation
+  or rollback window and a restart. A successful first request does not prove
+  durable settings. Use the consumer's own initialization/schema APIs and preserve
+  existing application-managed state on repeat provisioning.

@@ -92,6 +92,8 @@ enum FieldRule {
     Interface,
     Ssid,
     Wifikey,
+    Hatoken,
+    Hapassword,
 }
 
 impl FieldRequirement {
@@ -101,6 +103,8 @@ impl FieldRequirement {
         }
         match self.rule {
             FieldRule::Nonempty => true,
+            FieldRule::Hatoken => skillet_homeassistant::backup::valid_token(value),
+            FieldRule::Hapassword => skillet_homeassistant::backup::valid_password(value),
             FieldRule::Port => value.parse::<u16>().is_ok_and(|port| port != 0),
             FieldRule::Choice => self.values.iter().any(|allowed| allowed == value),
             FieldRule::Hostname => valid_hostname(value),
@@ -330,47 +334,10 @@ pub fn check(
         checked: required.len(),
         missing: Vec::new(),
     };
-    for (path, (module, mut guide, mut fields)) in required {
-        if fields.is_empty() {
-            fields.push(FieldRequirement {
-                name: "Password".into(),
-                rule: FieldRule::Nonempty,
-                values: Vec::new(),
-            });
+    for (path, (module, guide, fields)) in required {
+        if let Some(entry) = validate_entry(path, module, guide, fields, lookup)? {
+            report.missing.push(entry);
         }
-        let mut invalid_fields = Vec::new();
-        let mut present = false;
-        let mut invalid = false;
-        for field in fields {
-            match lookup(&path, &field.name) {
-                Ok(Some(value)) => {
-                    present = true;
-                    if !field.valid(&value) {
-                        invalid_fields.push(field.name);
-                    }
-                }
-                Ok(None) => invalid_fields.push(field.name),
-                Err(VaultError::Invalid(_)) => {
-                    invalid = true;
-                    invalid_fields.push(field.name);
-                }
-                Err(error) => return Err(error.into()),
-            }
-        }
-        if invalid_fields.is_empty() {
-            continue;
-        }
-        let _ = write!(
-            guide,
-            " Missing or invalid fields: {}.",
-            invalid_fields.join(", ")
-        );
-        report.missing.push(MissingEntry {
-            module,
-            path,
-            guide,
-            invalid: invalid || present,
-        });
     }
     report.missing.sort_by(|a, b| {
         a.module
@@ -381,6 +348,55 @@ pub fn check(
     Ok(report)
 }
 
+fn validate_entry(
+    path: String,
+    module: String,
+    mut guide: String,
+    mut fields: Vec<FieldRequirement>,
+    lookup: &impl Fn(&str, &str) -> Result<Option<String>, VaultError>,
+) -> Result<Option<MissingEntry>, CheckError> {
+    if fields.is_empty() {
+        fields.push(FieldRequirement {
+            name: "Password".into(),
+            rule: FieldRule::Nonempty,
+            values: Vec::new(),
+        });
+    }
+    let mut invalid_fields = Vec::new();
+    let mut present = false;
+    let mut invalid = false;
+    for field in fields {
+        match lookup(&path, &field.name) {
+            Ok(Some(value)) => {
+                present = true;
+                if !field.valid(&value) {
+                    invalid_fields.push(field.name);
+                }
+            }
+            Ok(None) => invalid_fields.push(field.name),
+            Err(VaultError::Invalid(_)) => {
+                invalid = true;
+                invalid_fields.push(field.name);
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+    if invalid_fields.is_empty() {
+        return Ok(None);
+    }
+    let _ = write!(
+        guide,
+        " Missing or invalid fields: {}.",
+        invalid_fields.join(", ")
+    );
+    Ok(Some(MissingEntry {
+        module,
+        path,
+        guide,
+        invalid: invalid || present,
+    }))
+}
+
 /// Audit dynamic DNS inventory through the same pure compiler used by delivery.
 pub fn check_with_entries(
     profiles: &[HostProfile],
@@ -389,6 +405,36 @@ pub fn check_with_entries(
     lookup: &impl Fn(&str, &str) -> Result<Option<String>, VaultError>,
 ) -> Result<CheckReport, CheckError> {
     let mut report = check(profiles, policy, lookup)?;
+    for module in catalog()? {
+        if !module.environments.is_empty()
+            && !module.environments.iter().any(|e| e == policy.vault_name())
+        {
+            continue;
+        }
+        for profile in profiles.iter().filter(|p| selected(&module, p)) {
+            for entry in module.entries.iter().filter(|e| {
+                matches!(e.status, Status::Optional | Status::Generated)
+                    && !e.fields.is_empty()
+                    && entry_selected(e, profile)
+            }) {
+                let path = expand(&entry.path, profile.id.as_str(), policy.vault_name());
+                if !stored.contains(&path) {
+                    continue;
+                }
+                report.checked += 1;
+                if let Some(mut invalid) = validate_entry(
+                    path,
+                    module.module.clone(),
+                    format!("{} {}", module.description, entry.help),
+                    entry.fields.clone(),
+                    lookup,
+                )? {
+                    invalid.invalid = true;
+                    report.missing.push(invalid);
+                }
+            }
+        }
+    }
     if profiles.iter().any(|p| p.supports_service("pihole")) {
         let prefix = format!("{}/entries/", crate::pihole_dns::prefix(policy));
         report.checked += stored.iter().filter(|p| p.starts_with(&prefix)).count();

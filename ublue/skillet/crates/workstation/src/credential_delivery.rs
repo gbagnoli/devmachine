@@ -249,7 +249,7 @@ fn ensure_disposable_pihole_for_profile(
     Ok(())
 }
 
-fn remote_credential_present(
+pub(crate) fn remote_credential_present(
     host: &str,
     credential: &str,
     guest: &impl GuestTransport,
@@ -276,7 +276,7 @@ fn remote_credential_present(
     }
 }
 
-fn random_password() -> Result<String, std::io::Error> {
+pub(crate) fn random_password() -> Result<String, std::io::Error> {
     let mut bytes = [0_u8; 32];
     File::open("/dev/urandom")?.read_exact(&mut bytes)?;
     Ok(hex::encode(bytes))

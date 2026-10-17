@@ -111,6 +111,7 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
             "tailscale",
             "syncthing",
             "nut",
+            "homeassistant",
             "unifi",
             "ddns",
             "datadog",
@@ -283,13 +284,17 @@ fn host_ui_declarations_include_only_the_services_each_host_runs() {
             .iter()
             .map(|service| service.name.as_str())
             .collect::<Vec<_>>(),
-        ["pihole", "syncthing", "files"]
+        ["pihole", "syncthing", "homeassistant", "files"]
     );
     assert_eq!(clamps.network_name, "clamps");
     assert_eq!(clamps.services[0].upstream, "pihole");
     assert_eq!(clamps.services[0].port, 8088);
     assert!(clamps.services[0].tailnet_identity);
-    assert!(clamps.services[2].anonymous_token_refresh);
+    assert!(clamps.services[3].anonymous_token_refresh);
+    assert_eq!(
+        clamps.services[2].transport,
+        skillet_caddy::UpstreamTransport::HostLoopback
+    );
     assert_eq!(clamps.services[0].aliases, Vec::<String>::new());
     assert_eq!(clamps.services[1].upstream, "syncthing");
     assert_eq!(clamps.services[1].port, 8384);
@@ -324,6 +329,7 @@ fn application_acceptance_tracks_each_profiles_declared_services() {
             "pihole.service",
             "tailscale.service",
             "syncthing.service",
+            "homeassistant.service",
             "unifi.service",
             "skillet-btrbk.timer",
             "mikochi.service",
@@ -438,6 +444,7 @@ fn synthetic_profile_derives_network_and_ui_from_its_identity() {
             ui: Some(UiServiceDeclaration {
                 name: "sync",
                 upstream: "sync",
+                transport: skillet_caddy::UpstreamTransport::Bridge,
                 port: 8384,
                 tailnet_identity: false,
                 aliases: &["files.{host}"],
@@ -854,4 +861,37 @@ fn syncthing_canonical_and_alias_use_the_identity_gate_and_private_backend() {
         )
         .is_err());
     }
+}
+
+#[test]
+fn homeassistant_exports_share_the_declared_syncthing_identity_and_file_scope() {
+    let profile = super::profile_for_name("clamps").unwrap();
+    let backup = profile
+        .services
+        .iter()
+        .find_map(|service| match service.config {
+            ServiceConfig::HomeAssistant(config) => Some(config),
+            _ => None,
+        })
+        .unwrap();
+    let syncthing = profile
+        .services
+        .iter()
+        .find_map(|service| match service.config {
+            ServiceConfig::Syncthing {
+                files_path,
+                data_path,
+                data_owner,
+                data_group,
+                ..
+            } => Some((files_path, data_path, data_owner, data_group)),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(backup.files_root, syncthing.0);
+    assert_eq!(backup.backup_subvolume, syncthing.1);
+    assert_eq!(backup.owner, syncthing.2);
+    assert_eq!(backup.group, syncthing.3);
+    let other = super::profile_for_name("joey").unwrap();
+    assert!(!other.supports_service("homeassistant"));
 }

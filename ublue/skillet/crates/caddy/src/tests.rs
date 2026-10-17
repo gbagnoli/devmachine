@@ -9,6 +9,7 @@ fn syncthing_only() -> Vec<UiService> {
     vec![UiService {
         name: "syncthing".to_string(),
         upstream: "syncthing".to_string(),
+        transport: crate::UpstreamTransport::Bridge,
         port: 8384,
         tailnet_identity: false,
         anonymous_token_refresh: false,
@@ -96,6 +97,7 @@ fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
         UiService {
             name: "pihole".to_string(),
             upstream: "pihole".to_string(),
+            transport: crate::UpstreamTransport::Bridge,
             port: 8088,
             tailnet_identity: false,
             anonymous_token_refresh: false,
@@ -188,6 +190,7 @@ fn renders_declared_aliases_and_rejects_conflicting_names() {
     let services = vec![UiService {
         name: "syncthing".to_string(),
         upstream: "syncthing".to_string(),
+        transport: crate::UpstreamTransport::Bridge,
         port: 8384,
         tailnet_identity: false,
         anonymous_token_refresh: false,
@@ -289,6 +292,7 @@ fn file_ui_is_gated_before_proxy_and_cannot_disable_declared_identity() {
     let services = vec![UiService {
         name: "files".into(),
         upstream: "mikochi".into(),
+        transport: crate::UpstreamTransport::Bridge,
         port: 8080,
         aliases: vec!["browse.{host}".into()],
         tailnet_identity: true,
@@ -359,6 +363,7 @@ fn identity_caddy_has_only_the_authorization_socket_and_a_private_backend() {
         &[UiService {
             name: "files".into(),
             upstream: "mikochi".into(),
+            transport: crate::UpstreamTransport::Bridge,
             port: 8080,
             aliases: Vec::new(),
             tailnet_identity: true,
@@ -394,8 +399,18 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
         },
         &[
             UiService {
+                name: "homeassistant".into(),
+                upstream: "homeassistant".into(),
+                transport: crate::UpstreamTransport::HostLoopback,
+                port: 8123,
+                aliases: Vec::new(),
+                tailnet_identity: true,
+                anonymous_token_refresh: false,
+            },
+            UiService {
                 name: "files".into(),
                 upstream: "mikochi".into(),
+                transport: crate::UpstreamTransport::Bridge,
                 port: 8080,
                 aliases: Vec::new(),
                 tailnet_identity: true,
@@ -404,6 +419,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
             UiService {
                 name: "syncthing".into(),
                 upstream: "syncthing".into(),
+                transport: crate::UpstreamTransport::Bridge,
                 port: 8384,
                 aliases: vec!["sync.{host}".into()],
                 tailnet_identity: true,
@@ -463,7 +479,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
         String::from_utf8_lossy(&adapted.stderr)
     );
     let json: serde_json::Value = serde_json::from_slice(&adapted.stdout).unwrap();
-    assert_identity_query_rewrites(&json, 3);
+    assert_identity_query_rewrites(&json, 4);
 }
 
 fn assert_identity_query_rewrites(json: &serde_json::Value, route_count: usize) {
@@ -498,4 +514,71 @@ fn assert_identity_query_rewrites(json: &serde_json::Value, route_count: usize) 
         application_count, route_count,
         "application requests must retain their original URI"
     );
+}
+
+#[test]
+fn host_loopback_routes_are_versioned_private_and_do_not_join_backend_bridges() {
+    let system = MockSystem::new();
+    let files = MockFiles::new();
+    system
+        .ensure_podman_secret("cloudflare_acme_token", "dummy")
+        .unwrap();
+    let mut services = syncthing_only();
+    services[0].name = "homeassistant".into();
+    services[0].port = 8123;
+    services[0].tailnet_identity = true;
+    services[0].transport = crate::UpstreamTransport::HostLoopback;
+    let sites = CaddySites::from_host(
+        "joey",
+        &UiEnvironment {
+            ui_domain: "ui.example.invalid".into(),
+            acme_staging: true,
+        },
+        &services,
+    )
+    .unwrap();
+    assert_eq!(sites.version, 4);
+    let rendered = sites.render();
+    assert!(rendered.contains("reverse_proxy unix//run/skillet-ui-host/homeassistant.sock"));
+    assert!(rendered.find("forward_auth").unwrap() < rendered.find("reverse_proxy").unwrap());
+    let mut old = sites.clone();
+    old.version = 3;
+    assert!(CaddySites::parse(&serde_json::to_string(&old).unwrap(), "joey", &services).is_err());
+    super::apply(&system, &files, &sites, "joey").unwrap();
+    let data = files.files.lock().unwrap();
+    let quadlet = String::from_utf8_lossy(&data["/etc/containers/systemd/caddy.container"]);
+    assert!(quadlet.contains("Requires=skillet-ui-host-homeassistant.service"));
+    assert!(quadlet.contains("Volume=/run/skillet-ui-host:/run/skillet-ui-host:ro,z"));
+    assert!(!quadlet.contains("Network=joey-homeassistant.network"));
+    drop(data);
+    services[0].tailnet_identity = false;
+    assert!(CaddySites::from_host(
+        "joey",
+        &UiEnvironment {
+            ui_domain: "ui.example.invalid".into(),
+            acme_staging: true
+        },
+        &services
+    )
+    .is_err());
+}
+
+#[test]
+fn retained_bridge_payload_without_transport_remains_compatible() {
+    let services = syncthing_only();
+    let sites = CaddySites::from_host(
+        "joey",
+        &UiEnvironment {
+            ui_domain: "ui.example.invalid".into(),
+            acme_staging: true,
+        },
+        &services,
+    )
+    .unwrap();
+    let mut payload = serde_json::to_value(&sites).unwrap();
+    payload["services"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("transport");
+    assert!(CaddySites::parse(&payload.to_string(), "joey", &services).is_ok());
 }

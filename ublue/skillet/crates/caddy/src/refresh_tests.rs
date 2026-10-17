@@ -140,6 +140,7 @@ fn start_caddy(root: &Path) -> (Container, std::net::SocketAddr) {
         &[UiService {
             name: "files".into(),
             upstream: "backend".into(),
+            transport: crate::UpstreamTransport::Bridge,
             port: 8080,
             aliases: Vec::new(),
             tailnet_identity: true,

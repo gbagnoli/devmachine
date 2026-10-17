@@ -15,12 +15,18 @@ pub mod hosts;
 mod metrics;
 pub mod version;
 pub use metrics::{run_metrics, MetricsCommands};
+pub mod homeassistant_runtime;
+pub mod host_ui_proxy;
 mod smtp_runtime;
 pub mod syncthing_runtime;
 use hosts::ApplyPhase;
 
 #[derive(Error, Debug)]
 pub enum CliCommonError {
+    #[error(transparent)]
+    HomeAssistant(#[from] skillet_homeassistant::Error),
+    #[error(transparent)]
+    Caddy(#[from] skillet_caddy::CaddyError),
     #[error(transparent)]
     SyncthingInitial(#[from] skillet_syncthing::initial::Error),
     #[error("Configuration error: {0}")]
@@ -62,6 +68,14 @@ pub struct HostArgs {
 
 #[derive(clap::Subcommand, Debug)]
 pub enum HostCommands {
+    Homeassistant {
+        #[command(subcommand)]
+        command: homeassistant_runtime::Commands,
+    },
+    UiProxy {
+        #[command(subcommand)]
+        command: host_ui_proxy::Commands,
+    },
     Syncthing {
         #[command(subcommand)]
         command: syncthing_runtime::Commands,
@@ -143,6 +157,8 @@ where
     tracing::subscriber::set_global_default(subscriber)?;
 
     match args.command {
+        HostCommands::Homeassistant { command } => homeassistant_runtime::dispatch(&command),
+        HostCommands::UiProxy { command } => host_ui_proxy::dispatch(command),
         HostCommands::Syncthing { command } => syncthing_runtime::dispatch(command),
         HostCommands::Metrics { command } => run_metrics(command),
         HostCommands::TailnetUi { command } => run_tailnet_ui(command),

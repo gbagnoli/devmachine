@@ -10,6 +10,7 @@ fn desired_dns_contains_dual_stack_machine_ui_and_alias_records() {
     let services = vec![skillet_caddy::UiService {
         name: "syncthing".to_string(),
         upstream: "syncthing".to_string(),
+        transport: skillet_caddy::UpstreamTransport::Bridge,
         port: 8384,
         tailnet_identity: false,
         anonymous_token_refresh: false,
@@ -60,6 +61,7 @@ fn desired_dns_rejects_missing_address_family() {
         &[skillet_caddy::UiService {
             name: "syncthing".to_string(),
             upstream: "syncthing".to_string(),
+            transport: skillet_caddy::UpstreamTransport::Bridge,
             port: 8384,
             tailnet_identity: false,
             anonymous_token_refresh: false,

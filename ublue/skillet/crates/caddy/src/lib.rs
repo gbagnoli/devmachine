@@ -13,6 +13,15 @@ use std::{collections::BTreeMap, path::Path};
 use thiserror::Error;
 
 pub mod auth;
+pub mod host_proxy;
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UpstreamTransport {
+    #[default]
+    Bridge,
+    HostLoopback,
+}
 
 #[cfg(test)]
 mod refresh_tests;
@@ -25,6 +34,8 @@ mod tests;
 pub struct UiService {
     pub name: String,
     pub upstream: String,
+    #[serde(default)]
+    pub transport: UpstreamTransport,
     pub port: u16,
     #[serde(default)]
     pub aliases: Vec<String>,
@@ -62,6 +73,8 @@ pub struct CaddySite {
     pub hostname: String,
     pub aliases: Vec<String>,
     pub upstream: String,
+    #[serde(default)]
+    pub transport: UpstreamTransport,
     pub port: u16,
     #[serde(default)]
     pub tailnet_identity: bool,
@@ -73,6 +86,8 @@ pub struct CaddySite {
 
 #[derive(Debug, Error)]
 pub enum CaddyError {
+    #[error("Caddy host proxy I/O: {0}")]
+    Io(#[from] std::io::Error),
     #[error("System error: {0}")]
     System(#[from] SystemError),
     #[error("File error: {0}")]
@@ -109,6 +124,11 @@ impl CaddySites {
         for service in services {
             validate_label(&service.name, "service name")?;
             validate_label(&service.upstream, "upstream name")?;
+            if service.transport == UpstreamTransport::HostLoopback && !service.tailnet_identity {
+                return Err(CaddyError::InvalidConfiguration(
+                    "host upstream requires identity protection".into(),
+                ));
+            }
             if service.anonymous_token_refresh && !service.tailnet_identity {
                 return Err(CaddyError::InvalidConfiguration(
                     "anonymous token refresh requires identity protection".into(),
@@ -160,13 +180,21 @@ impl CaddySites {
                 hostname,
                 aliases,
                 upstream: service.upstream.clone(),
+                transport: service.transport,
                 port: service.port,
                 tailnet_identity: service.tailnet_identity,
                 anonymous_token_refresh: service.anonymous_token_refresh,
             });
         }
         Ok(Self {
-            version: 3,
+            version: if services
+                .iter()
+                .any(|s| s.transport == UpstreamTransport::HostLoopback)
+            {
+                4
+            } else {
+                3
+            },
             host: host.to_string(),
             ui_domain: environment.ui_domain.clone(),
             acme_staging: environment.acme_staging,
@@ -178,7 +206,7 @@ impl CaddySites {
 
     pub fn parse(contents: &str, host: &str, services: &[UiService]) -> Result<Self, CaddyError> {
         let sites: Self = serde_json::from_str(contents)?;
-        if !matches!(sites.version, 2 | 3) {
+        if !matches!(sites.version, 2..=4) {
             return Err(CaddyError::InvalidConfiguration(format!(
                 "unsupported payload version {}",
                 sites.version
@@ -197,6 +225,16 @@ impl CaddySites {
             return Err(CaddyError::InvalidConfiguration(
                 "identity protection requires payload version 3; redeliver Caddy credentials"
                     .into(),
+            ));
+        }
+        if sites.version < 4
+            && sites
+                .services
+                .iter()
+                .any(|s| s.transport != UpstreamTransport::Bridge)
+        {
+            return Err(CaddyError::InvalidConfiguration(
+                "host upstreams require version 4; redeliver Caddy credentials".into(),
             ));
         }
         expected.version = sites.version;
@@ -238,8 +276,13 @@ impl CaddySites {
                 }
                 let _ = writeln!(
                     config,
-                    "        reverse_proxy {}:{}\n    }}\n}}",
-                    service.upstream, service.port
+                    "        reverse_proxy {}\n    }}\n}}",
+                    match service.transport {
+                        UpstreamTransport::Bridge =>
+                            format!("{}:{}", service.upstream, service.port),
+                        UpstreamTransport::HostLoopback =>
+                            format!("unix//run/skillet-ui-host/{}.sock", service.name),
+                    }
                 );
             }
         }
@@ -332,25 +375,8 @@ where
     S: AccountLookupResource + AccountResource + PodmanSecretResource + ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
 {
-    let policy = auth::Policy::new(sites.tailnet_users.clone())?;
+    let (networks, auth_volumes) = backend_resources(system, files, sites, network_name)?;
     let caddyfile = sites.render();
-    let mut networks = vec![NetworkAttachment::Bridge(network_name.to_string())];
-    let mut auth_volumes = Vec::new();
-    if sites.needs_identity_gate() {
-        auth::apply(system, files, &policy)?;
-        auth_volumes.push(Volume {
-            host_path: "/run/skillet-tailnet-ui".into(),
-            container_path: "/run/skillet-tailnet-ui".into(),
-            options: Some("ro,z".into()),
-            host_mode: None,
-            host_ownership: None,
-        });
-        for site in sites.services.iter().filter(|site| site.tailnet_identity) {
-            let network = private_network(&sites.host, &site.name);
-            skillet_podman::ensure_network(system, files, &network)?;
-            networks.push(NetworkAttachment::Bridge(network.unit_name));
-        }
-    }
     let config_dir = Path::new("/etc/skillet/caddy");
     files.ensure_directory(
         config_dir,
@@ -390,6 +416,16 @@ where
         container.entry("Container".into()).or_default().extend([
             "Sysctl=net.ipv4.ip_forward=0".into(),
             "Sysctl=net.ipv6.conf.all.forwarding=0".into(),
+        ]);
+    }
+    for site in sites
+        .services
+        .iter()
+        .filter(|s| s.transport == UpstreamTransport::HostLoopback)
+    {
+        container.entry("Unit".into()).or_default().extend([
+            format!("Requires=skillet-ui-host-{}.service", site.name),
+            format!("After=skillet-ui-host-{}.service", site.name),
         ]);
     }
     let mut config = PodmanConfig {
@@ -433,6 +469,42 @@ where
     }
     skillet_podman::container(system, files, config)?;
     Ok(())
+}
+
+fn backend_resources<S, F>(
+    system: &S,
+    files: &F,
+    sites: &CaddySites,
+    network_name: &str,
+) -> Result<(Vec<NetworkAttachment>, Vec<Volume>), CaddyError>
+where
+    S: ServiceResource + ?Sized,
+    F: FileMutationResource + FileReadResource + ?Sized,
+{
+    let policy = auth::Policy::new(sites.tailnet_users.clone())?;
+    let mut networks = vec![NetworkAttachment::Bridge(network_name.to_string())];
+    let mut auth_volumes = Vec::new();
+    if sites.needs_identity_gate() {
+        auth::apply(system, files, &policy)?;
+        auth_volumes.push(Volume {
+            host_path: "/run/skillet-tailnet-ui".into(),
+            container_path: "/run/skillet-tailnet-ui".into(),
+            options: Some("ro,z".into()),
+            host_mode: None,
+            host_ownership: None,
+        });
+        for site in sites
+            .services
+            .iter()
+            .filter(|site| site.tailnet_identity && site.transport == UpstreamTransport::Bridge)
+        {
+            let network = private_network(&sites.host, &site.name);
+            skillet_podman::ensure_network(system, files, &network)?;
+            networks.push(NetworkAttachment::Bridge(network.unit_name));
+        }
+    }
+    host_proxy::apply(system, files, sites, &mut auth_volumes)?;
+    Ok((networks, auth_volumes))
 }
 
 /// A private backend whose strict firewall isolation allows only joined containers.
