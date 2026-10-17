@@ -53,6 +53,15 @@ Prepare the shared Cloudflare token creator and Zone ID. [DDNS setup](ublue/skil
 | `skillet/environments/<environment>/dns/local-prefix` | Required | Password = relative site name below the selected Cloudflare zone, shared with private Pi-hole names. Move the former host cloudflare/ddns-dns-name value here; remove the old entry after verified delivery. |
 | `skillet/environments/prod/hosts/<host>/cloudflare/ddns-token` | Generated | Skillet creates the persistent scoped token; disposable tokens are lifecycle-owned. |
 
+## Home Assistant
+
+Native accounts are created during HTTPS onboarding. Backup automation starts after its optional API token is supplied. [Setup](ublue/skillet/crates/homeassistant/README.md).
+
+| Entry | Status | Fields / how to obtain them |
+| --- | --- | --- |
+| `skillet/environments/prod/hosts/<host>/homeassistant/api-token` | Optional | Password = long-lived access token created in the Home Assistant administrator profile Security page after onboarding. Native backup APIs require administrator access; use a dedicated token and revoke it when replaced. Missing entry leaves backup automation unconfigured. |
+| `skillet/environments/prod/hosts/<host>/homeassistant/backup-password` | Generated | Password = Skillet-generated native backup encryption password, persisted before delivery. Keep an independent vault backup; never delete or replace this recovery key while retaining encrypted archives. |
+
 ## Mikochi
 
 No application password; uses the shared Tailnet UI allowlist. [Setup](ublue/skillet/crates/mikochi/README.md).

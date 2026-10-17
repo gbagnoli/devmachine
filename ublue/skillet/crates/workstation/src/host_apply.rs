@@ -50,6 +50,9 @@ pub fn steps(profile: &HostProfile) -> Vec<Step> {
             Step::Activate("skillet-caddy-apply.service"),
         ]);
     }
+    if profile.supports_service("homeassistant") {
+        result.push(Step::Stage("homeassistant"));
+    }
     for (service, unit) in [
         ("smtp", "skillet-smtp-apply.service"),
         ("ddns", "skillet-ddns-apply.service"),

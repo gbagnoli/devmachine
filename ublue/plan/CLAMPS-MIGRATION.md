@@ -67,7 +67,8 @@ retained legacy NAT routes/WOL targets privately rather than guessing them.
 
 ## Separate optional work
 
-[Home Assistant](HOME-ASSISTANT.md) is requested but unimplemented and is not a
+[Home Assistant](HOME-ASSISTANT.md) has an implemented optional module; its
+physical onboarding and remaining acceptance are separate. It is not a
 rupik-retirement gate. Shared SMTP is implemented; [its follow-ups](CLAMPS-EMAIL.md)
 and parked UniFi recovery email are separate. [Joey](JOEY-MIGRATION.md) may
 proceed independently, preserving its own source and acceptance boundaries.

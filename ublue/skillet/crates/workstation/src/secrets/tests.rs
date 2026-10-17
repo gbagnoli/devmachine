@@ -380,3 +380,32 @@ fn private_dns_collection_audit_follows_environment_and_validates_custom_fields(
     assert_eq!(report.missing.len(), 1);
     assert!(!report.missing[0].guide.contains("not-an-ip-private-value"));
 }
+
+#[test]
+fn homeassistant_keys_are_optional_but_present_values_are_validated() {
+    let profile = skillet_hosts::profile_for_name("clamps").unwrap();
+    let policy = ProvisioningPolicy::new(Environment::Production);
+    let absent = check(std::slice::from_ref(&profile), policy, &|_, _| Ok(None)).unwrap();
+    assert!(absent
+        .missing
+        .iter()
+        .all(|entry| entry.module != "Home Assistant"));
+    let invalid = check_with_entries(
+        &[profile],
+        policy,
+        &["skillet/environments/prod/hosts/clamps/homeassistant/api-token".into()],
+        &|path, _| {
+            Ok(path
+                .ends_with("homeassistant/api-token")
+                .then(|| "short".into()))
+        },
+    )
+    .unwrap();
+    let entries: Vec<_> = invalid
+        .missing
+        .iter()
+        .filter(|entry| entry.module == "Home Assistant")
+        .collect();
+    assert_eq!(entries.len(), 1);
+    assert!(entries[0].invalid);
+}

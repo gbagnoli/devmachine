@@ -479,3 +479,90 @@ fn protected_pihole_never_reads_or_replaces_native_credentials() {
     assert_eq!(store.saves.get(), 0);
     assert!(guest.calls.lock().unwrap().is_empty());
 }
+
+#[test]
+fn homeassistant_optional_delivery_persists_recovery_key_and_reuses_it() {
+    let policy = ProvisioningPolicy::new(Environment::Production);
+    let guest = FakeGuest {
+        state: b"absent\n".to_vec(),
+        ..FakeGuest::default()
+    };
+    let mut store = FakeStore::default();
+    assert!(!crate::homeassistant_provisioning::deliver(
+        "clamps",
+        policy,
+        &mut store,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::DeferConsumer
+    )
+    .unwrap());
+    assert!(guest.calls.lock().unwrap().is_empty());
+    let prefix = "skillet/environments/prod/hosts/clamps/homeassistant";
+    store
+        .entries
+        .borrow_mut()
+        .insert(format!("{prefix}/api-token"), "t".repeat(64));
+    assert!(crate::homeassistant_provisioning::deliver(
+        "clamps",
+        policy,
+        &mut store,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::DeferConsumer
+    )
+    .unwrap());
+    let password = store.entries.borrow()[&format!("{prefix}/backup-password")].clone();
+    assert_eq!(store.saves.get(), 1);
+    assert!(crate::homeassistant_provisioning::deliver(
+        "clamps",
+        policy,
+        &mut store,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::DeferConsumer
+    )
+    .unwrap());
+    assert_eq!(store.saves.get(), 1);
+    let calls = guest.calls.lock().unwrap();
+    assert!(calls
+        .iter()
+        .all(|(args, _)| args.iter().all(|arg| !arg.contains(&password))));
+    let payloads: Vec<_> = calls
+        .iter()
+        .filter_map(|(_, input)| input.as_ref())
+        .collect();
+    assert_eq!(payloads.len(), 2);
+    assert_eq!(payloads[0], payloads[1]);
+}
+#[test]
+fn homeassistant_delivery_refuses_lost_recovery_key_or_wrong_scope() {
+    let guest = FakeGuest {
+        state: b"present\n".to_vec(),
+        ..FakeGuest::default()
+    };
+    let mut store = FakeStore::default();
+    store.entries.borrow_mut().insert(
+        "skillet/environments/prod/hosts/clamps/homeassistant/api-token".into(),
+        "t".repeat(64),
+    );
+    assert!(crate::homeassistant_provisioning::deliver(
+        "clamps",
+        ProvisioningPolicy::new(Environment::Production),
+        &mut store,
+        &guest,
+        skillet_vm::credential::ActivationPolicy::DeferConsumer
+    )
+    .is_err());
+    assert_eq!(store.saves.get(), 0);
+    for (host, environment) in [
+        ("joey", Environment::Production),
+        ("clamps", Environment::Test),
+    ] {
+        assert!(crate::homeassistant_provisioning::deliver(
+            host,
+            ProvisioningPolicy::new(environment),
+            &mut store,
+            &guest,
+            skillet_vm::credential::ActivationPolicy::DeferConsumer
+        )
+        .is_err());
+    }
+}

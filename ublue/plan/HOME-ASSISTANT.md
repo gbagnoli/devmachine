@@ -1,19 +1,30 @@
 # Home Assistant on clamps
 
-Status: planned; reviewed against current clamps and upstream documentation
-2026-10-16. No Home Assistant deployment or acceptance is
-implemented. This is an optional addition, not a Chef parity requirement or an
-additional gate for retiring rupik.
+Status: container, private host-loopback HTTPS transport, native encrypted
+backup/export and optional credential delivery are implemented. First disposable
+runtime acceptance passed 2026-10-16; remaining checks are listed below and in
+[the evidence record](archive/ACCEPTANCE.md). Physical activation is deferred;
+no Home Assistant devices, MQTT or companion services are selected. This optional
+addition is not a Chef parity requirement or a gate for retiring rupik.
 
 Preserve the separately parked gates in the
 [refactoring roadmap](SKILLET-REFACTOR.md); they do not block independent slices.
-Implement one slice at a time and
-validate it before the next. Follow `../AGENTS.md` and `../skillet/AGENTS.md`.
+Preserve the implemented boundaries and complete remaining acceptance scopes. Follow `../AGENTS.md` and `../skillet/AGENTS.md`.
 Read the [Home Assistant decision](../design/home-assistant.md),
 [storage](../design/storage.md), [Syncthing](../design/syncthing.md),
 [btrbk](../design/btrbk.md), [private UI access](../design/private-ui-access.md),
 [secrets](../design/secrets.md), [monitoring](../design/monitoring.md),
 and [VM lifecycle](../design/smoke-vms.md).
+
+## Current slice status
+
+| Slice | Implementation | Acceptance still required |
+| --- | --- | --- |
+| 1. Container | Implemented; clamps opts in, other callers do not; repeat apply and reboot accepted in the disposable VM | Physical deployment remains separate |
+| 2. Private HTTPS | Implemented; real local TLS/native API/WebSocket checks pass | Provider ACME/DNS is blocked by an existing record owned by another deployment; allowed-user phone/companion and separate-network denial remain live checks |
+| 3. Backups | Implemented; native encryption/export, independent rootless receiver and btrbk inclusion pass | Production vault/onboarding/share setup and independent receiving retention |
+| 4. Restore | Not implemented as an automated rehearsal | Isolated full restore from replicated and snapshot copies; wrong-key refusal alone does not prove restoration |
+| 5. Hardware | Deferred | No devices are available; MQTT/radios remain unselected |
 
 ## Short implementation order
 
@@ -99,19 +110,21 @@ with SELinux enforcing. Real radio discovery remains a physical check.
 ## 2. Generic private UI access
 
 - Extend the shared UI upstream model to distinguish bridge service DNS from
-  a host listener. Preserve existing Pi-hole/Syncthing payloads through an
+  a host-loopback listener. Preserve existing Pi-hole/Syncthing payloads through an
   explicit compatibility path if the credential schema changes. Keep host,
   environment, instance and SSH target separate.
 - Declare `homeassistant` and derive its hostname/aliases through the existing
   generic machinery. Reuse the selected environment's zone, UI prefix, token
   issuance, A/AAAA/CNAME reconciliation and owned disposal.
-- Keep Caddy on its bridge. Implement and verify a host gateway route, such as
-  `host.containers.internal:8123`; refuse a missing/unusable gateway. Configure
+- Keep Caddy on its bridge. Implement and verify the selected Unix-to-loopback relay; keep the HTTP listener
+  loopback-only and deny raw network TCP 8123 in both families. Configure
   Home Assistant's forwarded-header trust for the actual proxy source and
   restrict raw listener access so LAN or tailnet clients cannot bypass Caddy.
   Network discovery must still operate independently of HTTP listener policy.
 - Inspect the pinned release's supported initial HTTP/proxy configuration.
-  Current documentation describes UI-managed settings since 2026.8; do not
+  Use its upstream config generator and retain included automation, script and
+  scene files. Initialize confirmed initial HTTP settings through its own store
+  API; unconfirmed YAML migrations revert after five minutes. Do not
   repeatedly overwrite `.storage` or assume a legacy YAML block remains the
   convergence interface. Document any required one-time onboarding step.
 - Retain Home Assistant native authentication and the existing verified
@@ -153,7 +166,9 @@ and record any unavailable source/network checks as pending.
 - Keep btrbk's clamps selection at `syncthing`. Never snapshot the entire data
   mount or add nested subvolumes. Define receiving-side history/retention
   explicitly so local pruning or synchronization cannot erase every recovery
-  copy. Export pruning must never delete the last verified recovery copy.
+  copy. Initial publication performs no automatic deletion; monitor disk space and
+  establish independent receiving retention before selecting export pruning. Any
+  later pruning must preserve the last verified recovery copy.
 - Retain the native encryption key/emergency kit in KeePassXC and independently
   back up the encrypted vault. If exporting requires an application API token,
   use supported least-privilege access and existing encrypted delivery, never

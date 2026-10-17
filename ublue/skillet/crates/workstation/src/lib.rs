@@ -25,3 +25,5 @@ pub mod pihole_dns;
 pub mod deployment;
 
 pub mod syncthing_provisioning;
+
+pub mod homeassistant_provisioning;

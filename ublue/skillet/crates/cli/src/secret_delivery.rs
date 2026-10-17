@@ -53,7 +53,9 @@ pub(super) fn deliver_from_vault(args: &SecretDeliverArgs) -> Result<()> {
     } else {
         skillet_vm::credential::ActivationPolicy::DeferConsumer
     };
-    deliver_with_vault(args, &mut vault, &transport, activation)?;
+    if !deliver_with_vault(args, &mut vault, &transport, activation)? {
+        return Ok(());
+    }
     if args.activate && args.service == "network" {
         println!("Prepared native network profiles for the next boot; live connections were not switched");
     } else if args.activate {
@@ -72,7 +74,7 @@ pub(super) fn deliver_with_vault(
     vault: &mut Vault,
     transport: &impl GuestTransport,
     activation: skillet_vm::credential::ActivationPolicy,
-) -> Result<()> {
+) -> Result<bool> {
     validate_delivery_service(&args.hostname, &args.service)?;
     match args.service.as_str() {
         "pihole" => {
@@ -110,6 +112,20 @@ pub(super) fn deliver_with_vault(
             transport,
             activation,
         )?,
+        "homeassistant" => {
+            let mut store =
+                skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref());
+            if !skillet_workstation::homeassistant_provisioning::deliver(
+                &args.hostname,
+                args.environment.policy(),
+                &mut store,
+                transport,
+                activation,
+            )? {
+                println!("Home Assistant backup delivery skipped: add the post-onboarding API token to KeePassXC to enable encrypted scheduled backups");
+                return Ok(false);
+            }
+        }
         "caddy" => deliver_caddy_from_vault(args, vault, transport, activation)?,
         "ddns" => deliver_ddns_from_vault(args, vault, transport, activation)?,
         "network" => {
@@ -148,7 +164,7 @@ pub(super) fn deliver_with_vault(
         )?,
         _ => return Err(anyhow!("unsupported secret service {}", args.service)),
     }
-    Ok(())
+    Ok(true)
 }
 
 fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_hosts::HostProfile> {
@@ -159,6 +175,7 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
     }
     match service {
         "pihole" | "tailscale" | "ddns" | "datadog" | "smtp" | "network" | "syncthing"
+        | "homeassistant"
             if !profile.supports_service(service) =>
         {
             Err(anyhow!(
@@ -169,7 +186,7 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
             Err(anyhow!("host {hostname} declares no UI services"))
         }
         "pihole" | "tailscale" | "caddy" | "ddns" | "datadog" | "smtp" | "network"
-        | "syncthing" => Ok(profile),
+        | "syncthing" | "homeassistant" => Ok(profile),
         unsupported => Err(anyhow!("unsupported secret service {unsupported}")),
     }
 }

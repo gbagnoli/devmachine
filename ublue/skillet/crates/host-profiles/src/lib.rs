@@ -54,6 +54,7 @@ fn credential_names_for_phase(profile: &HostProfile, phase: HostApplyPhase) -> V
                     | "datadog-agent.service"
                     | "postfix.service"
                     | "skillet-syncthing-initialize.service"
+                    | skillet_homeassistant::backup::UNIT
                     | skillet_pihole::dns::UNIT
                     | skillet_network::PREPARE_UNIT
             ),
@@ -99,6 +100,8 @@ pub enum ApplyError {
     Pihole(#[from] skillet_pihole::PiholeError),
     #[error(transparent)]
     PiholeDns(#[from] skillet_pihole::dns::Error),
+    #[error(transparent)]
+    HomeAssistant(#[from] skillet_homeassistant::Error),
     #[error("UniFi apply error: {0}")]
     Unifi(#[from] skillet_unifi::UnifiError),
     #[error("Syncthing apply error: {0}")]
@@ -391,6 +394,9 @@ fn apply_profile(
             ServiceConfig::Nut(config) => {
                 skillet_nut::apply(system, files, *config)?;
             }
+            ServiceConfig::HomeAssistant(config) => {
+                skillet_homeassistant::apply(system, files, *config)?;
+            }
             ServiceConfig::Unifi => skillet_unifi::apply(system, files)?,
             ServiceConfig::Tailscale {
                 state_path,
@@ -567,6 +573,12 @@ fn apply_datadog_host(
                 .map(|unit| (*unit).to_string()),
         );
     }
+    if profile.supports_service("homeassistant") {
+        monitored_units.extend([
+            skillet_homeassistant::backup::TIMER.into(),
+            skillet_homeassistant::metrics::TIMER.into(),
+        ]);
+    }
     for service in &profile.services {
         if let ServiceConfig::Nut(config) = service.config {
             monitored_units.push(skillet_nut::METRICS_TIMER.into());
@@ -586,6 +598,13 @@ fn apply_datadog_host(
         },
     )?;
     for service in &profile.services {
+        if matches!(service.config, ServiceConfig::HomeAssistant(_)) {
+            skillet_homeassistant::metrics::apply(
+                system,
+                files,
+                std::path::Path::new(skillet_datadog::DOGSTATSD_SOCKET),
+            )?;
+        }
         if let ServiceConfig::Nut(config) = service.config {
             skillet_nut::apply_metrics(
                 system,

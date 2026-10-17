@@ -29,6 +29,7 @@ impl HostId {
 pub struct UiServiceDeclaration {
     pub name: &'static str,
     pub upstream: &'static str,
+    pub transport: skillet_caddy::UpstreamTransport,
     pub port: u16,
     pub tailnet_identity: bool,
     pub aliases: &'static [&'static str],
@@ -60,6 +61,7 @@ pub enum ServiceConfig {
     },
     Nut(skillet_nut::Config),
     Unifi,
+    HomeAssistant(skillet_homeassistant::Config),
     Smtp,
     Network(skillet_network::Selection),
     Ddns,
@@ -90,6 +92,7 @@ impl HostService {
             ServiceConfig::Mikochi { .. } => "mikochi",
             ServiceConfig::Nut(_) => "nut",
             ServiceConfig::Unifi => "unifi",
+            ServiceConfig::HomeAssistant(_) => "homeassistant",
             ServiceConfig::Ddns => "ddns",
             ServiceConfig::Datadog { .. } => "datadog",
             ServiceConfig::Smtp => "smtp",
@@ -108,6 +111,10 @@ impl HostService {
 
     pub fn credential_consumers(&self) -> Vec<CredentialConsumer> {
         match self.config {
+            ServiceConfig::HomeAssistant(_) => vec![CredentialConsumer {
+                credential: skillet_homeassistant::backup::CREDENTIAL,
+                unit: skillet_homeassistant::backup::UNIT,
+            }],
             ServiceConfig::Syncthing { .. } => vec![CredentialConsumer {
                 credential: skillet_syncthing::initial::CREDENTIAL,
                 unit: skillet_syncthing::initial::UNIT,
@@ -205,6 +212,7 @@ pub enum ListenerProtocol {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HealthProbe {
+    Homeassistant,
     Mikochi,
     Pihole,
     Tailscale,
@@ -314,6 +322,7 @@ impl HostProfile {
             .map(|(service, ui)| skillet_caddy::UiService {
                 name: ui.name.to_string(),
                 upstream: ui.upstream.to_string(),
+                transport: ui.transport,
                 port: ui.port,
                 tailnet_identity: ui.tailnet_identity,
                 anonymous_token_refresh: matches!(service.config, ServiceConfig::Mikochi { .. }),
@@ -383,6 +392,7 @@ impl HostProfile {
 
 fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService {
     match service.config {
+        ServiceConfig::HomeAssistant(_) => homeassistant_acceptance(),
         ServiceConfig::Nut(_) => AcceptanceService {
             unit: "nut-monitor.service".into(),
             container: None,
@@ -513,6 +523,7 @@ fn caddy_acceptance(profile: &str) -> AcceptanceService {
 const SYNCTHING_UI: UiServiceDeclaration = UiServiceDeclaration {
     name: "syncthing",
     upstream: "syncthing",
+    transport: skillet_caddy::UpstreamTransport::Bridge,
     port: 8384,
     tailnet_identity: true,
     aliases: &["sync.{host}"],
@@ -543,6 +554,7 @@ fn clamps() -> HostProfile {
                 ui: Some(UiServiceDeclaration {
                     name: "pihole",
                     upstream: "pihole",
+                    transport: skillet_caddy::UpstreamTransport::Bridge,
                     port: 8088,
                     tailnet_identity: true,
                     aliases: &[],
@@ -574,6 +586,23 @@ fn clamps() -> HostProfile {
                     description: "CyberPower CP1500 AVR",
                 }),
                 ui: None,
+            },
+            HostService {
+                config: ServiceConfig::HomeAssistant(skillet_homeassistant::Config {
+                    backup_subvolume: "/var/lib/data/syncthing",
+                    files_root: "/var/lib/data/syncthing/data",
+                    backup_files: "/var/lib/data/syncthing/data/backups/homeassistant",
+                    owner: "giacomo",
+                    group: "giacomo",
+                }),
+                ui: Some(UiServiceDeclaration {
+                    name: "homeassistant",
+                    upstream: "homeassistant",
+                    transport: skillet_caddy::UpstreamTransport::HostLoopback,
+                    port: 8123,
+                    tailnet_identity: true,
+                    aliases: &[],
+                }),
             },
             HostService {
                 config: ServiceConfig::Unifi,
@@ -619,6 +648,7 @@ fn joey() -> HostProfile {
                 ui: Some(UiServiceDeclaration {
                     name: "pihole",
                     upstream: "pihole",
+                    transport: skillet_caddy::UpstreamTransport::Bridge,
                     port: 8088,
                     tailnet_identity: true,
                     aliases: &[],
@@ -730,6 +760,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
                 ui: Some(UiServiceDeclaration {
                     name: "files",
                     upstream: "mikochi",
+                    transport: skillet_caddy::UpstreamTransport::Bridge,
                     port: 8080,
                     aliases: &[],
                     tailnet_identity: true,
@@ -795,5 +826,17 @@ fn unifi_acceptance() -> AcceptanceService {
             },
         ],
         health_probe: None,
+    }
+}
+
+fn homeassistant_acceptance() -> AcceptanceService {
+    AcceptanceService {
+        unit: "homeassistant.service".into(),
+        container: Some("homeassistant".into()),
+        network_mode: Some("host".into()),
+        bind_paths: vec!["/var/lib/data/homeassistant/config".into()],
+        owner: None,
+        listeners: vec![],
+        health_probe: Some(HealthProbe::Homeassistant),
     }
 }

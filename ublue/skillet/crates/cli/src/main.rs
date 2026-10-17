@@ -26,6 +26,16 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Commands {
+    /// Manage the guest Home Assistant installation and native backup export
+    Homeassistant {
+        #[command(subcommand)]
+        command: skillet_cli_common::homeassistant_runtime::Commands,
+    },
+    /// Serve an explicitly declared private host-loopback UI upstream
+    UiProxy {
+        #[command(subcommand)]
+        command: skillet_cli_common::host_ui_proxy::Commands,
+    },
     /// Initialize missing guest Syncthing configuration
     Syncthing {
         #[command(subcommand)]
@@ -141,7 +151,7 @@ struct SecretLockArgs {
 #[derive(clap::Args, Debug)]
 struct SecretDeliverArgs {
     hostname: String,
-    #[arg(value_parser = ["pihole", "pihole-dns", "tailscale", "caddy", "ddns", "datadog", "smtp", "network", "syncthing"])]
+    #[arg(value_parser = ["pihole", "pihole-dns", "tailscale", "caddy", "ddns", "datadog", "smtp", "network", "syncthing", "homeassistant"])]
     service: String,
     #[arg(long)]
     database: Option<PathBuf>,
@@ -372,6 +382,12 @@ fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     match args.command {
+        Commands::Homeassistant { command } => {
+            skillet_cli_common::homeassistant_runtime::dispatch(&command)?;
+        }
+        Commands::UiProxy { command } => {
+            skillet_cli_common::host_ui_proxy::dispatch(command)?;
+        }
         Commands::Syncthing { command } => {
             skillet_cli_common::syncthing_runtime::dispatch(command)?;
         }
@@ -1036,6 +1052,20 @@ fn check_health(
 ) -> Result<Option<String>> {
     use skillet_hosts::HealthProbe;
     match probe {
+        Some(HealthProbe::Homeassistant) => {
+            smoke_guest_command(
+                transport,
+                "curl",
+                &[
+                    "--fail",
+                    "--silent",
+                    "--max-time",
+                    "10",
+                    "http://127.0.0.1:8123/manifest.json",
+                ],
+            )?;
+            Ok(Some("health:homeassistant:running".into()))
+        }
         Some(HealthProbe::Mikochi) => check_mikochi_health(transport),
         Some(HealthProbe::Pihole) => {
             smoke_guest_command(
