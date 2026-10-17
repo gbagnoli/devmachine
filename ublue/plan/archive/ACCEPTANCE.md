@@ -3358,3 +3358,36 @@ are omitted from this record.
 
 Private diagnostics: `/tmp/skillet-ha-shared-*.log`. No real DNS names, account
 identifiers, tokens or credentials are included in this record.
+
+## 2026-10-17 — Real Caddy ingress recovery after reboot
+
+- User's actual HTTPS request exposed a missed acceptance boundary: Home
+  Assistant and the private fixture proxy were healthy after the preceding
+  reboot, but real Caddy was inactive. The earlier post-reboot API/WebSocket
+  fixture result did not establish availability of the deployed ingress.
+- Guest evidence: simultaneous identity-gate and host-relay SELinux policy
+  loaders contended for libsemanage's transaction lock. The identity loader
+  failed, so its authorization service and the Caddy apply phase could not start.
+  Tailscale remained connected and the VM retained signed/base/user Ready.
+- Retrying the real Caddy apply phase after the transaction finished restored
+  HTTPS. Verified the actual DNS/TLS endpoint returns this tagged workstation's
+  explicit identity-policy 403, rather than a connection failure.
+- Added boot ordering from the host-relay policy loader to the identity policy
+  loader. This orders concurrent mutation without a Requires dependency that
+  would activate an absent optional service. Regression coverage checks both
+  properties. Formatting, strict workspace Clippy and workspace/all-target tests
+  passed; Fedora joey base/repeat apply passed with its existing cleanup timeout
+  fallback.
+- Owned reboot and standard signed/base/user Ready completed with the corrected
+  policy unit installed. Boot timestamps prove the host-relay loader started
+  after the identity loader completed; both succeeded and no transaction-lock
+  error appeared. Actual Caddy and authorization services were active. An early
+  HTTPS probe during startup failed; the probe after complete readiness returned
+  the expected identity-policy 403 over the real DNS/TLS endpoint.
+- Native forwarded IPv4/IPv6 shared-owner authorization, API and WebSocket checks
+  also passed after this reboot. Readiness restores the creation-captured binaries;
+  restore the current build afterward when retaining the VM for UI inspection.
+
+Private diagnostics: `/tmp/skillet-ha-boot-policy-*.log`. The existing standard
+fixture smoke result remains separate from this targeted real-ingress reboot
+acceptance; no production host or private DNS values were committed.

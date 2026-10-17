@@ -550,6 +550,10 @@ fn host_loopback_routes_are_versioned_private_and_do_not_join_backend_bridges() 
     assert!(quadlet.contains("Requires=skillet-ui-host-homeassistant.service"));
     assert!(quadlet.contains("Volume=/run/skillet-ui-host:/run/skillet-ui-host:ro,z"));
     assert!(!quadlet.contains("Network=joey-homeassistant.network"));
+    let policy =
+        String::from_utf8_lossy(&data["/etc/systemd/system/skillet-ui-host-policy.service"]);
+    assert!(policy.contains("After=skillet-tailnet-ui-policy.service\n"));
+    assert!(!policy.contains("Requires=skillet-tailnet-ui-policy.service"));
     drop(data);
     services[0].tailnet_identity = false;
     assert!(CaddySites::from_host(

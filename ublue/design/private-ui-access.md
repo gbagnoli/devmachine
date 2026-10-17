@@ -37,6 +37,11 @@ File browsing and Gokapi administration require no second login; their identity
 policy rejects unknown/tagged/disallowed sources and failed lookups. An address
 range alone is not user authentication.
 
+The identity and host-relay SELinux policy loaders share one transaction store.
+Order the relay loader after the identity loader during concurrent boot, without
+activating an otherwise absent optional service. Verify the real HTTPS listener
+after reboot separately from local fixture TLS.
+
 Private backends must not bypass Caddy. Syncthing's GUI port is unpublished;
 identity-protected file browsing has its own strictly isolated bridge. Host root
 remains trusted. Retain SSH/tailnet-device access for DNS recovery.
