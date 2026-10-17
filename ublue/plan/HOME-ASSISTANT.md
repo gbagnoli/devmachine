@@ -26,7 +26,7 @@ and [VM lifecycle](../design/smoke-vms.md).
 | --- | --- | --- |
 | 1. Container | Implemented; clamps opts in, other callers do not; repeat apply and reboot accepted in the disposable VM; running on physical clamps | Device-specific capability acceptance awaits real devices |
 | 2. Private HTTPS | Implemented; real local TLS/native API/WebSocket checks pass | Provider staging ACME/DNS and explicit source/identity denial pass; allowed-user browser/phone/companion and separate-network denial remain live checks |
-| 3. Backups | Implemented; native encryption/export, independent rootless receiver and btrbk inclusion pass in disposable acceptance; production token, key and first encrypted export now pass | Production off-machine receipt and independent receiving retention |
+| 3. Backups | Implemented; native encryption/export, independent rootless receiver and btrbk inclusion pass in disposable acceptance; production token, key and first encrypted export now pass; a manual off-machine copy on calculon matches by SHA-256 | Connect Syncthing after reinstall and establish independent receiving retention |
 | 4. Restore | Offline extraction and live clamps restore from the exported archive passed; a reusable host procedure is saved | Isolated full restore from a received peer and snapshot copy in a disposable VM, with synthetic state and reboot/reapply |
 | 5. Hardware | HA runs on clamps with no device permissions selected | No devices are available; MQTT/radios remain unselected |
 
