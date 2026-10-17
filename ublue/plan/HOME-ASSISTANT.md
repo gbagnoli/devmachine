@@ -21,7 +21,7 @@ and [VM lifecycle](../design/smoke-vms.md).
 | Slice | Implementation | Acceptance still required |
 | --- | --- | --- |
 | 1. Container | Implemented; clamps opts in, other callers do not; repeat apply and reboot accepted in the disposable VM | Physical deployment remains separate |
-| 2. Private HTTPS | Implemented; real local TLS/native API/WebSocket checks pass | Provider ACME/DNS is blocked by an existing record owned by another deployment; allowed-user phone/companion and separate-network denial remain live checks |
+| 2. Private HTTPS | Implemented; real local TLS/native API/WebSocket checks pass | Provider staging ACME/DNS and explicit source/identity denial pass; allowed-user browser/phone/companion and separate-network denial remain live checks |
 | 3. Backups | Implemented; native encryption/export, independent rootless receiver and btrbk inclusion pass | Production vault/onboarding/share setup and independent receiving retention |
 | 4. Restore | Not implemented as an automated rehearsal | Isolated full restore from replicated and snapshot copies; wrong-key refusal alone does not prove restoration |
 | 5. Hardware | Deferred | No devices are available; MQTT/radios remain unselected |
