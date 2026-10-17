@@ -3285,3 +3285,37 @@ Local diagnostics: `/tmp/skillet-ha-*.log` (private transient logs; not committe
   cleanup or DNS takeover was attempted. Complete host application smoke with
   real Caddy issuance remains blocked by the existing DNS ownership conflict;
   successful synthetic smoke and local TLS are not substitutes for that gate.
+
+## 2026-10-17 — Home Assistant provider ACME retry
+
+- With explicit user authorization, disposed the stale `clamps/files` VM through
+  the Rust lifecycle, including its journaled external resources. The first
+  attempt stopped safely on an expired vault cache; retry after unlock completed.
+  The unrelated retained migration VM and `clamps/homeassistant` were preserved.
+- Retried `skillet test vm provision clamps homeassistant --with-ui`: exit 0.
+  The previous DNS ownership conflict did not recur; the current test instance
+  journals seven DNS records. No manual DNS takeover/deletion was performed.
+- Caddy obtained five real Let's Encrypt **staging** certificates through
+  Cloudflare DNS-01: Home Assistant, Pi-hole, file browsing, Syncthing and its
+  alias. Inspected certificate issuers/validity and successful issuance events.
+  One initial authorization failed before successful issuance; all five
+  certificates were present at completion. This is staging issuance, not
+  publicly trusted production-certificate acceptance.
+- Provisioning's bridge-origin HTTPS probes verified the explicit tailnet-denial
+  response for every UI name. Separate workstation requests reached all five
+  actual DNS/TLS endpoints and received the explicit identity-policy 403.
+  Those probes allow staging TLS; normal public trust validation is not claimed.
+  Direct Home Assistant TCP 8123 was inaccessible over both resolved tailnet
+  IPv4 and IPv6 addresses. This is not a separate-network denial test.
+- Reran the owned guest's Home Assistant acceptance executable with `--verify`:
+  exit 0, preserving the synthetic marker, confined fixture HTTPS relay, native
+  API authentication/WebSocket upgrade, encrypted backup/export, repeat
+  publication and wrong-key refusal. Its API/WS success still uses the private
+  fixture proxy, not a bypass of real Caddy's identity authorization.
+- Allowed-user browser/phone/companion access through the real identity gate,
+  independent external-network rejection, production certificate trust and full
+  isolated restore remain unverified. No physical host was modified.
+
+Private transient diagnostics: `/tmp/skillet-ha-acme-retry.log` and
+`/tmp/skillet-ha-acme-native-verify.log`. Real DNS names and provider identifiers
+are omitted from this record.
