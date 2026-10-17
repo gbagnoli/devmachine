@@ -41,7 +41,7 @@ jobs:
       - name: Run Mypy
         run: uv run mypy --ignore-missing-imports site-cookbooks fabfile.py ublue/skillet/crates/homeassistant
       - name: Test Home Assistant missing-only bootstrap
-        run: python3 -m unittest discover -s ublue/skillet/crates/homeassistant/tests -p "test_*.py"
+        run: uv run python -m unittest discover -s ublue/skillet/crates/homeassistant/tests -p "test_*.py"
 
   shell-lint:
     runs-on: ubuntu-latest
