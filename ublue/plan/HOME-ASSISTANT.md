@@ -4,7 +4,9 @@ Status: container, private host-loopback HTTPS transport, native encrypted
 backup/export and optional credential delivery are implemented. First disposable
 runtime acceptance passed 2026-10-16; remaining checks are listed below and in
 [the evidence record](archive/ACCEPTANCE.md). Physical activation is deferred;
-no Home Assistant devices, MQTT or companion services are selected. This optional
+no Home Assistant devices, MQTT or companion services are selected yet. Their
+deployment and recovery are tracked in the
+[home automation companions plan](HOME-AUTOMATION-INTEGRATIONS.md). This optional
 addition is not a Chef parity requirement or a gate for retiring rupik.
 
 Preserve the separately parked gates in the
@@ -49,8 +51,8 @@ and [VM lifecycle](../design/smoke-vms.md).
    Exit: settings, test automation and database state return, wrong-key refusal
    works, and reboot/reapply preserve state without contacting real devices.
 5. **Physical activation:** deploy on clamps, complete onboarding and confirm
-   the first actual device/integration inventory. Add only required USB radios,
-   Bluetooth or companion containers. Exit: real discovery/control, phone access,
+   the first actual device/integration inventory. Implement selected companion
+   services through the linked plan. Exit: real discovery/control, phone access,
    monitoring and encrypted backup/off-machine recovery readiness confirmed.
 
 No existing Home Assistant installation needs importing. No MQTT broker, Zigbee
