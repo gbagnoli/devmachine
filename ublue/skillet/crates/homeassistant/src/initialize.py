@@ -6,6 +6,8 @@ import os
 import tempfile
 from pathlib import Path
 
+from shared_auth import configure
+
 HTTP = {
     "server_host": ["127.0.0.1"],
     "server_port": 8123,
@@ -44,6 +46,7 @@ def initialize(root: Path) -> None:
         if config.is_symlink():
             raise RuntimeError("Refusing a linked initial configuration")
         if config.is_file():
+            configure(root)
             return
         if config.exists():
             raise RuntimeError("Initial configuration is not a regular file")
@@ -62,6 +65,7 @@ def initialize(root: Path) -> None:
                 if source.name != "configuration.yaml":
                     publish_missing(source, root / source.name)
             publish_missing(staging / "configuration.yaml", config)
+        configure(root)
 
 
 def publish_missing(source: Path, target: Path) -> None:

@@ -95,6 +95,13 @@ where
         Some(0o644),
         &root,
     )?;
+    let shared_auth = include_bytes!("shared_auth.py");
+    files.ensure_file(
+        &init_directory.join("shared_auth.py"),
+        shared_auth,
+        Some(0o644),
+        &root,
+    )?;
     listener::apply(system, files)?;
     let extra_config = BTreeMap::from([
         (
@@ -145,7 +152,7 @@ where
                 host_ownership: None,
             }],
             secrets: vec![],
-            config_revisions: vec![initializer.to_vec()],
+            config_revisions: vec![initializer.to_vec(), shared_auth.to_vec()],
             extra_config,
         },
     )?;

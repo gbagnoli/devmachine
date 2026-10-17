@@ -3319,3 +3319,42 @@ Local diagnostics: `/tmp/skillet-ha-*.log` (private transient logs; not committe
 Private transient diagnostics: `/tmp/skillet-ha-acme-retry.log` and
 `/tmp/skillet-ha-acme-native-verify.log`. Real DNS names and provider identifiers
 are omitted from this record.
+
+## 2026-10-17 — Shared Home Assistant login behind tailnet identity
+
+- User selected a shared HA account. Native trusted-network authentication now
+  selects only the active owner for forwarded tailnet IPv4/IPv6 clients and skips
+  the second password. Caddy retains its per-request verified-user policy; no
+  LAN/loopback trusted-login range or public route was added. Native password
+  authentication remains available for local recovery; account passwords and
+  existing token/integration state were preserved.
+- The initializer attaches an explicitly managed auth include and preserves a
+  one-time original config copy. Conflicting auth configuration and unmanaged or
+  linked include paths are refused. Existing includes, formatting and config
+  metadata are preserved; no owner leaves normal onboarding/password login.
+- Initial VM activation exposed AuthStore's dependency on initialized device and
+  entity registries. Corrected offline lookup to read through the pinned native
+  storage API without loading registries or modifying auth storage. The failed
+  original apply was retained; corrected packaged full apply succeeded twice.
+- Native disposable checks passed: both forwarded address families complete
+  passwordless authorization-code/token flows, authenticate API and WebSocket
+  sessions, and select the same HA owner. Test refresh tokens were revoked. LAN
+  and loopback trusted-login attempts abort; native password fallback remains.
+  These forwarded-address inputs are local guest assertions, not a simulation
+  of successful allowed-user Caddy authorization.
+- The real staging-HTTPS endpoint rejects this workstation's forged identity and
+  forwarded-address headers with its explicit identity-policy 403 for the UI,
+  providers, login-flow and WebSocket paths. No production host was modified.
+- Twelve Python regressions, Ruff/Mypy, workspace formatting, strict Clippy and
+  workspace/all-target tests passed. Fedora joey base/repeat integration passed
+  with no repeat service starts/restarts; its existing cleanup SIGTERM timeout
+  required the usual SIGKILL fallback. Allowed-user browser/phone/companion
+  acceptance remains a human-client check.
+- Standard `skillet test smoke clamps --instance homeassistant` exited 0 through
+  fixture cases, reboot and signed/base/user Ready. After reboot, native shared
+  login passed again in both families. Existing Home Assistant fixture HTTPS,
+  API/WebSocket, encrypted export, repeat publication, wrong-key refusal and the
+  persisted marker also passed; the pre-existing backup token remained usable.
+
+Private diagnostics: `/tmp/skillet-ha-shared-*.log`. No real DNS names, account
+identifiers, tokens or credentials are included in this record.

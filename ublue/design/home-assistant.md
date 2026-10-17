@@ -30,9 +30,21 @@ relay gives bridged Caddy access without a bridge gateway or backend IP. A narro
 inet input rule blocks non-loopback TCP 8123 in both families independently of
 application settings. Discovery remains host-networked. Caddy receives only the
 relay socket, not host networking or the Tailscale daemon API.
-Reuse verified tailnet-user authorization and retain Home Assistant login;
-proxy identity does not create an application session. Validate companion app
-login/refresh and WebSockets. No public webhook exception is selected. Machine A/AAAA records and UI CNAMEs remain unchanged; Pi-hole local
+Reuse verified tailnet-user authorization for every request. Home Assistant's
+native trusted-network provider maps forwarded IPv4/IPv6 tailnet clients to its
+single owner account and bypasses the second password prompt. This is a shared
+application identity, so HA history/permissions do not distinguish allowed tailnet
+users. Caddy must preserve the actual client address and reject unauthorized
+sources before forwarding; the raw listener remains private. Loopback and LAN
+addresses are not trusted login networks. Native password login remains available
+for local recovery. Existing account credentials are never replaced.
+
+A managed authentication include selects the owner through the pinned app's
+store API before startup. No owner means onboarding/password login only; restart
+after onboarding to enable shared login. Preserve original configuration and
+refuse conflicting operator-managed auth configuration. Existing HA tokens still
+need Caddy authorization on every request. Validate companion app login/refresh
+and WebSockets. No public webhook exception is selected. Machine A/AAAA records and UI CNAMEs remain unchanged; Pi-hole local
 records and MagicDNS are not dependencies of this route.
 
 ## Backup and recovery
@@ -71,4 +83,5 @@ References: [Container installation](https://www.home-assistant.io/installation/
 [backup integration](https://www.home-assistant.io/integrations/backup/),
 [backup and restore](https://www.home-assistant.io/common-tasks/general/),
 [Container backup directory](https://github.com/home-assistant/core/blob/2026.10.1/homeassistant/components/backup/backup.py),
-[HTTP/proxy configuration](https://www.home-assistant.io/integrations/http/).
+[HTTP/proxy configuration](https://www.home-assistant.io/integrations/http/),
+[trusted-network authentication](https://www.home-assistant.io/docs/authentication/providers/#trusted-networks).
