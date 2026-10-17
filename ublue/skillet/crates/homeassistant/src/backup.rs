@@ -7,7 +7,7 @@ use skillet_core::{
     files::{FileMutationResource, Ownership},
     system::ServiceResource,
 };
-use std::os::fd::AsRawFd;
+use std::collections::HashSet;
 use std::{
     fs::{self, File, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
@@ -16,11 +16,13 @@ use std::{
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
+use std::{os::fd::AsRawFd, os::unix::fs::MetadataExt};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 pub const CREDENTIAL: &str = "homeassistant_backup";
 pub const UNIT: &str = "skillet-homeassistant-backup.service";
 pub const TIMER: &str = "skillet-homeassistant-backup.timer";
+pub const EXPORTED_COPIES: usize = 7;
 
 #[derive(Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 #[serde(deny_unknown_fields)]
@@ -196,6 +198,14 @@ pub struct Completed {
     pub size: u64,
 }
 
+fn valid_backup_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 128
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+}
+
 pub fn completed(response: &Value) -> Result<Vec<Completed>, Error> {
     if response["state"] != "idle"
         || response["agent_errors"]
@@ -221,12 +231,7 @@ pub fn completed(response: &Value) -> Result<Vec<Completed>, Error> {
             return Err(Error::Invalid);
         }
         let id = backup["backup_id"].as_str().ok_or(Error::Invalid)?;
-        if id.is_empty()
-            || id.len() > 128
-            || !id
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
-        {
+        if !valid_backup_id(id) {
             return Err(Error::Invalid);
         }
         result.push(Completed {
@@ -243,26 +248,60 @@ pub fn completed(response: &Value) -> Result<Vec<Completed>, Error> {
 /// Archive storage capability; consumer metadata determines completion, never file age.
 pub trait ArchiveStore {
     fn publish(&self, backup: &Completed) -> Result<bool, Error>;
+    fn prune(&self, keep: usize) -> Result<usize, Error>;
+}
+
+pub struct ExportOutcome {
+    pub published: usize,
+    pub pruned: usize,
 }
 
 pub fn export(
     api: &mut impl Api,
     store: &impl ArchiveStore,
     password: &str,
-) -> Result<usize, Error> {
+) -> Result<ExportOutcome, Error> {
     let response = api.request(json!({"type":"backup/info"}))?;
     let backups = completed(&response)?;
     if backups.is_empty() {
         return Err(Error::Invalid);
     }
+    let records = response["backups"].as_array().ok_or(Error::Invalid)?;
+    let mut seen = HashSet::new();
+    let mut dated = backups
+        .into_iter()
+        .map(|backup| {
+            if !seen.insert(backup.backup_id.clone()) {
+                return Err(Error::Invalid);
+            }
+            let record = records
+                .iter()
+                .find(|record| record["backup_id"].as_str() == Some(backup.backup_id.as_str()))
+                .ok_or(Error::Invalid)?;
+            let date = chrono::DateTime::parse_from_rfc3339(
+                record["date"].as_str().ok_or(Error::Invalid)?,
+            )
+            .map_err(|_| Error::Invalid)?;
+            Ok((date, backup))
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
+    dated.sort_by(|a, b| {
+        b.0.cmp(&a.0)
+            .then_with(|| b.1.backup_id.cmp(&a.1.backup_id))
+    });
+    dated.truncate(EXPORTED_COPIES);
     let mut count = 0;
-    for backup in backups {
+    for (_, backup) in dated {
         api.request(json!({"type":"backup/can_decrypt_on_download","backup_id":backup.backup_id,"agent_id":"backup.local","password":password}))?;
         if store.publish(&backup)? {
             count += 1;
         }
     }
-    Ok(count)
+    let pruned = store.prune(EXPORTED_COPIES)?;
+    Ok(ExportOutcome {
+        published: count,
+        pruned,
+    })
 }
 
 pub fn create_and_wait(api: &mut impl Api) -> Result<(), Error> {
@@ -417,6 +456,60 @@ impl ArchiveStore for LocalArchives {
             .map_err(|_| Error::Invalid)?;
         File::open(&self.destination)?.sync_all()?;
         Ok(true)
+    }
+
+    fn prune(&self, keep: usize) -> Result<usize, Error> {
+        if keep == 0 || self.destination.canonicalize()? != self.destination {
+            return Err(Error::Invalid);
+        }
+        let mut archives = Vec::new();
+        for entry in fs::read_dir(&self.destination)? {
+            let entry = entry?;
+            let name = entry.file_name();
+            let Some(id) = name
+                .to_str()
+                .and_then(|name| name.strip_prefix("ha-"))
+                .and_then(|name| name.strip_suffix(".tar"))
+            else {
+                continue;
+            };
+            if !valid_backup_id(id) {
+                return Err(Error::Invalid);
+            }
+            let path = entry.path();
+            let mut file = open_regular(&path)?;
+            let observed = file.metadata()?;
+            let metadata = manifest(&mut file, false)?;
+            if metadata["slug"].as_str() != Some(id) {
+                return Err(Error::Invalid);
+            }
+            let date = chrono::DateTime::parse_from_rfc3339(
+                metadata["date"].as_str().ok_or(Error::Invalid)?,
+            )
+            .map_err(|_| Error::Invalid)?;
+            archives.push((date, id.to_string(), path, observed));
+        }
+        archives.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| b.1.cmp(&a.1)));
+        let victims = archives.into_iter().skip(keep).collect::<Vec<_>>();
+        for (_, _, path, observed) in &victims {
+            let file = open_regular(path)?;
+            let current = file.metadata()?;
+            if current.dev() != observed.dev()
+                || current.ino() != observed.ino()
+                || current.len() != observed.len()
+                || current.modified()? != observed.modified()?
+            {
+                return Err(Error::Invalid);
+            }
+        }
+        let removed = victims.len();
+        for (_, _, path, _) in victims {
+            fs::remove_file(path)?;
+        }
+        if removed > 0 {
+            File::open(&self.destination)?.sync_all()?;
+        }
+        Ok(removed)
     }
 }
 

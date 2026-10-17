@@ -59,9 +59,12 @@ The exporter requires completed local backup metadata, validates the encryption
 password through Home Assistant, checks the archive and atomically publishes a
 verified byte copy. It never exports the decrypted UI download or live database.
 Repeated publication is a no-op; conflicting destination bytes cause an error.
-Published copies are retained without automatic deletion initially; monitor space
-and configure independent receiving retention before pruning. Native retention
-still limits the application's local copies to seven.
+After every successful export pass, Skillet keeps the seven newest managed
+`ha-<id>.tar` archives by the backup date inside each archive. It refuses
+pruning if a managed archive is malformed or changed during inspection; other
+files are left alone. Native retention also keeps seven local copies. Btrbk
+snapshots the Syncthing subvolume, but a separate receiving copy and history
+are still needed for disk loss.
 
 `skillet-homeassistant-backup.timer` activates the credential-gated exporter.
 Inspect `journalctl -u skillet-homeassistant-backup.service`. On the guest,

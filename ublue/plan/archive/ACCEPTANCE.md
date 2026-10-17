@@ -3424,3 +3424,14 @@ acceptance; no production host or private DNS values were committed.
   destination SHA-256 digests and 92,160-byte sizes match; the destination file
   has mode `0600`. This is a verified off-machine copy, not Syncthing receipt or
   an independent retention policy.
+
+## 2026-10-17 — Home Assistant export rotation deployment
+
+- Skillet now selects the seven newest completed local backups by Home Assistant
+  date and prunes managed exported archives beyond seven only after successful
+  publication. It leaves unknown files untouched and refuses malformed managed
+  archives before deleting any candidate.
+- The workstation deployed and byte-verified updated `skillet` and
+  `skillet-clamps` binaries on physical clamps. The existing archive's manifest
+  contains the backup date and ID fields used for rotation. No seven-archive
+  live prune was run; the host currently has only one exported archive.

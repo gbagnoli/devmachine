@@ -102,7 +102,8 @@ pub fn dispatch(command: &Commands) -> Result<(), CliCommonError> {
                 uid: user.uid,
                 gid: group.gid,
             };
-            let count = backup::export(&mut api, &store, &input.backup_password).map_err(error)?;
+            let outcome =
+                backup::export(&mut api, &store, &input.backup_password).map_err(error)?;
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map_err(|_| error(skillet_homeassistant::Error::Invalid))?
@@ -127,7 +128,10 @@ pub fn dispatch(command: &Commands) -> Result<(), CliCommonError> {
                     &Ownership::named(Some("root"), Some("root")),
                 )
                 .map_err(|e| CliCommonError::Config(e.to_string()))?;
-            println!("Home Assistant backup export completed ({count} new archives)");
+            println!(
+                "Home Assistant backup export completed ({} new, {} pruned)",
+                outcome.published, outcome.pruned
+            );
             Ok(())
         }
     }
