@@ -9,6 +9,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+sys.path.insert(0, str(Path(__file__).parents[1] / "src"))
+
 SPEC = importlib.util.spec_from_file_location(
     "initializer", Path(__file__).parents[1] / "src" / "initialize.py"
 )
@@ -41,6 +43,9 @@ class InitializationTests(unittest.TestCase):
             self.http_roots.append(root)
 
         self.http_patch = patch.object(INITIALIZER, "initialize_http", initialize_http)
+        self.auth_patch = patch.object(INITIALIZER, "configure")
+        self.auth_patch.start()
+        self.addCleanup(self.auth_patch.stop)
         self.http_patch.start()
         self.addCleanup(self.http_patch.stop)
         self.patch.start()

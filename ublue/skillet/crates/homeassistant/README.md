@@ -9,8 +9,19 @@ selected. Container mode has no Supervisor/app store.
 From `ublue/skillet`, use normal `cargo run --release -p skillet -- apply clamps`.
 Home Assistant's version is pinned in this crate; registry auto-update is disabled.
 Open the declared `homeassistant.<host>.<ui-domain>` HTTPS endpoint from an allowed
-user-owned tailnet client and complete native onboarding. Native login remains
-required. Host port 8123 binds loopback only; Caddy uses a confined Unix relay.
+user-owned tailnet client and complete native onboarding, creating the shared
+owner account with a recovery password. Restart `homeassistant.service` once after
+onboarding. Subsequent authorized tailnet visits use that shared account without
+a second password prompt. Everyone allowed by the UI policy has the owner's HA
+permissions; use this only for your approved household users.
+
+The module attaches `auth_providers: !include skillet-auth.yaml` under the root
+`homeassistant:` section, preserving a one-time `.skillet-before-shared-auth.yaml`
+copy. If that section already exists without the managed include, explicitly add
+the include there before apply; existing authentication is never overwritten.
+The managed include follows the active owner and retains native password login
+for loopback recovery. Ordinary account/app settings stay application-owned.
+Native login tokens do not bypass Caddy's per-request authorization. Host port 8123 binds loopback only; Caddy uses a confined Unix relay.
 The host listener policy also denies non-loopback TCP 8123 in both families.
 Do not change the application's HTTP bind/proxy settings to wildcard interfaces.
 
@@ -82,6 +93,11 @@ wrong-key refusal and repeat apply; run it again with `--verify` after reboot.
 Syncthing peer and matching btrbk snapshots. Run each assertion through that same
 owned VM adapter, never against a physical host. These fixtures do not replace
 allowed-user tailnet or phone acceptance.
+`tests/shared_auth_acceptance.py` runs inside the disposable HA container after
+synthetic onboarding: it checks native passwordless flows for forwarded IPv4/IPv6,
+the same shared account, API/WebSocket tokens and local password fallback. Run it
+through the owned guest adapter; the forwarded addresses are local test inputs,
+not proof that an allowed desktop passed Caddy's real identity gate.
 For VM-to-workstation replication acceptance, run
 `python3 crates/homeassistant/tests/acceptance_peer.py ABSOLUTE_GUEST_HELPER ABSOLUTE_BUTANE HOST INSTANCE`.
 It uses an existing cached Syncthing image and free loopback ports 22100/28384,

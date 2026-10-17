@@ -81,6 +81,10 @@
   revocation, daemon outages, browser origin checks, and direct backend isolation.
   Verify effective forwarding isolation in both IP families; network flags can
   change whether the runtime generates firewall rules at all.
+- Shared application login must select one explicit account behind the same
+  per-request proxy authorization. Preserve client addresses, exclude direct
+  backend access and retain local recovery; an existing application session
+  must not bypass later proxy-policy revocation.
 - Identity/private policy follows the same canonical UI declaration and encrypted
   delivery path as the service. Give proxy processes only the API surface they
   consume; a read-only Unix socket bind does not limit API methods.

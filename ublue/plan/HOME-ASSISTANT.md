@@ -34,7 +34,7 @@ and [VM lifecycle](../design/smoke-vms.md).
    Exit: empty-instance readiness, repeat apply and reboot in a named clamps VM.
 2. **Private HTTPS:** extend generic Caddy upstreams for a host-network listener,
    retaining current bridge consumers. Use the existing environment DNS/TLS and
-   verified tailnet-user policy; keep Home Assistant native authentication.
+   verified tailnet-user policy; use shared-owner login with native password fallback.
    Exit: onboarding/login, WebSocket/API and companion-client flows work;
    external clients and direct port 8123 cannot bypass the proxy policy.
 3. **Backups:** configure daily encrypted native backups, initially seven local
@@ -127,9 +127,11 @@ with SELinux enforcing. Real radio discovery remains a physical check.
   API; unconfirmed YAML migrations revert after five minutes. Do not
   repeatedly overwrite `.storage` or assume a legacy YAML block remains the
   convergence interface. Document any required one-time onboarding step.
-- Retain Home Assistant native authentication and the existing verified
-  tailnet-user gate. Validate companion app login/refresh and WebSockets; do not
-  replace native accounts with proxy identity. No public ingress or webhook
+- Retain the verified tailnet-user gate and use the native trusted-network
+  provider to select the shared HA owner for forwarded tailnet clients without
+  another password. Keep native password fallback for local recovery; do not
+  trust LAN/loopback for automatic login or overwrite native account credentials.
+  Validate companion app login/refresh and WebSockets. No public ingress or webhook
   exception is selected. Do not add OAuth proxy, Tailscale
   split DNS or Pi-hole UI-zone configuration.
 
