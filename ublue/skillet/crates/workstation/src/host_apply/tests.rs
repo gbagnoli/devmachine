@@ -122,6 +122,7 @@ fn every_failure_stops_later_steps_and_can_retry() {
 
 struct Guest {
     status: String,
+    journal_after: String,
     calls: RefCell<Vec<Vec<String>>>,
 }
 impl GuestTransport for Guest {
@@ -134,13 +135,18 @@ impl GuestTransport for Guest {
         self.calls
             .borrow_mut()
             .push(command.arguments.iter().map(|arg| (*arg).into()).collect());
+        let output = if command.arguments.contains(&"--show-cursor") {
+            "-- cursor: before-start\n".into()
+        } else if command.arguments.contains(&"--after-cursor") {
+            self.journal_after.clone()
+        } else if command.arguments.contains(&"show") {
+            self.status.clone()
+        } else {
+            String::new()
+        };
         Ok(Output {
             status: ExitStatus::from_raw(0),
-            stdout: if command.arguments.contains(&"show") {
-                self.status.as_bytes().to_vec()
-            } else {
-                Vec::new()
-            },
+            stdout: output.into_bytes(),
             stderr: Vec::new(),
         })
     }
@@ -149,28 +155,73 @@ impl GuestTransport for Guest {
     }
 }
 
+fn successful_journal_entry(unit: &str) -> String {
+    serde_json::json!({
+        "MESSAGE_ID": "39f53479d3a045ac8e11786248231fbf",
+        "UNIT": unit,
+        "JOB_TYPE": "start",
+        "JOB_RESULT": "done",
+        "INVOCATION_ID": "test-invocation",
+    })
+    .to_string()
+}
+
 #[test]
-fn skipped_condition_or_unexecuted_oneshot_is_not_success() {
-    let success = "LoadState=loaded\nConditionResult=yes\nResult=success\nExecMainStatus=0\nExecMainStartTimestampMonotonic=123\n";
+fn successful_runtime_state_remains_a_valid_execution_proof() {
     let guest = Guest {
-        status: success.into(),
+        status: "LoadState=loaded\nConditionResult=yes\nResult=success\nExecMainStatus=0\nExecMainStartTimestampMonotonic=123\n".into(),
+        journal_after: String::new(),
         calls: RefCell::default(),
     };
     activate(&guest, "skillet-full-apply.service").unwrap();
+    assert!(!guest.calls.borrow().iter().any(|arguments| {
+        arguments
+            .iter()
+            .any(|argument| argument == "--after-cursor")
+    }));
+}
+
+#[test]
+fn completed_inactive_oneshot_is_verified_from_the_journal() {
+    let guest = Guest {
+        status: "LoadState=loaded\nConditionResult=no\nResult=success\nExecMainStatus=0\nExecMainStartTimestampMonotonic=0\n".into(),
+        journal_after: successful_journal_entry("skillet-full-apply.service"),
+        calls: RefCell::default(),
+    };
+    activate(&guest, "skillet-full-apply.service").unwrap();
+    assert!(guest.calls.borrow().iter().any(|arguments| {
+        arguments
+            .windows(2)
+            .any(|pair| pair == ["--after-cursor", "before-start"])
+    }));
     assert!(!guest
         .calls
         .borrow()
         .iter()
         .flatten()
-        .any(|arg| arg == "--wait"));
-    for status in [
-        success.replace("ConditionResult=yes", "ConditionResult=no"),
-        success.replace("=123", "=0"),
-        success.replace("Result=success", "Result=exit-code"),
-        success.replace("ExecMainStatus=0", "ExecMainStatus=1"),
-    ] {
+        .any(|argument| argument == "--wait"));
+}
+
+#[test]
+fn skipped_or_failed_oneshot_is_not_success() {
+    let skipped = serde_json::json!({
+        "UNIT": "skillet-full-apply.service",
+        "JOB_TYPE": "start",
+        "JOB_RESULT": "done",
+    })
+    .to_string();
+    let failed = serde_json::json!({
+        "MESSAGE_ID": "39f53479d3a045ac8e11786248231fbf",
+        "UNIT": "skillet-full-apply.service",
+        "JOB_TYPE": "start",
+        "JOB_RESULT": "failed",
+        "INVOCATION_ID": "test-invocation",
+    })
+    .to_string();
+    for journal_after in [String::new(), skipped, failed] {
         let guest = Guest {
-            status,
+            status: "LoadState=loaded\nConditionResult=no\nResult=success\nExecMainStatus=0\nExecMainStartTimestampMonotonic=0\n".into(),
+            journal_after,
             calls: RefCell::default(),
         };
         assert!(activate(&guest, "skillet-full-apply.service").is_err());
