@@ -19,7 +19,7 @@ Only unfinished implementation and acceptance belongs here. Commands live in
 | Joey | [Replacement hardware and full-service VM rehearsal](JOEY-MIGRATION.md) |
 | Donbot | [Calculon migration](DONBOT-MIGRATION.md), [source inventory](DONBOT-INVENTORY.md) |
 | Media cache | [Jellyfin Caddy cache](JELLYFIN-CADDY-CACHE.md) |
-| Optional service | [Home Assistant](HOME-ASSISTANT.md) |
+| Optional service | [Home Assistant](HOME-ASSISTANT.md), [home automation companions](HOME-AUTOMATION-INTEGRATIONS.md) |
 
 Completed refactor slices, baseline audit, snapshots and storage/credential
 milestones are archived. Their remaining gates are retained in the active

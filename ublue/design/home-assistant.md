@@ -17,6 +17,19 @@ acceptance rather than copying an unrestricted privileged example blindly.
 
 Container installation has no Supervisor/app store. Companion services such as
 MQTT and Zigbee2MQTT require their own declared containers and backup policies.
+The [companion plan](../plan/HOME-AUTOMATION-INTEGRATIONS.md) covers Mosquitto,
+Zigbee2MQTT, ESPHome Device Builder and HA-managed device integrations. HA native
+archives do not include companion container state. Keep live companion data
+outside Syncthing and publish only completed encrypted archives into the same
+Syncthing leaf already selected for btrbk. The backup decryption identity stays
+in KeePassXC; the host needs only the encryption recipient. Zigbee coordinator
+state may also live in the radio and its backup support depends on the adapter.
+Place Mosquitto and Zigbee2MQTT on a private Podman network; Home Assistant's
+host-network container reaches a loopback broker listener. Device-facing MQTT
+requires an explicit LAN listener. Expose Zigbee2MQTT and the optional ESPHome
+dashboard through the existing private UI identity gate, with their raw listeners
+isolated. Hue, Overkiz, Dyson and ESPHome device connections remain HA-managed.
+
 An offline invocation of the pinned image generates missing upstream config and
 its includes. Its own HTTP store API initializes confirmed loopback/proxy settings
 before publication; an unconfirmed YAML migration would otherwise revert after
