@@ -112,4 +112,15 @@ Restore through Home Assistant's supported Container restore workflow, using a
 compatible image and retained encryption key. Keep an independent archive before
 upgrades; reverting the container image may not reverse database migrations.
 
+For a live restore on an existing Skillet host, copy
+[`scripts/live-restore.sh`](scripts/live-restore.sh) and
+[`scripts/restore-stage.py`](scripts/restore-stage.py) to the same directory on
+that host, then run the shell script as root with the absolute path of a
+completed encrypted archive. It first restores offline with networking disabled,
+then stops Home Assistant, moves its current config aside, restores the archive,
+checks the owner/UI/exporter and retains the previous config for rollback. If
+verification fails, it returns the previous config to the live path. The archive
+and recovery password remain separate; the script reads the host's encrypted
+Skillet credential and does not take a password argument.
+
 See [deployment/backup design](../../../design/home-assistant.md).
