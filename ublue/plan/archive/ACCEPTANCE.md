@@ -3219,3 +3219,69 @@ update / rollback matrix cases. A header backup is not a service-data backup.
   replacement had reset omitted metadata while the mock preserved it. Fixed the
   real adapter, retained numeric IDs and mode bits, and added actual filesystem
   coverage. Ownership is applied before mode because chown can clear mode bits.
+
+## 2026-10-16–17 — Home Assistant implementation and disposable acceptance
+
+Scope: optional clamps module, generic private host-loopback Caddy transport,
+native encrypted backups and publication into the existing Syncthing/btrbk leaf.
+No production Home Assistant deployment, real devices, MQTT or radios were selected.
+Named native KVM runs: `clamps/homeassistant` and `joey/ha-backup-peer`, plain-root
+profiles. Pre-existing VMs and their provider records were left alone.
+
+- Initial checks: workspace tests and strict pedantic Clippy, Fedora joey base
+  integration/repeat apply, real Caddy configuration/adaptation and identity-refresh
+  tests, real Syncthing initializer, Python/Ruff/Mypy, ShellCheck and bootstrap/
+  storage/hardware regressions passed. Final reruns follow source corrections.
+- Fresh joey bootstrap reached signed uCore and readiness with a real Btrfs
+  container subvolume. This proves the storage-ordering regression correction;
+  the earlier clamps fixture required explicit inspected repair, preserving its
+  original directory. Normal convergence never converts incompatible live paths.
+- The stock FCOS QEMU disk was 10 GiB and insufficient for reliable application
+  acceptance. The owned clamps virtual disk was grown to 64 GiB; its partition and
+  Btrfs filesystem were expanded without formatting. Physical layouts were unchanged.
+- First runtime check passed native onboarding, local Caddy TLS, API authentication,
+  WebSocket upgrade, encrypted native backup/export, repeat publication and wrong-key
+  refusal with SELinux enabled. Original encrypted archives matched btrbk snapshot
+  bytes. These first-request checks did not establish durable HTTP configuration:
+  reboot exposed the upstream unconfirmed HTTP migration's timed rollback.
+- Corrections: fresh bootstrap now uses the pinned application's own HTTP store
+  API to initialize confirmed loopback/proxy settings. An offline real-image probe
+  verified stable settings and no pending trial. Existing state is preserved;
+  only this disposable fixture's synthetic pre-fix config/credentials were moved
+  aside to rehearse a fresh install. The receiving-peer test also exposed a
+  root-only intermediate export directory; typed ancestor ownership and regression
+  coverage now include consumer traversal, without touching unrelated trees.
+- Provider UI provisioning refused an existing test DNS name owned by another
+  deployment. No takeover or manual record deletion was attempted. Local fixture
+  TLS uses its private CA; it is not Cloudflare ACME or an allowed human tailnet
+  client result. Full provider issuance, phone/companion access, separate-network
+  rejection and isolated full restore remain distinct acceptance scopes.
+
+Local diagnostics: `/tmp/skillet-ha-*.log` (private transient logs; not committed).
+
+- Replication correction verified: the temporary rootless Syncthing receiver on
+  the workstation received matching encrypted archive bytes from the VM. Its
+  folder enabled independent local file versioning; the fixture checked a matching
+  btrbk snapshot and removed its peer declaration/container afterward. This is a
+  transport/publication test, not production off-site retention or full restore.
+
+- Final corrected runtime: the standard `skillet test smoke clamps --instance
+  homeassistant` passed its before/after-reboot fixture checks and restored Ready
+  state. After updating the deployed binary pair again, the Home Assistant
+  acceptance executable passed `--verify`: confirmed HTTP policy with no pending
+  trial, loopback-only listener, trusted fixture TLS, anonymous API refusal,
+  authenticated API and WebSocket upgrade, encrypted native backup/export,
+  repeat publication, wrong-key refusal and the persisted synthetic marker.
+  This ran beyond the upstream trial window and after reboot. Captured bootstrap
+  binaries and updated binaries remain distinct in the VM manifest.
+- Tested official image: `ghcr.io/home-assistant/home-assistant:2026.10.1`, digest
+  `sha256:a7ecc966ffed643296af32d576ee081910a0362c01e695db24fbee6816175fbe`.
+- Final local workspace tests and strict Clippy passed; Python has five bootstrap
+  regressions, Ruff/Mypy pass including all new Python files, and the Fedora base
+  repeat-apply integration passed. CI includes bootstrap Python tests and typing.
+- The fresh-bootstrap joey VM was disposed through the Rust lifecycle. The clamps
+  VM is retained for inspection/provider follow-up; provider ownership journals
+  are preserved. The vault cache expired before this follow-up, so no provider
+  cleanup or DNS takeover was attempted. Complete host application smoke with
+  real Caddy issuance remains blocked by the existing DNS ownership conflict;
+  successful synthetic smoke and local TLS are not substitutes for that gate.
