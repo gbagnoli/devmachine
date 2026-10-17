@@ -30,6 +30,13 @@ host-network container reaches a loopback broker listener. Device-facing MQTT
 requires an explicit LAN listener. Expose Zigbee2MQTT and the optional ESPHome
 dashboard through the existing private UI identity gate, with their raw listeners
 isolated. Hue, Overkiz, Dyson and ESPHome device connections remain HA-managed.
+The clamps caller selects host Bluetooth access: its image installs and enables
+BlueZ, while its Home Assistant Quadlet mounts the host system bus socket and
+receives `NET_ADMIN`/`NET_RAW`. This supports the built-in adapter without
+privileged container mode. A read-only bind limits filesystem writes, not
+D-Bus method calls; the container can communicate with host bus services.
+Other callers must select this capability deliberately and supply BlueZ in
+their image.
 
 An offline invocation of the pinned image generates missing upstream config and
 its includes. Its own HTTP store API initializes confirmed loopback/proxy settings

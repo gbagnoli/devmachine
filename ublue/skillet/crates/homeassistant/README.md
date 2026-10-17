@@ -1,8 +1,8 @@
 # Home Assistant
 
 Rootful Home Assistant Container, selected explicitly by the host profile.
-Clamps selects it; joey does not. No MQTT, radios or Bluetooth permissions are
-selected. Container mode has no Supervisor/app store.
+Clamps selects it with host Bluetooth access; joey does not. No MQTT or USB
+radio passthrough is selected. Container mode has no Supervisor/app store.
 
 ## Apply and onboard
 
@@ -31,6 +31,17 @@ An offline pinned-image generator publishes missing configuration and includes.
 It initializes confirmed loopback/proxy settings through the pinned application
 HTTP store API, avoiding an unconfirmed migration trial. Existing application
 configuration and HTTP state are preserved.
+
+## Bluetooth on clamps
+
+The clamps image includes BlueZ and enables `bluetooth.service`. The selected
+Home Assistant profile mounts `/run/dbus` read-only and grants `NET_ADMIN` and
+`NET_RAW`, as required for full Bluetooth management. The mount is read-only at
+the filesystem level; Home Assistant can still send D-Bus requests to host
+services. Apply the updated Skillet binary after booting the updated clamps
+image so Podman recreates the container with the mount and capabilities. Check
+`systemctl status bluetooth.service` and the Bluetooth integration in Home
+Assistant. Bluetooth devices and pairing remain application-managed.
 
 ## Enable encrypted backups
 

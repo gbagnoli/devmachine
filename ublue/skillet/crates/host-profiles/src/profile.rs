@@ -589,6 +589,7 @@ fn clamps() -> HostProfile {
             },
             HostService {
                 config: ServiceConfig::HomeAssistant(skillet_homeassistant::Config {
+                    bluetooth: true,
                     backup_subvolume: "/var/lib/data/syncthing",
                     files_root: "/var/lib/data/syncthing/data",
                     backup_files: "/var/lib/data/syncthing/data/backups/homeassistant",

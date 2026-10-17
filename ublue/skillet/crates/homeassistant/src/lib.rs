@@ -20,6 +20,7 @@ pub const PORT: u16 = 8123;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Config {
+    pub bluetooth: bool,
     pub backup_subvolume: &'static str,
     pub files_root: &'static str,
     pub backup_files: &'static str,
@@ -103,7 +104,7 @@ where
         &root,
     )?;
     listener::apply(system, files)?;
-    let extra_config = BTreeMap::from([
+    let mut extra_config = BTreeMap::from([
         (
             "Container".into(),
             vec![
@@ -133,6 +134,30 @@ where
         ),
         ("Install".into(), vec!["WantedBy=multi-user.target".into()]),
     ]);
+    let mut volumes = vec![Volume {
+        host_path: config_path.display().to_string(),
+        container_path: "/config".into(),
+        options: Some("Z".into()),
+        host_mode: None,
+        host_ownership: None,
+    }];
+    if config.bluetooth {
+        extra_config
+            .entry("Container".into())
+            .or_default()
+            .push("AddCapability=NET_ADMIN NET_RAW".into());
+        extra_config.entry("Unit".into()).or_default().extend([
+            "After=bluetooth.service".into(),
+            "Wants=bluetooth.service".into(),
+        ]);
+        volumes.push(Volume {
+            host_path: "/run/dbus".into(),
+            container_path: "/run/dbus".into(),
+            options: Some("ro".into()),
+            host_mode: None,
+            host_ownership: None,
+        });
+    }
     skillet_podman::container(
         system,
         files,
@@ -144,13 +169,7 @@ where
             storage_dependency: Some(MountDependency::shared_service_data()),
             process_identity: ProcessIdentity::ImageDefault,
             namespace_mapping: None,
-            volumes: vec![Volume {
-                host_path: config_path.display().to_string(),
-                container_path: "/config".into(),
-                options: Some("Z".into()),
-                host_mode: None,
-                host_ownership: None,
-            }],
+            volumes,
             secrets: vec![],
             config_revisions: vec![initializer.to_vec(), shared_auth.to_vec()],
             extra_config,

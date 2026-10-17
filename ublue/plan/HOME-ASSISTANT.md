@@ -28,7 +28,7 @@ and [VM lifecycle](../design/smoke-vms.md).
 | 2. Private HTTPS | Implemented; real local TLS/native API/WebSocket checks pass | Provider staging ACME/DNS and explicit source/identity denial pass; allowed-user browser/phone/companion and separate-network denial remain live checks |
 | 3. Backups | Implemented; native encryption/export and seven-export rotation, independent rootless receiver and btrbk inclusion pass in disposable acceptance; production token, key and first encrypted export pass; a manual off-machine copy on calculon matches by SHA-256 | Validate prune behavior in CI and live, then connect Syncthing after reinstall and verify receiver history |
 | 4. Restore | Offline extraction and live clamps restore from the exported archive passed; a reusable host procedure is saved | Isolated full restore from a received peer and snapshot copy in a disposable VM, with synthetic state and reboot/reapply |
-| 5. Hardware | HA runs on clamps with no device permissions selected | No devices are available; MQTT/radios remain unselected |
+| 5. Hardware | HA runs on clamps; built-in Bluetooth access is declared and BlueZ added to the clamps image | Rebuild/rebase the image, apply Skillet, then confirm BlueZ, D-Bus access and a real Bluetooth integration; MQTT/USB radios remain unselected |
 
 ## Short implementation order
 
