@@ -26,7 +26,7 @@ and [VM lifecycle](../design/smoke-vms.md).
 | --- | --- | --- |
 | 1. Container | Implemented; clamps opts in, other callers do not; repeat apply and reboot accepted in the disposable VM; running on physical clamps | Device-specific capability acceptance awaits real devices |
 | 2. Private HTTPS | Implemented; real local TLS/native API/WebSocket checks pass | Provider staging ACME/DNS and explicit source/identity denial pass; allowed-user browser/phone/companion and separate-network denial remain live checks |
-| 3. Backups | Implemented; native encryption/export, independent rootless receiver and btrbk inclusion pass in disposable acceptance; production token, key and first encrypted export now pass; a manual off-machine copy on calculon matches by SHA-256 | Connect Syncthing after reinstall and establish independent receiving retention |
+| 3. Backups | Implemented; native encryption/export and seven-export rotation, independent rootless receiver and btrbk inclusion pass in disposable acceptance; production token, key and first encrypted export pass; a manual off-machine copy on calculon matches by SHA-256 | Validate prune behavior in CI and live, then connect Syncthing after reinstall and verify receiver history |
 | 4. Restore | Offline extraction and live clamps restore from the exported archive passed; a reusable host procedure is saved | Isolated full restore from a received peer and snapshot copy in a disposable VM, with synthetic state and reboot/reapply |
 | 5. Hardware | HA runs on clamps with no device permissions selected | No devices are available; MQTT/radios remain unselected |
 
@@ -172,9 +172,10 @@ and record any unavailable source/network checks as pending.
 - Keep btrbk's clamps selection at `syncthing`. Never snapshot the entire data
   mount or add nested subvolumes. Define receiving-side history/retention
   explicitly so local pruning or synchronization cannot erase every recovery
-  copy. Initial publication performs no automatic deletion; monitor disk space and
-  establish independent receiving retention before selecting export pruning. Any
-  later pruning must preserve the last verified recovery copy.
+  copy. The exporter retains seven verified managed archives, pruning only after
+  successful publication and leaving unknown files untouched. Monitor disk
+  space and verify receiving-side snapshots after Syncthing enrollment. Always
+  preserve the newest verified recovery copy.
 - Retain only the native encryption password in KeePassXC and independently
   back up the encrypted vault; keep archives outside it. If exporting requires an application API token,
   use supported least-privilege access and existing encrypted delivery, never

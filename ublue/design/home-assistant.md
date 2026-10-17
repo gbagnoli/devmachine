@@ -86,8 +86,11 @@ Home Assistant state tree or all of `/var/lib/data` to snapshot policy.
 Syncthing provides off-machine copies; btrbk provides local history. The latter
 shares the source disk's failure domain, and synchronization propagates deletions.
 Keep independent retention at the receiving site. Native local retention starts
-at seven copies; published archives are initially retained without automatic
-deletion, preserving recovery copies until an independent retention policy exists. Retain the backup encryption
+at seven copies. The exporter now retains the seven newest verified archives
+by their embedded backup dates and prunes only after successful publication;
+unknown files are outside its ownership. Local btrbk snapshots retain some
+deleted generations, but they share the source disk's failure domain and
+Syncthing propagates deletion. Retain the backup encryption
 password in the portable KeePassXC vault with an independent recovery copy.
 Keep archives outside the vault. Export original encrypted files, not the UI
 download that decrypts them.
