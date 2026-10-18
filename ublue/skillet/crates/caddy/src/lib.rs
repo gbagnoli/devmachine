@@ -179,11 +179,13 @@ impl CaddySites {
             for alias in &service.aliases {
                 let alias_hostname =
                     resolve_alias(alias, host, &environment.ui_domain, zone_domain)?;
-                validate_domain(&alias_hostname)?;
-                if all_hostnames
-                    .insert(alias_hostname.clone(), "UI alias")
-                    .is_some()
-                {
+                if alias_conflicts(
+                    &mut all_hostnames,
+                    &alias_hostname,
+                    &machine_hostname,
+                    service,
+                    &aliases,
+                )? {
                     return Err(CaddyError::InvalidConfiguration(format!(
                         "duplicate UI hostname for alias on service {}",
                         service.name
@@ -323,6 +325,24 @@ impl CaddySites {
         }
         config
     }
+}
+
+fn alias_conflicts(
+    names: &mut BTreeMap<String, &'static str>,
+    alias: &str,
+    machine_hostname: &str,
+    service: &UiService,
+    existing_aliases: &[String],
+) -> Result<bool, CaddyError> {
+    validate_domain(alias)?;
+    // The machine's A/AAAA name is also its private dashboard. Reserve it
+    // from every other service and reject duplicate dashboard aliases.
+    if alias == machine_hostname {
+        return Ok(service.name != "homer"
+            || !service.tailnet_identity
+            || existing_aliases.iter().any(|name| name == alias));
+    }
+    Ok(names.insert(alias.to_string(), "UI alias").is_some())
 }
 
 fn resolve_alias(

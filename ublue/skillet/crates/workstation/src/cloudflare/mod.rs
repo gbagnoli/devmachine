@@ -681,6 +681,16 @@ pub fn desired_records(
             content: machine_name.to_string(),
         });
         for alias in &service.aliases {
+            // The machine name already has its A/AAAA records; it cannot also
+            // carry a CNAME when Homer serves the dashboard at that address.
+            if alias == machine_name {
+                if service.name != "homer" || !service.tailnet_identity {
+                    return Err(CloudflareError::Invalid(
+                        "only the protected dashboard may use the machine DNS name".into(),
+                    ));
+                }
+                continue;
+            }
             result.push(DesiredRecord {
                 name: alias.clone(),
                 record_type: "CNAME".to_string(),
