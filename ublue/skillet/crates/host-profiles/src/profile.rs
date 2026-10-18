@@ -822,7 +822,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
             upstream: "homer",
             transport: skillet_caddy::UpstreamTransport::Bridge,
             port: 8080,
-            aliases: &["ui.{host}.{zone}"],
+            aliases: &["{host}", "ui.{host}.{zone}"],
             tailnet_identity: true,
         }),
     });

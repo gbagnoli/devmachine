@@ -12,6 +12,7 @@ then rebuild and apply Skillet. Skillet replaces the generated service list and
 host subtitle during rendering. Runtime edits to the generated file are not
 retained on the next apply.
 
-The dashboard has a zone-level `ui.<host>.<zone>` alias. Its canonical private
-UI name also follows the ordinary `homer.<host>.<ui-domain>` convention. Actual
-domains come from the selected environment's Cloudflare zone configuration.
+Open the dashboard at `<host>.<ui-domain>`, the existing machine A/AAAA name.
+The zone-level `ui.<host>.<zone>` alias and canonical
+`homer.<host>.<ui-domain>` name also work. Actual domains come from the selected
+environment's Cloudflare zone configuration.

@@ -4,9 +4,10 @@ Host callers declare services, container upstreams and optional aliases. Names
 are `<service>.<host>.<ui-domain>`; Caddy serves HTTPS on port 443. Run Cargo
 commands from `ublue/skillet`.
 
-The shared [Homer dashboard](../homer/README.md) also has a zone-level
-`ui.<host>.<zone>` alias. It uses the same private authorization gate as its
-canonical UI name. Skillet generates its links from selected UI sites.
+The shared [Homer dashboard](../homer/README.md) uses the machine name
+`<host>.<ui-domain>` and also has a zone-level `ui.<host>.<zone>` alias. Both use
+the same private authorization gate as its canonical UI name. Skillet generates
+its links from selected UI sites.
 
 ## Credentials and DNS
 
@@ -18,6 +19,7 @@ master issuer token. Smoke UI provisioning creates a bounded disposable token.
 
 Skillet publishes DNS-only machine A/AAAA records for its Tailscale addresses,
 canonical UI CNAMEs to that machine name, and aliases to the canonical UI name.
+Homer's machine-name alias uses the existing A/AAAA; it adds no CNAME there.
 Do not enable Cloudflare proxying or configure Tailscale split DNS for these names.
 Clients need tailnet connectivity and a resolver that accepts these DNS answers.
 

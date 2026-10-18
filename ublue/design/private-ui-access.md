@@ -19,8 +19,10 @@ and IDs stay in private configuration; public DNS still exposes names/addresses.
 
 The shared Homer dashboard follows the same private Caddy and identity path.
 It reads links from the caller's selected UI services, so it has no independent
-service inventory. Its zone-level alias is `ui.<host>.<zone>`; generated names
-and the zone remain environment configuration. Skillet renders Homer YAML from a
+service inventory. It also serves the existing `<host>.<ui-domain>` machine name,
+without replacing its A/AAAA records with a CNAME. A zone-level
+`ui.<host>.<zone>` alias remains available; generated names and the zone remain
+environment configuration. Skillet renders Homer YAML from a
 checked-in template, and Caddy serves that YAML after authorization. The Homer
 container supplies only packaged static assets and has no published port.
 
