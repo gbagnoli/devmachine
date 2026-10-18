@@ -1,5 +1,9 @@
 //! Read-only vault requirement auditing and its shared human documentation.
-use crate::{configuration_templates, provisioning_policy::ProvisioningPolicy, vault::VaultError};
+use crate::{
+    configuration_templates,
+    provisioning_policy::{Environment, ProvisioningPolicy},
+    vault::VaultError,
+};
 use serde::Deserialize;
 use skillet_hosts::HostProfile;
 use std::{
@@ -240,6 +244,19 @@ fn selected(module: &RequirementGroup, profile: &HostProfile) -> bool {
         .any(|service| selected_capability(service, profile))
 }
 
+fn selected_for_policy(
+    module: &RequirementGroup,
+    profile: &HostProfile,
+    policy: ProvisioningPolicy,
+) -> bool {
+    module.required_by.iter().any(|service| {
+        selected_capability(service, profile)
+            && (service != "ddns"
+                || policy.environment() != Environment::Production
+                || profile.supports_production_service("ddns"))
+    })
+}
+
 fn entry_selected(entry: &Entry, profile: &HostProfile) -> bool {
     entry.required_by.is_empty()
         || entry
@@ -296,7 +313,10 @@ pub fn check(
         {
             continue;
         }
-        for profile in profiles.iter().filter(|profile| selected(&module, profile)) {
+        for profile in profiles
+            .iter()
+            .filter(|profile| selected_for_policy(&module, profile, policy))
+        {
             let host = profile.id.as_str();
             let paths = module
                 .template
@@ -411,7 +431,10 @@ pub fn check_with_entries(
         {
             continue;
         }
-        for profile in profiles.iter().filter(|p| selected(&module, p)) {
+        for profile in profiles
+            .iter()
+            .filter(|profile| selected_for_policy(&module, profile, policy))
+        {
             for entry in module.entries.iter().filter(|e| {
                 matches!(e.status, Status::Optional | Status::Generated)
                     && !e.fields.is_empty()

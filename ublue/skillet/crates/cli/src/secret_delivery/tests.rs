@@ -87,7 +87,7 @@ fn delivery_eligibility_uses_declared_service_capabilities() {
     assert!(validate_delivery_service("agent", "tailscale").is_err());
     assert!(validate_delivery_service("joey", "caddy").is_ok());
     assert!(validate_delivery_service("agent", "ddns").is_err());
-    assert!(validate_delivery_service("clamps", "ddns").is_ok());
+    assert!(validate_delivery_service("clamps", "ddns").is_err());
     for service in ["pihole", "tailscale", "caddy", "ddns", "datadog", "smtp"] {
         assert!(validate_delivery_service("joey", service).is_ok());
     }

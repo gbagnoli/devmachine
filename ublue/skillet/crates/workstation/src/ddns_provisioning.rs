@@ -154,7 +154,7 @@ pub fn deliver_persistent_ddns(
         ));
     }
     skillet_hosts::profile_for_name(request.host)
-        .filter(|profile| profile.supports_service("ddns"))
+        .filter(|profile| profile.supports_production_service("ddns"))
         .ok_or(DdnsProvisioningError::Invalid("host does not declare DDNS"))?;
     let config = PrivateConfig::parse(request.config)?;
     crate::cloudflare::validate_zone_id(request.zone_id)?;

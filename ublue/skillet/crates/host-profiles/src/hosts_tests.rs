@@ -262,6 +262,7 @@ fn ddns_is_caller_selected_and_independently_credential_gated() {
     assert!(files.files.lock().unwrap().is_empty());
     let profile = super::profile_for_name("clamps").unwrap();
     assert!(profile.supports_service("ddns"));
+    assert!(!profile.supports_production_service("ddns"));
     assert!(!profile
         .acceptance_plan()
         .services
@@ -275,6 +276,9 @@ fn ddns_is_caller_selected_and_independently_credential_gated() {
     assert!(!super::profile_for_name("agent")
         .unwrap()
         .supports_service("ddns"));
+    assert!(super::profile_for_name("joey")
+        .unwrap()
+        .supports_production_service("ddns"));
 }
 
 #[test]
