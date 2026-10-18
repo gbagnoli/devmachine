@@ -12,6 +12,19 @@ then rebuild and apply Skillet. Skillet replaces the generated service list and
 host subtitle during rendering. Runtime edits to the generated file are not
 retained on the next apply.
 
+Pi-hole and Home Assistant use Homer's smart-card types. Pi-hole is configured
+for API v6 and its canonical backend `Host` and `Origin` values (`pi.hole`);
+Caddy allows only the declared Homer origins to read its API while retaining
+the tailnet identity check. If the host has the existing
+`skillet/environments/<environment>/hosts/<host>/homeassistant/api-token` entry,
+Skillet adds it to the dashboard config for the Home Assistant card. The config
+file is mode `0600` on the host and Caddy serves it only behind the tailnet
+identity gate. Anyone authorized to view the dashboard can inspect that API
+token in their browser, so keep the Homer allowlist limited to trusted users.
+
+Service logos are bundled in [`assets/`](assets/). Syncthing and Mikochi use
+their upstream logos, avoiding a runtime CDN dependency.
+
 Open the dashboard at `<host>.<ui-domain>`, the existing machine A/AAAA name.
 The zone-level `ui.<host>.<zone>` alias and canonical
 `homer.<host>.<ui-domain>` name also work. Actual domains come from the selected

@@ -8,18 +8,23 @@ use skillet_core::{
         AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
     },
 };
-use skillet_podman::{MountDependency, NetworkAttachment, PodmanConfig, ProcessIdentity};
+use skillet_podman::{MountDependency, NetworkAttachment, PodmanConfig, ProcessIdentity, Volume};
 use std::{collections::BTreeMap, path::Path};
 use thiserror::Error;
 
 pub const IMAGE: &str = "docker.io/b4bz/homer:latest";
 const TEMPLATE: &str = include_str!("template.yml");
 const CONFIG_PATH: &str = "/etc/skillet/homer/assets/config.yml";
+const CUSTOM_ASSET_PATH: &str = "/etc/skillet/homer/assets/custom";
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Link {
     pub name: String,
     pub hostname: String,
+    pub service_type: Option<&'static str>,
+    pub logo: Option<&'static str>,
+    pub api_version: Option<u8>,
+    pub api_key: Option<String>,
 }
 
 #[derive(Debug, Error)]
@@ -46,6 +51,14 @@ struct Group<'a> {
 struct Item<'a> {
     name: &'a str,
     url: String,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    service_type: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    logo: Option<&'static str>,
+    #[serde(rename = "apiVersion", skip_serializing_if = "Option::is_none")]
+    api_version: Option<u8>,
+    #[serde(rename = "apikey", skip_serializing_if = "Option::is_none")]
+    api_key: Option<&'a str>,
 }
 
 /// The checked-in template owns presentation; selected UI sites own links.
@@ -62,6 +75,10 @@ pub fn render(host: &str, links: &[Link]) -> Result<String, HomerError> {
                 .map(|link| Item {
                     name: &link.name,
                     url: format!("https://{}", link.hostname),
+                    service_type: link.service_type,
+                    logo: link.logo,
+                    api_version: link.api_version,
+                    api_key: link.api_key.as_deref(),
                 })
                 .collect(),
         }])?,
@@ -84,10 +101,40 @@ where
     let root = Ownership::named(Some("root"), Some("root"));
     files.ensure_directory(Path::new("/etc/skillet/homer"), Some(0o755), &root)?;
     files.ensure_directory(Path::new("/etc/skillet/homer/assets"), Some(0o755), &root)?;
+    files.ensure_directory(Path::new(CUSTOM_ASSET_PATH), Some(0o755), &root)?;
+    for (name, bytes) in [
+        (
+            "homeassistant.svg",
+            include_bytes!("../assets/homeassistant.svg").as_slice(),
+        ),
+        (
+            "mikochi.png",
+            include_bytes!("../assets/mikochi.png").as_slice(),
+        ),
+        (
+            "pihole.svg",
+            include_bytes!("../assets/pihole.svg").as_slice(),
+        ),
+        (
+            "syncthing.svg",
+            include_bytes!("../assets/syncthing.svg").as_slice(),
+        ),
+    ] {
+        files.ensure_file(
+            &Path::new(CUSTOM_ASSET_PATH).join(name),
+            bytes,
+            Some(0o644),
+            &root,
+        )?;
+    }
     files.ensure_file(
         Path::new(CONFIG_PATH),
         config.as_bytes(),
-        Some(0o644),
+        Some(if links.iter().any(|link| link.api_key.is_some()) {
+            0o600
+        } else {
+            0o644
+        }),
         &root,
     )?;
     skillet_podman::container(
@@ -101,7 +148,16 @@ where
             storage_dependency: Some(MountDependency::shared_service_data()),
             process_identity: ProcessIdentity::ImageDefault,
             namespace_mapping: None,
-            volumes: Vec::new(),
+            volumes: vec![Volume {
+                host_path: CUSTOM_ASSET_PATH.into(),
+                container_path: "/www/assets/custom".into(),
+                // Homer and Caddy both read this same directory. Shared SELinux
+                // labeling is required because the containers have different MCS
+                // labels; private `Z` labeling lets the second container break access.
+                options: Some("ro,z".into()),
+                host_mode: Some(0o755),
+                host_ownership: Some(root.clone()),
+            }],
             secrets: Vec::new(),
             config_revisions: Vec::new(),
             extra_config: BTreeMap::from([

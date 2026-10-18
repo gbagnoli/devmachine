@@ -284,6 +284,17 @@ fn deliver_caddy_from_vault(
             )
         })?;
     let tailnet = tailscale_credentials(vault)?;
+    let homeassistant_api_token = if skillet_hosts::profile_for_name(&args.hostname)
+        .is_some_and(|profile| profile.supports_service("homeassistant"))
+    {
+        vault.get(&format!(
+            "skillet/environments/{}/hosts/{}/homeassistant/api-token",
+            policy.vault_name(),
+            args.hostname
+        ))?
+    } else {
+        None
+    };
     let cloudflare = skillet_workstation::cloudflare::Cloudflare::new();
     let mut token_store =
         skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref());
@@ -295,6 +306,7 @@ fn deliver_caddy_from_vault(
             relative_ui_domain: domain_prefix.as_deref(),
             tailnet_users: &users,
             creator_token: &creator,
+            homeassistant_api_token: homeassistant_api_token.as_deref(),
         },
         &mut token_store,
         &cloudflare,

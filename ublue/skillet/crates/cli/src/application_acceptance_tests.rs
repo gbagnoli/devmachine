@@ -28,7 +28,7 @@ impl GuestTransport for AcceptanceTransport {
                     self.network.clone()
                 };
                 format!(
-                    "true|bridge|{}|{{\"{}\":{{}}}}|/var/lib/data/syncthing;/var/lib/data/caddy/data;\n",
+                    "true|bridge|{}|{{\"{}\":{{}}}}|/var/lib/data/syncthing;/var/lib/data/caddy/data;/etc/skillet/homer;\n",
                     self.container_id, network
                 )
                 .into_bytes()
