@@ -3449,3 +3449,15 @@ acceptance; no production host or private DNS values were committed.
   After full apply, no clamps DDNS container or generated unit was active.
 - Formatting and strict workspace Clippy passed. No unit or smoke suite was run
   for this operational change.
+
+## 2026-10-18 — Dashboard on the machine private hostname
+
+- Skillet deployed matching `630c9ea` generic and clamps binaries and completed
+  the full physical apply. Caddy and Homer are active.
+- The existing machine A/AAAA hostname now routes to Homer through Caddy's
+  tailnet identity gate; DNS reconciliation did not replace those records with
+  a CNAME. Caddy obtained a production certificate for that name. From a
+  disallowed workstation, HTTPS verified the certificate and returned the
+  expected policy 403.
+- Formatting and strict workspace Clippy passed. Browser acceptance from an
+  allowed personal device and unit/smoke suites were not run in this change.
