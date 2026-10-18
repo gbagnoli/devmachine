@@ -3435,3 +3435,17 @@ acceptance; no production host or private DNS values were committed.
   `skillet-clamps` binaries on physical clamps. The existing archive's manifest
   contains the backup date and ID fields used for rotation. No seven-archive
   live prune was run; the host currently has only one exported archive.
+
+## 2026-10-18 — Physical clamps dashboard and DDNS deferral
+
+- Clamps booted the current signed image with Bluez installed and systemd
+  running. Skillet deployed and verified matching `d273cd1` generic/host
+  binaries; full production apply completed with DDNS omitted.
+- Homer and Caddy are active, the generated dashboard configuration is present,
+  and Caddy obtained certificates for both declared dashboard hostnames.
+- The selected public DDNS A record exists without a Skillet ownership marker;
+  rupik remains its writer. Clamps' existing DDNS container was stopped, its
+  Quadlet retained under a disabled filename, and the boot apply unit disabled.
+  After full apply, no clamps DDNS container or generated unit was active.
+- Formatting and strict workspace Clippy passed. No unit or smoke suite was run
+  for this operational change.
