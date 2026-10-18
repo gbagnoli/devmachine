@@ -72,7 +72,7 @@ impl DdnsProvider for Provider {
         assert_eq!(creator, "dummy-master-token");
         assert_eq!(zone, ZONE);
         assert_eq!(account, ZONE);
-        assert_eq!(name, "skillet:production:clamps:ddns");
+        assert_eq!(name, "skillet:production:joey:ddns");
         assert_eq!(lifetime, None);
         self.issued.set(self.issued.get() + 1);
         Ok(IssuedToken {
@@ -194,7 +194,7 @@ impl GuestTransport for Guest {
 }
 fn request(config: &str) -> DdnsDelivery<'_> {
     DdnsDelivery {
-        host: "clamps",
+        host: "joey",
         policy: ProvisioningPolicy::new(Environment::Production),
         zone_id: ZONE,
         relative_ui_domain: None,
@@ -228,12 +228,12 @@ fn creates_once_and_reuses_saved_token_after_delivery_failure() {
     .unwrap();
     assert_eq!(provider.issued.get(), 1);
     assert_eq!(
-        store.entries["skillet/environments/prod/hosts/clamps/cloudflare/ddns-token"],
+        store.entries["skillet/environments/prod/hosts/joey/cloudflare/ddns-token"],
         "dummy-child-token"
     );
     assert_eq!(guest.payloads.borrow()[0], guest.payloads.borrow()[1]);
     store.entries.insert(
-        "skillet/environments/prod/hosts/clamps/cloudflare/ddns-token".into(),
+        "skillet/environments/prod/hosts/joey/cloudflare/ddns-token".into(),
         "dummy-rotated-token".into(),
     );
     deliver_persistent_ddns(

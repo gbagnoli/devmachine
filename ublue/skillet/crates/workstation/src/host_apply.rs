@@ -59,7 +59,7 @@ pub fn steps(profile: &HostProfile) -> Vec<Step> {
         ("network", "skillet-network-prepare.service"),
         ("datadog", "skillet-datadog-apply.service"),
     ] {
-        if profile.supports_service(service) {
+        if profile.supports_production_service(service) {
             result.extend([Step::Stage(service), Step::Activate(unit)]);
         }
     }

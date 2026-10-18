@@ -384,7 +384,7 @@ fn apply_profile(
     for service in &profile.services {
         match &service.config {
             // Independently credential-gated optional services have their own phase.
-            ServiceConfig::Ddns
+            ServiceConfig::Ddns { .. }
             | ServiceConfig::Datadog { .. }
             | ServiceConfig::Smtp
             | ServiceConfig::Network(_)

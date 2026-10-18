@@ -74,7 +74,7 @@ fn optional_phases_follow_only_canonical_host_capabilities() {
     profile.services.retain(|service| {
         !matches!(
             service.config,
-            skillet_hosts::ServiceConfig::Ddns
+            skillet_hosts::ServiceConfig::Ddns { .. }
                 | skillet_hosts::ServiceConfig::Datadog { .. }
                 | skillet_hosts::ServiceConfig::Smtp
                 | skillet_hosts::ServiceConfig::Network(_)

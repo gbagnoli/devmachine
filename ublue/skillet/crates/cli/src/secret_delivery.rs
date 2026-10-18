@@ -173,6 +173,11 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
     if service == "pihole-dns" && profile.supports_service("pihole") {
         return Ok(profile);
     }
+    if service == "ddns" && !profile.supports_production_service("ddns") {
+        return Err(anyhow!(
+            "host {hostname} has no production DDNS credential delivery"
+        ));
+    }
     match service {
         "pihole" | "tailscale" | "ddns" | "datadog" | "smtp" | "network" | "syncthing"
         | "homeassistant"

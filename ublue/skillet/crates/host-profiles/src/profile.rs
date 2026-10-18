@@ -65,7 +65,9 @@ pub enum ServiceConfig {
     HomeAssistant(skillet_homeassistant::Config),
     Smtp,
     Network(skillet_network::Selection),
-    Ddns,
+    Ddns {
+        production_enabled: bool,
+    },
     Datadog {
         production_region: &'static str,
         network_monitoring: bool,
@@ -95,7 +97,7 @@ impl HostService {
             ServiceConfig::Nut(_) => "nut",
             ServiceConfig::Unifi => "unifi",
             ServiceConfig::HomeAssistant(_) => "homeassistant",
-            ServiceConfig::Ddns => "ddns",
+            ServiceConfig::Ddns { .. } => "ddns",
             ServiceConfig::Datadog { .. } => "datadog",
             ServiceConfig::Smtp => "smtp",
             ServiceConfig::Network(_) => "network",
@@ -133,7 +135,7 @@ impl HostService {
                 credential: skillet_datadog::CREDENTIAL,
                 unit: "datadog-agent.service",
             }],
-            ServiceConfig::Ddns => vec![CredentialConsumer {
+            ServiceConfig::Ddns { .. } => vec![CredentialConsumer {
                 credential: super::CLOUDFLARE_DDNS_CONFIG_CREDENTIAL,
                 unit: "cloudflare-ddns.service",
             }],
@@ -263,7 +265,7 @@ impl HostProfile {
                         | ServiceConfig::Smtp
                         | ServiceConfig::Nut(_)
                         | ServiceConfig::Network(_)
-                ) && (with_ddns || !matches!(service.config, ServiceConfig::Ddns))
+                ) && (with_ddns || !matches!(service.config, ServiceConfig::Ddns { .. }))
             })
             .map(|service| acceptance_service(self.id.as_str(), service))
             .collect::<Vec<_>>();
@@ -294,6 +296,20 @@ impl HostProfile {
         self.services.iter().any(|service| service.name() == name)
     }
 
+    /// A declared service can remain available to disposable test scenarios
+    /// while its production writer is held until an explicit cutover.
+    pub fn supports_production_service(&self, name: &str) -> bool {
+        self.services.iter().any(|service| {
+            service.name() == name
+                && !matches!(
+                    service.config,
+                    ServiceConfig::Ddns {
+                        production_enabled: false
+                    }
+                )
+        })
+    }
+
     pub fn requires_pihole_dns_listener_policy(&self) -> bool {
         self.services
             .iter()
@@ -304,7 +320,9 @@ impl HostProfile {
         self.services.iter().any(|service| {
             matches!(
                 service.config,
-                ServiceConfig::Pihole | ServiceConfig::Syncthing { .. } | ServiceConfig::Ddns
+                ServiceConfig::Pihole
+                    | ServiceConfig::Syncthing { .. }
+                    | ServiceConfig::Ddns { .. }
             ) || service.ui.is_some()
         })
     }
@@ -410,7 +428,7 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
         ServiceConfig::Network(_) => native_network_acceptance(),
         ServiceConfig::Smtp => smtp_acceptance(),
         ServiceConfig::Datadog { .. } => datadog_acceptance(),
-        ServiceConfig::Ddns => AcceptanceService {
+        ServiceConfig::Ddns { .. } => AcceptanceService {
             unit: "cloudflare-ddns.service".into(),
             container: Some("cloudflare-ddns".into()),
             network_mode: Some(profile.into()),
@@ -632,7 +650,10 @@ fn clamps() -> HostProfile {
                 ui: None,
             },
             HostService {
-                config: ServiceConfig::Ddns,
+                // Rupik remains the production DDNS writer until cutover.
+                config: ServiceConfig::Ddns {
+                    production_enabled: false,
+                },
                 ui: None,
             },
             HostService {
@@ -696,7 +717,9 @@ fn joey() -> HostProfile {
                 ui: Some(SYNCTHING_UI),
             },
             HostService {
-                config: ServiceConfig::Ddns,
+                config: ServiceConfig::Ddns {
+                    production_enabled: true,
+                },
                 ui: None,
             },
             HostService {
