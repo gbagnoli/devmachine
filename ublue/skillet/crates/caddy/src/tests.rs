@@ -131,6 +131,61 @@ fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
 }
 
 #[test]
+fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
+    let services = vec![
+        UiService {
+            name: "pihole".into(),
+            upstream: "pihole".into(),
+            transport: crate::UpstreamTransport::Bridge,
+            port: 80,
+            aliases: Vec::new(),
+            tailnet_identity: true,
+            anonymous_token_refresh: false,
+        },
+        UiService {
+            name: "homeassistant".into(),
+            upstream: "homeassistant".into(),
+            transport: crate::UpstreamTransport::Bridge,
+            port: 8123,
+            aliases: Vec::new(),
+            tailnet_identity: true,
+            anonymous_token_refresh: false,
+        },
+        UiService {
+            name: "homer".into(),
+            upstream: "homer".into(),
+            transport: crate::UpstreamTransport::Bridge,
+            port: 8080,
+            aliases: vec!["dashboard.{host}".into()],
+            tailnet_identity: true,
+            anonymous_token_refresh: false,
+        },
+    ];
+    let sites = CaddySites::from_host(
+        "clamps",
+        &UiEnvironment {
+            ui_domain: "private.example.invalid".into(),
+            acme_staging: true,
+        },
+        &services,
+    )
+    .unwrap();
+    let rendered = sites.render();
+
+    for origin in [
+        "https://homer.clamps.private.example.invalid",
+        "https://dashboard.clamps.private.example.invalid",
+    ] {
+        assert!(rendered.contains(&format!("Origin \"{origin}\"")));
+        assert!(rendered.contains(&format!("Access-Control-Allow-Origin \"{origin}\"")));
+    }
+    assert!(rendered.contains("header_up Host pi.hole"));
+    assert!(rendered.contains("header_up Origin http://pi.hole"));
+    assert!(rendered.contains("respond @cross_origin 403"));
+    assert!(rendered.contains("respond @cross_site 403"));
+}
+
+#[test]
 fn guest_payload_must_match_the_callers_declared_services() {
     let services = syncthing_only();
     let expected = CaddySites::from_host(

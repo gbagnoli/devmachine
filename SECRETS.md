@@ -62,6 +62,10 @@ Native accounts are created during HTTPS onboarding. Backup automation starts af
 | `skillet/environments/prod/hosts/<host>/homeassistant/api-token` | Optional | Password = long-lived access token created in the Home Assistant administrator profile Security page after onboarding. Native backup APIs require administrator access; use a dedicated token and revoke it when replaced. Missing entry leaves backup automation unconfigured. |
 | `skillet/environments/prod/hosts/<host>/homeassistant/backup-password` | Generated | Password = Skillet-generated native backup encryption password, persisted before delivery. Keep an independent vault backup; never delete or replace this recovery key while retaining encrypted archives. |
 
+## Homer
+
+Private static service dashboard generated from the host's declared UI services. No vault entries currently required. [Setup](ublue/skillet/crates/homer/README.md).
+
 ## Mikochi
 
 No application password; uses the shared Tailnet UI allowlist. [Setup](ublue/skillet/crates/mikochi/README.md).

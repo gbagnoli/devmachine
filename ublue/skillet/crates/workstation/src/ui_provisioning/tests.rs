@@ -302,6 +302,7 @@ fn persistent_request() -> PersistentUiDelivery<'static> {
         relative_ui_domain: Some("ui"),
         tailnet_users: test_users(),
         creator_token: "dummy creator token",
+        homeassistant_api_token: None,
     }
 }
 

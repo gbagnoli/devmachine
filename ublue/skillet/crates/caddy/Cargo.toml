@@ -10,6 +10,7 @@ workspace = true
 tracing.workspace = true
 skillet_datadog.workspace = true
 skillet_core.workspace = true
+skillet_homeassistant.workspace = true
 skillet_podman.workspace = true
 serde.workspace = true
 serde_json.workspace = true

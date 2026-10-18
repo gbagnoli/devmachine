@@ -53,7 +53,7 @@ pub struct UiEnvironment {
     pub acme_staging: bool,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CaddySites {
     pub version: u8,
@@ -66,6 +66,28 @@ pub struct CaddySites {
     pub services: Vec<CaddySite>,
     #[serde(default)]
     pub tailnet_users: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub homeassistant_api_token: Option<String>,
+}
+
+impl std::fmt::Debug for CaddySites {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("CaddySites")
+            .field("version", &self.version)
+            .field("host", &self.host)
+            .field("ui_domain", &self.ui_domain)
+            .field("zone_domain", &self.zone_domain)
+            .field("acme_staging", &self.acme_staging)
+            .field("machine_hostname", &self.machine_hostname)
+            .field("services", &self.services)
+            .field("tailnet_users", &self.tailnet_users)
+            .field(
+                "homeassistant_api_token",
+                &self.homeassistant_api_token.as_ref().map(|_| "[REDACTED]"),
+            )
+            .finish()
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -135,75 +157,13 @@ impl CaddySites {
         }
         let machine_hostname = format!("{host}.{}", environment.ui_domain);
         validate_domain(&machine_hostname)?;
-        let mut sites = Vec::with_capacity(services.len());
-        let mut all_hostnames = BTreeMap::from([(machine_hostname.clone(), "machine")]);
-        for service in services {
-            validate_label(&service.name, "service name")?;
-            validate_label(&service.upstream, "upstream name")?;
-            if service.transport == UpstreamTransport::HostLoopback && !service.tailnet_identity {
-                return Err(CaddyError::InvalidConfiguration(
-                    "host upstream requires identity protection".into(),
-                ));
-            }
-            if service.anonymous_token_refresh && !service.tailnet_identity {
-                return Err(CaddyError::InvalidConfiguration(
-                    "anonymous token refresh requires identity protection".into(),
-                ));
-            }
-            if service.port == 0 {
-                return Err(CaddyError::InvalidConfiguration(format!(
-                    "service {} has an invalid upstream port",
-                    service.name
-                )));
-            }
-            if sites
-                .iter()
-                .any(|site: &CaddySite| site.name == service.name)
-            {
-                return Err(CaddyError::InvalidConfiguration(format!(
-                    "duplicate UI service {}",
-                    service.name
-                )));
-            }
-            let hostname = format!("{}.{}.{}", service.name, host, environment.ui_domain);
-            validate_domain(&hostname)?;
-            if all_hostnames
-                .insert(hostname.clone(), "canonical UI")
-                .is_some()
-            {
-                return Err(CaddyError::InvalidConfiguration(
-                    "duplicate UI hostname".to_string(),
-                ));
-            }
-            let mut aliases = Vec::with_capacity(service.aliases.len());
-            for alias in &service.aliases {
-                let alias_hostname =
-                    resolve_alias(alias, host, &environment.ui_domain, zone_domain)?;
-                if alias_conflicts(
-                    &mut all_hostnames,
-                    &alias_hostname,
-                    &machine_hostname,
-                    service,
-                    &aliases,
-                )? {
-                    return Err(CaddyError::InvalidConfiguration(format!(
-                        "duplicate UI hostname for alias on service {}",
-                        service.name
-                    )));
-                }
-                aliases.push(alias_hostname);
-            }
-            sites.push(CaddySite {
-                name: service.name.clone(),
-                hostname,
-                aliases,
-                upstream: service.upstream.clone(),
-                transport: service.transport,
-                port: service.port,
-                tailnet_identity: service.tailnet_identity,
-                anonymous_token_refresh: service.anonymous_token_refresh,
-            });
-        }
+        let sites = build_sites(
+            host,
+            &environment.ui_domain,
+            zone_domain,
+            &machine_hostname,
+            services,
+        )?;
         Ok(Self {
             version: if zone_domain.is_some() {
                 5
@@ -222,6 +182,7 @@ impl CaddySites {
             machine_hostname,
             services: sites,
             tailnet_users: Vec::new(),
+            homeassistant_api_token: None,
         })
     }
 
@@ -271,9 +232,22 @@ impl CaddySites {
         }
         expected.version = sites.version;
         expected.tailnet_users.clone_from(&sites.tailnet_users);
+        expected
+            .homeassistant_api_token
+            .clone_from(&sites.homeassistant_api_token);
         if sites != expected {
             return Err(CaddyError::InvalidConfiguration(
                 "payload does not match this host's declared UI services".to_string(),
+            ));
+        }
+        if sites.homeassistant_api_token.as_ref().is_some_and(|token| {
+            !services
+                .iter()
+                .any(|service| service.name == "homeassistant")
+                || !skillet_homeassistant::backup::valid_token(token)
+        }) {
+            return Err(CaddyError::InvalidConfiguration(
+                "Home Assistant dashboard token is invalid or has no declared service".into(),
             ));
         }
         Ok(expected)
@@ -284,6 +258,8 @@ impl CaddySites {
     }
 
     pub fn render(&self) -> String {
+        use std::fmt::Write as _;
+
         let acme = if self.acme_staging {
             "    acme_ca https://acme-staging-v02.api.letsencrypt.org/directory\n"
         } else {
@@ -291,12 +267,50 @@ impl CaddySites {
         };
         let mut config =
             format!("{{\n    admin off\n{acme}    acme_dns cloudflare {{env.CF_API_TOKEN}}\n}}\n");
+        let homer_origins = self
+            .services
+            .iter()
+            .filter(|site| site.name == "homer")
+            .flat_map(|site| std::iter::once(&site.hostname).chain(&site.aliases))
+            .map(|hostname| format!("https://{hostname}"))
+            .collect::<Vec<_>>();
         for service in &self.services {
-            use std::fmt::Write as _;
             for hostname in std::iter::once(&service.hostname).chain(&service.aliases) {
                 let _ = writeln!(config, "\n{hostname} {{\n    tls {{\n        resolvers 1.1.1.1 1.0.0.1\n    }}\n    route {{\n        @outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48\n        respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403");
                 if service.tailnet_identity {
-                    let _ = writeln!(config, "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {{http.request.header.Origin}} != \"https://{hostname}\"`\n        respond @cross_origin 403\n        @cross_site header Sec-Fetch-Site cross-site\n        respond @cross_site 403");
+                    let homepage_api = matches!(service.name.as_str(), "pihole" | "homeassistant")
+                        && !homer_origins.is_empty();
+                    if homepage_api {
+                        let own_origin = format!("https://{hostname}");
+                        let allowed_origins = homer_origins
+                            .iter()
+                            .filter(|origin| origin.as_str() != own_origin)
+                            .collect::<Vec<_>>();
+                        let denied = std::iter::once(format!(
+                            "{{http.request.header.Origin}} != \"{own_origin}\""
+                        ))
+                        .chain(allowed_origins.iter().map(|origin| {
+                            format!("{{http.request.header.Origin}} != \"{origin}\"")
+                        }))
+                        .collect::<Vec<_>>()
+                        .join(" && ");
+                        let mut cross_site_origins = String::new();
+                        for origin in &allowed_origins {
+                            let _ = write!(
+                                cross_site_origins,
+                                " && {{http.request.header.Origin}} != \"{origin}\""
+                            );
+                        }
+                        let _ = writeln!(
+                            config,
+                            "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {denied}`\n        respond @cross_origin 403\n        @cross_site expression `{{http.request.header.Sec-Fetch-Site}} == \"cross-site\" && {{http.request.header.Origin}} != \"{own_origin}\"{cross_site_origins}`\n        respond @cross_site 403"
+                        );
+                        for (index, origin) in allowed_origins.iter().enumerate() {
+                            let _ = writeln!(config, "        @homer_origin_{index} header Origin \"{origin}\"\n        header @homer_origin_{index} Access-Control-Allow-Origin \"{origin}\"\n        header @homer_origin_{index} Access-Control-Allow-Methods \"GET, OPTIONS\"\n        header @homer_origin_{index} Access-Control-Allow-Headers \"Authorization, Content-Type\"\n        header @homer_origin_{index} Vary Origin");
+                        }
+                    } else {
+                        let _ = writeln!(config, "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {{http.request.header.Origin}} != \"https://{hostname}\"`\n        respond @cross_origin 403\n        @cross_site header Sec-Fetch-Site cross-site\n        respond @cross_site 403");
+                    }
                     // A trailing '?' clears the inherited application query on the
                     // cloned auth request; the backend keeps its original URI.
                     config.push_str("        request_header -X-Skillet-Peer\n        request_header -X-Skillet-User\n        request_header -X-Webauth-User\n        request_header -Remote-User\n        request_header -Tailscale-User\n        forward_auth unix//run/skillet-tailnet-ui/auth.sock {\n            uri /auth?\n            header_up X-Skillet-Peer {http.request.remote}\n            copy_headers X-Skillet-User\n        }\n");
@@ -313,18 +327,113 @@ impl CaddySites {
                 }
                 let _ = writeln!(
                     config,
-                    "        reverse_proxy {}\n    }}\n}}",
+                    "        reverse_proxy {}{}\n    }}\n}}",
                     match service.transport {
                         UpstreamTransport::Bridge =>
                             format!("{}:{}", service.upstream, service.port),
                         UpstreamTransport::HostLoopback =>
                             format!("unix//run/skillet-ui-host/{}.sock", service.name),
-                    }
+                    },
+                    if matches!(service.name.as_str(), "pihole" | "homeassistant") {
+                        let mut upstream_headers = String::from(
+                            " {\n            header_down -Access-Control-Allow-Origin",
+                        );
+                        if service.name == "pihole" {
+                            // Pi-hole v6 only serves the UI for its configured webserver.domain.
+                            // Its API also rejects Homer-origin requests as CSRF, so present the
+                            // canonical local origin to Pi-hole and add browser CORS at Caddy.
+                            upstream_headers.push_str(
+                                "\n            header_up Host pi.hole\n            header_up Origin http://pi.hole",
+                            );
+                        }
+                        upstream_headers.push_str("\n        }");
+                        upstream_headers
+                    } else {
+                        String::new()
+                    },
                 );
             }
         }
         config
     }
+}
+
+fn build_sites(
+    host: &str,
+    ui_domain: &str,
+    zone_domain: Option<&str>,
+    machine_hostname: &str,
+    services: &[UiService],
+) -> Result<Vec<CaddySite>, CaddyError> {
+    let mut sites = Vec::with_capacity(services.len());
+    let mut all_hostnames = BTreeMap::from([(machine_hostname.to_string(), "machine")]);
+    for service in services {
+        validate_label(&service.name, "service name")?;
+        validate_label(&service.upstream, "upstream name")?;
+        if service.transport == UpstreamTransport::HostLoopback && !service.tailnet_identity {
+            return Err(CaddyError::InvalidConfiguration(
+                "host upstream requires identity protection".into(),
+            ));
+        }
+        if service.anonymous_token_refresh && !service.tailnet_identity {
+            return Err(CaddyError::InvalidConfiguration(
+                "anonymous token refresh requires identity protection".into(),
+            ));
+        }
+        if service.port == 0 {
+            return Err(CaddyError::InvalidConfiguration(format!(
+                "service {} has an invalid upstream port",
+                service.name
+            )));
+        }
+        if sites
+            .iter()
+            .any(|site: &CaddySite| site.name == service.name)
+        {
+            return Err(CaddyError::InvalidConfiguration(format!(
+                "duplicate UI service {}",
+                service.name
+            )));
+        }
+        let hostname = format!("{}.{}.{}", service.name, host, ui_domain);
+        validate_domain(&hostname)?;
+        if all_hostnames
+            .insert(hostname.clone(), "canonical UI")
+            .is_some()
+        {
+            return Err(CaddyError::InvalidConfiguration(
+                "duplicate UI hostname".to_string(),
+            ));
+        }
+        let mut aliases = Vec::with_capacity(service.aliases.len());
+        for alias in &service.aliases {
+            let alias_hostname = resolve_alias(alias, host, ui_domain, zone_domain)?;
+            if alias_conflicts(
+                &mut all_hostnames,
+                &alias_hostname,
+                machine_hostname,
+                service,
+                &aliases,
+            )? {
+                return Err(CaddyError::InvalidConfiguration(format!(
+                    "duplicate UI hostname for alias on service {}",
+                    service.name
+                )));
+            }
+            aliases.push(alias_hostname);
+        }
+        sites.push(CaddySite {
+            name: service.name.clone(),
+            hostname,
+            aliases,
+            upstream: service.upstream.clone(),
+            transport: service.transport,
+            port: service.port,
+            tailnet_identity: service.tailnet_identity,
+            anonymous_token_refresh: service.anonymous_token_refresh,
+        });
+    }
+    Ok(sites)
 }
 
 fn alias_conflicts(
@@ -537,7 +646,9 @@ where
         config.volumes.push(Volume {
             host_path: "/etc/skillet/homer".into(),
             container_path: "/etc/skillet/homer".into(),
-            options: Some("ro,Z".into()),
+            // Homer and Caddy share the rendered config and Homer assets.
+            // Use a shared SELinux label so either container can read it.
+            options: Some("ro,z".into()),
             host_mode: None,
             host_ownership: None,
         });

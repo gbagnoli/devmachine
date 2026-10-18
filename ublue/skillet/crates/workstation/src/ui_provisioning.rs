@@ -371,6 +371,7 @@ pub struct PersistentUiDelivery<'a> {
     pub relative_ui_domain: Option<&'a str>,
     pub creator_token: &'a str,
     pub tailnet_users: &'a [String],
+    pub homeassistant_api_token: Option<&'a str>,
 }
 
 /// Resolve production or named-host UI configuration, reconcile its DNS, and
@@ -402,6 +403,16 @@ pub fn deliver_persistent_ui(
         &device.addresses,
     )?;
     plan.sites.tailnet_users = request.tailnet_users.to_vec();
+    if let Some(token) = request.homeassistant_api_token {
+        if !profile.supports_service("homeassistant")
+            || !skillet_homeassistant::backup::valid_token(token)
+        {
+            return Err(UiProvisioningError::Invalid(
+                "Home Assistant dashboard token is invalid or has no declared service".into(),
+            ));
+        }
+        plan.sites.homeassistant_api_token = Some(token.to_string());
+    }
     skillet_caddy::auth::Policy::new(plan.sites.tailnet_users.clone()).map_err(CaddyError::from)?;
     if plan.sites.needs_identity_gate() && plan.sites.tailnet_users.is_empty() {
         return Err(UiProvisioningError::Invalid(

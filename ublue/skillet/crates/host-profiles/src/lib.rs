@@ -666,6 +666,24 @@ fn apply_caddy_host(
             .map(|site| skillet_homer::Link {
                 name: site.name.clone(),
                 hostname: site.hostname.clone(),
+                service_type: match site.name.as_str() {
+                    "homeassistant" if sites.homeassistant_api_token.is_some() => {
+                        Some("HomeAssistant")
+                    }
+                    "pihole" => Some("PiHole"),
+                    _ => None,
+                },
+                logo: match site.name.as_str() {
+                    "homeassistant" => Some("assets/custom/homeassistant.svg"),
+                    "files" => Some("assets/custom/mikochi.png"),
+                    "pihole" => Some("assets/custom/pihole.svg"),
+                    "syncthing" => Some("assets/custom/syncthing.svg"),
+                    _ => None,
+                },
+                api_version: (site.name == "pihole").then_some(6),
+                api_key: (site.name == "homeassistant")
+                    .then(|| sites.homeassistant_api_token.clone())
+                    .flatten(),
             })
             .collect::<Vec<_>>();
         skillet_homer::apply(system, files, hostname, &network.unit_name, &links)?;

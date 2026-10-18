@@ -39,7 +39,7 @@ fn ddns_commands_parse_and_test_delivery_refuses_before_vault_access() {
         "skillet",
         "secret",
         "deliver",
-        "clamps",
+        "joey",
         "ddns",
         "--environment",
         "test",
@@ -64,7 +64,7 @@ fn ddns_commands_parse_and_test_delivery_refuses_before_vault_access() {
         .to_string()
         .contains("test DDNS must be provisioned through an owned disposable VM"));
     assert!(crate::Args::try_parse_from([
-        "skillet", "apply", "clamps", "--local", "--phase", "ddns"
+        "skillet", "apply", "joey", "--local", "--phase", "ddns"
     ])
     .is_ok());
 }
@@ -211,7 +211,7 @@ fn delivery_defaults_to_staging_with_openssh_identity_selection() {
             "skillet",
             "secrets",
             "deliver",
-            "clamps",
+            "joey",
             "tailscale",
             "--target",
             "user@example.invalid",
@@ -240,7 +240,7 @@ fn all_test_deliveries_require_owned_vm_before_any_vault_or_ssh_access() {
             "skillet",
             "secrets",
             "deliver",
-            "clamps",
+            "joey",
             service,
             "--target",
             "user@example.invalid",
