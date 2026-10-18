@@ -23,6 +23,8 @@ OS image packages where an actual service requires them; applications stay in
 rootful containers. `ucore-images/recipes/ucore-donbot.yml` exists as a thin image;
 a donbot profile/binary/Butane configuration does not exist yet. Do not clone
 clamps-specific service choices such as UniFi or Home Assistant.
+The shared Homer dashboard is selected by the fleet baseline and will join
+donbot when its profile is created; it is not deployed to donbot yet.
 
 Accepted access requirements: former OAuth-protected UIs become tailnet-only;
 Plex/Jellyfin are reachable publicly without a tailnet client; mixed services

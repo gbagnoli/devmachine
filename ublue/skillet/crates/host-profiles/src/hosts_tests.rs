@@ -117,6 +117,7 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
             "datadog",
             "btrbk",
             "mikochi",
+            "homer",
             "smtp"
         ]
     );
@@ -161,6 +162,7 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
             "datadog",
             "btrbk",
             "mikochi",
+            "homer",
             "smtp"
         ]
     );
@@ -284,7 +286,7 @@ fn host_ui_declarations_include_only_the_services_each_host_runs() {
             .iter()
             .map(|service| service.name.as_str())
             .collect::<Vec<_>>(),
-        ["pihole", "syncthing", "homeassistant", "files"]
+        ["pihole", "syncthing", "homeassistant", "files", "homer"]
     );
     assert_eq!(clamps.network_name, "clamps");
     assert_eq!(clamps.services[0].upstream, "pihole");
@@ -302,7 +304,7 @@ fn host_ui_declarations_include_only_the_services_each_host_runs() {
     assert_eq!(clamps.services[1].aliases, ["sync.{host}"]);
 
     let joey = ui_config_for_host("joey").expect("joey UI declaration");
-    assert_eq!(joey.services.len(), 3);
+    assert_eq!(joey.services.len(), 4);
     assert_eq!(joey.services[0].name, "pihole");
     assert!(joey.services[0].tailnet_identity);
     assert!(joey.services[2].anonymous_token_refresh);
@@ -333,6 +335,7 @@ fn application_acceptance_tracks_each_profiles_declared_services() {
             "unifi.service",
             "skillet-btrbk.timer",
             "mikochi.service",
+            "homer.service",
             "caddy.service",
             "skillet-tailnet-ui.service"
         ]
@@ -382,6 +385,7 @@ fn application_acceptance_tracks_each_profiles_declared_services() {
             "syncthing.service",
             "skillet-btrbk.timer",
             "mikochi.service",
+            "homer.service",
             "caddy.service",
             "skillet-tailnet-ui.service"
         ]
@@ -807,13 +811,14 @@ fn syncthing_canonical_and_alias_use_the_identity_gate_and_private_backend() {
         let ui = service.ui.unwrap();
         assert!(ui.tailnet_identity);
         let upstreams = profile.ui_services();
-        let mut sites = skillet_caddy::CaddySites::from_host(
+        let mut sites = skillet_caddy::CaddySites::from_host_with_zone(
             profile.id.as_str(),
             &skillet_caddy::UiEnvironment {
                 ui_domain: "ui.example.invalid".into(),
                 acme_staging: true,
             },
             &upstreams,
+            Some("example.invalid"),
         )
         .unwrap();
         sites.tailnet_users = vec!["alice@example.invalid".into()];

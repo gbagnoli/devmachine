@@ -17,7 +17,10 @@ bound into ownership journals and used identically for delivery/cleanup.
 Machine A/AAAA use verified usable tailnet addresses; missing families fail
 rather than fabricate values. Canonical service CNAMEs target the machine;
 caller aliases target canonical UIs. Relative aliases stay within the selected
-namespace and may contain a complete {host} label. Reject wildcard, duplicate,
+namespace and may contain a complete {host} label. A terminal {zone} placeholder
+places an alias directly under the selected Cloudflare zone; cleanup validates
+owned records against that zone while the journal retains the selected UI
+namespace. Reject wildcard, duplicate,
 cyclic and conflicting names before effects. Publish DNS-only records, never
 LAN/public host addresses for private UIs.
 
