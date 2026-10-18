@@ -8,8 +8,9 @@ Current commands/configuration: [DDNS guide](../skillet/crates/ddns/README.md).
 
 Rupik still owns the production public A record. Clamps retains DDNS support
 for disposable tests but production delivery is disabled until the one-writer
-handover. The existing clamps writer must be stopped and its retained boot
-activation disabled; re-enable production delivery only during step 3.
+handover. The existing clamps writer was stopped, its Quadlet retained under a
+disabled filename, and its boot apply unit disabled. Restore these only during
+step 3, after stopping rupik's writer.
 
 ## Remaining
 
