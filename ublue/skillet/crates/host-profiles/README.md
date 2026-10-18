@@ -5,7 +5,7 @@ host-specific binaries use the same declaration. `clamps` and `joey` are full
 profiles; `agent` is the credential-free baseline. `/etc/skillet/host` selects
 the installed profile independently of a disposable VM's runtime hostname.
 
-Syncthing/file browsing and SMTP are shared fleet policy. Optional capabilities
+Syncthing/file browsing, Homer, and SMTP are shared fleet policy. Optional capabilities
 must be selected explicitly; vault entries do not enable them. Runtime values
 stay in the vault or private installation inputs.
 
@@ -16,6 +16,7 @@ stay in the vault or private installation inputs.
 | Monitoring | [Datadog](../datadog/README.md) |
 | Public-address DNS updates | [DDNS](../ddns/README.md) |
 | File browsing | [Mikochi](../mikochi/README.md) |
+| Service dashboard | [Homer](../homer/README.md) |
 | Static Ethernet / Wi-Fi | [Networking](../network/README.md) |
 | UPS and metrics | [NUT](../nut/README.md) |
 | DNS | [Pi-hole](../pihole/README.md) |

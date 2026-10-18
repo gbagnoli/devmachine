@@ -11,6 +11,7 @@ members = [
     "crates/nut",
     "crates/btrbk",
     "crates/caddy",
+    "crates/homer",
     "crates/ddns",
     "crates/datadog",
     "crates/smtp",
@@ -43,6 +44,7 @@ skillet_mikochi = { path = "crates/mikochi" }
 skillet_syncthing = { path = "crates/syncthing" }
 skillet_btrbk = { path = "crates/btrbk" }
 skillet_caddy = { path = "crates/caddy" }
+skillet_homer = { path = "crates/homer" }
 skillet_ddns = { path = "crates/ddns" }
 skillet_datadog = { path = "crates/datadog" }
 skillet_smtp = { path = "crates/smtp" }

@@ -4,6 +4,10 @@ Host callers declare services, container upstreams and optional aliases. Names
 are `<service>.<host>.<ui-domain>`; Caddy serves HTTPS on port 443. Run Cargo
 commands from `ublue/skillet`.
 
+The shared [Homer dashboard](../homer/README.md) also has a zone-level
+`ui.<host>.<zone>` alias. It uses the same private authorization gate as its
+canonical UI name. Skillet generates its links from selected UI sites.
+
 ## Credentials and DNS
 
 Complete [Cloudflare issuer/zone setup](../workstation/docs/cloudflare.md).

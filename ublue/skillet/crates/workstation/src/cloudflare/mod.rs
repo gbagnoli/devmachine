@@ -521,11 +521,11 @@ impl Cloudflare {
         token: &str,
         zone_id: &str,
         marker: &str,
-        ui_domain: &str,
+        dns_scope: &str,
         desired: &[DesiredRecord],
     ) -> Result<OwnedDns> {
         validate_zone_id(zone_id)?;
-        validate_fqdn(ui_domain)?;
+        validate_fqdn(dns_scope)?;
         if marker.is_empty() || marker.len() > 255 {
             return Err(CloudflareError::Invalid(
                 "invalid Skillet DNS ownership marker".into(),
@@ -534,6 +534,11 @@ impl Cloudflare {
         let mut wanted: BTreeMap<(String, String), BTreeSet<String>> = BTreeMap::new();
         for record in desired {
             validate_fqdn(&record.name)?;
+            if record.name != dns_scope && !record.name.ends_with(&format!(".{dns_scope}")) {
+                return Err(CloudflareError::Invalid(
+                    "desired DNS record is outside the configured Cloudflare zone".into(),
+                ));
+            }
             validate_record_content(&record.record_type, &record.content)?;
             wanted
                 .entry((record.name.to_ascii_lowercase(), record.record_type.clone()))
@@ -599,8 +604,8 @@ impl Cloudflare {
             .drain(..)
             .filter(|record| record.comment.as_deref() == Some(marker))
         {
-            if stale.name != ui_domain && !stale.name.ends_with(&format!(".{ui_domain}")) {
-                return Err(CloudflareError::Invalid("Skillet ownership marker is present outside the configured UI domain; refusing cleanup".into()));
+            if stale.name != dns_scope && !stale.name.ends_with(&format!(".{dns_scope}")) {
+                return Err(CloudflareError::Invalid("Skillet ownership marker is present outside the configured DNS scope; refusing cleanup".into()));
             }
             if !retained_ids.contains(stale.id.as_str()) {
                 self.delete_record(token, zone_id, &stale.id)?;
@@ -624,16 +629,16 @@ impl Cloudflare {
         token: &str,
         zone_id: &str,
         marker: &str,
-        ui_domain: &str,
+        dns_scope: &str,
     ) -> Result<()> {
         validate_zone_id(zone_id)?;
-        validate_fqdn(ui_domain)?;
+        validate_fqdn(dns_scope)?;
         for record in self.list_records(token, zone_id)? {
             if record.comment.as_deref() != Some(marker) {
                 continue;
             }
             if !matches!(record.record_type.as_str(), "A" | "AAAA" | "CNAME")
-                || !(record.name == ui_domain || record.name.ends_with(&format!(".{ui_domain}")))
+                || !(record.name == dns_scope || record.name.ends_with(&format!(".{dns_scope}")))
             {
                 return Err(CloudflareError::Invalid("Skillet ownership marker appears on an unexpected DNS record; refusing cleanup".into()));
             }

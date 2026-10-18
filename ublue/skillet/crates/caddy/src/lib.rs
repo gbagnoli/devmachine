@@ -59,6 +59,8 @@ pub struct CaddySites {
     pub version: u8,
     pub host: String,
     pub ui_domain: String,
+    #[serde(default)]
+    pub zone_domain: Option<String>,
     pub acme_staging: bool,
     pub machine_hostname: String,
     pub services: Vec<CaddySite>,
@@ -110,8 +112,22 @@ impl CaddySites {
         environment: &UiEnvironment,
         services: &[UiService],
     ) -> Result<Self, CaddyError> {
+        Self::from_host_with_zone(host, environment, services, None)
+    }
+
+    /// Zone-level aliases are resolved only when the workstation supplies the
+    /// authoritative Cloudflare zone; the guest verifies the resulting payload.
+    pub fn from_host_with_zone(
+        host: &str,
+        environment: &UiEnvironment,
+        services: &[UiService],
+        zone_domain: Option<&str>,
+    ) -> Result<Self, CaddyError> {
         validate_label(host, "host")?;
         validate_domain(&environment.ui_domain)?;
+        if let Some(zone) = zone_domain {
+            validate_domain_in_zone(&environment.ui_domain, zone)?;
+        }
         if services.is_empty() {
             return Err(CaddyError::InvalidConfiguration(
                 "host declares no UI services".to_string(),
@@ -161,8 +177,8 @@ impl CaddySites {
             }
             let mut aliases = Vec::with_capacity(service.aliases.len());
             for alias in &service.aliases {
-                let expanded = expand_alias(alias, host)?;
-                let alias_hostname = format!("{expanded}.{}", environment.ui_domain);
+                let alias_hostname =
+                    resolve_alias(alias, host, &environment.ui_domain, zone_domain)?;
                 validate_domain(&alias_hostname)?;
                 if all_hostnames
                     .insert(alias_hostname.clone(), "UI alias")
@@ -187,7 +203,9 @@ impl CaddySites {
             });
         }
         Ok(Self {
-            version: if services
+            version: if zone_domain.is_some() {
+                5
+            } else if services
                 .iter()
                 .any(|s| s.transport == UpstreamTransport::HostLoopback)
             {
@@ -197,6 +215,7 @@ impl CaddySites {
             },
             host: host.to_string(),
             ui_domain: environment.ui_domain.clone(),
+            zone_domain: zone_domain.map(str::to_string),
             acme_staging: environment.acme_staging,
             machine_hostname,
             services: sites,
@@ -206,19 +225,30 @@ impl CaddySites {
 
     pub fn parse(contents: &str, host: &str, services: &[UiService]) -> Result<Self, CaddyError> {
         let sites: Self = serde_json::from_str(contents)?;
-        if !matches!(sites.version, 2..=4) {
+        if !matches!(sites.version, 2..=5) {
             return Err(CaddyError::InvalidConfiguration(format!(
                 "unsupported payload version {}",
                 sites.version
             )));
         }
-        let mut expected = Self::from_host(
+        if sites.zone_domain.is_some() && sites.version < 5 {
+            return Err(CaddyError::InvalidConfiguration(
+                "zone-level aliases require payload version 5".into(),
+            ));
+        }
+        if sites.version == 5 && sites.zone_domain.is_none() {
+            return Err(CaddyError::InvalidConfiguration(
+                "payload version 5 requires the Cloudflare zone".into(),
+            ));
+        }
+        let mut expected = Self::from_host_with_zone(
             host,
             &UiEnvironment {
                 ui_domain: sites.ui_domain.clone(),
                 acme_staging: sites.acme_staging,
             },
             services,
+            sites.zone_domain.as_deref(),
         )?;
         auth::Policy::new(sites.tailnet_users.clone())?;
         if sites.version == 2 && sites.services.iter().any(|site| site.tailnet_identity) {
@@ -274,6 +304,11 @@ impl CaddySites {
                     // this marker; Caddy must authorize every subsequent request too.
                     config.push_str("        @anonymous_refresh {\n            method GET\n            path /api/refresh\n        }\n        header @anonymous_refresh Content-Type application/json\n        header @anonymous_refresh Cache-Control no-store\n        respond @anonymous_refresh `{\"token\":\"skillet-tailnet-authenticated\"}` 200\n");
                 }
+                if service.name == "homer" {
+                    // The Homer image contains its static assets. Only its generated
+                    // config is served from the host, after the identity gate.
+                    config.push_str("        @homer_config path /assets/config.yml\n        root @homer_config /etc/skillet/homer\n        header @homer_config Cache-Control no-store\n        file_server @homer_config\n");
+                }
                 let _ = writeln!(
                     config,
                     "        reverse_proxy {}\n    }}\n}}",
@@ -288,6 +323,26 @@ impl CaddySites {
         }
         config
     }
+}
+
+fn resolve_alias(
+    alias: &str,
+    host: &str,
+    ui_domain: &str,
+    zone_domain: Option<&str>,
+) -> Result<String, CaddyError> {
+    let (relative, domain) = if let Some(relative) = alias.strip_suffix(".{zone}") {
+        let zone = zone_domain.ok_or_else(|| {
+            CaddyError::InvalidConfiguration(
+                "zone-level UI alias requires the Cloudflare zone; redeliver Caddy credentials"
+                    .into(),
+            )
+        })?;
+        (relative, zone)
+    } else {
+        (alias, ui_domain)
+    };
+    Ok(format!("{}.{}", expand_alias(relative, host)?, domain))
 }
 
 fn expand_alias(alias: &str, host: &str) -> Result<String, CaddyError> {
@@ -458,6 +513,15 @@ where
         extra_config: container,
     };
     config.volumes.extend(auth_volumes);
+    if sites.services.iter().any(|site| site.name == "homer") {
+        config.volumes.push(Volume {
+            host_path: "/etc/skillet/homer".into(),
+            container_path: "/etc/skillet/homer".into(),
+            options: Some("ro,Z".into()),
+            host_mode: None,
+            host_ownership: None,
+        });
+    }
     // Preserve the caller's network configuration and let Podman create its
     // persistent directories on the shared data filesystem.
     for path in ["/var/lib/data/caddy/data", "/var/lib/data/caddy/config"] {

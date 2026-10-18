@@ -17,6 +17,13 @@ tailnet addresses, UI CNAMEs to that machine and aliases to canonical UIs. Domai
 and IDs stay in private configuration; public DNS still exposes names/addresses.
 [Cloudflare lifecycle](cloudflare-ui-lifecycle.md) owns issuance and records.
 
+The shared Homer dashboard follows the same private Caddy and identity path.
+It reads links from the caller's selected UI services, so it has no independent
+service inventory. Its zone-level alias is `ui.<host>.<zone>`; generated names
+and the zone remain environment configuration. Skillet renders Homer YAML from a
+checked-in template, and Caddy serves that YAML after authorization. The Homer
+container supplies only packaged static assets and has no published port.
+
 Matching IPv4/IPv6 wildcard port publications render as one native dual-stack
 Podman mapping. Explicit single-family/address bindings retain their scope.
 Overlapping wildcard mappings can leak Netavark nftables rules on restart;

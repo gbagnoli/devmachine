@@ -3783,6 +3783,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "skillet_homer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_yml",
+ "skillet_core",
+ "skillet_datadog",
+ "skillet_podman",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "skillet_hosts"
 version = "0.1.0"
 dependencies = [
@@ -3795,6 +3807,7 @@ dependencies = [
  "skillet_ddns",
  "skillet_hardening",
  "skillet_homeassistant",
+ "skillet_homer",
  "skillet_mikochi",
  "skillet_network",
  "skillet_nut",

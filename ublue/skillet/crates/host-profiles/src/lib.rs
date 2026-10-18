@@ -114,6 +114,8 @@ pub enum ApplyError {
     Btrbk(#[from] skillet_btrbk::BtrbkError),
     #[error("Caddy apply error: {0}")]
     Caddy(#[from] skillet_caddy::CaddyError),
+    #[error(transparent)]
+    Homer(#[from] skillet_homer::HomerError),
     #[error("DDNS apply error: {0}")]
     Ddns(#[from] skillet_ddns::DdnsError),
     #[error("Datadog apply error: {0}")]
@@ -385,7 +387,9 @@ fn apply_profile(
             ServiceConfig::Ddns
             | ServiceConfig::Datadog { .. }
             | ServiceConfig::Smtp
-            | ServiceConfig::Network(_) => {}
+            | ServiceConfig::Network(_)
+            // Homer is rendered after the environment-specific Caddy sites are delivered.
+            | ServiceConfig::Homer => {}
             ServiceConfig::Pihole => {
                 apply_pihole(system, files, profile, service, credentials)?;
             }
@@ -652,6 +656,20 @@ fn apply_caddy_host(
         .require(CLOUDFLARE_ACME_TOKEN_CREDENTIAL)?
         .to_string();
     system.ensure_podman_secret(CLOUDFLARE_ACME_TOKEN_CREDENTIAL, &token)?;
+    if profile.supports_service("homer") {
+        let network = skillet_caddy::private_network(hostname, "homer");
+        skillet_podman::ensure_network(system, files, &network)?;
+        let links = sites
+            .services
+            .iter()
+            .filter(|site| site.name != "homer")
+            .map(|site| skillet_homer::Link {
+                name: site.name.clone(),
+                hostname: site.hostname.clone(),
+            })
+            .collect::<Vec<_>>();
+        skillet_homer::apply(system, files, hostname, &network.unit_name, &links)?;
+    }
     skillet_caddy::apply(system, files, &sites, &ui_config.network_name)?;
     Ok(())
 }

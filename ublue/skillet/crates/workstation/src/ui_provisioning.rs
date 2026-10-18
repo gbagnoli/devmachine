@@ -65,7 +65,7 @@ pub trait UiCloudflareProvider {
         token: &str,
         zone_id: &str,
         marker: &str,
-        ui_domain: &str,
+        dns_scope: &str,
         desired: &[DesiredRecord],
     ) -> Result<OwnedDns, CloudflareError>;
     fn remove_dns_marker(
@@ -73,7 +73,7 @@ pub trait UiCloudflareProvider {
         token: &str,
         zone_id: &str,
         marker: &str,
-        ui_domain: &str,
+        dns_scope: &str,
     ) -> Result<(), CloudflareError>;
     fn token_ids_by_name(
         &self,
@@ -135,10 +135,10 @@ impl UiCloudflareProvider for cloudflare::Cloudflare {
         token: &str,
         zone_id: &str,
         marker: &str,
-        ui_domain: &str,
+        dns_scope: &str,
         desired: &[DesiredRecord],
     ) -> Result<OwnedDns, CloudflareError> {
-        cloudflare::Cloudflare::reconcile_dns(self, token, zone_id, marker, ui_domain, desired)
+        cloudflare::Cloudflare::reconcile_dns(self, token, zone_id, marker, dns_scope, desired)
     }
 
     fn remove_dns_marker(
@@ -146,9 +146,9 @@ impl UiCloudflareProvider for cloudflare::Cloudflare {
         token: &str,
         zone_id: &str,
         marker: &str,
-        ui_domain: &str,
+        dns_scope: &str,
     ) -> Result<(), CloudflareError> {
-        cloudflare::Cloudflare::remove_dns_marker(self, token, zone_id, marker, ui_domain)
+        cloudflare::Cloudflare::remove_dns_marker(self, token, zone_id, marker, dns_scope)
     }
 
     fn token_ids_by_name(
@@ -453,7 +453,7 @@ pub fn deliver_persistent_ui(
         &token,
         request.zone_id,
         &marker,
-        &plan.sites.ui_domain,
+        &zone.name,
         &plan.dns_records,
     )?;
     token_store.ensure_unchanged()?;
@@ -573,7 +573,7 @@ pub fn cleanup_disposable_ui(
             &cleanup_token.value,
             &ownership.zone_id,
             &ownership.marker,
-            &ownership.ui_domain,
+            &zone.name,
         )?;
         for id in
             provider.token_ids_by_name(request.creator_token, &account_id, &ownership.token_name)?
@@ -670,7 +670,7 @@ pub fn provision_disposable_ui(
         &token.value,
         request.zone_id,
         &ownership.marker,
-        &ownership.ui_domain,
+        &zone.name,
         &plan.dns_records,
     )?;
     ownership.record_ids = owned.records.into_iter().map(|record| record.id).collect();
@@ -697,13 +697,14 @@ pub fn build_ui_provisioning_plan(
         return Err(UiProvisioningError::NoUiServices(host.to_string()));
     }
     let ui_domain = skillet_caddy::resolve_ui_domain(zone_domain, relative_ui_domain)?;
-    let sites = CaddySites::from_host(
+    let sites = CaddySites::from_host_with_zone(
         host,
         &UiEnvironment {
             ui_domain,
             acme_staging: policy.acme_staging(),
         },
         &services,
+        Some(zone_domain),
     )?;
     let dns_records = cloudflare::desired_records(&sites.machine_hostname, addresses, &sites)?;
     Ok(UiProvisioningPlan { sites, dns_records })

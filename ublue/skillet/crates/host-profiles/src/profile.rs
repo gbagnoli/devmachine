@@ -59,6 +59,7 @@ pub enum ServiceConfig {
         container_uid: u32,
         container_gid: u32,
     },
+    Homer,
     Nut(skillet_nut::Config),
     Unifi,
     HomeAssistant(skillet_homeassistant::Config),
@@ -90,6 +91,7 @@ impl HostService {
             ServiceConfig::Pihole => "pihole",
             ServiceConfig::Syncthing { .. } => "syncthing",
             ServiceConfig::Mikochi { .. } => "mikochi",
+            ServiceConfig::Homer => "homer",
             ServiceConfig::Nut(_) => "nut",
             ServiceConfig::Unifi => "unifi",
             ServiceConfig::HomeAssistant(_) => "homeassistant",
@@ -266,7 +268,10 @@ impl HostProfile {
             .map(|service| acceptance_service(self.id.as_str(), service))
             .collect::<Vec<_>>();
         if self.services.iter().any(|service| service.ui.is_some()) {
-            services.push(caddy_acceptance(self.id.as_str()));
+            services.push(caddy_acceptance(
+                self.id.as_str(),
+                self.supports_service("homer"),
+            ));
             if self.ui_services().iter().any(|ui| ui.tailnet_identity) {
                 services.push(AcceptanceService {
                     unit: "skillet-tailnet-ui.service".into(),
@@ -471,6 +476,7 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
             listeners: Vec::new(),
             health_probe: Some(HealthProbe::Mikochi),
         },
+        ServiceConfig::Homer => homer_acceptance(profile),
         ServiceConfig::Unifi => unifi_acceptance(),
         ServiceConfig::Tailscale { state_path, .. } => AcceptanceService {
             unit: "tailscale.service".into(),
@@ -493,6 +499,18 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
     }
 }
 
+fn homer_acceptance(profile: &str) -> AcceptanceService {
+    AcceptanceService {
+        unit: "homer.service".into(),
+        container: Some("homer".into()),
+        network_mode: Some(format!("{profile}-homer")),
+        bind_paths: Vec::new(),
+        owner: None,
+        listeners: Vec::new(),
+        health_probe: None,
+    }
+}
+
 fn native_network_acceptance() -> AcceptanceService {
     AcceptanceService {
         unit: skillet_network::PREPARE_UNIT.into(),
@@ -505,12 +523,16 @@ fn native_network_acceptance() -> AcceptanceService {
     }
 }
 
-fn caddy_acceptance(profile: &str) -> AcceptanceService {
+fn caddy_acceptance(profile: &str, has_homer: bool) -> AcceptanceService {
+    let mut bind_paths = vec!["/var/lib/data/caddy/data".into()];
+    if has_homer {
+        bind_paths.push("/etc/skillet/homer".into());
+    }
     AcceptanceService {
         unit: "caddy.service".into(),
         container: Some("caddy".into()),
         network_mode: Some(profile.into()),
-        bind_paths: vec!["/var/lib/data/caddy/data".into()],
+        bind_paths,
         owner: None,
         listeners: vec![AcceptanceListener {
             port: 443,
@@ -770,6 +792,17 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
         })
         .collect();
     profile.services.extend(file_browsers);
+    profile.services.push(HostService {
+        config: ServiceConfig::Homer,
+        ui: Some(UiServiceDeclaration {
+            name: "homer",
+            upstream: "homer",
+            transport: skillet_caddy::UpstreamTransport::Bridge,
+            port: 8080,
+            aliases: &["ui.{host}.{zone}"],
+            tailnet_identity: true,
+        }),
+    });
     profile.services.push(HostService {
         config: ServiceConfig::Smtp,
         ui: None,
