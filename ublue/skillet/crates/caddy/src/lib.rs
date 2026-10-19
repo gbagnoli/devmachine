@@ -306,23 +306,29 @@ impl CaddySites {
                             "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {denied}`\n        respond @cross_origin 403\n        @cross_site expression `{{http.request.header.Sec-Fetch-Site}} == \"cross-site\" && {{http.request.header.Origin}} != \"{own_origin}\"{cross_site_origins}`\n        respond @cross_site 403"
                         );
                         for (index, origin) in allowed_origins.iter().enumerate() {
-                            let _ = writeln!(config, "        @homer_origin_{index} header Origin \"{origin}\"\n        header @homer_origin_{index} Access-Control-Allow-Origin \"{origin}\"\n        header @homer_origin_{index} Access-Control-Allow-Methods \"GET, OPTIONS\"\n        header @homer_origin_{index} Access-Control-Allow-Headers \"Authorization, Content-Type\"\n        header @homer_origin_{index} Vary Origin");
+                            let allowed_methods = if service.name == "pihole" {
+                                // Pi-hole v6 creates an API session with POST /api/auth.
+                                // Homer sends this cross-origin request when loading its
+                                // Pi-hole widget, so the CORS preflight must allow POST.
+                                "GET, POST, OPTIONS"
+                            } else {
+                                "GET, OPTIONS"
+                            };
+                            let _ = writeln!(config, "        @homer_origin_{index} header Origin \"{origin}\"\n        header @homer_origin_{index} Access-Control-Allow-Origin \"{origin}\"\n        header @homer_origin_{index} Access-Control-Allow-Methods \"{allowed_methods}\"\n        header @homer_origin_{index} Access-Control-Allow-Headers \"Authorization, Content-Type\"\n        header @homer_origin_{index} Vary Origin");
                         }
+                        // Browser preflights cannot carry the authorization material
+                        // used by the tailnet identity broker. After the tailnet source
+                        // and exact Origin checks above, answer the empty preflight here;
+                        // the actual API request still goes through forward_auth below.
+                        config.push_str(
+                            "        @homer_preflight method OPTIONS\n        respond @homer_preflight \"\" 204\n",
+                        );
                     } else {
                         let _ = writeln!(config, "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {{http.request.header.Origin}} != \"https://{hostname}\"`\n        respond @cross_origin 403\n        @cross_site header Sec-Fetch-Site cross-site\n        respond @cross_site 403");
                     }
                     // A trailing '?' clears the inherited application query on the
                     // cloned auth request; the backend keeps its original URI.
                     config.push_str("        request_header -X-Skillet-Peer\n        request_header -X-Skillet-User\n        request_header -X-Webauth-User\n        request_header -Remote-User\n        request_header -Tailscale-User\n        forward_auth unix//run/skillet-tailnet-ui/auth.sock {\n            uri /auth?\n            header_up X-Skillet-Peer {http.request.remote}\n            copy_headers X-Skillet-User\n        }\n");
-                }
-                if service.tailnet_identity
-                    && !homer_origins.is_empty()
-                    && matches!(service.name.as_str(), "pihole" | "homeassistant")
-                {
-                    // Browser preflight requests have already passed the source and
-                    // origin checks above and the tailnet identity broker here. Do
-                    // not forward them to applications that reject CORS preflights.
-                    config.push_str("        @homer_preflight method OPTIONS\n        respond @homer_preflight \"\" 204\n");
                 }
                 if service.tailnet_identity && service.anonymous_token_refresh {
                     // No application identity/token is minted. NO_AUTH backends ignore

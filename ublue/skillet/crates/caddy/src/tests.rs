@@ -198,18 +198,22 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
     }
     assert!(rendered.contains("header_up Host pi.hole"));
     assert!(rendered.contains("header_up Origin http://pi.hole"));
+    assert!(rendered.contains("Access-Control-Allow-Methods \"GET, POST, OPTIONS\""));
+    assert!(rendered.contains("Access-Control-Allow-Methods \"GET, OPTIONS\""));
     assert!(
         rendered.contains("header_up Origin https://homeassistant.clamps.private.example.invalid")
     );
     assert!(rendered
         .contains("@homer_preflight method OPTIONS\n        respond @homer_preflight \"\" 204"));
+    let source_gate = rendered.find("@outside_tailnet").unwrap();
+    let origin_gate = rendered.find("respond @cross_origin 403").unwrap();
+    let preflight = rendered.find("respond @homer_preflight").unwrap();
     let auth_gate = rendered
         .find("forward_auth unix//run/skillet-tailnet-ui/auth.sock")
         .unwrap();
-    let preflight = rendered.find("respond @homer_preflight").unwrap();
     assert!(
-        auth_gate < preflight,
-        "preflight response must stay behind tailnet authorization"
+        source_gate < origin_gate && origin_gate < preflight && preflight < auth_gate,
+        "empty preflight must pass source/origin checks before auth, and real requests must still be authorized"
     );
     assert!(rendered.contains("respond @cross_origin 403"));
     assert!(rendered.contains("respond @cross_site 403"));
