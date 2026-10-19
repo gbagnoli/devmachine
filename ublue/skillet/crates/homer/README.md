@@ -12,8 +12,9 @@ then rebuild and apply Skillet. Skillet replaces the generated service list and
 host subtitle during rendering. Runtime edits to the generated file are not
 retained on the next apply.
 
-Pi-hole and Home Assistant use Homer's smart-card types. Pi-hole is configured
-for API v6 and its canonical backend `Host` and `Origin` values (`pi.hole`);
+Pi-hole and Home Assistant use Homer's smart-card types. The Pi-hole card links
+to `/admin/` while its separate API endpoint stays at the origin root for v6
+API calls. Pi-hole uses its canonical backend `Host` and `Origin` values (`pi.hole`);
 Caddy allows only the declared Homer origins to read its API while retaining
 the tailnet identity check. If the host has the existing
 `skillet/environments/<environment>/hosts/<host>/homeassistant/api-token` entry,

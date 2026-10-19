@@ -17,6 +17,23 @@ fn syncthing_only() -> Vec<UiService> {
     }]
 }
 
+fn identity_service(
+    name: &str,
+    upstream: &str,
+    transport: crate::UpstreamTransport,
+    port: u16,
+) -> UiService {
+    UiService {
+        name: name.into(),
+        upstream: upstream.into(),
+        transport,
+        port,
+        aliases: Vec::new(),
+        tailnet_identity: true,
+        anonymous_token_refresh: false,
+    }
+}
+
 #[test]
 fn applying_unchanged_caddy_sites_preserves_the_container() {
     let system = MockSystem::new();
@@ -181,6 +198,19 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
     }
     assert!(rendered.contains("header_up Host pi.hole"));
     assert!(rendered.contains("header_up Origin http://pi.hole"));
+    assert!(
+        rendered.contains("header_up Origin https://homeassistant.clamps.private.example.invalid")
+    );
+    assert!(rendered
+        .contains("@homer_preflight method OPTIONS\n        respond @homer_preflight \"\" 204"));
+    let auth_gate = rendered
+        .find("forward_auth unix//run/skillet-tailnet-ui/auth.sock")
+        .unwrap();
+    let preflight = rendered.find("respond @homer_preflight").unwrap();
+    assert!(
+        auth_gate < preflight,
+        "preflight response must stay behind tailnet authorization"
+    );
     assert!(rendered.contains("respond @cross_origin 403"));
     assert!(rendered.contains("respond @cross_site 403"));
 }
@@ -453,15 +483,14 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
             acme_staging: true,
         },
         &[
-            UiService {
-                name: "homeassistant".into(),
-                upstream: "homeassistant".into(),
-                transport: crate::UpstreamTransport::HostLoopback,
-                port: 8123,
-                aliases: Vec::new(),
-                tailnet_identity: true,
-                anonymous_token_refresh: false,
-            },
+            identity_service("pihole", "pihole", crate::UpstreamTransport::Bridge, 8088),
+            identity_service(
+                "homeassistant",
+                "homeassistant",
+                crate::UpstreamTransport::HostLoopback,
+                8123,
+            ),
+            identity_service("homer", "homer", crate::UpstreamTransport::Bridge, 8080),
             UiService {
                 name: "files".into(),
                 upstream: "mikochi".into(),
@@ -534,7 +563,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
         String::from_utf8_lossy(&adapted.stderr)
     );
     let json: serde_json::Value = serde_json::from_slice(&adapted.stdout).unwrap();
-    assert_identity_query_rewrites(&json, 4);
+    assert_identity_query_rewrites(&json, 6);
 }
 
 fn assert_identity_query_rewrites(json: &serde_json::Value, route_count: usize) {

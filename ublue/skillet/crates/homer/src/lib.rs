@@ -12,6 +12,10 @@ use skillet_podman::{MountDependency, NetworkAttachment, PodmanConfig, ProcessId
 use std::{collections::BTreeMap, path::Path};
 use thiserror::Error;
 
+#[cfg(test)]
+#[path = "tests.rs"]
+mod tests;
+
 pub const IMAGE: &str = "docker.io/b4bz/homer:latest";
 const TEMPLATE: &str = include_str!("template.yml");
 const CONFIG_PATH: &str = "/etc/skillet/homer/assets/config.yml";
@@ -21,6 +25,8 @@ const CUSTOM_ASSET_PATH: &str = "/etc/skillet/homer/assets/custom";
 pub struct Link {
     pub name: String,
     pub hostname: String,
+    pub path: Option<&'static str>,
+    pub endpoint: Option<String>,
     pub service_type: Option<&'static str>,
     pub logo: Option<&'static str>,
     pub api_version: Option<u8>,
@@ -51,6 +57,8 @@ struct Group<'a> {
 struct Item<'a> {
     name: &'a str,
     url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    endpoint: Option<&'a str>,
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     service_type: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -74,7 +82,8 @@ pub fn render(host: &str, links: &[Link]) -> Result<String, HomerError> {
                 .iter()
                 .map(|link| Item {
                     name: &link.name,
-                    url: format!("https://{}", link.hostname),
+                    url: format!("https://{}{}", link.hostname, link.path.unwrap_or("")),
+                    endpoint: link.endpoint.as_deref(),
                     service_type: link.service_type,
                     logo: link.logo,
                     api_version: link.api_version,

@@ -315,6 +315,15 @@ impl CaddySites {
                     // cloned auth request; the backend keeps its original URI.
                     config.push_str("        request_header -X-Skillet-Peer\n        request_header -X-Skillet-User\n        request_header -X-Webauth-User\n        request_header -Remote-User\n        request_header -Tailscale-User\n        forward_auth unix//run/skillet-tailnet-ui/auth.sock {\n            uri /auth?\n            header_up X-Skillet-Peer {http.request.remote}\n            copy_headers X-Skillet-User\n        }\n");
                 }
+                if service.tailnet_identity
+                    && !homer_origins.is_empty()
+                    && matches!(service.name.as_str(), "pihole" | "homeassistant")
+                {
+                    // Browser preflight requests have already passed the source and
+                    // origin checks above and the tailnet identity broker here. Do
+                    // not forward them to applications that reject CORS preflights.
+                    config.push_str("        @homer_preflight method OPTIONS\n        respond @homer_preflight \"\" 204\n");
+                }
                 if service.tailnet_identity && service.anonymous_token_refresh {
                     // No application identity/token is minted. NO_AUTH backends ignore
                     // this marker; Caddy must authorize every subsequent request too.
@@ -344,6 +353,14 @@ impl CaddySites {
                             // canonical local origin to Pi-hole and add browser CORS at Caddy.
                             upstream_headers.push_str(
                                 "\n            header_up Host pi.hole\n            header_up Origin http://pi.hole",
+                            );
+                        } else {
+                            // The frontend origin has already passed the exact Homer
+                            // allowlist and tailnet identity gate. Present HA with its
+                            // own origin so its API accepts the dashboard request.
+                            let _ = write!(
+                                upstream_headers,
+                                "\n            header_up Origin https://{hostname}"
                             );
                         }
                         upstream_headers.push_str("\n        }");

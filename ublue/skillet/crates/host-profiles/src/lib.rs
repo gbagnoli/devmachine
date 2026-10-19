@@ -666,6 +666,8 @@ fn apply_caddy_host(
             .map(|site| skillet_homer::Link {
                 name: site.name.clone(),
                 hostname: site.hostname.clone(),
+                path: (site.name == "pihole").then_some("/admin/"),
+                endpoint: (site.name == "pihole").then(|| format!("https://{}", site.hostname)),
                 service_type: match site.name.as_str() {
                     "homeassistant" if sites.homeassistant_api_token.is_some() => {
                         Some("HomeAssistant")
