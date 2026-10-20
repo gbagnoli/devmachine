@@ -3461,3 +3461,22 @@ acceptance; no production host or private DNS values were committed.
   expected policy 403.
 - Formatting and strict workspace Clippy passed. Browser acceptance from an
   allowed personal device and unit/smoke suites were not run in this change.
+
+## 2026-10-20 — Physical clamps LAN DNS and private UI ingress
+
+- From Rupik on the same LAN, both clamps static interface addresses responded
+  to ping and accepted DNS over UDP and TCP port 53. Recursive A and AAAA
+  queries succeeded through both addresses.
+- The generated wired and Wi-Fi host records returned their corresponding
+  configured IPv4 addresses through both Pi-hole listeners over UDP and TCP.
+  No AAAA records were returned, consistent with the current IPv4-only LAN.
+- Clamps showed both interfaces up with their configured addresses. Wired had
+  the preferred default-route metric; Wi-Fi had the higher metric. Pi-hole was
+  active and published port 53.
+- The operator confirmed a reboot and Wi-Fi switch worked in a test performed
+  the previous day.
+- A direct HTTPS request from Rupik to the LAN address with the private UI
+  hostname returned Caddy's 403 denial response.
+- This did not exercise client DHCP behavior, an actual resolver failover
+  during Pi-hole downtime, or client behavior using its normal DHCP-provided
+  resolver settings.
