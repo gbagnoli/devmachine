@@ -13,8 +13,12 @@ apply prepares networking without switching the active connection. See
 
 On 2026-10-13 the operator confirmed successful provisioning and correctly
 configured wired/Wi-Fi on physical clamps, including a successful Wi-Fi test.
-See [the operator evidence](archive/ACCEPTANCE.md#2026-10-13--clamps-physical-networking-operator-report).
-This does not establish the detailed DNS, route, MAC or repeat-boot checks below.
+On 2026-10-20, Rupik verified Pi-hole DNS and generated host answers through
+both clamps addresses, and host inspection confirmed wired route preference.
+The operator also confirmed a reboot and Wi-Fi switch worked the previous day.
+See [acceptance evidence](archive/ACCEPTANCE.md). Permanent-MAC matching,
+normal DHCP-provided resolver use, Pi-hole outage behavior and management
+recovery remain open.
 
 ## Detailed acceptance checklist
 
@@ -31,9 +35,11 @@ This does not establish the detailed DNS, route, MAC or repeat-boot checks below
 4. With local-console recovery available, reboot physical hardware. Verify
    preparation precedes NetworkManager, static Ethernet address, requested DNS
    order, local Pi-hole over loopback and independent DNS before Pi-hole startup.
-5. Verify Wi-Fi association/static address/permanent MAC with Ethernet attached
-   and detached, route preference with both active, management connectivity,
-   repeated preparation and another unattended boot.
+5. Verify permanent-MAC matching and management recovery with Ethernet attached
+   and detached. Wi-Fi association/static address and route preference with
+   both links active are confirmed; normal client DNS use and Pi-hole outage
+   behavior remain to be checked. Repeat preparation and another unattended
+   boot after the remaining profile checks.
 
 Offline parser validation and injected tests do not establish physical wireless
 association or actual reboot reachability. Record evidence separately in
