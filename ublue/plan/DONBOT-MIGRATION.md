@@ -41,11 +41,13 @@ Architecture constraints and proposals are in
 | Prowlarr, Radarr, Sonarr, Lidarr, putioarr | Media composition, persistent mounts, credential delivery, private UIs, safe import/cleanup and module-owned monitoring |
 | Jellyfin and Plex | Service configuration/state restore, public HTTPS ingress, client acceptance; Jellyfin Caddy cache per its plan |
 | Gokapi | Mixed ingress, verified identity-to-account mapping, exact public routes and coordinated state restore |
-| Joplin / Airtrail (required) | PostgreSQL composition, logical backup/restore, upload consistency and explicit access policy |
+| Joplin / Airtrail (required) | PostgreSQL/Joplin container modules exist but are not selected by a host profile; credential delivery, logical backup/restore, AirTrail upload consistency and explicit access policy remain |
 | Conditional Pi-hole synchronization | Confirm current use; add explicit optional module only if retained; static DNS inventory is already shared |
 
-No media, Gokapi or PostgreSQL-backed app implementation currently exists in
-Skillet. Donbot does not select DDNS. Joplin retains native authentication behind private HTTPS; Arr uses
+No Donbot host-profile integration, PostgreSQL backup lifecycle, AirTrail or
+media/Gokapi implementation exists in Skillet. The reusable PostgreSQL and
+Joplin container crates have been added but are not yet wired to a caller.
+Donbot does not select DDNS. Joplin retains native authentication behind private HTTPS; Arr uses
 verified tailnet-user authentication. Airtrail should use the same tailnet-user
 authentication where supported; its account integration and API needs require inventory. UniFi, NUT and Home Assistant are not
 part of this migration. Do not add them by copying another host's selections.
@@ -433,13 +435,24 @@ responses unless expiry and counters are proven unaffected.
 
 ### 7. Port required Joplin, Airtrail and PostgreSQL
 
-Add a reusable PostgreSQL composition/backup helper for Joplin and Airtrail;
-use named-container connectivity and secret delivery, not pod-local loopback.
-Keep each app's state/version/credential declaration authoritative. Restore
-logical backups into a compatible database major before planning upgrades.
-Publish completed backup archives atomically into declared synchronized backup
-folders; coordinate Airtrail files and DB state. Reuse shared SMTP where needed
-without creating a remotely accessible unauthenticated relay.
+Calculon's Chef and live Quadlets confirm one PostgreSQL container, database,
+credential and data directory per application. Keep that isolation. Add a
+reusable PostgreSQL Skillet module that Joplin and AirTrail callers can compose;
+use named-container connectivity and Podman secret delivery, not pod-local
+loopback or plaintext Quadlet environment values. The live Chef backup is a
+daily `pg_dumpall` compressed with zstd and aged out after roughly seven days.
+Replace that pattern with an atomic single-database logical archive and a
+disposable restore path. Keep raw database files outside Syncthing; publish
+completed archives atomically into caller-declared synchronized backup folders.
+Coordinate AirTrail uploads and DB state as one restore set. Reuse shared SMTP
+where needed without creating a remotely accessible unauthenticated relay.
+
+Joplin's official server guide says item content is stored in PostgreSQL by
+default; filesystem/S3 storage is optional. Keep the database-backed default.
+The client-side JEX export is supplementary and does not restore server
+accounts/metadata. If a non-database content store is selected later, back it up
+with a consistent database snapshot. See
+[PostgreSQL app backup design](../design/postgres-app-backups.md).
 
 For Joplin, use tailnet-only HTTPS through Caddy, retaining
 Joplin's native account/session authentication for mobile and desktop sync. Set
