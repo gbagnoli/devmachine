@@ -258,8 +258,6 @@ impl CaddySites {
     }
 
     pub fn render(&self) -> String {
-        use std::fmt::Write as _;
-
         let acme = if self.acme_staging {
             "    acme_ca https://acme-staging-v02.api.letsencrypt.org/directory\n"
         } else {
@@ -276,123 +274,150 @@ impl CaddySites {
             .collect::<Vec<_>>();
         for service in &self.services {
             for hostname in std::iter::once(&service.hostname).chain(&service.aliases) {
-                let _ = writeln!(config, "\n{hostname} {{\n    tls {{\n        resolvers 1.1.1.1 1.0.0.1\n    }}\n    route {{\n        @outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48\n        respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403");
-                if service.tailnet_identity {
-                    let homepage_api = matches!(service.name.as_str(), "pihole" | "homeassistant")
-                        && !homer_origins.is_empty();
-                    if homepage_api {
-                        let own_origin = format!("https://{hostname}");
-                        let allowed_origins = homer_origins
-                            .iter()
-                            .filter(|origin| origin.as_str() != own_origin)
-                            .collect::<Vec<_>>();
-                        let denied = std::iter::once(format!(
-                            "{{http.request.header.Origin}} != \"{own_origin}\""
-                        ))
-                        .chain(allowed_origins.iter().map(|origin| {
-                            format!("{{http.request.header.Origin}} != \"{origin}\"")
-                        }))
-                        .collect::<Vec<_>>()
-                        .join(" && ");
-                        let mut cross_site_origins = String::new();
-                        for origin in &allowed_origins {
-                            let _ = write!(
-                                cross_site_origins,
-                                " && {{http.request.header.Origin}} != \"{origin}\""
-                            );
-                        }
-                        let _ = writeln!(
-                            config,
-                            "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {denied}`\n        respond @cross_origin 403\n        @cross_site expression `{{http.request.header.Sec-Fetch-Site}} == \"cross-site\" && {{http.request.header.Origin}} != \"{own_origin}\"{cross_site_origins}`\n        respond @cross_site 403"
-                        );
-                        for (index, origin) in allowed_origins.iter().enumerate() {
-                            let allowed_methods = if service.name == "pihole" {
-                                // Pi-hole v6 creates an API session with POST /api/auth.
-                                // Homer sends this cross-origin request when loading its
-                                // Pi-hole widget, so the CORS preflight must allow POST.
-                                "GET, POST, OPTIONS"
-                            } else {
-                                "GET, OPTIONS"
-                            };
-                            let _ = writeln!(config, "        @homer_origin_{index} header Origin \"{origin}\"\n        header @homer_origin_{index} Access-Control-Allow-Origin \"{origin}\"\n        header @homer_origin_{index} Access-Control-Allow-Methods \"{allowed_methods}\"\n        header @homer_origin_{index} Access-Control-Allow-Headers \"Authorization, Content-Type\"\n        header @homer_origin_{index} Vary Origin");
-                        }
-                        // Browser preflights cannot carry the authorization material
-                        // used by the tailnet identity broker. After the tailnet source
-                        // and exact Origin checks above, answer the empty preflight here;
-                        // the actual API request still goes through forward_auth below.
-                        config.push_str(
-                            "        @homer_preflight method OPTIONS\n        respond @homer_preflight \"\" 204\n",
-                        );
-                    } else {
-                        let _ = writeln!(config, "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {{http.request.header.Origin}} != \"https://{hostname}\"`\n        respond @cross_origin 403\n        @cross_site header Sec-Fetch-Site cross-site\n        respond @cross_site 403");
-                    }
-                    // A trailing '?' clears the inherited application query on the
-                    // cloned auth request; the backend keeps its original URI.
-                    config.push_str("        request_header -X-Skillet-Peer\n        request_header -X-Skillet-User\n        request_header -X-Webauth-User\n        request_header -Remote-User\n        request_header -Tailscale-User\n        forward_auth unix//run/skillet-tailnet-ui/auth.sock {\n            uri /auth?\n            header_up X-Skillet-Peer {http.request.remote}\n            copy_headers X-Skillet-User\n        }\n");
-                }
-                if service.tailnet_identity && service.anonymous_token_refresh {
-                    // No application identity/token is minted. NO_AUTH backends ignore
-                    // this marker; Caddy must authorize every subsequent request too.
-                    config.push_str("        @anonymous_refresh {\n            method GET\n            path /api/refresh\n        }\n        header @anonymous_refresh Content-Type application/json\n        header @anonymous_refresh Cache-Control no-store\n        respond @anonymous_refresh `{\"token\":\"skillet-tailnet-authenticated\"}` 200\n");
-                }
-                if service.name == "homer" {
-                    // The Homer image contains its static assets. Only its generated
-                    // config is served from the host, after the identity gate.
-                    config.push_str("        @homer_config path /assets/config.yml\n        root @homer_config /etc/skillet/homer\n        header @homer_config Cache-Control no-store\n        file_server @homer_config\n");
-                    if let Some(pihole) = self.services.iter().find(|site| site.name == "pihole") {
-                        let upstream = match pihole.transport {
-                            UpstreamTransport::Bridge => {
-                                format!("{}:{}", pihole.upstream, pihole.port)
-                            }
-                            UpstreamTransport::HostLoopback => {
-                                format!("unix//run/skillet-ui-host/{}.sock", pihole.name)
-                            }
-                        };
-                        config.push_str(
-                            "        @homer_pihole_api {\n            method GET\n            path /pihole-api/api/stats/summary /pihole-api/api/dns/blocking\n        }\n        handle @homer_pihole_api {\n            uri strip_prefix /pihole-api\n",
-                        );
-                        let _ = writeln!(config, "            reverse_proxy {upstream} {{\n                header_up Host pi.hole\n                header_up Origin http://pi.hole\n                header_down -Access-Control-Allow-Origin\n            }}");
-                        config.push_str("        }\n");
-                    }
-                }
-                let _ = writeln!(
-                    config,
-                    "        reverse_proxy {}{}\n    }}\n}}",
-                    match service.transport {
-                        UpstreamTransport::Bridge =>
-                            format!("{}:{}", service.upstream, service.port),
-                        UpstreamTransport::HostLoopback =>
-                            format!("unix//run/skillet-ui-host/{}.sock", service.name),
-                    },
-                    if matches!(service.name.as_str(), "pihole" | "homeassistant") {
-                        let mut upstream_headers = String::from(
-                            " {\n            header_down -Access-Control-Allow-Origin",
-                        );
-                        if service.name == "pihole" {
-                            // Pi-hole v6 only serves the UI for its configured webserver.domain.
-                            // Its API also rejects Homer-origin requests as CSRF, so present the
-                            // canonical local origin to Pi-hole and add browser CORS at Caddy.
-                            upstream_headers.push_str(
-                                "\n            header_up Host pi.hole\n            header_up Origin http://pi.hole",
-                            );
-                        } else {
-                            // The frontend origin has already passed the exact Homer
-                            // allowlist and tailnet identity gate. Present HA with its
-                            // own origin so its API accepts the dashboard request.
-                            let _ = write!(
-                                upstream_headers,
-                                "\n            header_up Origin https://{hostname}"
-                            );
-                        }
-                        upstream_headers.push_str("\n        }");
-                        upstream_headers
-                    } else {
-                        String::new()
-                    },
-                );
+                config.push_str(&render_site(self, service, hostname, &homer_origins));
             }
         }
         config
+    }
+}
+
+fn render_site(
+    sites: &CaddySites,
+    service: &CaddySite,
+    hostname: &str,
+    homer_origins: &[String],
+) -> String {
+    use std::fmt::Write as _;
+
+    let mut config = format!("\n{hostname} {{\n    tls {{\n        resolvers 1.1.1.1 1.0.0.1\n    }}\n    route {{\n        @outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48\n        respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403");
+    if service.tailnet_identity {
+        render_identity_policy(&mut config, service, hostname, homer_origins);
+        if service.anonymous_token_refresh {
+            // No application identity/token is minted. NO_AUTH backends ignore
+            // this marker; Caddy must authorize every subsequent request too.
+            config.push_str("        @anonymous_refresh {\n            method GET\n            path /api/refresh\n        }\n        header @anonymous_refresh Content-Type application/json\n        header @anonymous_refresh Cache-Control no-store\n        respond @anonymous_refresh `{\"token\":\"skillet-tailnet-authenticated\"}` 200\n");
+        }
+    }
+    if service.name == "homer" {
+        render_homer_routes(&mut config, sites);
+    }
+    let upstream = render_upstream(service, hostname);
+    let _ = writeln!(config, "        reverse_proxy {upstream}\n    }}\n}}");
+    config
+}
+
+fn render_identity_policy(
+    config: &mut String,
+    service: &CaddySite,
+    hostname: &str,
+    homer_origins: &[String],
+) {
+    use std::fmt::Write as _;
+
+    let homepage_api =
+        matches!(service.name.as_str(), "pihole" | "homeassistant") && !homer_origins.is_empty();
+    if homepage_api {
+        let own_origin = format!("https://{hostname}");
+        let allowed_origins = homer_origins
+            .iter()
+            .filter(|origin| origin.as_str() != own_origin)
+            .collect::<Vec<_>>();
+        let denied = std::iter::once(format!(
+            "{{http.request.header.Origin}} != \"{own_origin}\""
+        ))
+        .chain(
+            allowed_origins
+                .iter()
+                .map(|origin| format!("{{http.request.header.Origin}} != \"{origin}\"")),
+        )
+        .collect::<Vec<_>>()
+        .join(" && ");
+        let mut cross_site_origins = String::new();
+        for origin in &allowed_origins {
+            let _ = write!(
+                cross_site_origins,
+                " && {{http.request.header.Origin}} != \"{origin}\""
+            );
+        }
+        let _ = writeln!(
+            config,
+            "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {denied}`\n        respond @cross_origin 403\n        @cross_site expression `{{http.request.header.Sec-Fetch-Site}} == \"cross-site\" && {{http.request.header.Origin}} != \"{own_origin}\"{cross_site_origins}`\n        respond @cross_site 403"
+        );
+        render_homer_cors(config, service.name.as_str(), &allowed_origins);
+        // Browser preflights cannot carry the authorization material used by
+        // the tailnet broker. Exact Origin checks above constrain this response;
+        // actual API requests still pass through forward_auth.
+        config.push_str(
+            "        @homer_preflight method OPTIONS\n        respond @homer_preflight \"\" 204\n",
+        );
+    } else {
+        let _ = writeln!(config, "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {{http.request.header.Origin}} != \"https://{hostname}\"`\n        respond @cross_origin 403\n        @cross_site header Sec-Fetch-Site cross-site\n        respond @cross_site 403");
+    }
+    // A trailing '?' clears the inherited application query on the cloned auth
+    // request; the backend keeps its original URI.
+    config.push_str("        request_header -X-Skillet-Peer\n        request_header -X-Skillet-User\n        request_header -X-Webauth-User\n        request_header -Remote-User\n        request_header -Tailscale-User\n        forward_auth unix//run/skillet-tailnet-ui/auth.sock {\n            uri /auth?\n            header_up X-Skillet-Peer {http.request.remote}\n            copy_headers X-Skillet-User\n        }\n");
+}
+
+fn render_homer_cors(config: &mut String, service_name: &str, allowed_origins: &[&String]) {
+    use std::fmt::Write as _;
+
+    for (index, origin) in allowed_origins.iter().enumerate() {
+        let allowed_methods = if service_name == "pihole" {
+            // Pi-hole v6 creates an API session with POST /api/auth. Homer sends
+            // this cross-origin request to load its Pi-hole widget.
+            "GET, POST, OPTIONS"
+        } else {
+            "GET, OPTIONS"
+        };
+        let _ = writeln!(config, "        @homer_origin_{index} header Origin \"{origin}\"\n        header @homer_origin_{index} Access-Control-Allow-Origin \"{origin}\"\n        header @homer_origin_{index} Access-Control-Allow-Methods \"{allowed_methods}\"\n        header @homer_origin_{index} Access-Control-Allow-Headers \"Authorization, Content-Type\"\n        header @homer_origin_{index} Vary Origin");
+    }
+}
+
+fn render_homer_routes(config: &mut String, sites: &CaddySites) {
+    use std::fmt::Write as _;
+
+    // Homer assets are in the image. Serve only generated config from the host.
+    config.push_str("        @homer_config path /assets/config.yml\n        root @homer_config /etc/skillet/homer\n        header @homer_config Cache-Control no-store\n        file_server @homer_config\n");
+    if let Some(pihole) = sites.services.iter().find(|site| site.name == "pihole") {
+        let upstream = upstream_target(pihole);
+        config.push_str(
+            "        @homer_pihole_api {\n            method GET\n            path /pihole-api/api/stats/summary /pihole-api/api/dns/blocking\n        }\n        handle @homer_pihole_api {\n            uri strip_prefix /pihole-api\n",
+        );
+        let _ = writeln!(config, "            reverse_proxy {upstream} {{\n                header_up Host pi.hole\n                header_up Origin http://pi.hole\n                header_down -Access-Control-Allow-Origin\n            }}");
+        config.push_str("        }\n");
+    }
+}
+
+fn render_upstream(service: &CaddySite, hostname: &str) -> String {
+    use std::fmt::Write as _;
+
+    let mut upstream = upstream_target(service);
+    if matches!(service.name.as_str(), "pihole" | "homeassistant") {
+        upstream.push_str(" {\n            header_down -Access-Control-Allow-Origin");
+        if service.name == "pihole" {
+            // Pi-hole v6 serves the UI only for its configured webserver.domain.
+            upstream.push_str(
+                "\n            header_up Host pi.hole\n            header_up Origin http://pi.hole",
+            );
+        } else {
+            // Exact Origin and identity checks already passed; present HA with its
+            // own origin so its API accepts the dashboard request.
+            let _ = write!(
+                upstream,
+                "\n            header_up Origin https://{hostname}"
+            );
+        }
+        upstream.push_str("\n        }");
+    }
+    upstream
+}
+
+fn upstream_target(service: &CaddySite) -> String {
+    match service.transport {
+        UpstreamTransport::Bridge => format!("{}:{}", service.upstream, service.port),
+        UpstreamTransport::HostLoopback => {
+            format!("unix//run/skillet-ui-host/{}.sock", service.name)
+        }
     }
 }
 
