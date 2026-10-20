@@ -1,0 +1,13 @@
+[package]
+name = "skillet_joplin"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+skillet_core.workspace = true
+skillet_podman.workspace = true
+skillet_postgres.workspace = true
+thiserror.workspace = true

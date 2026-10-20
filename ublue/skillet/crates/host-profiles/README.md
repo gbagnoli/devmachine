@@ -20,8 +20,10 @@ stay in the vault or private installation inputs.
 | Static Ethernet / Wi-Fi | [Networking](../network/README.md) |
 | UPS and metrics | [NUT](../nut/README.md) |
 | DNS | [Pi-hole](../pihole/README.md) |
+| Joplin Server | [Joplin](../joplin/README.md) |
 | Mail relay | [SMTP](../smtp/README.md) |
 | Home automation | [Home Assistant](../homeassistant/README.md) |
+| PostgreSQL | [PostgreSQL](../postgres/README.md) |
 | Synchronization | [Syncthing](../syncthing/README.md) |
 | Tailnet enrollment / routing | [Tailscale](docs/tailscale.md) |
 | Controller | [UniFi](../unifi/README.md) |

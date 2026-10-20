@@ -3821,6 +3821,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "skillet_joplin"
+version = "0.1.0"
+dependencies = [
+ "skillet_core",
+ "skillet_podman",
+ "skillet_postgres",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "skillet_mikochi"
 version = "0.1.0"
 dependencies = [
@@ -3883,6 +3893,16 @@ dependencies = [
  "serde",
  "sha2 0.10.9",
  "skillet_core",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
+name = "skillet_postgres"
+version = "0.1.0"
+dependencies = [
+ "skillet_core",
+ "skillet_podman",
  "thiserror 1.0.69",
  "tracing",
 ]
