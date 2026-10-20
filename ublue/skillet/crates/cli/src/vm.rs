@@ -57,6 +57,9 @@ pub(super) fn create(args: &VmCreateArgs) -> Result<()> {
             identity.host()
         ));
     }
+    // Check the hardware prerequisite before selecting or starting any
+    // workstation libvirt backend, and before creating run metadata.
+    skillet_vm::runtime::validate_kvm_access()?;
     let source_commit = skillet_vm::provisioning::source_revision(&workspace)?;
     let store = ManifestStore::new(&butane.join("runs"), current_uid())?;
     prepare_run_intent(args, &butane, &store, &identity, &source_commit)?;
@@ -68,7 +71,6 @@ pub(super) fn create(args: &VmCreateArgs) -> Result<()> {
             "unfinished VM was prepared from a different source revision; inspect or dispose it before retrying"
         ));
     }
-    skillet_vm::runtime::validate_kvm_access()?;
     if run.phase == Phase::Preparing {
         skillet_vm::provisioning::validate_ssh_port(run.ssh.port)?;
     }
