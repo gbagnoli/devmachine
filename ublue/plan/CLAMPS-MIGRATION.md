@@ -12,17 +12,22 @@ See [historical evidence](archive/ACCEPTANCE.md) and
 ## Work order
 
 1. Wired/Wi-Fi setup and Wi-Fi connectivity are operator-confirmed. Finish the
-   detailed [networking checks](HOST-NETWORKING.md): DNS/outage behavior, route
-   preference/permanent MAC and unattended repeat boot with management recovery.
+   remaining [networking checks](HOST-NETWORKING.md): client DHCP resolver use,
+   resolver outage behavior, permanent MAC and management recovery. DNS answers
+   from Rupik, route preference, reboot and Wi-Fi switching are now confirmed;
+   see the [acceptance log](archive/ACCEPTANCE.md). Pi-hole AAAA serving is
+   verified in an isolated v6 container. LAN IPv6 client reachability is not
+   enabled or applicable until the LAN has usable IPv6.
 2. Temporary passphrase cleanup, recovery/header verification and unattended
    reboot are operator-confirmed. Remaining [TPM checks](TPM-ENCRYPTED-ROOT.md)
    include networkless boot, rollback and wider update preservation checks; one
    signed image rebase/reboot is operator-confirmed. Stock-SSD acceptance is separate
    from final production disk selection/installation.
 3. Private Pi-hole v6 delivery is implemented through the shared environment DNS
-   inventory and dedicated encrypted phase. Complete the vault migration to
-   `dns/local-prefix` and `dns/entries`, verify production answers, then migrate
-   Pi-hole state. Runtime validation is recorded in the acceptance log.
+   inventory and dedicated encrypted phase. Dual-stack serialization and Pi-hole
+   AAAA answering are verified. Complete the vault migration to `dns/local-prefix`
+   and `dns/entries`, verify intended production entries, then migrate Pi-hole
+   state. Runtime validation is recorded in the acceptance log.
 4. Inventory and migrate production data/identities from rupik. Stop source
    Syncthing/UniFi identities before enabling replacements. Retain the source
    SSD and independent backups until rollback/cutover is accepted. Follow
@@ -49,8 +54,10 @@ See [historical evidence](archive/ACCEPTANCE.md) and
 
 Run these with suitable clients and the required private configuration:
 
-- Pi-hole LAN ingress over IPv4/IPv6, UDP/TCP and host firewall, including an
-  isolated custom record and local-resolver/bootstrap outage behavior.
+- Pi-hole IPv4 LAN ingress and UDP/TCP answer behavior passed from Rupik; an
+  isolated Pi-hole v6 instance served a synthetic AAAA over UDP/TCP. Client
+  IPv6 ingress remains deferred until usable LAN IPv6 exists. Still test normal
+  DHCP-provided resolver use and local-resolver/bootstrap outage behavior.
 - Private UI DNS/HTTPS from actual tailnet clients and Caddy denial from a
   separate network outside the tailnet; guest loopback denial is insufficient.
 - Cloudflare production issuance and bounded renewal, preserving owned records.

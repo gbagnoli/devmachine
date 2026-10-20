@@ -3480,3 +3480,16 @@ acceptance; no production host or private DNS values were committed.
 - This did not exercise client DHCP behavior, an actual resolver failover
   during Pi-hole downtime, or client behavior using its normal DHCP-provided
   resolver settings.
+
+## 2026-10-20 — Pi-hole v6 AAAA record behavior
+
+- The Skillet private-DNS input tests passed for a dual-stack entry, including
+  expansion into Pi-hole `dns.hosts`; the Pi-hole renderer test passed.
+- On clamps, a second, temporary Pi-hole container used the already-cached v6
+  image, no persistent mounts, and a loopback-only high port. A synthetic ULA
+  record returned the expected AAAA answer over UDP and TCP. The container was
+  removed after the query; production Pi-hole configuration and data were not
+  changed.
+- This verifies Pi-hole v6 AAAA serving and Skillet's serialization path. The
+  current LAN has no usable IPv6 host address, so client reachability over IPv6
+  and assigning Pi-hole as an IPv6 client resolver remain untested/not enabled.
