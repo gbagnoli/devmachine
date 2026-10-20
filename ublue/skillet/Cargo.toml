@@ -21,6 +21,7 @@ members = [
     "crates/joplin",
     "crates/cli",
     "crates/hosts/joey",
+    "crates/hosts/donbot",
     "crates/hosts/clamps",
     "crates/cli-common",
     "crates/test-fixture",

@@ -183,6 +183,38 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
 }
 
 #[test]
+fn donbot_declares_a_joplin_ui_that_registers_with_homer_and_caddy() {
+    let donbot = super::profile_for_name("donbot").expect("Donbot profile");
+    assert!(donbot.supports_service("homer"));
+    assert!(donbot.supports_service("joplin"));
+    assert_eq!(
+        donbot
+            .ui_services()
+            .iter()
+            .map(|service| service.name.as_str())
+            .collect::<Vec<_>>(),
+        ["pihole", "syncthing", "joplin", "files", "homer"]
+    );
+    assert!(
+        super::credentials_for_phase("donbot", super::HostApplyPhase::Full)
+            .unwrap()
+            .iter()
+            .all(|name| *name != skillet_joplin::DATABASE_PASSWORD_CREDENTIAL)
+    );
+    assert_eq!(
+        super::credentials_for_phase("donbot", super::HostApplyPhase::Joplin).unwrap(),
+        [
+            skillet_joplin::DATABASE_PASSWORD_CREDENTIAL,
+            super::CADDY_SITES_CREDENTIAL
+        ]
+    );
+    assert!(donbot
+        .services
+        .iter()
+        .any(|service| matches!(service.config, ServiceConfig::Joplin(_))));
+}
+
+#[test]
 fn agent_baseline_declares_no_ui_or_credentials_and_unknown_full_profiles_fail() {
     let baseline = super::profile_for_name("agent").unwrap();
     assert_eq!(baseline.services, Vec::<HostService>::new());

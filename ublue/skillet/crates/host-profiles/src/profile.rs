@@ -60,6 +60,7 @@ pub enum ServiceConfig {
         container_gid: u32,
     },
     Homer,
+    Joplin(skillet_joplin::Config),
     Nut(skillet_nut::Config),
     Unifi,
     HomeAssistant(skillet_homeassistant::Config),
@@ -94,6 +95,7 @@ impl HostService {
             ServiceConfig::Syncthing { .. } => "syncthing",
             ServiceConfig::Mikochi { .. } => "mikochi",
             ServiceConfig::Homer => "homer",
+            ServiceConfig::Joplin(_) => "joplin",
             ServiceConfig::Nut(_) => "nut",
             ServiceConfig::Unifi => "unifi",
             ServiceConfig::HomeAssistant(_) => "homeassistant",
@@ -122,6 +124,10 @@ impl HostService {
             ServiceConfig::Syncthing { .. } => vec![CredentialConsumer {
                 credential: skillet_syncthing::initial::CREDENTIAL,
                 unit: skillet_syncthing::initial::UNIT,
+            }],
+            ServiceConfig::Joplin(_) => vec![CredentialConsumer {
+                credential: skillet_joplin::DATABASE_PASSWORD_CREDENTIAL,
+                unit: "skillet-joplin-apply.service",
             }],
             ServiceConfig::Network(_) => vec![CredentialConsumer {
                 credential: skillet_network::CREDENTIAL,
@@ -416,6 +422,7 @@ impl HostProfile {
 fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService {
     match service.config {
         ServiceConfig::HomeAssistant(_) => homeassistant_acceptance(),
+        ServiceConfig::Joplin(config) => joplin_acceptance(config),
         ServiceConfig::Nut(_) => AcceptanceService {
             unit: "nut-monitor.service".into(),
             container: None,
@@ -514,6 +521,18 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
             listeners: Vec::new(),
             health_probe: None,
         },
+    }
+}
+
+fn joplin_acceptance(config: skillet_joplin::Config) -> AcceptanceService {
+    AcceptanceService {
+        unit: "joplin-server.service".into(),
+        container: Some("joplin-server".into()),
+        network_mode: Some(config.network_name.into()),
+        bind_paths: vec![config.database_path.into()],
+        owner: None,
+        listeners: Vec::new(),
+        health_probe: None,
     }
 }
 
@@ -739,6 +758,87 @@ fn joey() -> HostProfile {
     }
 }
 
+/// Donbot is a fresh installation replacing Calculon, with the shared fleet
+/// baseline and Joplin as its first declared application.
+fn donbot() -> HostProfile {
+    HostProfile {
+        id: HostId::known("donbot"),
+        signed_image: Some("ghcr.io/gbagnoli/ucore-donbot"),
+        masked_units: &["systemd-resolved.service"],
+        network: NetworkPolicy {
+            ipv4_subnet: "172.27.27.0/24",
+            ipv4_gateway: "172.27.27.1",
+            ipv6_subnet: "fd59:4e23:2950:12f5::/64",
+            ipv6_gateway: "fd59:4e23:2950:12f5::1",
+        },
+        requires_data_mount: true,
+        services: vec![
+            HostService {
+                config: ServiceConfig::Pihole,
+                ui: Some(UiServiceDeclaration {
+                    name: "pihole",
+                    upstream: "pihole",
+                    transport: skillet_caddy::UpstreamTransport::Bridge,
+                    port: 8088,
+                    tailnet_identity: true,
+                    aliases: &[],
+                }),
+            },
+            HostService {
+                config: ServiceConfig::Tailscale {
+                    advertise_exit_node: true,
+                    state_path: "/var/lib/data/tailscale",
+                },
+                ui: None,
+            },
+            HostService {
+                config: ServiceConfig::Syncthing {
+                    files_path: "/var/lib/data/syncthing/data",
+                    data_path: "/var/lib/data/syncthing",
+                    data_owner: "giacomo",
+                    data_group: "giacomo",
+                    container_uid: 1000,
+                    container_gid: 1000,
+                },
+                ui: Some(SYNCTHING_UI),
+            },
+            HostService {
+                config: ServiceConfig::Joplin(skillet_joplin::Config {
+                    image: skillet_joplin::DEFAULT_IMAGE,
+                    network_name: "donbot-joplin",
+                    database_path: "/var/lib/data/joplin/postgres",
+                    postgres_data_container_path: "/var/lib/postgresql",
+                    backup_path: "/var/lib/data/syncthing/data/backups/postgres/joplin",
+                    backup_subvolume: "/var/lib/data/syncthing",
+                    backup_owner: "giacomo",
+                    backup_group: "giacomo",
+                }),
+                ui: Some(UiServiceDeclaration {
+                    name: "joplin",
+                    upstream: "joplin-server",
+                    transport: skillet_caddy::UpstreamTransport::Bridge,
+                    port: skillet_joplin::PORT,
+                    tailnet_identity: true,
+                    aliases: &[],
+                }),
+            },
+            HostService {
+                config: ServiceConfig::Datadog {
+                    production_region: "oneprovider",
+                    network_monitoring: true,
+                },
+                ui: None,
+            },
+            HostService {
+                config: ServiceConfig::Btrbk {
+                    snapshot_subvolumes: &["syncthing"],
+                },
+                ui: None,
+            },
+        ],
+    }
+}
+
 fn agent_baseline() -> HostProfile {
     HostProfile {
         id: HostId::known("agent"),
@@ -760,6 +860,7 @@ pub fn profile_for_host(host: &HostId) -> Option<HostProfile> {
     match host.as_str() {
         "clamps" => Some(with_fleet_baseline(clamps())),
         "joey" => Some(with_fleet_baseline(joey())),
+        "donbot" => Some(with_fleet_baseline(donbot())),
         "agent" => Some(agent_baseline()),
         _ => None,
     }
@@ -773,6 +874,7 @@ pub fn declared_profiles() -> Vec<HostProfile> {
     vec![
         with_fleet_baseline(clamps()),
         with_fleet_baseline(joey()),
+        with_fleet_baseline(donbot()),
         agent_baseline(),
     ]
 }

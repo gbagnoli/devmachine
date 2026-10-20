@@ -20,6 +20,7 @@ pub enum ApplyPhase {
     Smtp,
     Network,
     PiholeDns,
+    Joplin,
 }
 
 pub fn apply_host_phase(
@@ -38,6 +39,7 @@ pub fn apply_host_phase(
         ApplyPhase::Smtp => skillet_hosts::HostApplyPhase::Smtp,
         ApplyPhase::PiholeDns => skillet_hosts::HostApplyPhase::PiholeDns,
         ApplyPhase::Network => skillet_hosts::HostApplyPhase::Network,
+        ApplyPhase::Joplin => skillet_hosts::HostApplyPhase::Joplin,
     };
     skillet_hosts::apply_host_phase(hostname, phase, system, files, credentials)
 }

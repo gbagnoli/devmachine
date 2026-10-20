@@ -1,9 +1,10 @@
 # Host declarations and module guides
 
 [src/profile.rs](src/profile.rs) owns caller-selected capabilities. Generic and
-host-specific binaries use the same declaration. `clamps` and `joey` are full
-profiles; `agent` is the credential-free baseline. `/etc/skillet/host` selects
-the installed profile independently of a disposable VM's runtime hostname.
+host-specific binaries use the same declaration. `clamps`, `donbot` and `joey`
+are full profiles; `agent` is the credential-free baseline. `/etc/skillet/host`
+selects the installed profile independently of a disposable VM's runtime
+hostname.
 
 Syncthing/file browsing, Homer, and SMTP are shared fleet policy. Optional capabilities
 must be selected explicitly; vault entries do not enable them. Runtime values

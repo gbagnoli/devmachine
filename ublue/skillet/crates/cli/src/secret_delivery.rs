@@ -10,6 +10,7 @@ use skillet_vm::{
     },
     Environment, ManifestStore, Phase, RunIdentity, VmRun,
 };
+use skillet_workstation::provisioning_policy::ProvisioningPolicy;
 use skillet_workstation::provisioning_state;
 use skillet_workstation::tailscale;
 use skillet_workstation::vault::Vault;
@@ -126,6 +127,16 @@ pub(super) fn deliver_with_vault(
                 return Ok(false);
             }
         }
+        "joplin" => {
+            let mut store =
+                skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref());
+            skillet_workstation::joplin_provisioning::deliver_production(
+                &args.hostname,
+                &mut store,
+                transport,
+                activation,
+            )?;
+        }
         "caddy" => deliver_caddy_from_vault(args, vault, transport, activation)?,
         "ddns" => deliver_ddns_from_vault(args, vault, transport, activation)?,
         "network" => {
@@ -180,7 +191,7 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
     }
     match service {
         "pihole" | "tailscale" | "ddns" | "datadog" | "smtp" | "network" | "syncthing"
-        | "homeassistant"
+        | "homeassistant" | "joplin"
             if !profile.supports_service(service) =>
         {
             Err(anyhow!(
@@ -191,7 +202,7 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
             Err(anyhow!("host {hostname} declares no UI services"))
         }
         "pihole" | "tailscale" | "caddy" | "ddns" | "datadog" | "smtp" | "network"
-        | "syncthing" | "homeassistant" => Ok(profile),
+        | "syncthing" | "homeassistant" | "joplin" => Ok(profile),
         unsupported => Err(anyhow!("unsupported secret service {unsupported}")),
     }
 }
@@ -509,6 +520,7 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     }
     if args.with_ui {
         provision_vm_ui(args, &run_dir, &transport, &mut vault, &record)?;
+        provision_vm_joplin(args, &profile, policy, &transport, &mut vault)?;
     }
     if args.with_ddns {
         provision_vm_ddns(args, &run_dir, &transport, &mut vault)?;
@@ -537,6 +549,29 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     }
     provisioning_state::remove_tailscale_pending(&run_dir)?;
     println!("Tailscale connected VM {expected_hostname}");
+    Ok(())
+}
+
+fn provision_vm_joplin(
+    args: &VmProvisionArgs,
+    profile: &skillet_hosts::HostProfile,
+    policy: ProvisioningPolicy,
+    transport: &impl GuestTransport,
+    vault: &mut Vault,
+) -> Result<()> {
+    if !profile.supports_service("joplin") {
+        return Ok(());
+    }
+    let mut store =
+        skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref());
+    skillet_workstation::joplin_provisioning::deliver_disposable(
+        &args.hostname,
+        &args.instance,
+        policy,
+        &mut store,
+        transport,
+    )?;
+    skillet_workstation::host_apply::activate(transport, "skillet-joplin-apply.service")?;
     Ok(())
 }
 

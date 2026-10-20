@@ -3637,6 +3637,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "skillet-donbot"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "skillet_cli_common",
+]
+
+[[package]]
 name = "skillet-joey"
 version = "0.1.0"
 dependencies = [
@@ -3699,8 +3707,10 @@ dependencies = [
  "skillet_datadog",
  "skillet_homeassistant",
  "skillet_hosts",
+ "skillet_joplin",
  "skillet_nut",
  "skillet_podman",
+ "skillet_postgres",
  "skillet_smtp",
  "skillet_syncthing",
  "tempfile",
@@ -3809,6 +3819,7 @@ dependencies = [
  "skillet_hardening",
  "skillet_homeassistant",
  "skillet_homer",
+ "skillet_joplin",
  "skillet_mikochi",
  "skillet_network",
  "skillet_nut",
@@ -3901,6 +3912,7 @@ dependencies = [
 name = "skillet_postgres"
 version = "0.1.0"
 dependencies = [
+ "nix",
  "skillet_core",
  "skillet_podman",
  "thiserror 1.0.69",
@@ -3985,6 +3997,7 @@ dependencies = [
  "skillet_ddns",
  "skillet_homeassistant",
  "skillet_hosts",
+ "skillet_joplin",
  "skillet_network",
  "skillet_pihole",
  "skillet_smtp",

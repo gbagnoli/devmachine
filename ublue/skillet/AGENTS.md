@@ -219,7 +219,8 @@ skillet/
     ├── cli/            # Workstation and guest CLI entry point
     └── hosts/
         ├── clamps/     # skillet-clamps host entry point
-        └── joey/  # skillet-joey host entry point
+        ├── donbot/     # skillet-donbot host entry point
+        └── joey/       # skillet-joey host entry point
 ```
 
 ## Module Design

@@ -66,6 +66,15 @@ Native accounts are created during HTTPS onboarding. Backup automation starts af
 
 Private static service dashboard generated from the host's declared UI services. No vault entries currently required. [Setup](ublue/skillet/crates/homer/README.md).
 
+## Joplin
+
+Dedicated PostgreSQL password is generated once and stored in KeePassXC before delivery. The Joplin UI is registered from the host declaration and appears in Homer. [Setup and backup/restore](ublue/skillet/crates/joplin/README.md).
+
+| Entry | Status | Fields / how to obtain them |
+| --- | --- | --- |
+| `skillet/environments/prod/hosts/<host>/joplin/database-password` | Generated | Password = Skillet-generated dedicated Joplin database password. Skillet uses the existing value or creates it before delivery. If the host already has an encrypted credential but this entry is missing, restore the KeePassXC value; Skillet will not replace it. |
+| `skillet/environments/test/hosts/<host>/instances/<instance>/joplin/database-password` | Generated | Password = Skillet-generated disposable Joplin database password, scoped to this test VM instance. It remains in KeePassXC after VM destruction until you remove the instance entry. |
+
 ## Mikochi
 
 No application password; uses the shared Tailnet UI allowlist. [Setup](ublue/skillet/crates/mikochi/README.md).

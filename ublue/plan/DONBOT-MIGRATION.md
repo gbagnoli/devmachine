@@ -1,10 +1,13 @@
 # Calculon → donbot migration
 
-Status: **inventory first**, source/profile review refreshed 2026-10-16. Source
-inventory is complete; private/live inventory and donbot implementation remain
-pending. Shared file browsing and identity authorization are implemented for
-clamps/joey; operator browser acceptance exists for clamps, not donbot. Encrypted
-Pi-hole v6 custom DNS delivery is also implemented. Read
+Status: **Joplin implementation in progress**, source/profile review refreshed
+2026-10-16. Inventory is complete. Donbot profile, binary, VM Butane template,
+Joplin caller, generated KeePass credential delivery, Homer registration, and
+nightly PostgreSQL backup/restore commands are implemented; named-VM and
+restore acceptance remain pending. Shared file browsing and identity
+authorization are implemented for clamps/joey; operator browser acceptance
+exists for clamps, not donbot. Encrypted Pi-hole v6 custom DNS delivery is also
+implemented. Read
 [DONBOT-INVENTORY.md](DONBOT-INVENTORY.md) before changing code. Follow the
 [refactoring roadmap](SKILLET-REFACTOR.md) and keep its parked acceptance visible;
 this plan does not close those gates or claim fresh donbot acceptance.
@@ -21,10 +24,10 @@ Wanderer and Openclaw.
 Reuse the existing fleet baseline. Do not port Chef host/Podman setup. Only add
 OS image packages where an actual service requires them; applications stay in
 rootful containers. `ucore-images/recipes/ucore-donbot.yml` exists as a thin image;
-a donbot profile/binary/Butane configuration does not exist yet. Do not clone
+the local Skillet profile/binary and VM-only Butane template now select it. Do not clone
 clamps-specific service choices such as UniFi or Home Assistant.
-The shared Homer dashboard is selected by the fleet baseline and will join
-donbot when its profile is created; it is not deployed to donbot yet.
+The shared Homer dashboard is selected by the fleet baseline. Its generated
+links now include every declared UI site, including Joplin.
 
 Accepted access requirements: former OAuth-protected UIs become tailnet-only;
 Plex/Jellyfin are reachable publicly without a tailnet client; mixed services
@@ -41,12 +44,12 @@ Architecture constraints and proposals are in
 | Prowlarr, Radarr, Sonarr, Lidarr, putioarr | Media composition, persistent mounts, credential delivery, private UIs, safe import/cleanup and module-owned monitoring |
 | Jellyfin and Plex | Service configuration/state restore, public HTTPS ingress, client acceptance; Jellyfin Caddy cache per its plan |
 | Gokapi | Mixed ingress, verified identity-to-account mapping, exact public routes and coordinated state restore |
-| Joplin / Airtrail (required) | PostgreSQL/Joplin container modules exist but are not selected by a host profile; credential delivery, logical backup/restore, AirTrail upload consistency and explicit access policy remain |
+| Joplin / Airtrail (required) | Joplin caller and reusable PostgreSQL module, per-host generated password, UI/Homer registration and logical backup/restore are implemented; named-VM round trip and real client sync remain. AirTrail and paired upload consistency remain |
 | Conditional Pi-hole synchronization | Confirm current use; add explicit optional module only if retained; static DNS inventory is already shared |
 
-No Donbot host-profile integration, PostgreSQL backup lifecycle, AirTrail or
-media/Gokapi implementation exists in Skillet. The reusable PostgreSQL and
-Joplin container crates have been added but are not yet wired to a caller.
+Donbot baseline and Joplin are wired to the canonical host profile. PostgreSQL
+backup acceptance and real Joplin client sync remain open. AirTrail, media and
+Gokapi implementations are not yet present in Skillet.
 Donbot does not select DDNS. Joplin retains native authentication behind private HTTPS; Arr uses
 verified tailnet-user authentication. Airtrail should use the same tailnet-user
 authentication where supported; its account integration and API needs require inventory. UniFi, NUT and Home Assistant are not
@@ -92,9 +95,12 @@ finish public ingress before private services. Use this dependency order:
    Sonarr/Radarr/Lidarr and putioarr automatically. Prove connection tests and a
    harmless import with no second browser login. Evaluate optional Usenet client
    separately; no provider purchase or transport removal is implied.
-3. **Shared PostgreSQL and Joplin (slice 7):** add reusable database credentials,
-   readiness and logical backup/restore, then private HTTPS Joplin with native
-   login. Exit on real mobile/desktop note and attachment sync plus isolated restore.
+3. **Shared PostgreSQL and Joplin (slice 7):** database credential delivery,
+   private HTTPS Joplin, Homer registration and scheduled logical backup/restore
+   are implemented. Exit on a named VM backup/restore round trip and real
+   mobile/desktop note and attachment sync with native login.
+   The 2026-10-20 VM attempt stopped before artifact creation because this
+   workstation has no `/dev/kvm`; retry from a KVM-enabled host.
 4. **Airtrail (slice 7):** reuse PostgreSQL; configure canonical origin, uploads
    and selected external integrations. Verify whether supported authentication
    can reuse tailnet identity; otherwise retain native login behind the gate.

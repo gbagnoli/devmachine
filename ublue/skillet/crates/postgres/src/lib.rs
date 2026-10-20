@@ -13,6 +13,12 @@ use skillet_podman::{
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
+pub mod backup;
+
+#[cfg(test)]
+#[path = "tests.rs"]
+mod tests;
+
 pub const DEFAULT_IMAGE: &str = "docker.io/postgres:18";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -54,9 +60,12 @@ impl Config {
         ] {
             if value.is_empty()
                 || value.len() > 63
-                || !value
-                    .bytes()
-                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+                || !value.bytes().all(|byte| {
+                    byte.is_ascii_lowercase()
+                        || byte.is_ascii_digit()
+                        || byte == b'_'
+                        || byte == b'-'
+                })
             {
                 return Err(PostgresError::InvalidConfiguration(kind));
             }
@@ -97,6 +106,14 @@ pub enum PostgresError {
     Podman(#[from] PodmanError),
     #[error("invalid PostgreSQL {0} configuration")]
     InvalidConfiguration(&'static str),
+    #[error("PostgreSQL backup runtime I/O: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("PostgreSQL backup command failed")]
+    BackupCommand,
+    #[error("PostgreSQL restore command failed")]
+    RestoreCommand,
+    #[error("PostgreSQL service transition failed")]
+    ServiceCommand,
 }
 
 /// Converge one application-owned database. The caller selects identity,
