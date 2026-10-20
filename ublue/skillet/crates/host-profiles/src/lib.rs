@@ -667,7 +667,11 @@ fn apply_caddy_host(
                 name: site.name.clone(),
                 hostname: site.hostname.clone(),
                 path: (site.name == "pihole").then_some("/admin/"),
-                endpoint: (site.name == "pihole").then(|| format!("https://{}", site.hostname)),
+                // Homer fetches this relative endpoint from the current page origin.
+                // Caddy proxies the read-only Pi-hole widget API on that same host,
+                // avoiding a browser cross-origin request while retaining the
+                // dashboard's tailnet identity gate.
+                endpoint: (site.name == "pihole").then(|| "/pihole-api".to_string()),
                 service_type: match site.name.as_str() {
                     "homeassistant" if sites.homeassistant_api_token.is_some() => {
                         Some("HomeAssistant")
