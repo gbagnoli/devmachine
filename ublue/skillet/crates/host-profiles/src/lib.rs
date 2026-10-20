@@ -28,6 +28,7 @@ pub enum HostApplyPhase {
     Smtp,
     Network,
     PiholeDns,
+    Joplin,
 }
 
 pub fn credentials_for_phase(
@@ -57,6 +58,7 @@ fn credential_names_for_phase(profile: &HostProfile, phase: HostApplyPhase) -> V
                     | skillet_homeassistant::backup::UNIT
                     | skillet_pihole::dns::UNIT
                     | skillet_network::PREPARE_UNIT
+                    | "skillet-joplin-apply.service"
             ),
             HostApplyPhase::Caddy => consumer.unit == "caddy.service",
             HostApplyPhase::Ddns => consumer.unit == "cloudflare-ddns.service",
@@ -64,6 +66,10 @@ fn credential_names_for_phase(profile: &HostProfile, phase: HostApplyPhase) -> V
             HostApplyPhase::Smtp => consumer.unit == "postfix.service",
             HostApplyPhase::PiholeDns => consumer.unit == skillet_pihole::dns::UNIT,
             HostApplyPhase::Network => consumer.unit == skillet_network::PREPARE_UNIT,
+            HostApplyPhase::Joplin => {
+                consumer.credential == skillet_joplin::DATABASE_PASSWORD_CREDENTIAL
+                    || consumer.credential == CADDY_SITES_CREDENTIAL
+            }
             HostApplyPhase::Base => false,
         })
         .map(|consumer| consumer.credential)
@@ -116,6 +122,8 @@ pub enum ApplyError {
     Caddy(#[from] skillet_caddy::CaddyError),
     #[error(transparent)]
     Homer(#[from] skillet_homer::HomerError),
+    #[error(transparent)]
+    Joplin(#[from] skillet_joplin::JoplinError),
     #[error("DDNS apply error: {0}")]
     Ddns(#[from] skillet_ddns::DdnsError),
     #[error("Datadog apply error: {0}")]
@@ -389,7 +397,9 @@ fn apply_profile(
             | ServiceConfig::Smtp
             | ServiceConfig::Network(_)
             // Homer is rendered after the environment-specific Caddy sites are delivered.
-            | ServiceConfig::Homer => {}
+            | ServiceConfig::Homer
+            // Joplin needs the canonical Caddy site and its separately delivered credential.
+            | ServiceConfig::Joplin(_) => {}
             ServiceConfig::Pihole => {
                 apply_pihole(system, files, profile, service, credentials)?;
             }
@@ -515,7 +525,47 @@ pub fn apply_host_phase(
             )?;
             Ok(())
         }
+        HostApplyPhase::Joplin => apply_joplin_host(hostname, system, files, credentials),
     }
+}
+
+fn apply_joplin_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.into()))?;
+    let config = profile
+        .services
+        .iter()
+        .find_map(|service| match service.config {
+            ServiceConfig::Joplin(config) => Some(config),
+            _ => None,
+        })
+        .ok_or_else(|| ApplyError::FixtureInput("host does not declare Joplin".into()))?;
+    let services = profile.ui_services();
+    let sites = skillet_caddy::CaddySites::parse(
+        credentials.require(CADDY_SITES_CREDENTIAL)?,
+        hostname,
+        &services,
+    )?;
+    let base_url = sites
+        .services
+        .iter()
+        .find(|site| site.name == "joplin")
+        .map(|site| format!("https://{}/", site.hostname))
+        .ok_or_else(|| ApplyError::FixtureInput("Caddy configuration has no Joplin site".into()))?;
+    skillet_joplin::apply(
+        system,
+        files,
+        profile.id.as_str(),
+        config,
+        &base_url,
+        credentials.require(skillet_joplin::DATABASE_PASSWORD_CREDENTIAL)?,
+    )?;
+    Ok(())
 }
 
 fn apply_ddns_host(

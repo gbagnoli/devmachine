@@ -8,6 +8,8 @@ workspace = true
 
 [dependencies]
 skillet_homeassistant.workspace = true
+skillet_joplin.workspace = true
+skillet_postgres.workspace = true
 skillet_syncthing.workspace = true
 skillet_podman.workspace = true
 nix.workspace = true

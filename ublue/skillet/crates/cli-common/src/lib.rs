@@ -17,6 +17,7 @@ pub mod version;
 pub use metrics::{run_metrics, MetricsCommands};
 pub mod homeassistant_runtime;
 pub mod host_ui_proxy;
+pub mod postgres_runtime;
 mod smtp_runtime;
 pub mod syncthing_runtime;
 use hosts::ApplyPhase;
@@ -71,6 +72,11 @@ pub enum HostCommands {
     Homeassistant {
         #[command(subcommand)]
         command: homeassistant_runtime::Commands,
+    },
+    /// Back up or restore one host-owned PostgreSQL application database
+    Postgres {
+        #[command(subcommand)]
+        command: postgres_runtime::Commands,
     },
     UiProxy {
         #[command(subcommand)]
@@ -158,6 +164,7 @@ where
 
     match args.command {
         HostCommands::Homeassistant { command } => homeassistant_runtime::dispatch(&command),
+        HostCommands::Postgres { command } => postgres_runtime::dispatch(command),
         HostCommands::UiProxy { command } => host_ui_proxy::dispatch(command),
         HostCommands::Syncthing { command } => syncthing_runtime::dispatch(command),
         HostCommands::Metrics { command } => run_metrics(command),
@@ -221,6 +228,7 @@ where
         ApplyPhase::Smtp => skillet_hosts::HostApplyPhase::Smtp,
         ApplyPhase::PiholeDns => skillet_hosts::HostApplyPhase::PiholeDns,
         ApplyPhase::Network => skillet_hosts::HostApplyPhase::Network,
+        ApplyPhase::Joplin => skillet_hosts::HostApplyPhase::Joplin,
     };
     if phase == skillet_hosts::HostApplyPhase::Network && record_path.is_some() {
         return Err(CliCommonError::Config(

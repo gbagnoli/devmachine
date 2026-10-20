@@ -1,0 +1,42 @@
+variant: fcos
+version: 1.6.0
+# VM-only layout: physical installs must choose and verify their target disk.
+ignition:
+  config:
+    merge:
+      - local: includes/passwd.bu
+      - local: includes/zram.bu
+      - local: includes/resolver.bu
+      - local: includes/data-storage.bu
+      - local: includes/brew.bu
+      - local: includes/skillet.bu
+      - local: includes/skillet-donbot.bu
+      - local: includes/skillet-full.bu
+      - local: includes/ucore-bootstrap.bu
+      - local: includes/ucore-donbot.bu
+storage:
+  disks:
+    - device: /dev/vda
+      wipe_table: false
+      partitions:
+        - number: 4
+          label: root
+          size_mib: 0
+          resize: true
+  filesystems:
+    - device: /dev/disk/by-partlabel/root
+      wipe_filesystem: true
+      format: btrfs
+      label: root
+  links:
+    - path: /etc/localtime
+      target: ../usr/share/zoneinfo/Europe/Madrid
+  files:
+    - path: /etc/skillet/host
+      mode: 0644
+      contents:
+        inline: donbot
+    - path: /etc/hostname
+      mode: 0644
+      contents:
+        inline: donbot

@@ -45,3 +45,26 @@ fn interrupted_unit_reload_is_retried_and_native_callers_keep_their_credential()
         .unwrap()
         .contains_key("daemon-reload"));
 }
+
+#[test]
+fn joplin_apply_unit_loads_only_its_password_and_caddy_site_credentials() {
+    let profile = crate::profile_for_name("donbot").expect("Donbot profile");
+    let system = MockSystem::new();
+    let files = MockFiles::new();
+    install(&system, &files, &profile).unwrap();
+    let units = files.files.lock().unwrap();
+    let content =
+        String::from_utf8(units["/etc/systemd/system/skillet-joplin-apply.service"].clone())
+            .unwrap();
+    assert!(content.contains(
+        "LoadCredentialEncrypted=caddy_sites:/etc/credstore.encrypted/skillet/caddy_sites.cred"
+    ));
+    assert!(content.contains("LoadCredentialEncrypted=joplin_postgres_password:/etc/credstore.encrypted/skillet/joplin_postgres_password.cred"));
+    assert!(content.contains("skillet-donbot apply --host-file /etc/skillet/host --phase joplin"));
+    assert!(units.contains_key("/etc/systemd/system/skillet-joplin-apply.service"));
+    assert!(system
+        .services
+        .lock()
+        .unwrap()
+        .contains_key("skillet-joplin-apply.service"));
+}

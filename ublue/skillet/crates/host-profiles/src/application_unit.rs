@@ -48,6 +48,35 @@ pub(super) fn install(
         system.daemon_reload()?;
         files.ensure_file(&state, unit.as_bytes(), Some(0o644), &root)?;
     }
+    install_joplin(system, files, profile)?;
+    Ok(())
+}
+
+fn install_joplin(
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    profile: &HostProfile,
+) -> Result<(), ApplyError> {
+    if !profile.supports_service("joplin") {
+        return Ok(());
+    }
+    let path = Path::new("/etc/systemd/system/skillet-joplin-apply.service");
+    let root = Ownership::named(Some("root"), Some("root"));
+    let unit = format!(
+        "[Unit]\nDescription=Apply the declared Joplin service\nAfter=skillet-apply.service\nRequires=skillet-apply.service\nRequiresMountsFor=/var/lib/data\nConditionPathExists=/etc/credstore.encrypted/skillet/{}.cred\nConditionPathExists=/etc/credstore.encrypted/skillet/{}.cred\n[Service]\nType=oneshot\nLoadCredentialEncrypted={}:/etc/credstore.encrypted/skillet/{}.cred\nLoadCredentialEncrypted={}:/etc/credstore.encrypted/skillet/{}.cred\nExecStart=/var/usrlocal/bin/skillet-{} apply --host-file /etc/skillet/host --phase joplin\n[Install]\nWantedBy=multi-user.target\n",
+        crate::CADDY_SITES_CREDENTIAL,
+        skillet_joplin::DATABASE_PASSWORD_CREDENTIAL,
+        crate::CADDY_SITES_CREDENTIAL,
+        crate::CADDY_SITES_CREDENTIAL,
+        skillet_joplin::DATABASE_PASSWORD_CREDENTIAL,
+        skillet_joplin::DATABASE_PASSWORD_CREDENTIAL,
+        profile.id.as_str(),
+    );
+    let changed = files.ensure_file(path, unit.as_bytes(), Some(0o644), &root)?;
+    if changed {
+        system.daemon_reload()?;
+    }
+    system.service_enable("skillet-joplin-apply.service")?;
     Ok(())
 }
 

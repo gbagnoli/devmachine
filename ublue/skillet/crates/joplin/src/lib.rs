@@ -15,6 +15,9 @@ use thiserror::Error;
 pub const DEFAULT_IMAGE: &str = "docker.io/joplin/server:latest";
 pub const DATABASE_PASSWORD_CREDENTIAL: &str = "joplin_postgres_password";
 pub const PORT: u16 = 22_300;
+pub const BACKUP_KEEP: usize = 7;
+pub const BACKUP_TIMER: &str = "skillet-postgres-joplin-backup.timer";
+pub const BACKUP_SERVICE: &str = "skillet-postgres-joplin-backup.service";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Config {
@@ -22,6 +25,10 @@ pub struct Config {
     pub network_name: &'static str,
     pub database_path: &'static str,
     pub postgres_data_container_path: &'static str,
+    pub backup_path: &'static str,
+    pub backup_subvolume: &'static str,
+    pub backup_owner: &'static str,
+    pub backup_group: &'static str,
 }
 
 impl Config {
@@ -48,6 +55,21 @@ impl Config {
         if self.network_name.is_empty() || self.image.trim().is_empty() {
             return Err(JoplinError::InvalidConfiguration("network or image"));
         }
+        let subvolume = std::path::Path::new(self.backup_subvolume);
+        let backup_path = std::path::Path::new(self.backup_path);
+        let relative = backup_path
+            .strip_prefix(subvolume)
+            .map_err(|_| JoplinError::InvalidConfiguration("backup path"))?;
+        if !subvolume.is_absolute()
+            || relative.as_os_str().is_empty()
+            || relative
+                .components()
+                .any(|part| !matches!(part, std::path::Component::Normal(_)))
+            || self.backup_owner.is_empty()
+            || self.backup_group.is_empty()
+        {
+            return Err(JoplinError::InvalidConfiguration("backup path or owner"));
+        }
         Ok(())
     }
 }
@@ -70,6 +92,7 @@ pub enum JoplinError {
 pub fn apply<S, F>(
     system: &S,
     files: &F,
+    host: &str,
     config: Config,
     base_url: &str,
     database_password: &str,
@@ -79,8 +102,15 @@ where
     F: FileMutationResource + FileReadResource + StorageResource + ?Sized,
 {
     config.validate(base_url)?;
+    files.require_btrfs_subvolume_mount(
+        std::path::Path::new("/var/lib/data"),
+        std::path::Path::new("/var"),
+        "/data",
+    )?;
+    files.require_btrfs_subvolume(std::path::Path::new(config.backup_subvolume))?;
     let postgres = config.postgres();
     skillet_postgres::apply(system, files, postgres, database_password)?;
+    skillet_postgres::backup::install(system, files, host, &backup_config(config))?;
 
     let mut extra_config = BTreeMap::new();
     extra_config.insert(
@@ -145,4 +175,20 @@ where
     )?;
 
     Ok(())
+}
+
+#[must_use]
+pub fn backup_config(config: Config) -> skillet_postgres::backup::Config {
+    skillet_postgres::backup::Config {
+        instance: "joplin",
+        database: "joplin",
+        username: "joplin",
+        container: "postgresql-joplin",
+        application_unit: "joplin-server.service",
+        backup_path: config.backup_path,
+        backup_subvolume: config.backup_subvolume,
+        owner: config.backup_owner,
+        group: config.backup_group,
+        keep: BACKUP_KEEP,
+    }
 }
