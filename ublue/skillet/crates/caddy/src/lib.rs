@@ -339,6 +339,21 @@ impl CaddySites {
                     // The Homer image contains its static assets. Only its generated
                     // config is served from the host, after the identity gate.
                     config.push_str("        @homer_config path /assets/config.yml\n        root @homer_config /etc/skillet/homer\n        header @homer_config Cache-Control no-store\n        file_server @homer_config\n");
+                    if let Some(pihole) = self.services.iter().find(|site| site.name == "pihole") {
+                        let upstream = match pihole.transport {
+                            UpstreamTransport::Bridge => {
+                                format!("{}:{}", pihole.upstream, pihole.port)
+                            }
+                            UpstreamTransport::HostLoopback => {
+                                format!("unix//run/skillet-ui-host/{}.sock", pihole.name)
+                            }
+                        };
+                        config.push_str(
+                            "        @homer_pihole_api {\n            method GET\n            path /pihole-api/api/stats/summary /pihole-api/api/dns/blocking\n        }\n        handle @homer_pihole_api {\n            uri strip_prefix /pihole-api\n",
+                        );
+                        let _ = writeln!(config, "            reverse_proxy {upstream} {{\n                header_up Host pi.hole\n                header_up Origin http://pi.hole\n                header_down -Access-Control-Allow-Origin\n            }}");
+                        config.push_str("        }\n");
+                    }
                 }
                 let _ = writeln!(
                     config,

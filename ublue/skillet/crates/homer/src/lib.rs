@@ -87,14 +87,7 @@ pub fn render(host: &str, links: &[Link]) -> Result<String, HomerError> {
                     service_type: link.service_type,
                     logo: link.logo,
                     api_version: link.api_version,
-                    // Pi-hole v6 still expects the auth request to contain a
-                    // password field when password auth is disabled. An explicit
-                    // empty value lets its API issue a session; omitting `apikey`
-                    // makes Homer send `{}` and Pi-hole answers 400.
-                    api_key: link.api_key.as_deref().or_else(|| {
-                        (link.service_type == Some("PiHole") && link.api_version == Some(6))
-                            .then_some("")
-                    }),
+                    api_key: link.api_key.as_deref(),
                 })
                 .collect(),
         }])?,

@@ -154,7 +154,7 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
             name: "pihole".into(),
             upstream: "pihole".into(),
             transport: crate::UpstreamTransport::Bridge,
-            port: 80,
+            port: 8088,
             aliases: Vec::new(),
             tailnet_identity: true,
             anonymous_token_refresh: false,
@@ -198,6 +198,9 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
     }
     assert!(rendered.contains("header_up Host pi.hole"));
     assert!(rendered.contains("header_up Origin http://pi.hole"));
+    assert!(rendered.contains("@homer_pihole_api {\n            method GET\n            path /pihole-api/api/stats/summary /pihole-api/api/dns/blocking\n        }"));
+    assert!(rendered.contains("uri strip_prefix /pihole-api"));
+    assert!(rendered.contains("reverse_proxy pihole:8088"));
     assert!(rendered.contains("Access-Control-Allow-Methods \"GET, POST, OPTIONS\""));
     assert!(rendered.contains("Access-Control-Allow-Methods \"GET, OPTIONS\""));
     assert!(

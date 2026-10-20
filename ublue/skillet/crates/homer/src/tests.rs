@@ -1,14 +1,14 @@
 use super::{render, Link};
 
 #[test]
-fn pihole_dashboard_link_and_api_endpoint_can_use_different_paths() {
+fn pihole_dashboard_uses_same_origin_api_proxy() {
     let config = render(
         "clamps",
         &[Link {
             name: "pihole".into(),
             hostname: "pihole.clamps.private.example.invalid".into(),
             path: Some("/admin/"),
-            endpoint: Some("https://pihole.clamps.private.example.invalid".into()),
+            endpoint: Some("/pihole-api".into()),
             service_type: Some("PiHole"),
             logo: None,
             api_version: Some(6),
@@ -18,7 +18,7 @@ fn pihole_dashboard_link_and_api_endpoint_can_use_different_paths() {
     .unwrap();
 
     assert!(config.contains("url: https://pihole.clamps.private.example.invalid/admin/"));
-    assert!(config.contains("endpoint: https://pihole.clamps.private.example.invalid"));
+    assert!(config.contains("endpoint: /pihole-api"));
     assert!(config.contains("apiVersion: 6"));
-    assert!(config.contains("apikey: ''") || config.contains("apikey: \"\""));
+    assert!(!config.contains("apikey:"));
 }
