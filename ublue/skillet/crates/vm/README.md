@@ -157,3 +157,16 @@ Large application images can exceed the source FCOS disk capacity. For an existi
 disposable run, `--grow-disk 64` grows its owned virtual disk to 64 GiB (never
 shrinks); the guest partition and filesystem still need explicit expansion through
 an owned guest assertion. This does not change physical installation storage.
+
+The stock QEMU source image is 10 GiB. For application-heavy acceptance on the
+plain-root profile, grow the owned disk, then expand the data partition and its
+Btrfs filesystem through the same ownership-checked helper:
+
+```sh
+cargo run -p skillet_vm --example guest_command -- "$PWD/../butane" HOST INSTANCE --grow-disk 64
+cargo run -p skillet_vm --example guest_command -- "$PWD/../butane" HOST INSTANCE /usr/bin/sudo -n /usr/bin/growpart /dev/vda 4
+cargo run -p skillet_vm --example guest_command -- "$PWD/../butane" HOST INSTANCE /usr/bin/sudo -n /usr/bin/btrfs filesystem resize max /var/lib/data
+```
+
+These guest device paths apply only to the disposable QEMU plain-root layout;
+never copy them into physical installation commands.
