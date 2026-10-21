@@ -174,6 +174,9 @@ fn successful_runtime_state_remains_a_valid_execution_proof() {
         calls: RefCell::default(),
     };
     activate(&guest, "skillet-full-apply.service").unwrap();
+    let initial_cursor_query = guest.calls.borrow();
+    assert!(initial_cursor_query[0].contains(&"--show-cursor".to_string()));
+    assert!(!initial_cursor_query[0].contains(&"-u".to_string()));
     assert!(!guest.calls.borrow().iter().any(|arguments| {
         arguments
             .iter()

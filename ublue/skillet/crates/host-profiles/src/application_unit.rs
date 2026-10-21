@@ -63,7 +63,7 @@ fn install_joplin(
     let path = Path::new("/etc/systemd/system/skillet-joplin-apply.service");
     let root = Ownership::named(Some("root"), Some("root"));
     let unit = format!(
-        "[Unit]\nDescription=Apply the declared Joplin service\nAfter=skillet-apply.service\nRequires=skillet-apply.service\nRequiresMountsFor=/var/lib/data\nConditionPathExists=/etc/credstore.encrypted/skillet/{}.cred\nConditionPathExists=/etc/credstore.encrypted/skillet/{}.cred\n[Service]\nType=oneshot\nLoadCredentialEncrypted={}:/etc/credstore.encrypted/skillet/{}.cred\nLoadCredentialEncrypted={}:/etc/credstore.encrypted/skillet/{}.cred\nExecStart=/var/usrlocal/bin/skillet-{} apply --host-file /etc/skillet/host --phase joplin\n[Install]\nWantedBy=multi-user.target\n",
+        "[Unit]\nDescription=Apply the declared Joplin service\nAfter=skillet-apply.service\nRequires=skillet-apply.service\nRequiresMountsFor=/var/lib/data\nConditionPathExists=/etc/credstore.encrypted/skillet/{}.cred\nConditionPathExists=/etc/credstore.encrypted/skillet/{}.cred\n[Service]\nType=oneshot\nLoadCredentialEncrypted={}:/etc/credstore.encrypted/skillet/{}.cred\nLoadCredentialEncrypted={}:/etc/credstore.encrypted/skillet/{}.cred\nExecStart=/var/usrlocal/bin/skillet-{} apply --phase joplin\n[Install]\nWantedBy=multi-user.target\n",
         crate::CADDY_SITES_CREDENTIAL,
         skillet_joplin::DATABASE_PASSWORD_CREDENTIAL,
         crate::CADDY_SITES_CREDENTIAL,

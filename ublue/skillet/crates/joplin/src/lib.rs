@@ -6,7 +6,7 @@ use skillet_core::system::{
 };
 use skillet_podman::{
     self, MountDependency, NetworkAttachment, PodmanConfig, PodmanError, ProcessIdentity,
-    QuadletSecret, SecretTarget, Volume,
+    QuadletSecret, SecretTarget,
 };
 use skillet_postgres::{self, Config as PostgresConfig, PostgresError};
 use std::collections::BTreeMap;
@@ -131,7 +131,13 @@ where
             ),
         ],
     );
-    extra_config.insert("Service".to_string(), vec!["Restart=always".to_string()]);
+    extra_config.insert(
+        "Service".to_string(),
+        vec![
+            "Restart=always".to_string(),
+            "TimeoutStartSec=10min".to_string(),
+        ],
+    );
     extra_config.insert(
         "Unit".to_string(),
         vec![
@@ -156,13 +162,7 @@ where
             storage_dependency: Some(MountDependency::shared_service_data()),
             process_identity: ProcessIdentity::ImageDefault,
             namespace_mapping: None,
-            volumes: vec![Volume {
-                host_path: "/etc/localtime".to_string(),
-                container_path: "/etc/localtime".to_string(),
-                options: Some("ro".to_string()),
-                host_mode: None,
-                host_ownership: None,
-            }],
+            volumes: Vec::new(),
             secrets: vec![QuadletSecret {
                 secret_name: postgres.password_secret(),
                 target: SecretTarget::Environment {
@@ -192,3 +192,7 @@ pub fn backup_config(config: Config) -> skillet_postgres::backup::Config {
         keep: BACKUP_KEEP,
     }
 }
+
+#[cfg(test)]
+#[path = "tests.rs"]
+mod tests;
