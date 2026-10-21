@@ -138,6 +138,9 @@ fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
     assert!(rendered.contains("reverse_proxy syncthing:8384"));
     assert!(rendered
         .contains("respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403"));
+    assert!(rendered.contains(
+        "respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403\n        reverse_proxy pihole:8088"
+    ));
     assert_eq!(
         rendered
             .matches("respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403")

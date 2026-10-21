@@ -289,7 +289,7 @@ fn render_site(
 ) -> String {
     use std::fmt::Write as _;
 
-    let mut config = format!("\n{hostname} {{\n    tls {{\n        resolvers 1.1.1.1 1.0.0.1\n    }}\n    route {{\n        @outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48\n        respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403");
+    let mut config = format!("\n{hostname} {{\n    tls {{\n        resolvers 1.1.1.1 1.0.0.1\n    }}\n    route {{\n        @outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48\n        respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403\n");
     if service.tailnet_identity {
         render_identity_policy(&mut config, service, hostname, homer_origins);
         if service.anonymous_token_refresh {
