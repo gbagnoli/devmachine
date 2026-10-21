@@ -73,6 +73,8 @@ impl Config {
         let data_path = Path::new(self.data_path);
         if !data_path.is_absolute()
             || data_path == Path::new("/")
+            || !data_path.starts_with("/var/lib/data")
+            || data_path == Path::new("/var/lib/data")
             || data_path
                 .components()
                 .any(|component| matches!(component, std::path::Component::ParentDir))
@@ -136,6 +138,14 @@ where
 
     let data_path = PathBuf::from(config.data_path);
     files.require_btrfs_subvolume_mount(Path::new("/var/lib/data"), Path::new("/var"), "/data")?;
+    let parent = data_path
+        .parent()
+        .ok_or(PostgresError::InvalidConfiguration("data path"))?;
+    files.ensure_directory(
+        parent,
+        Some(0o755),
+        &Ownership::named(Some("root"), Some("root")),
+    )?;
     files.ensure_btrfs_subvolume(&data_path)?;
     files.ensure_directory(
         &data_path,
