@@ -86,7 +86,7 @@ pub fn run<A: Actions>(profile: &HostProfile, actions: &mut A) -> Result<(), A::
 /// inactive oneshots before a follow-up SSH query, so retain a journal cursor and
 /// use the manager's completion event as execution evidence when runtime fields vanish.
 pub fn activate(guest: &impl GuestTransport, unit: &str) -> skillet_vm::Result<()> {
-    let cursor = journal_cursor(guest, unit)?;
+    let cursor = journal_cursor(guest)?;
     let started = guest.execute(
         &GuestCommand {
             program: "/usr/bin/sudo",
@@ -131,20 +131,11 @@ pub fn activate(guest: &impl GuestTransport, unit: &str) -> skillet_vm::Result<(
     )))
 }
 
-fn journal_cursor(guest: &impl GuestTransport, unit: &str) -> skillet_vm::Result<String> {
+fn journal_cursor(guest: &impl GuestTransport) -> skillet_vm::Result<String> {
     let output = guest.execute(
         &GuestCommand {
             program: "/usr/bin/sudo",
-            arguments: &[
-                "-n",
-                "journalctl",
-                "-u",
-                unit,
-                "--no-pager",
-                "-n",
-                "0",
-                "--show-cursor",
-            ],
+            arguments: &["-n", "journalctl", "--no-pager", "-n", "0", "--show-cursor"],
         },
         None,
     )?;

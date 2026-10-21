@@ -60,7 +60,8 @@ fn joplin_apply_unit_loads_only_its_password_and_caddy_site_credentials() {
         "LoadCredentialEncrypted=caddy_sites:/etc/credstore.encrypted/skillet/caddy_sites.cred"
     ));
     assert!(content.contains("LoadCredentialEncrypted=joplin_postgres_password:/etc/credstore.encrypted/skillet/joplin_postgres_password.cred"));
-    assert!(content.contains("skillet-donbot apply --host-file /etc/skillet/host --phase joplin"));
+    assert!(content.contains("skillet-donbot apply --phase joplin"));
+    assert!(!content.contains("--host-file"));
     assert!(units.contains_key("/etc/systemd/system/skillet-joplin-apply.service"));
     assert!(system
         .services

@@ -11,3 +11,6 @@ skillet_core.workspace = true
 skillet_podman.workspace = true
 skillet_postgres.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+skillet_core = { workspace = true, features = ["test-utils"] }
