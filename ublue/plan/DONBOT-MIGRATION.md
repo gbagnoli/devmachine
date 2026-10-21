@@ -1,10 +1,13 @@
 # Calculon → donbot migration
 
-Status: **Joplin implementation in progress**, source/profile review refreshed
+Status: **Joplin implementation and disposable backup/restore acceptance are
+complete; client acceptance remains open**, source/profile review refreshed
 2026-10-16. Inventory is complete. Donbot profile, binary, VM Butane template,
 Joplin caller, generated KeePass credential delivery, Homer registration, and
-nightly PostgreSQL backup/restore commands are implemented; named-VM and
-restore acceptance remain pending. Shared file browsing and identity
+nightly PostgreSQL backup/restore commands are implemented. A named VM verified
+the Joplin service, staging certificate, scheduled backup service, and a
+database restore round trip. Authorized tailnet browser/client acceptance and
+cleanup of that disposable VM remain pending. Shared file browsing and identity
 authorization are implemented for clamps/joey; operator browser acceptance
 exists for clamps, not donbot. Encrypted Pi-hole v6 custom DNS delivery is also
 implemented. Read
@@ -44,12 +47,13 @@ Architecture constraints and proposals are in
 | Prowlarr, Radarr, Sonarr, Lidarr, putioarr | Media composition, persistent mounts, credential delivery, private UIs, safe import/cleanup and module-owned monitoring |
 | Jellyfin and Plex | Service configuration/state restore, public HTTPS ingress, client acceptance; Jellyfin Caddy cache per its plan |
 | Gokapi | Mixed ingress, verified identity-to-account mapping, exact public routes and coordinated state restore |
-| Joplin / Airtrail (required) | Joplin caller and reusable PostgreSQL module, per-host generated password, UI/Homer registration and logical backup/restore are implemented; named-VM round trip and real client sync remain. AirTrail and paired upload consistency remain |
+| Joplin / Airtrail (required) | Joplin caller and reusable PostgreSQL module, per-host generated password, UI/Homer registration and logical backup/restore are implemented; disposable VM backup/restore passed, while authorized tailnet UI and real client sync remain. AirTrail and paired upload consistency remain |
 | Conditional Pi-hole synchronization | Confirm current use; add explicit optional module only if retained; static DNS inventory is already shared |
 
-Donbot baseline and Joplin are wired to the canonical host profile. PostgreSQL
-backup acceptance and real Joplin client sync remain open. AirTrail, media and
-Gokapi implementations are not yet present in Skillet.
+Donbot baseline and Joplin are wired to the canonical host profile. Disposable
+PostgreSQL backup/restore acceptance passed. Authorized tailnet UI and real
+Joplin client sync remain open. AirTrail, media and Gokapi implementations are
+not yet present in Skillet.
 Donbot does not select DDNS. Joplin retains native authentication behind private HTTPS; Arr uses
 verified tailnet-user authentication. Airtrail should use the same tailnet-user
 authentication where supported; its account integration and API needs require inventory. UniFi, NUT and Home Assistant are not

@@ -3493,3 +3493,30 @@ acceptance; no production host or private DNS values were committed.
 - This verifies Pi-hole v6 AAAA serving and Skillet's serialization path. The
   current LAN has no usable IPv6 host address, so client reachability over IPv6
   and assigning Pi-hole as an IPv6 client resolver remain untested/not enabled.
+
+## 2026-10-21 — Donbot Joplin and PostgreSQL disposable acceptance
+
+- The owned Donbot disposable VM was provisioned with Joplin and its dedicated
+  PostgreSQL service. Joplin's API ping returned HTTP 200 when probed inside the
+  container with its canonical host header. PostgreSQL and Joplin were active
+  after the restore cycle.
+- The first application pull exhausted Btrfs metadata on the stock 10 GiB test
+  disk. The VM's owned disk was grown to 64 GiB with the VM helper; its existing
+  data partition and Btrfs filesystem were expanded. No production disk or data
+  was involved.
+- The PostgreSQL backup timer was enabled and active. Starting its service
+  returned success and produced a custom-format archive. A synthetic table row
+  was changed after backup; restoring the selected archive recovered the
+  original value. The restore also wrote a pre-restore recovery archive. Three
+  archives remained, within the configured seven-archive retention limit.
+- Caddy served a Let's Encrypt staging certificate for the Joplin UI route. A
+  HTTPS request from this workstation received 403. This confirms the denial
+  boundary; the workstation had no local Tailscale daemon, so an authorized
+  tailnet client's successful proxy request and Joplin mobile/desktop sync were
+  not tested.
+- `cargo fmt --all -- --check`, targeted offline tests for Caddy, workstation,
+  host profiles, PostgreSQL, and Joplin (202 passed; two container-dependent
+  tests were ignored), and targeted strict Clippy all passed.
+- The disposable VM remains running with its external DNS/Tailscale ownership
+  journals intact. Cleanup requires an unlocked KeePassXC vault so provider
+  resources can be removed through the normal lifecycle.
