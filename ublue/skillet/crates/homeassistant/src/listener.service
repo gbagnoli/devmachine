@@ -1,0 +1,11 @@
+[Unit]
+Description=Protect the Home Assistant host HTTP listener
+Before=homeassistant.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/skillet/homeassistant/listener.nft
+
+[Install]
+WantedBy=multi-user.target

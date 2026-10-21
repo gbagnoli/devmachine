@@ -1,0 +1,38 @@
+[package]
+name = "skillet_cli_common"
+version.workspace = true
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+skillet_homeassistant.workspace = true
+skillet_joplin.workspace = true
+skillet_postgres.workspace = true
+skillet_syncthing.workspace = true
+skillet_podman.workspace = true
+nix.workspace = true
+sha2.workspace = true
+zeroize = "1.9"
+skillet_smtp.workspace = true
+skillet_nut.workspace = true
+skillet_datadog.workspace = true
+skillet_caddy.workspace = true
+skillet_core.workspace = true
+skillet_hosts.workspace = true
+clap.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yml.workspace = true
+tempfile.workspace = true
+
+[dev-dependencies]
+skillet_core = { workspace = true, features = ["test-utils"] }
+
+[build-dependencies]
+vergen-gix = { version = "10", default-features = false }
+gix = { version = "0.87", default-features = false, features = ["index"] }

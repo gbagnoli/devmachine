@@ -1,0 +1,75 @@
+# The script follows the booted rpm-ostree deployment, not a marker recording
+# that a rebase command was requested. A failed rebase stops until the next boot.
+variant: fcos
+version: 1.6.0
+storage:
+  directories:
+    - path: /var/lib/ucore-bootstrap
+      mode: 0755
+  files:
+    - path: /var/usrlocal/bin/ucore-rebase.sh
+      mode: 0755
+      contents:
+        inline: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          image="$(cat /etc/ucore-bootstrap-image)"
+          [[ "$image" =~ ^ghcr\.io/gbagnoli/ucore-[a-z0-9-]+$ ]] || {
+            echo "Invalid uCore image: $image" >&2
+            exit 1
+          }
+          unsigned="ostree-unverified-registry:$image:latest"
+          signed="ostree-image-signed:docker://$image:latest"
+          status="$(rpm-ostree status --json)"
+          booted="$(jq -r '.deployments[] | select(.booted) | .["container-image-reference"] // ""' <<< "$status")"
+          pending="$(jq -r '.deployments[0] | select(.booted == false) | .["container-image-reference"] // ""' <<< "$status")"
+          matches_image() {
+            local reference="$1" scheme="$2"
+            [[ "$reference" == "$scheme$image:latest" || "$reference" == "$scheme$image@sha256:"* ]]
+          }
+          if matches_image "$booted" 'ostree-image-signed:docker://'; then
+            rm -f /var/lib/ucore-bootstrap/reboot-attempts
+            touch /run/ucore-bootstrap-ready
+            echo "Booted signed uCore deployment: $booted"
+            exit 0
+          fi
+          if matches_image "$booted" 'ostree-unverified-registry:'; then
+            target="$signed"
+            target_scheme='ostree-image-signed:docker://'
+          else
+            target="$unsigned"
+            target_scheme='ostree-unverified-registry:'
+          fi
+          attempts_file=/var/lib/ucore-bootstrap/reboot-attempts
+          if ! matches_image "$pending" "$target_scheme"; then
+            rpm-ostree rebase --bypass-driver "$target"
+            echo 1 > "$attempts_file"
+          else
+            echo "Target already pending: $target"
+            attempts="$(cat "$attempts_file" 2>/dev/null || echo 0)"
+            if ((attempts >= 2)); then
+              echo "Pending deployment failed to boot after two attempts: $target" >&2
+              exit 1
+            fi
+            echo "$((attempts + 1))" > "$attempts_file"
+          fi
+          echo "Rebooting to $target"
+          systemctl reboot --no-block
+systemd:
+  units:
+    - name: ucore-bootstrap.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Boot through the configured signed uCore image
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Type=oneshot
+        ExecStart=/var/usrlocal/bin/ucore-rebase.sh
+        RemainAfterExit=yes
+        TimeoutStartSec=45min
+
+        [Install]
+        WantedBy=multi-user.target

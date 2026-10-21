@@ -1,0 +1,11 @@
+[package]
+name = "skillet-joey"
+version.workspace = true
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+skillet_cli_common.workspace = true
+anyhow = "1.0"
