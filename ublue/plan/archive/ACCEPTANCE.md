@@ -3517,6 +3517,48 @@ acceptance; no production host or private DNS values were committed.
 - `cargo fmt --all -- --check`, targeted offline tests for Caddy, workstation,
   host profiles, PostgreSQL, and Joplin (202 passed; two container-dependent
   tests were ignored), and targeted strict Clippy all passed.
-- The disposable VM remains running with its external DNS/Tailscale ownership
-  journals intact. Cleanup requires an unlocked KeePassXC vault so provider
-  resources can be removed through the normal lifecycle.
+- That Joplin-only disposable VM was subsequently destroyed through Skillet's
+  lifecycle command, which removed its external DNS/Tailscale ownership. A new
+  run with the same logical name was created on 2026-10-22; see the entry below.
+
+## 2026-10-22 — Donbot Joplin and AirTrail setup
+
+- Recreated the named Donbot disposable VM and provisioned the baseline, private
+  Caddy UI, Joplin, AirTrail, and one dedicated PostgreSQL container per app.
+  Caddy's test configuration uses the ACME staging CA. The provisioning flow
+  completed its non-tailnet denial check. Browser trust and authorized tailnet
+  client access remain for operator review.
+- The initial VM disk image was enlarged to 64 GiB, but its guest partition and
+  Btrfs filesystem were still 9.5 GiB. The Joplin image pull hit a Btrfs
+  no-space error. The guest partition and filesystem were expanded to use the
+  existing 64 GiB virtual disk, and idempotent provisioning completed.
+- Both application units and PostgreSQL containers are active and healthy; no
+  systemd units are failed. Joplin's `/api/ping` returned HTTP 200 when probed
+  internally with its canonical host header; AirTrail's root endpoint returned
+  HTTP 200. The Joplin PostgreSQL backup timer and AirTrail paired backup timer
+  are enabled.
+- The VM remains running for the operator's UI checks. Its test DNS, Cloudflare
+  token, and Tailscale ownership records are retained for normal Skillet cleanup
+  when the disposable run is destroyed. No real service data or production disk
+  was used.
+
+## 2026-10-22 — Donbot Joplin and AirTrail restore acceptance
+
+- Restored the latest available Calculon Joplin and AirTrail data into the
+  disposable Donbot VM. The source backups are compressed `pg_dumpall` SQL;
+  they are not directly consumable by Skillet's per-application restore, which
+  expects a PostgreSQL custom-format archive. Only the selected application
+  database sections were imported, preserving the VM's generated roles and
+  credentials. AirTrail's synchronized uploads were restored separately for
+  the initial import.
+- Exercised Skillet's normal PostgreSQL restore with a custom-format Joplin
+  archive. It created a pre-restore recovery archive, restored successfully,
+  and restarted Joplin. The restored database contains 3 users and 486 items.
+  The Joplin API ping returned HTTP 200 with its configured Host header; the
+  bare container-IP request returned 404 as expected.
+- Exercised AirTrail's paired restore from a complete Skillet backup set. It
+  created a pre-restore recovery set, restored the database and uploads, and
+  restarted the service. The restored database contains 1 user and 506 flights;
+  all 465 upload files are present. AirTrail's root endpoint returned HTTP 200.
+- Both app units are active, and `systemctl --failed` is empty. The VM remains
+  running for operator UI review. Calculon's source backups were not modified.
