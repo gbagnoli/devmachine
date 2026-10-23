@@ -1,8 +1,11 @@
 # Private Caddy UIs
 
 Host callers declare services, container upstreams and optional aliases. Names
-are `<service>.<host>.<ui-domain>`; Caddy serves HTTPS on port 443. Run Cargo
-commands from `ublue/skillet`.
+are `<service>.<host>.<ui-domain>`; Caddy publishes ports 80 and 443 over
+IPv4 and IPv6. For each configured hostname, Caddy redirects HTTP to HTTPS and
+adds an HSTS header with a one-year max age to HTTPS responses. HSTS is scoped
+to configured hostnames and does not include subdomains. Run Cargo commands from
+`ublue/skillet`.
 
 The shared [Homer dashboard](../homer/README.md) uses the machine name
 `<host>.<ui-domain>` and also has a zone-level `ui.<host>.<zone>` alias. Both use

@@ -289,7 +289,7 @@ fn render_site(
 ) -> String {
     use std::fmt::Write as _;
 
-    let mut config = format!("\n{hostname} {{\n    tls {{\n        resolvers 1.1.1.1 1.0.0.1\n    }}\n    route {{\n        @outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48\n        respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403\n");
+    let mut config = format!("\n{hostname} {{\n    tls {{\n        resolvers 1.1.1.1 1.0.0.1\n    }}\n    route {{\n        header Strict-Transport-Security \"max-age=31536000\"\n        @outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48\n        respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403\n");
     if service.tailnet_identity {
         render_identity_policy(&mut config, service, hostname, homer_origins);
         if service.anonymous_token_refresh {
@@ -679,16 +679,18 @@ where
         name: "caddy".to_string(),
         image: "ghcr.io/caddybuilds/caddy-cloudflare:2".to_string(),
         network_attachments: networks,
-        port_publications: ["::", "0.0.0.0"]
+        port_publications: [80, 443]
             .into_iter()
-            .map(|address| PortPublication {
-                host_address: match address {
-                    "::" => std::net::Ipv6Addr::UNSPECIFIED.into(),
-                    _ => std::net::Ipv4Addr::UNSPECIFIED.into(),
-                },
-                host_port: 443,
-                container_port: 443,
-                protocol: PortProtocol::Tcp,
+            .flat_map(|port| {
+                ["::", "0.0.0.0"].map(|address| PortPublication {
+                    host_address: match address {
+                        "::" => std::net::Ipv6Addr::UNSPECIFIED.into(),
+                        _ => std::net::Ipv4Addr::UNSPECIFIED.into(),
+                    },
+                    host_port: port,
+                    container_port: port,
+                    protocol: PortProtocol::Tcp,
+                })
             })
             .collect(),
         storage_dependency: Some(MountDependency::shared_service_data()),
