@@ -21,6 +21,8 @@ so an interrupted dump cannot appear complete. A restore rehearsal must use
 disposable state and the matching application/database versions.
 
 AirTrail uses the same PostgreSQL logical-backup mechanism. Its upload directory
-is additional application state and must be captured with the database as one
-coordinated restore set. Independent database and file timers are not a
-consistency guarantee.
+is additional application state and is captured with the database in one
+coordinated restore set. The app stops briefly while both parts are copied; the
+set is published atomically only after both are complete. Restore first creates
+a paired recovery set, then replaces both database and uploads. Independent
+database and file timers are not a consistency guarantee.

@@ -23,8 +23,9 @@ file is mode `0600` on the host and Caddy serves it only behind the tailnet
 identity gate. Anyone authorized to view the dashboard can inspect that API
 token in their browser, so keep the Homer allowlist limited to trusted users.
 
-Service logos are bundled in [`assets/`](assets/). Syncthing and Mikochi use
-their upstream logos, avoiding a runtime CDN dependency.
+Service artwork is bundled in [`assets/`](assets/). Syncthing and Mikochi use
+their upstream logos, avoiding a runtime CDN dependency. Joplin and AirTrail
+use Homer's built-in Font Awesome icons.
 
 Open the dashboard at `<host>.<ui-domain>`, the existing machine A/AAAA name.
 The zone-level `ui.<host>.<zone>` alias and canonical

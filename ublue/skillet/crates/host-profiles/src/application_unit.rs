@@ -48,35 +48,75 @@ pub(super) fn install(
         system.daemon_reload()?;
         files.ensure_file(&state, unit.as_bytes(), Some(0o644), &root)?;
     }
-    install_joplin(system, files, profile)?;
+    install_application(
+        system,
+        files,
+        profile,
+        "joplin",
+        "Joplin",
+        "joplin",
+        &[skillet_joplin::DATABASE_PASSWORD_CREDENTIAL],
+    )?;
+    install_application(
+        system,
+        files,
+        profile,
+        "airtrail",
+        "AirTrail",
+        "airtrail",
+        &[
+            skillet_airtrail::DATABASE_PASSWORD_CREDENTIAL,
+            skillet_airtrail::INTEGRATIONS_CREDENTIAL,
+        ],
+    )?;
     Ok(())
 }
 
-fn install_joplin(
+fn install_application(
     system: &dyn SystemResource,
     files: &dyn FileResource,
     profile: &HostProfile,
+    name: &str,
+    title: &str,
+    phase: &str,
+    application_credentials: &[&str],
 ) -> Result<(), ApplyError> {
-    if !profile.supports_service("joplin") {
+    if !profile.supports_service(name) {
         return Ok(());
     }
-    let path = Path::new("/etc/systemd/system/skillet-joplin-apply.service");
+    let unit_name = format!("skillet-{name}-apply.service");
+    let path = Path::new("/etc/systemd/system").join(&unit_name);
     let root = Ownership::named(Some("root"), Some("root"));
-    let unit = format!(
-        "[Unit]\nDescription=Apply the declared Joplin service\nAfter=skillet-apply.service\nRequires=skillet-apply.service\nRequiresMountsFor=/var/lib/data\nConditionPathExists=/etc/credstore.encrypted/skillet/{}.cred\nConditionPathExists=/etc/credstore.encrypted/skillet/{}.cred\n[Service]\nType=oneshot\nLoadCredentialEncrypted={}:/etc/credstore.encrypted/skillet/{}.cred\nLoadCredentialEncrypted={}:/etc/credstore.encrypted/skillet/{}.cred\nExecStart=/var/usrlocal/bin/skillet-{} apply --phase joplin\n[Install]\nWantedBy=multi-user.target\n",
-        crate::CADDY_SITES_CREDENTIAL,
-        skillet_joplin::DATABASE_PASSWORD_CREDENTIAL,
-        crate::CADDY_SITES_CREDENTIAL,
-        crate::CADDY_SITES_CREDENTIAL,
-        skillet_joplin::DATABASE_PASSWORD_CREDENTIAL,
-        skillet_joplin::DATABASE_PASSWORD_CREDENTIAL,
-        profile.id.as_str(),
+    let mut unit = format!(
+        "[Unit]\nDescription=Apply the declared {title} service\nAfter=skillet-apply.service\nRequires=skillet-apply.service\nRequiresMountsFor=/var/lib/data\n"
     );
-    let changed = files.ensure_file(path, unit.as_bytes(), Some(0o644), &root)?;
+    for credential in std::iter::once(crate::CADDY_SITES_CREDENTIAL)
+        .chain(application_credentials.iter().copied())
+    {
+        let _ = writeln!(
+            unit,
+            "ConditionPathExists=/etc/credstore.encrypted/skillet/{credential}.cred"
+        );
+    }
+    unit.push_str("[Service]\nType=oneshot\n");
+    for credential in std::iter::once(crate::CADDY_SITES_CREDENTIAL)
+        .chain(application_credentials.iter().copied())
+    {
+        let _ = writeln!(
+            unit,
+            "LoadCredentialEncrypted={credential}:/etc/credstore.encrypted/skillet/{credential}.cred"
+        );
+    }
+    let _ = writeln!(
+        unit,
+        "ExecStart=/var/usrlocal/bin/skillet-{} apply --phase {phase}\n[Install]\nWantedBy=multi-user.target\n",
+        profile.id.as_str()
+    );
+    let changed = files.ensure_file(&path, unit.as_bytes(), Some(0o644), &root)?;
     if changed {
         system.daemon_reload()?;
     }
-    system.service_enable("skillet-joplin-apply.service")?;
+    system.service_enable(&unit_name)?;
     Ok(())
 }
 

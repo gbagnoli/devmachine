@@ -61,6 +61,7 @@ pub enum ServiceConfig {
     },
     Homer,
     Joplin(skillet_joplin::Config),
+    Airtrail(skillet_airtrail::Config),
     Nut(skillet_nut::Config),
     Unifi,
     HomeAssistant(skillet_homeassistant::Config),
@@ -96,6 +97,7 @@ impl HostService {
             ServiceConfig::Mikochi { .. } => "mikochi",
             ServiceConfig::Homer => "homer",
             ServiceConfig::Joplin(_) => "joplin",
+            ServiceConfig::Airtrail(_) => "airtrail",
             ServiceConfig::Nut(_) => "nut",
             ServiceConfig::Unifi => "unifi",
             ServiceConfig::HomeAssistant(_) => "homeassistant",
@@ -129,6 +131,16 @@ impl HostService {
                 credential: skillet_joplin::DATABASE_PASSWORD_CREDENTIAL,
                 unit: "skillet-joplin-apply.service",
             }],
+            ServiceConfig::Airtrail(_) => vec![
+                CredentialConsumer {
+                    credential: skillet_airtrail::DATABASE_PASSWORD_CREDENTIAL,
+                    unit: "skillet-airtrail-apply.service",
+                },
+                CredentialConsumer {
+                    credential: skillet_airtrail::INTEGRATIONS_CREDENTIAL,
+                    unit: "skillet-airtrail-apply.service",
+                },
+            ],
             ServiceConfig::Network(_) => vec![CredentialConsumer {
                 credential: skillet_network::CREDENTIAL,
                 unit: skillet_network::PREPARE_UNIT,
@@ -423,6 +435,7 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
     match service.config {
         ServiceConfig::HomeAssistant(_) => homeassistant_acceptance(),
         ServiceConfig::Joplin(config) => joplin_acceptance(config),
+        ServiceConfig::Airtrail(config) => airtrail_acceptance(config),
         ServiceConfig::Nut(_) => AcceptanceService {
             unit: "nut-monitor.service".into(),
             container: None,
@@ -521,6 +534,18 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
             listeners: Vec::new(),
             health_probe: None,
         },
+    }
+}
+
+fn airtrail_acceptance(config: skillet_airtrail::Config) -> AcceptanceService {
+    AcceptanceService {
+        unit: "airtrail.service".into(),
+        container: Some("airtrail".into()),
+        network_mode: Some(config.network_name.into()),
+        bind_paths: vec![config.database_path.into(), config.uploads_path.into()],
+        owner: None,
+        listeners: Vec::new(),
+        health_probe: None,
     }
 }
 
@@ -818,6 +843,27 @@ fn donbot() -> HostProfile {
                     upstream: "joplin-server",
                     transport: skillet_caddy::UpstreamTransport::Bridge,
                     port: skillet_joplin::PORT,
+                    tailnet_identity: true,
+                    aliases: &[],
+                }),
+            },
+            HostService {
+                config: ServiceConfig::Airtrail(skillet_airtrail::Config {
+                    image: skillet_airtrail::DEFAULT_IMAGE,
+                    network_name: "donbot-airtrail",
+                    database_path: "/var/lib/data/airtrail/postgres",
+                    postgres_data_container_path: "/var/lib/postgresql",
+                    uploads_path: "/var/lib/data/airtrail/uploads",
+                    backup_path: "/var/lib/data/syncthing/data/backups/airtrail",
+                    backup_subvolume: "/var/lib/data/syncthing",
+                    backup_owner: "giacomo",
+                    backup_group: "giacomo",
+                }),
+                ui: Some(UiServiceDeclaration {
+                    name: "airtrail",
+                    upstream: "airtrail",
+                    transport: skillet_caddy::UpstreamTransport::Bridge,
+                    port: skillet_airtrail::PORT,
                     tailnet_identity: true,
                     aliases: &[],
                 }),

@@ -28,6 +28,7 @@ pub struct Link {
     pub path: Option<&'static str>,
     pub endpoint: Option<String>,
     pub service_type: Option<&'static str>,
+    pub icon: Option<&'static str>,
     pub logo: Option<&'static str>,
     pub api_version: Option<u8>,
     pub api_key: Option<String>,
@@ -62,6 +63,8 @@ struct Item<'a> {
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     service_type: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    icon: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     logo: Option<&'static str>,
     #[serde(rename = "apiVersion", skip_serializing_if = "Option::is_none")]
     api_version: Option<u8>,
@@ -85,6 +88,7 @@ pub fn render(host: &str, links: &[Link]) -> Result<String, HomerError> {
                     url: format!("https://{}{}", link.hostname, link.path.unwrap_or("")),
                     endpoint: link.endpoint.as_deref(),
                     service_type: link.service_type,
+                    icon: link.icon,
                     logo: link.logo,
                     api_version: link.api_version,
                     api_key: link.api_key.as_deref(),

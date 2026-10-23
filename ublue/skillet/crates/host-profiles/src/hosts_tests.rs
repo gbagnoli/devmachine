@@ -183,23 +183,40 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
 }
 
 #[test]
-fn donbot_declares_a_joplin_ui_that_registers_with_homer_and_caddy() {
+fn donbot_declares_joplin_and_airtrail_uis_that_register_with_homer_and_caddy() {
     let donbot = super::profile_for_name("donbot").expect("Donbot profile");
     assert!(donbot.supports_service("homer"));
     assert!(donbot.supports_service("joplin"));
+    assert!(donbot.supports_service("airtrail"));
     assert_eq!(
         donbot
             .ui_services()
             .iter()
             .map(|service| service.name.as_str())
             .collect::<Vec<_>>(),
-        ["pihole", "syncthing", "joplin", "files", "homer"]
+        [
+            "pihole",
+            "syncthing",
+            "joplin",
+            "airtrail",
+            "files",
+            "homer"
+        ]
     );
     assert!(
         super::credentials_for_phase("donbot", super::HostApplyPhase::Full)
             .unwrap()
             .iter()
             .all(|name| *name != skillet_joplin::DATABASE_PASSWORD_CREDENTIAL)
+    );
+    assert!(
+        super::credentials_for_phase("donbot", super::HostApplyPhase::Full)
+            .unwrap()
+            .iter()
+            .all(|name| {
+                *name != skillet_airtrail::DATABASE_PASSWORD_CREDENTIAL
+                    && *name != skillet_airtrail::INTEGRATIONS_CREDENTIAL
+            })
     );
     assert_eq!(
         super::credentials_for_phase("donbot", super::HostApplyPhase::Joplin).unwrap(),
@@ -212,6 +229,18 @@ fn donbot_declares_a_joplin_ui_that_registers_with_homer_and_caddy() {
         .services
         .iter()
         .any(|service| matches!(service.config, ServiceConfig::Joplin(_))));
+    assert!(donbot
+        .services
+        .iter()
+        .any(|service| matches!(service.config, ServiceConfig::Airtrail(_))));
+    assert_eq!(
+        super::credentials_for_phase("donbot", super::HostApplyPhase::Airtrail).unwrap(),
+        [
+            skillet_airtrail::DATABASE_PASSWORD_CREDENTIAL,
+            skillet_airtrail::INTEGRATIONS_CREDENTIAL,
+            super::CADDY_SITES_CREDENTIAL
+        ]
+    );
 }
 
 #[test]

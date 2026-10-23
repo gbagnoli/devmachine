@@ -1,13 +1,18 @@
-# Calculon → donbot migration
+# Donbot fresh installation
 
-Status: **Joplin implementation and disposable backup/restore acceptance are
-complete; client acceptance remains open**, source/profile review refreshed
-2026-10-16. Inventory is complete. Donbot profile, binary, VM Butane template,
-Joplin caller, generated KeePass credential delivery, Homer registration, and
-nightly PostgreSQL backup/restore commands are implemented. A named VM verified
-the Joplin service, staging certificate, scheduled backup service, and a
-database restore round trip. Authorized tailnet browser/client acceptance and
-cleanup of that disposable VM remain pending. Shared file browsing and identity
+Status: **Joplin and AirTrail implementation, named-VM provisioning, and
+database restore acceptance are complete; client/API acceptance remains open**,
+refreshed 2026-10-23. Inventory is complete. Donbot
+profile, binary, VM Butane template, Joplin and AirTrail callers, generated
+KeePass credential delivery, Homer registration, and scheduled backups are
+implemented. The fresh named VM currently runs both services and their dedicated
+PostgreSQL containers; internal Joplin API ping and AirTrail root requests each
+returned HTTP 200. Both backup timers are enabled. Joplin restore and AirTrail
+paired database/uploads restore passed in the disposable VM, and the operator
+confirmed both UIs work. Joplin mobile/desktop sync and AirTrail account/API
+acceptance remain open. The VM's test Caddy configuration uses the ACME staging
+CA, which browsers do not trust by default. The earlier Joplin-only VM was disposed through Skillet's
+lifecycle command before this fresh run was created. Shared file browsing and identity
 authorization are implemented for clamps/joey; operator browser acceptance
 exists for clamps, not donbot. Encrypted Pi-hole v6 custom DNS delivery is also
 implemented. Read
@@ -17,11 +22,13 @@ this plan does not close those gates or claim fresh donbot acceptance.
 
 ## Scope and prerequisites
 
-Retain Arr/putioarr, Plex, Jellyfin, Gokapi, Syncthing and a private file-browsing
-UI. **Joplin and Airtrail are required services**; establish their effective
-access policies, client requirements and restore inputs in slice 0. **Defer the magiusstaff tenant**, including its second
+Build a fresh Donbot installation with Arr/putioarr, Plex, Jellyfin, Gokapi,
+Syncthing and a private file-browsing UI. **Joplin and Airtrail are required
+services**; establish their effective access policies, client requirements and
+restore inputs in slice 0. **Defer the magiusstaff tenant**, including its second
 Syncthing/Filebrowser instance and snapshot selection. Do not add multi-instance
-support for this migration. Preserve its source data. Exclude AdventureLog,
+support. Leave existing source-host state untouched; this plan does not include
+an application data or account migration. Exclude AdventureLog,
 Wanderer and Openclaw.
 
 Reuse the existing fleet baseline. Do not port Chef host/Podman setup. Only add
@@ -47,13 +54,15 @@ Architecture constraints and proposals are in
 | Prowlarr, Radarr, Sonarr, Lidarr, putioarr | Media composition, persistent mounts, credential delivery, private UIs, safe import/cleanup and module-owned monitoring |
 | Jellyfin and Plex | Service configuration/state restore, public HTTPS ingress, client acceptance; Jellyfin Caddy cache per its plan |
 | Gokapi | Mixed ingress, verified identity-to-account mapping, exact public routes and coordinated state restore |
-| Joplin / Airtrail (required) | Joplin caller and reusable PostgreSQL module, per-host generated password, UI/Homer registration and logical backup/restore are implemented; disposable VM backup/restore passed, while authorized tailnet UI and real client sync remain. AirTrail and paired upload consistency remain |
+| Joplin / Airtrail (required) | Both callers, reusable PostgreSQL module, per-host generated credentials, private UI/Homer registration and scheduled backups are implemented. Joplin restore and AirTrail paired database/uploads restore passed; the operator confirmed both UIs work. Joplin client sync and AirTrail account/API acceptance remain |
 | Conditional Pi-hole synchronization | Confirm current use; add explicit optional module only if retained; static DNS inventory is already shared |
 
-Donbot baseline and Joplin are wired to the canonical host profile. Disposable
-PostgreSQL backup/restore acceptance passed. Authorized tailnet UI and real
-Joplin client sync remain open. AirTrail, media and Gokapi implementations are
-not yet present in Skillet.
+Donbot baseline, Joplin and AirTrail are wired to the canonical host profile.
+Joplin PostgreSQL and AirTrail paired database/uploads backup/restore acceptance
+passed. The fresh named VM has both services running, with PostgreSQL and
+scheduled backup timers active; the operator confirmed both UIs work. Joplin
+client sync and AirTrail account/API acceptance remain open. Media and Gokapi
+implementations are not yet present in Skillet.
 Donbot does not select DDNS. Joplin retains native authentication behind private HTTPS; Arr uses
 verified tailnet-user authentication. Airtrail should use the same tailnet-user
 authentication where supported; its account integration and API needs require inventory. UniFi, NUT and Home Assistant are not
@@ -99,17 +108,15 @@ finish public ingress before private services. Use this dependency order:
    Sonarr/Radarr/Lidarr and putioarr automatically. Prove connection tests and a
    harmless import with no second browser login. Evaluate optional Usenet client
    separately; no provider purchase or transport removal is implied.
-3. **Shared PostgreSQL and Joplin (slice 7):** database credential delivery,
-   private HTTPS Joplin, Homer registration and scheduled logical backup/restore
-   are implemented. Exit on a named VM backup/restore round trip and real
-   mobile/desktop note and attachment sync with native login.
-   The 2026-10-20 VM attempt stopped before artifact creation because this
-   workstation has no `/dev/kvm`; retry from a KVM-enabled host.
-4. **Airtrail (slice 7):** reuse PostgreSQL; configure canonical origin, uploads
-   and selected external integrations. Verify whether supported authentication
-   can reuse tailnet identity; otherwise retain native login behind the gate.
-   Prove account/attachment behavior and paired DB/upload restore. Establish any
-   actual API-client needs before adding a public exception.
+3. **Joplin client acceptance (slice 7):** use the fresh named VM to verify an
+   authorized tailnet client can use the private HTTPS route and complete real
+   mobile/desktop note and attachment synchronization with native Joplin login.
+   The named VM backup and restore round trip is already accepted.
+4. **AirTrail acceptance (slice 7):** decide whether to create an application
+   account and verify the supported client/API behavior. Paired DB/upload backup
+   and restore passed on disposable state. Current implementation uses native
+   AirTrail login behind the tailnet gate; optional provider integrations stay
+   absent unless their vault entries are supplied.
 5. **Public/mixed ingress (slice 2):** extend shared typed Caddy/DNS policies.
    Prove public destinations, private denials, exact mixed route enforcement and
    owned provider cleanup. This work is required for media sharing, not private Arr.
@@ -122,9 +129,9 @@ finish public ingress before private services. Use this dependency order:
    private administration denials and coordinated files/metadata restore.
 8. **Final rehearsal and hardware deployment (slice 8):** recreate the named VM,
    check backups and all selected services, then prepare the real disk/network
-   profile. Arr media files are moved later by the operator. Confirm separately
-   which existing data must transfer for Joplin/Airtrail/Gokapi; preserving old
-   accounts/links is a choice, not a fresh-install bootstrap prerequisite.
+   profile. This is a fresh install: old Joplin/Airtrail/Gokapi accounts and data
+   stay on Calculon. The operator may copy selected Arr media later, outside this
+   provisioning work.
 
 ## Required app inputs and state
 
@@ -486,31 +493,30 @@ The second synchronization/browser tenant stays deferred; preserve its source
 state without importing it or selecting its snapshots. No multi-instance API
 extension is required by this slice.
 
-**Exit:** Joplin mobile/desktop authentication, bidirectional note/attachment
-sync and reconnect work over trusted HTTPS; disconnected/unauthorized clients
-cannot reach the private endpoint. Airtrail attachments/API work in their selected
-mode, backup restore succeeds on disposable state, and repeat apply/reboot
-preserve app/database state. No live production peers receive restored smoke
-changes.
+**Implementation complete; acceptance in progress.** The operator confirmed
+both service UIs work. Joplin mobile/desktop authentication, bidirectional
+note/attachment sync and reconnect must work over the authorized private HTTPS
+route; unauthorized clients must remain denied. Verify AirTrail account and
+attachment/API behavior. Joplin restore and AirTrail paired DB/upload restore
+passed in disposable state. Repeat apply/reboot must preserve app/database
+state. No live production peers receive restored smoke changes.
 
-### 8. Production rehearsal and cutover
+### 8. Fresh-install rehearsal and hardware deployment
 
-For stateful services requiring transfer, record copy/restore/rollback steps,
-verified backups and capacity. Arr is a fresh installation: the operator moves
-selected media later; do not gate it on legacy Arr configuration or key import. Record
-ownership/ACLs and final path mappings. Snapshot only caller-selected leaves;
-never snapshot all `/var/lib/data`. Raw database clusters and temporary caches
-must not be synchronized. Rehearse using isolated state before final copy.
+Provision Donbot with new application state. Prove backups and restores against
+synthetic disposable data; do not copy Calculon's application databases,
+accounts, credentials or service state. Arr media is not part of provisioning;
+the operator may later copy selected media and set ownership/ACLs separately.
+Snapshot only caller-selected leaves; never snapshot all `/var/lib/data`. Raw
+database clusters and temporary caches must not be synchronized.
 
 **Exit:** all retained services have acceptance evidence; public HTTPS succeeds
 from an external client without Tailscale; private/mixed denials are tested;
 backup restore, reboot and repeat apply pass; DNS has one declared owner and
 no DDNS updater is selected. An authorized client can route through donbot as an
 exit node, including DNS and required IP families; this acceptance is separate
-from ordinary disposable provisioning.
-Stop source writers for the final consistent copy and preserve calculon for
-rollback. Excluded app data is left untouched. Do not describe image publication
-or VM tests as physical deployment or production acceptance.
+from ordinary disposable provisioning. Physical deployment is a fresh install;
+do not present VM or image publication checks as physical acceptance.
 
 ## Validation and handoff
 
@@ -521,14 +527,15 @@ Do not install workstation tools. Record honest evidence in
 [ACCEPTANCE.md](archive/ACCEPTANCE.md), update designs and this plan, and maintain
 the shared secret-requirement catalog/root checklist when exact entries are added.
 The shared identity allowlist is implemented at `skillet/tailscale/ui-users`.
-Gokapi application-account mapping and other migration-specific inputs remain
-to be designed.
+Gokapi's new-install application-account mapping and service inputs remain to be
+designed.
 
-**Next action:** slice 0, a bounded read-only effective inventory. First code
-slice is donbot baseline/profile, reusing the shared tailnet authentication
-and file UI with donbot-specific acceptance. The private Arr/download slice can
-follow baseline before public/mixed ingress is implemented. Public ingress must
-be validated before importing public service state.
+**Next implementation milestone:** build the fresh linked Arr stack (slice 4),
+including generated API keys and connection checks for Prowlarr, Sonarr, Radarr,
+Lidarr and putioarr. Separately complete Joplin client sync and AirTrail
+account/API acceptance in the running named VM. Their database restore and
+AirTrail paired upload restore have passed. Public ingress remains required
+before implementing or importing any public media-sharing service state.
 
 ## Existing shared file browsing
 

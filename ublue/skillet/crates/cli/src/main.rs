@@ -1447,6 +1447,7 @@ fn run_twice_and_check(name: &str, phase: ApplyPhase, inspect: bool) -> Result<(
         ApplyPhase::Smtp => "smtp",
         ApplyPhase::Network => "network",
         ApplyPhase::Joplin => "joplin",
+        ApplyPhase::Airtrail => "airtrail",
     };
     for round in ["first", "second"] {
         let status = Command::new("podman")

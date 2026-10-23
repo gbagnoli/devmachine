@@ -12,6 +12,17 @@ Missing optional/generated/planned entries do not fail the check.
 
 <!-- Generated from ublue/skillet/crates/workstation/src/secret-requirements.json. -->
 
+## AirTrail
+
+AirTrail uses its own native accounts behind the private Tailnet UI gate. Provider integrations are optional. [Setup and backup/restore](ublue/skillet/crates/airtrail/README.md).
+
+| Entry | Status | Fields / how to obtain them |
+| --- | --- | --- |
+| `skillet/environments/prod/hosts/<host>/airtrail/database-password` | Generated | Password = Skillet-generated dedicated PostgreSQL password. Skillet uses the existing value or creates it before delivery; restore the KeePassXC entry if the host already has its encrypted credential. |
+| `skillet/environments/test/hosts/<host>/instances/<instance>/airtrail/database-password` | Generated | Password = Skillet-generated disposable AirTrail database password, scoped to this test VM instance. It remains in KeePassXC after VM destruction until you remove the instance entry. |
+| `skillet/environments/prod/hosts/<host>/airtrail/aerodatabox-api-key` | Optional | Password = optional AeroDataBox key from your provider account. If present, Skillet enables that integration; if absent, AirTrail uses its default lookup provider. Do not deliver this key to smoke VMs. |
+| `skillet/environments/prod/hosts/<host>/airtrail/openaip-api-key` | Optional | Password = optional OpenAIP client key from your OpenAIP account settings. If present, Skillet enables the aeronautical map overlay; if absent, AirTrail continues without it. Do not deliver this key to smoke VMs. |
+
 ## Btrbk
 
 No vault entries for the current local snapshot configuration.

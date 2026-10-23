@@ -69,3 +69,19 @@ fn joplin_apply_unit_loads_only_its_password_and_caddy_site_credentials() {
         .unwrap()
         .contains_key("skillet-joplin-apply.service"));
 }
+
+#[test]
+fn airtrail_apply_unit_loads_database_integration_and_caddy_credentials() {
+    let system = MockSystem::new();
+    let files = MockFiles::new();
+    let profile = crate::profile_for_name("donbot").expect("Donbot profile");
+    install(&system, &files, &profile).unwrap();
+    let units = files.files.lock().unwrap();
+    let content =
+        String::from_utf8(units["/etc/systemd/system/skillet-airtrail-apply.service"].clone())
+            .unwrap();
+    assert!(content.contains("airtrail_postgres_password"));
+    assert!(content.contains("airtrail_integrations"));
+    assert!(content.contains("caddy_sites"));
+    assert!(content.contains("skillet-donbot apply --phase airtrail"));
+}

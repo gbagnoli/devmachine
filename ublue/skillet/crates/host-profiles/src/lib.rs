@@ -29,6 +29,7 @@ pub enum HostApplyPhase {
     Network,
     PiholeDns,
     Joplin,
+    Airtrail,
 }
 
 pub fn credentials_for_phase(
@@ -59,6 +60,7 @@ fn credential_names_for_phase(profile: &HostProfile, phase: HostApplyPhase) -> V
                     | skillet_pihole::dns::UNIT
                     | skillet_network::PREPARE_UNIT
                     | "skillet-joplin-apply.service"
+                    | "skillet-airtrail-apply.service"
             ),
             HostApplyPhase::Caddy => consumer.unit == "caddy.service",
             HostApplyPhase::Ddns => consumer.unit == "cloudflare-ddns.service",
@@ -68,6 +70,11 @@ fn credential_names_for_phase(profile: &HostProfile, phase: HostApplyPhase) -> V
             HostApplyPhase::Network => consumer.unit == skillet_network::PREPARE_UNIT,
             HostApplyPhase::Joplin => {
                 consumer.credential == skillet_joplin::DATABASE_PASSWORD_CREDENTIAL
+                    || consumer.credential == CADDY_SITES_CREDENTIAL
+            }
+            HostApplyPhase::Airtrail => {
+                consumer.credential == skillet_airtrail::DATABASE_PASSWORD_CREDENTIAL
+                    || consumer.credential == skillet_airtrail::INTEGRATIONS_CREDENTIAL
                     || consumer.credential == CADDY_SITES_CREDENTIAL
             }
             HostApplyPhase::Base => false,
@@ -124,6 +131,8 @@ pub enum ApplyError {
     Homer(#[from] skillet_homer::HomerError),
     #[error(transparent)]
     Joplin(#[from] skillet_joplin::JoplinError),
+    #[error(transparent)]
+    Airtrail(#[from] skillet_airtrail::AirtrailError),
     #[error("DDNS apply error: {0}")]
     Ddns(#[from] skillet_ddns::DdnsError),
     #[error("Datadog apply error: {0}")]
@@ -399,7 +408,8 @@ fn apply_profile(
             // Homer is rendered after the environment-specific Caddy sites are delivered.
             | ServiceConfig::Homer
             // Joplin needs the canonical Caddy site and its separately delivered credential.
-            | ServiceConfig::Joplin(_) => {}
+            | ServiceConfig::Joplin(_)
+            | ServiceConfig::Airtrail(_) => {}
             ServiceConfig::Pihole => {
                 apply_pihole(system, files, profile, service, credentials)?;
             }
@@ -526,6 +536,7 @@ pub fn apply_host_phase(
             Ok(())
         }
         HostApplyPhase::Joplin => apply_joplin_host(hostname, system, files, credentials),
+        HostApplyPhase::Airtrail => apply_airtrail_host(hostname, system, files, credentials),
     }
 }
 
@@ -564,6 +575,51 @@ fn apply_joplin_host(
         config,
         &base_url,
         credentials.require(skillet_joplin::DATABASE_PASSWORD_CREDENTIAL)?,
+    )?;
+    Ok(())
+}
+
+fn apply_airtrail_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.into()))?;
+    let config = profile
+        .services
+        .iter()
+        .find_map(|service| match service.config {
+            ServiceConfig::Airtrail(config) => Some(config),
+            _ => None,
+        })
+        .ok_or_else(|| ApplyError::FixtureInput("host does not declare AirTrail".into()))?;
+    let services = profile.ui_services();
+    let sites = skillet_caddy::CaddySites::parse(
+        credentials.require(CADDY_SITES_CREDENTIAL)?,
+        hostname,
+        &services,
+    )?;
+    let origin = sites
+        .services
+        .iter()
+        .find(|site| site.name == "airtrail")
+        .map(|site| format!("https://{}", site.hostname))
+        .ok_or_else(|| {
+            ApplyError::FixtureInput("Caddy configuration has no AirTrail site".into())
+        })?;
+    let integrations = skillet_airtrail::Integrations::parse(
+        credentials.require(skillet_airtrail::INTEGRATIONS_CREDENTIAL)?,
+    )?;
+    skillet_airtrail::apply(
+        system,
+        files,
+        profile.id.as_str(),
+        config,
+        &origin,
+        credentials.require(skillet_airtrail::DATABASE_PASSWORD_CREDENTIAL)?,
+        &integrations,
     )?;
     Ok(())
 }
@@ -722,6 +778,11 @@ fn apply_caddy_host(
                 // avoiding a browser cross-origin request while retaining the
                 // dashboard's tailnet identity gate.
                 endpoint: (site.name == "pihole").then(|| "/pihole-api".to_string()),
+                icon: match site.name.as_str() {
+                    "joplin" => Some("fas fa-book-open"),
+                    "airtrail" => Some("fas fa-plane"),
+                    _ => None,
+                },
                 service_type: match site.name.as_str() {
                     "homeassistant" if sites.homeassistant_api_token.is_some() => {
                         Some("HomeAssistant")

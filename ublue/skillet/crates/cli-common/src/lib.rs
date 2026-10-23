@@ -15,6 +15,7 @@ pub mod hosts;
 mod metrics;
 pub mod version;
 pub use metrics::{run_metrics, MetricsCommands};
+pub mod airtrail_runtime;
 pub mod homeassistant_runtime;
 pub mod host_ui_proxy;
 pub mod postgres_runtime;
@@ -77,6 +78,11 @@ pub enum HostCommands {
     Postgres {
         #[command(subcommand)]
         command: postgres_runtime::Commands,
+    },
+    /// Create or restore a coordinated `AirTrail` database and upload backup
+    Airtrail {
+        #[command(subcommand)]
+        command: airtrail_runtime::Commands,
     },
     UiProxy {
         #[command(subcommand)]
@@ -165,6 +171,7 @@ where
     match args.command {
         HostCommands::Homeassistant { command } => homeassistant_runtime::dispatch(&command),
         HostCommands::Postgres { command } => postgres_runtime::dispatch(command),
+        HostCommands::Airtrail { command } => airtrail_runtime::dispatch(command),
         HostCommands::UiProxy { command } => host_ui_proxy::dispatch(command),
         HostCommands::Syncthing { command } => syncthing_runtime::dispatch(command),
         HostCommands::Metrics { command } => run_metrics(command),
@@ -229,6 +236,7 @@ where
         ApplyPhase::PiholeDns => skillet_hosts::HostApplyPhase::PiholeDns,
         ApplyPhase::Network => skillet_hosts::HostApplyPhase::Network,
         ApplyPhase::Joplin => skillet_hosts::HostApplyPhase::Joplin,
+        ApplyPhase::Airtrail => skillet_hosts::HostApplyPhase::Airtrail,
     };
     if phase == skillet_hosts::HostApplyPhase::Network && record_path.is_some() {
         return Err(CliCommonError::Config(

@@ -164,11 +164,36 @@ fn create_inner(
     let stem = format!("{}-{stamp}", config.instance);
     let temporary = directory.join(format!(".{stem}-{}.partial", std::process::id()));
     let archive = directory.join(format!("{stem}.dump"));
+    dump_to(config, &temporary, uid, gid)?;
+    File::open(&temporary)?.sync_all()?;
+    // Hard-link publication is atomic and refuses to overwrite an archive
+    // created by another concurrent invocation.
+    fs::hard_link(&temporary, &archive)?;
+    fs::remove_file(&temporary)?;
+    File::open(directory)?.sync_all()?;
+    prune_except(config, protected)?;
+    Ok(archive)
+}
+
+/// Write one custom-format dump to a caller-owned staging location below the
+/// configured backup root. This lets app modules publish coordinated backup
+/// sets without reimplementing PostgreSQL's streaming dump.
+pub fn dump_to(config: &Config, target: &Path, uid: u32, gid: u32) -> Result<(), PostgresError> {
+    config.validate()?;
+    if !target.is_absolute()
+        || !target.starts_with(config.backup_path)
+        || target == Path::new(config.backup_path)
+        || target
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return Err(PostgresError::InvalidConfiguration("dump target"));
+    }
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
         .mode(0o640)
-        .open(&temporary)?;
+        .open(target)?;
     nix::unistd::fchown(
         file.as_raw_fd(),
         Some(nix::unistd::Uid::from_raw(uid)),
@@ -193,22 +218,15 @@ fn create_inner(
     if result.is_err() {
         let _ = child.kill();
         let _ = child.wait();
-        let _ = fs::remove_file(&temporary);
-        return result.map(|()| archive);
+        let _ = fs::remove_file(target);
+        return result;
     }
     if !child.wait()?.success() {
-        let _ = fs::remove_file(&temporary);
+        let _ = fs::remove_file(target);
         return Err(PostgresError::BackupCommand);
     }
     file.sync_all()?;
-    drop(file);
-    // Hard-link publication is atomic and refuses to overwrite an archive
-    // created by another concurrent invocation.
-    fs::hard_link(&temporary, &archive)?;
-    fs::remove_file(&temporary)?;
-    File::open(directory)?.sync_all()?;
-    prune_except(config, protected)?;
-    Ok(archive)
+    Ok(())
 }
 
 fn copy_child_stdout(
@@ -323,6 +341,22 @@ fn restore_database(config: &Config, archive: &Path) -> Result<(), PostgresError
     } else {
         Err(PostgresError::RestoreCommand)
     }
+}
+
+/// Restore a custom-format dump selected by a caller's coordinated backup
+/// bundle. The file must remain below this instance's declared backup root.
+pub fn restore_dump(config: &Config, archive: &Path) -> Result<(), PostgresError> {
+    config.validate()?;
+    let metadata = fs::symlink_metadata(archive)?;
+    if !metadata.is_file()
+        || !archive.starts_with(config.backup_path)
+        || archive
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return Err(PostgresError::InvalidConfiguration("restore archive"));
+    }
+    restore_database(config, archive)
 }
 
 fn systemctl(action: &str, unit: &str) -> Result<(), PostgresError> {

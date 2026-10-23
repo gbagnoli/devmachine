@@ -3664,6 +3664,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "skillet_airtrail"
+version = "0.1.0"
+dependencies = [
+ "nix",
+ "serde",
+ "serde_json",
+ "skillet_core",
+ "skillet_podman",
+ "skillet_postgres",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "skillet_btrbk"
 version = "0.1.0"
 dependencies = [
@@ -3702,6 +3715,7 @@ dependencies = [
  "serde_json",
  "serde_yml",
  "sha2 0.10.9",
+ "skillet_airtrail",
  "skillet_caddy",
  "skillet_core",
  "skillet_datadog",
@@ -3811,6 +3825,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "skillet_airtrail",
  "skillet_btrbk",
  "skillet_caddy",
  "skillet_core",
@@ -3992,6 +4007,7 @@ dependencies = [
  "serde_json",
  "serde_yml",
  "sha2 0.10.9",
+ "skillet_airtrail",
  "skillet_caddy",
  "skillet_datadog",
  "skillet_ddns",

@@ -26,5 +26,6 @@ pub mod deployment;
 
 pub mod syncthing_provisioning;
 
+pub mod airtrail_provisioning;
 pub mod homeassistant_provisioning;
 pub mod joplin_provisioning;
