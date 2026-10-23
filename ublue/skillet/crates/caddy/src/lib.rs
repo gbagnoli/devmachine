@@ -665,16 +665,7 @@ where
             "Sysctl=net.ipv6.conf.all.forwarding=0".into(),
         ]);
     }
-    for site in sites
-        .services
-        .iter()
-        .filter(|s| s.transport == UpstreamTransport::HostLoopback)
-    {
-        container.entry("Unit".into()).or_default().extend([
-            format!("Requires=skillet-ui-host-{}.service", site.name),
-            format!("After=skillet-ui-host-{}.service", site.name),
-        ]);
-    }
+    add_host_upstream_dependencies(&mut container, sites);
     let mut config = PodmanConfig {
         name: "caddy".to_string(),
         image: "ghcr.io/caddybuilds/caddy-cloudflare:2".to_string(),
@@ -729,6 +720,22 @@ where
     }
     skillet_podman::container(system, files, config)?;
     Ok(())
+}
+
+fn add_host_upstream_dependencies(
+    container: &mut BTreeMap<String, Vec<String>>,
+    sites: &CaddySites,
+) {
+    for site in sites
+        .services
+        .iter()
+        .filter(|site| site.transport == UpstreamTransport::HostLoopback)
+    {
+        container.entry("Unit".into()).or_default().extend([
+            format!("Requires=skillet-ui-host-{}.service", site.name),
+            format!("After=skillet-ui-host-{}.service", site.name),
+        ]);
+    }
 }
 
 fn backend_resources<S, F>(

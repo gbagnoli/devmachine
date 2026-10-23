@@ -3562,3 +3562,32 @@ acceptance; no production host or private DNS values were committed.
   all 465 upload files are present. AirTrail's root endpoint returned HTTP 200.
 - Both app units are active, and `systemctl --failed` is empty. The VM remains
   running for operator UI review. Calculon's source backups were not modified.
+
+## 2026-10-23 — Donbot Caddy HTTP redirect and HSTS
+
+- Deployed the Caddy change to the named disposable Donbot VM and ran its Caddy
+  apply unit. Caddy is active with TCP 80 and 443 published; an HTTP request for
+  a configured dashboard hostname returned `308 Permanent Redirect` to HTTPS.
+  The corresponding HTTPS response included
+  `Strict-Transport-Security: max-age=31536000`.
+- The local HTTPS probe returned 403 because it originated outside the tailnet;
+  the HSTS header was present on that denial response. No systemd units failed.
+  An authorized tailnet client request was not repeated as part of this change.
+- The VM's stored Caddy payload includes AirTrail, which is absent from the
+  clean Caddy commit's host profile because that caller is currently an
+  uncommitted workspace change. The commit-only binary rejected the payload;
+  applying a matching current Donbot build succeeded. This deployment reports
+  `0.1.0+git.d4f2f5e.dirty` and includes those existing workspace changes.
+
+## 2026-10-23 — Clamps Caddy HTTP redirect and HSTS
+
+- Deployed the committed Skillet and Clamps binaries to the production Clamps
+  host and ran `skillet-caddy-apply.service` successfully. Caddy is active and
+  `systemctl --failed` is empty.
+- Requests to a configured hostname over IPv4 and over Clamps' Tailscale IPv6
+  address on port 80 returned `308 Permanent Redirect` to HTTPS.
+- The IPv4 HTTPS probe returned 403 from outside the tailnet and included
+  `Strict-Transport-Security: max-age=31536000`, confirming the tailnet
+  restriction and HSTS header. The equivalent Tailscale IPv6 HTTPS probe
+  timed out, while IPv6 HTTP succeeded. Investigate IPv6 HTTPS reachability
+  separately; `podman port caddy` and `ss` showed IPv4 wildcard listeners only.
