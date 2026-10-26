@@ -69,6 +69,15 @@ pub(super) fn install(
             skillet_airtrail::INTEGRATIONS_CREDENTIAL,
         ],
     )?;
+    install_application(
+        system,
+        files,
+        profile,
+        "media",
+        "Linked Arr media stack",
+        "media",
+        &[skillet_media::CREDENTIAL],
+    )?;
     Ok(())
 }
 

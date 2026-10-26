@@ -447,3 +447,26 @@ fn optional_airtrail_keys_are_skipped_when_absent_and_validated_when_present() {
         .iter()
         .any(|entry| entry.path == path && entry.invalid));
 }
+
+#[test]
+fn generated_media_audit_enumerates_instances_only_in_the_selected_environment() {
+    let profile = skillet_hosts::profile_for_name("donbot").unwrap();
+    let test = "skillet/environments/test/hosts/donbot/instances/arr/media/sonarr-api-key";
+    let prod = "skillet/environments/prod/hosts/donbot/media/sonarr-api-key";
+    let stored = [test.to_string(), prod.to_string()];
+    let report = check_with_entries(
+        &[profile],
+        ProvisioningPolicy::new(Environment::Test),
+        &stored,
+        &|path, _| Ok((path == test).then(|| "bad-secret-never-print".into())),
+    )
+    .unwrap();
+    assert!(report
+        .missing
+        .iter()
+        .any(|entry| entry.path == test && entry.invalid));
+    assert!(report
+        .missing
+        .iter()
+        .all(|entry| entry.path != prod && !entry.guide.contains("bad-secret-never-print")));
+}

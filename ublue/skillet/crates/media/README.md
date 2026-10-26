@@ -30,6 +30,18 @@ Arr readiness, tests each owned connection, then repairs links and missing
 library roots. Inspect that unit and the individual application journals after
 a failure. Consumer errors suppress response bodies that might contain keys.
 
+Provision through `skillet apply donbot` for production, or on an existing
+owned [smoke VM](../vm/README.md):
+
+```sh
+cargo run --release -p skillet -- test vm update donbot INSTANCE
+cargo run --release -p skillet -- test vm provision donbot INSTANCE --with-ui
+cargo run --release -p skillet -- test smoke donbot --instance INSTANCE --with-applications
+```
+
+Only one test instance for a host can own its shared UI DNS at a time. Complete
+the current instance's lifecycle before moving that ownership to a new VM.
+
 References: [Prowlarr API](https://prowlarr.com/docs/api/),
 [external authentication](https://wiki.servarr.com/radarr/faq#forced-authentication),
 [putioarr](https://github.com/wouterdebie/putioarr).

@@ -1,6 +1,10 @@
 {
   "version": 1,
   "services": {
+    "media": {
+      "default": {"putio_token": {"$secret": "skillet/environments/{environment}/hosts/{host}/media/putio-token"}},
+      "hosts": {}
+    },
     "datadog": {
       "default": {
         "version": 1,

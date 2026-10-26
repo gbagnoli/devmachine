@@ -98,6 +98,7 @@ enum FieldRule {
     Wifikey,
     Hatoken,
     Hapassword,
+    Hex32,
 }
 
 impl FieldRequirement {
@@ -109,6 +110,7 @@ impl FieldRequirement {
             FieldRule::Nonempty => true,
             FieldRule::Hatoken => skillet_homeassistant::backup::valid_token(value),
             FieldRule::Hapassword => skillet_homeassistant::backup::valid_password(value),
+            FieldRule::Hex32 => skillet_media::valid_key(value),
             FieldRule::Port => value.parse::<u16>().is_ok_and(|port| port != 0),
             FieldRule::Choice => self.values.iter().any(|allowed| allowed == value),
             FieldRule::Hostname => valid_hostname(value),
@@ -429,6 +431,12 @@ pub fn check_with_entries(
     lookup: &impl Fn(&str, &str) -> Result<Option<String>, VaultError>,
 ) -> Result<CheckReport, CheckError> {
     let mut report = check(profiles, policy, lookup)?;
+    let mut audited = report
+        .present
+        .iter()
+        .cloned()
+        .chain(report.missing.iter().map(|entry| entry.path.clone()))
+        .collect::<BTreeSet<_>>();
     for module in catalog()? {
         if !module.environments.is_empty()
             && !module.environments.iter().any(|e| e == policy.vault_name())
@@ -442,24 +450,35 @@ pub fn check_with_entries(
             for entry in module.entries.iter().filter(|e| {
                 matches!(e.status, Status::Optional | Status::Generated)
                     && entry_selected(e, profile)
+                    // Structured DNS collections use the delivery compiler below;
+                    // their Password field is intentionally unused.
+                    && !e.path.ends_with("<record>")
             }) {
-                let path = expand(&entry.path, profile.id.as_str(), policy.vault_name());
-                if !stored.contains(&path) {
+                let pattern = expand(&entry.path, profile.id.as_str(), policy.vault_name());
+                if pattern
+                    .strip_prefix("skillet/environments/")
+                    .is_some_and(|suffix| suffix.split('/').next() != Some(policy.vault_name()))
+                {
                     continue;
                 }
-                report.checked += 1;
-                match validate_entry(
-                    path.clone(),
-                    module.module.clone(),
-                    format!("{} {}", module.description, entry.help),
-                    entry.fields.clone(),
-                    lookup,
-                )? {
-                    Some(mut invalid) => {
-                        invalid.invalid = true;
-                        report.missing.push(invalid);
+                for path in stored.iter().filter(|path| matches_entry(&pattern, path)) {
+                    if !audited.insert(path.clone()) {
+                        continue;
                     }
-                    None => report.present.push(path),
+                    report.checked += 1;
+                    match validate_entry(
+                        path.clone(),
+                        module.module.clone(),
+                        format!("{} {}", module.description, entry.help),
+                        entry.fields.clone(),
+                        lookup,
+                    )? {
+                        Some(mut invalid) => {
+                            invalid.invalid = true;
+                            report.missing.push(invalid);
+                        }
+                        None => report.present.push(path.clone()),
+                    }
                 }
             }
         }

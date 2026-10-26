@@ -18,6 +18,7 @@ pub use metrics::{run_metrics, MetricsCommands};
 pub mod airtrail_runtime;
 pub mod homeassistant_runtime;
 pub mod host_ui_proxy;
+pub mod media_runtime;
 pub mod postgres_runtime;
 mod smtp_runtime;
 pub mod syncthing_runtime;
@@ -83,6 +84,11 @@ pub enum HostCommands {
     Airtrail {
         #[command(subcommand)]
         command: airtrail_runtime::Commands,
+    },
+    /// Reconcile the selected Arr stack using its encrypted credential
+    Media {
+        #[command(subcommand)]
+        command: media_runtime::Commands,
     },
     UiProxy {
         #[command(subcommand)]
@@ -172,6 +178,7 @@ where
         HostCommands::Homeassistant { command } => homeassistant_runtime::dispatch(&command),
         HostCommands::Postgres { command } => postgres_runtime::dispatch(command),
         HostCommands::Airtrail { command } => airtrail_runtime::dispatch(command),
+        HostCommands::Media { command } => media_runtime::dispatch(command),
         HostCommands::UiProxy { command } => host_ui_proxy::dispatch(command),
         HostCommands::Syncthing { command } => syncthing_runtime::dispatch(command),
         HostCommands::Metrics { command } => run_metrics(command),
@@ -237,6 +244,7 @@ where
         ApplyPhase::Network => skillet_hosts::HostApplyPhase::Network,
         ApplyPhase::Joplin => skillet_hosts::HostApplyPhase::Joplin,
         ApplyPhase::Airtrail => skillet_hosts::HostApplyPhase::Airtrail,
+        ApplyPhase::Media => skillet_hosts::HostApplyPhase::Media,
     };
     if phase == skillet_hosts::HostApplyPhase::Network && record_path.is_some() {
         return Err(CliCommonError::Config(

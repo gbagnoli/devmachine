@@ -35,6 +35,10 @@ with optional host overrides/private tags. Delivery
 adds the selected environment tag and rejects a conflicting one; credentials
 alone never select the Agent capability.
 
+Media's template resolves only the environment/host Put.io token. Internal Arr
+keys and the RPC password are independently generated and persisted through the
+provisioning store. Production and disposable instances use distinct paths.
+
 Structured configuration collections may use one vault entry per object under a
 fixed environment-scoped group, with documented custom fields instead of JSON
 in Password. Enumerate only that group, validate the complete collection and

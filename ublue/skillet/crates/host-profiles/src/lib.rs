@@ -30,6 +30,7 @@ pub enum HostApplyPhase {
     PiholeDns,
     Joplin,
     Airtrail,
+    Media,
 }
 
 pub fn credentials_for_phase(
@@ -61,6 +62,7 @@ fn credential_names_for_phase(profile: &HostProfile, phase: HostApplyPhase) -> V
                     | skillet_network::PREPARE_UNIT
                     | "skillet-joplin-apply.service"
                     | "skillet-airtrail-apply.service"
+                    | skillet_media::APPLY_UNIT
             ),
             HostApplyPhase::Caddy => consumer.unit == "caddy.service",
             HostApplyPhase::Ddns => consumer.unit == "cloudflare-ddns.service",
@@ -75,6 +77,10 @@ fn credential_names_for_phase(profile: &HostProfile, phase: HostApplyPhase) -> V
             HostApplyPhase::Airtrail => {
                 consumer.credential == skillet_airtrail::DATABASE_PASSWORD_CREDENTIAL
                     || consumer.credential == skillet_airtrail::INTEGRATIONS_CREDENTIAL
+                    || consumer.credential == CADDY_SITES_CREDENTIAL
+            }
+            HostApplyPhase::Media => {
+                consumer.credential == skillet_media::CREDENTIAL
                     || consumer.credential == CADDY_SITES_CREDENTIAL
             }
             HostApplyPhase::Base => false,
@@ -133,6 +139,8 @@ pub enum ApplyError {
     Joplin(#[from] skillet_joplin::JoplinError),
     #[error(transparent)]
     Airtrail(#[from] skillet_airtrail::AirtrailError),
+    #[error(transparent)]
+    Media(#[from] skillet_media::Error),
     #[error("DDNS apply error: {0}")]
     Ddns(#[from] skillet_ddns::DdnsError),
     #[error("Datadog apply error: {0}")]
@@ -409,7 +417,8 @@ fn apply_profile(
             | ServiceConfig::Homer
             // Joplin needs the canonical Caddy site and its separately delivered credential.
             | ServiceConfig::Joplin(_)
-            | ServiceConfig::Airtrail(_) => {}
+            | ServiceConfig::Airtrail(_)
+            | ServiceConfig::Media { .. } => {}
             ServiceConfig::Pihole => {
                 apply_pihole(system, files, profile, service, credentials)?;
             }
@@ -537,7 +546,52 @@ pub fn apply_host_phase(
         }
         HostApplyPhase::Joplin => apply_joplin_host(hostname, system, files, credentials),
         HostApplyPhase::Airtrail => apply_airtrail_host(hostname, system, files, credentials),
+        HostApplyPhase::Media => apply_media_host(hostname, system, files, credentials),
     }
+}
+
+fn apply_media_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.into()))?;
+    let config = profile
+        .media_config()
+        .ok_or_else(|| ApplyError::FixtureInput("host does not declare media".into()))?;
+    let mut networks = BTreeMap::new();
+    let mut apps = std::collections::BTreeSet::new();
+    for service in &profile.services {
+        if let ServiceConfig::Media {
+            app,
+            config: selected,
+        } = service.config
+        {
+            if selected != config || !apps.insert(app) {
+                return Err(ApplyError::FixtureInput(
+                    "inconsistent media declarations".into(),
+                ));
+            }
+            if app != skillet_media::App::Putioarr {
+                let ui = service.ui.filter(|ui| ui.tailnet_identity).ok_or_else(|| {
+                    ApplyError::FixtureInput("Arr requires private identity-protected UI".into())
+                })?;
+                let network = skillet_caddy::private_network(hostname, ui.name);
+                skillet_podman::ensure_network(system, files, &network)?;
+                networks.insert(app, network.unit_name);
+            }
+        }
+    }
+    if apps != skillet_media::App::ALL.into_iter().collect() {
+        return Err(ApplyError::FixtureInput(
+            "incomplete media stack declaration".into(),
+        ));
+    }
+    let input = skillet_media::Credentials::parse(credentials.require(skillet_media::CREDENTIAL)?)?;
+    skillet_media::apply(system, files, config, &networks, &input, hostname)?;
+    Ok(())
 }
 
 fn apply_joplin_host(
@@ -781,6 +835,10 @@ fn apply_caddy_host(
                 icon: match site.name.as_str() {
                     "joplin" => Some("fas fa-book-open"),
                     "airtrail" => Some("fas fa-plane"),
+                    "prowlarr" => Some("fas fa-search"),
+                    "sonarr" => Some("fas fa-tv"),
+                    "radarr" => Some("fas fa-film"),
+                    "lidarr" => Some("fas fa-music"),
                     _ => None,
                 },
                 service_type: match site.name.as_str() {

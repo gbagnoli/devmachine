@@ -3604,3 +3604,23 @@ acceptance; no production host or private DNS values were committed.
   after the container's normal ten-second stop timeout.
 - Named Donbot media-container acceptance remains pending caller/delivery
   wiring and an environment-specific dedicated Put.io test token.
+
+## 2026-10-26 — Donbot media caller and credential wiring
+
+- Donbot now declares Prowlarr, Sonarr, Radarr, Lidarr and putioarr. Shared
+  Caddy/Homer composition derives four private UI sites and their icons.
+  Encrypted delivery generates four independent API keys plus the RPC password
+  under production or disposable-instance paths. Test provider lookup never
+  falls back to production. Missing vault keys beside retained app directories
+  or encrypted credentials fail rather than rotating keys.
+- Workspace tests, workspace Clippy with `-D warnings`, formatting and the CI
+  Fedora/Joey base-container check passed. New tests cover delivery isolation,
+  key reuse, lost-key refusal and instance/environment audit expansion.
+- Updated the owned native `donbot-test-joplin` VM. Its fixture smoke script
+  passed both pre-reboot and post-reboot cases; final lifecycle readiness is
+  tracked separately from application acceptance.
+- The optimized test vault audit reports exactly one missing required entry:
+  `skillet/environments/test/hosts/donbot/media/putio-token`. Real putioarr
+  startup, consumer connection tests, import, complete media apply/reboot and
+  authorized browser acceptance are unverified. Existing Joplin/AirTrail VM
+  state is retained; no production Put.io token was delivered.

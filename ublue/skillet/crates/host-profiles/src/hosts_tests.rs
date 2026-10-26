@@ -188,6 +188,18 @@ fn donbot_declares_joplin_and_airtrail_uis_that_register_with_homer_and_caddy() 
     assert!(donbot.supports_service("homer"));
     assert!(donbot.supports_service("joplin"));
     assert!(donbot.supports_service("airtrail"));
+    assert!(donbot.supports_service("media"));
+    assert!(donbot.supports_production_service("media"));
+    assert!(
+        super::credentials_for_phase("donbot", super::HostApplyPhase::Full)
+            .unwrap()
+            .iter()
+            .all(|name| *name != skillet_media::CREDENTIAL)
+    );
+    assert_eq!(
+        super::credentials_for_phase("donbot", super::HostApplyPhase::Media).unwrap(),
+        [skillet_media::CREDENTIAL, super::CADDY_SITES_CREDENTIAL]
+    );
     assert_eq!(
         donbot
             .ui_services()
@@ -199,6 +211,10 @@ fn donbot_declares_joplin_and_airtrail_uis_that_register_with_homer_and_caddy() 
             "syncthing",
             "joplin",
             "airtrail",
+            "prowlarr",
+            "sonarr",
+            "radarr",
+            "lidarr",
             "files",
             "homer"
         ]

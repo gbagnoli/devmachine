@@ -57,6 +57,18 @@ pub fn render(
     })
 }
 
+/// Resolve the same templates through a mutable provisioning store boundary.
+pub fn render_from_store(
+    service: &str,
+    host: &str,
+    environment: &str,
+    store: &impl crate::vault::SecretStore,
+) -> Result<String, ConfigurationTemplateError> {
+    render_catalog(TEMPLATE_CATALOG, service, host, environment, &|path| {
+        store.get(path)
+    })
+}
+
 /// Discover resolved references using the same parser and host override selection
 /// as delivery. No vault reads or secret values are required.
 pub fn secret_paths(

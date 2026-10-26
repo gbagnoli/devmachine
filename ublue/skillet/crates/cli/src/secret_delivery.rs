@@ -129,6 +129,7 @@ pub(super) fn deliver_with_vault(
         }
         "joplin" => deliver_joplin_from_vault(args, vault, transport, activation)?,
         "airtrail" => deliver_airtrail_from_vault(args, vault, transport, activation)?,
+        "media" => deliver_media_from_vault(args, vault, transport, activation)?,
         "caddy" => deliver_caddy_from_vault(args, vault, transport, activation)?,
         "ddns" => deliver_ddns_from_vault(args, vault, transport, activation)?,
         "network" => {
@@ -168,6 +169,25 @@ pub(super) fn deliver_with_vault(
         _ => return Err(anyhow!("unsupported secret service {}", args.service)),
     }
     Ok(true)
+}
+
+fn deliver_media_from_vault(
+    args: &SecretDeliverArgs,
+    vault: &mut Vault,
+    transport: &impl GuestTransport,
+    activation: skillet_vm::credential::ActivationPolicy,
+) -> Result<()> {
+    let mut store =
+        skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref());
+    skillet_workstation::media_provisioning::deliver(
+        &args.hostname,
+        None,
+        args.environment.policy(),
+        &mut store,
+        transport,
+        activation,
+    )?;
+    Ok(())
 }
 
 fn deliver_airtrail_from_vault(
@@ -217,7 +237,7 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
     }
     match service {
         "pihole" | "tailscale" | "ddns" | "datadog" | "smtp" | "network" | "syncthing"
-        | "homeassistant" | "joplin" | "airtrail"
+        | "homeassistant" | "joplin" | "airtrail" | "media"
             if !profile.supports_service(service) =>
         {
             Err(anyhow!(
@@ -228,7 +248,7 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
             Err(anyhow!("host {hostname} declares no UI services"))
         }
         "pihole" | "tailscale" | "caddy" | "ddns" | "datadog" | "smtp" | "network"
-        | "syncthing" | "homeassistant" | "joplin" | "airtrail" => Ok(profile),
+        | "syncthing" | "homeassistant" | "joplin" | "airtrail" | "media" => Ok(profile),
         unsupported => Err(anyhow!("unsupported secret service {unsupported}")),
     }
 }
@@ -548,6 +568,7 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
         provision_vm_ui(args, &run_dir, &transport, &mut vault, &record)?;
         provision_vm_joplin(args, &profile, policy, &transport, &mut vault)?;
         provision_vm_airtrail(args, &profile, policy, &transport, &mut vault)?;
+        provision_vm_media(args, &profile, policy, &transport, &mut vault)?;
     }
     if args.with_ddns {
         provision_vm_ddns(args, &run_dir, &transport, &mut vault)?;
@@ -599,6 +620,30 @@ fn provision_vm_joplin(
         transport,
     )?;
     skillet_workstation::host_apply::activate(transport, "skillet-joplin-apply.service")?;
+    Ok(())
+}
+
+fn provision_vm_media(
+    args: &super::VmProvisionArgs,
+    profile: &skillet_hosts::HostProfile,
+    policy: skillet_workstation::provisioning_policy::ProvisioningPolicy,
+    transport: &impl GuestTransport,
+    vault: &mut Vault,
+) -> Result<()> {
+    if !profile.supports_service("media") {
+        return Ok(());
+    }
+    let mut store =
+        skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref());
+    skillet_workstation::media_provisioning::deliver(
+        &args.hostname,
+        Some(&args.instance),
+        policy,
+        &mut store,
+        transport,
+        skillet_vm::credential::ActivationPolicy::DeferConsumer,
+    )?;
+    skillet_workstation::host_apply::activate(transport, "skillet-media-apply.service")?;
     Ok(())
 }
 

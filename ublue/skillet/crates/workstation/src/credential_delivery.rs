@@ -12,6 +12,10 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum CredentialDeliveryError {
     #[error(transparent)]
+    Media(#[from] skillet_media::Error),
+    #[error(transparent)]
+    Template(#[from] crate::configuration_templates::ConfigurationTemplateError),
+    #[error(transparent)]
     Datadog(#[from] skillet_datadog::DatadogError),
     #[error("invalid host credential delivery: {0}")]
     Invalid(String),

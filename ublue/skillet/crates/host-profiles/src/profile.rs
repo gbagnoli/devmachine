@@ -62,6 +62,10 @@ pub enum ServiceConfig {
     Homer,
     Joplin(skillet_joplin::Config),
     Airtrail(skillet_airtrail::Config),
+    Media {
+        app: skillet_media::App,
+        config: skillet_media::Config,
+    },
     Nut(skillet_nut::Config),
     Unifi,
     HomeAssistant(skillet_homeassistant::Config),
@@ -90,6 +94,10 @@ pub struct HostService {
 }
 
 impl HostService {
+    fn supports(&self, name: &str) -> bool {
+        self.name() == name
+            || (name == "media" && matches!(self.config, ServiceConfig::Media { .. }))
+    }
     pub fn name(&self) -> &'static str {
         match self.config {
             ServiceConfig::Pihole => "pihole",
@@ -98,6 +106,7 @@ impl HostService {
             ServiceConfig::Homer => "homer",
             ServiceConfig::Joplin(_) => "joplin",
             ServiceConfig::Airtrail(_) => "airtrail",
+            ServiceConfig::Media { app, .. } => app.name(),
             ServiceConfig::Nut(_) => "nut",
             ServiceConfig::Unifi => "unifi",
             ServiceConfig::HomeAssistant(_) => "homeassistant",
@@ -119,6 +128,13 @@ impl HostService {
 
     pub fn credential_consumers(&self) -> Vec<CredentialConsumer> {
         match self.config {
+            ServiceConfig::Media {
+                app: skillet_media::App::Prowlarr,
+                ..
+            } => vec![CredentialConsumer {
+                credential: skillet_media::CREDENTIAL,
+                unit: skillet_media::APPLY_UNIT,
+            }],
             ServiceConfig::HomeAssistant(_) => vec![CredentialConsumer {
                 credential: skillet_homeassistant::backup::CREDENTIAL,
                 unit: skillet_homeassistant::backup::UNIT,
@@ -234,6 +250,7 @@ pub enum ListenerProtocol {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HealthProbe {
+    Media,
     Homeassistant,
     Mikochi,
     Pihole,
@@ -311,14 +328,23 @@ impl HostProfile {
     }
 
     pub fn supports_service(&self, name: &str) -> bool {
-        self.services.iter().any(|service| service.name() == name)
+        self.services.iter().any(|service| service.supports(name))
+    }
+
+    pub fn media_config(&self) -> Option<skillet_media::Config> {
+        self.services
+            .iter()
+            .find_map(|service| match service.config {
+                ServiceConfig::Media { config, .. } => Some(config),
+                _ => None,
+            })
     }
 
     /// A declared service can remain available to disposable test scenarios
     /// while its production writer is held until an explicit cutover.
     pub fn supports_production_service(&self, name: &str) -> bool {
         self.services.iter().any(|service| {
-            service.name() == name
+            service.supports(name)
                 && !matches!(
                     service.config,
                     ServiceConfig::Ddns {
@@ -436,6 +462,7 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
         ServiceConfig::HomeAssistant(_) => homeassistant_acceptance(),
         ServiceConfig::Joplin(config) => joplin_acceptance(config),
         ServiceConfig::Airtrail(config) => airtrail_acceptance(config),
+        ServiceConfig::Media { app, config } => media_acceptance(app, config),
         ServiceConfig::Nut(_) => AcceptanceService {
             unit: "nut-monitor.service".into(),
             container: None,
@@ -534,6 +561,31 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
             listeners: Vec::new(),
             health_probe: None,
         },
+    }
+}
+
+fn media_acceptance(app: skillet_media::App, config: skillet_media::Config) -> AcceptanceService {
+    let mut bind_paths = Vec::new();
+    if app != skillet_media::App::Putioarr {
+        bind_paths.push(config.config_path(app).to_string_lossy().into_owned());
+    }
+    if app != skillet_media::App::Prowlarr {
+        bind_paths.push(config.files_path.into());
+    }
+    if app == skillet_media::App::Lidarr {
+        bind_paths.push(config.music_path.into());
+    }
+    AcceptanceService {
+        unit: format!("{}.service", app.name()),
+        container: Some(app.name().into()),
+        network_mode: Some(config.network.into()),
+        bind_paths,
+        owner: Some(AcceptanceOwner::Numeric {
+            uid: config.uid,
+            gid: config.gid,
+        }),
+        listeners: Vec::new(),
+        health_probe: (app == skillet_media::App::Prowlarr).then_some(HealthProbe::Media),
     }
 }
 
@@ -784,9 +836,9 @@ fn joey() -> HostProfile {
 }
 
 /// Donbot is a fresh installation replacing Calculon, with the shared fleet
-/// baseline and Joplin as its first declared application.
+/// baseline and private application services.
 fn donbot() -> HostProfile {
-    HostProfile {
+    let mut profile = HostProfile {
         id: HostId::known("donbot"),
         signed_image: Some("ghcr.io/gbagnoli/ucore-donbot"),
         masked_units: &["systemd-resolved.service"],
@@ -882,7 +934,34 @@ fn donbot() -> HostProfile {
                 ui: None,
             },
         ],
-    }
+    };
+    profile.services.extend(donbot_media_services());
+    profile
+}
+
+fn donbot_media_services() -> Vec<HostService> {
+    let config = skillet_media::Config {
+        config_root: "/var/lib/data/media/config",
+        files_path: "/var/lib/data/media/files",
+        music_path: "/var/lib/data/syncthing/data/music",
+        network: "donbot-media",
+        uid: 1000,
+        gid: 1000,
+    };
+    skillet_media::App::ALL
+        .into_iter()
+        .map(|app| HostService {
+            config: ServiceConfig::Media { app, config },
+            ui: (app != skillet_media::App::Putioarr).then_some(UiServiceDeclaration {
+                name: app.name(),
+                upstream: app.name(),
+                transport: skillet_caddy::UpstreamTransport::Bridge,
+                port: app.port(),
+                tailnet_identity: true,
+                aliases: &[],
+            }),
+        })
+        .collect()
 }
 
 fn agent_baseline() -> HostProfile {

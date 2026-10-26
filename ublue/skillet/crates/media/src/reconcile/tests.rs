@@ -63,7 +63,7 @@ impl Api for Fixture {
                 value["id"] = json!(entries.len() + 1);
                 entries.push(value.clone());
                 self.writes.set(self.writes.get() + 1);
-                if self.fail_after_create.replace(false) {
+                if path == "downloadclient" && self.fail_after_create.replace(false) {
                     return Err(Error::Invalid("injected lost response"));
                 }
                 Ok(value)

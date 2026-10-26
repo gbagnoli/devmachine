@@ -86,6 +86,24 @@ Dedicated PostgreSQL password is generated once and stored in KeePassXC before d
 | `skillet/environments/prod/hosts/<host>/joplin/database-password` | Generated | Password = Skillet-generated dedicated Joplin database password. Skillet uses the existing value or creates it before delivery. If the host already has an encrypted credential but this entry is missing, restore the KeePassXC value; Skillet will not replace it. |
 | `skillet/environments/test/hosts/<host>/instances/<instance>/joplin/database-password` | Generated | Password = Skillet-generated disposable Joplin database password, scoped to this test VM instance. It remains in KeePassXC after VM destruction until you remove the instance entry. |
 
+## Media
+
+Linked Arr stack: separate internal API keys, private browser UIs and environment-specific Put.io access. [Setup](ublue/skillet/crates/media/README.md).
+
+| Entry | Status | Fields / how to obtain them |
+| --- | --- | --- |
+| `skillet/environments/<environment>/hosts/<host>/media/putio-token` | Required | Password = Put.io API token from a dedicated account/application. Test requires an empty dedicated test account; no production fallback. [Media setup](ublue/skillet/crates/media/README.md). |
+| `skillet/environments/prod/hosts/<host>/media/prowlarr-api-key` | Generated | Password = Skillet-generated prowlarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
+| `skillet/environments/prod/hosts/<host>/media/sonarr-api-key` | Generated | Password = Skillet-generated sonarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
+| `skillet/environments/prod/hosts/<host>/media/radarr-api-key` | Generated | Password = Skillet-generated radarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
+| `skillet/environments/prod/hosts/<host>/media/lidarr-api-key` | Generated | Password = Skillet-generated lidarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
+| `skillet/environments/prod/hosts/<host>/media/putioarr-password` | Generated | Password = Skillet-generated Transmission RPC password shared only with the three declared download clients. Ordinary apply reuses it. |
+| `skillet/environments/test/hosts/<host>/instances/<instance>/media/prowlarr-api-key` | Generated | Password = Skillet-generated prowlarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
+| `skillet/environments/test/hosts/<host>/instances/<instance>/media/sonarr-api-key` | Generated | Password = Skillet-generated sonarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
+| `skillet/environments/test/hosts/<host>/instances/<instance>/media/radarr-api-key` | Generated | Password = Skillet-generated radarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
+| `skillet/environments/test/hosts/<host>/instances/<instance>/media/lidarr-api-key` | Generated | Password = Skillet-generated lidarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
+| `skillet/environments/test/hosts/<host>/instances/<instance>/media/putioarr-password` | Generated | Password = Skillet-generated Transmission RPC password shared only with the three declared download clients. Ordinary apply reuses it. |
+
 ## Mikochi
 
 No application password; uses the shared Tailnet UI allowlist. [Setup](ublue/skillet/crates/mikochi/README.md).

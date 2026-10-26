@@ -151,7 +151,7 @@ struct SecretLockArgs {
 #[derive(clap::Args, Debug)]
 struct SecretDeliverArgs {
     hostname: String,
-    #[arg(value_parser = ["pihole", "pihole-dns", "tailscale", "caddy", "ddns", "datadog", "smtp", "network", "syncthing", "homeassistant"])]
+    #[arg(value_parser = ["pihole", "pihole-dns", "tailscale", "caddy", "ddns", "datadog", "smtp", "network", "syncthing", "homeassistant", "joplin", "airtrail", "media"])]
     service: String,
     #[arg(long)]
     database: Option<PathBuf>,
@@ -794,6 +794,13 @@ impl SmokeLifecycle<'_> {
                 &["-n", "systemctl", "restart", "skillet-caddy-apply.service"],
             )?;
         }
+        if profile.supports_service("media") {
+            smoke_guest_command(
+                transport,
+                "sudo",
+                &["-n", "systemctl", "restart", "skillet-media-apply.service"],
+            )?;
+        }
         Ok(())
     }
 
@@ -1052,6 +1059,13 @@ fn check_health(
 ) -> Result<Option<String>> {
     use skillet_hosts::HealthProbe;
     match probe {
+        Some(HealthProbe::Media) => {
+            skillet_workstation::host_apply::activate(
+                transport,
+                "skillet-media-reconcile.service",
+            )?;
+            Ok(Some("health:media:connections-passed".into()))
+        }
         Some(HealthProbe::Homeassistant) => {
             smoke_guest_command(
                 transport,
@@ -1448,6 +1462,7 @@ fn run_twice_and_check(name: &str, phase: ApplyPhase, inspect: bool) -> Result<(
         ApplyPhase::Network => "network",
         ApplyPhase::Joplin => "joplin",
         ApplyPhase::Airtrail => "airtrail",
+        ApplyPhase::Media => "media",
     };
     for round in ["first", "second"] {
         let status = Command::new("podman")

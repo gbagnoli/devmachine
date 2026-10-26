@@ -93,6 +93,12 @@ fn delivery_eligibility_uses_declared_service_capabilities() {
     }
     assert!(validate_delivery_service("missing-host", "caddy").is_err());
     assert!(validate_delivery_service("clamps", "unknown").is_err());
+    assert!(validate_delivery_service("donbot", "media").is_ok());
+    assert!(validate_delivery_service("clamps", "media").is_err());
+    assert!(crate::Args::try_parse_from([
+        "skillet", "secrets", "deliver", "donbot", "media", "--target", "donbot"
+    ])
+    .is_ok());
 }
 
 #[test]

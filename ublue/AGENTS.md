@@ -41,6 +41,9 @@
   compatible, and never include field values in audit output or errors.
   Unused-entry auditing must consider all declared hosts and both environments,
   including optional/generated entries and retained migration readers.
+  Selected-scope validation must expand declared instance patterns without
+  consulting another environment, and retain collection-specific schemas rather
+  than applying single-value Password defaults to structured collections.
 
 - Read the relevant documents in [design/](design) before changing architecture
   or behavior they describe, including [secrets](design/secrets.md) and

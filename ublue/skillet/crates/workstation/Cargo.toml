@@ -10,6 +10,7 @@ workspace = true
 skillet_homeassistant.workspace = true
 skillet_joplin.workspace = true
 skillet_airtrail.workspace = true
+skillet_media.workspace = true
 skillet_pihole.workspace = true
 skillet_syncthing.workspace = true
 skillet_network.workspace = true

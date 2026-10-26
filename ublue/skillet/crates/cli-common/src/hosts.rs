@@ -22,6 +22,7 @@ pub enum ApplyPhase {
     PiholeDns,
     Joplin,
     Airtrail,
+    Media,
 }
 
 pub fn apply_host_phase(
@@ -42,6 +43,7 @@ pub fn apply_host_phase(
         ApplyPhase::Network => skillet_hosts::HostApplyPhase::Network,
         ApplyPhase::Joplin => skillet_hosts::HostApplyPhase::Joplin,
         ApplyPhase::Airtrail => skillet_hosts::HostApplyPhase::Airtrail,
+        ApplyPhase::Media => skillet_hosts::HostApplyPhase::Media,
     };
     skillet_hosts::apply_host_phase(hostname, phase, system, files, credentials)
 }

@@ -22,6 +22,11 @@ this plan does not close those gates or claim fresh donbot acceptance.
 
 ## Scope and prerequisites
 
+Linked Arr implementation added 2026-10-26: Donbot selects all five media
+containers, private UI/Homer declarations, generated-key delivery and API
+reconciliation. Live linked-stack acceptance currently needs the dedicated
+test Put.io token; no production fallback is permitted. See slice 4 below.
+
 Build a fresh Donbot installation with Arr/putioarr, Plex, Jellyfin, Gokapi,
 Syncthing and a private file-browsing UI. **Joplin and Airtrail are required
 services**; establish their effective access policies, client requirements and
@@ -49,9 +54,9 @@ Architecture constraints and proposals are in
 
 | Service / capability | Missing for donbot |
 | --- | --- |
-| Existing baseline: Pi-hole, Tailscale, Syncthing, Mikochi, private Caddy, SMTP, Datadog, btrbk | Donbot profile/binary/Butane, image resolved mask, data ownership and host-specific acceptance; reuse existing modules |
+| Existing baseline: Pi-hole, Tailscale, Syncthing, Mikochi, private Caddy, SMTP, Datadog, btrbk | Donbot declarations and shared composition are implemented; finish host-specific acceptance using existing modules |
 | Subnet routing | Shared routing preferences tracked in joey's plan; select only needed routes |
-| Prowlarr, Radarr, Sonarr, Lidarr, putioarr | Media composition, persistent mounts, credential delivery, private UIs, safe import/cleanup and module-owned monitoring |
+| Prowlarr, Radarr, Sonarr, Lidarr, putioarr | Composition, persistent mounts, generated credentials, private UIs/Homer, owned links and service monitoring declarations implemented. Real consumer/transfer/import/reboot acceptance pending; no age-based cleanup is enabled |
 | Jellyfin and Plex | Service configuration/state restore, public HTTPS ingress, client acceptance; Jellyfin Caddy cache per its plan |
 | Gokapi | Mixed ingress, verified identity-to-account mapping, exact public routes and coordinated state restore |
 | Joplin / Airtrail (required) | Both callers, reusable PostgreSQL module, per-host generated credentials, private UI/Homer registration and scheduled backups are implemented. Joplin restore and AirTrail paired database/uploads restore passed; the operator confirmed both UIs work. Joplin client sync and AirTrail account/API acceptance remain |
@@ -62,7 +67,8 @@ Joplin PostgreSQL and AirTrail paired database/uploads backup/restore acceptance
 passed. The fresh named VM has both services running, with PostgreSQL and
 scheduled backup timers active; the operator confirmed both UIs work. Joplin
 client sync and AirTrail account/API acceptance remain open. Media and Gokapi
-implementations are not yet present in Skillet.
+implementations have separate status: the linked media stack is implemented
+with live acceptance pending; Gokapi is not implemented.
 Donbot does not select DDNS. Joplin retains native authentication behind private HTTPS; Arr uses
 verified tailnet-user authentication. Airtrail should use the same tailnet-user
 authentication where supported; its account integration and API needs require inventory. UniFi, NUT and Home Assistant are not
@@ -280,9 +286,12 @@ clients and direct backend connections are denied. A daemon outage fails closed.
 
 ### 4. Fresh Arr installation and download integration
 
-Implementation started 2026-10-26: the cohesive media crate contains bootstrap,
+Implementation added 2026-10-26: the cohesive media crate contains bootstrap,
 private container composition, bounded HTTP clients and owned-link reconciliation.
-Caller/credential wiring and named-VM acceptance are pending until recorded below.
+Donbot caller, encrypted workstation/guest delivery, Homer and application-smoke
+checks are wired. Full runtime acceptance remains pending the dedicated
+`skillet/environments/test/hosts/donbot/media/putio-token` entry (Password).
+Production uses its own environment path; generated keys need no manual setup.
 Architecture is documented in [media stack](../design/media-stack.md).
 
 Donbot gets new Prowlarr/Sonarr/Radarr/Lidarr and putioarr configuration. No
@@ -535,9 +544,10 @@ The shared identity allowlist is implemented at `skillet/tailscale/ui-users`.
 Gokapi's new-install application-account mapping and service inputs remain to be
 designed.
 
-**Next implementation milestone:** build the fresh linked Arr stack (slice 4),
-including generated API keys and connection checks for Prowlarr, Sonarr, Radarr,
-Lidarr and putioarr. Separately complete Joplin client sync and AirTrail
+**Current milestone:** finish named-VM linked Arr acceptance (slice 4), including
+real connection tests, harmless import and repeat/reboot persistence. The code
+and generated-key flow are implemented; the dedicated Put.io test token is the
+remaining provider prerequisite. Separately complete Joplin client sync and AirTrail
 account/API acceptance in the running named VM. Their database restore and
 AirTrail paired upload restore have passed. Public ingress remains required
 before implementing or importing any public media-sharing service state.
@@ -547,7 +557,8 @@ before implementing or importing any public media-sharing service state.
 Mikochi and the generic LocalAPI identity gate are implemented for existing
 Syncthing callers (clamps and joey), including encrypted allowlist delivery,
 canonical DNS/Caddy declarations, ownership, private backend and CI regressions.
-Donbot still needs its profile; the shared composition will include file browsing.
+Donbot's profile includes this shared composition; its file-browsing acceptance
+is still separate from the operator's confirmed Clamps browser checks.
 Gokapi identity/account mapping and Headscale acceptance remain pending. See
 [Butane acceptance](archive/ACCEPTANCE.md) for live checks and limitations.
 

@@ -62,6 +62,12 @@ pub fn steps(profile: &HostProfile) -> Vec<Step> {
             Step::Activate("skillet-airtrail-apply.service"),
         ]);
     }
+    if profile.supports_service("media") {
+        result.extend([
+            Step::Stage("media"),
+            Step::Activate("skillet-media-apply.service"),
+        ]);
+    }
     if profile.supports_service("homeassistant") {
         result.push(Step::Stage("homeassistant"));
     }
