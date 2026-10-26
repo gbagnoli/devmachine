@@ -289,10 +289,17 @@ clients and direct backend connections are denied. A daemon outage fails closed.
 Implementation added 2026-10-26: the cohesive media crate contains bootstrap,
 private container composition, bounded HTTP clients and owned-link reconciliation.
 Donbot caller, encrypted workstation/guest delivery, Homer and application-smoke
-checks are wired. Full runtime acceptance remains pending the dedicated
+checks are wired. The provider-free named-VM consumer test passed with four
+actual Arr images: API-key enforcement, external browser authentication,
+Prowlarr connections, library roots, unchanged repeat apply and container restart
+persistence. Full runtime acceptance remains pending the dedicated
 `skillet/environments/test/hosts/donbot/media/putio-token` entry (Password).
 Production uses its own environment path; generated keys need no manual setup.
 Architecture is documented in [media stack](../design/media-stack.md).
+The full test must still prove putioarr account startup, all three Transmission
+download-client tests/callbacks, a harmless transfer/import, declared-application
+reapply and reboot, and authorized private browser access. The provider-free
+consumer test does not establish those gates.
 
 Donbot gets new Prowlarr/Sonarr/Radarr/Lidarr and putioarr configuration. No
 legacy Arr databases, API keys, watchlists or download-client configuration are

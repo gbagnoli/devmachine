@@ -3616,11 +3616,44 @@ acceptance; no production host or private DNS values were committed.
 - Workspace tests, workspace Clippy with `-D warnings`, formatting and the CI
   Fedora/Joey base-container check passed. New tests cover delivery isolation,
   key reuse, lost-key refusal and instance/environment audit expansion.
-- Updated the owned native `donbot-test-joplin` VM. Its fixture smoke script
-  passed both pre-reboot and post-reboot cases; final lifecycle readiness is
-  tracked separately from application acceptance.
+- Updated the owned native `donbot-test-joplin` VM. The complete
+  `test smoke donbot --instance joplin` command passed its fixture checks before
+  and after reboot and finished with lifecycle readiness `Ready`. This is
+  fixture acceptance, separate from declared media application acceptance.
 - The optimized test vault audit reports exactly one missing required entry:
   `skillet/environments/test/hosts/donbot/media/putio-token`. Real putioarr
   startup, consumer connection tests, import, complete media apply/reboot and
   authorized browser acceptance are unverified. Existing Joplin/AirTrail VM
   state is retained; no production Put.io token was delivered.
+
+## 2026-10-26 — Real Arr consumer API contracts
+
+- Ran `cargo run --release -p skillet_workstation --example media_consumer --
+  ../butane donbot joplin` against the manifest-owned native smoke VM. The
+  runner held the run lock and verified its recorded domain identity around
+  guest operations. Separate empty containers, storage and synthetic keys
+  preserved the existing Joplin/AirTrail installation. Test resources were
+  removed successfully; evidence remains in the run's `media-consumer.log`.
+  Updated the VM's generic and Donbot binaries through `test vm update` after
+  fixture smoke restored the original captured binaries.
+- Passed with Prowlarr 2.6.5.5623, Sonarr 4.0.20.3014, Radarr 6.4.4.10685 and
+  Lidarr 3.1.6.5079. Each rejected an incorrect API key with HTTP 401/403,
+  reported External authentication and served browser requests without a key.
+  All three Prowlarr application connection tests and library-root creation
+  passed. Repeat reconciliation made no writes, including after restarting
+  every consumer and rediscovering its bridge address. No ports were published.
+- Real APIs exposed resource-ID validation and secret masking semantics. Added
+  regression coverage retaining IDs during connection tests and verifying stored
+  masked credentials before reuse; invalid stored credentials are repaired only
+  after the expected value passes the consumer's test. Workspace tests, Clippy
+  with `-D warnings`, formatting and the Fedora/Joey repeat-apply check passed.
+  Routine CI uses protocol fixtures and only compiles the ignored live test.
+- This provider-free run did not start putioarr or prove its Transmission
+  clients, callbacks, transfer/import, full media reboot or Caddy browser access.
+  The last unlocked audit was missing
+  `skillet/environments/test/hosts/donbot/media/putio-token`; a final recheck
+  reached an expired vault cache and was stopped without waiting for a password.
+  No production Put.io account was used. Once the dedicated test credential is
+  present, update this same VM, provision it with `--with-ui`, then run
+  `test smoke donbot --instance joplin --with-applications` and the remaining
+  harmless transfer/import and authorized browser checks.
