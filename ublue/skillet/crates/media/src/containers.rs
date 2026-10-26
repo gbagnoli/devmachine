@@ -1,7 +1,7 @@
 use crate::{bootstrap, App, Config, Credentials, Error, CREDENTIAL};
 use skillet_core::{
-    files::{FileResource, Ownership},
-    system::SystemResource,
+    files::{FileMutationResource, FileReadResource, Ownership, StorageResource},
+    system::{AccountLookupResource, PodmanSecretResource, ServiceResource},
 };
 use skillet_podman::{
     MountDependency, NetworkAttachment, PodmanConfig, PodmanNetwork, ProcessIdentity,
@@ -16,14 +16,18 @@ impl Config {
 }
 
 /// The caller supplies only networks protected by its private UI declaration.
-pub fn apply(
-    system: &dyn SystemResource,
-    files: &dyn FileResource,
+pub fn apply<S, F>(
+    system: &S,
+    files: &F,
     config: Config,
     ui_networks: &BTreeMap<App, String>,
     credentials: &Credentials,
     host: &str,
-) -> Result<(), Error> {
+) -> Result<(), Error>
+where
+    S: AccountLookupResource + PodmanSecretResource + ServiceResource + ?Sized,
+    F: FileMutationResource + FileReadResource + StorageResource + ?Sized,
+{
     config.validate()?;
     credentials.validate()?;
     let identity = config.identity(system)?;
@@ -71,15 +75,19 @@ pub fn apply(
     Ok(())
 }
 
-fn install_container(
-    system: &dyn SystemResource,
-    files: &dyn FileResource,
+fn install_container<S, F>(
+    system: &S,
+    files: &F,
     config: Config,
     app: App,
     ui_network: Option<&String>,
     credentials: &Credentials,
     (uid, gid): (u32, u32),
-) -> Result<(), Error> {
+) -> Result<(), Error>
+where
+    S: AccountLookupResource + PodmanSecretResource + ServiceResource + ?Sized,
+    F: FileMutationResource + FileReadResource + ?Sized,
+{
     let mut networks = vec![NetworkAttachment::Bridge(config.network.into())];
     if let Some(network) = ui_network {
         networks.push(NetworkAttachment::Bridge(network.clone()));
@@ -172,11 +180,11 @@ fn volume(host_path: String, target: &str) -> Volume {
     }
 }
 
-fn install_reconciliation(
-    system: &dyn SystemResource,
-    files: &dyn FileResource,
-    host: &str,
-) -> Result<(), Error> {
+fn install_reconciliation<S, F>(system: &S, files: &F, host: &str) -> Result<(), Error>
+where
+    S: ServiceResource + ?Sized,
+    F: FileMutationResource + ?Sized,
+{
     if host.is_empty()
         || !host
             .bytes()
@@ -187,7 +195,7 @@ fn install_reconciliation(
     let units = App::ALL
         .map(|app| format!("{}.service", app.name()))
         .join(" ");
-    let unit = format!("[Unit]\nDescription=Reconcile the declared Arr application links\nRequires={units}\nAfter={units}\nRequiresMountsFor=/var/lib/data\n[Service]\nType=oneshot\nTimeoutStartSec=5min\nLoadCredentialEncrypted={CREDENTIAL}:/etc/credstore.encrypted/skillet/{CREDENTIAL}.cred\nExecStart=/var/usrlocal/bin/skillet-{host} media reconcile\nUMask=0077\n[Install]\nWantedBy=multi-user.target\n");
+    let unit = format!("[Unit]\nDescription=Reconcile the declared Arr application links\nRequires={units}\nAfter={units}\nRequiresMountsFor=/var/lib/data\n[Service]\nType=oneshot\nTimeoutStartSec=10min\nLoadCredentialEncrypted={CREDENTIAL}:/etc/credstore.encrypted/skillet/{CREDENTIAL}.cred\nExecStart=/var/usrlocal/bin/skillet-{host} media reconcile\nUMask=0077\n[Install]\nWantedBy=multi-user.target\n");
     let path = Path::new("/etc/systemd/system/skillet-media-reconcile.service");
     if files.ensure_file(
         path,

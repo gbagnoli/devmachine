@@ -26,6 +26,10 @@ libraries and settings survive. Prowlarr owns full synchronization of its
 indexers into the applications. Skillet owns the application links and the
 putioarr download-client links, not indexer accounts. Consumer connection tests
 run before writes, and ambiguous writes are recovered by listing owned objects.
+Existing IDs are retained during those tests. Servarr masks persisted secrets;
+Skillet verifies the masked stored credential through the provider's connection
+test before preserving it. A rejected credential is repaired only after the
+expected vault value passes that same test.
 
 Movies, TV and downloads use one `/data` bind so filesystem rename/hardlink
 semantics can work. Music remains in the caller's Syncthing tree; cross-filesystem

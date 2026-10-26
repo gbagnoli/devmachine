@@ -194,6 +194,10 @@
   data and historical/shared references; reject a mutation when the persistence
   library cannot preserve them. Cover repeated updates through actual readback.
 - Persist ownership before mutations and preserve it across partial failures.
+  Resolve existing API identities before constructing validation/test requests;
+  test the actual merged update, including retained fields and resource IDs.
+  Treat redacted secrets as opaque: a mask alone cannot prove the configured
+  credential is correct. Use supported consumer validation before preserving it.
   Cleanup must tolerate already-absent owned resources while refusing ambiguous
   or unrelated resources. Remove recovery metadata only after cleanup completes.
 - Compatibility-sensitive refactors must preserve retained artifacts and

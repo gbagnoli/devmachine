@@ -199,10 +199,11 @@ pub enum Error {
         operation: String,
         status: u16,
     },
-    #[error("{app} API {operation} failed; response details are suppressed because they may contain credentials")]
+    #[error("{app} API {operation} failed: {reason}; response details are suppressed because they may contain credentials")]
     Transport {
         app: &'static str,
         operation: String,
+        reason: &'static str,
     },
 }
 

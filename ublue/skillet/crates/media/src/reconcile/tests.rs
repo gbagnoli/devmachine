@@ -44,8 +44,7 @@ impl Api for Fixture {
             return Ok(json!(implementations.into_iter().map(|name| json!({"implementation":name,"configContract":format!("{name}Settings"),"fields": fields})).collect::<Vec<_>>()));
         }
         if path.ends_with("/test") {
-            self.tests.set(self.tests.get() + 1);
-            return Ok(json!([]));
+            return self.test_provider(app, path, body);
         }
         if path == "system/status" {
             return Ok(json!({"version":"fixture"}));
@@ -57,7 +56,21 @@ impl Api for Fixture {
         let mut values = self.values.borrow_mut();
         let entries = values.entry((app, collection)).or_default();
         match method {
-            Method::Get => Ok(json!(entries)),
+            Method::Get => {
+                let mut response = json!(entries);
+                for entry in response.as_array_mut().unwrap() {
+                    if let Some(fields) = entry["fields"].as_array_mut() {
+                        for field in fields {
+                            if matches!(field["name"].as_str(), Some("apiKey" | "password"))
+                                && field["value"].as_str().is_some_and(|v| !v.is_empty())
+                            {
+                                field["value"] = json!("********");
+                            }
+                        }
+                    }
+                }
+                Ok(response)
+            }
             Method::Post => {
                 let mut value = body.unwrap().clone();
                 value["id"] = json!(entries.len() + 1);
@@ -74,12 +87,100 @@ impl Api for Fixture {
                     .iter_mut()
                     .find(|entry| entry["id"] == value["id"])
                     .unwrap();
-                *existing = value.clone();
+                let mut update = value.clone();
+                for field in update["fields"].as_array_mut().unwrap() {
+                    if matches!(field["name"].as_str(), Some("apiKey" | "password"))
+                        && field["value"] == "********"
+                    {
+                        field["value"] = field_value(existing, field["name"].as_str().unwrap());
+                    }
+                }
+                *existing = update;
                 self.writes.set(self.writes.get() + 1);
                 Ok(value.clone())
             }
         }
     }
+}
+
+impl Fixture {
+    fn test_provider(&self, app: App, path: &str, body: Option<&Value>) -> Result<Value, Error> {
+        let collection = path.strip_suffix("/test").unwrap();
+        let state = self.values.borrow();
+        let existing = state
+            .get(&(app, collection.to_string()))
+            .and_then(|entries| {
+                entries
+                    .iter()
+                    .find(|entry| entry["name"] == body.unwrap()["name"])
+            });
+        if let Some(existing) = existing {
+            if existing["id"] != body.unwrap()["id"] {
+                return Err(Error::Invalid("existing provider test omitted its ID"));
+            }
+        }
+        let (name, expected) = if collection == "applications" {
+            let target = App::LIBRARIES
+                .into_iter()
+                .find(|target| body.unwrap()["implementation"] == target.implementation())
+                .unwrap();
+            (
+                "apiKey",
+                json!(crate::fixtures::credentials().key(target).unwrap()),
+            )
+        } else {
+            (
+                "password",
+                json!(crate::fixtures::credentials().putio_password),
+            )
+        };
+        let mut supplied = field_value(body.unwrap(), name);
+        if supplied == "********" {
+            supplied = existing.map_or(Value::Null, |value| field_value(value, name));
+        }
+        if supplied != expected {
+            return Err(Error::Api {
+                app: app.name(),
+                operation: format!("test {collection}"),
+                status: 400,
+            });
+        }
+        self.tests.set(self.tests.get() + 1);
+        Ok(json!([]))
+    }
+}
+
+fn field_value(value: &Value, name: &str) -> Value {
+    value["fields"]
+        .as_array()
+        .and_then(|fields| fields.iter().find(|field| field["name"] == name))
+        .map_or(Value::Null, |field| field["value"].clone())
+}
+
+#[test]
+fn masked_credentials_are_verified_and_drifted_credentials_are_repaired_once() {
+    let fixture = Fixture::default();
+    let credentials = crate::fixtures::credentials();
+    reconcile(&fixture, &credentials).unwrap();
+    let before = fixture.writes.get();
+    reconcile(&fixture, &credentials).unwrap();
+    assert_eq!(fixture.writes.get(), before);
+    {
+        let mut state = fixture.values.borrow_mut();
+        let application = &mut state
+            .get_mut(&(App::Prowlarr, "applications".into()))
+            .unwrap()[0];
+        application["fields"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|field| field["name"] == "apiKey")
+            .unwrap()["value"] = json!("f".repeat(32));
+    }
+    reconcile(&fixture, &credentials).unwrap();
+    assert_eq!(fixture.writes.get(), before + 1);
+    reconcile(&fixture, &credentials).unwrap();
+    assert_eq!(fixture.writes.get(), before + 1);
 }
 
 #[test]

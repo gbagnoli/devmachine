@@ -22,13 +22,22 @@ pub trait Api {
 /// Keys are selected before startup; only owned links and missing root folders
 /// are reconciled. User libraries, indexers and unrelated links are retained.
 pub fn reconcile(api: &impl Api, credentials: &Credentials) -> Result<(), Error> {
+    reconcile_applications(api, credentials)?;
+    for app in App::LIBRARIES {
+        download_client(api, app, credentials)?;
+    }
+    Ok(())
+}
+
+/// Reconcile the Arr-to-Arr links independently of an external download account.
+/// Disposable consumers can validate real API schemas without a download account.
+pub fn reconcile_applications(api: &impl Api, credentials: &Credentials) -> Result<(), Error> {
     credentials.validate()?;
     for app in App::ARR {
         api.request(app, Method::Get, "system/status", None)?;
     }
     for app in App::LIBRARIES {
         root(api, app)?;
-        download_client(api, app, credentials)?;
         application(api, app, credentials)?;
     }
     Ok(())
@@ -86,7 +95,6 @@ fn download_client(api: &impl Api, app: App, credentials: &Credentials) -> Resul
     ] {
         field(&mut value, name, desired)?;
     }
-    test(api, app, "downloadclient", &value)?;
     upsert(
         api,
         app,
@@ -110,7 +118,6 @@ fn application(api: &impl Api, app: App, credentials: &Credentials) -> Result<()
     ] {
         field(&mut value, name, desired)?;
     }
-    test(api, App::Prowlarr, "applications", &value)?;
     upsert(
         api,
         App::Prowlarr,
@@ -157,6 +164,7 @@ fn upsert(
             ));
         }
         let mut update = (*existing).clone();
+        let mut masked = Vec::new();
         for property in properties {
             update[*property] = desired[*property].clone();
         }
@@ -165,7 +173,28 @@ fn upsert(
                 .iter()
                 .find(|v| v["name"] == *name)
                 .ok_or(Error::Invalid("desired link field"))?;
-            field(&mut update, name, wanted["value"].clone())?;
+            let current = list(&existing["fields"])?
+                .iter()
+                .find(|value| value["name"] == *name)
+                .ok_or(Error::Invalid("retained link field"))?;
+            if matches!(*name, "apiKey" | "password") && current["value"] == "********" {
+                masked.push((*name, wanted["value"].clone()));
+            } else {
+                field(&mut update, name, wanted["value"].clone())?;
+            }
+        }
+        match test(api, app, collection, &update) {
+            Ok(()) => {}
+            Err(Error::Api { status: 400, .. }) if !masked.is_empty() => {
+                // The provider resolves its documented mask against this ID's
+                // stored secret. Only repair after the expected secret passes
+                // the same real consumer connection test.
+                for (name, value) in masked {
+                    field(&mut update, name, value)?;
+                }
+                test(api, app, collection, &update)?;
+            }
+            Err(error) => return Err(error),
         }
         if update != **existing {
             let id = existing["id"]
@@ -179,6 +208,7 @@ fn upsert(
             )?;
         }
     } else {
+        test(api, app, collection, desired)?;
         api.request(app, Method::Post, collection, Some(desired))?;
     }
     Ok(())

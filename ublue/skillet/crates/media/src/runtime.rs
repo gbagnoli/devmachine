@@ -28,7 +28,7 @@ impl<'a> HttpApi<'a> {
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(3))
-            .timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
             .build()
             .map_err(|_| Error::Invalid("HTTP client"))?;
         Ok(Self {
@@ -58,9 +58,10 @@ impl Api for HttpApi<'_> {
             Method::Put => "update",
         };
         let operation = format!("{verb} {path}");
-        let failure = || Error::Transport {
+        let failure = |reason| Error::Transport {
             app: app.name(),
             operation: operation.clone(),
+            reason,
         };
         let mut request = self
             .client
@@ -76,7 +77,15 @@ impl Api for HttpApi<'_> {
         if let Some(body) = body {
             request = request.json(body);
         }
-        let response = request.send().map_err(|_| failure())?;
+        let response = request.send().map_err(|error| {
+            failure(if error.is_timeout() {
+                "request timed out"
+            } else if error.is_connect() {
+                "connection failed"
+            } else {
+                "request failed"
+            })
+        })?;
         if !response.status().is_success() {
             return Err(Error::Api {
                 app: app.name(),
@@ -88,14 +97,14 @@ impl Api for HttpApi<'_> {
         response
             .take(4 * 1024 * 1024 + 1)
             .read_to_end(&mut bytes)
-            .map_err(|_| failure())?;
+            .map_err(|_| failure("response read failed"))?;
         if bytes.len() > 4 * 1024 * 1024 {
-            return Err(failure());
+            return Err(failure("response exceeds size limit"));
         }
         if bytes.is_empty() {
             return Ok(Value::Null);
         }
-        serde_json::from_slice(&bytes).map_err(|_| failure())
+        serde_json::from_slice(&bytes).map_err(|_| failure("invalid JSON response"))
     }
 }
 
