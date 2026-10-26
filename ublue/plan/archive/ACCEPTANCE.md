@@ -3657,3 +3657,31 @@ acceptance; no production host or private DNS values were committed.
   present, update this same VM, provision it with `--with-ui`, then run
   `test smoke donbot --instance joplin --with-applications` and the remaining
   harmless transfer/import and authorized browser checks.
+
+## 2026-10-27 — Media credential persistence and first full provisioning
+
+- At the operator's explicit request, copied the production Put.io Password to
+  `skillet/environments/test/hosts/donbot/media/putio-token` using the Rust vault
+  API. Atomic save and encrypted readback verified both entries, preserving the
+  production value. This is an explicit operator copy, not a production fallback
+  in provisioning; account isolation is not claimed. No credential values were
+  printed or placed in command arguments or source files.
+- `secrets check --host donbot --environment test` passed: 18 entries checked,
+  zero missing/invalid and zero unused, including five generated instance-scoped
+  media credentials. `test vm provision donbot joplin --with-ui` passed on the
+  existing owned VM, including real putioarr startup and Arr link reconciliation.
+- The first application smoke attempt passed its fixture checks before and
+  after reboot, then exposed a pre-existing acceptance declaration error: the
+  application was expected to mount its separate database's directory. Corrected
+  application mounts and added explicit checks for both dedicated PostgreSQL
+  containers. A regression compares the acceptance mounts against the actual
+  Joplin/AirTrail/PostgreSQL Quadlet renderers. Workspace tests, Clippy with
+  `-D warnings`, formatting and the Fedora/Joey base-container check passed.
+- The second attempt passed those database checks, then found that an
+  unprivileged ownership probe could not traverse the protected media config
+  directory. Metadata inspection now uses `sudo -n stat`, retaining directory
+  permissions; the real owned-guest probe returned the expected data UID/GID.
+  Workspace tests and Clippy passed again. Full application smoke is being
+  retried after readiness recovery and deployment of both corrections.
+- No test download/import has been submitted; callback/import behavior and
+  authorized Arr browser acceptance remain separate gates.

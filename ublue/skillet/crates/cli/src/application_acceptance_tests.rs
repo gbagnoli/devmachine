@@ -35,7 +35,7 @@ impl GuestTransport for AcceptanceTransport {
             }
             ("id", ["-u", "giacomo"]) => b"1042\n".to_vec(),
             ("getent", ["group", "giacomo"]) => b"giacomo:x:2047:\n".to_vec(),
-            ("stat", ["-c", "%u:%g", _]) => format!("{}\n", self.owner).into_bytes(),
+            ("sudo", ["-n", "stat", "-c", "%u:%g", _]) => format!("{}\n", self.owner).into_bytes(),
             ("sudo", ["-n", "ss", "-H", _, "sport", "=", port])
                 if self.missing_listener != port.trim_start_matches(':').parse().ok() =>
             {

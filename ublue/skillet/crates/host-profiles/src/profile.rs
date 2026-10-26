@@ -302,7 +302,26 @@ impl HostProfile {
                         | ServiceConfig::Network(_)
                 ) && (with_ddns || !matches!(service.config, ServiceConfig::Ddns { .. }))
             })
-            .map(|service| acceptance_service(self.id.as_str(), service))
+            .flat_map(|service| {
+                let mut declared = vec![acceptance_service(self.id.as_str(), service)];
+                let database = match service.config {
+                    ServiceConfig::Joplin(config) => Some(config.postgres()),
+                    ServiceConfig::Airtrail(config) => Some(config.postgres()),
+                    _ => None,
+                };
+                if let Some(database) = database {
+                    declared.push(AcceptanceService {
+                        unit: database.unit_name(),
+                        container: Some(database.container_name()),
+                        network_mode: Some(database.network_name.into()),
+                        bind_paths: vec![database.data_path.into()],
+                        owner: None,
+                        listeners: Vec::new(),
+                        health_probe: None,
+                    });
+                }
+                declared
+            })
             .collect::<Vec<_>>();
         if self.services.iter().any(|service| service.ui.is_some()) {
             services.push(caddy_acceptance(
@@ -594,7 +613,7 @@ fn airtrail_acceptance(config: skillet_airtrail::Config) -> AcceptanceService {
         unit: "airtrail.service".into(),
         container: Some("airtrail".into()),
         network_mode: Some(config.network_name.into()),
-        bind_paths: vec![config.database_path.into(), config.uploads_path.into()],
+        bind_paths: vec![config.uploads_path.into()],
         owner: None,
         listeners: Vec::new(),
         health_probe: None,
@@ -606,7 +625,7 @@ fn joplin_acceptance(config: skillet_joplin::Config) -> AcceptanceService {
         unit: "joplin-server.service".into(),
         container: Some("joplin-server".into()),
         network_mode: Some(config.network_name.into()),
-        bind_paths: vec![config.database_path.into()],
+        bind_paths: Vec::new(),
         owner: None,
         listeners: Vec::new(),
         health_probe: None,

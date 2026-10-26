@@ -1002,7 +1002,7 @@ fn check_container(
                 }
                 AcceptanceOwner::Numeric { uid, gid } => ("%u:%g", format!("{uid}:{gid}")),
             };
-            let owner = guest_text(transport, "stat", &["-c", format, path])?;
+            let owner = guest_text(transport, "sudo", &["-n", "stat", "-c", format, path])?;
             if owner != expected {
                 return Err(anyhow!(
                     "data path ownership differs from declaration: {path} (expected {expected}, found {owner})"

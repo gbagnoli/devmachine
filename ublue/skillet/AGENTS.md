@@ -138,6 +138,11 @@ checklist links when documentation moves.
   identities, and error/exit semantics. Unsupported behavior must fail explicitly
   rather than silently succeeding. Use shared contract checks for important
   adapters and fakes; a mocked runtime does not prove real runtime acceptance.
+- Acceptance declarations must follow actual consumer boundaries. Check each
+  dependency's mounts and runtime on its own container rather than attributing
+  dependency storage to the application that connects to it.
+  Inspect protected metadata with the required privilege instead of weakening
+  application directory permissions to accommodate a probe.
 - Select build artifacts from Cargo's reported outputs and honor its target,
   profile, and configured target directory. Do not discover the new build by
   scanning potentially stale binaries at conventional paths.

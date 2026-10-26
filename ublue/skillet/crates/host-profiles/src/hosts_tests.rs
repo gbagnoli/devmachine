@@ -11,6 +11,75 @@ use skillet_core::{
 use skillet_podman::SecretTarget;
 
 #[test]
+fn application_and_database_acceptance_mounts_match_rendered_quadlets() {
+    use skillet_core::{system::AccountResource, test_utils::MockFiles};
+    use std::{collections::BTreeSet, path::Path};
+    let profile = super::profile_for_name("donbot").unwrap();
+    let system = MockSystem::new();
+    system
+        .ensure_user("giacomo", Some(1000), Some(1000))
+        .unwrap();
+    system.ensure_group("giacomo", Some(1000)).unwrap();
+    let files = MockFiles::new();
+    files.record_btrfs_mount(Path::new("/var"), "/dev/test", "/", "btrfs");
+    files.record_btrfs_mount(Path::new("/var/lib/data"), "/dev/test", "/data", "btrfs");
+    files.record_btrfs_subvolume(Path::new("/var/lib/data/syncthing"));
+    for service in &profile.services {
+        match service.config {
+            ServiceConfig::Joplin(config) => skillet_joplin::apply(
+                &system,
+                &files,
+                "donbot",
+                config,
+                "https://joplin.example.invalid",
+                &"a".repeat(32),
+            )
+            .unwrap(),
+            ServiceConfig::Airtrail(config) => skillet_airtrail::apply(
+                &system,
+                &files,
+                "donbot",
+                config,
+                "https://airtrail.example.invalid",
+                &"b".repeat(32),
+                &skillet_airtrail::Integrations::default(),
+            )
+            .unwrap(),
+            _ => {}
+        }
+    }
+    let quadlets = files.files.lock().unwrap();
+    let plan = profile.acceptance_plan();
+    let mut checked = 0;
+    for service in &plan.services {
+        let Some(name) = service.container.as_deref() else {
+            continue;
+        };
+        if !matches!(
+            name,
+            "joplin-server" | "airtrail" | "postgresql-joplin" | "postgresql-airtrail"
+        ) {
+            continue;
+        }
+        let path = format!("/etc/containers/systemd/{name}.container");
+        let unit = std::str::from_utf8(&quadlets[&path]).unwrap();
+        let actual = unit
+            .lines()
+            .filter_map(|line| line.strip_prefix("Volume="))
+            .map(|volume| volume.split(':').next().unwrap())
+            .collect::<BTreeSet<_>>();
+        let expected = service
+            .bind_paths
+            .iter()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>();
+        assert_eq!(actual, expected, "acceptance mounts for {name}");
+        checked += 1;
+    }
+    assert_eq!(checked, 4, "both app-dedicated databases must be checked");
+}
+
+#[test]
 fn datadog_is_optional_and_separately_credential_gated() {
     let files = skillet_core::test_utils::MockFiles::new();
     let system = MockSystem::new();
