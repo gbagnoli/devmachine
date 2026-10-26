@@ -164,6 +164,8 @@ pub struct MissingEntry {
 
 pub struct CheckReport {
     pub checked: usize,
+    /// Vault entry paths whose declared fields passed validation. Never values.
+    pub present: Vec<String>,
     pub missing: Vec<MissingEntry>,
 }
 
@@ -352,11 +354,13 @@ pub fn check(
     }
     let mut report = CheckReport {
         checked: required.len(),
+        present: Vec::new(),
         missing: Vec::new(),
     };
     for (path, (module, guide, fields)) in required {
-        if let Some(entry) = validate_entry(path, module, guide, fields, lookup)? {
-            report.missing.push(entry);
+        match validate_entry(path.clone(), module, guide, fields, lookup)? {
+            Some(entry) => report.missing.push(entry),
+            None => report.present.push(path),
         }
     }
     report.missing.sort_by(|a, b| {
@@ -437,7 +441,6 @@ pub fn check_with_entries(
         {
             for entry in module.entries.iter().filter(|e| {
                 matches!(e.status, Status::Optional | Status::Generated)
-                    && !e.fields.is_empty()
                     && entry_selected(e, profile)
             }) {
                 let path = expand(&entry.path, profile.id.as_str(), policy.vault_name());
@@ -445,22 +448,34 @@ pub fn check_with_entries(
                     continue;
                 }
                 report.checked += 1;
-                if let Some(mut invalid) = validate_entry(
-                    path,
+                match validate_entry(
+                    path.clone(),
                     module.module.clone(),
                     format!("{} {}", module.description, entry.help),
                     entry.fields.clone(),
                     lookup,
                 )? {
-                    invalid.invalid = true;
-                    report.missing.push(invalid);
+                    Some(mut invalid) => {
+                        invalid.invalid = true;
+                        report.missing.push(invalid);
+                    }
+                    None => report.present.push(path),
                 }
             }
         }
     }
     if profiles.iter().any(|p| p.supports_service("pihole")) {
         let prefix = format!("{}/entries/", crate::pihole_dns::prefix(policy));
-        report.checked += stored.iter().filter(|p| p.starts_with(&prefix)).count();
+        let entries = stored
+            .iter()
+            .filter(|p| {
+                p.starts_with(&prefix)
+                    && p.strip_prefix(&prefix)
+                        .is_some_and(skillet_pihole::dns::valid_name)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        report.checked += entries.len();
         // Provider-free validation uses a reserved zone; live delivery resolves
         // and validates the real provider zone before any guest mutation.
         if let Err(error) = crate::pihole_dns::input(policy, "example.invalid", stored, lookup) {
@@ -479,8 +494,12 @@ pub fn check_with_entries(
                 module: "Pi-hole".into(), path,
                 guide: format!("Invalid private DNS inventory or generated-host/UI namespace conflict. Use the exact dns/entries group name without whitespace. {schema}"), invalid: true,
             });
+        } else {
+            report.present.extend(entries);
         }
     }
+    report.present.sort();
+    report.present.dedup();
     Ok(report)
 }
 

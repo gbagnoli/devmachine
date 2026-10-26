@@ -409,3 +409,41 @@ fn homeassistant_keys_are_optional_but_present_values_are_validated() {
     assert_eq!(entries.len(), 1);
     assert!(entries[0].invalid);
 }
+
+#[test]
+fn optional_airtrail_keys_are_skipped_when_absent_and_validated_when_present() {
+    let profile = skillet_hosts::profile_for_name("donbot").unwrap();
+    let policy = ProvisioningPolicy::new(Environment::Production);
+    let path = "skillet/environments/prod/hosts/donbot/airtrail/aerodatabox-api-key";
+
+    let absent = check_with_entries(std::slice::from_ref(&profile), policy, &[], &|_, _| {
+        Ok(None)
+    })
+    .unwrap();
+    assert!(!absent.present.iter().any(|entry| entry == path));
+    assert!(!absent.missing.iter().any(|entry| entry.path == path));
+
+    let present = check_with_entries(
+        std::slice::from_ref(&profile),
+        policy,
+        &[path.to_string()],
+        &|entry, field| {
+            Ok((entry == path && field == "Password").then(|| "provider-key-value".into()))
+        },
+    )
+    .unwrap();
+    assert!(present.present.iter().any(|entry| entry == path));
+    assert!(!present.missing.iter().any(|entry| entry.path == path));
+
+    let invalid = check_with_entries(
+        std::slice::from_ref(&profile),
+        policy,
+        &[path.to_string()],
+        &|entry, field| Ok((entry == path && field == "Password").then(String::new)),
+    )
+    .unwrap();
+    assert!(invalid
+        .missing
+        .iter()
+        .any(|entry| entry.path == path && entry.invalid));
+}

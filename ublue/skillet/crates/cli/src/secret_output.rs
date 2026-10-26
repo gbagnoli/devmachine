@@ -64,6 +64,12 @@ fn write_guide(output: &mut String, guide: &str, hyperlinks: bool) {
 
 pub(super) fn render(report: &CheckReport, unused: &[String], hyperlinks: bool) -> String {
     let mut output = String::new();
+    if !report.present.is_empty() {
+        output.push_str("Present entries (names only)\n");
+        for path in &report.present {
+            let _ = writeln!(output, "  {path}");
+        }
+    }
     if !report.missing.is_empty() {
         output.push_str("Required entries needing attention\n");
         let mut previous_module = "";
@@ -91,10 +97,14 @@ pub(super) fn render(report: &CheckReport, unused: &[String], hyperlinks: bool) 
     }
     let _ = writeln!(
         output,
-        "\nSummary: {} required checked, {} missing/invalid, {} unused.",
+        "\nSummary: {} entries checked, {} missing/invalid, {} unused.",
         report.checked,
         report.missing.len(),
         unused.len()
     );
     output
 }
+
+#[cfg(test)]
+#[path = "secret_output_tests.rs"]
+mod tests;
