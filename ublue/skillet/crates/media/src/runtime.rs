@@ -52,14 +52,15 @@ impl Api for HttpApi<'_> {
             .get(&app)
             .ok_or(Error::Invalid("application endpoint"))?;
         let url = format!("{endpoint}/{}/{path}", app.api());
-        let operation = match method {
+        let verb = match method {
             Method::Get => "read",
             Method::Post => "create/test",
             Method::Put => "update",
         };
+        let operation = format!("{verb} {path}");
         let failure = || Error::Transport {
             app: app.name(),
-            operation,
+            operation: operation.clone(),
         };
         let mut request = self
             .client

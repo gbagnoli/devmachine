@@ -29,7 +29,10 @@ run before writes, and ambiguous writes are recovered by listing owned objects.
 
 Movies, TV and downloads use one `/data` bind so filesystem rename/hardlink
 semantics can work. Music remains in the caller's Syncthing tree; cross-filesystem
-imports may copy. No age-based download deletion is installed. Usenet is a
+imports may copy. No age-based download deletion is installed. Worker and
+secret-file IDs resolve from
+the caller's host data account; shared Syncthing directories retain that named
+ownership rather than inheriting a container-image UID default. Usenet is a
 separate future caller-selected backend. Setup belongs in the
 [media guide](../skillet/crates/media/README.md); remaining acceptance is in the
 [Donbot plan](../plan/DONBOT-MIGRATION.md).

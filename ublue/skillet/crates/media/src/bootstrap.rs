@@ -47,12 +47,12 @@ pub fn ensure<F: FileReadResource + FileMutationResource + ?Sized>(
 }
 
 /// JSON strings are valid TOML basic strings for these validated values.
-pub fn putio_config(config: Config, credentials: &Credentials) -> Result<String, Error> {
+pub fn putio_config(credentials: &Credentials, uid: u32) -> Result<String, Error> {
     credentials.validate()?;
     let quoted = |value: &str| {
         serde_json::to_string(value).map_err(|_| Error::Invalid("putioarr configuration"))
     };
-    let mut result = format!("username = \"skillet\"\npassword = {}\ndownload_directory = \"/data/downloads\"\nbind_address = \"0.0.0.0\"\nport = 9091\nuid = {}\ndownload_unmanaged = false\n[putio]\napi_key = {}\n", quoted(&credentials.putio_password)?, config.uid, quoted(&credentials.putio_token)?);
+    let mut result = format!("username = \"skillet\"\npassword = {}\ndownload_directory = \"/data/downloads\"\nbind_address = \"0.0.0.0\"\nport = 9091\nuid = {uid}\ndownload_unmanaged = false\n[putio]\napi_key = {}\n", quoted(&credentials.putio_password)?, quoted(&credentials.putio_token)?);
     for app in App::LIBRARIES {
         use std::fmt::Write as _;
         let _ = write!(

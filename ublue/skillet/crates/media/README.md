@@ -5,10 +5,12 @@ their upstream `latest` images. Arr browser UIs require the shared Tailnet user
 allowlist through Caddy; internal calls retain separate API keys. No backend
 ports are published. See the [design](../../../design/media-stack.md).
 
-The caller provides storage paths, numeric data identity and the shared media
+The caller provides storage paths, the data account/group and the shared media
 network. Downloads, movies and TV share `/data`; Lidarr also mounts `/music`
 from the caller's synchronized files. Putioarr uses separate `sonarr`, `radarr`
 and `lidarr` categories and calls those container names directly.
+Worker IDs and secret-file permissions resolve from that host account, so shared
+Syncthing files retain the same owner even when a host uses a different UID/GID.
 
 Provisioning generates each Arr API key and the putioarr RPC password once.
 Keep the vault entries: missing keys alongside retained credentials require

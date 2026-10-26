@@ -94,8 +94,8 @@ pub struct Config {
     pub files_path: &'static str,
     pub music_path: &'static str,
     pub network: &'static str,
-    pub uid: u32,
-    pub gid: u32,
+    pub data_owner: &'static str,
+    pub data_group: &'static str,
 }
 
 impl Config {
@@ -109,13 +109,31 @@ impl Config {
             }
         }
         if self.config_root == self.files_path
-            || self.uid == 0
-            || self.gid == 0
+            || self.data_owner.is_empty()
+            || self.data_group.is_empty()
             || self.network.is_empty()
         {
             return Err(Error::Invalid("storage identity or network"));
         }
         Ok(())
+    }
+
+    /// LSIO's worker IDs follow the actual host data account, including hosts
+    /// whose administrative/data UID differs from the common default.
+    pub fn identity<S: skillet_core::system::AccountLookupResource + ?Sized>(
+        self,
+        system: &S,
+    ) -> Result<(u32, u32), Error> {
+        let user = system
+            .user_by_name(self.data_owner)?
+            .ok_or(Error::Invalid("data owner is absent"))?;
+        let group = system
+            .group_by_name(self.data_group)?
+            .ok_or(Error::Invalid("data group is absent"))?;
+        if user.uid == 0 || group.gid == 0 {
+            return Err(Error::Invalid("root data identity"));
+        }
+        Ok((user.uid, group.gid))
     }
 }
 
@@ -178,13 +196,13 @@ pub enum Error {
     #[error("{app} API {operation} failed (HTTP {status}); inspect the application journal")]
     Api {
         app: &'static str,
-        operation: &'static str,
+        operation: String,
         status: u16,
     },
     #[error("{app} API {operation} failed; response details are suppressed because they may contain credentials")]
     Transport {
         app: &'static str,
-        operation: &'static str,
+        operation: String,
     },
 }
 

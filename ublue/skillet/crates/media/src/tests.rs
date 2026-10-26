@@ -1,11 +1,12 @@
 use super::*;
+use skillet_core::system::AccountResource as _;
 pub const CONFIG: Config = Config {
     config_root: "/var/lib/data/media/config",
     files_path: "/var/lib/data/media/files",
     music_path: "/var/lib/data/syncthing/data/music",
     network: "fixture-media",
-    uid: 1000,
-    gid: 1000,
+    data_owner: "fixture-data",
+    data_group: "fixture-data",
 };
 pub fn credentials() -> Credentials {
     Credentials {
@@ -33,6 +34,10 @@ fn malformed_credentials_do_not_retain_values_in_errors() {
 fn containers_are_private_share_download_paths_and_hide_secrets() {
     use skillet_core::test_utils::{MockFiles, MockSystem};
     let system = MockSystem::new();
+    system
+        .ensure_user("fixture-data", Some(2001), Some(3001))
+        .unwrap();
+    system.ensure_group("fixture-data", Some(3001)).unwrap();
     let files = MockFiles::new();
     files.record_btrfs_mount(std::path::Path::new("/var"), "/dev/test", "/", "btrfs");
     files.record_btrfs_mount(
@@ -64,6 +69,10 @@ fn containers_are_private_share_download_paths_and_hide_secrets() {
         assert!(!quadlet.contains("PublishPort="));
         assert!(!quadlet.contains("fixture-provider-token"));
         assert!(quadlet.contains("Network=fixture-media.network"));
+        if app != App::Putioarr {
+            assert!(quadlet.contains("Environment=PUID=2001"));
+            assert!(quadlet.contains("Environment=PGID=3001"));
+        }
         if app != App::Prowlarr {
             assert!(quadlet.contains("/var/lib/data/media/files:/data:z"));
         }
@@ -75,4 +84,5 @@ fn containers_are_private_share_download_paths_and_hide_secrets() {
     );
     assert!(putio.contains("Entrypoint=/usr/bin/putioarr"));
     assert!(putio.contains("Secret=media_putioarr_config"));
+    assert!(putio.contains("User=2001:3001"));
 }

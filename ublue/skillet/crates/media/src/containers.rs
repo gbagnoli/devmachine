@@ -1,6 +1,6 @@
 use crate::{bootstrap, App, Config, Credentials, Error, CREDENTIAL};
 use skillet_core::{
-    files::{FileResource, OwnerIdentity, Ownership},
+    files::{FileResource, Ownership},
     system::SystemResource,
 };
 use skillet_podman::{
@@ -11,10 +11,7 @@ use std::{collections::BTreeMap, path::Path};
 
 impl Config {
     pub(crate) fn ownership(self) -> Ownership {
-        Ownership {
-            uid: Some(OwnerIdentity::Id(self.uid)),
-            gid: Some(OwnerIdentity::Id(self.gid)),
-        }
+        Ownership::named(Some(self.data_owner), Some(self.data_group))
     }
 }
 
@@ -29,6 +26,7 @@ pub fn apply(
 ) -> Result<(), Error> {
     config.validate()?;
     credentials.validate()?;
+    let identity = config.identity(system)?;
     if App::ARR.iter().any(|app| !ui_networks.contains_key(app)) {
         return Err(Error::Invalid("private UI networks"));
     }
@@ -65,6 +63,7 @@ pub fn apply(
             app,
             ui_networks.get(&app),
             credentials,
+            identity,
         )?;
     }
     install_reconciliation(system, files, host)?;
@@ -79,6 +78,7 @@ fn install_container(
     app: App,
     ui_network: Option<&String>,
     credentials: &Credentials,
+    (uid, gid): (u32, u32),
 ) -> Result<(), Error> {
     let mut networks = vec![NetworkAttachment::Bridge(config.network.into())];
     if let Some(network) = ui_network {
@@ -92,7 +92,7 @@ fn install_container(
     let mut volumes = Vec::new();
     let mut secrets = Vec::new();
     let identity = if app == App::Putioarr {
-        let payload = bootstrap::putio_config(config, credentials)?;
+        let payload = bootstrap::putio_config(credentials, uid)?;
         system.ensure_podman_secret("media_putioarr_config", &payload)?;
         container.extend([
             "Entrypoint=/usr/bin/putioarr".into(),
@@ -103,19 +103,16 @@ fn install_container(
             target: SecretTarget::File {
                 target_path: "/run/secrets/putioarr.toml".into(),
                 mode: Some("0400".into()),
-                uid: Some(config.uid),
-                gid: Some(config.gid),
+                uid: Some(uid),
+                gid: Some(gid),
             },
         });
-        ProcessIdentity::Numeric {
-            uid: config.uid,
-            gid: config.gid,
-        }
+        ProcessIdentity::Numeric { uid, gid }
     } else {
         bootstrap::ensure(files, config, app, credentials.key(app)?)?;
         container.extend([
-            format!("Environment=PUID={}", config.uid),
-            format!("Environment=PGID={}", config.gid),
+            format!("Environment=PUID={uid}"),
+            format!("Environment=PGID={gid}"),
             "Environment=UMASK=002".into(),
         ]);
         volumes.push(volume(

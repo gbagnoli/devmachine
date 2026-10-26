@@ -180,6 +180,9 @@
 - File and directory mutations use the same typed ownership contract for
   named and numeric UID/GID values. Numeric ownership must not require a host
   account lookup; preserve omitted metadata fields on existing paths.
+- Services sharing bind-mounted data must resolve one host data identity and
+  use it consistently for consumer workers, writable directories and secret-file
+  permissions. Do not assume host account IDs match an image's defaults.
 - Recovery acceptance preserves the original unlock path and uses independently
   owned disposable state for destructive tests. Disable diagnostic capture on
   credential-capable boot consoles; keep recovery backups outside the protected

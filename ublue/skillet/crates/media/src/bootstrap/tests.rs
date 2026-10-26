@@ -29,7 +29,7 @@ fn bootstrap_retains_app_edits_and_refuses_key_replacement() {
 
 #[test]
 fn putioarr_callbacks_include_all_three_categories_and_private_names() {
-    let config = putio_config(CONFIG, &credentials()).unwrap();
+    let config = putio_config(&credentials(), 2001).unwrap();
     for app in App::LIBRARIES {
         assert!(config.contains(&format!("[{}]", app.name())));
         assert!(config.contains(&app.url()));

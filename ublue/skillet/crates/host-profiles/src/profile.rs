@@ -580,9 +580,9 @@ fn media_acceptance(app: skillet_media::App, config: skillet_media::Config) -> A
         container: Some(app.name().into()),
         network_mode: Some(config.network.into()),
         bind_paths,
-        owner: Some(AcceptanceOwner::Numeric {
-            uid: config.uid,
-            gid: config.gid,
+        owner: Some(AcceptanceOwner::Named {
+            user: config.data_owner.into(),
+            group: config.data_group.into(),
         }),
         listeners: Vec::new(),
         health_probe: (app == skillet_media::App::Prowlarr).then_some(HealthProbe::Media),
@@ -945,8 +945,8 @@ fn donbot_media_services() -> Vec<HostService> {
         files_path: "/var/lib/data/media/files",
         music_path: "/var/lib/data/syncthing/data/music",
         network: "donbot-media",
-        uid: 1000,
-        gid: 1000,
+        data_owner: "giacomo",
+        data_group: "giacomo",
     };
     skillet_media::App::ALL
         .into_iter()
