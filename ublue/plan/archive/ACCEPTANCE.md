@@ -3591,3 +3591,16 @@ acceptance; no production host or private DNS values were committed.
   restriction and HSTS header. The equivalent Tailscale IPv6 HTTPS probe
   timed out, while IPv6 HTTP succeeded. Investigate IPv6 HTTPS reachability
   separately; `podman port caddy` and `ss` showed IPv4 wildcard listeners only.
+
+## 2026-10-26 — Linked Arr foundation
+
+- Added the media library without enabling it in a host yet. Its seven tests
+  cover bootstrap preservation/key binding, private mounts/secret references,
+  HTTP key headers/error redaction, duplicate-name refusal and retry after an
+  ambiguous API write without duplicate links.
+- `cargo test --workspace --all-targets`, workspace Clippy with `-D warnings`,
+  formatting, and the CI Fedora/Joey base-container test passed. The base test
+  applied twice without repeat service starts/restarts; cleanup used SIGKILL
+  after the container's normal ten-second stop timeout.
+- Named Donbot media-container acceptance remains pending caller/delivery
+  wiring and an environment-specific dedicated Put.io test token.

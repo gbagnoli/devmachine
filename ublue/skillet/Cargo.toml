@@ -20,6 +20,7 @@ members = [
     "crates/postgres",
     "crates/joplin",
     "crates/airtrail",
+    "crates/media",
     "crates/cli",
     "crates/hosts/joey",
     "crates/hosts/donbot",
@@ -57,6 +58,7 @@ skillet_podman = { path = "crates/podman" }
 skillet_postgres = { path = "crates/postgres" }
 skillet_joplin = { path = "crates/joplin" }
 skillet_airtrail = { path = "crates/airtrail" }
+skillet_media = { path = "crates/media" }
 skillet_cli_common = { path = "crates/cli-common" }
 skillet_vm = { path = "crates/vm" }
 skillet_hosts = { path = "crates/host-profiles" }

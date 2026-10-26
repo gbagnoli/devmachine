@@ -280,6 +280,11 @@ clients and direct backend connections are denied. A daemon outage fails closed.
 
 ### 4. Fresh Arr installation and download integration
 
+Implementation started 2026-10-26: the cohesive media crate contains bootstrap,
+private container composition, bounded HTTP clients and owned-link reconciliation.
+Caller/credential wiring and named-VM acceptance are pending until recorded below.
+Architecture is documented in [media stack](../design/media-stack.md).
+
 Donbot gets new Prowlarr/Sonarr/Radarr/Lidarr and putioarr configuration. No
 legacy Arr databases, API keys, watchlists or download-client configuration are
 imported. Calculon's setup is a reference for working capabilities and schema.

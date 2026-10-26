@@ -15,4 +15,5 @@ These documents describe decisions, rationale and constraints. Commands live in
   [Pi-hole](pihole-network.md), [Cloudflare UI lifecycle](cloudflare-ui-lifecycle.md),
   [DDNS](cloudflare-ddns.md)
 - Services: [monitoring](monitoring.md), [mail](email-delivery.md),
-  [UniFi](unifi.md), [UPS](ups.md), [Home Assistant](home-assistant.md)
+  [UniFi](unifi.md), [UPS](ups.md), [Home Assistant](home-assistant.md),
+  [linked Arr stack](media-stack.md)

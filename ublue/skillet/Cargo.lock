@@ -3857,6 +3857,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "skillet_media"
+version = "0.1.0"
+dependencies = [
+ "quick-xml",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "skillet_core",
+ "skillet_podman",
+ "tempfile",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "skillet_mikochi"
 version = "0.1.0"
 dependencies = [
