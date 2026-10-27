@@ -77,6 +77,17 @@ fn application_and_database_acceptance_mounts_match_rendered_quadlets() {
         checked += 1;
     }
     assert_eq!(checked, 4, "both app-dedicated databases must be checked");
+    let metadata = files.directory_metadata.lock().unwrap();
+    for path in [
+        "/var/lib/data/syncthing/data/backups",
+        "/var/lib/data/syncthing/data/backups/postgres",
+        "/var/lib/data/syncthing/data/backups/airtrail",
+    ] {
+        assert_eq!(
+            metadata[path].1,
+            skillet_core::files::Ownership::named(Some("giacomo"), Some("giacomo"))
+        );
+    }
 }
 
 #[test]

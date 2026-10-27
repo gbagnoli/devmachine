@@ -306,13 +306,7 @@ where
     {
         return Err(AirtrailError::InvalidConfiguration("backup owner"));
     }
-    let ownership =
-        skillet_core::files::Ownership::named(Some(config.backup_owner), Some(config.backup_group));
-    files.ensure_directory(
-        std::path::Path::new(config.backup_path),
-        Some(0o750),
-        &ownership,
-    )?;
+    skillet_postgres::backup::prepare_directory(files, &backup_config(config))?;
     let root = skillet_core::files::Ownership::named(Some("root"), Some("root"));
     let unit_dir = std::path::Path::new("/etc/systemd/system");
     files.ensure_directory(unit_dir, Some(0o755), &root)?;

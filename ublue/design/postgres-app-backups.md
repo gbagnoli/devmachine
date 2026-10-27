@@ -20,6 +20,11 @@ approximately seven-day retention policy, but publish each archive atomically
 so an interrupted dump cannot appear complete. A restore rehearsal must use
 disposable state and the matching application/database versions.
 
+The backup owner also owns the destination's intermediate directories inside
+the caller-declared subvolume. Existing ancestor modes are preserved. Leaf-only
+ownership can leave root-owned private parents that block both replication and
+file browsing; unrelated directories and archive contents are not rewritten.
+
 AirTrail uses the same PostgreSQL logical-backup mechanism. Its upload directory
 is additional application state and is captured with the database in one
 coordinated restore set. The app stops briefly while both parts are copied; the

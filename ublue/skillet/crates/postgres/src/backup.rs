@@ -93,9 +93,7 @@ where
     if system.group_by_name(config.group)?.is_none() {
         return Err(PostgresError::InvalidConfiguration("backup group"));
     }
-    let ownership = Ownership::named(Some(config.owner), Some(config.group));
-    let directory = Path::new(config.backup_path);
-    files.ensure_directory(directory, Some(0o750), &ownership)?;
+    prepare_directory(files, config)?;
     let root = Ownership::named(Some("root"), Some("root"));
     let unit_dir = Path::new("/etc/systemd/system");
     files.ensure_directory(unit_dir, Some(0o755), &root)?;
@@ -127,6 +125,31 @@ where
     }
     system.service_enable(&timer_name)?;
     system.service_start(&timer_name)?;
+    Ok(())
+}
+
+/// Prepare the declared backup path without leaving root-owned intermediate
+/// directories unreadable by the data owner. Preserve existing ancestor modes
+/// and never change the backup subvolume itself or unrelated paths.
+pub fn prepare_directory<F: FileMutationResource + ?Sized>(
+    files: &F,
+    config: &Config,
+) -> Result<(), PostgresError> {
+    config.validate()?;
+    let destination = Path::new(config.backup_path);
+    let mut directory = PathBuf::from(config.backup_subvolume);
+    let relative = destination
+        .strip_prefix(&directory)
+        .map_err(|_| PostgresError::InvalidConfiguration("backup path"))?;
+    let ownership = Ownership::named(Some(config.owner), Some(config.group));
+    for component in relative.components() {
+        directory.push(component);
+        files.ensure_directory(
+            &directory,
+            (directory == destination).then_some(0o750),
+            &ownership,
+        )?;
+    }
     Ok(())
 }
 

@@ -16,6 +16,36 @@ fn config() -> Config {
 }
 
 #[test]
+fn backup_ancestors_retain_modes_but_gain_the_consumer_identity() {
+    use skillet_core::test_utils::MockFiles;
+    let files = MockFiles::new();
+    let root = Ownership::named(Some("root"), Some("root"));
+    let parents = [
+        "/var/lib/data/syncthing/data/backups",
+        "/var/lib/data/syncthing/data/backups/postgres",
+    ];
+    for parent in parents {
+        files
+            .ensure_directory(Path::new(parent), Some(0o750), &root)
+            .unwrap();
+    }
+    prepare_directory(&files, &config()).unwrap();
+    prepare_directory(&files, &config()).unwrap();
+    let metadata = files.directory_metadata.lock().unwrap();
+    for path in parents.into_iter().chain([config().backup_path]) {
+        assert_eq!(
+            metadata[path],
+            (
+                Some(0o750),
+                Ownership::named(Some("giacomo"), Some("giacomo"))
+            )
+        );
+    }
+    assert!(!metadata.contains_key(config().backup_subvolume));
+    assert!(!metadata.contains_key("/var/lib/data"));
+}
+
+#[test]
 fn backup_config_requires_a_safe_subdirectory_and_bounded_retention() {
     assert!(config().validate().is_ok());
 

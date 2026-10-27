@@ -18,6 +18,9 @@ then atomically publishes it to the caller's directory. The newest seven
 archives are retained. Raw database files remain outside Syncthing. The caller
 selects the backup directory under its Syncthing tree and the Syncthing owner;
 the timer publishes files with that ownership.
+Provisioning also assigns that owner to intermediate directories inside the
+declared backup subvolume, preserving their existing modes so Syncthing and
+file browsing can traverse the backup path.
 
 On the guest, run the rootful Podman operations with
 `sudo /var/usrlocal/bin/skillet-<host> postgres backup --instance <name>` to

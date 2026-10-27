@@ -2,7 +2,9 @@
 
 Status: **Joplin and AirTrail implementation, named-VM provisioning, and
 database restore acceptance are complete; client/API acceptance remains open**,
-refreshed 2026-10-23. Inventory is complete. Donbot
+refreshed 2026-10-27. Linked-media provisioning and declared-application
+repeat/reboot acceptance also passed; transfer/import and operator Arr browser
+checks remain open. Inventory is complete. Donbot
 profile, binary, VM Butane template, Joplin and AirTrail callers, generated
 KeePass credential delivery, Homer registration, and scheduled backups are
 implemented. The fresh named VM currently runs both services and their dedicated
@@ -25,7 +27,8 @@ this plan does not close those gates or claim fresh donbot acceptance.
 Linked Arr implementation added 2026-10-26: Donbot selects all five media
 containers, private UI/Homer declarations, generated-key delivery and API
 reconciliation. Test credentials are now delivered and first full provisioning
-passed. Reboot/reapply, transfer/import and browser acceptance remain open;
+passed. Declared-application reboot/reapply acceptance passed on 2026-10-27;
+transfer/import and browser acceptance remain open;
 there is no automatic production credential fallback. See slice 4 below.
 
 Build a fresh Donbot installation with Arr/putioarr, Plex, Jellyfin, Gokapi,
@@ -57,7 +60,7 @@ Architecture constraints and proposals are in
 | --- | --- |
 | Existing baseline: Pi-hole, Tailscale, Syncthing, Mikochi, private Caddy, SMTP, Datadog, btrbk | Donbot declarations and shared composition are implemented; finish host-specific acceptance using existing modules |
 | Subnet routing | Shared routing preferences tracked in joey's plan; select only needed routes |
-| Prowlarr, Radarr, Sonarr, Lidarr, putioarr | Composition, persistent mounts, generated credentials, private UIs/Homer, owned links and service monitoring declarations implemented. Real consumer/transfer/import/reboot acceptance pending; no age-based cleanup is enabled |
+| Prowlarr, Radarr, Sonarr, Lidarr, putioarr | Composition, mounts, credentials, private UIs/Homer, owned links and monitoring declarations implemented. Real connection tests and application reboot/reapply passed; transfer/import and operator browser checks remain. No age-based cleanup is enabled |
 | Jellyfin and Plex | Service configuration/state restore, public HTTPS ingress, client acceptance; Jellyfin Caddy cache per its plan |
 | Gokapi | Mixed ingress, verified identity-to-account mapping, exact public routes and coordinated state restore |
 | Joplin / Airtrail (required) | Both callers, reusable PostgreSQL module, per-host generated credentials, private UI/Homer registration and scheduled backups are implemented. Joplin restore and AirTrail paired database/uploads restore passed; the operator confirmed both UIs work. Joplin client sync and AirTrail account/API acceptance remain |
@@ -69,7 +72,7 @@ passed. The fresh named VM has both services running, with PostgreSQL and
 scheduled backup timers active; the operator confirmed both UIs work. Joplin
 client sync and AirTrail account/API acceptance remain open. Media and Gokapi
 implementations have separate status: the linked media stack is implemented
-with live acceptance pending; Gokapi is not implemented.
+with transfer/import and operator browser acceptance pending; Gokapi is not implemented.
 Donbot does not select DDNS. Joplin retains native authentication behind private HTTPS; Arr uses
 verified tailnet-user authentication. Airtrail should use the same tailnet-user
 authentication where supported; its account integration and API needs require inventory. UniFi, NUT and Home Assistant are not
@@ -299,8 +302,9 @@ from production at the operator's explicit request. First full provisioning,
 including real media link reconciliation, passed. Production uses its own
 environment path; generated keys need no manual setup.
 Architecture is documented in [media stack](../design/media-stack.md).
+Declared-application reapply and reboot acceptance passed on 2026-10-27.
 Remaining acceptance must prove a harmless transfer/import and its callbacks,
-declared-application reapply and reboot, and authorized private browser access.
+and authorized private browser access.
 First apply exercised putioarr startup and all three Transmission connection
 tests, separately from the earlier provider-free consumer test.
 
@@ -555,9 +559,9 @@ Gokapi's new-install application-account mapping and service inputs remain to be
 designed.
 
 **Current milestone:** finish named-VM linked Arr acceptance (slice 4), including
-real connection tests, harmless import and repeat/reboot persistence. The code
-and generated-key flow are implemented; the dedicated Put.io test token is the
-remaining provider prerequisite. Separately complete Joplin client sync and AirTrail
+harmless transfer/import with callbacks and authorized private browser checks.
+The code, generated-key flow, real connection tests and application repeat/reboot
+persistence have passed. Test credentials are present. Separately complete Joplin client sync and AirTrail
 account/API acceptance in the running named VM. Their database restore and
 AirTrail paired upload restore have passed. Public ingress remains required
 before implementing or importing any public media-sharing service state.

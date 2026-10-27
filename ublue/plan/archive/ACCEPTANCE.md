@@ -3685,3 +3685,21 @@ acceptance; no production host or private DNS values were committed.
   retried after readiness recovery and deployment of both corrections.
 - No test download/import has been submitted; callback/import behavior and
   authorized Arr browser acceptance remain separate gates.
+- The next run reached a further pre-existing runtime failure before completing
+  its first application snapshot: Mikochi was crash-looping on `/data/backups`.
+  The shared backup parents were `root:root` mode `0750`, while their leaves
+  correctly belonged to the data account. Shared PostgreSQL/AirTrail preparation
+  now converges owner/group along the declared backup path, preserving ancestor
+  modes and avoiding unrelated directories. Added regressions for scoped repair
+  and actual caller composition; workspace tests, Clippy, formatting and the
+  Fedora/Joey base-container check passed.
+- Deployed the ownership fix, reapplied Joplin/AirTrail and restarted Mikochi.
+  The full application run passed its fixture reboot checks and application
+  acceptance for all 17 declared services, including both databases, all five
+  media containers, Mikochi, Homer, Caddy and the identity gate. Real media
+  connection reconciliation succeeded during both snapshots; repeat apply
+  preserved the checked configuration, ownership, runtime identity and networks.
+  The complete `test smoke donbot --instance joplin --with-applications` command
+  exited successfully and restored lifecycle readiness to `Ready`.
+  Datadog/SMTP are outside this application's smoke plan;
+  no download/import or authorized browser acceptance is claimed.
