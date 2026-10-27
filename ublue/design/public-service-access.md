@@ -2,8 +2,9 @@
 
 ## Requirements agreed 2026-10-11
 
-Calculon's replacement, donbot, needs publicly reachable HTTPS for Plex and
-Jellyfin without a Tailscale client. Former OAuth-protected administrative UIs
+Calculon's replacement, donbot, needs publicly reachable HTTPS for Joplin, Plex
+and Jellyfin without a Tailscale client (Joplin decision updated 2026-10-27).
+Former OAuth-protected administrative UIs
 move to tailnet-only access. Gokapi retains public sharing/upload flows with
 private administration. Airtrail's public API exception requires explicit source
 policy. Joplin and Airtrail are required migration services.
@@ -26,15 +27,18 @@ blanket public API exemption.
 
 ## Joplin access
 
-Use tailnet-only HTTPS with Joplin native account/session authentication for sync.
-Native clients authenticate to Joplin itself; a browser-only proxy login must not
-intercept their API traffic. The existing noninteractive tailnet identity gate
-may additionally restrict clients without replacing application authentication.
-This keeps sync private while requiring Tailscale connectivity on mobile/desktop;
-real mobile/background sync acceptance is still pending. Native Joplin
-authentication remains enabled regardless of proxy authorization. Public note sharing or
-clients without Tailscale would require an explicit policy change. Configure the
-canonical HTTPS `APP_BASE_URL` consistently. See the
+Decision, 2026-10-27: replace the planned tailnet-only policy with public trusted
+HTTPS. Mobile/desktop clients must sync without Tailscale. Joplin retains native
+account/session authentication; Caddy adds neither a tailnet identity requirement
+nor a browser proxy login to this service. Its database and direct container
+port remain private. Native account and sharing settings remain application-owned;
+authenticated sync responses are not cached.
+
+Configure the canonical HTTPS `APP_BASE_URL` consistently with the public DNS
+destination and proxy hostname. Prove client authentication and bidirectional
+note/attachment sync from outside the tailnet, including background sync and
+reconnect. Current deployment is still tailnet-restricted until generic public
+ingress is implemented; Joplin is its first acceptance consumer. See the
 [official server guide](https://github.com/laurent22/joplin/blob/dev/packages/server/README.md)
 for native sync accounts and reverse-proxy setup.
 
@@ -47,7 +51,7 @@ UI aliases inherit their service's policy. Reuse Cloudflare DNS-01 with scoped
 credentials; public endpoints use DNS-only public addresses and do not depend on
 Tailscale. Domain/address values stay in private configuration.
 
-Use Caddy for public TLS and bridge proxying with native media authentication.
+Use Caddy for public TLS and bridge proxying with native application authentication.
 Decision, 2026-10-11: use Caddy caching for Jellyfin, via a pinned
 `caddyserver/cache-handler` service image and tested filesystem storage. Start
 with images, then prove protected video/range behavior; nginx slicing parity is

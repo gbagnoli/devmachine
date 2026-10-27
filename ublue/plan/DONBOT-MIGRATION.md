@@ -49,7 +49,7 @@ The shared Homer dashboard is selected by the fleet baseline. Its generated
 links now include every declared UI site, including Joplin.
 
 Accepted access requirements: former OAuth-protected UIs become tailnet-only;
-Plex/Jellyfin are reachable publicly without a tailnet client; mixed services
+Joplin and Plex/Jellyfin require public HTTPS without a tailnet client; mixed services
 keep explicitly required public flows. HTTPS is mandatory for all web endpoints.
 Architecture constraints and proposals are in
 [public service access](../design/public-service-access.md).
@@ -63,7 +63,7 @@ Architecture constraints and proposals are in
 | Prowlarr, Radarr, Sonarr, Lidarr, putioarr | Composition, mounts, credentials, private UIs/Homer, owned links and monitoring declarations implemented. Real connection tests and application reboot/reapply passed; transfer/import and operator browser checks remain. No age-based cleanup is enabled |
 | Jellyfin and Plex | Service configuration/state restore, public HTTPS ingress, client acceptance; Jellyfin Caddy cache per its plan |
 | Gokapi | Mixed ingress, verified identity-to-account mapping, exact public routes and coordinated state restore |
-| Joplin / Airtrail (required) | Both callers, reusable PostgreSQL module, per-host generated credentials, private UI/Homer registration and scheduled backups are implemented. Joplin restore and AirTrail paired database/uploads restore passed; the operator confirmed both UIs work. Joplin client sync and AirTrail account/API acceptance remain |
+| Joplin / Airtrail (required) | Both callers, reusable PostgreSQL module, credentials, current private UI/Homer registration and scheduled backups are implemented. Database/upload restores passed. Joplin requires public HTTPS and external client sync acceptance; AirTrail remains private with account/API acceptance open |
 | Conditional Pi-hole synchronization | Confirm current use; add explicit optional module only if retained; static DNS inventory is already shared |
 
 Donbot baseline, Joplin and AirTrail are wired to the canonical host profile.
@@ -73,7 +73,8 @@ scheduled backup timers active; the operator confirmed both UIs work. Joplin
 client sync and AirTrail account/API acceptance remain open. Media and Gokapi
 implementations have separate status: the linked media stack is implemented
 with transfer/import and operator browser acceptance pending; Gokapi is not implemented.
-Donbot does not select DDNS. Joplin retains native authentication behind private HTTPS; Arr uses
+Donbot does not select DDNS. Joplin requires public HTTPS with native authentication;
+its current private route must change through the generic ingress milestone. Arr uses
 verified tailnet-user authentication. Airtrail should use the same tailnet-user
 authentication where supported; its account integration and API needs require inventory. UniFi, NUT and Home Assistant are not
 part of this migration. Do not add them by copying another host's selections.
@@ -118,18 +119,21 @@ finish public ingress before private services. Use this dependency order:
    Sonarr/Radarr/Lidarr and putioarr automatically. Prove connection tests and a
    harmless import with no second browser login. Evaluate optional Usenet client
    separately; no provider purchase or transport removal is implied.
-3. **Joplin client acceptance (slice 7):** use the fresh named VM to verify an
-   authorized tailnet client can use the private HTTPS route and complete real
-   mobile/desktop note and attachment synchronization with native Joplin login.
+3. **Public/mixed ingress (slice 2), Joplin first:** extend shared typed Caddy/DNS
+   policies and use the existing Joplin caller as the first public consumer.
+   Prove public destinations, private denials and owned provider cleanup. Public
+   Joplin keeps native authentication without a tailnet gate or proxy login.
+   Separately prove real internet reachability; local VM forwarding is insufficient.
+   Mixed route enforcement follows before Gokapi; this work also enables media sharing.
+4. **Joplin client acceptance (slice 7):** verify a client with Tailscale
+   disconnected can use trusted public HTTPS and complete real mobile/desktop
+   note and attachment synchronization with native Joplin login.
    The named VM backup and restore round trip is already accepted.
-4. **AirTrail acceptance (slice 7):** decide whether to create an application
+5. **AirTrail acceptance (slice 7):** decide whether to create an application
    account and verify the supported client/API behavior. Paired DB/upload backup
    and restore passed on disposable state. Current implementation uses native
    AirTrail login behind the tailnet gate; optional provider integrations stay
    absent unless their vault entries are supplied.
-5. **Public/mixed ingress (slice 2):** extend shared typed Caddy/DNS policies.
-   Prove public destinations, private denials, exact mixed route enforcement and
-   owned provider cleanup. This work is required for media sharing, not private Arr.
 6. **Jellyfin/Plex and cache (slice 5):** add service modules, selected media paths
    and public trusted HTTPS. Validate actual external playback, seek, subtitles and
    available transcoding. Follow the separate Caddy cache milestones; no assumed
@@ -190,7 +194,7 @@ installed putioarr image/binary provenance, including any manual override noted
 in Chef, and the Plex/Syncthing firewall resource collision.
 
 **Exit:** each retained service has a version, state/mount map and access policy;
-validate the proposed tailnet-only Joplin mode against mobile/client needs,
+validate public Joplin HTTPS and native login against mobile/client needs,
 Airtrail public API clients, conditional Pi-hole synchronization, source subvolumes inside
 synchronized data, and public reachability.
 Keep private evidence outside Git. No source service is stopped or altered.
@@ -223,6 +227,12 @@ model with explicit public/private policy and mixed path/method rules; default
 to private. Host callers select services and policy; private values come from
 templates/vault. Keep one renderer/delivery/provider ownership path, with a
 versioned migration for retained private payloads.
+
+Implement Joplin as the first public consumer: select public DNS destinations,
+trusted TLS and native application authentication without the tailnet gate or a
+proxy login. Preserve `APP_BASE_URL`, sync methods/headers/bodies and private
+database/backend ports. Keep its sync traffic uncached. Existing private routes
+remain restricted until their caller explicitly selects public exposure.
 
 Reuse the implemented caller-selected identity gate for file browsing; add the
 Gokapi identity-to-account adapter for its admin flow, following [tailnet UI authentication](../design/tailnet-ui-authentication.md).
@@ -499,15 +509,14 @@ accounts/metadata. If a non-database content store is selected later, back it up
 with a consistent database snapshot. See
 [PostgreSQL app backup design](../design/postgres-app-backups.md).
 
-For Joplin, use tailnet-only HTTPS through Caddy, retaining
+For Joplin, implement public trusted HTTPS through Caddy, retaining
 Joplin's native account/session authentication for mobile and desktop sync. Set
 `APP_BASE_URL` to the exact canonical HTTPS endpoint. Keep native authentication
 enabled; do not replace it with browser OAuth redirects or an extra proxy login.
-The existing noninteractive tailnet identity gate can provide another restriction,
-but must preserve API methods, headers and bodies and pass real client acceptance.
-Tailscale must be connected for sync; offline note editing remains client-local.
-Validate required background synchronization on the actual phone. Public note
-sharing and clients without Tailscale would need a separate explicit access decision.
+The public Joplin route must not require a tailnet identity or Tailscale connectivity.
+Preserve API methods, headers and bodies. Validate background synchronization,
+reconnect and note/attachment changes on the actual phone with Tailscale disconnected.
+Retain native account isolation and application-owned sharing settings.
 
 For Airtrail, prefer the same verified tailnet-user authentication with no
 second application login, if its supported authentication/account model allows
@@ -521,10 +530,11 @@ The second synchronization/browser tenant stays deferred; preserve its source
 state without importing it or selecting its snapshots. No multi-instance API
 extension is required by this slice.
 
-**Implementation complete; acceptance in progress.** The operator confirmed
-both service UIs work. Joplin mobile/desktop authentication, bidirectional
-note/attachment sync and reconnect must work over the authorized private HTTPS
-route; unauthorized clients must remain denied. Verify AirTrail account and
+**Core service implementation complete; Joplin public ingress and client acceptance
+remain open.** The operator confirmed both current private service UIs work.
+Joplin mobile/desktop authentication, bidirectional note/attachment sync and
+reconnect must work over trusted public HTTPS without Tailscale; unauthorized
+sync requests must be denied by Joplin. Verify AirTrail account and
 attachment/API behavior. Joplin restore and AirTrail paired DB/upload restore
 passed in disposable state. Repeat apply/reboot must preserve app/database
 state. No live production peers receive restored smoke changes.
@@ -561,7 +571,9 @@ designed.
 **Current milestone:** finish named-VM linked Arr acceptance (slice 4), including
 harmless transfer/import with callbacks and authorized private browser checks.
 The code, generated-key flow, real connection tests and application repeat/reboot
-persistence have passed. Test credentials are present. Separately complete Joplin client sync and AirTrail
+persistence have passed. Test credentials are present. The next implementation
+milestone is generic public HTTPS ingress with Joplin as its first consumer,
+followed by Joplin external client sync. Separately complete AirTrail
 account/API acceptance in the running named VM. Their database restore and
 AirTrail paired upload restore have passed. Public ingress remains required
 before implementing or importing any public media-sharing service state.
