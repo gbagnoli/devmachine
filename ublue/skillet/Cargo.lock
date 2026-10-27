@@ -3835,6 +3835,7 @@ dependencies = [
  "skillet_hardening",
  "skillet_homeassistant",
  "skillet_homer",
+ "skillet_jellyfin",
  "skillet_joplin",
  "skillet_media",
  "skillet_mikochi",
@@ -3845,6 +3846,16 @@ dependencies = [
  "skillet_smtp",
  "skillet_syncthing",
  "skillet_unifi",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "skillet_jellyfin"
+version = "0.1.0"
+dependencies = [
+ "skillet_core",
+ "skillet_datadog",
+ "skillet_podman",
  "thiserror 1.0.69",
 ]
 
