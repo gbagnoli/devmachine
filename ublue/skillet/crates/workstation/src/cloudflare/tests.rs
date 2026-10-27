@@ -9,6 +9,7 @@ use std::{
 fn desired_dns_contains_dual_stack_machine_ui_and_alias_records() {
     let services = vec![skillet_caddy::UiService {
         public_names: Vec::new(),
+        cache: None,
         name: "syncthing".to_string(),
         upstream: "syncthing".to_string(),
         transport: skillet_caddy::UpstreamTransport::Bridge,
@@ -61,6 +62,7 @@ fn desired_dns_rejects_missing_address_family() {
         },
         &[skillet_caddy::UiService {
             public_names: Vec::new(),
+            cache: None,
             name: "syncthing".to_string(),
             upstream: "syncthing".to_string(),
             transport: skillet_caddy::UpstreamTransport::Bridge,
@@ -576,4 +578,49 @@ fn public_records_have_explicit_destinations_and_private_records_keep_tailnet_ta
                 .is_err()
         );
     }
+}
+#[test]
+fn donbot_jellyfin_dns_aliases_use_the_public_target_and_private_uis_do_not() {
+    let profile = skillet_hosts::profile_for_name("donbot").unwrap();
+    let sites = skillet_caddy::CaddySites::from_host_with_zone(
+        "donbot",
+        &skillet_caddy::UiEnvironment {
+            ui_domain: "ui.example.invalid".into(),
+            acme_staging: true,
+        },
+        &profile.ui_services(),
+        Some("example.invalid"),
+    )
+    .unwrap();
+    let addresses = ["100.64.0.1".to_string(), "fd7a:115c:a1e0::1".to_string()]
+        .into_iter()
+        .collect();
+    let records = super::desired_records_with_public(
+        &sites.machine_hostname,
+        &addresses,
+        &sites,
+        &["ingress.example.invalid".into()],
+    )
+    .unwrap();
+    for name in ["notes.example.invalid", "video.example.invalid"] {
+        let record = records.iter().find(|record| record.name == name).unwrap();
+        assert_eq!(record.record_type, "CNAME");
+        assert_eq!(record.content, "ingress.example.invalid");
+    }
+    assert_eq!(
+        records
+            .iter()
+            .find(|record| record.name == "media.example.invalid")
+            .unwrap()
+            .content,
+        "video.example.invalid"
+    );
+    assert_eq!(
+        records
+            .iter()
+            .find(|record| record.name == "syncthing.donbot.ui.example.invalid")
+            .unwrap()
+            .content,
+        sites.machine_hostname
+    );
 }

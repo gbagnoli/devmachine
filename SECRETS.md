@@ -77,6 +77,10 @@ Native accounts are created during HTTPS onboarding. Backup automation starts af
 
 Private static service dashboard generated from the host's declared UI services. No vault entries currently required. [Setup](ublue/skillet/crates/homer/README.md).
 
+## Jellyfin
+
+No vault entries. Jellyfin keeps its native accounts in application state; complete setup before publishing its public HTTPS names. [Setup](ublue/skillet/crates/jellyfin/README.md).
+
 ## Joplin
 
 Dedicated PostgreSQL password is generated once and stored in KeePassXC before delivery. The Joplin UI is registered from the host declaration and appears in Homer. [Setup and backup/restore](ublue/skillet/crates/joplin/README.md).

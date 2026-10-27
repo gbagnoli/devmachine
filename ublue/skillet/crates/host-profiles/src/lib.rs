@@ -136,6 +136,8 @@ pub enum ApplyError {
     #[error(transparent)]
     Homer(#[from] skillet_homer::HomerError),
     #[error(transparent)]
+    Jellyfin(#[from] skillet_jellyfin::Error),
+    #[error(transparent)]
     Joplin(#[from] skillet_joplin::JoplinError),
     #[error(transparent)]
     Airtrail(#[from] skillet_airtrail::AirtrailError),
@@ -429,6 +431,9 @@ fn apply_profile(
             }
             ServiceConfig::HomeAssistant(config) => {
                 skillet_homeassistant::apply(system, files, *config)?;
+            }
+            ServiceConfig::Jellyfin(config) => {
+                skillet_jellyfin::apply(system, files, *config, profile.id.as_str())?;
             }
             ServiceConfig::Unifi => skillet_unifi::apply(system, files)?,
             ServiceConfig::Tailscale {
@@ -834,6 +839,7 @@ fn apply_caddy_host(
                 endpoint: (site.name == "pihole").then(|| "/pihole-api".to_string()),
                 icon: match site.name.as_str() {
                     "joplin" => Some("fas fa-book-open"),
+                    "jellyfin" => Some("fas fa-play-circle"),
                     "airtrail" => Some("fas fa-plane"),
                     "prowlarr" => Some("fas fa-search"),
                     "sonarr" => Some("fas fa-tv"),

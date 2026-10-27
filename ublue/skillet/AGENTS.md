@@ -285,3 +285,8 @@ skillet/
 - Verify atomic replacement metadata with the real filesystem adapter, not only
   mocks. Omitted ownership/permission fields on existing regular files must be
   preserved through content changes as well as no-op writes.
+
+- Shared response caches require consumer-tested request and response eligibility.
+  Keep protected content uncached until authorization/revocation on hits is proven;
+  reject credential-bearing requests and cookie/private/no-store responses, bound
+  total storage independently of entry counts, and preserve certificate state.

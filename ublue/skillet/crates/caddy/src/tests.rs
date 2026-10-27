@@ -8,6 +8,7 @@ use std::sync::atomic::Ordering;
 fn syncthing_only() -> Vec<UiService> {
     vec![UiService {
         public_names: Vec::new(),
+        cache: None,
         name: "syncthing".to_string(),
         upstream: "syncthing".to_string(),
         transport: crate::UpstreamTransport::Bridge,
@@ -26,6 +27,7 @@ fn identity_service(
 ) -> UiService {
     UiService {
         public_names: Vec::new(),
+        cache: None,
         name: name.into(),
         upstream: upstream.into(),
         transport,
@@ -115,6 +117,7 @@ fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
     let services = vec![
         UiService {
             public_names: Vec::new(),
+            cache: None,
             name: "pihole".to_string(),
             upstream: "pihole".to_string(),
             transport: crate::UpstreamTransport::Bridge,
@@ -159,6 +162,7 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
     let services = vec![
         UiService {
             public_names: Vec::new(),
+            cache: None,
             name: "pihole".into(),
             upstream: "pihole".into(),
             transport: crate::UpstreamTransport::Bridge,
@@ -169,6 +173,7 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
         },
         UiService {
             public_names: Vec::new(),
+            cache: None,
             name: "homeassistant".into(),
             upstream: "homeassistant".into(),
             transport: crate::UpstreamTransport::Bridge,
@@ -179,6 +184,7 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
         },
         UiService {
             public_names: Vec::new(),
+            cache: None,
             name: "homer".into(),
             upstream: "homer".into(),
             transport: crate::UpstreamTransport::Bridge,
@@ -291,6 +297,7 @@ fn rejects_domain_injection_duplicates_and_empty_service_sets() {
 fn renders_declared_aliases_and_rejects_conflicting_names() {
     let services = vec![UiService {
         public_names: Vec::new(),
+        cache: None,
         name: "syncthing".to_string(),
         upstream: "syncthing".to_string(),
         transport: crate::UpstreamTransport::Bridge,
@@ -325,6 +332,7 @@ fn renders_declared_aliases_and_rejects_conflicting_names() {
     for alias in ["", ".sync", "sync.", "*.sync", "bad{host}", "clamps"] {
         let invalid = vec![UiService {
             public_names: Vec::new(),
+            cache: None,
             tailnet_identity: false,
             anonymous_token_refresh: false,
             aliases: vec![alias.to_string()],
@@ -395,6 +403,7 @@ fn relative_ui_domain_rejects_invalid_prefixes_and_total_length() {
 fn file_ui_is_gated_before_proxy_and_cannot_disable_declared_identity() {
     let services = vec![UiService {
         public_names: Vec::new(),
+        cache: None,
         name: "files".into(),
         upstream: "mikochi".into(),
         transport: crate::UpstreamTransport::Bridge,
@@ -467,6 +476,7 @@ fn identity_caddy_has_only_the_authorization_socket_and_a_private_backend() {
         },
         &[UiService {
             public_names: Vec::new(),
+            cache: None,
             name: "files".into(),
             upstream: "mikochi".into(),
             transport: crate::UpstreamTransport::Bridge,
@@ -515,6 +525,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
             identity_service("homer", "homer", crate::UpstreamTransport::Bridge, 8080),
             UiService {
                 public_names: Vec::new(),
+                cache: None,
                 name: "files".into(),
                 upstream: "mikochi".into(),
                 transport: crate::UpstreamTransport::Bridge,
@@ -525,6 +536,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
             },
             UiService {
                 public_names: Vec::new(),
+                cache: None,
                 name: "syncthing".into(),
                 upstream: "syncthing".into(),
                 transport: crate::UpstreamTransport::Bridge,

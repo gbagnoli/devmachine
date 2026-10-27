@@ -22,6 +22,7 @@ stay in the vault or private installation inputs.
 | UPS and metrics | [NUT](../nut/README.md) |
 | DNS | [Pi-hole](../pihole/README.md) |
 | Joplin Server | [Joplin](../joplin/README.md) |
+| Jellyfin | [Jellyfin](../jellyfin/README.md) |
 | AirTrail | [AirTrail](../airtrail/README.md) |
 | Arr / putioarr | [Media](../media/README.md) |
 | Mail relay | [SMTP](../smtp/README.md) |

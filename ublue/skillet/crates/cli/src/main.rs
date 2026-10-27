@@ -1065,6 +1065,25 @@ fn check_health(
 ) -> Result<Option<String>> {
     use skillet_hosts::HealthProbe;
     match probe {
+        Some(HealthProbe::Jellyfin) => {
+            smoke_guest_command(
+                transport,
+                "sudo",
+                &[
+                    "-n",
+                    "podman",
+                    "exec",
+                    "jellyfin",
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "--max-time",
+                    "15",
+                    "http://127.0.0.1:8096/health",
+                ],
+            )?;
+            Ok(Some("health:jellyfin:running".into()))
+        }
         Some(HealthProbe::Media) => {
             skillet_workstation::host_apply::activate(
                 transport,

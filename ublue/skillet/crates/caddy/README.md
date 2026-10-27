@@ -77,6 +77,31 @@ recorded configuration. Destroy removes owned records and revokes child tokens;
 keep the workstation issuer available for cleanup. Staging certificates are
 untrusted; the staging test performs its own certificate checks.
 
+## Jellyfin cache
+
+Donbot selects the typed `JellyfinStatic` policy. It uses the controlled
+`ghcr.io/gbagnoli/skillet-caddy:cache-v1` image built by
+[the image workflow](../../../../.github/workflows/caddy-image.yml).
+Publish that image before deploying a cache-enabled host; normal non-cache hosts
+retain their existing Cloudflare Caddy image. Build locally without installing
+tools: `podman build -t ghcr.io/gbagnoli/skillet-caddy:cache-v1 crates/caddy/image`.
+
+Only anonymous GETs for selected `/web/` asset extensions enter the cache.
+Queries, authentication headers, cookies, ranges, artwork APIs and media bypass
+it. Upstream cache directives are respected; absent directives default to
+`no-store`. Keys include host/scheme/path/representation, are hashed and hidden;
+access logging and public purge APIs are disabled. The maximum stored response
+is 2 MiB, TTL is ten minutes (upstream directives may shorten it), and stale
+serving is disabled. No protected media cache parity is claimed.
+
+Simplefs has a 64 MB target and 2048-entry limit. Its dedicated 128 MiB tmpfs is
+the hard filesystem cap, and the cache-enabled Caddy container is limited to
+512 MiB memory with `GOMEMLIMIT=384MiB`. Cache contents vanish on container
+replacement, leaving certificate storage untouched. No cache data is synchronized
+or snapshotted. Version 7 payloads bind policy to the caller; earlier payloads
+remain uncached until explicit redelivery. See the
+[remaining cache gates](../../../plan/JELLYFIN-CADDY-CACHE.md).
+
 ## Identity-protected UIs
 
 Pi-hole, Syncthing (canonical name and aliases), Mikochi and Home Assistant use

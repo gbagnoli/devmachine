@@ -13,6 +13,7 @@ use std::{collections::BTreeMap, path::Path};
 use thiserror::Error;
 
 pub mod auth;
+pub mod cache;
 pub mod host_proxy;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -52,6 +53,8 @@ mod public_tests;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct UiService {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache: Option<cache::Policy>,
     pub name: String,
     pub upstream: String,
     #[serde(default)]
@@ -116,6 +119,8 @@ impl std::fmt::Debug for CaddySites {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CaddySite {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache: Option<cache::Policy>,
     pub name: String,
     pub hostname: String,
     pub aliases: Vec<String>,
@@ -154,6 +159,14 @@ pub enum CaddyError {
 }
 
 impl CaddySites {
+    pub fn image(&self) -> &'static str {
+        if self.services.iter().any(|site| site.cache.is_some()) {
+            cache::IMAGE
+        } else {
+            "ghcr.io/caddybuilds/caddy-cloudflare:2"
+        }
+    }
+
     pub fn from_host(
         host: &str,
         environment: &UiEnvironment,
@@ -190,7 +203,9 @@ impl CaddySites {
             services,
         )?;
         Ok(Self {
-            version: if services
+            version: if services.iter().any(|service| service.cache.is_some()) {
+                7
+            } else if services
                 .iter()
                 .any(|service| !service.public_names.is_empty())
             {
@@ -218,7 +233,7 @@ impl CaddySites {
 
     pub fn parse(contents: &str, host: &str, services: &[UiService]) -> Result<Self, CaddyError> {
         let sites: Self = serde_json::from_str(contents)?;
-        if !matches!(sites.version, 2..=6) {
+        if !matches!(sites.version, 2..=7) {
             return Err(CaddyError::InvalidConfiguration(format!(
                 "unsupported payload version {}",
                 sites.version
@@ -234,10 +249,20 @@ impl CaddySites {
                 "payload version 5 requires the Cloudflare zone".into(),
             ));
         }
+        if sites.version < 7 && sites.services.iter().any(|site| site.cache.is_some()) {
+            return Err(CaddyError::InvalidConfiguration(
+                "cache policy requires payload version 7".into(),
+            ));
+        }
         // A retained pre-public payload may keep the previous private UI alive
         // during deployment. Its canonical names and identity protection remain
         // exact; only a newly delivered v6 payload selects public exposure.
         let mut declarations = services.to_vec();
+        if sites.version < 7 {
+            for service in &mut declarations {
+                service.cache = None;
+            }
+        }
         if sites.version < 6 {
             for service in &mut declarations {
                 if !service.public_names.is_empty() {
@@ -315,8 +340,14 @@ impl CaddySites {
         } else {
             ""
         };
-        let mut config =
-            format!("{{\n    admin off\n{acme}    acme_dns cloudflare {{env.CF_API_TOKEN}}\n}}\n");
+        let cache = if self.services.iter().any(|site| site.cache.is_some()) {
+            cache::global()
+        } else {
+            ""
+        };
+        let mut config = format!(
+            "{{\n    admin off\n{acme}    acme_dns cloudflare {{env.CF_API_TOKEN}}\n{cache}}}\n"
+        );
         let homer_origins = self
             .services
             .iter()
@@ -358,6 +389,9 @@ fn render_site(
         render_homer_routes(&mut config, sites);
     }
     let upstream = render_upstream(service, hostname);
+    if service.cache.is_some() {
+        config.push_str(&cache::route(&upstream));
+    }
     let _ = writeln!(config, "        reverse_proxy {upstream}\n    }}\n}}");
     config
 }
@@ -565,6 +599,7 @@ fn build_sites(
             aliases.push(alias_hostname);
         }
         sites.push(CaddySite {
+            cache: service.cache,
             name: service.name.clone(),
             hostname,
             aliases,
@@ -583,6 +618,15 @@ fn resolve_public_names(
     service: &UiService,
     zone_domain: Option<&str>,
 ) -> Result<Vec<String>, CaddyError> {
+    if service.cache.is_some()
+        && (service.public_names.is_empty()
+            || service.tailnet_identity
+            || service.transport != UpstreamTransport::Bridge)
+    {
+        return Err(CaddyError::InvalidConfiguration(
+            "caching requires an explicitly public bridge service".into(),
+        ));
+    }
     if !service.public_names.is_empty()
         && (service.tailnet_identity
             || service.anonymous_token_refresh
@@ -774,10 +818,16 @@ where
             "Sysctl=net.ipv6.conf.all.forwarding=0".into(),
         ]);
     }
+    if sites.services.iter().any(|site| site.cache.is_some()) {
+        container
+            .entry("Container".into())
+            .or_default()
+            .extend(cache::container_options());
+    }
     add_host_upstream_dependencies(&mut container, sites);
     let mut config = PodmanConfig {
         name: "caddy".to_string(),
-        image: "ghcr.io/caddybuilds/caddy-cloudflare:2".to_string(),
+        image: sites.image().to_string(),
         network_attachments: networks,
         port_publications: [80, 443]
             .into_iter()

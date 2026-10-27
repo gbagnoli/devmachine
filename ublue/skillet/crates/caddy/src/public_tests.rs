@@ -8,6 +8,7 @@ pub(super) fn public_service() -> UiService {
         port: 22300,
         aliases: Vec::new(),
         public_names: vec!["notes".into()],
+        cache: None,
         tailnet_identity: false,
         anonymous_token_refresh: false,
     }

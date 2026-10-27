@@ -11,6 +11,71 @@ use skillet_core::{
 use skillet_podman::SecretTarget;
 
 #[test]
+fn jellyfin_uses_arr_library_sources_and_both_zone_root_public_names() {
+    let profile = super::profile_for_name("donbot").unwrap();
+    let media = profile.media_config().unwrap();
+    let config = profile
+        .services
+        .iter()
+        .find_map(|service| match service.config {
+            ServiceConfig::Jellyfin(config) => Some(config),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(config.files_path, media.files_path);
+    assert_eq!(config.music_path, media.music_path);
+    assert_eq!(
+        (config.data_owner, config.data_group),
+        (media.data_owner, media.data_group)
+    );
+    let sources = config.libraries();
+    assert_eq!(
+        sources[0].0,
+        std::path::Path::new(media.files_path).join(
+            skillet_media::App::Sonarr
+                .root()
+                .unwrap()
+                .trim_start_matches("/data/")
+        )
+    );
+    assert_eq!(
+        sources[1].0,
+        std::path::Path::new(media.files_path).join(
+            skillet_media::App::Radarr
+                .root()
+                .unwrap()
+                .trim_start_matches("/data/")
+        )
+    );
+    let services = profile.ui_services();
+    let sites = skillet_caddy::CaddySites::from_host_with_zone(
+        "donbot",
+        &skillet_caddy::UiEnvironment {
+            ui_domain: "custom.ui.example.invalid".into(),
+            acme_staging: true,
+        },
+        &services,
+        Some("example.invalid"),
+    )
+    .unwrap();
+    let jellyfin = sites
+        .services
+        .iter()
+        .find(|site| site.name == "jellyfin")
+        .unwrap();
+    assert_eq!(jellyfin.hostname, "video.example.invalid");
+    assert_eq!(jellyfin.aliases, ["media.example.invalid"]);
+    assert!(!jellyfin.tailnet_identity);
+    assert_eq!(
+        jellyfin.cache,
+        Some(skillet_caddy::cache::Policy::JellyfinStatic)
+    );
+    assert!(!super::profile_for_name("clamps")
+        .unwrap()
+        .supports_service("jellyfin"));
+}
+
+#[test]
 fn joplin_public_caller_drives_its_canonical_base_url_without_exposing_other_uis() {
     use skillet_core::{system::AccountResource, test_utils::MockFiles};
     use std::path::Path;
@@ -21,7 +86,7 @@ fn joplin_public_caller_drives_its_canonical_base_url_without_exposing_other_uis
             .iter()
             .filter(|service| !service.public_names.is_empty())
             .count(),
-        1
+        2
     );
     assert_eq!(
         services
@@ -360,6 +425,7 @@ fn donbot_declares_joplin_and_airtrail_uis_that_register_with_homer_and_caddy() 
             "syncthing",
             "joplin",
             "airtrail",
+            "jellyfin",
             "prowlarr",
             "sonarr",
             "radarr",
@@ -677,6 +743,7 @@ fn synthetic_profile_derives_network_and_ui_from_its_identity() {
             },
             ui: Some(UiServiceDeclaration {
                 public_names: &[],
+                cache: None,
                 name: "sync",
                 upstream: "sync",
                 transport: skillet_caddy::UpstreamTransport::Bridge,

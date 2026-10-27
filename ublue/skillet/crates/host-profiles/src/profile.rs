@@ -34,6 +34,7 @@ pub struct UiServiceDeclaration {
     pub tailnet_identity: bool,
     pub aliases: &'static [&'static str],
     pub public_names: &'static [&'static str],
+    pub cache: Option<skillet_caddy::cache::Policy>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -62,6 +63,7 @@ pub enum ServiceConfig {
     },
     Homer,
     Joplin(skillet_joplin::Config),
+    Jellyfin(skillet_jellyfin::Config),
     Airtrail(skillet_airtrail::Config),
     Media {
         app: skillet_media::App,
@@ -106,6 +108,7 @@ impl HostService {
             ServiceConfig::Mikochi { .. } => "mikochi",
             ServiceConfig::Homer => "homer",
             ServiceConfig::Joplin(_) => "joplin",
+            ServiceConfig::Jellyfin(_) => "jellyfin",
             ServiceConfig::Airtrail(_) => "airtrail",
             ServiceConfig::Media { app, .. } => app.name(),
             ServiceConfig::Nut(_) => "nut",
@@ -251,6 +254,7 @@ pub enum ListenerProtocol {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HealthProbe {
+    Jellyfin,
     Media,
     Homeassistant,
     Mikochi,
@@ -408,6 +412,7 @@ impl HostProfile {
             .filter_map(|service| service.ui.as_ref().map(|ui| (service, ui)))
             .map(|(service, ui)| skillet_caddy::UiService {
                 name: ui.name.to_string(),
+                cache: ui.cache,
                 upstream: ui.upstream.to_string(),
                 transport: ui.transport,
                 port: ui.port,
@@ -486,17 +491,12 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
     match service.config {
         ServiceConfig::HomeAssistant(_) => homeassistant_acceptance(),
         ServiceConfig::Joplin(config) => joplin_acceptance(config),
+        ServiceConfig::Jellyfin(config) => {
+            jellyfin_acceptance(config, service.backend_network(profile))
+        }
         ServiceConfig::Airtrail(config) => airtrail_acceptance(config),
         ServiceConfig::Media { app, config } => media_acceptance(app, config),
-        ServiceConfig::Nut(_) => AcceptanceService {
-            unit: "nut-monitor.service".into(),
-            container: None,
-            network_mode: None,
-            bind_paths: Vec::new(),
-            owner: None,
-            listeners: Vec::new(),
-            health_probe: None,
-        },
+        ServiceConfig::Nut(_) => nut_acceptance(),
         ServiceConfig::Network(_) => native_network_acceptance(),
         ServiceConfig::Smtp => smtp_acceptance(),
         ServiceConfig::Datadog { .. } => datadog_acceptance(),
@@ -683,6 +683,7 @@ fn caddy_acceptance(profile: &str, has_homer: bool) -> AcceptanceService {
 
 const PIHOLE_UI: UiServiceDeclaration = UiServiceDeclaration {
     public_names: &[],
+    cache: None,
     name: "pihole",
     upstream: "pihole",
     transport: skillet_caddy::UpstreamTransport::Bridge,
@@ -693,6 +694,7 @@ const PIHOLE_UI: UiServiceDeclaration = UiServiceDeclaration {
 
 const SYNCTHING_UI: UiServiceDeclaration = UiServiceDeclaration {
     public_names: &[],
+    cache: None,
     name: "syncthing",
     upstream: "syncthing",
     transport: skillet_caddy::UpstreamTransport::Bridge,
@@ -763,6 +765,7 @@ fn clamps() -> HostProfile {
                 }),
                 ui: Some(UiServiceDeclaration {
                     public_names: &[],
+                    cache: None,
                     name: "homeassistant",
                     upstream: "homeassistant",
                     transport: skillet_caddy::UpstreamTransport::HostLoopback,
@@ -908,6 +911,7 @@ fn donbot() -> HostProfile {
                 }),
                 ui: Some(UiServiceDeclaration {
                     public_names: &["notes"],
+                    cache: None,
                     name: "joplin",
                     upstream: "joplin-server",
                     transport: skillet_caddy::UpstreamTransport::Bridge,
@@ -930,6 +934,7 @@ fn donbot() -> HostProfile {
                 }),
                 ui: Some(UiServiceDeclaration {
                     public_names: &[],
+                    cache: None,
                     name: "airtrail",
                     upstream: "airtrail",
                     transport: skillet_caddy::UpstreamTransport::Bridge,
@@ -966,21 +971,40 @@ fn donbot_media_services() -> Vec<HostService> {
         data_owner: "giacomo",
         data_group: "giacomo",
     };
-    skillet_media::App::ALL
-        .into_iter()
-        .map(|app| HostService {
-            config: ServiceConfig::Media { app, config },
-            ui: (app != skillet_media::App::Putioarr).then_some(UiServiceDeclaration {
-                public_names: &[],
-                name: app.name(),
-                upstream: app.name(),
-                transport: skillet_caddy::UpstreamTransport::Bridge,
-                port: app.port(),
-                tailnet_identity: true,
-                aliases: &[],
-            }),
-        })
-        .collect()
+    let mut services = vec![HostService {
+        config: ServiceConfig::Jellyfin(skillet_jellyfin::Config {
+            state_path: "/var/lib/data/jellyfin/config",
+            cache_path: "/var/lib/data/jellyfin/cache",
+            files_path: config.files_path,
+            music_path: config.music_path,
+            data_owner: config.data_owner,
+            data_group: config.data_group,
+        }),
+        ui: Some(UiServiceDeclaration {
+            name: "jellyfin",
+            upstream: "jellyfin",
+            port: skillet_jellyfin::PORT,
+            transport: skillet_caddy::UpstreamTransport::Bridge,
+            public_names: &["video", "media"],
+            aliases: &[],
+            tailnet_identity: false,
+            cache: Some(skillet_caddy::cache::Policy::JellyfinStatic),
+        }),
+    }];
+    services.extend(skillet_media::App::ALL.into_iter().map(|app| HostService {
+        config: ServiceConfig::Media { app, config },
+        ui: (app != skillet_media::App::Putioarr).then_some(UiServiceDeclaration {
+            public_names: &[],
+            cache: None,
+            name: app.name(),
+            upstream: app.name(),
+            transport: skillet_caddy::UpstreamTransport::Bridge,
+            port: app.port(),
+            tailnet_identity: true,
+            aliases: &[],
+        }),
+    }));
+    services
 }
 
 fn agent_baseline() -> HostProfile {
@@ -1051,6 +1075,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
                 },
                 ui: Some(UiServiceDeclaration {
                     public_names: &[],
+                    cache: None,
                     name: "files",
                     upstream: "mikochi",
                     transport: skillet_caddy::UpstreamTransport::Bridge,
@@ -1066,6 +1091,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
         config: ServiceConfig::Homer,
         ui: Some(UiServiceDeclaration {
             public_names: &[],
+            cache: None,
             name: "homer",
             upstream: "homer",
             transport: skillet_caddy::UpstreamTransport::Bridge,
@@ -1143,5 +1169,38 @@ fn homeassistant_acceptance() -> AcceptanceService {
         owner: None,
         listeners: vec![],
         health_probe: Some(HealthProbe::Homeassistant),
+    }
+}
+
+fn jellyfin_acceptance(config: skillet_jellyfin::Config, network: String) -> AcceptanceService {
+    AcceptanceService {
+        unit: "jellyfin.service".into(),
+        container: Some("jellyfin".into()),
+        network_mode: Some(network),
+        bind_paths: vec![
+            config.state_path.into(),
+            config.cache_path.into(),
+            config.libraries()[0].0.to_string_lossy().into_owned(),
+            config.libraries()[1].0.to_string_lossy().into_owned(),
+            config.music_path.into(),
+        ],
+        owner: Some(AcceptanceOwner::Named {
+            user: config.data_owner.into(),
+            group: config.data_group.into(),
+        }),
+        listeners: Vec::new(),
+        health_probe: Some(HealthProbe::Jellyfin),
+    }
+}
+
+fn nut_acceptance() -> AcceptanceService {
+    AcceptanceService {
+        unit: "nut-monitor.service".into(),
+        container: None,
+        network_mode: None,
+        bind_paths: Vec::new(),
+        owner: None,
+        listeners: Vec::new(),
+        health_probe: None,
     }
 }
