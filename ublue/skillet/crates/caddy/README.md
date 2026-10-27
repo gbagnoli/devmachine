@@ -91,8 +91,8 @@ Queries, authentication headers, cookies, ranges, artwork APIs and media bypass
 it. Upstream cache directives are respected; absent directives default to
 `no-store`. Keys include host/scheme/path/representation, are hashed and hidden;
 access logging and public purge APIs are disabled. The maximum stored response
-is 2 MiB, TTL is ten minutes (upstream directives may shorten it), and stale
-serving is disabled. No protected media cache parity is claimed.
+is 2 MiB. The fallback TTL is ten minutes; explicit upstream freshness takes
+precedence. Stale serving is disabled. No protected media cache parity is claimed.
 
 Simplefs has a 64 MB target and 2048-entry limit. Its dedicated 128 MiB tmpfs is
 the hard filesystem cap, and the cache-enabled Caddy container is limited to
