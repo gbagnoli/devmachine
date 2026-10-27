@@ -257,6 +257,15 @@ Public sites use DNS-only records by default. Advertise AAAA only when routed
 IPv6 has been verified. Public 443 must work with Tailscale disconnected; port
 80 may redirect to HTTPS, but never serves an application in plaintext.
 
+Derive public names from the environment's Cloudflare zone name, resolved using
+its existing zone ID. Caller declarations supply fixed labels: Joplin `notes`,
+Plex `plex`, Jellyfin `video` and `media`. No extra vault entries or configurable
+per-app public labels are required now. These names omit the private UI prefix
+and host label: private `ui.example.invalid` yields `notes.example.invalid`,
+`plex.example.invalid`, `video.example.invalid` and `media.example.invalid`.
+Reconcile DNS, TLS and proxy routing for every declared public alias using the
+same deployment ownership guards. Preserve private UI naming independently.
+
 **Exit:** CI verifies actual adapted Caddy routing with dummy names: public sites
 reachable; private sites denied externally; mixed routes default-deny; aliases
 have identical policy; unknown Host/SNI and spoofed identity/forwarded headers
@@ -269,6 +278,9 @@ payload migration, DNS
 ownership/retry/cleanup and credential redaction have tests. Named-VM HTTPS
 acceptance covers both allowed and denied routes; separately prove real internet
 reachability because passt/localhost testing cannot establish it.
+Test public name derivation with a customized private UI prefix as well as the
+default `ui`; neither prefix nor host identity may enter the public names. Both
+Jellyfin names must have DNS, TLS coverage and matching upstream/access policy.
 
 ### 3. Validate reused private file browsing
 
@@ -435,14 +447,15 @@ copy-versus-hardlink behavior is documented.
 
 ### 5. Port Jellyfin, then Plex, with public HTTPS
 
-Use separate public hostnames, Caddy TLS and named bridge upstreams. Keep native
+Use `video.<zone>` and `media.<zone>` for Jellyfin and `plex.<zone>` for Plex,
+with Caddy TLS and named bridge upstreams. Keep native
 application authentication; backend HTTP remains confined to the bridge.
 Migrate Jellyfin's known-proxy/client-IP policy, library paths and WebSockets.
 Inspect the legacy `/dara/tvshows` path before fixing it. Declare GPU access only
 for hardware actually present; preserve a CPU-only configuration.
 
 For Plex preserve server identity and library state. Publish the explicit custom
-access URL `https://<plex-hostname>:443`, and test intended Plex clients through
+access URL `https://plex.<zone>:443`, and test intended Plex clients through
 that route. Do not expose discovery ports publicly or grant unauthenticated
 access to the proxy subnet. A native Plex TLS port is an alternative only if
 client acceptance demonstrates a need and its security policy is reviewed.
@@ -513,6 +526,8 @@ For Joplin, implement public trusted HTTPS through Caddy, retaining
 Joplin's native account/session authentication for mobile and desktop sync. Set
 `APP_BASE_URL` to the exact canonical HTTPS endpoint. Keep native authentication
 enabled; do not replace it with browser OAuth redirects or an extra proxy login.
+The canonical endpoint is `https://notes.<zone>`, using the environment's resolved
+zone root rather than its private UI domain.
 The public Joplin route must not require a tailnet identity or Tailscale connectivity.
 Preserve API methods, headers and bodies. Validate background synchronization,
 reconnect and note/attachment changes on the actual phone with Tailscale disconnected.

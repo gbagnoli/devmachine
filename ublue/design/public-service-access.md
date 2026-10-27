@@ -42,6 +42,27 @@ ingress is implemented; Joplin is its first acceptance consumer. See the
 [official server guide](https://github.com/laurent22/joplin/blob/dev/packages/server/README.md)
 for native sync accounts and reverse-proxy setup.
 
+## Public DNS names
+
+Resolve `<zone>` from the environment's existing Cloudflare zone ID. Public
+service labels are fixed in caller declarations, with no additional vault
+configuration. They are independent of the private UI prefix and host identity:
+
+| Application | Public HTTPS names |
+| --- | --- |
+| Joplin | `notes.<zone>` |
+| Plex | `plex.<zone>` |
+| Jellyfin | `video.<zone>`, `media.<zone>` |
+
+For a private UI namespace `ui.example.invalid`, the public Joplin name is
+`notes.example.invalid`. Derive it from the resolved zone name, not by stripping
+text from the private UI domain. Apply the same rule in test and production.
+Both Jellyfin names receive DNS records, TLS coverage and equivalent Caddy
+proxy/authentication policy. Joplin's canonical `APP_BASE_URL` uses its public
+`notes` hostname; Plex advertises its public `plex` hostname. Each record belongs
+to the selected deployment's existing DNS ownership/cleanup lifecycle; shared
+labels must not silently replace another deployment's records.
+
 ## Proposed access contract
 
 Extend the existing generic Caddy and provider lifecycle with explicit service
