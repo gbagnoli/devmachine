@@ -8,6 +8,7 @@ use std::{
 #[test]
 fn desired_dns_contains_dual_stack_machine_ui_and_alias_records() {
     let services = vec![skillet_caddy::UiService {
+        public_names: Vec::new(),
         name: "syncthing".to_string(),
         upstream: "syncthing".to_string(),
         transport: skillet_caddy::UpstreamTransport::Bridge,
@@ -59,6 +60,7 @@ fn desired_dns_rejects_missing_address_family() {
             acme_staging: true,
         },
         &[skillet_caddy::UiService {
+            public_names: Vec::new(),
             name: "syncthing".to_string(),
             upstream: "syncthing".to_string(),
             transport: skillet_caddy::UpstreamTransport::Bridge,
@@ -501,4 +503,77 @@ fn zone_and_token_identifiers_are_validated() {
     assert!(validate_zone_id("example.test").is_err());
     assert!(validate_token_id("0123456789abcdef0123456789abcdef").is_ok());
     assert!(validate_token_id("../token").is_err());
+}
+
+#[test]
+fn public_records_have_explicit_destinations_and_private_records_keep_tailnet_targets() {
+    let profile = skillet_hosts::profile_for_name("donbot").unwrap();
+    let sites = skillet_caddy::CaddySites::from_host_with_zone(
+        "donbot",
+        &skillet_caddy::UiEnvironment {
+            ui_domain: "custom.ui.example.invalid".into(),
+            acme_staging: true,
+        },
+        &profile.ui_services(),
+        Some("example.invalid"),
+    )
+    .unwrap();
+    let tailnet = BTreeSet::from(["100.64.0.1".into(), "fd7a:115c:a1e0::1".into()]);
+    assert!(desired_records(&sites.machine_hostname, &tailnet, &sites).is_err());
+    for (targets, wanted) in [
+        (
+            vec!["gateway.example.invalid".into()],
+            vec![("CNAME", "gateway.example.invalid")],
+        ),
+        (
+            vec!["8.8.8.8".into(), "2001:4860:4860::8888".into()],
+            vec![("CNAME", "public.donbot.example.invalid")],
+        ),
+    ] {
+        let records =
+            desired_records_with_public(&sites.machine_hostname, &tailnet, &sites, &targets)
+                .unwrap();
+        let public = records
+            .iter()
+            .filter(|record| record.name == "notes.example.invalid")
+            .map(|record| (record.record_type.as_str(), record.content.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(public, wanted);
+        if targets.iter().any(|target| target == "8.8.8.8") {
+            assert!(records
+                .iter()
+                .any(|record| record.name == "public.donbot.example.invalid"
+                    && record.record_type == "A"
+                    && record.content == "8.8.8.8"));
+            assert!(records
+                .iter()
+                .any(|record| record.name == "public.donbot.example.invalid"
+                    && record.record_type == "AAAA"
+                    && record.content == "2001:4860:4860::8888"));
+        }
+        assert!(records.iter().any(|record| record.name
+            == "airtrail.donbot.custom.ui.example.invalid"
+            && record.content == sites.machine_hostname));
+        assert!(!records
+            .iter()
+            .any(|record| record.name == "joplin.donbot.custom.ui.example.invalid"));
+    }
+    for targets in [
+        vec![],
+        vec!["127.0.0.1".into()],
+        vec!["172.25.1.1".into()],
+        vec!["100.64.0.1".into()],
+        vec!["fd7a:115c:a1e0::1".into()],
+        vec!["fe80::1".into()],
+        vec!["::ffff:8.8.8.8".into()],
+        vec!["notes.example.invalid".into()],
+        vec!["public.donbot.example.invalid".into()],
+        vec![sites.machine_hostname.clone()],
+        vec!["gateway.example.invalid".into(), "8.8.8.8".into()],
+    ] {
+        assert!(
+            desired_records_with_public(&sites.machine_hostname, &tailnet, &sites, &targets)
+                .is_err()
+        );
+    }
 }

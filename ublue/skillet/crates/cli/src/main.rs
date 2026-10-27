@@ -150,6 +150,9 @@ struct SecretLockArgs {
 
 #[derive(clap::Args, Debug)]
 struct SecretDeliverArgs {
+    /// Public ingress IP or existing DNS hostname; repeat for IPv4 and IPv6
+    #[arg(long)]
+    public_target: Vec<String>,
     hostname: String,
     #[arg(value_parser = ["pihole", "pihole-dns", "tailscale", "caddy", "ddns", "datadog", "smtp", "network", "syncthing", "homeassistant", "joplin", "airtrail", "media"])]
     service: String,
@@ -299,6 +302,9 @@ struct VmDestroyArgs {
 // These CLI switches select independent optional provisioning operations.
 #[allow(clippy::struct_excessive_bools)]
 struct VmProvisionArgs {
+    /// Public ingress IP or existing DNS hostname; repeat for IPv4 and IPv6
+    #[arg(long, requires = "with_ui")]
+    public_target: Vec<String>,
     /// Configure only SMTP (isolated capture unless --live-smtp is supplied)
     #[arg(long)]
     smtp_only: bool,

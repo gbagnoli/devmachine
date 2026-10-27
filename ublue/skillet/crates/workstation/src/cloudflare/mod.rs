@@ -653,6 +653,15 @@ pub fn desired_records(
     addresses: &BTreeSet<String>,
     sites: &skillet_caddy::CaddySites,
 ) -> Result<Vec<DesiredRecord>> {
+    desired_records_with_public(machine_name, addresses, sites, &[])
+}
+
+pub fn desired_records_with_public(
+    machine_name: &str,
+    addresses: &BTreeSet<String>,
+    sites: &skillet_caddy::CaddySites,
+    public_targets: &[String],
+) -> Result<Vec<DesiredRecord>> {
     validate_fqdn(machine_name)?;
     let mut result = Vec::new();
     let mut has_v4 = false;
@@ -674,11 +683,19 @@ pub fn desired_records(
             "Tailscale device must have both IPv4 and IPv6 addresses before publishing DNS".into(),
         ));
     }
+    let public_destination = public_dns_destination(sites, public_targets, &mut result)?;
     for service in &sites.services {
+        let destination = if service.access == skillet_caddy::SiteAccess::Public {
+            public_destination.as_deref().ok_or_else(|| {
+                CloudflareError::Invalid("public DNS destination is absent".into())
+            })?
+        } else {
+            machine_name
+        };
         result.push(DesiredRecord {
             name: service.hostname.clone(),
-            record_type: "CNAME".to_string(),
-            content: machine_name.to_string(),
+            record_type: "CNAME".into(),
+            content: destination.into(),
         });
         for alias in &service.aliases {
             // The machine name already has its A/AAAA records; it cannot also
@@ -699,6 +716,114 @@ pub fn desired_records(
         }
     }
     Ok(result)
+}
+
+fn public_dns_destination(
+    sites: &skillet_caddy::CaddySites,
+    values: &[String],
+    records: &mut Vec<DesiredRecord>,
+) -> Result<Option<String>> {
+    if !sites
+        .services
+        .iter()
+        .any(|site| site.access == skillet_caddy::SiteAccess::Public)
+    {
+        return Ok(None);
+    }
+    let targets = public_dns_targets(values)?;
+    let zone = sites.zone_domain.as_deref().ok_or_else(|| {
+        CloudflareError::Invalid("public DNS requires the Cloudflare zone".into())
+    })?;
+    let machine = format!("public.{}.{zone}", sites.host);
+    validate_fqdn(&machine)?;
+    let managed_name = |name: &str| {
+        name == sites.machine_hostname
+            || sites
+                .services
+                .iter()
+                .any(|site| site.hostname == name || site.aliases.iter().any(|alias| alias == name))
+    };
+    if targets[0].0 == "CNAME" {
+        let destination = &targets[0].1;
+        if destination == &machine || managed_name(destination) {
+            return Err(CloudflareError::Invalid(
+                "public DNS target conflicts with a managed ingress name".into(),
+            ));
+        }
+        return Ok(Some(destination.clone()));
+    }
+    if managed_name(&machine) {
+        return Err(CloudflareError::Invalid(
+            "public machine name conflicts with private ingress".into(),
+        ));
+    }
+    for (record_type, content) in targets {
+        records.push(DesiredRecord {
+            name: machine.clone(),
+            record_type,
+            content,
+        });
+    }
+    Ok(Some(machine))
+}
+
+/// Public endpoints need an explicit routable destination, never the private
+/// UI machine record. One hostname or one address per family is supported.
+pub(crate) fn public_dns_targets(values: &[String]) -> Result<Vec<(String, String)>> {
+    if values.is_empty() {
+        return Err(CloudflareError::Invalid(
+            "public ingress needs --public-target with a public IP or existing public hostname"
+                .into(),
+        ));
+    }
+    let mut targets = BTreeMap::new();
+    for value in values {
+        let (kind, value) = if let Ok(address) = value.parse::<IpAddr>() {
+            let usable = match address {
+                IpAddr::V4(ip) => {
+                    !ip.is_private()
+                        && !ip.is_loopback()
+                        && !ip.is_link_local()
+                        && !ip.is_unspecified()
+                        && !ip.is_multicast()
+                        && !ip.is_broadcast()
+                        && !ip.is_documentation()
+                        && ip.octets()[0] < 224
+                        && ip.octets()[0] != 0
+                        && !(ip.octets()[0] == 100 && (64..=127).contains(&ip.octets()[1]))
+                }
+                IpAddr::V6(ip) => {
+                    !ip.is_loopback()
+                        && !ip.is_unspecified()
+                        && !ip.is_multicast()
+                        && ip.segments()[0] & 0xfe00 != 0xfc00
+                        && ip.segments()[0] & 0xffc0 != 0xfe80
+                        && ip.to_ipv4_mapped().is_none()
+                }
+            };
+            if !usable {
+                return Err(CloudflareError::Invalid("public ingress address must be routable; private, tailnet and local addresses are refused".into()));
+            }
+            (
+                if address.is_ipv4() { "A" } else { "AAAA" },
+                address.to_string(),
+            )
+        } else {
+            validate_fqdn(value)?;
+            ("CNAME", value.clone())
+        };
+        if targets.insert(kind.to_string(), value).is_some() {
+            return Err(CloudflareError::Invalid(
+                "public ingress permits one target per address family".into(),
+            ));
+        }
+    }
+    if targets.contains_key("CNAME") && targets.len() != 1 {
+        return Err(CloudflareError::Invalid(
+            "public DNS hostname cannot be combined with IP addresses".into(),
+        ));
+    }
+    Ok(targets.into_iter().collect())
 }
 
 pub fn validate_zone_id(id: &str) -> Result<()> {

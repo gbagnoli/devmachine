@@ -12,6 +12,9 @@ use std::path::PathBuf;
 )]
 #[command(group(clap::ArgGroup::new("local_mode").args(["host_file", "local"]).multiple(false)))]
 pub(super) struct Args {
+    /// Public ingress IP or existing DNS hostname; repeat for IPv4 and IPv6
+    #[arg(long, conflicts_with = "local_mode")]
+    public_target: Vec<String>,
     #[arg(long, value_enum, default_value_t = ApplyPhase::Full)]
     phase: ApplyPhase,
     /// Required host profile and default SSH alias (except with --host-file)
@@ -88,6 +91,7 @@ fn remote(args: &Args) -> Result<()> {
         .ok_or_else(|| anyhow!("remote apply requires HOST"))?;
     let profile = skillet_hosts::profile_for_name(host)
         .ok_or_else(|| anyhow!("unknown host profile: {host}"))?;
+    skillet_workstation::ui_provisioning::validate_public_targets(host, &args.public_target)?;
     let target = args.target.as_deref().unwrap_or(host);
     let transport = super::ssh::transport(
         target,
@@ -130,6 +134,7 @@ fn remote(args: &Args) -> Result<()> {
         )?;
     }
     let delivery = SecretDeliverArgs {
+        public_target: args.public_target.clone(),
         hostname: host.into(),
         service: String::new(),
         database: Some(path),

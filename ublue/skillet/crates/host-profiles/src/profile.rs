@@ -33,6 +33,7 @@ pub struct UiServiceDeclaration {
     pub port: u16,
     pub tailnet_identity: bool,
     pub aliases: &'static [&'static str],
+    pub public_names: &'static [&'static str],
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -412,6 +413,11 @@ impl HostProfile {
                 port: ui.port,
                 tailnet_identity: ui.tailnet_identity,
                 anonymous_token_refresh: matches!(service.config, ServiceConfig::Mikochi { .. }),
+                public_names: ui
+                    .public_names
+                    .iter()
+                    .map(|name| (*name).to_string())
+                    .collect(),
                 aliases: ui
                     .aliases
                     .iter()
@@ -675,7 +681,18 @@ fn caddy_acceptance(profile: &str, has_homer: bool) -> AcceptanceService {
     }
 }
 
+const PIHOLE_UI: UiServiceDeclaration = UiServiceDeclaration {
+    public_names: &[],
+    name: "pihole",
+    upstream: "pihole",
+    transport: skillet_caddy::UpstreamTransport::Bridge,
+    port: 8088,
+    tailnet_identity: true,
+    aliases: &[],
+};
+
 const SYNCTHING_UI: UiServiceDeclaration = UiServiceDeclaration {
+    public_names: &[],
     name: "syncthing",
     upstream: "syncthing",
     transport: skillet_caddy::UpstreamTransport::Bridge,
@@ -706,14 +723,7 @@ fn clamps() -> HostProfile {
             },
             HostService {
                 config: ServiceConfig::Pihole,
-                ui: Some(UiServiceDeclaration {
-                    name: "pihole",
-                    upstream: "pihole",
-                    transport: skillet_caddy::UpstreamTransport::Bridge,
-                    port: 8088,
-                    tailnet_identity: true,
-                    aliases: &[],
-                }),
+                ui: Some(PIHOLE_UI),
             },
             HostService {
                 config: ServiceConfig::Tailscale {
@@ -752,6 +762,7 @@ fn clamps() -> HostProfile {
                     group: "giacomo",
                 }),
                 ui: Some(UiServiceDeclaration {
+                    public_names: &[],
                     name: "homeassistant",
                     upstream: "homeassistant",
                     transport: skillet_caddy::UpstreamTransport::HostLoopback,
@@ -804,14 +815,7 @@ fn joey() -> HostProfile {
         services: vec![
             HostService {
                 config: ServiceConfig::Pihole,
-                ui: Some(UiServiceDeclaration {
-                    name: "pihole",
-                    upstream: "pihole",
-                    transport: skillet_caddy::UpstreamTransport::Bridge,
-                    port: 8088,
-                    tailnet_identity: true,
-                    aliases: &[],
-                }),
+                ui: Some(PIHOLE_UI),
             },
             HostService {
                 config: ServiceConfig::Tailscale {
@@ -871,14 +875,7 @@ fn donbot() -> HostProfile {
         services: vec![
             HostService {
                 config: ServiceConfig::Pihole,
-                ui: Some(UiServiceDeclaration {
-                    name: "pihole",
-                    upstream: "pihole",
-                    transport: skillet_caddy::UpstreamTransport::Bridge,
-                    port: 8088,
-                    tailnet_identity: true,
-                    aliases: &[],
-                }),
+                ui: Some(PIHOLE_UI),
             },
             HostService {
                 config: ServiceConfig::Tailscale {
@@ -910,11 +907,12 @@ fn donbot() -> HostProfile {
                     backup_group: "giacomo",
                 }),
                 ui: Some(UiServiceDeclaration {
+                    public_names: &["notes"],
                     name: "joplin",
                     upstream: "joplin-server",
                     transport: skillet_caddy::UpstreamTransport::Bridge,
                     port: skillet_joplin::PORT,
-                    tailnet_identity: true,
+                    tailnet_identity: false,
                     aliases: &[],
                 }),
             },
@@ -931,6 +929,7 @@ fn donbot() -> HostProfile {
                     backup_group: "giacomo",
                 }),
                 ui: Some(UiServiceDeclaration {
+                    public_names: &[],
                     name: "airtrail",
                     upstream: "airtrail",
                     transport: skillet_caddy::UpstreamTransport::Bridge,
@@ -972,6 +971,7 @@ fn donbot_media_services() -> Vec<HostService> {
         .map(|app| HostService {
             config: ServiceConfig::Media { app, config },
             ui: (app != skillet_media::App::Putioarr).then_some(UiServiceDeclaration {
+                public_names: &[],
                 name: app.name(),
                 upstream: app.name(),
                 transport: skillet_caddy::UpstreamTransport::Bridge,
@@ -1050,6 +1050,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
                     container_gid,
                 },
                 ui: Some(UiServiceDeclaration {
+                    public_names: &[],
                     name: "files",
                     upstream: "mikochi",
                     transport: skillet_caddy::UpstreamTransport::Bridge,
@@ -1064,6 +1065,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
     profile.services.push(HostService {
         config: ServiceConfig::Homer,
         ui: Some(UiServiceDeclaration {
+            public_names: &[],
             name: "homer",
             upstream: "homer",
             transport: skillet_caddy::UpstreamTransport::Bridge,

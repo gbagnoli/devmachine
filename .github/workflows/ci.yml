@@ -116,6 +116,7 @@ jobs:
           cd ublue/skillet
           cargo test -p skillet_caddy generated_identity_caddyfile_validates_with_the_real_consumer -- --ignored
           cargo test -p skillet_caddy real_caddy_no_auth_refresh_stays_behind_identity_gate -- --ignored
+          cargo test -p skillet_caddy real_caddy_public_native_auth_and_private_denial_share_the_same_listener -- --ignored
 
       - name: Test Pi-hole proxy authentication without external credentials
         if: steps.filter.outputs.rust == 'true'

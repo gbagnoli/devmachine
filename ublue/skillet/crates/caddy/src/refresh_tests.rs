@@ -138,6 +138,7 @@ fn start_caddy(root: &Path) -> (Container, std::net::SocketAddr) {
             acme_staging: true,
         },
         &[UiService {
+            public_names: Vec::new(),
             name: "files".into(),
             upstream: "backend".into(),
             transport: crate::UpstreamTransport::Bridge,

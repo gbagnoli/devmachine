@@ -1,4 +1,4 @@
-//! Caddy reverse proxy for administrative interfaces.
+//! Caddy reverse proxy for caller-declared private and public services.
 
 use serde::{Deserialize, Serialize};
 use skillet_core::files::{FileError, FileMutationResource, FileReadResource, Ownership};
@@ -23,12 +23,32 @@ pub enum UpstreamTransport {
     HostLoopback,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SiteAccess {
+    #[default]
+    Tailnet,
+    Public,
+}
+
+impl SiteAccess {
+    // Serde skip predicates receive field references.
+    #[allow(clippy::trivially_copy_pass_by_ref)]
+    fn is_tailnet(&self) -> bool {
+        *self == Self::Tailnet
+    }
+}
+
 #[cfg(test)]
 mod refresh_tests;
 
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "public_tests.rs"]
+mod public_tests;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct UiService {
@@ -39,6 +59,9 @@ pub struct UiService {
     pub port: u16,
     #[serde(default)]
     pub aliases: Vec<String>,
+    /// Fixed zone-root labels; selecting them opts into public ingress.
+    #[serde(default)]
+    pub public_names: Vec<String>,
     #[serde(default)]
     pub tailnet_identity: bool,
     /// Compatibility for a no-auth frontend expecting a successful token refresh.
@@ -96,6 +119,8 @@ pub struct CaddySite {
     pub name: String,
     pub hostname: String,
     pub aliases: Vec<String>,
+    #[serde(default, skip_serializing_if = "SiteAccess::is_tailnet")]
+    pub access: SiteAccess,
     pub upstream: String,
     #[serde(default)]
     pub transport: UpstreamTransport,
@@ -165,7 +190,12 @@ impl CaddySites {
             services,
         )?;
         Ok(Self {
-            version: if zone_domain.is_some() {
+            version: if services
+                .iter()
+                .any(|service| !service.public_names.is_empty())
+            {
+                6
+            } else if zone_domain.is_some() {
                 5
             } else if services
                 .iter()
@@ -188,7 +218,7 @@ impl CaddySites {
 
     pub fn parse(contents: &str, host: &str, services: &[UiService]) -> Result<Self, CaddyError> {
         let sites: Self = serde_json::from_str(contents)?;
-        if !matches!(sites.version, 2..=5) {
+        if !matches!(sites.version, 2..=6) {
             return Err(CaddyError::InvalidConfiguration(format!(
                 "unsupported payload version {}",
                 sites.version
@@ -199,10 +229,22 @@ impl CaddySites {
                 "zone-level aliases require payload version 5".into(),
             ));
         }
-        if sites.version == 5 && sites.zone_domain.is_none() {
+        if sites.version >= 5 && sites.zone_domain.is_none() {
             return Err(CaddyError::InvalidConfiguration(
                 "payload version 5 requires the Cloudflare zone".into(),
             ));
+        }
+        // A retained pre-public payload may keep the previous private UI alive
+        // during deployment. Its canonical names and identity protection remain
+        // exact; only a newly delivered v6 payload selects public exposure.
+        let mut declarations = services.to_vec();
+        if sites.version < 6 {
+            for service in &mut declarations {
+                if !service.public_names.is_empty() {
+                    service.public_names.clear();
+                    service.tailnet_identity = true;
+                }
+            }
         }
         let mut expected = Self::from_host_with_zone(
             host,
@@ -210,9 +252,19 @@ impl CaddySites {
                 ui_domain: sites.ui_domain.clone(),
                 acme_staging: sites.acme_staging,
             },
-            services,
+            &declarations,
             sites.zone_domain.as_deref(),
         )?;
+        if sites.version < 6
+            && sites
+                .services
+                .iter()
+                .any(|site| site.access == SiteAccess::Public)
+        {
+            return Err(CaddyError::InvalidConfiguration(
+                "public ingress requires payload version 6; redeliver Caddy credentials".into(),
+            ));
+        }
         auth::Policy::new(sites.tailnet_users.clone())?;
         if sites.version == 2 && sites.services.iter().any(|site| site.tailnet_identity) {
             return Err(CaddyError::InvalidConfiguration(
@@ -289,7 +341,11 @@ fn render_site(
 ) -> String {
     use std::fmt::Write as _;
 
-    let mut config = format!("\n{hostname} {{\n    tls {{\n        resolvers 1.1.1.1 1.0.0.1\n    }}\n    route {{\n        header Strict-Transport-Security \"max-age=31536000\"\n        @outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48\n        respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403\n");
+    let mut config = format!("\n{hostname} {{\n    tls {{\n        resolvers 1.1.1.1 1.0.0.1\n    }}\n    route {{\n        header Strict-Transport-Security \"max-age=31536000\"\n");
+    if service.access == SiteAccess::Tailnet {
+        config.push_str("        @outside_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48\n        respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403\n");
+    }
+    config.push_str("        request_header -X-Skillet-Peer\n        request_header -X-Skillet-User\n        request_header -X-Webauth-User\n        request_header -Remote-User\n        request_header -Tailscale-User\n");
     if service.tailnet_identity {
         render_identity_policy(&mut config, service, hostname, homer_origins);
         if service.anonymous_token_refresh {
@@ -355,7 +411,7 @@ fn render_identity_policy(
     }
     // A trailing '?' clears the inherited application query on the cloned auth
     // request; the backend keeps its original URI.
-    config.push_str("        request_header -X-Skillet-Peer\n        request_header -X-Skillet-User\n        request_header -X-Webauth-User\n        request_header -Remote-User\n        request_header -Tailscale-User\n        forward_auth unix//run/skillet-tailnet-ui/auth.sock {\n            uri /auth?\n            header_up X-Skillet-Peer {http.request.remote}\n            copy_headers X-Skillet-User\n        }\n");
+    config.push_str("        forward_auth unix//run/skillet-tailnet-ui/auth.sock {\n            uri /auth?\n            header_up X-Skillet-Peer {http.request.remote}\n            copy_headers X-Skillet-User\n        }\n");
 }
 
 fn render_homer_cors(config: &mut String, service_name: &str, allowed_origins: &[&String]) {
@@ -458,7 +514,16 @@ fn build_sites(
                 service.name
             )));
         }
-        let hostname = format!("{}.{}.{}", service.name, host, ui_domain);
+        let access = if service.public_names.is_empty() {
+            SiteAccess::Tailnet
+        } else {
+            SiteAccess::Public
+        };
+        let public_names = resolve_public_names(service, zone_domain)?;
+        let hostname = public_names
+            .first()
+            .cloned()
+            .unwrap_or_else(|| format!("{}.{}.{}", service.name, host, ui_domain));
         validate_domain(&hostname)?;
         if all_hostnames
             .insert(hostname.clone(), "canonical UI")
@@ -469,6 +534,20 @@ fn build_sites(
             ));
         }
         let mut aliases = Vec::with_capacity(service.aliases.len());
+        for alias in public_names.iter().skip(1) {
+            if alias_conflicts(
+                &mut all_hostnames,
+                alias,
+                machine_hostname,
+                service,
+                &aliases,
+            )? {
+                return Err(CaddyError::InvalidConfiguration(
+                    "duplicate public hostname".into(),
+                ));
+            }
+            aliases.push(alias.clone());
+        }
         for alias in &service.aliases {
             let alias_hostname = resolve_alias(alias, host, ui_domain, zone_domain)?;
             if alias_conflicts(
@@ -489,6 +568,7 @@ fn build_sites(
             name: service.name.clone(),
             hostname,
             aliases,
+            access,
             upstream: service.upstream.clone(),
             transport: service.transport,
             port: service.port,
@@ -497,6 +577,35 @@ fn build_sites(
         });
     }
     Ok(sites)
+}
+
+fn resolve_public_names(
+    service: &UiService,
+    zone_domain: Option<&str>,
+) -> Result<Vec<String>, CaddyError> {
+    if !service.public_names.is_empty()
+        && (service.tailnet_identity
+            || service.anonymous_token_refresh
+            || !service.aliases.is_empty()
+            || service.transport != UpstreamTransport::Bridge)
+    {
+        return Err(CaddyError::InvalidConfiguration(
+            "public services require a native-auth bridge upstream and zone-root names only".into(),
+        ));
+    }
+    service
+        .public_names
+        .iter()
+        .map(|name| {
+            validate_label(name, "public service label")?;
+            let zone = zone_domain.ok_or_else(|| {
+                CaddyError::InvalidConfiguration(
+                    "public services require the authoritative Cloudflare zone".into(),
+                )
+            })?;
+            Ok(format!("{name}.{zone}"))
+        })
+        .collect::<Result<Vec<_>, CaddyError>>()
 }
 
 fn alias_conflicts(

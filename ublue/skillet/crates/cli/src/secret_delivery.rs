@@ -357,6 +357,7 @@ fn deliver_caddy_from_vault(
         skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref());
     skillet_workstation::ui_provisioning::deliver_persistent_ui(
         &skillet_workstation::ui_provisioning::PersistentUiDelivery {
+            public_targets: &args.public_target,
             host: &args.hostname,
             policy,
             zone_id: &zone_id,
@@ -467,6 +468,12 @@ fn validate_vm_provision(
     args: &VmProvisionArgs,
     profile: &skillet_hosts::HostProfile,
 ) -> Result<()> {
+    if args.with_ui {
+        skillet_workstation::ui_provisioning::validate_public_targets(
+            &args.hostname,
+            &args.public_target,
+        )?;
+    }
     if args.smtp_only && !profile.supports_service("smtp") {
         return Err(anyhow!("host {} does not declare SMTP", args.hostname));
     }
@@ -565,8 +572,14 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
         )?;
     }
     if args.with_ui {
-        provision_vm_ui(args, &run_dir, &transport, &mut vault, &record)?;
+        let sites = provision_vm_ui(args, &run_dir, &transport, &mut vault, &record)?;
         provision_vm_joplin(args, &profile, policy, &transport, &mut vault)?;
+        skillet_workstation::ui_provisioning::verify_public_joplin(
+            &transport,
+            &sites,
+            std::time::Duration::from_secs(120),
+            std::time::Duration::from_secs(2),
+        )?;
         provision_vm_airtrail(args, &profile, policy, &transport, &mut vault)?;
         provision_vm_media(args, &profile, policy, &transport, &mut vault)?;
     }
@@ -766,7 +779,7 @@ fn provision_vm_ui(
     guest: &impl GuestTransport,
     vault: &mut Vault,
     device: &tailscale::DeviceRecord,
-) -> Result<()> {
+) -> Result<skillet_caddy::CaddySites> {
     let users = tailnet_ui_users(&args.hostname, vault)?;
     let policy = UiEnvironmentName::Test.policy();
     let domain_path = policy.ui_domain_entry();
@@ -786,6 +799,7 @@ fn provision_vm_ui(
     let api = skillet_workstation::cloudflare::Cloudflare::new();
     let provisioned = skillet_workstation::ui_provisioning::provision_disposable_ui(
         &skillet_workstation::ui_provisioning::DisposableUiRequest {
+            public_targets: &args.public_target,
             host: &args.hostname,
             instance: &args.instance,
             policy,
@@ -808,7 +822,7 @@ fn provision_vm_ui(
         std::time::Duration::from_mins(1),
         std::time::Duration::from_secs(2),
     )?;
-    Ok(())
+    Ok(provisioned.sites)
 }
 
 fn provision_vm_ddns(

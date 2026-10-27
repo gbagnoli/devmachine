@@ -11,6 +11,75 @@ use skillet_core::{
 use skillet_podman::SecretTarget;
 
 #[test]
+fn joplin_public_caller_drives_its_canonical_base_url_without_exposing_other_uis() {
+    use skillet_core::{system::AccountResource, test_utils::MockFiles};
+    use std::path::Path;
+    let profile = super::profile_for_name("donbot").unwrap();
+    let services = profile.ui_services();
+    assert_eq!(
+        services
+            .iter()
+            .filter(|service| !service.public_names.is_empty())
+            .count(),
+        1
+    );
+    assert_eq!(
+        services
+            .iter()
+            .find(|service| service.name == "joplin")
+            .unwrap()
+            .public_names,
+        ["notes"]
+    );
+    let sites = skillet_caddy::CaddySites::from_host_with_zone(
+        "donbot",
+        &skillet_caddy::UiEnvironment {
+            ui_domain: "custom.ui.example.invalid".into(),
+            acme_staging: true,
+        },
+        &services,
+        Some("example.invalid"),
+    )
+    .unwrap();
+    let system = MockSystem::new();
+    system
+        .ensure_user("giacomo", Some(1000), Some(1000))
+        .unwrap();
+    system.ensure_group("giacomo", Some(1000)).unwrap();
+    let files = MockFiles::new();
+    files.record_btrfs_mount(Path::new("/var"), "/dev/test", "/", "btrfs");
+    files.record_btrfs_mount(Path::new("/var/lib/data"), "/dev/test", "/data", "btrfs");
+    files.record_btrfs_subvolume(Path::new("/var/lib/data/syncthing"));
+    let mut inputs = CredentialInputs::default();
+    inputs.insert(
+        super::CADDY_SITES_CREDENTIAL,
+        serde_json::to_string(&sites).unwrap(),
+    );
+    inputs.insert(
+        skillet_joplin::DATABASE_PASSWORD_CREDENTIAL,
+        "fixture password".into(),
+    );
+    super::apply_host_phase(
+        "donbot",
+        super::HostApplyPhase::Joplin,
+        &system,
+        &files,
+        &inputs,
+    )
+    .unwrap();
+    let rendered = files.files.lock().unwrap();
+    let unit =
+        std::str::from_utf8(&rendered["/etc/containers/systemd/joplin-server.container"]).unwrap();
+    assert!(unit.contains("Environment=APP_BASE_URL=https://notes.example.invalid/"));
+    assert!(!unit.contains("PublishPort="));
+    assert!(
+        !std::str::from_utf8(&rendered["/etc/containers/systemd/postgresql-joplin.container"])
+            .unwrap()
+            .contains("PublishPort=")
+    );
+}
+
+#[test]
 fn application_and_database_acceptance_mounts_match_rendered_quadlets() {
     use skillet_core::{system::AccountResource, test_utils::MockFiles};
     use std::{collections::BTreeSet, path::Path};
@@ -607,6 +676,7 @@ fn synthetic_profile_derives_network_and_ui_from_its_identity() {
                 container_gid: 1000,
             },
             ui: Some(UiServiceDeclaration {
+                public_names: &[],
                 name: "sync",
                 upstream: "sync",
                 transport: skillet_caddy::UpstreamTransport::Bridge,

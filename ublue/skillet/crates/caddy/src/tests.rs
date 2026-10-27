@@ -7,6 +7,7 @@ use std::sync::atomic::Ordering;
 
 fn syncthing_only() -> Vec<UiService> {
     vec![UiService {
+        public_names: Vec::new(),
         name: "syncthing".to_string(),
         upstream: "syncthing".to_string(),
         transport: crate::UpstreamTransport::Bridge,
@@ -24,6 +25,7 @@ fn identity_service(
     port: u16,
 ) -> UiService {
     UiService {
+        public_names: Vec::new(),
         name: name.into(),
         upstream: upstream.into(),
         transport,
@@ -112,6 +114,7 @@ fn derives_a_single_non_clamps_service_hostname_for_either_environment() {
 fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
     let services = vec![
         UiService {
+            public_names: Vec::new(),
             name: "pihole".to_string(),
             upstream: "pihole".to_string(),
             transport: crate::UpstreamTransport::Bridge,
@@ -138,9 +141,10 @@ fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
     assert!(rendered.contains("reverse_proxy syncthing:8384"));
     assert!(rendered
         .contains("respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403"));
-    assert!(rendered.contains(
-        "respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403\n        reverse_proxy pihole:8088"
-    ));
+    assert!(
+        rendered.find("respond @outside_tailnet").unwrap()
+            < rendered.find("reverse_proxy pihole:8088").unwrap()
+    );
     assert_eq!(
         rendered
             .matches("respond @outside_tailnet \"Access denied by Skillet tailnet policy\" 403")
@@ -154,6 +158,7 @@ fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
 fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
     let services = vec![
         UiService {
+            public_names: Vec::new(),
             name: "pihole".into(),
             upstream: "pihole".into(),
             transport: crate::UpstreamTransport::Bridge,
@@ -163,6 +168,7 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
             anonymous_token_refresh: false,
         },
         UiService {
+            public_names: Vec::new(),
             name: "homeassistant".into(),
             upstream: "homeassistant".into(),
             transport: crate::UpstreamTransport::Bridge,
@@ -172,6 +178,7 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
             anonymous_token_refresh: false,
         },
         UiService {
+            public_names: Vec::new(),
             name: "homer".into(),
             upstream: "homer".into(),
             transport: crate::UpstreamTransport::Bridge,
@@ -283,6 +290,7 @@ fn rejects_domain_injection_duplicates_and_empty_service_sets() {
 #[test]
 fn renders_declared_aliases_and_rejects_conflicting_names() {
     let services = vec![UiService {
+        public_names: Vec::new(),
         name: "syncthing".to_string(),
         upstream: "syncthing".to_string(),
         transport: crate::UpstreamTransport::Bridge,
@@ -316,6 +324,7 @@ fn renders_declared_aliases_and_rejects_conflicting_names() {
 
     for alias in ["", ".sync", "sync.", "*.sync", "bad{host}", "clamps"] {
         let invalid = vec![UiService {
+            public_names: Vec::new(),
             tailnet_identity: false,
             anonymous_token_refresh: false,
             aliases: vec![alias.to_string()],
@@ -385,6 +394,7 @@ fn relative_ui_domain_rejects_invalid_prefixes_and_total_length() {
 #[test]
 fn file_ui_is_gated_before_proxy_and_cannot_disable_declared_identity() {
     let services = vec![UiService {
+        public_names: Vec::new(),
         name: "files".into(),
         upstream: "mikochi".into(),
         transport: crate::UpstreamTransport::Bridge,
@@ -456,6 +466,7 @@ fn identity_caddy_has_only_the_authorization_socket_and_a_private_backend() {
             acme_staging: true,
         },
         &[UiService {
+            public_names: Vec::new(),
             name: "files".into(),
             upstream: "mikochi".into(),
             transport: crate::UpstreamTransport::Bridge,
@@ -486,13 +497,14 @@ fn identity_caddy_has_only_the_authorization_socket_and_a_private_backend() {
 #[ignore = "requires Podman and the Caddy container image"]
 fn generated_identity_caddyfile_validates_with_the_real_consumer() {
     let temp = tempfile::tempdir().unwrap();
-    let sites = CaddySites::from_host(
+    let sites = CaddySites::from_host_with_zone(
         "clamps",
         &UiEnvironment {
             ui_domain: "ui.example.invalid".into(),
             acme_staging: true,
         },
         &[
+            super::public_tests::public_service(),
             identity_service("pihole", "pihole", crate::UpstreamTransport::Bridge, 8088),
             identity_service(
                 "homeassistant",
@@ -502,6 +514,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
             ),
             identity_service("homer", "homer", crate::UpstreamTransport::Bridge, 8080),
             UiService {
+                public_names: Vec::new(),
                 name: "files".into(),
                 upstream: "mikochi".into(),
                 transport: crate::UpstreamTransport::Bridge,
@@ -511,6 +524,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
                 anonymous_token_refresh: true,
             },
             UiService {
+                public_names: Vec::new(),
                 name: "syncthing".into(),
                 upstream: "syncthing".into(),
                 transport: crate::UpstreamTransport::Bridge,
@@ -520,6 +534,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
                 anonymous_token_refresh: false,
             },
         ],
+        Some("example.invalid"),
     )
     .unwrap();
     let path = temp.path().join("Caddyfile");
@@ -573,10 +588,15 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
         String::from_utf8_lossy(&adapted.stderr)
     );
     let json: serde_json::Value = serde_json::from_slice(&adapted.stdout).unwrap();
-    assert_identity_query_rewrites(&json, 6);
+    // Six identity-gated sites, plus public Joplin and the dashboard API proxy.
+    assert_identity_query_rewrites(&json, 6, 8);
 }
 
-fn assert_identity_query_rewrites(json: &serde_json::Value, route_count: usize) {
+fn assert_identity_query_rewrites(
+    json: &serde_json::Value,
+    identity_routes: usize,
+    application_routes: usize,
+) {
     let mut nodes = vec![json];
     let mut auth_count = 0;
     let mut application_count = 0;
@@ -601,11 +621,11 @@ fn assert_identity_query_rewrites(json: &serde_json::Value, route_count: usize) 
         }
     }
     assert_eq!(
-        auth_count, route_count,
+        auth_count, identity_routes,
         "every identity route must clear its auth query"
     );
     assert_eq!(
-        application_count, route_count,
+        application_count, application_routes,
         "application requests must retain their original URI"
     );
 }

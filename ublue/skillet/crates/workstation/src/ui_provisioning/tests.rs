@@ -270,6 +270,7 @@ fn disposable_request<'a>(
     addresses: &'a BTreeSet<String>,
 ) -> DisposableUiRequest<'a> {
     DisposableUiRequest {
+        public_targets: &[],
         host: "clamps",
         instance: "smoke",
         policy: ProvisioningPolicy::new(Environment::Test),
@@ -296,6 +297,7 @@ fn cleanup_request(run_directory: &Path) -> DisposableUiCleanupRequest<'_> {
 
 fn persistent_request() -> PersistentUiDelivery<'static> {
     PersistentUiDelivery {
+        public_targets: &[],
         host: "clamps",
         policy: ProvisioningPolicy::new(Environment::Production),
         zone_id: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -809,4 +811,102 @@ fn persistent_ui_can_stage_complete_inputs_without_starting_caddy() {
     }
     assert_eq!(cloudflare.issued.get(), 1);
     assert_eq!(cloudflare.reconciled.get(), 1);
+}
+
+#[test]
+fn public_destination_preflight_precedes_any_disposable_provider_mutations() {
+    let root = tempfile::tempdir().unwrap();
+    let addresses = addresses();
+    let provider = fake_cloudflare(root.path(), false);
+    let request = DisposableUiRequest {
+        host: "donbot",
+        ..disposable_request(root.path(), &addresses)
+    };
+    assert!(provision_disposable_ui(&request, &provider, || Ok(())).is_err());
+    assert!(!root.path().join("cloudflare.json").exists());
+    assert_eq!(provider.issued.get(), 0);
+    assert_eq!(provider.reconciled.get(), 0);
+    assert!(provider.revoked.borrow().is_empty());
+}
+
+#[derive(Clone, Copy)]
+enum PublicReply {
+    Native,
+    ProxyDenied,
+    AuthBypass,
+}
+struct PublicProbe {
+    reply: PublicReply,
+    staging: bool,
+    calls: Cell<usize>,
+}
+impl GuestTransport for PublicProbe {
+    fn execute(
+        &self,
+        command: &skillet_vm::transport::GuestCommand<'_>,
+        _: Option<&[u8]>,
+    ) -> skillet_vm::Result<Output> {
+        let stdout = if command.program == "/usr/bin/sudo" {
+            assert!(command.arguments.contains(&"inspect"));
+            b"172.27.27.2\n".to_vec()
+        } else {
+            assert_eq!(command.program, "/usr/bin/curl");
+            assert_eq!(command.arguments.contains(&"--insecure"), self.staging);
+            assert!(command
+                .arguments
+                .contains(&"X-Skillet-User: forged@example.invalid"));
+            self.calls.set(self.calls.get() + 1);
+            if matches!(self.reply, PublicReply::ProxyDenied) {
+                b"Access denied by Skillet tailnet policy\n403".to_vec()
+            } else if command.arguments.last().unwrap().ends_with("/api/users") {
+                if matches!(self.reply, PublicReply::AuthBypass) {
+                    b"{}\n200".to_vec()
+                } else {
+                    b"{\"error\":\"Not logged in\"}\n403".to_vec()
+                }
+            } else {
+                b"{\"status\":\"ok\"}\n200".to_vec()
+            }
+        };
+        Ok(Output {
+            status: ExitStatus::from_raw(0),
+            stdout,
+            stderr: Vec::new(),
+        })
+    }
+    fn upload(&self, _: &Path, _: &str) -> skillet_vm::Result<()> {
+        Err(skillet_vm::Error::Invalid("unexpected probe upload".into()))
+    }
+}
+
+#[test]
+fn public_joplin_probe_requires_native_ping_and_auth_denial_with_production_tls_checks() {
+    for environment in [Environment::Test, Environment::Production] {
+        let plan = build_ui_provisioning_plan_with_public(
+            "donbot",
+            ProvisioningPolicy::new(environment),
+            "example.invalid",
+            Some("custom.ui"),
+            &addresses(),
+            &["8.8.8.8".into()],
+        )
+        .unwrap();
+        let good = PublicProbe {
+            reply: PublicReply::Native,
+            staging: environment == Environment::Test,
+            calls: Cell::new(0),
+        };
+        verify_public_joplin(&good, &plan.sites, Duration::ZERO, Duration::ZERO).unwrap();
+        assert_eq!(good.calls.get(), 2);
+        for reply in [PublicReply::ProxyDenied, PublicReply::AuthBypass] {
+            let guest = PublicProbe {
+                reply,
+                staging: good.staging,
+                calls: Cell::new(0),
+            };
+            assert!(
+                verify_public_joplin(&guest, &plan.sites, Duration::ZERO, Duration::ZERO).is_err()
+            );
+        }
+    }
 }
