@@ -247,6 +247,10 @@ skillet/
 - Identity-protected UI aliases, backend network selection and runtime acceptance
   must derive from the same caller declaration. Do not leave a shared backend
   attachment that bypasses the proxy's authentication decision.
+- Ingress naming, DNS destinations and proxy access must share the caller's
+  explicit exposure declaration. Never infer public routing from private
+  addresses or UI prefixes. Retained payload migration must preserve its private
+  protections until an explicit public payload is delivered.
 
 - Omitted SSH overrides must preserve native alias configuration rather than
   invent user/port/key/trust defaults. Keep explicit VM connection fields and

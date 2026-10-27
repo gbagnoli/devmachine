@@ -121,6 +121,8 @@ finish public ingress before private services. Use this dependency order:
    separately; no provider purchase or transport removal is implied.
 3. **Public/mixed ingress (slice 2), Joplin first:** extend shared typed Caddy/DNS
    policies and use the existing Joplin caller as the first public consumer.
+   Public/private rendering, fixed names and explicit DNS destinations are
+   implemented; finish live public DNS/ACME and internet acceptance.
    Prove public destinations, private denials and owned provider cleanup. Public
    Joplin keeps native authentication without a tailnet gate or proxy login.
    Separately prove real internet reachability; local VM forwarding is insufficient.
@@ -219,20 +221,27 @@ Nebula Sync is needed, add it as an explicit shared capability with private
 primary/replica delivery and a single production owner; smoke must not replicate
 production settings or leases.
 
-### 2. Extend generic ingress and verified tailnet authentication
+### 2. Generic ingress and verified tailnet authentication
 
-The current Caddy renderer makes **every** declared UI tailnet-only and the
-Cloudflare lifecycle targets tailnet machine addresses. Extend the shared typed
-model with explicit public/private policy and mixed path/method rules; default
-to private. Host callers select services and policy; private values come from
-templates/vault. Keep one renderer/delivery/provider ownership path, with a
-versioned migration for retained private payloads.
+Public/private policy and fixed zone-root names are implemented, with Joplin as
+the first public caller. Version 6 binds the policy to the receiving caller;
+matching retained private payloads preserve identity protection until redelivery.
+The shared provider owner uses explicit public destinations alongside private
+tailnet records. `--public-target` selects public IPs or an existing public DNS
+hostname; no extra vault naming configuration is required. IPs produce a separate
+`public.<host>.<zone>` A/AAAA target with service CNAMEs. Missing targets fail
+before deployment/provider mutations. Mixed path/method policy remains pending.
 
-Implement Joplin as the first public consumer: select public DNS destinations,
+Joplin is the first public consumer: select public DNS destinations,
 trusted TLS and native application authentication without the tailnet gate or a
 proxy login. Preserve `APP_BASE_URL`, sync methods/headers/bodies and private
 database/backend ports. Keep its sync traffic uncached. Existing private routes
 remain restricted until their caller explicitly selects public exposure.
+VM provisioning additionally checks the public Host/SNI against Joplin's native
+ping and protected API after Joplin activation; production probes check TLS trust
+and staging probes explicitly relax only CA validation. This local guest probe
+does not establish public internet reachability. Live public DNS/ACME acceptance
+is pending an operator-provided destination and suitable edge routing.
 
 Reuse the implemented caller-selected identity gate for file browsing; add the
 Gokapi identity-to-account adapter for its admin flow, following [tailnet UI authentication](../design/tailnet-ui-authentication.md).
@@ -545,8 +554,8 @@ The second synchronization/browser tenant stays deferred; preserve its source
 state without importing it or selecting its snapshots. No multi-instance API
 extension is required by this slice.
 
-**Core service implementation complete; Joplin public ingress and client acceptance
-remain open.** The operator confirmed both current private service UIs work.
+**Core service and public-ingress implementation complete; live public delivery
+and Joplin client acceptance remain open.** The operator confirmed both current private service UIs work.
 Joplin mobile/desktop authentication, bidirectional note/attachment sync and
 reconnect must work over trusted public HTTPS without Tailscale; unauthorized
 sync requests must be denied by Joplin. Verify AirTrail account and
@@ -587,8 +596,9 @@ designed.
 harmless transfer/import with callbacks and authorized private browser checks.
 The code, generated-key flow, real connection tests and application repeat/reboot
 persistence have passed. Test credentials are present. The next implementation
-milestone is generic public HTTPS ingress with Joplin as its first consumer,
-followed by Joplin external client sync. Separately complete AirTrail
+milestone is live public DNS/ACME delivery with an explicit public destination
+and edge routing for Joplin, followed by external client sync. Generic public
+ingress, fixed names, migration and CI coverage are implemented. Separately complete AirTrail
 account/API acceptance in the running named VM. Their database restore and
 AirTrail paired upload restore have passed. Public ingress remains required
 before implementing or importing any public media-sharing service state.

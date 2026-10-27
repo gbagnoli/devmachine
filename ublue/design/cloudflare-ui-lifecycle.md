@@ -24,6 +24,14 @@ namespace. Reject wildcard, duplicate,
 cyclic and conflicting names before effects. Publish DNS-only records, never
 LAN/public host addresses for private UIs.
 
+Public callers use fixed zone-root labels independently of the private UI prefix.
+An explicit public destination comes from the provisioning command, never from
+the enrolled tailnet addresses. IP destinations use separate
+`public.<host>.<zone>` A/AAAA records and service CNAMEs; an existing public
+hostname can be the CNAME target instead. The same zone-scoped record owner,
+journal, conflict checks and cleanup cover both address sets. Missing destinations
+fail before mutations; there is no implicit public-IP discovery or NAT setup.
+
 Every served alias gets certificate coverage and the same upstream/access policy;
 a CNAME does not confer TLS identity. The versioned encrypted Caddy payload is
 validated against the receiving caller's declared services/aliases.

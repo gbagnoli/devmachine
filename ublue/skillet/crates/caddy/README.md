@@ -1,7 +1,7 @@
-# Private Caddy UIs
+# Caddy ingress
 
 Host callers declare services, container upstreams and optional aliases. Names
-are `<service>.<host>.<ui-domain>`; Caddy publishes ports 80 and 443 over
+default to private `<service>.<host>.<ui-domain>`; Caddy publishes ports 80 and 443 over
 IPv4 and IPv6. For each configured hostname, Caddy redirects HTTP to HTTPS and
 adds an HSTS header with a one-year max age to HTTPS responses. HSTS is scoped
 to configured hostnames and does not include subdomains. Run Cargo commands from
@@ -25,6 +25,38 @@ canonical UI CNAMEs to that machine name, and aliases to the canonical UI name.
 Homer's machine-name alias uses the existing A/AAAA; it adds no CNAME there.
 Do not enable Cloudflare proxying or configure Tailscale split DNS for these names.
 Clients need tailnet connectivity and a resolver that accepts these DNS answers.
+
+## Public services
+
+Caller `public_names` select zone-root labels and public access. Donbot's Joplin
+uses `notes.<zone>`, derived from the environment's Cloudflare zone ID, without
+the UI prefix or host label. Other services keep their declared private policy.
+Public native application authentication remains enabled; proxy identity headers
+from clients are stripped. Configure native application accounts before public
+activation, including replacing Joplin's default admin credentials.
+
+Supply a routable destination with `--public-target`: either an existing public
+DNS hostname or a public IP address, repeated for IPv4 and IPv6. With IPs, Skillet
+creates `public.<host>.<zone>` A/AAAA records and service CNAMEs to that machine.
+With an existing hostname, public service CNAMEs target it directly. Private
+records keep the separate Tailscale machine target. No extra vault name entries
+are needed; missing public destinations fail before deployment/provider changes.
+
+```sh
+cargo run --release -p skillet -- apply donbot --public-target PUBLIC_DESTINATION
+cargo run --release -p skillet -- test vm provision donbot INSTANCE --with-ui --public-target PUBLIC_DESTINATION
+```
+
+Replace `PUBLIC_DESTINATION` with the public IP or hostname. This publishes DNS;
+provide edge/NAT routing to Caddy's TCP 443 separately. Localhost passt forwarding
+does not prove internet reachability. The VM additionally probes Joplin through
+Caddy using its public Host/SNI: `/api/ping` must work and unauthenticated native
+API access must fail. Staging verification skips CA trust only for test policy;
+production verification checks the normal certificate trust chain.
+
+Public payloads use version 6. A matching retained older Joplin payload stays at
+its previous private, identity-protected name until redelivery. Deploy the matching
+binaries and redeliver Caddy/Joplin configuration to select the public route.
 
 ## Provision
 
@@ -72,6 +104,7 @@ an additional application login. Headscale identity acceptance is not establishe
 Designs: [private access](../../../design/private-ui-access.md),
 [identity gate](../../../design/tailnet-ui-authentication.md),
 [Cloudflare lifecycle](../../../design/cloudflare-ui-lifecycle.md).
+Public policy: [public service access](../../../design/public-service-access.md).
 Acceptance backlog: [UI plan](../../../plan/GENERIC-PRIVATE-UIS.md).
 
 ## Host-network upstreams

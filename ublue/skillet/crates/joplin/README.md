@@ -13,7 +13,12 @@ is enabled later, include it in the same consistent backup set. See the
 
 The caller declares Joplin as a UI service. Shared Caddy provisioning derives
 its canonical hostname, and Homer includes it automatically. Native Joplin
-login remains enabled behind the tailnet-protected HTTPS route. Skillet
+login remains enabled. Donbot selects public `https://notes.<zone>/`, independently
+of the private UI prefix, and sets `APP_BASE_URL` to that canonical URL. Public
+delivery requires an explicit DNS destination; see [Caddy ingress](../caddy/README.md#public-services).
+Retained private credentials preserve the old private route until redelivery.
+Application account setup stays in Joplin; change default admin credentials before
+making the service public. Skillet
 use-or-creates the dedicated database password at
 `skillet/environments/prod/hosts/<host>/joplin/database-password`; disposable
 VM credentials are under that instance's test path. The password is delivered

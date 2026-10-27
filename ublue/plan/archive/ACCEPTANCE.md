@@ -3703,3 +3703,28 @@ acceptance; no production host or private DNS values were committed.
   exited successfully and restored lifecycle readiness to `Ready`.
   Datadog/SMTP are outside this application's smoke plan;
   no download/import or authorized browser acceptance is claimed.
+
+## 2026-10-27 — Public Joplin ingress implementation
+
+- Donbot declares Joplin at `notes.<zone>` with native application authentication.
+  Public names, DNS destinations and Caddy policy share the caller declaration;
+  other services retain private identity protection. Public delivery requires an
+  explicit public IP/hostname through `--public-target`. Version 6 payloads carry
+  public policy; retained version 5 Joplin payloads keep their original private
+  name and identity gate until explicit redelivery.
+- Workspace all-target tests, pedantic Clippy, formatting and the Fedora/Joey
+  repeat-apply check passed. Real Caddy consumer validation, private identity
+  runtime checks and the new public/native-auth fixture passed. The latter
+  verifies native session headers, binary POST bodies, stripped spoofed identity
+  headers and continued private-route denial without vault/provider access;
+  routine CI now runs it.
+- On the owned `donbot-test-joplin` VM, application smoke passed fixture checks
+  across reboot and all 17 application assertions with the retained private
+  payload. The overall command exited unsuccessfully at final user-environment
+  readiness because guest Homebrew `uv` and `vim` were stale. Updating the guest
+  Brewfile dependencies and rerunning standalone readiness succeeded (`Ready`).
+- No new public provider resources were created. Public DNS/ACME for `notes`,
+  external reachability and native client sync remain unverified pending an
+  operator-supplied public destination and working edge routing. The local
+  public-route probe does not establish internet reachability. Existing restored
+  application data and private credentials were preserved.

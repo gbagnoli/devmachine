@@ -37,8 +37,9 @@ authenticated sync responses are not cached.
 Configure the canonical HTTPS `APP_BASE_URL` consistently with the public DNS
 destination and proxy hostname. Prove client authentication and bidirectional
 note/attachment sync from outside the tailnet, including background sync and
-reconnect. Current deployment is still tailnet-restricted until generic public
-ingress is implemented; Joplin is its first acceptance consumer. See the
+reconnect. Generic public ingress and Joplin's caller are implemented; retained
+private payloads remain private until public redelivery. Live public DNS/ACME
+and internet acceptance still need an explicit routable destination. See the
 [official server guide](https://github.com/laurent22/joplin/blob/dev/packages/server/README.md)
 for native sync accounts and reverse-proxy setup.
 
@@ -62,6 +63,9 @@ proxy/authentication policy. Joplin's canonical `APP_BASE_URL` uses its public
 `notes` hostname; Plex advertises its public `plex` hostname. Each record belongs
 to the selected deployment's existing DNS ownership/cleanup lifecycle; shared
 labels must not silently replace another deployment's records.
+IP targets use a separate `public.<host>.<zone>` machine record with service
+CNAMEs, while an existing public hostname can be selected directly. No target
+is inferred from private or tailnet addresses.
 
 ## Proposed access contract
 
@@ -89,9 +93,11 @@ persistent app state outside synchronized user files and serve declared folders.
 
 ## Boundary
 
-Current code serves every declared Caddy UI with a tailnet restriction; it has
-no generic public or mixed policy. Existing private behavior remains authoritative
-until the versioned extension is implemented and tested. Sources and execution
+Current code supports explicit public and private sites, with private defaults
+and caller-bound version 6 public payloads. Matching retained older payloads keep
+their private canonical name and identity gate until redelivery. Public Joplin
+retains native authentication and its unpublished bridge backend. Mixed
+path/method policy is still unimplemented. Sources and execution
 gates: [inventory](../plan/DONBOT-INVENTORY.md),
 [migration plan](../plan/DONBOT-MIGRATION.md), and
 [private UI access](private-ui-access.md).
