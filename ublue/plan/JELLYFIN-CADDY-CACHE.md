@@ -1,6 +1,14 @@
 # Jellyfin caching through Caddy
 
-Status: implementation planned, 2026-10-11. Caddy caching is selected for donbot;
+Status: anonymous static asset slice implemented, 2026-10-28. Pinned Caddy
+2.11.4, cache-handler 0.17.0, Cloudflare 0.2.4 and Simplefs commit
+81250fe6fc63358ff9f12faa72b01f36e48ed60c build in an isolated container. CI runs
+provider-free real-consumer hit/expiry, credential/cookie/private/status/size
+bypass and storage-cap tests. Public DNS names are caller-declared; live public
+TLS/client acceptance, protected artwork, video/ranges, eviction benchmarking
+and metrics remain pending. This is not complete nginx cache parity.
+
+Caddy caching is selected for donbot;
 no nginx fallback is selected. Prerequisites are the shared ingress work in
 [donbot migration](DONBOT-MIGRATION.md) and the existing
 [refactoring gates](SKILLET-REFACTOR.md). The source image and 2 MB video-slice
@@ -16,12 +24,16 @@ Application-image tooling remains separate from uCore host packages. Include the
 cache/storage modules through the same build. Tailnet UI authorization now uses
 the shared Rust forward-auth endpoint and does not need a Caddy auth plugin.
 
-Start with a filesystem provider, evaluating
+The initial filesystem provider is
 [Simplefs](https://docs.souin.io/docs/storages/simplefs/) for the compatible pinned
 cache release. Provider sizing/eviction semantics must be demonstrated; an entry
 count, per-directory option or Go heap limit is not a proven total disk cap.
-Use `/var/lib/data/caddy/cache/jellyfin` as disposable cache state, separately
-mounted from certificates. Keep it out of Syncthing, btrbk and backups. Bound
+The initial static-only slice uses Simplefs with a 64 MB eviction target and
+2048-entry limit inside `/var/cache/skillet/jellyfin`, a 128 MiB hard-capped
+container tmpfs, with a 512 MiB container memory limit. It replaces the proposed
+persistent `/var/lib/data/caddy/cache/jellyfin` mount for this small disposable
+cache; persistent storage remains unselected until its eviction/recovery gates
+pass. Certificate mounts stay separate. Keep it out of Syncthing, btrbk and backups. Bound
 both resident memory and total disk bytes; establish limits from host capacity
 and source usage. No external Redis/database cluster is required by this plan.
 
@@ -103,5 +115,6 @@ workflow and record named-VM evidence in
 Sources: [cache-handler](https://github.com/caddyserver/cache-handler),
 [storage/build integration](https://docs.souin.io/docs/middlewares/caddy/), and
 [Jellyfin proxy requirements](https://jellyfin.org/docs/general/post-install/networking/reverse-proxy/).
-This plan specifies acceptance targets; no plugin build, cache benchmark or video
-range acceptance has run yet.
+The pinned plugin build and anonymous synthetic static-cache consumer checks
+have passed locally. Real-library artwork benchmarks, protected hit authorization,
+video/range acceptance, and public client playback remain separate gates.

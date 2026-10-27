@@ -3728,3 +3728,33 @@ acceptance; no production host or private DNS values were committed.
   operator-supplied public destination and working edge routing. The local
   public-route probe does not establish internet reachability. Existing restored
   application data and private credentials were preserved.
+
+## 2026-10-28 — Jellyfin libraries, public names and initial Caddy cache
+
+- Added a reusable rootful Jellyfin crate. Donbot reuses the Arr caller's media
+  root, music path and numeric data identity. TV, movies and music mount read-only;
+  no download directory, Arr configuration or host listener is exposed. Caller
+  declarations derive `video.<zone>` and `media.<zone>` and register a Homer link.
+  DNS regression checks preserve separate public and Tailnet destinations.
+- On owned `donbot-test-joplin`, full apply started Jellyfin successfully. Its
+  actual process read a protected fixture from each declared library, and writes
+  failed on every read-only mount. Health and access checks passed again after
+  restarting Jellyfin. Repeat full apply preserved its container ID. The reusable
+  guest assertion is `skillet/crates/jellyfin/tests/guest-acceptance.sh` and is
+  invoked through the manifest-guarded guest transport.
+- Built the pinned Caddy/Cloudflare/cache-handler/Simplefs service image twice;
+  both final images had the same image ID. Actual Caddy validated the complete
+  TLS/DNS-01 configuration with a synthetic token; no certificate was requested.
+  Existing private-identity, no-auth refresh and public-native-auth consumer
+  compatibility checks also passed. Provider-free runtime checks proved cache hits/expiry, request credential/query/
+  cookie/range bypass, response private/no-store/cookie/non-200/size exclusions,
+  origin-failure behavior and error-log query redaction. Filling the dedicated
+  tmpfs proved its 128 MiB hard limit; freeing test space restored operation.
+  Container inspection confirmed the 512 MiB memory cap. These checks run in CI.
+- Workspace all-target tests, pedantic Clippy, formatting, ShellCheck and the
+  Fedora/Joey base repeat-apply check passed. Native Jellyfin accounts/library
+  selection, known-proxy settings, public DNS/ACME issuance, internet playback,
+  a full application reboot check and backup/restore remain unverified. Existing
+  private VM ingress credentials and restored application data were preserved;
+  no new public provider mutations were made. Protected artwork/video caching,
+  disk-backed persistence, performance benchmarks and cache metrics remain open.

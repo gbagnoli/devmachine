@@ -79,8 +79,14 @@ Tailscale. Domain/address values stay in private configuration.
 Use Caddy for public TLS and bridge proxying with native application authentication.
 Decision, 2026-10-11: use Caddy caching for Jellyfin, via a pinned
 `caddyserver/cache-handler` service image and tested filesystem storage. Start
-with images, then prove protected video/range behavior; nginx slicing parity is
-unverified. Cache hits must preserve authorization/revocation, and cache data
+with anonymous static web assets (implemented 2026-10-28), then prove protected
+artwork/video behavior before enabling those routes; nginx slicing parity is
+unverified. The initial Simplefs cache uses a hard-capped 128 MiB tmpfs and a
+512 MiB container memory limit. It is intentionally disposable rather than
+persistent: cache recreation cannot grow a disk indefinitely or touch certificates.
+Request credentials/queries/ranges and upstream cookies/private/no-store/non-200
+responses are excluded. Native users, libraries and known-proxy settings remain
+Jellyfin-managed; media mounts use Arr's data identity and read-only final paths. Cache hits must preserve authorization/revocation, and cache data
 stays outside synchronized/snapshotted folders. The
 [cache plan](../plan/JELLYFIN-CADDY-CACHE.md) owns implementation gates. See
 [Jellyfin's proxy requirements](https://jellyfin.org/docs/general/post-install/networking/reverse-proxy/)

@@ -2,7 +2,9 @@
 
 Status: **Joplin and AirTrail implementation, named-VM provisioning, and
 database restore acceptance are complete; client/API acceptance remains open**,
-refreshed 2026-10-27. Linked-media provisioning and declared-application
+refreshed 2026-10-28. Jellyfin library access and static-cache consumer checks
+passed; public delivery and native client acceptance remain open (slice 5).
+Linked-media provisioning and declared-application
 repeat/reboot acceptance also passed; transfer/import and operator Arr browser
 checks remain open. Inventory is complete. Donbot
 profile, binary, VM Butane template, Joplin and AirTrail callers, generated
@@ -455,6 +457,14 @@ app state; secrets are absent from Quadlets/recordings. Any path remapping and
 copy-versus-hardlink behavior is documented.
 
 ### 5. Port Jellyfin, then Plex, with public HTTPS
+
+Jellyfin module/caller, Homer link, read-only shared Arr library mounts, public
+`video`/`media` DNS declarations and typed anonymous static caching are implemented
+(2026-10-28). Publish the controlled Caddy service image before cache-enabled
+provisioning. Public DNS/ACME activation still requires the explicit public target.
+Native accounts/library selection, known-proxy configuration, real external
+playback, backup/restore and GPU acceptance remain open; Plex is not implemented.
+Protected artwork and video caching remain gated by the cache plan.
 
 Use `video.<zone>` and `media.<zone>` for Jellyfin and `plex.<zone>` for Plex,
 with Caddy TLS and named bridge upstreams. Keep native
