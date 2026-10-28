@@ -21,6 +21,7 @@ members = [
     "crates/joplin",
     "crates/jellyfin",
     "crates/plex",
+    "crates/gokapi",
     "crates/airtrail",
     "crates/media",
     "crates/cli",
@@ -61,6 +62,7 @@ skillet_postgres = { path = "crates/postgres" }
 skillet_joplin = { path = "crates/joplin" }
 skillet_jellyfin = { path = "crates/jellyfin" }
 skillet_plex = { path = "crates/plex" }
+skillet_gokapi = { path = "crates/gokapi" }
 skillet_airtrail = { path = "crates/airtrail" }
 skillet_media = { path = "crates/media" }
 skillet_cli_common = { path = "crates/cli-common" }

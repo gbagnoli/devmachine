@@ -3719,6 +3719,7 @@ dependencies = [
  "skillet_caddy",
  "skillet_core",
  "skillet_datadog",
+ "skillet_gokapi",
  "skillet_homeassistant",
  "skillet_hosts",
  "skillet_joplin",
@@ -3777,6 +3778,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "skillet_gokapi"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "skillet_core",
+ "skillet_datadog",
+ "skillet_podman",
+ "tar",
+ "tempfile",
+ "thiserror 1.0.69",
+ "url",
+ "zeroize",
+]
+
+[[package]]
 name = "skillet_hardening"
 version = "0.1.0"
 dependencies = [
@@ -3832,6 +3850,7 @@ dependencies = [
  "skillet_core",
  "skillet_datadog",
  "skillet_ddns",
+ "skillet_gokapi",
  "skillet_hardening",
  "skillet_homeassistant",
  "skillet_homer",
@@ -4051,6 +4070,7 @@ dependencies = [
  "skillet_caddy",
  "skillet_datadog",
  "skillet_ddns",
+ "skillet_gokapi",
  "skillet_homeassistant",
  "skillet_hosts",
  "skillet_joplin",
