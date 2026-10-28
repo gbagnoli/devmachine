@@ -624,3 +624,24 @@ fn donbot_jellyfin_dns_aliases_use_the_public_target_and_private_uis_do_not() {
         sites.machine_hostname
     );
 }
+#[test]
+fn lan_destinations_are_explicitly_test_only_and_never_include_tailnet_or_loopback() {
+    use crate::provisioning_policy::Environment;
+    for address in ["192.168.50.12", "10.20.30.40", "fd42::12"] {
+        assert!(public_dns_targets(&[address.into()], Environment::Test).is_ok());
+        assert!(public_dns_targets(&[address.into()], Environment::Production).is_err());
+    }
+    for address in [
+        "127.0.0.1",
+        "::1",
+        "0.0.0.0",
+        "169.254.1.2",
+        "100.64.0.1",
+        "fd7a:115c:a1e0::1",
+    ] {
+        assert!(
+            public_dns_targets(&[address.into()], Environment::Test).is_err(),
+            "{address}"
+        );
+    }
+}

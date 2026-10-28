@@ -135,6 +135,10 @@ Identity-protected UIs use the shared Tailscale allowlist and no application pas
 | `skillet/environments/<environment>/dns/local-prefix` | Required | Password = relative site prefix below the Cloudflare zone. Shared with the default DDNS record; e.g. home (example only). |
 | `skillet/environments/<environment>/dns/entries/<record>` | Optional | One entry per local device. Username/Password unused. Custom names = relative comma/newline-separated names (defaults to title); ipv4 and/or ipv6 = one address of that family. At least one address required. All selected Pi-hole hosts share this inventory. Do not duplicate generated host names. [Schema](ublue/skillet/crates/pihole/README.md#private-dns-records). |
 
+## Plex
+
+No vault entries. Claim the server with your Plex account through the loopback-only SSH setup tunnel before public activation. Native server identity stays in application state. [Setup](ublue/skillet/crates/plex/README.md).
+
 ## SMTP
 
 Production-only native Postfix relay credentials; smoke machines use a local sink without these values. [SMTP setup](ublue/skillet/crates/smtp/README.md#setup).

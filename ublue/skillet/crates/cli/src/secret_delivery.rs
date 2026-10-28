@@ -472,6 +472,7 @@ fn validate_vm_provision(
         skillet_workstation::ui_provisioning::validate_public_targets(
             &args.hostname,
             &args.public_target,
+            UiEnvironmentName::Test.policy(),
         )?;
     }
     if args.smtp_only && !profile.supports_service("smtp") {
@@ -573,13 +574,11 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     }
     if args.with_ui {
         let sites = provision_vm_ui(args, &run_dir, &transport, &mut vault, &record)?;
+        if profile.supports_service("plex") {
+            skillet_workstation::host_apply::activate(&transport, "skillet-plex-apply.service")?;
+        }
         provision_vm_joplin(args, &profile, policy, &transport, &mut vault)?;
-        skillet_workstation::ui_provisioning::verify_public_joplin(
-            &transport,
-            &sites,
-            std::time::Duration::from_secs(120),
-            std::time::Duration::from_secs(2),
-        )?;
+        verify_public_applications(&transport, &sites)?;
         provision_vm_airtrail(args, &profile, policy, &transport, &mut vault)?;
         provision_vm_media(args, &profile, policy, &transport, &mut vault)?;
     }
@@ -1019,4 +1018,15 @@ fn tailnet_ui_users(host: &str, vault: &Vault) -> Result<Vec<String>> {
     let users = vault.get(skillet_caddy::auth::USERS_ENTRY)?.ok_or_else(||
         anyhow!("KeePassXC entry is missing: {}; put full LoginName values in Password, separated by commas or newlines", skillet_caddy::auth::USERS_ENTRY))?;
     Ok(skillet_caddy::auth::Policy::parse_users(&users)?)
+}
+
+fn verify_public_applications(
+    guest: &impl GuestTransport,
+    sites: &skillet_caddy::CaddySites,
+) -> Result<()> {
+    let timeout = std::time::Duration::from_secs(120);
+    let interval = std::time::Duration::from_secs(2);
+    skillet_workstation::ui_provisioning::verify_public_joplin(guest, sites, timeout, interval)?;
+    skillet_workstation::ui_provisioning::verify_public_jellyfin(guest, sites, timeout, interval)?;
+    Ok(())
 }

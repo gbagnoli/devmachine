@@ -42,7 +42,11 @@ pub struct UiProvisioningPlan {
 }
 
 /// Validate public destinations before deployment or provider mutations.
-pub fn validate_public_targets(host: &str, targets: &[String]) -> Result<(), UiProvisioningError> {
+pub fn validate_public_targets(
+    host: &str,
+    targets: &[String],
+    policy: ProvisioningPolicy,
+) -> Result<(), UiProvisioningError> {
     let profile = skillet_hosts::profile_for_name(host)
         .ok_or_else(|| UiProvisioningError::NoUiServices(host.into()))?;
     if profile
@@ -50,7 +54,7 @@ pub fn validate_public_targets(host: &str, targets: &[String]) -> Result<(), UiP
         .iter()
         .any(|service| !service.public_names.is_empty())
     {
-        cloudflare::public_dns_targets(targets)?;
+        cloudflare::public_dns_targets(targets, policy.environment())?;
     } else if !targets.is_empty() {
         return Err(UiProvisioningError::Invalid(
             "host declares no public ingress services".into(),
@@ -387,80 +391,9 @@ fn caddy_container_address(
     })
 }
 
-/// Read-only acceptance after Joplin has adopted its canonical public base URL.
-/// The guest probe bypasses DNS/NAT to isolate proxy/TLS/native-auth behavior;
-/// it does not establish public internet reachability.
-pub fn verify_public_joplin(
-    guest: &impl GuestTransport,
-    sites: &CaddySites,
-    timeout: Duration,
-    interval: Duration,
-) -> Result<(), UiProvisioningError> {
-    let Some(site) = sites
-        .services
-        .iter()
-        .find(|site| site.name == "joplin" && site.access == skillet_caddy::SiteAccess::Public)
-    else {
-        return Ok(());
-    };
-    let address = caddy_container_address(guest, &sites.host)?;
-    let resolve = format!("{}:443:{address}", site.hostname);
-    for (path, protected) in [("/api/ping", false), ("/api/users", true)] {
-        let url = format!("https://{}{path}", site.hostname);
-        let started = std::time::Instant::now();
-        loop {
-            let mut arguments = vec![
-                "--silent",
-                "--show-error",
-                "--max-time",
-                "8",
-                "--max-filesize",
-                "1048576",
-                "--resolve",
-                &resolve,
-                "--header",
-                "X-Skillet-User: forged@example.invalid",
-                "--header",
-                "Tailscale-User: forged@example.invalid",
-                "--write-out",
-                "\\n%{http_code}",
-            ];
-            if sites.acme_staging {
-                arguments.push("--insecure");
-            }
-            arguments.push(&url);
-            let output = guest.execute(
-                &skillet_vm::transport::GuestCommand {
-                    program: "/usr/bin/curl",
-                    arguments: &arguments,
-                },
-                None,
-            )?;
-            let accepted = if output.status.success() {
-                let response = String::from_utf8_lossy(&output.stdout);
-                response.rsplit_once('\n').is_some_and(|(body, status)| {
-                    serde_json::from_str::<serde_json::Value>(body).is_ok_and(|value| {
-                        if protected {
-                            matches!(status, "401" | "403") && value.get("error").is_some()
-                        } else {
-                            status == "200" && value["status"] == "ok"
-                        }
-                    })
-                })
-            } else {
-                false
-            };
-            if accepted {
-                break;
-            }
-            if started.elapsed() >= timeout {
-                return Err(UiProvisioningError::Invalid(format!("public Joplin {} probe failed; inspect Caddy/Joplin journals (response bodies suppressed)", if protected { "native-auth rejection" } else { "HTTPS readiness" })));
-            }
-            std::thread::sleep(interval);
-        }
-    }
-    Ok(())
-}
+#[path = "ui_provisioning/public_checks.rs"]
+mod public_checks;
+pub use public_checks::{verify_public_jellyfin, verify_public_joplin};
 
 pub struct PersistentUiDelivery<'a> {
     pub public_targets: &'a [String],
@@ -483,7 +416,7 @@ pub fn deliver_persistent_ui(
     guest: &impl GuestTransport,
     activation: skillet_vm::credential::ActivationPolicy,
 ) -> Result<CaddySites, UiProvisioningError> {
-    validate_public_targets(request.host, request.public_targets)?;
+    validate_public_targets(request.host, request.public_targets, request.policy)?;
     let profile = skillet_hosts::profile_for_name(request.host)
         .ok_or_else(|| UiProvisioningError::NoUiServices(request.host.to_string()))?;
     if profile.ui_services().is_empty() {
@@ -715,7 +648,7 @@ pub fn provision_disposable_ui(
     provider: &impl UiCloudflareProvider,
     ensure_vault_unchanged: impl FnOnce() -> Result<(), VaultError>,
 ) -> Result<DisposableUiCredentials, UiProvisioningError> {
-    validate_public_targets(request.host, request.public_targets)?;
+    validate_public_targets(request.host, request.public_targets, request.policy)?;
     if request.policy.environment() != Environment::Test {
         return Err(UiProvisioningError::Invalid(
             "disposable UI provisioning requires the test environment policy".into(),
@@ -838,11 +771,12 @@ pub fn build_ui_provisioning_plan_with_public(
         &services,
         Some(zone_domain),
     )?;
-    let dns_records = cloudflare::desired_records_with_public(
+    let dns_records = cloudflare::desired_records_for_environment(
         &sites.machine_hostname,
         addresses,
         &sites,
         public_targets,
+        policy.environment(),
     )?;
     Ok(UiProvisioningPlan { sites, dns_records })
 }

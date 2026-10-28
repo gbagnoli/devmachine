@@ -66,6 +66,7 @@ pub enum ServiceConfig {
     Homer,
     Joplin(skillet_joplin::Config),
     Jellyfin(skillet_jellyfin::Config),
+    Plex(skillet_plex::Config),
     Airtrail(skillet_airtrail::Config),
     Media {
         app: skillet_media::App,
@@ -103,7 +104,9 @@ impl HostService {
         self.ui
             .and_then(|ui| ui.dashboard_group)
             .unwrap_or(match self.config {
-                ServiceConfig::Media { .. } | ServiceConfig::Jellyfin(_) => skillet_homer::MEDIA,
+                ServiceConfig::Media { .. }
+                | ServiceConfig::Jellyfin(_)
+                | ServiceConfig::Plex(_) => skillet_homer::MEDIA,
                 ServiceConfig::Joplin(_) | ServiceConfig::Airtrail(_) => {
                     skillet_homer::APPLICATIONS
                 }
@@ -126,6 +129,7 @@ impl HostService {
             ServiceConfig::Homer => "homer",
             ServiceConfig::Joplin(_) => "joplin",
             ServiceConfig::Jellyfin(_) => "jellyfin",
+            ServiceConfig::Plex(_) => "plex",
             ServiceConfig::Airtrail(_) => "airtrail",
             ServiceConfig::Media { app, .. } => app.name(),
             ServiceConfig::Nut(_) => "nut",
@@ -271,6 +275,7 @@ pub enum ListenerProtocol {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HealthProbe {
+    Plex,
     Jellyfin,
     Media,
     Homeassistant,
@@ -518,6 +523,7 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
         ServiceConfig::Jellyfin(config) => {
             jellyfin_acceptance(config, service.backend_network(profile))
         }
+        ServiceConfig::Plex(config) => plex_acceptance(config, service.backend_network(profile)),
         ServiceConfig::Airtrail(config) => airtrail_acceptance(config),
         ServiceConfig::Media { app, config } => media_acceptance(app, config),
         ServiceConfig::Nut(_) => nut_acceptance(),
@@ -1021,6 +1027,27 @@ fn donbot_media_services() -> Vec<HostService> {
             cache: Some(skillet_caddy::cache::Policy::JellyfinStatic),
         }),
     }];
+    services.push(HostService {
+        config: ServiceConfig::Plex(skillet_plex::Config {
+            state_path: "/var/lib/data/plex/config",
+            transcode_path: "/var/lib/data/plex/transcode",
+            files_path: config.files_path,
+            music_path: config.music_path,
+            data_owner: config.data_owner,
+            data_group: config.data_group,
+        }),
+        ui: Some(UiServiceDeclaration {
+            dashboard_group: None,
+            name: "plex",
+            upstream: "plex",
+            port: skillet_plex::PORT,
+            transport: skillet_caddy::UpstreamTransport::Bridge,
+            public_names: &["plex"],
+            aliases: &[],
+            tailnet_identity: false,
+            cache: None,
+        }),
+    });
     services.extend(skillet_media::App::ALL.into_iter().map(|app| HostService {
         config: ServiceConfig::Media { app, config },
         ui: (app != skillet_media::App::Putioarr).then_some(UiServiceDeclaration {
@@ -1235,5 +1262,31 @@ fn nut_acceptance() -> AcceptanceService {
         owner: None,
         listeners: Vec::new(),
         health_probe: None,
+    }
+}
+
+fn plex_acceptance(config: skillet_plex::Config, network: String) -> AcceptanceService {
+    AcceptanceService {
+        unit: "plex.service".into(),
+        container: Some("plex".into()),
+        network_mode: Some(network),
+        bind_paths: std::iter::once(config.state_path.to_string())
+            .chain(std::iter::once(config.transcode_path.to_string()))
+            .chain(
+                config
+                    .libraries()
+                    .into_iter()
+                    .map(|(path, _)| path.to_string_lossy().into_owned()),
+            )
+            .collect(),
+        owner: Some(AcceptanceOwner::Named {
+            user: config.data_owner.into(),
+            group: config.data_group.into(),
+        }),
+        listeners: vec![AcceptanceListener {
+            port: skillet_plex::PORT,
+            protocol: ListenerProtocol::Tcp,
+        }],
+        health_probe: Some(HealthProbe::Plex),
     }
 }

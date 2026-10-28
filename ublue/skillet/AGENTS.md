@@ -290,3 +290,10 @@ skillet/
   Keep protected content uncached until authorization/revocation on hits is proven;
   reject credential-bearing requests and cookie/private/no-store responses, bound
   total storage independently of entry counts, and preserve certificate state.
+
+- Keep application ingress attachments separate from database networks. Changing
+  access policy must preserve proxy-to-upstream DNS and connectivity without
+  attaching the database to a shared ingress network. Verify the real route.
+- Public applications requiring a native ownership claim must retain a private
+  initial setup path. Derive public readiness from host-owned application state, never a
+  workstation-supplied credential flag, and deny routing until setup is complete.

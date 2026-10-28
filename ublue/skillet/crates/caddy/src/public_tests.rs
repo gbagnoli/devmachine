@@ -14,6 +14,19 @@ pub(super) fn public_service() -> UiService {
     }
 }
 
+#[test]
+fn guest_setup_readiness_denies_public_proxying_without_changing_credentials() {
+    let mut value = sites(&[public_service()]);
+    let original = serde_json::to_string(&value).unwrap();
+    value.services[0].setup_pending = true;
+    assert_eq!(serde_json::to_string(&value).unwrap(), original);
+    let rendered = value.render();
+    assert!(rendered.contains("Service setup is incomplete\" 503"));
+    assert!(!rendered.contains("reverse_proxy joplin-server"));
+    let parsed = CaddySites::parse(&original, "server", &[public_service()]).unwrap();
+    assert!(!parsed.services[0].setup_pending);
+}
+
 fn environment() -> UiEnvironment {
     UiEnvironment {
         ui_domain: "custom.ui.example.invalid".into(),

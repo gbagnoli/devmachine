@@ -23,6 +23,7 @@ pub enum ApplyPhase {
     Joplin,
     Airtrail,
     Media,
+    Plex,
 }
 
 pub fn apply_host_phase(
@@ -44,6 +45,7 @@ pub fn apply_host_phase(
         ApplyPhase::Joplin => skillet_hosts::HostApplyPhase::Joplin,
         ApplyPhase::Airtrail => skillet_hosts::HostApplyPhase::Airtrail,
         ApplyPhase::Media => skillet_hosts::HostApplyPhase::Media,
+        ApplyPhase::Plex => skillet_hosts::HostApplyPhase::Plex,
     };
     skillet_hosts::apply_host_phase(hostname, phase, system, files, credentials)
 }

@@ -31,6 +31,7 @@ pub enum HostApplyPhase {
     Joplin,
     Airtrail,
     Media,
+    Plex,
 }
 
 pub fn credentials_for_phase(
@@ -83,6 +84,7 @@ fn credential_names_for_phase(profile: &HostProfile, phase: HostApplyPhase) -> V
                 consumer.credential == skillet_media::CREDENTIAL
                     || consumer.credential == CADDY_SITES_CREDENTIAL
             }
+            HostApplyPhase::Plex => consumer.credential == CADDY_SITES_CREDENTIAL,
             HostApplyPhase::Base => false,
         })
         .map(|consumer| consumer.credential)
@@ -137,6 +139,8 @@ pub enum ApplyError {
     Homer(#[from] skillet_homer::HomerError),
     #[error(transparent)]
     Jellyfin(#[from] skillet_jellyfin::Error),
+    #[error(transparent)]
+    Plex(#[from] skillet_plex::Error),
     #[error(transparent)]
     Joplin(#[from] skillet_joplin::JoplinError),
     #[error(transparent)]
@@ -420,7 +424,8 @@ fn apply_profile(
             // Joplin needs the canonical Caddy site and its separately delivered credential.
             | ServiceConfig::Joplin(_)
             | ServiceConfig::Airtrail(_)
-            | ServiceConfig::Media { .. } => {}
+            | ServiceConfig::Media { .. }
+            | ServiceConfig::Plex(_) => {}
             ServiceConfig::Pihole => {
                 apply_pihole(system, files, profile, service, credentials)?;
             }
@@ -552,6 +557,7 @@ pub fn apply_host_phase(
         HostApplyPhase::Joplin => apply_joplin_host(hostname, system, files, credentials),
         HostApplyPhase::Airtrail => apply_airtrail_host(hostname, system, files, credentials),
         HostApplyPhase::Media => apply_media_host(hostname, system, files, credentials),
+        HostApplyPhase::Plex => apply_plex_host(hostname, system, files, credentials),
     }
 }
 
@@ -621,19 +627,25 @@ fn apply_joplin_host(
         hostname,
         &services,
     )?;
-    let base_url = sites
+    let site = sites
         .services
         .iter()
         .find(|site| site.name == "joplin")
-        .map(|site| format!("https://{}/", site.hostname))
         .ok_or_else(|| ApplyError::FixtureInput("Caddy configuration has no Joplin site".into()))?;
-    skillet_joplin::apply(
+    let base_url = format!("https://{}/", site.hostname);
+    let ui_network = if site.tailnet_identity {
+        skillet_caddy::private_network(profile.id.as_str(), &site.name).unit_name
+    } else {
+        profile.id.as_str().to_string()
+    };
+    skillet_joplin::apply_with_ui_network(
         system,
         files,
         profile.id.as_str(),
         config,
         &base_url,
         credentials.require(skillet_joplin::DATABASE_PASSWORD_CREDENTIAL)?,
+        &ui_network,
     )?;
     Ok(())
 }
@@ -812,11 +824,12 @@ fn apply_caddy_host(
         )?;
     }
     skillet_podman::ensure_network(system, files, &profile.service_network())?;
-    let sites = skillet_caddy::CaddySites::parse(
+    let mut sites = skillet_caddy::CaddySites::parse(
         credentials.require(CADDY_SITES_CREDENTIAL)?,
         hostname,
         &ui_config.services,
     )?;
+    project_ui_readiness(&profile, files, &mut sites)?;
     let token = credentials
         .require(CLOUDFLARE_ACME_TOKEN_CREDENTIAL)?
         .to_string();
@@ -832,7 +845,11 @@ fn apply_caddy_host(
                 group: profile.dashboard_group(&site.name),
                 name: site.name.clone(),
                 hostname: site.hostname.clone(),
-                path: (site.name == "pihole").then_some("/admin/"),
+                path: match site.name.as_str() {
+                    "pihole" => Some("/admin/"),
+                    "plex" => Some("/web/"),
+                    _ => None,
+                },
                 // Homer fetches this relative endpoint from the current page origin.
                 // Caddy proxies the read-only Pi-hole widget API on that same host,
                 // avoiding a browser cross-origin request while retaining the
@@ -841,6 +858,7 @@ fn apply_caddy_host(
                 icon: match site.name.as_str() {
                     "joplin" => Some("fas fa-book-open"),
                     "jellyfin" => Some("fas fa-play-circle"),
+                    "plex" => Some("fas fa-play"),
                     "airtrail" => Some("fas fa-plane"),
                     "prowlarr" => Some("fas fa-search"),
                     "sonarr" => Some("fas fa-tv"),
@@ -932,5 +950,62 @@ fn install_pihole_dns_unit(
         system.daemon_reload()?;
         files.ensure_file(&state, content, Some(0o644), &root)?;
     }
+    Ok(())
+}
+
+fn apply_plex_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.into()))?;
+    let config = profile
+        .services
+        .iter()
+        .find_map(|service| match service.config {
+            ServiceConfig::Plex(config) => Some(config),
+            _ => None,
+        })
+        .ok_or_else(|| ApplyError::FixtureInput("host does not declare Plex".into()))?;
+    let sites = skillet_caddy::CaddySites::parse(
+        credentials.require(CADDY_SITES_CREDENTIAL)?,
+        hostname,
+        &profile.ui_services(),
+    )?;
+    let site = sites
+        .services
+        .iter()
+        .find(|site| site.name == "plex")
+        .ok_or_else(|| ApplyError::FixtureInput("Plex canonical UI is absent".into()))?;
+    skillet_plex::apply(
+        system,
+        files,
+        config,
+        hostname,
+        &format!("https://{}/", site.hostname),
+    )?;
+    Ok(())
+}
+
+fn project_ui_readiness(
+    profile: &HostProfile,
+    files: &dyn FileResource,
+    sites: &mut skillet_caddy::CaddySites,
+) -> Result<(), ApplyError> {
+    for service in &profile.services {
+        if let ServiceConfig::Plex(config) = service.config {
+            let ready = skillet_plex::claimed(files, config)?;
+            if let Some(site) = sites
+                .services
+                .iter_mut()
+                .find(|site| site.name == service.name())
+            {
+                site.setup_pending = !ready;
+            }
+        }
+    }
+
     Ok(())
 }

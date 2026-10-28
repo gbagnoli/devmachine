@@ -858,6 +858,19 @@ impl GuestTransport for PublicProbe {
             self.calls.set(self.calls.get() + 1);
             if matches!(self.reply, PublicReply::ProxyDenied) {
                 b"Access denied by Skillet tailnet policy\n403".to_vec()
+            } else if command
+                .arguments
+                .last()
+                .unwrap()
+                .ends_with("/System/Info/Public")
+            {
+                b"{\"ProductName\":\"Jellyfin Server\",\"Version\":\"10.11\"}\n200".to_vec()
+            } else if command.arguments.last().unwrap().ends_with("/Users/Me") {
+                if matches!(self.reply, PublicReply::AuthBypass) {
+                    b"{}\n200".to_vec()
+                } else {
+                    b"Unauthorized\n401".to_vec()
+                }
             } else if command.arguments.last().unwrap().ends_with("/api/users") {
                 if matches!(self.reply, PublicReply::AuthBypass) {
                     b"{}\n200".to_vec()
@@ -906,6 +919,44 @@ fn public_joplin_probe_requires_native_ping_and_auth_denial_with_production_tls_
             };
             assert!(
                 verify_public_joplin(&guest, &plan.sites, Duration::ZERO, Duration::ZERO).is_err()
+            );
+        }
+    }
+}
+
+#[test]
+fn jellyfin_public_probe_checks_both_names_and_rejects_proxy_denial_or_native_bypass() {
+    for environment in [Environment::Test, Environment::Production] {
+        let policy = ProvisioningPolicy::new(environment);
+        let targets = if environment == Environment::Test {
+            vec!["192.168.50.12".into()]
+        } else {
+            vec!["8.8.8.8".into()]
+        };
+        let plan = build_ui_provisioning_plan_with_public(
+            "donbot",
+            policy,
+            "example.invalid",
+            None,
+            &addresses(),
+            &targets,
+        )
+        .unwrap();
+        let good = PublicProbe {
+            reply: PublicReply::Native,
+            staging: environment == Environment::Test,
+            calls: Cell::new(0),
+        };
+        verify_public_jellyfin(&good, &plan.sites, Duration::ZERO, Duration::ZERO).unwrap();
+        assert_eq!(good.calls.get(), 4);
+        for reply in [PublicReply::ProxyDenied, PublicReply::AuthBypass] {
+            let bad = PublicProbe {
+                reply,
+                staging: good.staging,
+                calls: Cell::new(0),
+            };
+            assert!(
+                verify_public_jellyfin(&bad, &plan.sites, Duration::ZERO, Duration::ZERO).is_err()
             );
         }
     }

@@ -13,7 +13,7 @@ host subtitle during rendering. Runtime edits to the generated file are not
 retained on the next apply.
 
 Cards are grouped as **Media**, **Applications**, **Files**, and **Home & Infra**,
-in that order; empty groups are omitted. Arr and Jellyfin use Media, Joplin and
+in that order; empty groups are omitted. Arr, Jellyfin and Plex use Media, Joplin and
 AirTrail use Applications, Syncthing and Mikochi use Files, and Home Assistant,
 Pi-hole and UniFi use Home & Infra. Each host's `UiServiceDeclaration` can set
 `dashboard_group: Some("Custom name")` to override the service default. Custom

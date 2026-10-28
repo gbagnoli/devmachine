@@ -91,7 +91,11 @@ fn remote(args: &Args) -> Result<()> {
         .ok_or_else(|| anyhow!("remote apply requires HOST"))?;
     let profile = skillet_hosts::profile_for_name(host)
         .ok_or_else(|| anyhow!("unknown host profile: {host}"))?;
-    skillet_workstation::ui_provisioning::validate_public_targets(host, &args.public_target)?;
+    skillet_workstation::ui_provisioning::validate_public_targets(
+        host,
+        &args.public_target,
+        args.environment.policy(),
+    )?;
     let target = args.target.as_deref().unwrap_or(host);
     let transport = super::ssh::transport(
         target,

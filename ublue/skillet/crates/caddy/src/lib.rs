@@ -119,6 +119,9 @@ impl std::fmt::Debug for CaddySites {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CaddySite {
+    /// Guest-observed readiness, never accepted from the encrypted payload.
+    #[serde(skip)]
+    pub setup_pending: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cache: Option<cache::Policy>,
     pub name: String,
@@ -385,6 +388,10 @@ fn render_site(
             config.push_str("        @anonymous_refresh {\n            method GET\n            path /api/refresh\n        }\n        header @anonymous_refresh Content-Type application/json\n        header @anonymous_refresh Cache-Control no-store\n        respond @anonymous_refresh `{\"token\":\"skillet-tailnet-authenticated\"}` 200\n");
         }
     }
+    if service.setup_pending {
+        config.push_str("        respond \"Service setup is incomplete\" 503\n    }\n}\n");
+        return config;
+    }
     if service.name == "homer" {
         render_homer_routes(&mut config, sites);
     }
@@ -599,6 +606,7 @@ fn build_sites(
             aliases.push(alias_hostname);
         }
         sites.push(CaddySite {
+            setup_pending: false,
             cache: service.cache,
             name: service.name.clone(),
             hostname,

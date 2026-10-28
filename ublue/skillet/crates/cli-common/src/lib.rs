@@ -245,6 +245,7 @@ where
         ApplyPhase::Joplin => skillet_hosts::HostApplyPhase::Joplin,
         ApplyPhase::Airtrail => skillet_hosts::HostApplyPhase::Airtrail,
         ApplyPhase::Media => skillet_hosts::HostApplyPhase::Media,
+        ApplyPhase::Plex => skillet_hosts::HostApplyPhase::Plex,
     };
     if phase == skillet_hosts::HostApplyPhase::Network && record_path.is_some() {
         return Err(CliCommonError::Config(

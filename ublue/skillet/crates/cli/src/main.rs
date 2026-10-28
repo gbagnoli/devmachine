@@ -302,7 +302,7 @@ struct VmDestroyArgs {
 // These CLI switches select independent optional provisioning operations.
 #[allow(clippy::struct_excessive_bools)]
 struct VmProvisionArgs {
-    /// Public ingress IP or existing DNS hostname; repeat for IPv4 and IPv6
+    /// Ingress IP or DNS hostname (test accepts LAN IPs); repeat for IPv4 and IPv6
     #[arg(long, requires = "with_ui")]
     public_target: Vec<String>,
     /// Configure only SMTP (isolated capture unless --live-smtp is supplied)
@@ -1065,6 +1065,25 @@ fn check_health(
 ) -> Result<Option<String>> {
     use skillet_hosts::HealthProbe;
     match probe {
+        Some(HealthProbe::Plex) => {
+            smoke_guest_command(
+                transport,
+                "sudo",
+                &[
+                    "-n",
+                    "podman",
+                    "exec",
+                    "plex",
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "--max-time",
+                    "15",
+                    "http://127.0.0.1:32400/identity",
+                ],
+            )?;
+            Ok(Some("health:plex:running".into()))
+        }
         Some(HealthProbe::Jellyfin) => {
             smoke_guest_command(
                 transport,
@@ -1488,6 +1507,7 @@ fn run_twice_and_check(name: &str, phase: ApplyPhase, inspect: bool) -> Result<(
         ApplyPhase::Joplin => "joplin",
         ApplyPhase::Airtrail => "airtrail",
         ApplyPhase::Media => "media",
+        ApplyPhase::Plex => "plex",
     };
     for round in ["first", "second"] {
         let status = Command::new("podman")

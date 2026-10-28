@@ -3,7 +3,9 @@
 Joplin Server container composition over a dedicated PostgreSQL instance. The
 caller supplies its canonical HTTPS base URL, Podman network, application image,
 database path and database credential. No host port is published; Caddy serves
-the declared upstream on port 22300.
+the declared upstream on port 22300. Public ingress adds the caller's UI network
+to Joplin while retaining its dedicated database network; PostgreSQL remains on
+that private network only.
 
 Joplin's default content store is PostgreSQL. Keep it enabled so one database
 logical backup covers notes, attachments and server metadata. A client-side JEX

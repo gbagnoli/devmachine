@@ -78,6 +78,7 @@ pub(super) fn install(
         "media",
         &[skillet_media::CREDENTIAL],
     )?;
+    install_application(system, files, profile, "plex", "Plex", "plex", &[])?;
     Ok(())
 }
 

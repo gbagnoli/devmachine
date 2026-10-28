@@ -13,7 +13,7 @@ use skillet_podman::SecretTarget;
 #[test]
 fn dashboard_groups_follow_selected_service_types_and_allow_host_overrides() {
     let donbot = super::profile_for_name("donbot").unwrap();
-    for name in ["jellyfin", "sonarr", "radarr", "lidarr", "prowlarr"] {
+    for name in ["jellyfin", "plex", "sonarr", "radarr", "lidarr", "prowlarr"] {
         assert_eq!(donbot.dashboard_group(name), skillet_homer::MEDIA);
     }
     for name in ["joplin", "airtrail"] {
@@ -111,7 +111,7 @@ fn joplin_public_caller_drives_its_canonical_base_url_without_exposing_other_uis
             .iter()
             .filter(|service| !service.public_names.is_empty())
             .count(),
-        2
+        3
     );
     assert_eq!(
         services
@@ -161,6 +161,8 @@ fn joplin_public_caller_drives_its_canonical_base_url_without_exposing_other_uis
     let unit =
         std::str::from_utf8(&rendered["/etc/containers/systemd/joplin-server.container"]).unwrap();
     assert!(unit.contains("Environment=APP_BASE_URL=https://notes.example.invalid/"));
+    assert!(unit.contains("Network=donbot.network"));
+    assert!(unit.contains("Network=donbot-joplin.network"));
     assert!(!unit.contains("PublishPort="));
     assert!(
         !std::str::from_utf8(&rendered["/etc/containers/systemd/postgresql-joplin.container"])
@@ -451,6 +453,7 @@ fn donbot_declares_joplin_and_airtrail_uis_that_register_with_homer_and_caddy() 
             "joplin",
             "airtrail",
             "jellyfin",
+            "plex",
             "prowlarr",
             "sonarr",
             "radarr",
@@ -1223,4 +1226,48 @@ fn homeassistant_exports_share_the_declared_syncthing_identity_and_file_scope() 
     assert_eq!(backup.group, syncthing.3);
     let other = super::profile_for_name("joey").unwrap();
     assert!(!other.supports_service("homeassistant"));
+}
+
+#[test]
+fn public_plex_readiness_follows_native_claim_state_only() {
+    let profile = super::profile_for_name("donbot").unwrap();
+    let files = skillet_core::test_utils::MockFiles::new();
+    let mut sites = skillet_caddy::CaddySites::from_host_with_zone(
+        "donbot",
+        &skillet_caddy::UiEnvironment {
+            ui_domain: "ui.example.invalid".into(),
+            acme_staging: true,
+        },
+        &profile.ui_services(),
+        Some("example.invalid"),
+    )
+    .unwrap();
+    super::project_ui_readiness(&profile, &files, &mut sites).unwrap();
+    assert!(
+        sites
+            .services
+            .iter()
+            .find(|site| site.name == "plex")
+            .unwrap()
+            .setup_pending
+    );
+    assert!(sites
+        .services
+        .iter()
+        .filter(|site| site.name != "plex")
+        .all(|site| !site.setup_pending));
+    files.files.lock().unwrap().insert(
+        "/var/lib/data/plex/config/Library/Application Support/Plex Media Server/Preferences.xml"
+            .into(),
+        b"<Preferences PlexOnlineToken=\"synthetic-token\"/>".to_vec(),
+    );
+    super::project_ui_readiness(&profile, &files, &mut sites).unwrap();
+    assert!(
+        !sites
+            .services
+            .iter()
+            .find(|site| site.name == "plex")
+            .unwrap()
+            .setup_pending
+    );
 }

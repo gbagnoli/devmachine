@@ -36,7 +36,9 @@ from clients are stripped. Configure native application accounts before public
 activation, including replacing Joplin's default admin credentials.
 
 Supply a routable destination with `--public-target`: either an existing public
-DNS hostname or a public IP address, repeated for IPv4 and IPv6. With IPs, Skillet
+DNS hostname or a public IP address, repeated for IPv4 and IPv6. Test provisioning
+also accepts explicit private LAN/ULA addresses; production continues to require
+public addresses. Loopback, link-local and Tailscale destinations remain refused. With IPs, Skillet
 creates `public.<host>.<zone>` A/AAAA records and service CNAMEs to that machine.
 With an existing hostname, public service CNAMEs target it directly. Private
 records keep the separate Tailscale machine target. No extra vault name entries
@@ -48,10 +50,13 @@ cargo run --release -p skillet -- test vm provision donbot INSTANCE --with-ui --
 ```
 
 Replace `PUBLIC_DESTINATION` with the public IP or hostname. This publishes DNS;
-provide edge/NAT routing to Caddy's TCP 443 separately. Localhost passt forwarding
-does not prove internet reachability. The VM additionally probes Joplin through
-Caddy using its public Host/SNI: `/api/ping` must work and unauthenticated native
-API access must fail. Staging verification skips CA trust only for test policy;
+provide edge/NAT routing to Caddy's TCP 443 separately. A passt VM does not have a separate
+LAN address: its apparent guest address can mirror the VM host. Use an actual
+reachable routed/bridged address for LAN clients; a VM-internal bridge address
+only supports in-guest checks. Localhost passt forwarding
+does not prove internet reachability. The VM probes Joplin and both Jellyfin names through
+Caddy using their public Host/SNI. Joplin ping and Jellyfin public server info
+must work, while unauthenticated native account APIs must fail. Staging verification skips CA trust only for test policy;
 production verification checks the normal certificate trust chain.
 
 Public payloads use version 6. A matching retained older Joplin payload stays at

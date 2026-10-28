@@ -101,7 +101,35 @@ where
     S: AccountLookupResource + PodmanSecretResource + ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + StorageResource + ?Sized,
 {
+    apply_with_ui_network(
+        system,
+        files,
+        host,
+        config,
+        base_url,
+        database_password,
+        config.network_name,
+    )
+}
+
+/// The application's ingress attachment is separate from its private database.
+pub fn apply_with_ui_network<S, F>(
+    system: &S,
+    files: &F,
+    host: &str,
+    config: Config,
+    base_url: &str,
+    database_password: &str,
+    ui_network: &str,
+) -> Result<(), JoplinError>
+where
+    S: AccountLookupResource + PodmanSecretResource + ServiceResource + ?Sized,
+    F: FileMutationResource + FileReadResource + StorageResource + ?Sized,
+{
     config.validate(base_url)?;
+    if ui_network.is_empty() {
+        return Err(JoplinError::InvalidConfiguration("UI network"));
+    }
     files.require_btrfs_subvolume_mount(
         std::path::Path::new("/var/lib/data"),
         std::path::Path::new("/var"),
@@ -157,7 +185,14 @@ where
         PodmanConfig {
             name: "joplin-server".to_string(),
             image: config.image.to_string(),
-            network_attachments: vec![NetworkAttachment::Bridge(config.network_name.to_string())],
+            network_attachments: if ui_network == config.network_name {
+                vec![NetworkAttachment::Bridge(config.network_name.to_string())]
+            } else {
+                vec![
+                    NetworkAttachment::Bridge(config.network_name.to_string()),
+                    NetworkAttachment::Bridge(ui_network.to_string()),
+                ]
+            },
             port_publications: Vec::new(),
             storage_dependency: Some(MountDependency::shared_service_data()),
             process_identity: ProcessIdentity::ImageDefault,

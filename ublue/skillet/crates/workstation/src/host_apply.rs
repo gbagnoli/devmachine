@@ -50,6 +50,9 @@ pub fn steps(profile: &HostProfile) -> Vec<Step> {
             Step::Activate("skillet-caddy-apply.service"),
         ]);
     }
+    if profile.supports_service("plex") {
+        result.push(Step::Activate("skillet-plex-apply.service"));
+    }
     if profile.supports_service("joplin") {
         result.extend([
             Step::Stage("joplin"),

@@ -662,6 +662,22 @@ pub fn desired_records_with_public(
     sites: &skillet_caddy::CaddySites,
     public_targets: &[String],
 ) -> Result<Vec<DesiredRecord>> {
+    desired_records_for_environment(
+        machine_name,
+        addresses,
+        sites,
+        public_targets,
+        crate::provisioning_policy::Environment::Production,
+    )
+}
+
+pub fn desired_records_for_environment(
+    machine_name: &str,
+    addresses: &BTreeSet<String>,
+    sites: &skillet_caddy::CaddySites,
+    public_targets: &[String],
+    environment: crate::provisioning_policy::Environment,
+) -> Result<Vec<DesiredRecord>> {
     validate_fqdn(machine_name)?;
     let mut result = Vec::new();
     let mut has_v4 = false;
@@ -683,7 +699,8 @@ pub fn desired_records_with_public(
             "Tailscale device must have both IPv4 and IPv6 addresses before publishing DNS".into(),
         ));
     }
-    let public_destination = public_dns_destination(sites, public_targets, &mut result)?;
+    let public_destination =
+        public_dns_destination(sites, public_targets, &mut result, environment)?;
     for service in &sites.services {
         let destination = if service.access == skillet_caddy::SiteAccess::Public {
             public_destination.as_deref().ok_or_else(|| {
@@ -722,6 +739,7 @@ fn public_dns_destination(
     sites: &skillet_caddy::CaddySites,
     values: &[String],
     records: &mut Vec<DesiredRecord>,
+    environment: crate::provisioning_policy::Environment,
 ) -> Result<Option<String>> {
     if !sites
         .services
@@ -730,7 +748,7 @@ fn public_dns_destination(
     {
         return Ok(None);
     }
-    let targets = public_dns_targets(values)?;
+    let targets = public_dns_targets(values, environment)?;
     let zone = sites.zone_domain.as_deref().ok_or_else(|| {
         CloudflareError::Invalid("public DNS requires the Cloudflare zone".into())
     })?;
@@ -769,7 +787,11 @@ fn public_dns_destination(
 
 /// Public endpoints need an explicit routable destination, never the private
 /// UI machine record. One hostname or one address per family is supported.
-pub(crate) fn public_dns_targets(values: &[String]) -> Result<Vec<(String, String)>> {
+pub(crate) fn public_dns_targets(
+    values: &[String],
+    environment: crate::provisioning_policy::Environment,
+) -> Result<Vec<(String, String)>> {
+    let allow_lan = environment == crate::provisioning_policy::Environment::Test;
     if values.is_empty() {
         return Err(CloudflareError::Invalid(
             "public ingress needs --public-target with a public IP or existing public hostname"
@@ -781,7 +803,7 @@ pub(crate) fn public_dns_targets(values: &[String]) -> Result<Vec<(String, Strin
         let (kind, value) = if let Ok(address) = value.parse::<IpAddr>() {
             let usable = match address {
                 IpAddr::V4(ip) => {
-                    !ip.is_private()
+                    (allow_lan || !ip.is_private())
                         && !ip.is_loopback()
                         && !ip.is_link_local()
                         && !ip.is_unspecified()
@@ -796,13 +818,14 @@ pub(crate) fn public_dns_targets(values: &[String]) -> Result<Vec<(String, Strin
                     !ip.is_loopback()
                         && !ip.is_unspecified()
                         && !ip.is_multicast()
-                        && ip.segments()[0] & 0xfe00 != 0xfc00
+                        && (allow_lan || ip.segments()[0] & 0xfe00 != 0xfc00)
                         && ip.segments()[0] & 0xffc0 != 0xfe80
                         && ip.to_ipv4_mapped().is_none()
+                        && ip.segments()[..3] != [0xfd7a, 0x115c, 0xa1e0]
                 }
             };
             if !usable {
-                return Err(CloudflareError::Invalid("public ingress address must be routable; private, tailnet and local addresses are refused".into()));
+                return Err(CloudflareError::Invalid("ingress destination is invalid: production requires public addresses; test additionally permits LAN addresses; tailnet, loopback and link-local addresses are refused".into()));
             }
             (
                 if address.is_ipv4() { "A" } else { "AAAA" },
