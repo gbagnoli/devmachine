@@ -125,6 +125,12 @@ jobs:
           cd ublue/skillet
           cargo test -p skillet_caddy real_caddy_static_cache_ -- --ignored
 
+      - name: Test Gokapi native bootstrap and paired state without external credentials
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          cargo test -p skillet_gokapi real_gokapi_ -- --ignored
+
       - name: Test Pi-hole proxy authentication without external credentials
         if: steps.filter.outputs.rust == 'true'
         run: |

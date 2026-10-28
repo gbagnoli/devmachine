@@ -15,6 +15,7 @@ use thiserror::Error;
 pub mod auth;
 pub mod cache;
 pub mod host_proxy;
+pub mod sharing;
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -53,6 +54,8 @@ mod public_tests;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct UiService {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sharing: Option<sharing::Declaration>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cache: Option<cache::Policy>,
     pub name: String,
@@ -119,6 +122,8 @@ impl std::fmt::Debug for CaddySites {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CaddySite {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub public_routes: Option<sharing::Policy>,
     /// Guest-observed readiness, never accepted from the encrypted payload.
     #[serde(skip)]
     pub setup_pending: bool,
@@ -206,7 +211,9 @@ impl CaddySites {
             services,
         )?;
         Ok(Self {
-            version: if services.iter().any(|service| service.cache.is_some()) {
+            version: if services.iter().any(|service| service.sharing.is_some()) {
+                8
+            } else if services.iter().any(|service| service.cache.is_some()) {
                 7
             } else if services
                 .iter()
@@ -236,31 +243,16 @@ impl CaddySites {
 
     pub fn parse(contents: &str, host: &str, services: &[UiService]) -> Result<Self, CaddyError> {
         let sites: Self = serde_json::from_str(contents)?;
-        if !matches!(sites.version, 2..=7) {
-            return Err(CaddyError::InvalidConfiguration(format!(
-                "unsupported payload version {}",
-                sites.version
-            )));
-        }
-        if sites.zone_domain.is_some() && sites.version < 5 {
-            return Err(CaddyError::InvalidConfiguration(
-                "zone-level aliases require payload version 5".into(),
-            ));
-        }
-        if sites.version >= 5 && sites.zone_domain.is_none() {
-            return Err(CaddyError::InvalidConfiguration(
-                "payload version 5 requires the Cloudflare zone".into(),
-            ));
-        }
-        if sites.version < 7 && sites.services.iter().any(|site| site.cache.is_some()) {
-            return Err(CaddyError::InvalidConfiguration(
-                "cache policy requires payload version 7".into(),
-            ));
-        }
+        validate_payload_version(&sites)?;
         // A retained pre-public payload may keep the previous private UI alive
         // during deployment. Its canonical names and identity protection remain
         // exact; only a newly delivered v6 payload selects public exposure.
         let mut declarations = services.to_vec();
+        if sites.version < 8 {
+            for service in &mut declarations {
+                service.sharing = None;
+            }
+        }
         if sites.version < 7 {
             for service in &mut declarations {
                 service.cache = None;
@@ -390,6 +382,11 @@ fn render_site(
     }
     if service.setup_pending {
         config.push_str("        respond \"Service setup is incomplete\" 503\n    }\n}\n");
+        return config;
+    }
+    if let Some(policy) = service.public_routes {
+        config.push_str(&sharing::render(policy, &upstream_target(service)));
+        config.push_str("    }\n}\n");
         return config;
     }
     if service.name == "homer" {
@@ -607,6 +604,7 @@ fn build_sites(
         }
         sites.push(CaddySite {
             setup_pending: false,
+            public_routes: None,
             cache: service.cache,
             name: service.name.clone(),
             hostname,
@@ -619,6 +617,7 @@ fn build_sites(
             anonymous_token_refresh: service.anonymous_token_refresh,
         });
     }
+    sharing::extend(&mut sites, services, zone_domain, &mut all_hostnames)?;
     Ok(sites)
 }
 
@@ -982,4 +981,39 @@ fn state_volumes() -> Vec<Volume> {
             host_ownership: None,
         },
     ]
+}
+
+fn validate_payload_version(sites: &CaddySites) -> Result<(), CaddyError> {
+    if !matches!(sites.version, 2..=8) {
+        return Err(CaddyError::InvalidConfiguration(format!(
+            "unsupported payload version {}",
+            sites.version
+        )));
+    }
+    if sites.zone_domain.is_some() && sites.version < 5 {
+        return Err(CaddyError::InvalidConfiguration(
+            "zone-level aliases require payload version 5".into(),
+        ));
+    }
+    if sites.version >= 5 && sites.zone_domain.is_none() {
+        return Err(CaddyError::InvalidConfiguration(
+            "payload version 5 requires the Cloudflare zone".into(),
+        ));
+    }
+    if sites.version < 7 && sites.services.iter().any(|site| site.cache.is_some()) {
+        return Err(CaddyError::InvalidConfiguration(
+            "cache policy requires payload version 7".into(),
+        ));
+    }
+    if sites.version < 8
+        && sites
+            .services
+            .iter()
+            .any(|site| site.public_routes.is_some())
+    {
+        return Err(CaddyError::InvalidConfiguration(
+            "public sharing routes require payload version 8".into(),
+        ));
+    }
+    Ok(())
 }

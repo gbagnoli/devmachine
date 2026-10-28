@@ -15,6 +15,7 @@ fn syncthing_only() -> Vec<UiService> {
         port: 8384,
         tailnet_identity: false,
         anonymous_token_refresh: false,
+        sharing: None,
         aliases: Vec::new(),
     }]
 }
@@ -35,6 +36,7 @@ fn identity_service(
         aliases: Vec::new(),
         tailnet_identity: true,
         anonymous_token_refresh: false,
+        sharing: None,
     }
 }
 
@@ -124,6 +126,7 @@ fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
             port: 8088,
             tailnet_identity: false,
             anonymous_token_refresh: false,
+            sharing: None,
             aliases: Vec::new(),
         },
         syncthing_only().remove(0),
@@ -170,6 +173,7 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
             aliases: Vec::new(),
             tailnet_identity: true,
             anonymous_token_refresh: false,
+            sharing: None,
         },
         UiService {
             public_names: Vec::new(),
@@ -181,6 +185,7 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
             aliases: Vec::new(),
             tailnet_identity: true,
             anonymous_token_refresh: false,
+            sharing: None,
         },
         UiService {
             public_names: Vec::new(),
@@ -192,6 +197,7 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
             aliases: vec!["dashboard.{host}".into()],
             tailnet_identity: true,
             anonymous_token_refresh: false,
+            sharing: None,
         },
     ];
     let sites = CaddySites::from_host(
@@ -304,6 +310,7 @@ fn renders_declared_aliases_and_rejects_conflicting_names() {
         port: 8384,
         tailnet_identity: false,
         anonymous_token_refresh: false,
+        sharing: None,
         aliases: vec!["sync".to_string(), "sync.{host}".to_string()],
     }];
     let sites = CaddySites::from_host(
@@ -335,6 +342,7 @@ fn renders_declared_aliases_and_rejects_conflicting_names() {
             cache: None,
             tailnet_identity: false,
             anonymous_token_refresh: false,
+            sharing: None,
             aliases: vec![alias.to_string()],
             ..services[0].clone()
         }];
@@ -411,6 +419,7 @@ fn file_ui_is_gated_before_proxy_and_cannot_disable_declared_identity() {
         aliases: vec!["browse.{host}".into()],
         tailnet_identity: true,
         anonymous_token_refresh: true,
+        sharing: None,
     }];
     let mut sites = CaddySites::from_host(
         "joey",
@@ -484,6 +493,7 @@ fn identity_caddy_has_only_the_authorization_socket_and_a_private_backend() {
             aliases: Vec::new(),
             tailnet_identity: true,
             anonymous_token_refresh: false,
+            sharing: None,
         }],
     )
     .unwrap();
@@ -515,6 +525,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
         },
         &[
             super::public_tests::public_service(),
+            sharing_fixture_service(),
             identity_service("pihole", "pihole", crate::UpstreamTransport::Bridge, 8088),
             identity_service(
                 "homeassistant",
@@ -533,6 +544,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
                 aliases: Vec::new(),
                 tailnet_identity: true,
                 anonymous_token_refresh: true,
+                sharing: None,
             },
             UiService {
                 public_names: Vec::new(),
@@ -544,6 +556,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
                 aliases: vec!["sync.{host}".into()],
                 tailnet_identity: true,
                 anonymous_token_refresh: false,
+                sharing: None,
             },
         ],
         Some("example.invalid"),
@@ -601,7 +614,8 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
     );
     let json: serde_json::Value = serde_json::from_slice(&adapted.stdout).unwrap();
     // Six identity-gated sites, plus public Joplin and the dashboard API proxy.
-    assert_identity_query_rewrites(&json, 6, 8);
+    // Gokapi adds one protected admin proxy and two public sharing branches.
+    assert_identity_query_rewrites(&json, 7, 11);
 }
 
 fn assert_identity_query_rewrites(
@@ -711,4 +725,13 @@ fn retained_bridge_payload_without_transport_remains_compatible() {
         .unwrap()
         .remove("transport");
     assert!(CaddySites::parse(&payload.to_string(), "joey", &services).is_ok());
+}
+
+fn sharing_fixture_service() -> UiService {
+    let mut service = identity_service("gokapi", "gokapi", crate::UpstreamTransport::Bridge, 53842);
+    service.sharing = Some(crate::sharing::Declaration {
+        names: vec!["send".into()],
+        policy: crate::sharing::Policy::Gokapi224,
+    });
+    service
 }

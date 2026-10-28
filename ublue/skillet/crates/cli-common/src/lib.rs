@@ -16,6 +16,7 @@ mod metrics;
 pub mod version;
 pub use metrics::{run_metrics, MetricsCommands};
 pub mod airtrail_runtime;
+pub mod gokapi_runtime;
 pub mod homeassistant_runtime;
 pub mod host_ui_proxy;
 pub mod media_runtime;
@@ -71,6 +72,10 @@ pub struct HostArgs {
 
 #[derive(clap::Subcommand, Debug)]
 pub enum HostCommands {
+    Gokapi {
+        #[command(subcommand)]
+        command: gokapi_runtime::Commands,
+    },
     Homeassistant {
         #[command(subcommand)]
         command: homeassistant_runtime::Commands,
@@ -177,6 +182,7 @@ where
     match args.command {
         HostCommands::Homeassistant { command } => homeassistant_runtime::dispatch(&command),
         HostCommands::Postgres { command } => postgres_runtime::dispatch(command),
+        HostCommands::Gokapi { command } => gokapi_runtime::dispatch(command),
         HostCommands::Airtrail { command } => airtrail_runtime::dispatch(command),
         HostCommands::Media { command } => media_runtime::dispatch(command),
         HostCommands::UiProxy { command } => host_ui_proxy::dispatch(command),
@@ -245,6 +251,7 @@ where
         ApplyPhase::Joplin => skillet_hosts::HostApplyPhase::Joplin,
         ApplyPhase::Airtrail => skillet_hosts::HostApplyPhase::Airtrail,
         ApplyPhase::Media => skillet_hosts::HostApplyPhase::Media,
+        ApplyPhase::Gokapi => skillet_hosts::HostApplyPhase::Gokapi,
         ApplyPhase::Plex => skillet_hosts::HostApplyPhase::Plex,
     };
     if phase == skillet_hosts::HostApplyPhase::Network && record_path.is_some() {

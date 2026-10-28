@@ -91,6 +91,7 @@ enum FieldRule {
     Choice,
     Sender,
     Tailnetusers,
+    Tailnetuser,
     Ipv4,
     Mask,
     Interface,
@@ -120,6 +121,7 @@ impl FieldRequirement {
             FieldRule::Interface => skillet_network::valid_interface(value),
             FieldRule::Ssid => skillet_network::valid_ssid(value),
             FieldRule::Wifikey => skillet_network::valid_wifi_key(value),
+            FieldRule::Tailnetuser => skillet_gokapi::valid_user(value),
             FieldRule::Tailnetusers => skillet_caddy::auth::Policy::parse_users(value).is_ok(),
         }
     }

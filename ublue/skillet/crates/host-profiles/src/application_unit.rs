@@ -79,6 +79,15 @@ pub(super) fn install(
         &[skillet_media::CREDENTIAL],
     )?;
     install_application(system, files, profile, "plex", "Plex", "plex", &[])?;
+    install_application(
+        system,
+        files,
+        profile,
+        "gokapi",
+        "Gokapi",
+        "gokapi",
+        &[skillet_gokapi::ADMIN_CREDENTIAL],
+    )?;
     Ok(())
 }
 

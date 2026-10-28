@@ -64,6 +64,15 @@ Prepare the shared Cloudflare token creator and Zone ID. [DDNS setup](ublue/skil
 | `skillet/environments/<environment>/dns/local-prefix` | Required | Password = relative site name below the selected Cloudflare zone, shared with private Pi-hole names. Move the former host cloudflare/ddns-dns-name value here; remove the old entry after verified delivery. |
 | `skillet/environments/prod/hosts/<host>/cloudflare/ddns-token` | Generated | Skillet creates the persistent scoped token; disposable tokens are lifecycle-owned. |
 
+## Gokapi
+
+Native accounts behind Tailscale identity authentication; no second application password. [Setup and backups](ublue/skillet/crates/gokapi/README.md).
+
+| Entry | Status | Fields / how to obtain them |
+| --- | --- | --- |
+| `skillet/environments/prod/hosts/<host>/gokapi/admin-user` | Required | Password = one lower-case Tailscale LoginName already listed in skillet/tailscale/ui-users. Choose the initial Gokapi super-admin explicitly; other allowed identities are pre-created with User rank and guest-upload permission. No Gokapi password or API key is required. |
+| `skillet/environments/test/hosts/<host>/gokapi/admin-user` | Required | Password = the selected test Gokapi super-admin LoginName from the Tailscale UI allowlist. This is account configuration, shared by disposable instances; app data and ephemeral native API tokens never belong in the vault. |
+
 ## Home Assistant
 
 Native accounts are created during HTTPS onboarding. Backup automation starts after its optional API token is supplied. [Setup](ublue/skillet/crates/homeassistant/README.md).

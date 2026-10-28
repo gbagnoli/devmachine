@@ -147,6 +147,7 @@ fn start_caddy(root: &Path) -> (Container, std::net::SocketAddr) {
             aliases: Vec::new(),
             tailnet_identity: true,
             anonymous_token_refresh: true,
+            sharing: None,
         }],
     )
     .unwrap();

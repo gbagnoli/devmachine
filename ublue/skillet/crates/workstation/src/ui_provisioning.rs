@@ -52,7 +52,7 @@ pub fn validate_public_targets(
     if profile
         .ui_services()
         .iter()
-        .any(|service| !service.public_names.is_empty())
+        .any(|service| !service.public_names.is_empty() || service.sharing.is_some())
     {
         cloudflare::public_dns_targets(targets, policy.environment())?;
     } else if !targets.is_empty() {

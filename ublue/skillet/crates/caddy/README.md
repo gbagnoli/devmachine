@@ -144,3 +144,13 @@ services bind their HTTP listener locally and use a dedicated confined Unix rela
 mounted only into Caddy. Version 4 delivery carries the transport; retained bridge
 payloads keep their existing defaults. Redeliver Caddy credentials after adding a
 new host UI. Native application authentication remains application-specific.
+
+
+## Mixed sharing services
+
+A caller can attach a versioned public-sharing policy to a private UI. Gokapi's
+private UI retains the user identity gate; `send.<zone>` resolves to the separate
+public destination and permits only the pinned application's sharing routes.
+Redeliver Caddy credentials when selecting the new service. See
+[Gokapi setup](../gokapi/README.md) and the
+[access design](../../../design/public-service-access.md#gokapi-sharing-boundary).

@@ -5,10 +5,12 @@ use super::{
     },
     tailscale_config, ui_config_for_host, TAILSCALE_AUTH_KEY_CREDENTIAL,
 };
+use skillet_core::system::AccountResource;
 use skillet_core::{
     credentials::CredentialInputs, files::LocalFileResource, test_utils::MockSystem,
 };
 use skillet_podman::SecretTarget;
+use std::path::Path;
 
 #[test]
 fn dashboard_groups_follow_selected_service_types_and_allow_host_overrides() {
@@ -454,6 +456,7 @@ fn donbot_declares_joplin_and_airtrail_uis_that_register_with_homer_and_caddy() 
             "airtrail",
             "jellyfin",
             "plex",
+            "gokapi",
             "prowlarr",
             "sonarr",
             "radarr",
@@ -771,6 +774,7 @@ fn synthetic_profile_derives_network_and_ui_from_its_identity() {
             },
             ui: Some(UiServiceDeclaration {
                 dashboard_group: None,
+                sharing: None,
                 public_names: &[],
                 cache: None,
                 name: "sync",
@@ -1269,5 +1273,97 @@ fn public_plex_readiness_follows_native_claim_state_only() {
             .find(|site| site.name == "plex")
             .unwrap()
             .setup_pending
+    );
+}
+
+#[test]
+fn gokapi_is_opt_in_with_one_private_backend_and_separate_sharing_names() {
+    let profile = super::profile_for_name("donbot").unwrap();
+    let ui = profile.ui_services();
+    let selected = ui.iter().find(|service| service.name == "gokapi").unwrap();
+    assert!(selected.tailnet_identity);
+    assert_eq!(selected.public_names, Vec::<String>::new());
+    assert_eq!(selected.sharing.as_ref().unwrap().names, ["send"]);
+    let mut sites = skillet_caddy::CaddySites::from_host_with_zone(
+        "donbot",
+        &skillet_caddy::UiEnvironment {
+            ui_domain: "ui.example.invalid".into(),
+            acme_staging: true,
+        },
+        &ui,
+        Some("example.invalid"),
+    )
+    .unwrap();
+    sites.tailnet_users = vec!["owner@example.invalid".into()];
+    assert!(super::gokapi_settings(&sites, "unlisted@example.invalid").is_err());
+    let settings = super::gokapi_settings(&sites, "owner@example.invalid").unwrap();
+    assert_eq!(settings.public_url, "https://send.example.invalid/");
+    assert_eq!(profile.dashboard_group("gokapi"), skillet_homer::FILES);
+    let acceptance = profile.acceptance_plan();
+    let service = acceptance
+        .services
+        .iter()
+        .find(|service| service.unit == "gokapi.service")
+        .unwrap();
+    assert_eq!(service.listeners, Vec::<super::AcceptanceListener>::new());
+    assert_eq!(
+        service.network_mode.as_deref(),
+        Some(
+            skillet_caddy::private_network("donbot", "gokapi")
+                .unit_name
+                .as_str()
+        )
+    );
+    let config = profile
+        .services
+        .iter()
+        .find_map(|service| match service.config {
+            ServiceConfig::Gokapi(config) => Some(config),
+            _ => None,
+        })
+        .unwrap();
+    let system = MockSystem::new();
+    system.ensure_group(config.group, Some(3001)).unwrap();
+    system
+        .ensure_user(config.owner, Some(2001), Some(3001))
+        .unwrap();
+    let files = skillet_core::test_utils::MockFiles::new();
+    files.record_btrfs_mount(Path::new("/var"), "/dev/test", "/", "btrfs");
+    files.record_btrfs_mount(Path::new("/var/lib/data"), "/dev/test", "/data", "btrfs");
+    files.record_btrfs_subvolume(Path::new(config.backup_subvolume));
+    let mut credentials = CredentialInputs::default();
+    credentials.insert(
+        super::CADDY_SITES_CREDENTIAL,
+        serde_json::to_string(&sites).unwrap(),
+    );
+    credentials.insert(
+        skillet_gokapi::ADMIN_CREDENTIAL,
+        "owner@example.invalid".into(),
+    );
+    super::apply_host_phase(
+        "donbot",
+        super::HostApplyPhase::Gokapi,
+        &system,
+        &files,
+        &credentials,
+    )
+    .unwrap();
+    let generated = files.files.lock().unwrap();
+    let unit = String::from_utf8_lossy(&generated["/etc/containers/systemd/gokapi.container"]);
+    assert!(unit.contains("Network=donbot-gokapi.network"));
+    assert!(unit.contains("EnvironmentFile=/run/skillet/gokapi/proxy.env"));
+    let initializer = String::from_utf8_lossy(
+        &generated["/etc/systemd/system/skillet-gokapi-initialize.service"],
+    );
+    assert!(initializer.contains("Requires=donbot-gokapi-network.service"));
+    for host in ["clamps", "joey"] {
+        assert!(!super::profile_for_name(host)
+            .unwrap()
+            .supports_service("gokapi"));
+    }
+    assert!(
+        !super::credentials_for_phase("donbot", super::HostApplyPhase::Full)
+            .unwrap()
+            .contains(&skillet_gokapi::ADMIN_CREDENTIAL)
     );
 }

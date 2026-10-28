@@ -26,7 +26,14 @@ impl HostId {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SharingDeclaration {
+    pub names: &'static [&'static str],
+    pub policy: skillet_caddy::sharing::Policy,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct UiServiceDeclaration {
+    pub sharing: Option<SharingDeclaration>,
     /// Override the service's shared dashboard group on this host.
     pub dashboard_group: Option<&'static str>,
     pub name: &'static str,
@@ -67,6 +74,7 @@ pub enum ServiceConfig {
     Joplin(skillet_joplin::Config),
     Jellyfin(skillet_jellyfin::Config),
     Plex(skillet_plex::Config),
+    Gokapi(skillet_gokapi::Config),
     Airtrail(skillet_airtrail::Config),
     Media {
         app: skillet_media::App,
@@ -110,9 +118,9 @@ impl HostService {
                 ServiceConfig::Joplin(_) | ServiceConfig::Airtrail(_) => {
                     skillet_homer::APPLICATIONS
                 }
-                ServiceConfig::Syncthing { .. } | ServiceConfig::Mikochi { .. } => {
-                    skillet_homer::FILES
-                }
+                ServiceConfig::Gokapi(_)
+                | ServiceConfig::Syncthing { .. }
+                | ServiceConfig::Mikochi { .. } => skillet_homer::FILES,
                 _ => skillet_homer::HOME_INFRA,
             })
     }
@@ -130,6 +138,7 @@ impl HostService {
             ServiceConfig::Joplin(_) => "joplin",
             ServiceConfig::Jellyfin(_) => "jellyfin",
             ServiceConfig::Plex(_) => "plex",
+            ServiceConfig::Gokapi(_) => "gokapi",
             ServiceConfig::Airtrail(_) => "airtrail",
             ServiceConfig::Media { app, .. } => app.name(),
             ServiceConfig::Nut(_) => "nut",
@@ -167,6 +176,10 @@ impl HostService {
             ServiceConfig::Syncthing { .. } => vec![CredentialConsumer {
                 credential: skillet_syncthing::initial::CREDENTIAL,
                 unit: skillet_syncthing::initial::UNIT,
+            }],
+            ServiceConfig::Gokapi(_) => vec![CredentialConsumer {
+                credential: skillet_gokapi::ADMIN_CREDENTIAL,
+                unit: skillet_gokapi::APPLY_UNIT,
             }],
             ServiceConfig::Joplin(_) => vec![CredentialConsumer {
                 credential: skillet_joplin::DATABASE_PASSWORD_CREDENTIAL,
@@ -275,6 +288,7 @@ pub enum ListenerProtocol {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HealthProbe {
+    Gokapi,
     Plex,
     Jellyfin,
     Media,
@@ -447,6 +461,12 @@ impl HostProfile {
                 port: ui.port,
                 tailnet_identity: ui.tailnet_identity,
                 anonymous_token_refresh: matches!(service.config, ServiceConfig::Mikochi { .. }),
+                sharing: ui
+                    .sharing
+                    .map(|sharing| skillet_caddy::sharing::Declaration {
+                        names: sharing.names.iter().map(|name| (*name).into()).collect(),
+                        policy: sharing.policy,
+                    }),
                 public_names: ui
                     .public_names
                     .iter()
@@ -522,6 +542,9 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
         ServiceConfig::Joplin(config) => joplin_acceptance(config),
         ServiceConfig::Jellyfin(config) => {
             jellyfin_acceptance(config, service.backend_network(profile))
+        }
+        ServiceConfig::Gokapi(config) => {
+            gokapi_acceptance(config, service.backend_network(profile))
         }
         ServiceConfig::Plex(config) => plex_acceptance(config, service.backend_network(profile)),
         ServiceConfig::Airtrail(config) => airtrail_acceptance(config),
@@ -713,6 +736,7 @@ fn caddy_acceptance(profile: &str, has_homer: bool) -> AcceptanceService {
 
 const PIHOLE_UI: UiServiceDeclaration = UiServiceDeclaration {
     dashboard_group: None,
+    sharing: None,
     public_names: &[],
     cache: None,
     name: "pihole",
@@ -725,6 +749,7 @@ const PIHOLE_UI: UiServiceDeclaration = UiServiceDeclaration {
 
 const SYNCTHING_UI: UiServiceDeclaration = UiServiceDeclaration {
     dashboard_group: None,
+    sharing: None,
     public_names: &[],
     cache: None,
     name: "syncthing",
@@ -797,6 +822,7 @@ fn clamps() -> HostProfile {
                 }),
                 ui: Some(UiServiceDeclaration {
                     dashboard_group: None,
+                    sharing: None,
                     public_names: &[],
                     cache: None,
                     name: "homeassistant",
@@ -944,6 +970,7 @@ fn donbot() -> HostProfile {
                 }),
                 ui: Some(UiServiceDeclaration {
                     dashboard_group: None,
+                    sharing: None,
                     public_names: &["notes"],
                     cache: None,
                     name: "joplin",
@@ -968,6 +995,7 @@ fn donbot() -> HostProfile {
                 }),
                 ui: Some(UiServiceDeclaration {
                     dashboard_group: None,
+                    sharing: None,
                     public_names: &[],
                     cache: None,
                     name: "airtrail",
@@ -1017,6 +1045,7 @@ fn donbot_media_services() -> Vec<HostService> {
         }),
         ui: Some(UiServiceDeclaration {
             dashboard_group: None,
+            sharing: None,
             name: "jellyfin",
             upstream: "jellyfin",
             port: skillet_jellyfin::PORT,
@@ -1038,6 +1067,7 @@ fn donbot_media_services() -> Vec<HostService> {
         }),
         ui: Some(UiServiceDeclaration {
             dashboard_group: None,
+            sharing: None,
             name: "plex",
             upstream: "plex",
             port: skillet_plex::PORT,
@@ -1048,10 +1078,35 @@ fn donbot_media_services() -> Vec<HostService> {
             cache: None,
         }),
     });
+    services.push(HostService {
+        config: ServiceConfig::Gokapi(skillet_gokapi::Config {
+            state_path: "/var/lib/data/gokapi",
+            backup_path: "/var/lib/data/syncthing/data/backups/gokapi",
+            backup_subvolume: "/var/lib/data/syncthing",
+            owner: config.data_owner,
+            group: config.data_group,
+        }),
+        ui: Some(UiServiceDeclaration {
+            dashboard_group: None,
+            sharing: Some(SharingDeclaration {
+                names: &["send"],
+                policy: skillet_caddy::sharing::Policy::Gokapi224,
+            }),
+            name: "gokapi",
+            upstream: "gokapi",
+            port: skillet_gokapi::PORT,
+            transport: skillet_caddy::UpstreamTransport::Bridge,
+            public_names: &[],
+            aliases: &[],
+            tailnet_identity: true,
+            cache: None,
+        }),
+    });
     services.extend(skillet_media::App::ALL.into_iter().map(|app| HostService {
         config: ServiceConfig::Media { app, config },
         ui: (app != skillet_media::App::Putioarr).then_some(UiServiceDeclaration {
             dashboard_group: None,
+            sharing: None,
             public_names: &[],
             cache: None,
             name: app.name(),
@@ -1133,6 +1188,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
                 },
                 ui: Some(UiServiceDeclaration {
                     dashboard_group: None,
+                    sharing: None,
                     public_names: &[],
                     cache: None,
                     name: "files",
@@ -1150,6 +1206,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
         config: ServiceConfig::Homer,
         ui: Some(UiServiceDeclaration {
             dashboard_group: None,
+            sharing: None,
             public_names: &[],
             cache: None,
             name: "homer",
@@ -1288,5 +1345,23 @@ fn plex_acceptance(config: skillet_plex::Config, network: String) -> AcceptanceS
             protocol: ListenerProtocol::Tcp,
         }],
         health_probe: Some(HealthProbe::Plex),
+    }
+}
+
+fn gokapi_acceptance(config: skillet_gokapi::Config, network: String) -> AcceptanceService {
+    AcceptanceService {
+        unit: "gokapi.service".into(),
+        container: Some("gokapi".into()),
+        network_mode: Some(network),
+        bind_paths: vec![
+            format!("{}/config", config.state_path),
+            format!("{}/data", config.state_path),
+        ],
+        owner: Some(AcceptanceOwner::Named {
+            user: config.owner.into(),
+            group: config.group.into(),
+        }),
+        listeners: vec![],
+        health_probe: Some(HealthProbe::Gokapi),
     }
 }

@@ -128,6 +128,13 @@ pub(super) fn deliver_with_vault(
             }
         }
         "joplin" => deliver_joplin_from_vault(args, vault, transport, activation)?,
+        "gokapi" => skillet_workstation::gokapi_provisioning::deliver(
+            &args.hostname,
+            args.environment.policy(),
+            &skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref()),
+            transport,
+            activation,
+        )?,
         "airtrail" => deliver_airtrail_from_vault(args, vault, transport, activation)?,
         "media" => deliver_media_from_vault(args, vault, transport, activation)?,
         "caddy" => deliver_caddy_from_vault(args, vault, transport, activation)?,
@@ -237,7 +244,7 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
     }
     match service {
         "pihole" | "tailscale" | "ddns" | "datadog" | "smtp" | "network" | "syncthing"
-        | "homeassistant" | "joplin" | "airtrail" | "media"
+        | "homeassistant" | "joplin" | "airtrail" | "media" | "gokapi"
             if !profile.supports_service(service) =>
         {
             Err(anyhow!(
@@ -248,7 +255,7 @@ fn validate_delivery_service(hostname: &str, service: &str) -> Result<skillet_ho
             Err(anyhow!("host {hostname} declares no UI services"))
         }
         "pihole" | "tailscale" | "caddy" | "ddns" | "datadog" | "smtp" | "network"
-        | "syncthing" | "homeassistant" | "joplin" | "airtrail" | "media" => Ok(profile),
+        | "syncthing" | "homeassistant" | "joplin" | "airtrail" | "media" | "gokapi" => Ok(profile),
         unsupported => Err(anyhow!("unsupported secret service {unsupported}")),
     }
 }
@@ -574,6 +581,7 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     }
     if args.with_ui {
         let sites = provision_vm_ui(args, &run_dir, &transport, &mut vault, &record)?;
+        provision_vm_gokapi(args, &profile, policy, &transport, &mut vault)?;
         if profile.supports_service("plex") {
             skillet_workstation::host_apply::activate(&transport, "skillet-plex-apply.service")?;
         }
@@ -1028,5 +1036,25 @@ fn verify_public_applications(
     let interval = std::time::Duration::from_secs(2);
     skillet_workstation::ui_provisioning::verify_public_joplin(guest, sites, timeout, interval)?;
     skillet_workstation::ui_provisioning::verify_public_jellyfin(guest, sites, timeout, interval)?;
+    Ok(())
+}
+
+fn provision_vm_gokapi(
+    args: &VmProvisionArgs,
+    profile: &skillet_hosts::HostProfile,
+    policy: ProvisioningPolicy,
+    transport: &impl GuestTransport,
+    vault: &mut Vault,
+) -> Result<()> {
+    if profile.supports_service("gokapi") {
+        skillet_workstation::gokapi_provisioning::deliver(
+            &args.hostname,
+            policy,
+            &skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref()),
+            transport,
+            skillet_vm::credential::ActivationPolicy::DeferConsumer,
+        )?;
+        skillet_workstation::host_apply::activate(transport, "skillet-gokapi-apply.service")?;
+    }
     Ok(())
 }

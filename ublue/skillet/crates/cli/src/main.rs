@@ -26,6 +26,11 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Commands {
+    /// Initialize or back up the guest Gokapi installation
+    Gokapi {
+        #[command(subcommand)]
+        command: skillet_cli_common::gokapi_runtime::Commands,
+    },
     /// Manage the guest Home Assistant installation and native backup export
     Homeassistant {
         #[command(subcommand)]
@@ -154,7 +159,7 @@ struct SecretDeliverArgs {
     #[arg(long)]
     public_target: Vec<String>,
     hostname: String,
-    #[arg(value_parser = ["pihole", "pihole-dns", "tailscale", "caddy", "ddns", "datadog", "smtp", "network", "syncthing", "homeassistant", "joplin", "airtrail", "media"])]
+    #[arg(value_parser = ["pihole", "pihole-dns", "tailscale", "caddy", "ddns", "datadog", "smtp", "network", "syncthing", "homeassistant", "joplin", "airtrail", "media", "gokapi"])]
     service: String,
     #[arg(long)]
     database: Option<PathBuf>,
@@ -388,6 +393,7 @@ fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     match args.command {
+        Commands::Gokapi { command } => skillet_cli_common::gokapi_runtime::dispatch(command)?,
         Commands::Homeassistant { command } => {
             skillet_cli_common::homeassistant_runtime::dispatch(&command)?;
         }
@@ -1065,6 +1071,7 @@ fn check_health(
 ) -> Result<Option<String>> {
     use skillet_hosts::HealthProbe;
     match probe {
+        Some(HealthProbe::Gokapi) => check_gokapi_health(transport),
         Some(HealthProbe::Plex) => {
             smoke_guest_command(
                 transport,
@@ -1508,6 +1515,7 @@ fn run_twice_and_check(name: &str, phase: ApplyPhase, inspect: bool) -> Result<(
         ApplyPhase::Airtrail => "airtrail",
         ApplyPhase::Media => "media",
         ApplyPhase::Plex => "plex",
+        ApplyPhase::Gokapi => "gokapi",
     };
     for round in ["first", "second"] {
         let status = Command::new("podman")
@@ -1687,3 +1695,25 @@ mod vm_ssh_tests;
 
 #[cfg(test)]
 mod root_recovery_tests;
+
+fn check_gokapi_health(
+    transport: &impl skillet_vm::transport::GuestTransport,
+) -> Result<Option<String>> {
+    smoke_guest_command(
+        transport,
+        "sudo",
+        &[
+            "-n",
+            "podman",
+            "exec",
+            "gokapi",
+            "curl",
+            "--fail",
+            "--silent",
+            "--max-time",
+            "15",
+            "http://127.0.0.1:53842/error",
+        ],
+    )?;
+    Ok(Some("health:gokapi:running".into()))
+}

@@ -11,6 +11,7 @@ pub(super) fn public_service() -> UiService {
         cache: None,
         tailnet_identity: false,
         anonymous_token_refresh: false,
+        sharing: None,
     }
 }
 
@@ -213,7 +214,7 @@ impl NativeBackend {
                     request.as_reader().read_to_end(&mut body).unwrap();
                     (
                         200,
-                        serde_json::json!({"method": request.method().as_str(), "uri": request.url(), "body": body, "identities": identity, "host": request.headers().iter().find(|header| header.field.equiv("Host")).map(|header| header.value.as_str())}).to_string(),
+                        serde_json::json!({"method": request.method().as_str(), "uri": request.url(), "body": body, "identities": identity, "cookie": request.headers().iter().any(|h|h.field.equiv("Cookie")), "authorization":request.headers().iter().any(|h|h.field.equiv("Authorization")), "host": request.headers().iter().find(|header| header.field.equiv("Host")).map(|header| header.value.as_str())}).to_string(),
                     )
                 } else {
                     (401, r#"{"error":"native authentication required"}"#.into())
@@ -308,6 +309,7 @@ fn real_caddy_public_native_auth_and_private_denial_share_the_same_listener() {
         response.text().unwrap(),
         "Access denied by Skillet tailnet policy"
     );
+    verify_sharing(&client, &base);
     let response = client
         .get(&base)
         .header("Host", "unknown.example.invalid")
@@ -325,6 +327,10 @@ fn start_public_caddy(root: &std::path::Path) -> (FixtureContainer, std::net::So
     private.name = "files".into();
     private.public_names.clear();
     private.tailnet_identity = true;
+    private.sharing = Some(crate::sharing::Declaration {
+        names: vec!["send".into()],
+        policy: crate::sharing::Policy::Gokapi224,
+    });
     let rendered = sites(&[public_service(), private]).render();
     // Only this loopback fixture replaces TLS/ACME with HTTP. Retain the actual
     // rendered access policy, proxy and identity-header handling unchanged.
@@ -336,6 +342,10 @@ fn start_public_caddy(root: &std::path::Path) -> (FixtureContainer, std::net::So
                 "http://files.server.custom.ui.example.invalid:8080 {",
             )
             .replace("    tls {\n        resolvers 1.1.1.1 1.0.0.1\n    }\n", "")
+            .replace(
+                "send.example.invalid {",
+                "http://send.example.invalid:8080 {",
+            )
             .replace(
                 "reverse_proxy joplin-server:22300",
                 "reverse_proxy unix//fixture/backend.sock",
@@ -384,4 +394,65 @@ fn start_public_caddy(root: &std::path::Path) -> (FixtureContainer, std::net::So
         .unwrap();
     assert!(address.ip().is_loopback());
     (container, address)
+}
+
+fn verify_sharing(client: &reqwest::blocking::Client, base: &str) {
+    for (method, path, expected) in [
+        (reqwest::Method::GET, "/d?id=fixture", 200),
+        (
+            reqwest::Method::GET,
+            "/publicUpload?id=fixture&key=guest",
+            200,
+        ),
+        (reqwest::Method::POST, "/api/uploadrequest/chunk/add", 200),
+        (reqwest::Method::GET, "/admin", 403),
+        (reqwest::Method::GET, "/downloadPresigned", 403),
+        (reqwest::Method::GET, "/api/files/list", 403),
+        (reqwest::Method::POST, "/setup/setupResult", 403),
+        (reqwest::Method::DELETE, "/downloadFile?id=fixture", 403),
+        (reqwest::Method::GET, "/api/uploadrequest/chunk/add", 403),
+        (reqwest::Method::GET, "/dangerous", 403),
+    ] {
+        let response = client
+            .request(method, format!("{base}{path}"))
+            .header("Host", "send.example.invalid")
+            .header("Cookie", "pfixture=download-password-token")
+            .header("Authorization", "Bearer forged")
+            .header("X-API-AUTH", "fixture-native-session")
+            .header("X-Skillet-User", "forged@example.invalid")
+            .send()
+            .unwrap();
+        assert_eq!(response.status().as_u16(), expected, "{path}");
+        if expected == 200 {
+            let body = response.json::<serde_json::Value>().unwrap();
+            assert_eq!(body["identities"], 0);
+            assert_eq!(body["cookie"], true);
+            assert_eq!(body["authorization"], false);
+        }
+    }
+    for path in [
+        "/%61dmin",
+        "/d/%2e%2e/admin",
+        "/assets/%2f..%2fadmin",
+        "//admin",
+    ] {
+        let output = std::process::Command::new("curl")
+            .args([
+                "--silent",
+                "--path-as-is",
+                "--max-time",
+                "10",
+                "--output",
+                "/dev/null",
+                "--write-out",
+                "%{http_code}",
+                "--header",
+                "Host: send.example.invalid",
+                &format!("{base}{path}"),
+            ])
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        assert_eq!(String::from_utf8_lossy(&output.stdout), "403", "{path}");
+    }
 }

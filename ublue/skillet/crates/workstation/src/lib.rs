@@ -30,3 +30,5 @@ pub mod airtrail_provisioning;
 pub mod homeassistant_provisioning;
 pub mod joplin_provisioning;
 pub mod media_provisioning;
+
+pub mod gokapi_provisioning;

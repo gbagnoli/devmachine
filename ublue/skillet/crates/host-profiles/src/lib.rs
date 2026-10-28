@@ -15,7 +15,7 @@ pub mod tailscale;
 pub use profile::{
     declared_profiles, profile_for_host, profile_for_name, AcceptanceListener, AcceptanceOwner,
     AcceptanceService, CredentialConsumer, HealthProbe, HostAcceptancePlan, HostId, HostProfile,
-    HostService, ListenerProtocol, ServiceConfig, UiServiceDeclaration,
+    HostService, ListenerProtocol, ServiceConfig, SharingDeclaration, UiServiceDeclaration,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -32,6 +32,7 @@ pub enum HostApplyPhase {
     Airtrail,
     Media,
     Plex,
+    Gokapi,
 }
 
 pub fn credentials_for_phase(
@@ -64,6 +65,7 @@ fn credential_names_for_phase(profile: &HostProfile, phase: HostApplyPhase) -> V
                     | "skillet-joplin-apply.service"
                     | "skillet-airtrail-apply.service"
                     | skillet_media::APPLY_UNIT
+                    | skillet_gokapi::APPLY_UNIT
             ),
             HostApplyPhase::Caddy => consumer.unit == "caddy.service",
             HostApplyPhase::Ddns => consumer.unit == "cloudflare-ddns.service",
@@ -82,6 +84,10 @@ fn credential_names_for_phase(profile: &HostProfile, phase: HostApplyPhase) -> V
             }
             HostApplyPhase::Media => {
                 consumer.credential == skillet_media::CREDENTIAL
+                    || consumer.credential == CADDY_SITES_CREDENTIAL
+            }
+            HostApplyPhase::Gokapi => {
+                consumer.credential == skillet_gokapi::ADMIN_CREDENTIAL
                     || consumer.credential == CADDY_SITES_CREDENTIAL
             }
             HostApplyPhase::Plex => consumer.credential == CADDY_SITES_CREDENTIAL,
@@ -141,6 +147,8 @@ pub enum ApplyError {
     Jellyfin(#[from] skillet_jellyfin::Error),
     #[error(transparent)]
     Plex(#[from] skillet_plex::Error),
+    #[error(transparent)]
+    Gokapi(#[from] skillet_gokapi::Error),
     #[error(transparent)]
     Joplin(#[from] skillet_joplin::JoplinError),
     #[error(transparent)]
@@ -425,7 +433,8 @@ fn apply_profile(
             | ServiceConfig::Joplin(_)
             | ServiceConfig::Airtrail(_)
             | ServiceConfig::Media { .. }
-            | ServiceConfig::Plex(_) => {}
+            | ServiceConfig::Plex(_)
+            | ServiceConfig::Gokapi(_) => {}
             ServiceConfig::Pihole => {
                 apply_pihole(system, files, profile, service, credentials)?;
             }
@@ -557,6 +566,7 @@ pub fn apply_host_phase(
         HostApplyPhase::Joplin => apply_joplin_host(hostname, system, files, credentials),
         HostApplyPhase::Airtrail => apply_airtrail_host(hostname, system, files, credentials),
         HostApplyPhase::Media => apply_media_host(hostname, system, files, credentials),
+        HostApplyPhase::Gokapi => apply_gokapi_host(hostname, system, files, credentials),
         HostApplyPhase::Plex => apply_plex_host(hostname, system, files, credentials),
     }
 }
@@ -840,7 +850,7 @@ fn apply_caddy_host(
         let links = sites
             .services
             .iter()
-            .filter(|site| site.name != "homer")
+            .filter(|site| site.name != "homer" && site.public_routes.is_none())
             .map(|site| skillet_homer::Link {
                 group: profile.dashboard_group(&site.name),
                 name: site.name.clone(),
@@ -848,6 +858,7 @@ fn apply_caddy_host(
                 path: match site.name.as_str() {
                     "pihole" => Some("/admin/"),
                     "plex" => Some("/web/"),
+                    "gokapi" => Some("/admin"),
                     _ => None,
                 },
                 // Homer fetches this relative endpoint from the current page origin.
@@ -859,6 +870,7 @@ fn apply_caddy_host(
                     "joplin" => Some("fas fa-book-open"),
                     "jellyfin" => Some("fas fa-play-circle"),
                     "plex" => Some("fas fa-play"),
+                    "gokapi" => Some("fas fa-paper-plane"),
                     "airtrail" => Some("fas fa-plane"),
                     "prowlarr" => Some("fas fa-search"),
                     "sonarr" => Some("fas fa-tv"),
@@ -1008,4 +1020,61 @@ fn project_ui_readiness(
     }
 
     Ok(())
+}
+
+fn apply_gokapi_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.into()))?;
+    let config = profile
+        .services
+        .iter()
+        .find_map(|service| match service.config {
+            ServiceConfig::Gokapi(config) => Some(config),
+            _ => None,
+        })
+        .ok_or_else(|| ApplyError::FixtureInput("host does not declare Gokapi".into()))?;
+    let sites = skillet_caddy::CaddySites::parse(
+        credentials.require(CADDY_SITES_CREDENTIAL)?,
+        hostname,
+        &profile.ui_services(),
+    )?;
+    let settings = gokapi_settings(
+        &sites,
+        credentials.require(skillet_gokapi::ADMIN_CREDENTIAL)?,
+    )?;
+    let network = skillet_caddy::private_network(hostname, "gokapi");
+    skillet_gokapi::apply(system, files, config, &network.unit_name, &settings)?;
+    Ok(())
+}
+
+pub fn gokapi_settings(
+    sites: &skillet_caddy::CaddySites,
+    admin: &str,
+) -> Result<skillet_gokapi::Settings, ApplyError> {
+    let public = sites
+        .services
+        .iter()
+        .find(|site| {
+            site.name == "gokapi-sharing"
+                && site.public_routes == Some(skillet_caddy::sharing::Policy::Gokapi224)
+        })
+        .ok_or_else(|| {
+            ApplyError::FixtureInput(
+                "Gokapi sharing declaration absent; redeliver Caddy configuration".into(),
+            )
+        })?;
+    let settings = skillet_gokapi::Settings {
+        public_url: format!("https://{}/", public.hostname),
+        admin: admin.trim().into(),
+        users: sites.tailnet_users.clone(),
+    };
+    settings.validate()?;
+    let mut settings = settings;
+    settings.users.sort();
+    Ok(settings)
 }
