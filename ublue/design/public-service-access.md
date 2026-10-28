@@ -38,8 +38,9 @@ Configure the canonical HTTPS `APP_BASE_URL` consistently with the public DNS
 destination and proxy hostname. Prove client authentication and bidirectional
 note/attachment sync from outside the tailnet, including background sync and
 reconnect. Generic public ingress and Joplin's caller are implemented; retained
-private payloads remain private until public redelivery. Live public DNS/ACME
-and internet acceptance still need an explicit routable destination. See the
+private payloads remain private until public redelivery. Internet acceptance
+needs an explicit routable destination and edge routing;
+staging DNS-01 and VM-local probes do not establish client reachability. See the
 [official server guide](https://github.com/laurent22/joplin/blob/dev/packages/server/README.md)
 for native sync accounts and reverse-proxy setup.
 
@@ -74,7 +75,12 @@ access policies. Keep private as the default and deny unspecified mixed routes.
 Public and tailnet machine records must have independent address destinations;
 UI aliases inherit their service's policy. Reuse Cloudflare DNS-01 with scoped
 credentials; public endpoints use DNS-only public addresses and do not depend on
-Tailscale. Domain/address values stay in private configuration.
+Tailscale. Domain/address values stay in private configuration. Test provisioning
+may use
+an explicit private LAN/ULA destination for the same native-auth HTTPS routes;
+this does not establish internet reachability. Production IP destinations remain
+public-only. Test addresses must not be inferred from passt's mirrored host IP,
+and no test route may reuse the private UI's Tailscale DNS target.
 
 Use Caddy for public TLS and bridge proxying with native application authentication.
 Decision, 2026-10-11: use Caddy caching for Jellyfin, via a pinned
@@ -86,7 +92,15 @@ unverified. The initial Simplefs cache uses a hard-capped 128 MiB tmpfs and a
 persistent: cache recreation cannot grow a disk indefinitely or touch certificates.
 Request credentials/queries/ranges and upstream cookies/private/no-store/non-200
 responses are excluded. Native users, libraries and known-proxy settings remain
-Jellyfin-managed; media mounts use Arr's data identity and read-only final paths. Cache hits must preserve authorization/revocation, and cache data
+Jellyfin-managed; media mounts use Arr's data identity and read-only final paths.
+Plex uses the same library roots, its own persistent identity/configuration and a
+separate transcode directory. Its official init sets the worker's data UID/GID;
+claiming uses SSH-forwarded loopback 32400. No discovery ports or proxy-subnet
+authentication exemption are enabled. Until its native claim marker exists,
+Caddy serves 503 without proxying; reapply Caddy after claiming. The marker is
+observed on the host and cannot be enabled by delivered UI credentials. Plex
+advertises the explicit HTTPS port 443. Cache hits must preserve
+authorization/revocation, and cache data
 stays outside synchronized/snapshotted folders. The
 [cache plan](../plan/JELLYFIN-CADDY-CACHE.md) owns implementation gates. See
 [Jellyfin's proxy requirements](https://jellyfin.org/docs/general/post-install/networking/reverse-proxy/)
@@ -101,7 +115,8 @@ persistent app state outside synchronized user files and serve declared folders.
 
 Current code supports explicit public and private sites, with private defaults
 and caller-bound version 6 public payloads. Matching retained older payloads keep
-their private canonical name and identity gate until redelivery. Public Joplin
+their private canonical name and identity gate until redelivery. Cache-enabled callers
+use version 7; this does not change their declared exposure. Public Joplin
 retains native authentication and its unpublished bridge backend. Mixed
 path/method policy is still unimplemented. Sources and execution
 gates: [inventory](../plan/DONBOT-INVENTORY.md),

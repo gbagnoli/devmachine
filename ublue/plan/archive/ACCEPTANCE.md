@@ -3773,3 +3773,50 @@ acceptance; no production host or private DNS values were committed.
 - Workspace tests, pedantic Clippy, formatting and the Fedora/Joey base
   repeat-apply check passed. Regression checks cover populated groups only,
   ordering, custom host overrides and preservation of retained card fields.
+
+
+## 2026-10-28 — Public media HTTPS and Plex setup boundary
+
+- Added the reusable Plex module and Donbot declaration: official rootful image,
+  worker using the caller's data UID/GID, shared read-only Arr TV/movie/music
+  libraries, persistent native configuration, separate transcode storage and
+  loopback-only setup port. No discovery/GPU access or no-auth subnet exemption.
+  Caddy advertises the fixed public name and denies proxying with 503 until the
+  host's native Plex claim marker exists; operator claiming and direct-client
+  playback remain open. The claim token never enters delivered Caddy credentials.
+- Provisioning on owned `donbot-test-joplin` completed with explicit test-only
+  destination `172.27.27.1`. Real Cloudflare DNS-01 staging issuance and HTTPS
+  native-auth probes passed for Joplin and both Jellyfin names, including native
+  unauthorized responses and spoofed identity headers. A separate guest curl
+  using normal DNS returned Jellyfin's public info with HTTP 200. Plex HTTPS
+  returned the intended setup-pending 503. Test certificate trust was bypassed;
+  trusted-client and internet acceptance are not established.
+- This passt guest has no independent LAN address: its interface mirrors the
+  workstation's external address. Tests used its internal Podman bridge gateway
+  from inside the VM, never the workstation's production IP or a Tailnet target.
+  Test policy now permits explicit LAN/ULA targets; production still rejects
+  private IPs. External LAN reachability requires separate VM routing/forwarding.
+- The first live Joplin probe exposed a missing ingress attachment after its
+  public-policy change. The app now joins both its database network and the
+  selected ingress network; PostgreSQL remains solely on its private network.
+  Retrying the complete provisioning flow passed without replacing restored data.
+- The reusable Plex guest assertion passed under the actual non-root worker:
+  protected fixtures in all three libraries were readable and writes failed.
+  Loopback identity health passed. The unclaimed native library API returned 200;
+  this is why the public route remains gated until private claiming completes.
+- Workspace all-target tests, strict Clippy, formatting, ShellCheck and the
+  Fedora/Joey base repeat-apply check passed. All three real Caddy runtime suites
+  passed (cache, public/native-auth with private denial, identity-gated refresh).
+  Cache hit fixtures now use a longer freshness interval while dedicated expiry
+  cases retain their short TTL, avoiding a CPU-load timing failure. A final
+  workspace test rerun passed after removing only generated incremental caches
+  when its linker exhausted the root filesystem.
+- Full named-VM application smoke passed its synthetic fixture across reboot
+  and all 19 selected application assertions, including Jellyfin and Plex.
+  Repeat apply preserved declared runtime/configuration/ownership/listeners and
+  the scoped data marker. Final user-environment readiness passed and the full
+  smoke command exited successfully. Normal-DNS guest probes after reboot returned
+  200 for both Jellyfin aliases and 503 for the unclaimed Plex public route.
+- Provider mutations were limited to the owned test deployment. Production DNS,
+  application state and services were not changed. Native account/client setup,
+  external playback, media backup/restore and protected-media caching remain open.

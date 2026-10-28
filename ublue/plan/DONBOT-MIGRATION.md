@@ -461,9 +461,19 @@ copy-versus-hardlink behavior is documented.
 Jellyfin module/caller, Homer link, read-only shared Arr library mounts, public
 `video`/`media` DNS declarations and typed anonymous static caching are implemented
 (2026-10-28). Publish the controlled Caddy service image before cache-enabled
-provisioning. Public DNS/ACME activation still requires the explicit public target.
+provisioning. DNS/ACME activation requires an explicit destination. Test provisioning accepts
+LAN/ULA addresses for VM-local or routed LAN checks; production IPs remain public.
+The passt VM has no independent LAN address; mirrored host addresses must not be
+published as if they belonged exclusively to the VM.
 Native accounts/library selection, known-proxy configuration, real external
-playback, backup/restore and GPU acceptance remain open; Plex is not implemented.
+playback, backup/restore and GPU acceptance remain open. Plex now has a reusable
+crate/caller, an encrypted Caddy-config apply phase, loopback-only setup ports,
+shared read-only libraries, a public `plex` name and a Homer Media card.
+Plex account claiming and secure direct-client playback remain operator gates.
+Caddy returns 503 until the native claim marker exists; claim over the private
+SSH tunnel and reapply Caddy. Staging DNS-01 and VM-local HTTPS/native-auth
+checks passed for Joplin and both Jellyfin names. External LAN/internet access
+and trusted-client playback remain unverified.
 Protected artwork and video caching remain gated by the cache plan.
 
 Use `video.<zone>` and `media.<zone>` for Jellyfin and `plex.<zone>` for Plex,
@@ -564,8 +574,8 @@ The second synchronization/browser tenant stays deferred; preserve its source
 state without importing it or selecting its snapshots. No multi-instance API
 extension is required by this slice.
 
-**Core service and public-ingress implementation complete; live public delivery
-and Joplin client acceptance remain open.** The operator confirmed both current private service UIs work.
+**Core service and public-ingress implementation complete; staging DNS-01 and
+VM-local HTTPS passed. External reachability and Joplin client acceptance remain open.** The operator confirmed both current private service UIs work.
 Joplin mobile/desktop authentication, bidirectional note/attachment sync and
 reconnect must work over trusted public HTTPS without Tailscale; unauthorized
 sync requests must be denied by Joplin. Verify AirTrail account and
@@ -606,12 +616,13 @@ designed.
 harmless transfer/import with callbacks and authorized private browser checks.
 The code, generated-key flow, real connection tests and application repeat/reboot
 persistence have passed. Test credentials are present. The next implementation
-milestone is live public DNS/ACME delivery with an explicit public destination
-and edge routing for Joplin, followed by external client sync. Generic public
+milestone is external client sync and playback with a reachable ingress
+destination and edge routing. Staging DNS/ACME and VM-local public-route checks
+have passed for Joplin and Jellyfin; Plex is installed behind a claim/setup gate. Generic public
 ingress, fixed names, migration and CI coverage are implemented. Separately complete AirTrail
 account/API acceptance in the running named VM. Their database restore and
-AirTrail paired upload restore have passed. Public ingress remains required
-before implementing or importing any public media-sharing service state.
+AirTrail paired upload restore have passed. Public internet acceptance remains required
+before claiming production readiness for the media services.
 
 ## Existing shared file browsing
 
