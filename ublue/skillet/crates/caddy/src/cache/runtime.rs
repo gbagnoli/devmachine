@@ -52,21 +52,8 @@ impl Fixture {
                     b"fixture-static-content".to_vec()
                 };
                 let mut response = tiny_http::Response::from_data(body);
-                let (status, control) = if worker_unavailable.load(Ordering::SeqCst) {
-                    (503, "no-store")
-                } else if request.url().contains("error") {
-                    (404, "public,max-age=60")
-                } else if request.url().contains("partial") {
-                    (206, "public,max-age=60")
-                } else if request.url().starts_with("/Items/") {
-                    (401, "no-store")
-                } else if request.url().contains("private") {
-                    (200, "private,max-age=60")
-                } else if request.url().contains("no-store") {
-                    (200, "no-store")
-                } else {
-                    (200, "public,max-age=1")
-                };
+                let (status, control) =
+                    response_policy(request.url(), worker_unavailable.load(Ordering::SeqCst));
                 response = response
                     .with_status_code(status)
                     .with_header(tiny_http::Header::from_bytes("Cache-Control", control).unwrap());
@@ -225,8 +212,10 @@ fn real_caddy_static_cache_hits_expire_and_never_cache_credentials_or_media() {
         .contains("hit"));
     drop(response.bytes().unwrap());
     assert_eq!(fixture.requests.load(Ordering::SeqCst), before);
+    drop(fixture.get("/web/expiry.js", &[]).bytes().unwrap());
+    let before = fixture.requests.load(Ordering::SeqCst);
     std::thread::sleep(Duration::from_secs(2));
-    drop(fixture.get("/web/fixture.js", &[]).bytes().unwrap());
+    drop(fixture.get("/web/expiry.js", &[]).bytes().unwrap());
     assert!(fixture.requests.load(Ordering::SeqCst) > before);
     verify_bypasses(&fixture);
     verify_hard_storage_limit(&fixture);
@@ -337,4 +326,24 @@ fn fixture_config() -> String {
         );
 
     config
+}
+
+fn response_policy(path: &str, unavailable: bool) -> (u16, &'static str) {
+    if unavailable {
+        (503, "no-store")
+    } else if path.contains("error") {
+        (404, "public,max-age=60")
+    } else if path.contains("partial") {
+        (206, "public,max-age=60")
+    } else if path.starts_with("/Items/") {
+        (401, "no-store")
+    } else if path.contains("private") {
+        (200, "private,max-age=60")
+    } else if path.contains("no-store") {
+        (200, "no-store")
+    } else if path.contains("expiry") || path.contains("stale") {
+        (200, "public,max-age=1")
+    } else {
+        (200, "public,max-age=60")
+    }
 }
