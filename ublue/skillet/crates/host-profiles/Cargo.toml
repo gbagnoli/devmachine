@@ -23,6 +23,7 @@ skillet_caddy.workspace = true
 skillet_homer.workspace = true
 skillet_joplin.workspace = true
 skillet_jellyfin.workspace = true
+skillet_plex.workspace = true
 skillet_airtrail.workspace = true
 skillet_media.workspace = true
 skillet_ddns.workspace = true

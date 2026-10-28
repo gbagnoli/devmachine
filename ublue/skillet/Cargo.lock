@@ -3842,6 +3842,7 @@ dependencies = [
  "skillet_network",
  "skillet_nut",
  "skillet_pihole",
+ "skillet_plex",
  "skillet_podman",
  "skillet_smtp",
  "skillet_syncthing",
@@ -3935,6 +3936,18 @@ dependencies = [
  "toml_edit",
  "tracing",
  "users",
+]
+
+[[package]]
+name = "skillet_plex"
+version = "0.1.0"
+dependencies = [
+ "quick-xml",
+ "skillet_core",
+ "skillet_datadog",
+ "skillet_podman",
+ "thiserror 1.0.69",
+ "url",
 ]
 
 [[package]]
