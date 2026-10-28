@@ -3820,3 +3820,43 @@ acceptance; no production host or private DNS values were committed.
 - Provider mutations were limited to the owned test deployment. Production DNS,
   application state and services were not changed. Native account/client setup,
   external playback, media backup/restore and protected-media caching remain open.
+
+
+## 2026-10-28 — Gokapi composition, mixed ingress and paired archives
+
+- Donbot selects the pinned Gokapi module with its own private proxy network,
+  numeric shared data identity, persistent config/data and no published backend
+  port. Forwarded-IP trust is regenerated from the actual dedicated network,
+  ordered before app startup. Homer links to its private `/admin` route. Explicit environment/host
+  initial-admin configuration must name an allowlisted identity. Native header
+  authentication uses registered accounts only; other declared users receive
+  User rank and guest-upload permission. Existing account roles are preserved.
+- Version 8 Caddy payloads bind a separate public sharing hostname and pinned
+  method/path policy to the private declaration. Public identity/Authorization
+  headers are removed; native download-password cookies and guest keys survive.
+  Real Caddy HTTP fixtures passed sharing-route forwarding, private denial,
+  administrative/prefix/method/encoded-path rejection and spoofed identity
+  stripping. These use a synthetic upstream, not a desktop or live Gokapi UI.
+- The real pinned Gokapi container fixture passed with a non-root worker:
+  native wizard/account bootstrap, retry from bound incomplete staging,
+  duplicate-user preservation, allowed-user access and unknown-user denial.
+  It verified ordinary users cannot mint management tokens. Native SQLite,
+  configuration/salts and fixture file bytes survived actual paired tar archive
+  publication/replacement and consumer restart. No direct SQLite edits were used.
+- Backup scheduling is daily with seven completed tar files. Staging uses a
+  Syncthing-excluded temporary file, with atomic no-overwrite publication.
+  Extraction rejects links, special entries, duplicate/escaping paths and
+  incompatible manifests before live replacement. Restore creates a recovery
+  archive; the actual systemd stop/start/timer orchestration remains a named-VM
+  acceptance gate. Unit fixtures cover pruning, symlinks, scoped credential
+  rejection and interrupted native-directory publication.
+- Workspace all-target tests, pedantic Clippy, formatting and the real
+  Fedora/Joey base repeat-apply check passed. CI includes the native consumer
+  fixture and expanded real Caddy sharing checks, without vault or provider
+  access. The full TLS/DNS-01 consumer validation includes the new sharing sites.
+- At the operator's request, desktop/Tailscale and new Gokapi full named-VM
+  acceptance are deferred. Actual browser upload/download/password/expiry/count
+  and guest-chunk flows, per-user roles/revocation and service reboot/restore
+  remain open. The existing 19-service VM evidence predates this selection and
+  does not prove Gokapi VM acceptance. No VM, vault, DNS/provider or production
+  service was changed during this slice.

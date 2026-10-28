@@ -260,3 +260,13 @@
   or rollback window and a restart. A successful first request does not prove
   durable settings. Use the consumer's own initialization/schema APIs and preserve
   existing application-managed state on repeat provisioning.
+
+- Mixed-exposure applications require explicit, versioned public method/path
+  allowlists derived from the selected consumer. Keep protected requests on the
+  identity-authorized origin, strip public identity headers, and preserve native
+  sharing credentials such as download-password cookies. Cover encoded paths,
+  unsupported methods and sensitive prefix collisions with the actual proxy.
+
+- Publish backup artifacts atomically using staging that the configured
+  synchronizer cannot consume. Hidden names alone do not exclude partial data;
+  verify restoration from completed artifacts with the native consumer.

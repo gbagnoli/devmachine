@@ -122,3 +122,32 @@ path/method policy is still unimplemented. Sources and execution
 gates: [inventory](../plan/DONBOT-INVENTORY.md),
 [migration plan](../plan/DONBOT-MIGRATION.md), and
 [private UI access](private-ui-access.md).
+
+
+## Gokapi sharing boundary
+
+Gokapi uses separate origins: its private caller UI for administration and
+`send.<zone>` for public links. Version 8 credentials bind the additional public
+site and a pinned route policy to the same declared private backend. It gets no
+shared ingress network or host port. Public requests carry no verified user;
+private requests receive the existing WhoIs-authorized identity on every request.
+
+Use native header authentication with registered users only. An explicitly
+selected allowlisted LoginName owns the initial super-admin account; remaining
+allowlisted identities get User rank and guest-upload capability. Native setup
+and account APIs own schema, salts and users; preserve later role changes and
+never import or edit SQLite directly. Revocation in the proxy allowlist remains
+immediate even if the native account survives. Private browser APIs stay on the
+private origin; generated share/guest-upload links use the public ServerUrl.
+
+The public policy permits only reviewed methods and paths for the pinned image.
+Keep native download password cookies and guest request keys, strip identity
+headers, deny encoded paths and unspecified routes, and cache nothing. Version
+or public-surface changes require real consumer and proxy regression checks.
+Backups stop the writer and capture config, SQLite and file data together;
+publish seven retained sets into the existing synchronized backup scope.
+
+Completed Gokapi backup sets are ordinary tar files. Stage them using the
+synchronizer's temporary-file contract rather than a hidden directory, which
+could still replicate unfinished children. Publication requires no user ignore
+changes. See [Syncthing temporary names](https://github.com/syncthing/syncthing/blob/main/lib/fs/tempname.go).

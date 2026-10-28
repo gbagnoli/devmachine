@@ -3,7 +3,10 @@
 Status: **Joplin and AirTrail implementation, named-VM provisioning, and
 database restore acceptance are complete; client/API acceptance remains open**,
 refreshed 2026-10-28. Jellyfin library access and static-cache consumer checks
-passed; public delivery and native client acceptance remain open (slice 5).
+passed; staging DNS-01 and VM-local HTTPS passed, with native client acceptance
+open (slice 5). Gokapi composition, native account bootstrap, mixed ingress and
+paired tar backups are implemented; desktop/Tailscale and full named-VM
+acceptance are deferred until the operator has desktop access (slice 6).
 Linked-media provisioning and declared-application
 repeat/reboot acceptance also passed; transfer/import and operator Arr browser
 checks remain open. Inventory is complete. Donbot
@@ -64,7 +67,7 @@ Architecture constraints and proposals are in
 | Subnet routing | Shared routing preferences tracked in joey's plan; select only needed routes |
 | Prowlarr, Radarr, Sonarr, Lidarr, putioarr | Composition, mounts, credentials, private UIs/Homer, owned links and monitoring declarations implemented. Real connection tests and application reboot/reapply passed; transfer/import and operator browser checks remain. No age-based cleanup is enabled |
 | Jellyfin and Plex | Service configuration/state restore, public HTTPS ingress, client acceptance; Jellyfin Caddy cache per its plan |
-| Gokapi | Mixed ingress, verified identity-to-account mapping, exact public routes and coordinated state restore |
+| Gokapi | Implemented private header-auth admin, separate public sharing, native accounts and paired tar backup/restore. Desktop/Tailscale and full VM acceptance deferred |
 | Joplin / Airtrail (required) | Both callers, reusable PostgreSQL module, credentials, current private UI/Homer registration and scheduled backups are implemented. Database/upload restores passed. Joplin requires public HTTPS and external client sync acceptance; AirTrail remains private with account/API acceptance open |
 | Conditional Pi-hole synchronization | Confirm current use; add explicit optional module only if retained; static DNS inventory is already shared |
 
@@ -74,7 +77,7 @@ passed. The fresh named VM has both services running, with PostgreSQL and
 scheduled backup timers active; the operator confirmed both UIs work. Joplin
 client sync and AirTrail account/API acceptance remain open. Media and Gokapi
 implementations have separate status: the linked media stack is implemented
-with transfer/import and operator browser acceptance pending; Gokapi is not implemented.
+with transfer/import and operator browser acceptance pending; Gokapi is implemented with desktop/Tailscale and full VM acceptance deferred.
 Donbot does not select DDNS. Joplin requires public HTTPS with native authentication;
 its current private route must change through the generic ingress milestone. Arr uses
 verified tailnet-user authentication. Airtrail should use the same tailnet-user
@@ -503,32 +506,42 @@ and outside Syncthing/snapshots. No nginx cache fallback or automatic waiver is
 selected. An unsupported video feature remains an explicit migration gap; do
 not claim slicing parity or enable unsafe caching to close it.
 
-### 6. Port Gokapi's mixed exposure
+### 6. Gokapi mixed exposure — implemented, desktop acceptance parked
 
-Pin a compatible version and restore config plus file/metadata state together.
-Replace OAuth header identity with the shared verified tailnet-user gate.
-Use Gokapi header authentication with the complete verified identity mapped to
-precreated application accounts for the two allowed users; no internal password
-prompt. Decide their application roles explicitly and disable automatic creation
-of arbitrary users. Public sharing routes get no administrative identity. Derive a version-specific public
-path/method allowlist for downloads, guest uploads/chunks and required assets;
-keep admin, account, API-key and management routes private. Do not translate the
-broad legacy `^/d.*` exemption directly. Strip untrusted identity headers.
+Donbot declares the pinned Gokapi module. Its private admin UI uses verified
+Tailscale identity and native header-auth accounts, with no second password.
+`send.<zone>` is a separate public sharing origin on the existing DNS/token
+lifecycle. Version 8 Caddy credentials bind the reviewed public method/path
+allowlist; unknown/encoded paths and administrative APIs remain denied.
+Native download-password cookies and guest-upload keys are preserved; no caching.
+The backend stays on one private Caddy network with no host listener.
 
-Preserve the public sharing URL and existing links where required. Decide one
-mixed hostname versus separate administration hostname based on supported base
-URLs/cookies/origin behavior. Prefer a tailnet-addressed admin hostname and
-public-addressed sharing hostname; verify that generated links and frontend API
-calls use the correct entry point. Being connected to Tailscale does not identify
-a browser request sent over the public IP. Carry file/chunk size and timeout requirements;
-`GOKAPI_USE_CLOUDFLARE` follows actual proxy topology, not DNS provider choice.
+Initial super-admin selection is explicit in
+`skillet/environments/<prod|test>/hosts/donbot/gokapi/admin-user` (Password = one
+lower-case allowed LoginName). Other allowlisted users get User rank with guest
+upload capability; preserve existing roles, accounts, settings and native keys.
+Native setup/account APIs own the database. Durable isolated staging recovers
+interrupted first setup without rewriting existing live configuration.
 
-**Exit:** without Tailscale, an existing/restored share downloads and a guest
-upload completes; expiration/limits remain effective. Admin routes and APIs deny
-external clients even with forged headers, encoded paths or alternate methods.
-Tailnet admin authentication works. Backup/restore retains metadata/files and
-repeat apply preserves application-managed configuration. Do not cache share
-responses unless expiry and counters are proven unaffected.
+Daily stopped-service tar backups include configuration, SQLite and file data;
+retain seven completed sets in the caller's Syncthing backup scope. Temporary
+files are excluded from synchronization until atomic publication. Restore saves
+a recovery archive and validates/extracts the selected set before replacing live
+state. No application data goes into KeePassXC. See
+[Gokapi operation](../skillet/crates/gokapi/README.md).
+
+**Next acceptance (deferred at operator request):** add the selected test admin
+entry, update/reprovision the named Donbot VM with fresh Caddy credentials, and
+use a desktop on the tailnet. Verify private admin/assets/API calls work without
+an app password, correct native account/roles, revocation/unknown/tagged-user
+denial and backend isolation. Exercise public share downloads, password cookies,
+expiration/download limits and guest upload chunks without Tailscale. Verify
+management remains denied with forged headers, unsupported methods and encoded
+paths. Finish real systemd backup/restore, repeat-apply and reboot acceptance.
+Provider-free native-consumer and real-proxy fixtures run in CI; they do not
+close these manual/full-VM gates. Existing restored VM data remains untouched.
+The passt VM still needs explicit LAN routing/forwarding for desktop public-route
+checks; never substitute its mirrored workstation address or a Tailnet target.
 
 ### 7. Port required Joplin, Airtrail and PostgreSQL
 
@@ -609,8 +622,9 @@ Do not install workstation tools. Record honest evidence in
 [ACCEPTANCE.md](archive/ACCEPTANCE.md), update designs and this plan, and maintain
 the shared secret-requirement catalog/root checklist when exact entries are added.
 The shared identity allowlist is implemented at `skillet/tailscale/ui-users`.
-Gokapi's new-install application-account mapping and service inputs remain to be
-designed.
+Gokapi uses explicit initial ownership and registered native accounts; its
+desktop/Tailscale, public-flow and full VM acceptance are parked until desktop
+access is available.
 
 **Current milestone:** finish named-VM linked Arr acceptance (slice 4), including
 harmless transfer/import with callbacks and authorized private browser checks.
@@ -631,7 +645,8 @@ Syncthing callers (clamps and joey), including encrypted allowlist delivery,
 canonical DNS/Caddy declarations, ownership, private backend and CI regressions.
 Donbot's profile includes this shared composition; its file-browsing acceptance
 is still separate from the operator's confirmed Clamps browser checks.
-Gokapi identity/account mapping and Headscale acceptance remain pending. See
+Gokapi account mapping is implemented; desktop/Tailscale and Headscale acceptance
+remain pending. See
 [Butane acceptance](archive/ACCEPTANCE.md) for live checks and limitations.
 
 

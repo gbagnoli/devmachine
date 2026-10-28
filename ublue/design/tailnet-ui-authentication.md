@@ -92,3 +92,9 @@ Current route selection is in the caller; operating setup is in
 [Caddy](../skillet/crates/caddy/README.md#identity-protected-uis). Browser/identity
 acceptance belongs to [the UI plan](../plan/GENERIC-PRIVATE-UIS.md); Gokapi
 integration belongs to [donbot migration](../plan/DONBOT-MIGRATION.md).
+
+
+Gokapi implementation uses registered native header-auth accounts, a private
+administration origin and a separate public sharing origin. Account ownership is
+explicit; temporary native API tokens remain in memory. See the
+[sharing boundary](public-service-access.md#gokapi-sharing-boundary).
