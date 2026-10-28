@@ -11,6 +11,31 @@ use skillet_core::{
 use skillet_podman::SecretTarget;
 
 #[test]
+fn dashboard_groups_follow_selected_service_types_and_allow_host_overrides() {
+    let donbot = super::profile_for_name("donbot").unwrap();
+    for name in ["jellyfin", "sonarr", "radarr", "lidarr", "prowlarr"] {
+        assert_eq!(donbot.dashboard_group(name), skillet_homer::MEDIA);
+    }
+    for name in ["joplin", "airtrail"] {
+        assert_eq!(donbot.dashboard_group(name), skillet_homer::APPLICATIONS);
+    }
+    assert_eq!(donbot.dashboard_group("syncthing"), skillet_homer::FILES);
+    assert_eq!(donbot.dashboard_group("files"), skillet_homer::FILES);
+    let mut clamps = super::profile_for_name("clamps").unwrap();
+    for name in ["homeassistant", "pihole"] {
+        assert_eq!(clamps.dashboard_group(name), "Home & Infra");
+    }
+    let service = clamps
+        .services
+        .iter_mut()
+        .find(|service| service.ui.is_some_and(|ui| ui.name == "homeassistant"))
+        .unwrap();
+    service.ui.as_mut().unwrap().dashboard_group = Some("Family");
+    assert_eq!(clamps.dashboard_group("homeassistant"), "Family");
+    assert_eq!(clamps.dashboard_group("pihole"), "Home & Infra");
+}
+
+#[test]
 fn jellyfin_uses_arr_library_sources_and_both_zone_root_public_names() {
     let profile = super::profile_for_name("donbot").unwrap();
     let media = profile.media_config().unwrap();
@@ -742,6 +767,7 @@ fn synthetic_profile_derives_network_and_ui_from_its_identity() {
                 container_gid: 1000,
             },
             ui: Some(UiServiceDeclaration {
+                dashboard_group: None,
                 public_names: &[],
                 cache: None,
                 name: "sync",

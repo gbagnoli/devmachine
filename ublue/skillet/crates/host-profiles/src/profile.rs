@@ -27,6 +27,8 @@ impl HostId {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct UiServiceDeclaration {
+    /// Override the service's shared dashboard group on this host.
+    pub dashboard_group: Option<&'static str>,
     pub name: &'static str,
     pub upstream: &'static str,
     pub transport: skillet_caddy::UpstreamTransport,
@@ -97,6 +99,21 @@ pub struct HostService {
 }
 
 impl HostService {
+    pub fn dashboard_group(&self) -> &'static str {
+        self.ui
+            .and_then(|ui| ui.dashboard_group)
+            .unwrap_or(match self.config {
+                ServiceConfig::Media { .. } | ServiceConfig::Jellyfin(_) => skillet_homer::MEDIA,
+                ServiceConfig::Joplin(_) | ServiceConfig::Airtrail(_) => {
+                    skillet_homer::APPLICATIONS
+                }
+                ServiceConfig::Syncthing { .. } | ServiceConfig::Mikochi { .. } => {
+                    skillet_homer::FILES
+                }
+                _ => skillet_homer::HOME_INFRA,
+            })
+    }
+
     fn supports(&self, name: &str) -> bool {
         self.name() == name
             || (name == "media" && matches!(self.config, ServiceConfig::Media { .. }))
@@ -263,6 +280,13 @@ pub enum HealthProbe {
 }
 
 impl HostProfile {
+    pub fn dashboard_group(&self, ui_name: &str) -> &'static str {
+        self.services
+            .iter()
+            .find(|service| service.ui.is_some_and(|ui| ui.name == ui_name))
+            .map_or("Services", HostService::dashboard_group)
+    }
+
     pub fn tailscale_exit_node(&self) -> bool {
         self.services.iter().any(|service| {
             matches!(
@@ -682,6 +706,7 @@ fn caddy_acceptance(profile: &str, has_homer: bool) -> AcceptanceService {
 }
 
 const PIHOLE_UI: UiServiceDeclaration = UiServiceDeclaration {
+    dashboard_group: None,
     public_names: &[],
     cache: None,
     name: "pihole",
@@ -693,6 +718,7 @@ const PIHOLE_UI: UiServiceDeclaration = UiServiceDeclaration {
 };
 
 const SYNCTHING_UI: UiServiceDeclaration = UiServiceDeclaration {
+    dashboard_group: None,
     public_names: &[],
     cache: None,
     name: "syncthing",
@@ -764,6 +790,7 @@ fn clamps() -> HostProfile {
                     group: "giacomo",
                 }),
                 ui: Some(UiServiceDeclaration {
+                    dashboard_group: None,
                     public_names: &[],
                     cache: None,
                     name: "homeassistant",
@@ -910,6 +937,7 @@ fn donbot() -> HostProfile {
                     backup_group: "giacomo",
                 }),
                 ui: Some(UiServiceDeclaration {
+                    dashboard_group: None,
                     public_names: &["notes"],
                     cache: None,
                     name: "joplin",
@@ -933,6 +961,7 @@ fn donbot() -> HostProfile {
                     backup_group: "giacomo",
                 }),
                 ui: Some(UiServiceDeclaration {
+                    dashboard_group: None,
                     public_names: &[],
                     cache: None,
                     name: "airtrail",
@@ -981,6 +1010,7 @@ fn donbot_media_services() -> Vec<HostService> {
             data_group: config.data_group,
         }),
         ui: Some(UiServiceDeclaration {
+            dashboard_group: None,
             name: "jellyfin",
             upstream: "jellyfin",
             port: skillet_jellyfin::PORT,
@@ -994,6 +1024,7 @@ fn donbot_media_services() -> Vec<HostService> {
     services.extend(skillet_media::App::ALL.into_iter().map(|app| HostService {
         config: ServiceConfig::Media { app, config },
         ui: (app != skillet_media::App::Putioarr).then_some(UiServiceDeclaration {
+            dashboard_group: None,
             public_names: &[],
             cache: None,
             name: app.name(),
@@ -1074,6 +1105,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
                     container_gid,
                 },
                 ui: Some(UiServiceDeclaration {
+                    dashboard_group: None,
                     public_names: &[],
                     cache: None,
                     name: "files",
@@ -1090,6 +1122,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
     profile.services.push(HostService {
         config: ServiceConfig::Homer,
         ui: Some(UiServiceDeclaration {
+            dashboard_group: None,
             public_names: &[],
             cache: None,
             name: "homer",

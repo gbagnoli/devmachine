@@ -21,8 +21,15 @@ const TEMPLATE: &str = include_str!("template.yml");
 const CONFIG_PATH: &str = "/etc/skillet/homer/assets/config.yml";
 const CUSTOM_ASSET_PATH: &str = "/etc/skillet/homer/assets/custom";
 
+pub const MEDIA: &str = "Media";
+pub const APPLICATIONS: &str = "Applications";
+pub const FILES: &str = "Files";
+pub const HOME_INFRA: &str = "Home & Infra";
+const GROUP_ORDER: [&str; 4] = [MEDIA, APPLICATIONS, FILES, HOME_INFRA];
+
 #[derive(Clone, Eq, PartialEq)]
 pub struct Link {
+    pub group: &'static str,
     pub name: String,
     pub hostname: String,
     pub path: Option<&'static str>,
@@ -46,12 +53,14 @@ pub enum HomerError {
     Yaml(#[from] serde_yml::Error),
     #[error("Homer template root must be a mapping")]
     Template,
+    #[error("invalid existing dashboard groups or unnamed card")]
+    Input,
 }
 
 #[derive(Serialize)]
-struct Group<'a> {
-    name: &'static str,
-    items: Vec<Item<'a>>,
+struct Group<'a, T> {
+    name: &'a str,
+    items: Vec<T>,
 }
 
 #[derive(Serialize)]
@@ -79,22 +88,71 @@ pub fn render(host: &str, links: &[Link]) -> Result<String, HomerError> {
     mapping.insert(Value::String("subtitle".into()), Value::String(host.into()));
     mapping.insert(
         Value::String("services".into()),
-        serde_yml::to_value([Group {
-            name: "Services",
-            items: links
+        serde_yml::to_value(groups(links))?,
+    );
+    Ok(serde_yml::to_string(&document)?)
+}
+
+fn groups(links: &[Link]) -> Vec<Group<'_, Item<'_>>> {
+    collect_groups(links.iter().map(|link| {
+        (
+            link.group,
+            Item {
+                name: &link.name,
+                url: format!("https://{}{}", link.hostname, link.path.unwrap_or("")),
+                endpoint: link.endpoint.as_deref(),
+                service_type: link.service_type,
+                icon: link.icon,
+                logo: link.logo,
+                api_version: link.api_version,
+                api_key: link.api_key.as_deref(),
+            },
+        )
+    }))
+}
+
+fn collect_groups<'a, T>(entries: impl IntoIterator<Item = (&'a str, T)>) -> Vec<Group<'a, T>> {
+    let mut grouped = BTreeMap::<&str, Vec<T>>::new();
+    for (name, item) in entries {
+        grouped.entry(name).or_default().push(item);
+    }
+    let mut result: Vec<_> = grouped
+        .into_iter()
+        .map(|(name, items)| Group { name, items })
+        .collect();
+    result.sort_by_key(|group| {
+        (
+            GROUP_ORDER
                 .iter()
-                .map(|link| Item {
-                    name: &link.name,
-                    url: format!("https://{}{}", link.hostname, link.path.unwrap_or("")),
-                    endpoint: link.endpoint.as_deref(),
-                    service_type: link.service_type,
-                    icon: link.icon,
-                    logo: link.logo,
-                    api_version: link.api_version,
-                    api_key: link.api_key.as_deref(),
-                })
-                .collect(),
-        }])?,
+                .position(|name| name == &group.name)
+                .unwrap_or(GROUP_ORDER.len()),
+            group.name,
+        )
+    });
+    result
+}
+
+/// Regroup existing cards without regenerating URLs, widgets or credentials.
+/// The caller supplies the same presentation metadata used by normal apply.
+pub fn regroup(
+    contents: &str,
+    classify: impl Fn(&str) -> &'static str,
+) -> Result<String, HomerError> {
+    let mut document: Value = serde_yml::from_str(contents).map_err(|_| HomerError::Input)?;
+    let mut entries = Vec::new();
+    for group in document["services"]
+        .as_sequence()
+        .ok_or(HomerError::Input)?
+    {
+        for item in group["items"].as_sequence().ok_or(HomerError::Input)? {
+            let name = item["name"].as_str().ok_or(HomerError::Input)?;
+            entries.push((classify(name), item.clone()));
+        }
+    }
+    let mapping = document.as_mapping_mut().ok_or(HomerError::Input)?;
+    mapping.insert(
+        Value::String("services".into()),
+        serde_yml::to_value(collect_groups(entries))?,
     );
     Ok(serde_yml::to_string(&document)?)
 }

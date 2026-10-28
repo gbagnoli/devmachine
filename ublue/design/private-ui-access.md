@@ -26,6 +26,11 @@ environment configuration. Skillet renders Homer YAML from a
 checked-in template, and Caddy serves that YAML after authorization. The Homer
 container supplies only packaged static assets and has no published port.
 
+Dashboard grouping is presentation metadata on the canonical service caller,
+with shared service-type defaults and optional host overrides. Only populated
+groups are emitted. Groups do not enter encrypted Caddy payloads or alter ingress
+policy, avoiding credential rotation for presentation changes.
+
 Matching IPv4/IPv6 wildcard port publications render as one native dual-stack
 Podman mapping. Explicit single-family/address bindings retain their scope.
 Overlapping wildcard mappings can leak Netavark nftables rules on restart;

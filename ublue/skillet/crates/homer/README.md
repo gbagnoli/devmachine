@@ -12,6 +12,21 @@ then rebuild and apply Skillet. Skillet replaces the generated service list and
 host subtitle during rendering. Runtime edits to the generated file are not
 retained on the next apply.
 
+Cards are grouped as **Media**, **Applications**, **Files**, and **Home & Infra**,
+in that order; empty groups are omitted. Arr and Jellyfin use Media, Joplin and
+AirTrail use Applications, Syncthing and Mikochi use Files, and Home Assistant,
+Pi-hole and UniFi use Home & Infra. Each host's `UiServiceDeclaration` can set
+`dashboard_group: Some("Custom name")` to override the service default. Custom
+groups follow the standard groups alphabetically. Grouping changes presentation
+only; it does not change DNS, routes or access policy.
+
+To regroup an already deployed dashboard while retaining its current URLs and
+widget settings, the host-profile adapter accepts existing YAML on stdin:
+`cargo run -p skillet_hosts --example dashboard_groups -- HOST < existing.yml > grouped.yml`.
+Keep both files private because widgets can contain credentials. This changes
+presentation only and needs no DNS/token provisioning; normal apply uses the
+same grouping rules.
+
 Pi-hole and Home Assistant use Homer's smart-card types. The Pi-hole card links
 to `/admin/` while its separate API endpoint stays at the origin root for v6
 API calls. Pi-hole uses its canonical backend `Host` and `Origin` values (`pi.hole`);

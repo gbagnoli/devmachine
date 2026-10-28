@@ -3758,3 +3758,18 @@ acceptance; no production host or private DNS values were committed.
   private VM ingress credentials and restored application data were preserved;
   no new public provider mutations were made. Protected artwork/video caching,
   disk-backed persistence, performance benchmarks and cache metrics remain open.
+
+## 2026-10-28 — Homer grouping
+
+- Shared caller metadata now selects Media, Applications, Files, or Home & Infra;
+  Home Assistant uses Home & Infra. Optional host overrides support custom names.
+  Rendering omits empty groups and retains widget, URL and credential fields.
+  Grouping is independent of encrypted ingress payloads and DNS policy.
+- On owned `donbot-test-joplin`, regrouped the existing generated dashboard using
+  the Rust host-profile adapter, preserving deployed URLs and all existing card
+  fields. Atomically replaced its YAML while retaining root ownership, mode and
+  SELinux label; Caddy read back the exact expected bytes. No route, provider,
+  credential or service activation changed. Other hosts receive groups on apply.
+- Workspace tests, pedantic Clippy, formatting and the Fedora/Joey base
+  repeat-apply check passed. Regression checks cover populated groups only,
+  ordering, custom host overrides and preservation of retained card fields.

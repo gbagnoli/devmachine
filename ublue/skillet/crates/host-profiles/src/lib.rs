@@ -829,6 +829,7 @@ fn apply_caddy_host(
             .iter()
             .filter(|site| site.name != "homer")
             .map(|site| skillet_homer::Link {
+                group: profile.dashboard_group(&site.name),
                 name: site.name.clone(),
                 hostname: site.hostname.clone(),
                 path: (site.name == "pihole").then_some("/admin/"),
