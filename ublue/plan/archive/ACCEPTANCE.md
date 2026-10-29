@@ -3876,3 +3876,16 @@ acceptance; no production host or private DNS values were committed.
   base repeat-apply check passed. The repeat apply issued no service start/restart.
 - No VM, vault or provider state was changed. Applying the dashboard update and
   the previously parked desktop/full Gokapi VM acceptance remain outstanding.
+
+### 2026-10-29 — Donbot retained VM dashboard apply
+
+- Updated the generic and Donbot binaries in owned run `donbot` / `joplin`, then
+  retried test UI provisioning with the unlocked vault. The Caddy phase completed;
+  the generated Files group contains both `gokapi` (`/admin`) and `gokapi-sharing`
+  (public origin). Guest assertions verified both destinations, and Homer/Caddy
+  are active.
+- Full provisioning stopped at the subsequent Gokapi credential phase because
+  `skillet/environments/test/hosts/donbot/gokapi/admin-user` is absent. Gokapi is
+  inactive; this is dashboard deployment evidence, not native application or
+  browser acceptance. Set that entry's Password to one complete lower-case
+  allowlisted Tailscale LoginName, then rerun owned VM provisioning.
