@@ -45,6 +45,7 @@ to the portal, with dedicated exceptions described below.
 | Plex | `docker.io/plexinc/pms-docker:latest` | Direct dual-stack host ports; **no Plex nginx vhost in this cookbook** | Public HTTPS; native Plex authentication and client discovery |
 | Main Syncthing | `docker.io/syncthing/syncthing:latest` | OAuth portal `/sync`; GUI 8384, peer TCP/UDP 22000 | Tailnet-only GUI; peer connectivity is separate |
 | Main Filebrowser | `docker.io/filebrowser/filebrowser:latest` | OAuth portal `/files`; backend 8080 via bridge-gateway port 8385 | Shared file-browsing UI on Syncthing hosts, tailnet-only |
+| Personal Syncthing | Same Syncthing image | Login-user home state; private GUI gateway port 8388 and peer TCP/UDP 22202 | Retained as Donbot's explicit personal instance, with a private UI and no shared browser access |
 | Tenant Syncthing | Same Syncthing image | Separate OAuth portal `/sync`; GUI gateway port 8386, peer TCP/UDP 22200 → 22000 | Deferred: preserve source data; no second instance in this migration |
 | Tenant Filebrowser | Same Filebrowser image | Separate OAuth portal `/files`; backend 8080 via gateway port 8387 | Deferred alongside tenant Syncthing |
 | Joplin Server | `docker.io/joplin/server:latest` | Backend 22300: public dedicated notes vhost **if configured**, otherwise OAuth portal `/joplin` | Proposed tailnet-only HTTPS with native Joplin authentication; verify mobile sync |

@@ -6,8 +6,8 @@ refreshed 2026-10-29. Jellyfin library access and static-cache consumer checks
 passed; staging DNS-01 and VM-local HTTPS passed, with native client acceptance
 open (slice 5). Gokapi composition, native account bootstrap, mixed ingress and
 paired tar backups are implemented. Native VM activation and scheduled
-backup/restore acceptance passed; browser/public sharing and repeat/reboot
-acceptance remain open (slice 6).
+backup/restore and application repeat/reboot acceptance passed; browser/public
+sharing acceptance remains open (slice 6).
 Linked-media provisioning and declared-application
 repeat/reboot acceptance also passed; transfer/import and operator Arr browser
 checks remain open. Inventory is complete. Donbot
@@ -69,10 +69,10 @@ Architecture constraints and proposals are in
 | Subnet routing | Shared routing preferences tracked in joey's plan; select only needed routes |
 | Prowlarr, Radarr, Sonarr, Lidarr, putioarr | Composition, mounts, credentials, private UIs/Homer, owned links and monitoring declarations implemented. Real connection tests and application reboot/reapply passed; transfer/import and operator browser checks remain. No age-based cleanup is enabled |
 | Jellyfin and Plex | Service configuration/state restore, public HTTPS ingress, client acceptance; Jellyfin Caddy cache per its plan |
-| Gokapi | Implemented private header-auth admin, separate public sharing, native accounts and paired tar backup/restore. Native scheduled backup/restore passed; desktop/public sharing and repeat/reboot acceptance remain |
+| Gokapi | Implemented private header-auth admin, separate public sharing, native accounts and paired tar backup/restore. Native backup/restore and application repeat/reboot passed; desktop/public sharing acceptance remains |
 | Joplin / Airtrail (required) | Both callers, reusable PostgreSQL module, credentials, current private UI/Homer registration and scheduled backups are implemented. Database/upload restores passed. Joplin requires public HTTPS and external client sync acceptance; AirTrail remains private with account/API acceptance open |
-| Personal Syncthing | Donbot-only home-state instance with its own identity, private UI, peer ports and bootstrap; implementation added, live acceptance pending |
-| Google Photos Takeout Helper | Donbot image includes pinned/checksummed `gpth`, plus rsync/tar/parallel; Fedora script execution passed, rebuilt-image/VM check pending |
+| Personal Syncthing | Donbot-only home-state instance; live initialization, ownership, separate identity/listeners, repeat apply and reboot passed. Real peer transfer/browser acceptance remains |
+| Google Photos Takeout Helper | Donbot image includes pinned/checksummed `gpth`, plus rsync/tar/parallel; Fedora install script and ordinary-user uCore VM binary execution passed; image publication/boot acceptance remains |
 | Conditional Pi-hole synchronization | Confirm current use; add explicit optional module only if retained; static DNS inventory is already shared |
 
 Donbot baseline, Joplin and AirTrail are wired to the canonical host profile.
@@ -82,8 +82,8 @@ scheduled backup timers active; the operator confirmed both UIs work. Joplin
 client sync and AirTrail account/API acceptance remain open. Media and Gokapi
 implementations have separate status: the linked media stack is implemented
 with transfer/import and operator browser acceptance pending; Gokapi has native
-VM backup/restore passed and browser/public sharing plus repeat/reboot acceptance
-open.
+VM backup/restore and application repeat/reboot passed, with browser/public sharing
+acceptance open.
 Donbot does not select DDNS. Joplin requires public HTTPS with native authentication;
 its current private route must change through the generic ingress milestone. Arr uses
 verified tailnet-user authentication. Airtrail should use the same tailnet-user
@@ -552,7 +552,8 @@ an app password, correct native account/roles, revocation/unknown/tagged-user
 denial and backend isolation. Exercise public share downloads, password cookies,
 expiration/download limits and guest upload chunks without Tailscale. Verify
 management remains denied with forged headers, unsupported methods and encoded
-paths. Finish repeat-apply and reboot acceptance; real systemd backup/restore passed.
+paths. Application repeat/reboot and real systemd backup/restore passed;
+consumer browser flows remain separate.
 Provider-free native-consumer and real-proxy fixtures run in CI; they do not
 close these manual/full-VM gates. Existing restored VM data remains untouched.
 The passt VM still needs explicit LAN routing/forwarding for desktop public-route
@@ -598,9 +599,8 @@ session. If unsupported, retain native login behind the tailnet gate and record
 the limitation rather than disabling authentication unsafely. Preserve required
 application accounts/ownership. Inventory public API clients separately; do not
 inherit the legacy blanket `/api/*` exemption.
-The second synchronization/browser tenant stays deferred; preserve its source
-state without importing it or selecting its snapshots. No multi-instance API
-extension is required by this slice.
+The magiusstaff synchronization/browser tenant stays deferred; preserve its source
+state without importing it or selecting its snapshots. The separate personal-user Syncthing role does not select this tenant.
 
 **Core service and public-ingress implementation complete; staging DNS-01 and
 VM-local HTTPS passed. External reachability and Joplin client acceptance remain open.** The operator confirmed both current private service UIs work.
@@ -639,7 +639,7 @@ the shared secret-requirement catalog/root checklist when exact entries are adde
 The shared identity allowlist is implemented at `skillet/tailscale/ui-users`.
 Gokapi uses explicit initial ownership and registered native accounts; its
 desktop/Tailscale and public-flow acceptance are parked until desktop access
-is available. Native VM backup/restore passed; repeat/reboot remains open.
+is available. Native VM backup/restore and application repeat/reboot passed.
 
 **Current milestone:** finish named-VM linked Arr acceptance (slice 4), including
 harmless transfer/import with callbacks and authorized private browser checks.

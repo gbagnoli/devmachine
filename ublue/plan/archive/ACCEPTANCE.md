@@ -3948,3 +3948,41 @@ acceptance; no production host or private DNS values were committed.
   preserved identity and user edits. Regressions cover role-bound names and
   credentials, private home storage, listener separation, caller opt-in and
   legacy payloads. Live personal-instance VM/provider acceptance is pending.
+
+### 2026-10-29 — Donbot personal Syncthing live acceptance and Takeout runtime
+
+- Updated/provisioned owned `donbot` / `joplin` with feature commit `40ebbde`.
+  Both Syncthing roles initialized independently and are active. The saved
+  `syncthing-instances-guest.py` helper passed before and after reboot: shared
+  XML/certificate/key hashes match the pre-update baseline, personal certificates
+  differ, peer ports are 22000/22202 on TCP/UDP, GUI ports remain unpublished and
+  backend networks differ. The personal root is inside the login user's home,
+  mode 0700; an actual container worker-created file has that user's host UID/GID
+  and is writable by the user. The probe is removed after checking. Mikochi's
+  mounts exclude the personal tree; Homer includes its card in Files.
+- Canonical `test smoke donbot --instance joplin --with-applications` passed
+  synthetic fixture/reboot and all 21 declared application repeat/reboot checks,
+  including both Syncthing roles and Gokapi. The command then failed during final
+  readiness because Homebrew considered an installed `et` revision outdated.
+  Preserve that original result: this was not an entirely successful smoke run.
+- Installed-only `brew bundle check --no-upgrade` succeeded on the same guest.
+  Fix `4a7b925` applies that readiness policy and retains missing-dependency
+  failure tests. Workspace all-target tests and strict Clippy passed. A separate
+  live `test vm ready donbot joplin` retry then passed signed/base/user readiness.
+  Readiness reinstalls captured bootstrap binaries, so current binaries are
+  redeployed afterward rather than leaving the retained VM on the old capture.
+- The reviewed/checksummed `gpth` v3.4.3 Linux binary also ran `--help` as the
+  ordinary login user on the uCore VM. Its temporary executable was removed.
+  The Fedora image installer test passed earlier; Donbot image publication and
+  booted-image verification of `/usr/bin/gpth` remain pending. No workstation
+  packages were installed and neither repository was pushed during this feature.
+- Actual Syncthing peer transfers and allowed-human browser acceptance remain
+  separate checks; no production identities, sessions or peers were imported.
+- After readiness recovery, redeployed current binaries, converged current base
+  units and successfully invoked the personal initializer again. The saved
+  post-recovery assertions passed unchanged, and the installed generic binary
+  reports source commit `4a7b925` (dirty metadata from acceptance-only working
+  changes). The retained VM is Ready with current deployed artifact hashes.
+- The saved Python helper passed syntax, Ruff and live guest checks; it only
+  writes/removes a synthetic ownership probe. No real peer-transfer or human
+  browser result is implied by these checks.

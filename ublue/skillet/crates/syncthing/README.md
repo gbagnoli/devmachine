@@ -81,3 +81,10 @@ For diagnosis, inspect `skillet-syncthing-personal-initialize.service` and
 `syncthing-personal.service`. An explicit guest bootstrap operation selects
 `skillet syncthing initialize --host-file /etc/skillet/host --instance personal`;
 the consumer unit supplies its matching encrypted credential.
+
+The reusable `integration_tests/syncthing-instances-guest.py` assertion checks
+both roles through the [owned guest helper](../vm/README.md#owned-guest-assertions).
+Supply host, recorded guest hostname and owner arguments; pass pre-update shared
+`config.xml`, `cert.pem` and `key.pem` SHA-256 values as a JSON object on stdin.
+It checks independent identities/ports, retained shared state, private directory
+permissions and actual worker-created file ownership, then removes its probe.
