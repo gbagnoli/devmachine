@@ -31,7 +31,8 @@ cargo run --release -p skillet -- test smoke clamps --instance smoke
 cargo run --release -p skillet -- test vm destroy clamps smoke
 ```
 
-Create includes boot/base/user readiness. Port 2201 is the default; use a free
+Create includes boot/base/user readiness. Homebrew checks installed Brewfile
+dependencies with `--no-upgrade`; package upgrades run separately. Port 2201 is the default; use a free
 `--port 2202` for another retained run. `--image PATH` selects a verified FCOS
 qcow2; `butane/images/coreos.qcow2` is the local default when present.
 The VM retains its disk after create/smoke until explicitly destroyed.

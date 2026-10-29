@@ -76,6 +76,11 @@ impl GuestTransport for FakeGuest {
                 return Ok(output(0, "exit-code\n"))
             }
             ("mask", "systemctl", ["is-enabled", ..]) => return Ok(output(0, "enabled\n")),
+            ("outdated", "/home/linuxbrew/.linuxbrew/bin/brew", args)
+                if !args.contains(&"--no-upgrade") =>
+            {
+                return Ok(output(1, ""))
+            }
             ("brew", "/home/linuxbrew/.linuxbrew/bin/brew", _) => return Ok(output(1, "")),
             ("link", "readlink", ["-f", "/home/giacomo/.config/Brewfile"]) => {
                 return Ok(output(0, "/wrong/Brewfile\n"))
@@ -134,7 +139,7 @@ impl GuestTransport for FakeGuest {
             ("systemctl", ["status", "--no-pager", "skillet-apply.service"]) => "Active: active (exited)\n".into(),
             ("cat", ["/etc/resolv.conf"]) => "nameserver 192.0.2.53\n".into(),
             ("systemctl", ["is-enabled", "fixture-masked.service"]) => return Ok(output(1, "masked\n")),
-            ("restorecon", ["-F", _]) | ("true", []) | ("/home/linuxbrew/.linuxbrew/bin/brew", ["bundle", "check", "--file", _]) => String::new(),
+            ("restorecon", ["-F", _]) | ("true", []) | ("/home/linuxbrew/.linuxbrew/bin/brew", ["bundle", "check", "--no-upgrade", "--file", _]) => String::new(),
             _ => return Err(Error::Invalid(format!("unsupported fake operation: {program} {args:?}"))),
         };
         Ok(output(0, stdout))
@@ -480,4 +485,23 @@ fn encrypted_profile_requires_secure_boot_and_selected_pcr_policy() {
         };
         assert_eq!(verify_root_profile(&run, &guest).is_ok(), fault == "none");
     }
+}
+
+#[test]
+fn installed_outdated_formulas_are_ready_and_missing_dependencies_still_fail() {
+    let guest = FakeGuest {
+        fault: "outdated",
+        ..FakeGuest::default()
+    };
+    verify_user_environment(&guest).unwrap();
+    assert!(guest
+        .calls
+        .borrow()
+        .iter()
+        .any(|call| call.contains("bundle") && call.contains("--no-upgrade")));
+    let missing = FakeGuest {
+        fault: "brew",
+        ..FakeGuest::default()
+    };
+    assert!(verify_user_environment(&missing).is_err());
 }

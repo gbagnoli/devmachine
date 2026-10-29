@@ -82,3 +82,7 @@ A compromised hypervisor is outside software-TPM protection claims.
 
 Unfinished acceptance: [refactor](../plan/SKILLET-REFACTOR.md),
 [private UIs](../plan/GENERIC-PRIVATE-UIS.md), [TPM](../plan/TPM-ENCRYPTED-ROOT.md).
+
+User-environment readiness checks installed Brewfile dependencies with
+`--no-upgrade`. Package freshness belongs to the update lifecycle; a newly
+available formula revision must not invalidate an already satisfied prerequisite.

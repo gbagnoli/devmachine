@@ -303,3 +303,7 @@ skillet/
   declaration. Preserve retained default-instance payloads and keep each initializer
   scoped to its selected instance. Adding an instance must not implicitly broaden
   another service's file access or snapshot scope.
+
+- Readiness validates installed prerequisites against declared requirements. Keep
+  availability checks separate from package freshness and upgrade policy, so an
+  upstream release cannot invalidate an otherwise satisfied installation.

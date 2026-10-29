@@ -403,6 +403,7 @@ fn verify_user_environment(transport: &impl GuestTransport) -> Result<()> {
         &[
             "bundle",
             "check",
+            "--no-upgrade",
             "--file",
             "/home/giacomo/.local/src/dotfiles/brew/Brewfile.core",
         ],
