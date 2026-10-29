@@ -16,6 +16,11 @@ pub struct Declaration {
     pub policy: Policy,
 }
 
+/// Canonical identity of the public site owned by a private service declaration.
+pub fn site_name(owner: &str) -> String {
+    format!("{owner}-sharing")
+}
+
 pub(super) fn extend(
     sites: &mut Vec<CaddySite>,
     declarations: &[UiService],
@@ -50,7 +55,7 @@ pub(super) fn extend(
             }
             resolved.push(hostname);
         }
-        let name = format!("{}-sharing", declaration.name);
+        let name = site_name(&declaration.name);
         if sites.iter().any(|site| site.name == name) {
             return Err(CaddyError::InvalidConfiguration(
                 "duplicate sharing service".into(),
@@ -80,6 +85,15 @@ pub fn render(policy: Policy, upstream: &str) -> String {
         Policy::Gokapi224 => format!(
             r#"        @encoded_path expression `{{http.request.orig_uri}}.matches('^[^?]*%')`
         respond @encoded_path 403
+        @sharing_home {{
+            method GET HEAD
+            path /
+        }}
+        handle @sharing_home {{
+            header Content-Type "text/plain; charset=utf-8"
+            header Cache-Control no-store
+            respond "File sharing endpoint. Open a complete download or upload link provided by the sender." 200
+        }}
         @share_read {{
             method GET HEAD
             path /d /d/* /dh/* /downloadFile /publicUpload /h/* /hotlink/* /error /favicon.ico /site.webmanifest /main.wasm /e2e.wasm /assets/* /css/* /js/* /static/*

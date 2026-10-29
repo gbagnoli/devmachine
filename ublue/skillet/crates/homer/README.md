@@ -14,8 +14,8 @@ retained on the next apply.
 
 Cards are grouped as **Media**, **Applications**, **Files**, and **Home & Infra**,
 in that order; empty groups are omitted. Arr, Jellyfin and Plex use Media, Joplin and
-AirTrail use Applications, Syncthing and Mikochi use Files, and Home Assistant,
-Pi-hole and UniFi use Home & Infra. Each host's `UiServiceDeclaration` can set
+AirTrail use Applications, Syncthing, Mikochi and both Gokapi admin/public links
+use Files, and Home Assistant, Pi-hole and UniFi use Home & Infra. Each host's `UiServiceDeclaration` can set
 `dashboard_group: Some("Custom name")` to override the service default. Custom
 groups follow the standard groups alphabetically. Grouping changes presentation
 only; it does not change DNS, routes or access policy.

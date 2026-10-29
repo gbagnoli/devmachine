@@ -3844,6 +3844,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "serde_yml",
  "skillet_airtrail",
  "skillet_btrbk",
  "skillet_caddy",

@@ -847,61 +847,66 @@ fn apply_caddy_host(
     if profile.supports_service("homer") {
         let network = skillet_caddy::private_network(hostname, "homer");
         skillet_podman::ensure_network(system, files, &network)?;
-        let links = sites
-            .services
-            .iter()
-            .filter(|site| site.name != "homer" && site.public_routes.is_none())
-            .map(|site| skillet_homer::Link {
-                group: profile.dashboard_group(&site.name),
-                name: site.name.clone(),
-                hostname: site.hostname.clone(),
-                path: match site.name.as_str() {
-                    "pihole" => Some("/admin/"),
-                    "plex" => Some("/web/"),
-                    "gokapi" => Some("/admin"),
-                    _ => None,
-                },
-                // Homer fetches this relative endpoint from the current page origin.
-                // Caddy proxies the read-only Pi-hole widget API on that same host,
-                // avoiding a browser cross-origin request while retaining the
-                // dashboard's tailnet identity gate.
-                endpoint: (site.name == "pihole").then(|| "/pihole-api".to_string()),
-                icon: match site.name.as_str() {
-                    "joplin" => Some("fas fa-book-open"),
-                    "jellyfin" => Some("fas fa-play-circle"),
-                    "plex" => Some("fas fa-play"),
-                    "gokapi" => Some("fas fa-paper-plane"),
-                    "airtrail" => Some("fas fa-plane"),
-                    "prowlarr" => Some("fas fa-search"),
-                    "sonarr" => Some("fas fa-tv"),
-                    "radarr" => Some("fas fa-film"),
-                    "lidarr" => Some("fas fa-music"),
-                    _ => None,
-                },
-                service_type: match site.name.as_str() {
-                    "homeassistant" if sites.homeassistant_api_token.is_some() => {
-                        Some("HomeAssistant")
-                    }
-                    "pihole" => Some("PiHole"),
-                    _ => None,
-                },
-                logo: match site.name.as_str() {
-                    "homeassistant" => Some("assets/custom/homeassistant.svg"),
-                    "files" => Some("assets/custom/mikochi.png"),
-                    "pihole" => Some("assets/custom/pihole.svg"),
-                    "syncthing" => Some("assets/custom/syncthing.svg"),
-                    _ => None,
-                },
-                api_version: (site.name == "pihole").then_some(6),
-                api_key: (site.name == "homeassistant")
-                    .then(|| sites.homeassistant_api_token.clone())
-                    .flatten(),
-            })
-            .collect::<Vec<_>>();
+        let links = dashboard_links(&profile, &sites);
         skillet_homer::apply(system, files, hostname, &network.unit_name, &links)?;
     }
     skillet_caddy::apply(system, files, &sites, &ui_config.network_name)?;
     Ok(())
+}
+
+fn dashboard_links(
+    profile: &HostProfile,
+    sites: &skillet_caddy::CaddySites,
+) -> Vec<skillet_homer::Link> {
+    sites
+        .services
+        .iter()
+        .filter(|site| site.name != "homer")
+        .map(|site| skillet_homer::Link {
+            group: profile.dashboard_group(&site.name),
+            name: site.name.clone(),
+            hostname: site.hostname.clone(),
+            path: match site.name.as_str() {
+                "pihole" => Some("/admin/"),
+                "plex" => Some("/web/"),
+                "gokapi" => Some("/admin"),
+                _ => None,
+            },
+            // Homer fetches this relative endpoint from the current page origin.
+            // Caddy proxies the read-only Pi-hole widget API on that same host,
+            // avoiding a browser cross-origin request while retaining the
+            // dashboard's tailnet identity gate.
+            endpoint: (site.name == "pihole").then(|| "/pihole-api".to_string()),
+            icon: match site.name.as_str() {
+                "joplin" => Some("fas fa-book-open"),
+                "jellyfin" => Some("fas fa-play-circle"),
+                "plex" => Some("fas fa-play"),
+                "gokapi" | "gokapi-sharing" => Some("fas fa-paper-plane"),
+                "airtrail" => Some("fas fa-plane"),
+                "prowlarr" => Some("fas fa-search"),
+                "sonarr" => Some("fas fa-tv"),
+                "radarr" => Some("fas fa-film"),
+                "lidarr" => Some("fas fa-music"),
+                _ => None,
+            },
+            service_type: match site.name.as_str() {
+                "homeassistant" if sites.homeassistant_api_token.is_some() => Some("HomeAssistant"),
+                "pihole" => Some("PiHole"),
+                _ => None,
+            },
+            logo: match site.name.as_str() {
+                "homeassistant" => Some("assets/custom/homeassistant.svg"),
+                "files" => Some("assets/custom/mikochi.png"),
+                "pihole" => Some("assets/custom/pihole.svg"),
+                "syncthing" => Some("assets/custom/syncthing.svg"),
+                _ => None,
+            },
+            api_version: (site.name == "pihole").then_some(6),
+            api_key: (site.name == "homeassistant")
+                .then(|| sites.homeassistant_api_token.clone())
+                .flatten(),
+        })
+        .collect::<Vec<_>>()
 }
 
 fn apply_mikochi(

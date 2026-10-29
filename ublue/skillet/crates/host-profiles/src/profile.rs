@@ -302,7 +302,13 @@ impl HostProfile {
     pub fn dashboard_group(&self, ui_name: &str) -> &'static str {
         self.services
             .iter()
-            .find(|service| service.ui.is_some_and(|ui| ui.name == ui_name))
+            .find(|service| {
+                service.ui.is_some_and(|ui| {
+                    ui.name == ui_name
+                        || (ui.sharing.is_some()
+                            && skillet_caddy::sharing::site_name(ui.name) == ui_name)
+                })
+            })
             .map_or("Services", HostService::dashboard_group)
     }
 

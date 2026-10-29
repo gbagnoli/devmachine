@@ -510,8 +510,9 @@ not claim slicing parity or enable unsafe caching to close it.
 
 Donbot declares the pinned Gokapi module. Its private admin UI uses verified
 Tailscale identity and native header-auth accounts, with no second password.
-`send.<zone>` is a separate public sharing origin on the existing DNS/token
-lifecycle. Version 8 Caddy credentials bind the reviewed public method/path
+Homer lists both administration and public sharing under Files; the public root
+serves a static landing message. `send.<zone>` is a separate public sharing origin
+on the existing DNS/token lifecycle. Version 8 Caddy credentials bind the reviewed public method/path
 allowlist; unknown/encoded paths and administrative APIs remain denied.
 Native download-password cookies and guest-upload keys are preserved; no caching.
 The backend stays on one private Caddy network with no host listener.

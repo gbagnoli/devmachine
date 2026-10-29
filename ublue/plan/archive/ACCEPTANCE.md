@@ -3860,3 +3860,19 @@ acceptance; no production host or private DNS values were committed.
   remain open. The existing 19-service VM evidence predates this selection and
   does not prove Gokapi VM acceptance. No VM, vault, DNS/provider or production
   service was changed during this slice.
+
+### 2026-10-29 — Homer Gokapi administration and sharing links
+
+- Homer now includes both the private Gokapi `/admin` link and public sharing
+  origin in Files. Sharing sites inherit their owner's dashboard group, including
+  caller overrides. A regression test parses the generated dashboard and checks
+  both destinations and icons.
+- The public sharing root serves a noncacheable static message for GET/HEAD;
+  it does not proxy an additional native application endpoint. The real Caddy
+  fixture passed its public/private routing checks, including the landing page,
+  encoded-path rejection, administrative denials and existing sharing methods.
+- Workspace all-target tests, strict pedantic Clippy, formatting, full generated
+  Caddy configuration validation with the real consumer, and the Fedora/Joey
+  base repeat-apply check passed. The repeat apply issued no service start/restart.
+- No VM, vault or provider state was changed. Applying the dashboard update and
+  the previously parked desktop/full Gokapi VM acceptance remain outstanding.

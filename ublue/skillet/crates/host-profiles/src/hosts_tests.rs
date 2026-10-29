@@ -1367,3 +1367,42 @@ fn gokapi_is_opt_in_with_one_private_backend_and_separate_sharing_names() {
             .contains(&skillet_gokapi::ADMIN_CREDENTIAL)
     );
 }
+
+#[test]
+fn homer_lists_private_and_public_gokapi_links_in_the_owners_group() {
+    let mut profile = super::profile_for_name("donbot").unwrap();
+    let sites = skillet_caddy::CaddySites::from_host_with_zone(
+        "donbot",
+        &skillet_caddy::UiEnvironment {
+            ui_domain: "ui.example.invalid".into(),
+            acme_staging: true,
+        },
+        &profile.ui_services(),
+        Some("example.invalid"),
+    )
+    .unwrap();
+    let links = super::dashboard_links(&profile, &sites);
+    let yaml = skillet_homer::render("donbot", &links).unwrap();
+    let document: serde_yml::Value = serde_yml::from_str(&yaml).unwrap();
+    let groups = document["services"].as_sequence().unwrap();
+    let files = groups
+        .iter()
+        .find(|group| group["name"] == "Files")
+        .unwrap();
+    let items = files["items"].as_sequence().unwrap();
+    for (name, url) in [
+        ("gokapi", "https://gokapi.donbot.ui.example.invalid/admin"),
+        ("gokapi-sharing", "https://send.example.invalid"),
+    ] {
+        let item = items.iter().find(|item| item["name"] == name).unwrap();
+        assert_eq!(item["url"], url);
+        assert_eq!(item["icon"], "fas fa-paper-plane");
+    }
+    let declaration = profile
+        .services
+        .iter_mut()
+        .find(|service| service.name() == "gokapi")
+        .unwrap();
+    declaration.ui.as_mut().unwrap().dashboard_group = Some("Shared files");
+    assert_eq!(profile.dashboard_group("gokapi-sharing"), "Shared files");
+}

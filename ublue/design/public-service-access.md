@@ -151,3 +151,7 @@ Completed Gokapi backup sets are ordinary tar files. Stage them using the
 synchronizer's temporary-file contract rather than a hidden directory, which
 could still replicate unfinished children. Publication requires no user ignore
 changes. See [Syncthing temporary names](https://github.com/syncthing/syncthing/blob/main/lib/fs/tempname.go).
+
+Homer includes both the private administration site and its public sharing site
+in the owner's dashboard group. The public root serves a static informational
+message; it does not proxy an additional application endpoint.

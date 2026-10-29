@@ -10,8 +10,8 @@ Podman network before every container start, including after reboot.
 
 - Administration: `https://gokapi.<host>.<ui-domain>/admin`.
 - Sharing: `https://send.<zone>/`; share links and guest-upload links use this
-  public origin, without the private UI prefix. Its root and administrative
-  endpoints intentionally return 403.
+  public origin, without the private UI prefix. Its root shows a brief sharing
+  message; administrative endpoints return 403. Homer includes both links in Files.
 
 Add `skillet/environments/prod/hosts/<host>/gokapi/admin-user` in KeePassXC:
 **Password** contains one complete lower-case LoginName from

@@ -397,6 +397,17 @@ fn start_public_caddy(root: &std::path::Path) -> (FixtureContainer, std::net::So
 }
 
 fn verify_sharing(client: &reqwest::blocking::Client, base: &str) {
+    let landing = client
+        .get(format!("{base}/"))
+        .header("Host", "send.example.invalid")
+        .send()
+        .unwrap();
+    assert_eq!(landing.status().as_u16(), 200);
+    assert_eq!(landing.headers()["cache-control"], "no-store");
+    assert!(landing
+        .text()
+        .unwrap()
+        .contains("complete download or upload link"));
     for (method, path, expected) in [
         (reqwest::Method::GET, "/d?id=fixture", 200),
         (
@@ -432,6 +443,7 @@ fn verify_sharing(client: &reqwest::blocking::Client, base: &str) {
     }
     for path in [
         "/%61dmin",
+        "/%2f",
         "/d/%2e%2e/admin",
         "/assets/%2f..%2fadmin",
         "//admin",
