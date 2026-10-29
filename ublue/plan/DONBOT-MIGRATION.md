@@ -72,7 +72,7 @@ Architecture constraints and proposals are in
 | Gokapi | Implemented private header-auth admin, separate public sharing, native accounts and paired tar backup/restore. Native backup/restore and application repeat/reboot passed; desktop/public sharing acceptance remains |
 | Joplin / Airtrail (required) | Both callers, reusable PostgreSQL module, credentials, current private UI/Homer registration and scheduled backups are implemented. Database/upload restores passed. Joplin requires public HTTPS and external client sync acceptance; AirTrail remains private with account/API acceptance open |
 | Personal Syncthing | Donbot-only home-state instance; live initialization, ownership, separate identity/listeners, repeat apply and reboot passed. Real peer transfer/browser acceptance remains |
-| Google Photos Takeout Helper | Donbot image includes pinned/checksummed `gpth`, plus rsync/tar/parallel; Fedora install script and ordinary-user uCore VM binary execution passed; image publication/boot acceptance remains |
+| Google Photos Takeout Helper | Donbot image includes pinned/checksummed `gpth` and its Takeout workflow toolchain; Fedora install script and ordinary-user uCore VM binary execution passed; image publication/boot acceptance remains |
 | Conditional Pi-hole synchronization | Confirm current use; add explicit optional module only if retained; static DNS inventory is already shared |
 
 Donbot baseline, Joplin and AirTrail are wired to the canonical host profile.

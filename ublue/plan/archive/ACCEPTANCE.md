@@ -3986,3 +3986,21 @@ acceptance; no production host or private DNS values were committed.
 - The saved Python helper passed syntax, Ruff and live guest checks; it only
   writes/removes a synthetic ownership probe. No real peer-transfer or human
   browser result is implied by these checks.
+
+### 2026-10-29 — Donbot Takeout script dependency inventory
+
+- Read both existing download/processing scripts and inventoried external
+  commands without running the workflows or accessing the Drive remote.
+  Donbot now explicitly selects file/findutils/grep/gzip/jq/parallel/rclone/rsync/
+  tar/wget; Bash/coreutils come from the base. A read-only RPM inventory on the
+  retained uCore VM confirmed the base already supplies most tools; wget and
+  Parallel were absent there (Parallel was already in the pending image recipe).
+- Parsed the actual image recipe and installed its complete package list in a
+  disposable Fedora container. Every command used by both scripts resolved.
+  The checksum-verified GPTH binary parsed their actual options together with
+  `--help`, including noninteractive/no-copy flags; an invalid-option control
+  failed as expected. No exports were processed and no rclone account was used.
+- The scripts still select their bundled `bin/gpth` explicitly. The image guide
+  documents selecting `/usr/bin/gpth` or PATH and configuring rclone separately.
+  Source scripts and private configuration were not modified. Rebuilt-image
+  publication/boot acceptance remains pending; no workstation tools were installed.
