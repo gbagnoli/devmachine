@@ -58,3 +58,26 @@ that file. Preserve `cert.pem`, `key.pem`, the database and synchronized files.
 Then activate the initializer and restart Syncthing. See the
 [design](../../../design/syncthing.md) and
 [acceptance plan](../../../plan/archive/SYNCTHING-INITIAL-CONFIG.md).
+
+## Donbot personal instance
+
+Donbot also selects `syncthing-personal.service` for the login user's files.
+It is a system-level rootful Podman service whose worker maps to the declared
+user and primary group. It starts at boot without an interactive login.
+
+- State: `/home/giacomo/.local/syncthing`, with private `config` and `data` trees.
+- UI: `https://syncthing-personal.<host>.<ui-domain>`; alias
+  `https://sync-personal.<host>.<ui-domain>`, also listed in Homer's Files group.
+- Peer transfers: TCP/UDP 22202, both IP families. The GUI has no published port.
+- Initial name: `<runtime-hostname>-personal.<zone>`, with an independent device ID.
+
+Ordinary host apply or owned VM provisioning delivers both bootstrap credentials
+from the same environment configuration. No extra vault entry is required.
+Add personal devices/folders in its UI; container paths use `/var/syncthing/data`
+for the default personal file root. Existing configuration and keys are preserved.
+The personal tree is outside shared Mikochi browsing and the shared btrbk leaf.
+
+For diagnosis, inspect `skillet-syncthing-personal-initialize.service` and
+`syncthing-personal.service`. An explicit guest bootstrap operation selects
+`skillet syncthing initialize --host-file /etc/skillet/host --instance personal`;
+the consumer unit supplies its matching encrypted credential.

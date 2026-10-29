@@ -1,4 +1,6 @@
 pub mod initial;
+mod instance;
+pub use instance::Instance;
 use skillet_core::files::{
     FileError, FileMutationResource, FileReadResource, Ownership, StorageResource,
 };
@@ -33,6 +35,7 @@ pub enum SyncthingError {
 }
 
 pub struct SyncthingConfig {
+    pub instance: Instance,
     pub files_path: String,
     pub data_path: String,
     pub data_owner: String,
@@ -63,7 +66,7 @@ where
     }
 
     prepare_storage(files, &config)?;
-    initial::install(system, files)?;
+    initial::install_instance(system, files, config.instance)?;
     let volumes = vec![Volume {
         host_path: config.data_path,
         container_path: "/var/syncthing".to_string(),
@@ -78,17 +81,23 @@ where
         "Container".to_string(),
         vec![
             "AutoUpdate=registry".to_string(),
-            "ContainerName=syncthing".to_string(),
+            format!("ContainerName={}", config.instance.name()),
             format!("Environment=HOME={container_home}"),
-            skillet_datadog::http("syncthing", "http://%%host%%:8384/rest/noauth/health"),
+            skillet_datadog::http(
+                config.instance.name(),
+                "http://%%host%%:8384/rest/noauth/health",
+            ),
         ],
     );
     extra_config.insert(
         "Unit".to_string(),
         vec![
             "Description=Syncthing file synchronization".to_string(),
-            "After=network-online.target skillet-syncthing-initialize.service".to_string(),
-            "Requires=skillet-syncthing-initialize.service".to_string(),
+            format!(
+                "After=network-online.target {}",
+                config.instance.initial_unit()
+            ),
+            format!("Requires={}", config.instance.initial_unit()),
         ],
     );
     extra_config.insert(
@@ -100,31 +109,31 @@ where
         system,
         files,
         PodmanConfig {
-            name: "syncthing".to_string(),
+            name: config.instance.name().to_string(),
             image: "docker.io/syncthing/syncthing:latest".to_string(),
             network_attachments: vec![NetworkAttachment::Bridge(config.network_name)],
             port_publications: vec![
                 PortPublication {
                     host_address: std::net::Ipv6Addr::UNSPECIFIED.into(),
-                    host_port: 22000,
+                    host_port: config.instance.peer_port(),
                     container_port: 22000,
                     protocol: PortProtocol::Tcp,
                 },
                 PortPublication {
                     host_address: std::net::Ipv4Addr::UNSPECIFIED.into(),
-                    host_port: 22000,
+                    host_port: config.instance.peer_port(),
                     container_port: 22000,
                     protocol: PortProtocol::Tcp,
                 },
                 PortPublication {
                     host_address: std::net::Ipv6Addr::UNSPECIFIED.into(),
-                    host_port: 22000,
+                    host_port: config.instance.peer_port(),
                     container_port: 22000,
                     protocol: PortProtocol::Udp,
                 },
                 PortPublication {
                     host_address: std::net::Ipv4Addr::UNSPECIFIED.into(),
-                    host_port: 22000,
+                    host_port: config.instance.peer_port(),
                     container_port: 22000,
                     protocol: PortProtocol::Udp,
                 },
@@ -172,16 +181,31 @@ where
 {
     let data_path = Path::new(&config.data_path);
     files.require_btrfs_subvolume_mount(Path::new("/var/lib/data"), Path::new("/var"), "/data")?;
-    files.ensure_btrfs_subvolume(data_path)?;
+    match config.instance {
+        Instance::Shared => {
+            files.ensure_btrfs_subvolume(data_path)?;
+        }
+        Instance::Personal => {
+            let home = format!("/home/{}", config.data_owner);
+            if !data_path.starts_with(home) {
+                return Err(SyncthingError::InvalidFileScope);
+            }
+        }
+    }
+    let mode = if config.instance == Instance::Personal {
+        0o700
+    } else {
+        0o755
+    };
     files.ensure_directory(
         data_path,
-        Some(0o755),
+        Some(mode),
         &Ownership::named(Some(&config.data_owner), Some(&config.data_group)),
     )?;
 
     files.ensure_directory(
         Path::new(&config.files_path),
-        Some(0o755),
+        Some(mode),
         &Ownership::named(Some(&config.data_owner), Some(&config.data_group)),
     )?;
     Ok(())

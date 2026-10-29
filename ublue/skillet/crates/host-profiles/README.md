@@ -30,7 +30,7 @@ stay in the vault or private installation inputs.
 | Mail relay | [SMTP](../smtp/README.md) |
 | Home automation | [Home Assistant](../homeassistant/README.md) |
 | PostgreSQL | [PostgreSQL](../postgres/README.md) |
-| Synchronization | [Syncthing](../syncthing/README.md) |
+| Synchronization | [Syncthing](../syncthing/README.md), including Donbot's personal instance |
 | Tailnet enrollment / routing | [Tailscale](docs/tailscale.md) |
 | Controller | [UniFi](../unifi/README.md) |
 | Vault / remote apply | [Workstation](../workstation/README.md) |

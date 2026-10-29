@@ -3929,3 +3929,22 @@ acceptance; no production host or private DNS values were committed.
 - Local validation also passed: Python syntax, Ruff formatting/lint, workspace
   all-target tests, Cargo formatting and strict pedantic Clippy. Routine CI only
   lints the saved helper; its destructive acceptance requires an explicit VM.
+
+### 2026-10-29 — Donbot Takeout utility and personal Syncthing implementation
+
+- Donbot image commit `5ea355c` selects native `gpth` v3.4.3 with an explicit
+  x86_64 release/checksum and rsync/tar/parallel. ShellCheck and the actual
+  installation/checksum/help script passed in a disposable Fedora container.
+  This is not publication or booted-uCore image acceptance.
+- Donbot explicitly selects the personal Syncthing role, retaining Chef's
+  system-managed container with its worker mapped to the login user's UID/GID.
+  Private home state, unit/container identity, peer port 22202, private UI/Homer
+  registration and encrypted initial-settings delivery are independent of the
+  shared role. Shared bootstrap payload bytes remain compatible; initialization
+  and ordinary apply preserve existing application configuration and identity.
+  Shared Mikochi and btrbk scopes do not expand to the home tree.
+- Workspace all-target tests, strict pedantic Clippy, formatting and the
+  Fedora/Joey base repeat-apply check passed. The real upstream offline generator
+  preserved identity and user edits. Regressions cover role-bound names and
+  credentials, private home storage, listener separation, caller opt-in and
+  legacy payloads. Live personal-instance VM/provider acceptance is pending.

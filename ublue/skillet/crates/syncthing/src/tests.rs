@@ -37,6 +37,7 @@ fn syncthing_uses_persistent_data_and_shared_dns_network() {
         &system,
         &files,
         SyncthingConfig {
+            instance: Instance::Shared,
             files_path: "/var/lib/data/syncthing/data".to_string(),
             data_path: "/var/lib/data/syncthing".to_string(),
             data_owner: "giacomo".to_string(),
@@ -90,6 +91,7 @@ fn syncthing_uses_persistent_data_and_shared_dns_network() {
 #[test]
 fn user_files_are_separate_from_configuration_and_cannot_escape_the_mount() {
     let mut config = SyncthingConfig {
+        instance: Instance::Shared,
         files_path: "/var/lib/data/syncthing/data".into(),
         data_path: "/var/lib/data/syncthing".into(),
         data_owner: "owner".into(),
@@ -124,6 +126,7 @@ fn syncthing_requires_declared_host_account_identities() {
         &system,
         &files,
         SyncthingConfig {
+            instance: Instance::Shared,
             files_path: "/var/lib/data/syncthing/data".to_string(),
             data_path: "/var/lib/data/syncthing".to_string(),
             data_owner: "giacomo".to_string(),
@@ -167,6 +170,7 @@ fn syncthing_rejects_a_non_primary_host_group_for_namespace_mapping() {
         &system,
         &files,
         SyncthingConfig {
+            instance: Instance::Shared,
             files_path: "/var/lib/data/syncthing/data".to_string(),
             data_path: "/var/lib/data/syncthing".to_string(),
             data_owner: "giacomo".to_string(),
@@ -197,4 +201,36 @@ fn setup_data_mount(files: &MockFiles) {
         "/data",
         "btrfs",
     );
+}
+
+#[test]
+fn personal_instance_has_private_home_storage_and_independent_service_and_ports() {
+    let system = MockSystem::new();
+    let files = MockFiles::new();
+    setup_data_mount(&files);
+    let config = SyncthingConfig {
+        instance: Instance::Personal,
+        files_path: "/home/giacomo/.local/syncthing/data".into(),
+        data_path: "/home/giacomo/.local/syncthing".into(),
+        data_owner: "giacomo".into(),
+        data_group: "giacomo".into(),
+        container_uid: 1000,
+        container_gid: 1000,
+        network_name: "fixture-syncthing-personal".into(),
+    };
+    prepare_storage(&files, &config).unwrap();
+    assert!(!files
+        .btrfs_subvolumes
+        .lock()
+        .unwrap()
+        .contains(&config.data_path));
+    initial::install_instance(&system, &files, config.instance).unwrap();
+    let generated = files.files.lock().unwrap();
+    let unit = String::from_utf8_lossy(
+        &generated["/etc/systemd/system/skillet-syncthing-personal-initialize.service"],
+    );
+    assert!(unit.contains("Before=syncthing-personal.service"));
+    assert!(unit.contains("syncthing_personal_initial.cred"));
+    assert!(unit.contains("--instance personal"));
+    assert_eq!(config.instance.peer_port(), 22202);
 }

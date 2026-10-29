@@ -59,6 +59,7 @@ fn credential_names_for_phase(profile: &HostProfile, phase: HostApplyPhase) -> V
                     | "datadog-agent.service"
                     | "postfix.service"
                     | "skillet-syncthing-initialize.service"
+                    | "skillet-syncthing-personal-initialize.service"
                     | skillet_homeassistant::backup::UNIT
                     | skillet_pihole::dns::UNIT
                     | skillet_network::PREPARE_UNIT
@@ -288,6 +289,19 @@ fn tailscale_config(
     }
 }
 
+fn install_syncthing_initializers(
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    profile: &HostProfile,
+) -> Result<(), ApplyError> {
+    for service in &profile.services {
+        if let ServiceConfig::Syncthing { instance, .. } = service.config {
+            skillet_syncthing::initial::install_instance(system, files, instance)?;
+        }
+    }
+    Ok(())
+}
+
 /// Apply a service from a host declaration using only its declared config.
 fn apply_syncthing(
     system: &dyn SystemResource,
@@ -296,6 +310,7 @@ fn apply_syncthing(
     service: &HostService,
 ) -> Result<(), ApplyError> {
     let ServiceConfig::Syncthing {
+        instance,
         files_path,
         data_path,
         data_owner,
@@ -319,6 +334,7 @@ fn apply_syncthing(
         system,
         files,
         skillet_syncthing::SyncthingConfig {
+            instance,
             files_path: files_path.to_string(),
             data_path: data_path.to_string(),
             data_owner: data_owner.to_string(),
@@ -406,6 +422,7 @@ fn apply_profile(
     credentials: &CredentialInputs,
 ) -> Result<(), ApplyError> {
     apply_base(system, files)?;
+    install_syncthing_initializers(system, files, profile)?;
     application_unit::install(system, files, profile)?;
     if profile.requires_data_mount {
         files.require_btrfs_subvolume_mount(
@@ -521,6 +538,7 @@ pub fn apply_host_phase(
             let profile = profile_for_name(hostname)
                 .ok_or_else(|| ApplyError::UnknownHost(hostname.to_string()))?;
             apply_base(system, files)?;
+            install_syncthing_initializers(system, files, &profile)?;
             application_unit::install(system, files, &profile)?;
             install_pihole_dns_unit(system, files, &profile)
         }
@@ -898,7 +916,7 @@ fn dashboard_links(
                 "homeassistant" => Some("assets/custom/homeassistant.svg"),
                 "files" => Some("assets/custom/mikochi.png"),
                 "pihole" => Some("assets/custom/pihole.svg"),
-                "syncthing" => Some("assets/custom/syncthing.svg"),
+                "syncthing" | "syncthing-personal" => Some("assets/custom/syncthing.svg"),
                 _ => None,
             },
             api_version: (site.name == "pihole").then_some(6),

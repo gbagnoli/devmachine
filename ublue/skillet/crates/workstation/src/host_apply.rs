@@ -30,10 +30,12 @@ pub fn steps(profile: &HostProfile) -> Vec<Step> {
         }
     }
     if profile.supports_service("syncthing") {
-        result.extend([
-            Step::Stage("syncthing"),
-            Step::Activate("skillet-syncthing-initialize.service"),
-        ]);
+        result.push(Step::Stage("syncthing"));
+        for service in &profile.services {
+            if let skillet_hosts::ServiceConfig::Syncthing { instance, .. } = service.config {
+                result.push(Step::Activate(instance.initial_unit()));
+            }
+        }
     }
     result.push(Step::Activate("skillet-full-apply.service"));
     if profile.supports_service("pihole") {

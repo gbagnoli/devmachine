@@ -9,7 +9,7 @@ use skillet_core::{
 use skillet_hosts::ServiceConfig;
 use skillet_syncthing::{
     initial::{self, Generator, Settings},
-    SyncthingConfig,
+    Instance, SyncthingConfig,
 };
 use std::{
     fs::OpenOptions,
@@ -24,18 +24,29 @@ pub enum Commands {
     Initialize {
         #[arg(long)]
         host_file: PathBuf,
+        #[arg(long, default_value = "shared", value_parser = ["shared", "personal"])]
+        instance: String,
     },
 }
 
 pub fn dispatch(command: Commands) -> Result<(), CliCommonError> {
-    let Commands::Initialize { host_file } = command;
+    let Commands::Initialize {
+        host_file,
+        instance,
+    } = command;
+    let instance = match instance.as_str() {
+        "shared" => Instance::Shared,
+        "personal" => Instance::Personal,
+        _ => return Err(config_error(initial::Error::Invalid)),
+    };
     let host = std::fs::read_to_string(host_file)?;
     let profile = skillet_hosts::profile_for_name(host.trim())
         .ok_or_else(|| CliCommonError::Config("unknown Syncthing host".into()))?;
-    let (config, protected) = declaration(&profile)?;
-    let input = CredentialManager::new()?.read_secret(initial::CREDENTIAL)?;
+    let (config, protected) = declaration(&profile, instance)?;
+    let input = CredentialManager::new()?.read_secret(instance.credential())?;
     let settings = Settings::parse(input.as_bytes()).map_err(config_error)?;
-    if settings.host != profile.id.as_str()
+    if settings.instance != instance
+        || settings.host != profile.id.as_str()
         || settings.runtime_hostname != std::fs::read_to_string("/etc/hostname")?.trim()
     {
         return Err(config_error(initial::Error::Binding));
@@ -64,7 +75,7 @@ pub fn dispatch(command: Commands) -> Result<(), CliCommonError> {
         return Ok(());
     }
     if Command::new("systemctl")
-        .args(["is-active", "--quiet", "syncthing.service"])
+        .args(["is-active", "--quiet", instance.service()])
         .status()?
         .success()
     {
@@ -105,13 +116,15 @@ pub fn dispatch(command: Commands) -> Result<(), CliCommonError> {
 
 fn declaration(
     profile: &skillet_hosts::HostProfile,
+    instance: Instance,
 ) -> Result<(SyncthingConfig, bool), CliCommonError> {
     let service = profile
         .services
         .iter()
-        .find(|s| s.name() == "syncthing")
+        .find(|s| matches!(s.config, ServiceConfig::Syncthing { instance: selected, .. } if selected == instance))
         .ok_or_else(|| CliCommonError::Config("host does not select Syncthing".into()))?;
     let ServiceConfig::Syncthing {
+        instance,
         files_path,
         data_path,
         data_owner,
@@ -126,6 +139,7 @@ fn declaration(
     };
     Ok((
         SyncthingConfig {
+            instance,
             files_path: files_path.into(),
             data_path: data_path.into(),
             data_owner: data_owner.into(),

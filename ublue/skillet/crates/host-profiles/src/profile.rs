@@ -56,6 +56,7 @@ pub struct CredentialConsumer {
 pub enum ServiceConfig {
     Pihole,
     Syncthing {
+        instance: skillet_syncthing::Instance,
         files_path: &'static str,
         data_path: &'static str,
         data_owner: &'static str,
@@ -132,7 +133,7 @@ impl HostService {
     pub fn name(&self) -> &'static str {
         match self.config {
             ServiceConfig::Pihole => "pihole",
-            ServiceConfig::Syncthing { .. } => "syncthing",
+            ServiceConfig::Syncthing { instance, .. } => instance.name(),
             ServiceConfig::Mikochi { .. } => "mikochi",
             ServiceConfig::Homer => "homer",
             ServiceConfig::Joplin(_) => "joplin",
@@ -173,9 +174,9 @@ impl HostService {
                 credential: skillet_homeassistant::backup::CREDENTIAL,
                 unit: skillet_homeassistant::backup::UNIT,
             }],
-            ServiceConfig::Syncthing { .. } => vec![CredentialConsumer {
-                credential: skillet_syncthing::initial::CREDENTIAL,
-                unit: skillet_syncthing::initial::UNIT,
+            ServiceConfig::Syncthing { instance, .. } => vec![CredentialConsumer {
+                credential: instance.credential(),
+                unit: instance.initial_unit(),
             }],
             ServiceConfig::Gokapi(_) => vec![CredentialConsumer {
                 credential: skillet_gokapi::ADMIN_CREDENTIAL,
@@ -587,13 +588,14 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
             health_probe: Some(HealthProbe::Pihole),
         },
         ServiceConfig::Syncthing {
+            instance,
             data_path,
             data_owner,
             data_group,
             ..
         } => AcceptanceService {
-            unit: "syncthing.service".into(),
-            container: Some("syncthing".into()),
+            unit: instance.service().into(),
+            container: Some(instance.name().into()),
             network_mode: Some(service.backend_network(profile)),
             bind_paths: vec![data_path.into()],
             owner: Some(AcceptanceOwner::Named {
@@ -602,7 +604,7 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
             }),
             listeners: [ListenerProtocol::Tcp, ListenerProtocol::Udp]
                 .map(|protocol| AcceptanceListener {
-                    port: 22000,
+                    port: instance.peer_port(),
                     protocol,
                 })
                 .into(),
@@ -799,6 +801,7 @@ fn clamps() -> HostProfile {
             },
             HostService {
                 config: ServiceConfig::Syncthing {
+                    instance: skillet_syncthing::Instance::Shared,
                     files_path: "/var/lib/data/syncthing/data",
                     data_path: "/var/lib/data/syncthing",
                     data_owner: "giacomo",
@@ -894,6 +897,7 @@ fn joey() -> HostProfile {
             },
             HostService {
                 config: ServiceConfig::Syncthing {
+                    instance: skillet_syncthing::Instance::Shared,
                     files_path: "/var/lib/data/syncthing/data",
                     data_path: "/var/lib/data/syncthing",
                     data_owner: "giacomo",
@@ -954,6 +958,7 @@ fn donbot() -> HostProfile {
             },
             HostService {
                 config: ServiceConfig::Syncthing {
+                    instance: skillet_syncthing::Instance::Shared,
                     files_path: "/var/lib/data/syncthing/data",
                     data_path: "/var/lib/data/syncthing",
                     data_owner: "giacomo",
@@ -962,55 +967,6 @@ fn donbot() -> HostProfile {
                     container_gid: 1000,
                 },
                 ui: Some(SYNCTHING_UI),
-            },
-            HostService {
-                config: ServiceConfig::Joplin(skillet_joplin::Config {
-                    image: skillet_joplin::DEFAULT_IMAGE,
-                    network_name: "donbot-joplin",
-                    database_path: "/var/lib/data/joplin/postgres",
-                    postgres_data_container_path: "/var/lib/postgresql",
-                    backup_path: "/var/lib/data/syncthing/data/backups/postgres/joplin",
-                    backup_subvolume: "/var/lib/data/syncthing",
-                    backup_owner: "giacomo",
-                    backup_group: "giacomo",
-                }),
-                ui: Some(UiServiceDeclaration {
-                    dashboard_group: None,
-                    sharing: None,
-                    public_names: &["notes"],
-                    cache: None,
-                    name: "joplin",
-                    upstream: "joplin-server",
-                    transport: skillet_caddy::UpstreamTransport::Bridge,
-                    port: skillet_joplin::PORT,
-                    tailnet_identity: false,
-                    aliases: &[],
-                }),
-            },
-            HostService {
-                config: ServiceConfig::Airtrail(skillet_airtrail::Config {
-                    image: skillet_airtrail::DEFAULT_IMAGE,
-                    network_name: "donbot-airtrail",
-                    database_path: "/var/lib/data/airtrail/postgres",
-                    postgres_data_container_path: "/var/lib/postgresql",
-                    uploads_path: "/var/lib/data/airtrail/uploads",
-                    backup_path: "/var/lib/data/syncthing/data/backups/airtrail",
-                    backup_subvolume: "/var/lib/data/syncthing",
-                    backup_owner: "giacomo",
-                    backup_group: "giacomo",
-                }),
-                ui: Some(UiServiceDeclaration {
-                    dashboard_group: None,
-                    sharing: None,
-                    public_names: &[],
-                    cache: None,
-                    name: "airtrail",
-                    upstream: "airtrail",
-                    transport: skillet_caddy::UpstreamTransport::Bridge,
-                    port: skillet_airtrail::PORT,
-                    tailnet_identity: true,
-                    aliases: &[],
-                }),
             },
             HostService {
                 config: ServiceConfig::Datadog {
@@ -1027,8 +983,90 @@ fn donbot() -> HostProfile {
             },
         ],
     };
+    profile.services.extend(donbot_application_services());
+    profile.services.push(donbot_personal_syncthing());
     profile.services.extend(donbot_media_services());
     profile
+}
+
+fn donbot_application_services() -> Vec<HostService> {
+    vec![
+        HostService {
+            config: ServiceConfig::Joplin(skillet_joplin::Config {
+                image: skillet_joplin::DEFAULT_IMAGE,
+                network_name: "donbot-joplin",
+                database_path: "/var/lib/data/joplin/postgres",
+                postgres_data_container_path: "/var/lib/postgresql",
+                backup_path: "/var/lib/data/syncthing/data/backups/postgres/joplin",
+                backup_subvolume: "/var/lib/data/syncthing",
+                backup_owner: "giacomo",
+                backup_group: "giacomo",
+            }),
+            ui: Some(UiServiceDeclaration {
+                dashboard_group: None,
+                sharing: None,
+                public_names: &["notes"],
+                cache: None,
+                name: "joplin",
+                upstream: "joplin-server",
+                transport: skillet_caddy::UpstreamTransport::Bridge,
+                port: skillet_joplin::PORT,
+                tailnet_identity: false,
+                aliases: &[],
+            }),
+        },
+        HostService {
+            config: ServiceConfig::Airtrail(skillet_airtrail::Config {
+                image: skillet_airtrail::DEFAULT_IMAGE,
+                network_name: "donbot-airtrail",
+                database_path: "/var/lib/data/airtrail/postgres",
+                postgres_data_container_path: "/var/lib/postgresql",
+                uploads_path: "/var/lib/data/airtrail/uploads",
+                backup_path: "/var/lib/data/syncthing/data/backups/airtrail",
+                backup_subvolume: "/var/lib/data/syncthing",
+                backup_owner: "giacomo",
+                backup_group: "giacomo",
+            }),
+            ui: Some(UiServiceDeclaration {
+                dashboard_group: None,
+                sharing: None,
+                public_names: &[],
+                cache: None,
+                name: "airtrail",
+                upstream: "airtrail",
+                transport: skillet_caddy::UpstreamTransport::Bridge,
+                port: skillet_airtrail::PORT,
+                tailnet_identity: true,
+                aliases: &[],
+            }),
+        },
+    ]
+}
+
+fn donbot_personal_syncthing() -> HostService {
+    HostService {
+        config: ServiceConfig::Syncthing {
+            instance: skillet_syncthing::Instance::Personal,
+            files_path: "/home/giacomo/.local/syncthing/data",
+            data_path: "/home/giacomo/.local/syncthing",
+            data_owner: "giacomo",
+            data_group: "giacomo",
+            container_uid: 1000,
+            container_gid: 1000,
+        },
+        ui: Some(UiServiceDeclaration {
+            dashboard_group: None,
+            sharing: None,
+            public_names: &[],
+            cache: None,
+            name: "syncthing-personal",
+            upstream: "syncthing-personal",
+            transport: skillet_caddy::UpstreamTransport::Bridge,
+            port: 8384,
+            tailnet_identity: true,
+            aliases: &["sync-personal.{host}"],
+        }),
+    }
 }
 
 fn donbot_media_services() -> Vec<HostService> {
@@ -1174,6 +1212,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
         .iter()
         .filter_map(|service| {
             let ServiceConfig::Syncthing {
+                instance: skillet_syncthing::Instance::Shared,
                 files_path,
                 data_owner,
                 data_group,

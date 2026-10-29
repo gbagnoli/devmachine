@@ -40,9 +40,10 @@ there is no automatic production credential fallback. See slice 4 below.
 Build a fresh Donbot installation with Arr/putioarr, Plex, Jellyfin, Gokapi,
 Syncthing and a private file-browsing UI. **Joplin and Airtrail are required
 services**; establish their effective access policies, client requirements and
-restore inputs in slice 0. **Defer the magiusstaff tenant**, including its second
-Syncthing/Filebrowser instance and snapshot selection. Do not add multi-instance
-support. Leave existing source-host state untouched; this plan does not include
+restore inputs in slice 0. **Defer the magiusstaff tenant**, including its separate
+Syncthing/Filebrowser instance and snapshot selection. Donbot explicitly selects
+a personal Syncthing role for the login user; this does not enable arbitrary
+tenants. Leave existing source-host state untouched; this plan does not include
 an application data or account migration. Exclude AdventureLog,
 Wanderer and Openclaw.
 
@@ -70,6 +71,8 @@ Architecture constraints and proposals are in
 | Jellyfin and Plex | Service configuration/state restore, public HTTPS ingress, client acceptance; Jellyfin Caddy cache per its plan |
 | Gokapi | Implemented private header-auth admin, separate public sharing, native accounts and paired tar backup/restore. Native scheduled backup/restore passed; desktop/public sharing and repeat/reboot acceptance remain |
 | Joplin / Airtrail (required) | Both callers, reusable PostgreSQL module, credentials, current private UI/Homer registration and scheduled backups are implemented. Database/upload restores passed. Joplin requires public HTTPS and external client sync acceptance; AirTrail remains private with account/API acceptance open |
+| Personal Syncthing | Donbot-only home-state instance with its own identity, private UI, peer ports and bootstrap; implementation added, live acceptance pending |
+| Google Photos Takeout Helper | Donbot image includes pinned/checksummed `gpth`, plus rsync/tar/parallel; Fedora script execution passed, rebuilt-image/VM check pending |
 | Conditional Pi-hole synchronization | Confirm current use; add explicit optional module only if retained; static DNS inventory is already shared |
 
 Donbot baseline, Joplin and AirTrail are wired to the canonical host profile.
@@ -92,7 +95,9 @@ part of this migration. Do not add them by copying another host's selections.
 Declare these existing modules in the donbot caller:
 
 - **Pi-hole:** DNS plus shared private-record inventory; identity-protected UI.
-- **Syncthing:** persistent shared files and a private GUI.
+- **Syncthing:** persistent shared files and a private GUI. Donbot separately
+  selects the personal user-owned instance for session files; no shared browser
+  or snapshot expansion is implied.
 - **Mikochi:** file browsing of the declared Syncthing files, included through
   shared composition; private UI with verified tailnet-user authentication.
 - **Tailscale:** host-network access, private UI identity lookup and explicitly

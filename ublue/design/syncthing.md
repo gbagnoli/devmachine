@@ -70,3 +70,20 @@ missing credential skips the initializer condition and permits retained installs
 to start; a bootstrap error prevents default auto-generation. This is the
 [systemd Requires/condition contract](https://github.com/systemd/systemd/blob/main/man/systemd.unit.xml),
 verified with isolated units on the physical host.
+
+## Personal synchronization
+
+Donbot explicitly selects a second, personal role for the login user's session
+files. It keeps Chef's system-level Podman orchestration with the worker mapped
+to that user's actual UID/primary GID; it is not a rootless user-manager service.
+State lives in the caller's home rather than the shared data subvolume, with
+0700 directory permissions. The shared file browser and btrbk source selection
+do not expand to include it.
+
+Both roles use one module and offline generator. Role identity binds the unit,
+container, peer port, private backend, encrypted bootstrap credential and device
+name. Existing shared payloads omit the new role field and remain compatible.
+Personal state is initialized only while absent and receives a separate device
+identity. No production identity or folder definitions enter disposable tests.
+The UI uses the same per-request tailnet identity gate as the shared instance.
+This is explicit shared/personal composition, not arbitrary tenant provisioning.

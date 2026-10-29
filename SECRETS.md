@@ -167,7 +167,7 @@ Generated independent LUKS root recovery passphrases. [Enrollment](ublue/skillet
 
 ## Syncthing
 
-No application credential to create. Bootstrap reuses the shared Cloudflare Zone ID and token creator to resolve the device name; provider-free tests use fixture names. Existing configuration is preserved.
+No application credential to create for shared or personal instances. Bootstrap reuses the shared Cloudflare Zone ID and token creator to resolve the device name; provider-free tests use fixture names. Existing configuration is preserved.
 
 ## Tailnet UI
 

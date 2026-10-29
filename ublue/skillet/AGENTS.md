@@ -297,3 +297,9 @@ skillet/
 - Public applications requiring a native ownership claim must retain a private
   initial setup path. Derive public readiness from host-owned application state, never a
   workstation-supplied credential flag, and deny routing until setup is complete.
+
+- Multiple instances of an application must bind service/container identity,
+  storage, listeners, bootstrap credentials and runtime checks to the same caller
+  declaration. Preserve retained default-instance payloads and keep each initializer
+  scoped to its selected instance. Adding an instance must not implicitly broaden
+  another service's file access or snapshot scope.

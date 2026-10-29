@@ -70,7 +70,9 @@ Check whether it is actually active; do not treat that log as evidence of absenc
 The static portal also contains external links; a link is not another proxied app.
 `mybibliotheca` has a path attribute but no application definition in this cookbook.
 A Google Photos Takeout Helper binary is installed by the Syncthing recipe;
-it is a manual utility, not a web service. An rclone template exists without a
+it is retained as a manual Donbot image utility, not a web service. The personal
+`calculon::syncthing_user` instance is also retained separately from the deferred
+magiusstaff tenant; target status is in the migration plan. An rclone template exists without a
 recipe reference. Inventory manual uses before deciding either utility's fate.
 
 ## Arr installation scope

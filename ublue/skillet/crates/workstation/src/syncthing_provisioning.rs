@@ -60,6 +60,7 @@ pub fn settings(
         .filter(|p| p.supports_service("syncthing"))
         .ok_or(Error::Host)?;
     let input = Settings {
+        instance: skillet_syncthing::Instance::Shared,
         host: host.into(),
         environment: policy.vault_name().into(),
         runtime_hostname: runtime_hostname.into(),
@@ -75,14 +76,32 @@ pub fn deliver_settings(
     activation: ActivationPolicy,
 ) -> Result<(), Error> {
     input.validate()?;
-    credential::install(
-        guest,
-        &input.host,
-        initial::CREDENTIAL,
-        initial::UNIT,
-        activation,
-        &input.payload()?,
-    )?;
+    let zone = input
+        .device_name
+        .strip_prefix(&format!("{}.", input.runtime_hostname))
+        .filter(|_| input.instance == skillet_syncthing::Instance::Shared)
+        .ok_or(initial::Error::Invalid)?;
+    let profile = skillet_hosts::profile_for_name(&input.host).ok_or(Error::Host)?;
+    for service in profile.services {
+        let skillet_hosts::ServiceConfig::Syncthing { instance, .. } = service.config else {
+            continue;
+        };
+        let mut selected = input.clone();
+        selected.instance = instance;
+        selected.device_name = format!(
+            "{}.{}",
+            instance.device_label(&input.runtime_hostname),
+            zone
+        );
+        credential::install(
+            guest,
+            &input.host,
+            instance.credential(),
+            instance.initial_unit(),
+            activation,
+            &selected.payload()?,
+        )?;
+    }
     Ok(())
 }
 

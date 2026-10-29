@@ -5,6 +5,7 @@ use std::cell::Cell;
 const XML: &[u8] = br#"<configuration version="52"><device id="LOCAL" name="old"><address>dynamic</address></device><gui enabled="true"><apikey>generated-key</apikey><insecureAdminAccess>false</insecureAdminAccess></gui><options><urAccepted>0</urAccepted></options></configuration>"#;
 fn settings() -> Settings {
     Settings {
+        instance: crate::Instance::Shared,
         host: "clamps".into(),
         environment: "prod".into(),
         runtime_hostname: "clamps".into(),
@@ -526,4 +527,25 @@ fn default_omitted_and_empty_gui_flags_are_initialized_once() {
     )
     .unwrap()
     .contains("<insecureAdminAccess>true</insecureAdminAccess>"));
+}
+
+#[test]
+fn retained_shared_payloads_are_compatible_and_personal_scope_is_explicit() {
+    let shared = settings();
+    let payload = shared.payload().unwrap();
+    assert!(!String::from_utf8_lossy(&payload).contains("instance"));
+    assert_eq!(
+        Settings::parse(&payload).unwrap().instance,
+        Instance::Shared
+    );
+    let mut personal = shared;
+    personal.instance = Instance::Personal;
+    assert!(personal.validate().is_err());
+    personal.device_name = "clamps-personal.example.invalid".into();
+    assert_eq!(
+        Settings::parse(&personal.payload().unwrap())
+            .unwrap()
+            .instance,
+        Instance::Personal
+    );
 }

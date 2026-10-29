@@ -1,4 +1,5 @@
 //! Missing-only application bootstrap. The generator runs with no network.
+use crate::Instance;
 use quick_xml::{
     events::{BytesEnd, BytesStart, BytesText, Event},
     Reader, Writer,
@@ -19,14 +20,37 @@ pub fn install<
     system: &S,
     files: &F,
 ) -> Result<(), crate::SyncthingError> {
+    install_instance(system, files, Instance::Shared)
+}
+
+pub fn install_instance<
+    S: skillet_core::system::ServiceResource + ?Sized,
+    F: FileMutationResource + ?Sized,
+>(
+    system: &S,
+    files: &F,
+    instance: Instance,
+) -> Result<(), crate::SyncthingError> {
+    let mut unit = include_str!("initial.service")
+        .replace("syncthing_initial", instance.credential())
+        .replace(
+            "Before=syncthing.service",
+            &format!("Before={}", instance.service()),
+        );
+    if instance == Instance::Personal {
+        unit = unit.replace(
+            "--host-file /etc/skillet/host",
+            "--host-file /etc/skillet/host --instance personal",
+        );
+    }
     files.ensure_directory(
         Path::new("/etc/systemd/system"),
         Some(0o755),
         &Ownership::default(),
     )?;
     if files.ensure_file(
-        &Path::new("/etc/systemd/system").join(UNIT),
-        include_bytes!("initial.service"),
+        &Path::new("/etc/systemd/system").join(instance.initial_unit()),
+        unit.as_bytes(),
         Some(0o644),
         &Ownership::default(),
     )? {
@@ -39,6 +63,8 @@ pub fn install<
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Settings {
+    #[serde(default, skip_serializing_if = "Instance::is_shared")]
+    pub instance: Instance,
     pub host: String,
     pub environment: String,
     pub runtime_hostname: String,
@@ -65,9 +91,10 @@ impl Settings {
             || !label(&self.host)
             || !label(&self.runtime_hostname)
             || self.device_name.len() > 253
-            || !self
-                .device_name
-                .starts_with(&format!("{}.", self.runtime_hostname))
+            || !self.device_name.starts_with(&format!(
+                "{}.",
+                self.instance.device_label(&self.runtime_hostname)
+            ))
             || !self.device_name.split('.').all(label)
             || (self.environment == "prod" && self.host != self.runtime_hostname)
         {

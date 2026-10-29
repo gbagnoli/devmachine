@@ -454,6 +454,7 @@ fn donbot_declares_joplin_and_airtrail_uis_that_register_with_homer_and_caddy() 
             "syncthing",
             "joplin",
             "airtrail",
+            "syncthing-personal",
             "jellyfin",
             "plex",
             "gokapi",
@@ -765,6 +766,7 @@ fn synthetic_profile_derives_network_and_ui_from_its_identity() {
         requires_data_mount: false,
         services: vec![HostService {
             config: ServiceConfig::Syncthing {
+                instance: skillet_syncthing::Instance::Shared,
                 files_path: "/var/lib/data/syncthing/data",
                 data_path: "/srv/sync",
                 data_owner: "sync",
@@ -1405,4 +1407,61 @@ fn homer_lists_private_and_public_gokapi_links_in_the_owners_group() {
         .unwrap();
     declaration.ui.as_mut().unwrap().dashboard_group = Some("Shared files");
     assert_eq!(profile.dashboard_group("gokapi-sharing"), "Shared files");
+}
+
+#[test]
+fn donbot_personal_sync_is_explicit_and_does_not_expand_shared_file_browsing() {
+    let profile = super::profile_for_name("donbot").unwrap();
+    let personal = profile
+        .services
+        .iter()
+        .find(|service| service.name() == "syncthing-personal")
+        .unwrap();
+    assert!(matches!(
+        personal.config,
+        super::ServiceConfig::Syncthing {
+            instance: skillet_syncthing::Instance::Personal,
+            data_path: "/home/giacomo/.local/syncthing",
+            data_owner: "giacomo",
+            ..
+        }
+    ));
+    assert!(personal.ui.unwrap().tailnet_identity);
+    assert_eq!(
+        profile
+            .services
+            .iter()
+            .filter(|s| s.name() == "mikochi")
+            .count(),
+        1
+    );
+    assert_eq!(
+        personal.credential_consumers()[0].credential,
+        "syncthing_personal_initial"
+    );
+    let acceptance = profile.acceptance_plan();
+    let personal = acceptance
+        .services
+        .iter()
+        .find(|s| s.unit == "syncthing-personal.service")
+        .unwrap();
+    assert_eq!(personal.listeners.len(), 2);
+    assert!(personal
+        .listeners
+        .iter()
+        .all(|listener| listener.port == 22202));
+    let shared = acceptance
+        .services
+        .iter()
+        .find(|s| s.unit == "syncthing.service")
+        .unwrap();
+    assert!(shared
+        .listeners
+        .iter()
+        .all(|listener| listener.port == 22000));
+    for host in ["clamps", "joey"] {
+        assert!(!super::profile_for_name(host)
+            .unwrap()
+            .supports_service("syncthing-personal"));
+    }
 }
