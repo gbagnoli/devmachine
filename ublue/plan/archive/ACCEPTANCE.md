@@ -3889,3 +3889,17 @@ acceptance; no production host or private DNS values were committed.
   inactive; this is dashboard deployment evidence, not native application or
   browser acceptance. Set that entry's Password to one complete lower-case
   allowlisted Tailscale LoginName, then rerun owned VM provisioning.
+
+### 2026-10-29 — Donbot Gokapi credential delivery and activation
+
+- At the operator's request, copied only the Donbot Gokapi admin Password from
+  the prod entry to its test counterpart through the Rust vault API. Verified
+  membership in the shared UI allowlist before saving and verified persisted
+  vault content without printing the identity. No application data entered the
+  vault; the temporary helper was removed.
+- Retried owned `donbot` / `joplin` provisioning with test UI delivery; the full
+  command completed successfully, resolving the earlier missing-entry blocker.
+  Guest assertions confirm Homer, Caddy, Gokapi and the Gokapi backup timer are
+  active, and both Gokapi cards remain in Files.
+- This proves native activation on the retained VM. Browser identity, real
+  sharing flows/limits and full backup/restore/reboot acceptance remain parked.
