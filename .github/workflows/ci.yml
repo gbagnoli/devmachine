@@ -8,7 +8,8 @@ on:
 
 jobs:
   chef-lint:
-    runs-on: ubuntu-latest
+    # Ruby 3.1 has no prebuilt binaries for Ubuntu 26.04 (ubuntu-latest).
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Set up Ruby
