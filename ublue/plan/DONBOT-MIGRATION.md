@@ -2,11 +2,12 @@
 
 Status: **Joplin and AirTrail implementation, named-VM provisioning, and
 database restore acceptance are complete; client/API acceptance remains open**,
-refreshed 2026-10-28. Jellyfin library access and static-cache consumer checks
+refreshed 2026-10-29. Jellyfin library access and static-cache consumer checks
 passed; staging DNS-01 and VM-local HTTPS passed, with native client acceptance
 open (slice 5). Gokapi composition, native account bootstrap, mixed ingress and
-paired tar backups are implemented; desktop/Tailscale and full named-VM
-acceptance are deferred until the operator has desktop access (slice 6).
+paired tar backups are implemented. Native VM activation and scheduled
+backup/restore acceptance passed; browser/public sharing and repeat/reboot
+acceptance remain open (slice 6).
 Linked-media provisioning and declared-application
 repeat/reboot acceptance also passed; transfer/import and operator Arr browser
 checks remain open. Inventory is complete. Donbot
@@ -67,7 +68,7 @@ Architecture constraints and proposals are in
 | Subnet routing | Shared routing preferences tracked in joey's plan; select only needed routes |
 | Prowlarr, Radarr, Sonarr, Lidarr, putioarr | Composition, mounts, credentials, private UIs/Homer, owned links and monitoring declarations implemented. Real connection tests and application reboot/reapply passed; transfer/import and operator browser checks remain. No age-based cleanup is enabled |
 | Jellyfin and Plex | Service configuration/state restore, public HTTPS ingress, client acceptance; Jellyfin Caddy cache per its plan |
-| Gokapi | Implemented private header-auth admin, separate public sharing, native accounts and paired tar backup/restore. Desktop/Tailscale and full VM acceptance deferred |
+| Gokapi | Implemented private header-auth admin, separate public sharing, native accounts and paired tar backup/restore. Native scheduled backup/restore passed; desktop/public sharing and repeat/reboot acceptance remain |
 | Joplin / Airtrail (required) | Both callers, reusable PostgreSQL module, credentials, current private UI/Homer registration and scheduled backups are implemented. Database/upload restores passed. Joplin requires public HTTPS and external client sync acceptance; AirTrail remains private with account/API acceptance open |
 | Conditional Pi-hole synchronization | Confirm current use; add explicit optional module only if retained; static DNS inventory is already shared |
 
@@ -77,7 +78,9 @@ passed. The fresh named VM has both services running, with PostgreSQL and
 scheduled backup timers active; the operator confirmed both UIs work. Joplin
 client sync and AirTrail account/API acceptance remain open. Media and Gokapi
 implementations have separate status: the linked media stack is implemented
-with transfer/import and operator browser acceptance pending; Gokapi is implemented with desktop/Tailscale and full VM acceptance deferred.
+with transfer/import and operator browser acceptance pending; Gokapi has native
+VM backup/restore passed and browser/public sharing plus repeat/reboot acceptance
+open.
 Donbot does not select DDNS. Joplin requires public HTTPS with native authentication;
 its current private route must change through the generic ingress milestone. Arr uses
 verified tailnet-user authentication. Airtrail should use the same tailnet-user
@@ -506,7 +509,7 @@ and outside Syncthing/snapshots. No nginx cache fallback or automatic waiver is
 selected. An unsupported video feature remains an explicit migration gap; do
 not claim slicing parity or enable unsafe caching to close it.
 
-### 6. Gokapi mixed exposure — implemented, desktop acceptance parked
+### 6. Gokapi mixed exposure — backup/restore passed, desktop acceptance parked
 
 Donbot declares the pinned Gokapi module. Its private admin UI uses verified
 Tailscale identity and native header-auth accounts, with no second password.
@@ -531,14 +534,20 @@ a recovery archive and validates/extracts the selected set before replacing live
 state. No application data goes into KeePassXC. See
 [Gokapi operation](../skillet/crates/gokapi/README.md).
 
-**Next acceptance (deferred at operator request):** add the selected test admin
-entry, update/reprovision the named Donbot VM with fresh Caddy credentials, and
-use a desktop on the tailnet. Verify private admin/assets/API calls work without
+**Named-VM evidence (2026-10-29):** test admin delivery and full provisioning
+completed. Homer shows both cards under Files. The real scheduled backup service
+and restore CLI passed paired configuration/SQLite/file rollback, native account
+and role preservation, pre-restore recovery publication and original-state
+cleanup; Gokapi and its daily timer are active. The synthetic data file exercises
+archive bytes, not browser upload/download behavior.
+
+**Next acceptance (desktop checks deferred at operator request):** use a desktop
+on the tailnet. Verify private admin/assets/API calls work without
 an app password, correct native account/roles, revocation/unknown/tagged-user
 denial and backend isolation. Exercise public share downloads, password cookies,
 expiration/download limits and guest upload chunks without Tailscale. Verify
 management remains denied with forged headers, unsupported methods and encoded
-paths. Finish real systemd backup/restore, repeat-apply and reboot acceptance.
+paths. Finish repeat-apply and reboot acceptance; real systemd backup/restore passed.
 Provider-free native-consumer and real-proxy fixtures run in CI; they do not
 close these manual/full-VM gates. Existing restored VM data remains untouched.
 The passt VM still needs explicit LAN routing/forwarding for desktop public-route
@@ -624,8 +633,8 @@ Do not install workstation tools. Record honest evidence in
 the shared secret-requirement catalog/root checklist when exact entries are added.
 The shared identity allowlist is implemented at `skillet/tailscale/ui-users`.
 Gokapi uses explicit initial ownership and registered native accounts; its
-desktop/Tailscale, public-flow and full VM acceptance are parked until desktop
-access is available.
+desktop/Tailscale and public-flow acceptance are parked until desktop access
+is available. Native VM backup/restore passed; repeat/reboot remains open.
 
 **Current milestone:** finish named-VM linked Arr acceptance (slice 4), including
 harmless transfer/import with callbacks and authorized private browser checks.

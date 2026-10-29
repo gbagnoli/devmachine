@@ -67,3 +67,28 @@ full VM acceptance remain in the [Donbot plan](../../../plan/DONBOT-MIGRATION.md
 
 [Upstream setup](https://gokapi.readthedocs.io/en/latest/setup.html),
 [pinned routes](https://github.com/Forceu/Gokapi/blob/v2.2.4/internal/webserver/Webserver.go).
+
+## Disposable backup/restore acceptance
+
+Run `integration_tests/gokapi-backup-restore.py` inside a provisioned, owned test
+VM with Gokapi and its backup timer active. From `ublue/skillet`, upload through
+`guest_command`, then invoke it through the same owner:
+
+```sh
+cargo run -p skillet_vm --example guest_command -- \
+  "$(realpath ../butane)" donbot joplin --upload \
+  "$PWD/integration_tests/gokapi-backup-restore.py" /var/tmp/gokapi-backup-restore.py
+cargo run -p skillet_vm --example guest_command -- \
+  "$(realpath ../butane)" donbot joplin /usr/bin/sudo -n /usr/bin/python3 \
+  /var/tmp/gokapi-backup-restore.py --host donbot \
+  --guest-hostname donbot-test-joplin --state /var/lib/data/gokapi \
+  --backups /var/lib/data/syncthing/data/backups/gokapi
+```
+
+Select the actual host/instance, recorded guest hostname and declared paths.
+This temporarily changes native accounts, configuration and a synthetic data
+file. It pauses the timer, saves an independent original archive, exercises the
+real backup unit and restore command, verifies rollback and native readiness,
+then restores the original state and timer. It retains a root-only safety copy
+at the printed guest path. It does not test browser authentication or public
+sharing and does not run in routine CI.

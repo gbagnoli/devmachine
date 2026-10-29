@@ -3903,3 +3903,29 @@ acceptance; no production host or private DNS values were committed.
   active, and both Gokapi cards remain in Files.
 - This proves native activation on the retained VM. Browser identity, real
   sharing flows/limits and full backup/restore/reboot acceptance remain parked.
+
+### 2026-10-29 — Donbot Gokapi live scheduled backup and restore
+
+- Ran the saved `skillet/integration_tests/gokapi-backup-restore.py` inside owned
+  `donbot` / `joplin` using manifest-bound guest operations. The helper checks
+  runtime/profile identity, virtualization and actual container state mounts.
+- The real `skillet-gokapi-backup.service` completed successfully, published one
+  paired archive and restarted Gokapi. The daily timer is active. The archive
+  contained native configuration/identity binding, healthy SQLite and synthetic
+  file bytes; native APIs created temporary accounts without direct DB writes.
+- Changed configuration, accounts and file bytes after the snapshot, then ran
+  the actual `skillet gokapi restore` CLI with the service active. It recovered
+  the saved config/identity bytes, account IDs/password records/permissions/roles
+  (excluding consumer-owned LastOnline) and file bytes. SQLite integrity and
+  native admin HTTP readiness passed. A pre-restore recovery archive retained
+  the changed configuration and accounts.
+- Finally restored an independent original-state archive: original accounts and
+  configuration match, synthetic users/files are gone, and Gokapi and its timer
+  are active. A root-only safety copy remains outside the pruned backup directory
+  in the guest. No vault/provider/production state was changed by this check.
+- This closes actual systemd backup/restore acceptance. The file is synthetic
+  archive data, not a native uploaded share. Browser/Tailscale authorization,
+  public sharing/guest uploads/limits and full repeat-apply/reboot remain open.
+- Local validation also passed: Python syntax, Ruff formatting/lint, workspace
+  all-target tests, Cargo formatting and strict pedantic Clippy. Routine CI only
+  lints the saved helper; its destructive acceptance requires an explicit VM.
