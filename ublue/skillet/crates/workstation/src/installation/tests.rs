@@ -1,4 +1,29 @@
 use super::*;
+
+#[test]
+fn symlink_errors_identify_link_target_and_requested_path() {
+    let temporary = tempfile::tempdir().unwrap();
+    let target = temporary.path().join("real");
+    fs::create_dir(&target).unwrap();
+    let link = temporary.path().join("linked");
+    std::os::unix::fs::symlink(&target, &link).unwrap();
+
+    // Output directories may not exist yet: identify a linked ancestor too.
+    for requested in [link.clone(), link.join("new-bundle")] {
+        let error = reject_symlinks(&requested).unwrap_err().to_string();
+        assert!(error.contains(&format!(
+            "symlink {} -> {}",
+            link.display(),
+            target.display()
+        )));
+        assert!(error.contains(&format!(
+            "checking installation path {}",
+            requested.display()
+        )));
+    }
+    reject_symlinks(&target.join("new-bundle")).unwrap();
+}
+
 fn host() -> Value {
     serde_yml::from_str(include_str!("../../../../../butane/clamps.bu")).unwrap()
 }

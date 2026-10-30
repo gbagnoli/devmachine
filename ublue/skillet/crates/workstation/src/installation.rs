@@ -221,9 +221,12 @@ fn reject_symlinks(path: &Path) -> Result<()> {
     for component in path.ancestors() {
         match fs::symlink_metadata(component) {
             Ok(metadata) if metadata.file_type().is_symlink() => {
-                return Err(Error::Invalid(
-                    "symlink in installation output or source includes".into(),
-                ))
+                return Err(Error::Invalid(format!(
+                    "symlink {} -> {} while checking installation path {}",
+                    component.display(),
+                    fs::read_link(component)?.display(),
+                    path.display(),
+                )))
             }
             Ok(_) => {}
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
