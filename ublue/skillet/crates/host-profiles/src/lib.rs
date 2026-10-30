@@ -1,0 +1,1103 @@
+//! Canonical host profiles and their shared composition.
+
+use skillet_core::{
+    credentials::{CredentialError, CredentialInputs},
+    files::{FileError, FileResource},
+    system::{SystemError, SystemResource},
+};
+use skillet_podman::{PodmanConfig, ProcessIdentity, QuadletSecret, SecretTarget, Volume};
+use std::collections::BTreeMap;
+use thiserror::Error;
+
+mod application_unit;
+pub mod profile;
+pub mod tailscale;
+pub use profile::{
+    declared_profiles, profile_for_host, profile_for_name, AcceptanceListener, AcceptanceOwner,
+    AcceptanceService, CredentialConsumer, HealthProbe, HostAcceptancePlan, HostId, HostProfile,
+    HostService, ListenerProtocol, ServiceConfig, SharingDeclaration, UiServiceDeclaration,
+};
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum HostApplyPhase {
+    Base,
+    Full,
+    Caddy,
+    Ddns,
+    Datadog,
+    Smtp,
+    Network,
+    PiholeDns,
+    Joplin,
+    Airtrail,
+    Media,
+    Plex,
+    Gokapi,
+}
+
+pub fn credentials_for_phase(
+    hostname: &str,
+    phase: HostApplyPhase,
+) -> Result<Vec<&'static str>, ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.to_string()))?;
+    Ok(credential_names_for_phase(&profile, phase))
+}
+
+fn credential_names_for_phase(profile: &HostProfile, phase: HostApplyPhase) -> Vec<&'static str> {
+    if phase == HostApplyPhase::Base {
+        return Vec::new();
+    }
+    profile
+        .credential_consumers()
+        .into_iter()
+        .filter(|consumer| match phase {
+            HostApplyPhase::Full => !matches!(
+                consumer.unit,
+                "caddy.service"
+                    | "cloudflare-ddns.service"
+                    | "datadog-agent.service"
+                    | "postfix.service"
+                    | "skillet-syncthing-initialize.service"
+                    | "skillet-syncthing-personal-initialize.service"
+                    | skillet_homeassistant::backup::UNIT
+                    | skillet_pihole::dns::UNIT
+                    | skillet_network::PREPARE_UNIT
+                    | "skillet-joplin-apply.service"
+                    | "skillet-airtrail-apply.service"
+                    | skillet_media::APPLY_UNIT
+                    | skillet_gokapi::APPLY_UNIT
+            ),
+            HostApplyPhase::Caddy => consumer.unit == "caddy.service",
+            HostApplyPhase::Ddns => consumer.unit == "cloudflare-ddns.service",
+            HostApplyPhase::Datadog => consumer.unit == "datadog-agent.service",
+            HostApplyPhase::Smtp => consumer.unit == "postfix.service",
+            HostApplyPhase::PiholeDns => consumer.unit == skillet_pihole::dns::UNIT,
+            HostApplyPhase::Network => consumer.unit == skillet_network::PREPARE_UNIT,
+            HostApplyPhase::Joplin => {
+                consumer.credential == skillet_joplin::DATABASE_PASSWORD_CREDENTIAL
+                    || consumer.credential == CADDY_SITES_CREDENTIAL
+            }
+            HostApplyPhase::Airtrail => {
+                consumer.credential == skillet_airtrail::DATABASE_PASSWORD_CREDENTIAL
+                    || consumer.credential == skillet_airtrail::INTEGRATIONS_CREDENTIAL
+                    || consumer.credential == CADDY_SITES_CREDENTIAL
+            }
+            HostApplyPhase::Media => {
+                consumer.credential == skillet_media::CREDENTIAL
+                    || consumer.credential == CADDY_SITES_CREDENTIAL
+            }
+            HostApplyPhase::Gokapi => {
+                consumer.credential == skillet_gokapi::ADMIN_CREDENTIAL
+                    || consumer.credential == CADDY_SITES_CREDENTIAL
+            }
+            HostApplyPhase::Plex => consumer.credential == CADDY_SITES_CREDENTIAL,
+            HostApplyPhase::Base => false,
+        })
+        .map(|consumer| consumer.credential)
+        .collect()
+}
+
+/// Explicit guest boot expectations. Consolidated with the canonical capability
+/// declaration in refactoring workstream 2; the VM orchestrator has no host cases.
+pub struct HostBootPolicy {
+    pub signed_image: String,
+    pub masked_units: Vec<&'static str>,
+}
+
+pub fn boot_policy_for_host(hostname: &str) -> Option<HostBootPolicy> {
+    let profile = profile_for_name(hostname)?;
+    let signed_image = profile.signed_image?;
+    Some(HostBootPolicy {
+        signed_image: signed_image.to_string(),
+        masked_units: profile.masked_units.to_vec(),
+    })
+}
+
+#[derive(Error, Debug)]
+pub enum ApplyError {
+    #[error("System error: {0}")]
+    System(#[from] SystemError),
+    #[error("File error: {0}")]
+    File(#[from] FileError),
+    #[error("Credential error: {0}")]
+    Credential(#[from] CredentialError),
+    #[error("Hardening apply error: {0}")]
+    Hardening(String),
+    #[error("Pihole apply error: {0}")]
+    Pihole(#[from] skillet_pihole::PiholeError),
+    #[error(transparent)]
+    PiholeDns(#[from] skillet_pihole::dns::Error),
+    #[error(transparent)]
+    HomeAssistant(#[from] skillet_homeassistant::Error),
+    #[error("UniFi apply error: {0}")]
+    Unifi(#[from] skillet_unifi::UnifiError),
+    #[error("Syncthing apply error: {0}")]
+    Syncthing(#[from] skillet_syncthing::SyncthingError),
+    #[error(transparent)]
+    Nut(#[from] skillet_nut::NutError),
+    #[error(transparent)]
+    Mikochi(#[from] skillet_mikochi::MikochiError),
+    #[error("Btrbk apply error: {0}")]
+    Btrbk(#[from] skillet_btrbk::BtrbkError),
+    #[error("Caddy apply error: {0}")]
+    Caddy(#[from] skillet_caddy::CaddyError),
+    #[error(transparent)]
+    Homer(#[from] skillet_homer::HomerError),
+    #[error(transparent)]
+    Jellyfin(#[from] skillet_jellyfin::Error),
+    #[error(transparent)]
+    Plex(#[from] skillet_plex::Error),
+    #[error(transparent)]
+    Gokapi(#[from] skillet_gokapi::Error),
+    #[error(transparent)]
+    Joplin(#[from] skillet_joplin::JoplinError),
+    #[error(transparent)]
+    Airtrail(#[from] skillet_airtrail::AirtrailError),
+    #[error(transparent)]
+    Media(#[from] skillet_media::Error),
+    #[error("DDNS apply error: {0}")]
+    Ddns(#[from] skillet_ddns::DdnsError),
+    #[error("Datadog apply error: {0}")]
+    Datadog(#[from] skillet_datadog::DatadogError),
+    #[error("SMTP apply error: {0}")]
+    Smtp(#[from] skillet_smtp::SmtpError),
+    #[error(transparent)]
+    Network(#[from] skillet_network::NetworkError),
+    #[error("Podman error: {0}")]
+    Podman(#[from] skillet_podman::PodmanError),
+    #[error("Fixture input error: {0}")]
+    FixtureInput(String),
+    #[error("Unknown host profile: {0}")]
+    UnknownHost(String),
+}
+
+/// Shared host baseline used by both CLI entry points.
+pub fn apply_base(system: &dyn SystemResource, files: &dyn FileResource) -> Result<(), ApplyError> {
+    skillet_hardening::apply(system, files).map_err(|e| ApplyError::Hardening(e.to_string()))?;
+    skillet_network::install(system, files)?;
+    skillet_syncthing::initial::install(system, files)?;
+    Ok(())
+}
+
+/// Name of the systemd credential (and podman secret) holding the Pi-hole
+/// web UI password. Full `clamps` apply reads it from the systemd credential
+/// directory supplied to that invocation.
+pub const PIHOLE_WEB_PASSWORD_CREDENTIAL: &str = "pihole_web_password";
+/// Name of the systemd credential (and Podman secret) holding the one-use
+/// Tailscale enrollment key used when the node has not joined yet.
+pub const TAILSCALE_AUTH_KEY_CREDENTIAL: &str = "tailscale_auth_key";
+/// Credential containing private Caddy hostnames and the ACME environment.
+pub const CADDY_SITES_CREDENTIAL: &str = "caddy_sites";
+/// Cloudflare token used only by Caddy's DNS-01 challenge provider.
+pub const CLOUDFLARE_ACME_TOKEN_CREDENTIAL: &str = "cloudflare_acme_token";
+pub const CLOUDFLARE_DDNS_CONFIG_CREDENTIAL: &str = skillet_ddns::CREDENTIAL;
+
+/// UI services declared by a host. This is the canonical input used by Caddy
+/// both on the workstation (to build delivery payloads) and on the host (to
+/// validate and apply them).
+pub struct HostUiConfig {
+    pub network_name: String,
+    pub services: Vec<skillet_caddy::UiService>,
+}
+
+pub fn ui_config_for_host(hostname: &str) -> Option<HostUiConfig> {
+    let profile = profile_for_name(hostname)?;
+    let services = profile.ui_services();
+    (!services.is_empty()).then(|| HostUiConfig {
+        network_name: profile.id.as_str().to_string(),
+        services,
+    })
+}
+
+fn tailscale_config(
+    hostname: &str,
+    auth_key: String,
+    state_path: &str,
+    advertise_exit_node: bool,
+) -> PodmanConfig {
+    let extra_config = BTreeMap::from([
+        (
+            "Container".to_string(),
+            vec![
+                "ContainerName=tailscale".to_string(),
+                skillet_datadog::process("tailscale", "tailscaled"),
+                "AddCapability=NET_ADMIN".to_string(),
+                "AddCapability=NET_RAW".to_string(),
+                "AddDevice=/dev/net/tun:/dev/net/tun".to_string(),
+                "AutoUpdate=registry".to_string(),
+                "Environment=TS_ACCEPT_DNS=false".to_string(),
+                "Environment=TS_AUTH_ONCE=true".to_string(),
+                format!("Environment=TS_EXTRA_ARGS=--advertise-exit-node={advertise_exit_node}"),
+                "Notify=healthy".to_string(),
+                "HealthCmd=tailscale status --peers=false".to_string(),
+                "HealthInterval=10s".to_string(),
+                "HealthStartPeriod=60s".to_string(),
+                format!("Environment=TS_HOSTNAME={hostname}"),
+                "Environment=TS_STATE_DIR=/var/lib/tailscale".to_string(),
+                "Environment=TS_SOCKET=/var/run/tailscale/tailscaled.sock".to_string(),
+                "Environment=TS_USERSPACE=false".to_string(),
+            ],
+        ),
+        (
+            "Service".to_string(),
+            vec![
+                "TimeoutStartSec=180".to_string(),
+                format!("ExecStartPost=/usr/bin/podman exec tailscale tailscale set --advertise-exit-node={advertise_exit_node}"),
+            ],
+        ),
+        (
+            "Unit".to_string(),
+            vec!["After=network-online.target".to_string()],
+        ),
+    ]);
+    PodmanConfig {
+        name: "tailscale".to_string(),
+        image: "docker.io/tailscale/tailscale:stable".to_string(),
+        network_attachments: vec![skillet_podman::NetworkAttachment::Host],
+        port_publications: Vec::new(),
+        storage_dependency: Some(skillet_podman::MountDependency::shared_service_data()),
+        process_identity: ProcessIdentity::ImageDefault,
+        namespace_mapping: None,
+        volumes: vec![
+            Volume {
+                host_path: state_path.to_string(),
+                container_path: "/var/lib/tailscale".to_string(),
+                options: Some("Z".to_string()),
+                host_mode: None,
+                host_ownership: None,
+            },
+            Volume {
+                host_path: "/run/skillet-tailscale".into(),
+                container_path: "/var/run/tailscale".into(),
+                options: Some("z".into()),
+                host_mode: Some(0o700),
+                host_ownership: Some(skillet_core::files::Ownership::named(
+                    Some("root"),
+                    Some("root"),
+                )),
+            },
+        ],
+        secrets: vec![QuadletSecret {
+            secret_name: TAILSCALE_AUTH_KEY_CREDENTIAL.to_string(),
+            target: SecretTarget::Environment {
+                env_var_name: "TS_AUTHKEY".to_string(),
+            },
+        }],
+        config_revisions: vec![auth_key.into_bytes()],
+        extra_config,
+    }
+}
+
+fn install_syncthing_initializers(
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    profile: &HostProfile,
+) -> Result<(), ApplyError> {
+    for service in &profile.services {
+        if let ServiceConfig::Syncthing { instance, .. } = service.config {
+            skillet_syncthing::initial::install_instance(system, files, instance)?;
+        }
+    }
+    Ok(())
+}
+
+/// Apply a service from a host declaration using only its declared config.
+fn apply_syncthing(
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    profile: &HostProfile,
+    service: &HostService,
+) -> Result<(), ApplyError> {
+    let ServiceConfig::Syncthing {
+        instance,
+        files_path,
+        data_path,
+        data_owner,
+        data_group,
+        container_uid,
+        container_gid,
+    } = service.config
+    else {
+        return Err(ApplyError::FixtureInput(
+            "syncthing apply received an incompatible service declaration".to_string(),
+        ));
+    };
+    let network_name = if let Some(ui) = service.ui.filter(|ui| ui.tailnet_identity) {
+        let network = skillet_caddy::private_network(profile.id.as_str(), ui.name);
+        skillet_podman::ensure_network(system, files, &network)?;
+        network.unit_name
+    } else {
+        profile.id.as_str().to_string()
+    };
+    skillet_syncthing::apply(
+        system,
+        files,
+        skillet_syncthing::SyncthingConfig {
+            instance,
+            files_path: files_path.to_string(),
+            data_path: data_path.to_string(),
+            data_owner: data_owner.to_string(),
+            data_group: data_group.to_string(),
+            container_uid,
+            container_gid,
+            network_name,
+        },
+    )?;
+    Ok(())
+}
+
+fn apply_pihole(
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    profile: &HostProfile,
+    service: &HostService,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let ServiceConfig::Pihole = service.config else {
+        return Err(ApplyError::FixtureInput(
+            "incompatible Pi-hole declaration".into(),
+        ));
+    };
+    let protected = service.ui.filter(|ui| ui.tailnet_identity);
+    let (authentication, network_name) = if let Some(ui) = protected {
+        let network = skillet_caddy::private_network(profile.id.as_str(), ui.name);
+        skillet_podman::ensure_network(system, files, &network)?;
+        (
+            skillet_pihole::WebAuthentication::TailnetProxy,
+            network.unit_name,
+        )
+    } else {
+        let password = credentials
+            .require(PIHOLE_WEB_PASSWORD_CREDENTIAL)?
+            .to_string();
+        system.ensure_podman_secret(PIHOLE_WEB_PASSWORD_CREDENTIAL, &password)?;
+        (
+            skillet_pihole::WebAuthentication::Password(vec![QuadletSecret {
+                secret_name: PIHOLE_WEB_PASSWORD_CREDENTIAL.to_string(),
+                target: SecretTarget::File {
+                    target_path: "/run/secrets/pihole_web_password".to_string(),
+                    mode: Some("0400".to_string()),
+                    uid: None,
+                    gid: None,
+                },
+            }]),
+            profile.id.as_str().to_string(),
+        )
+    };
+    let user = system.user_by_name("pihole")?;
+    let group = system.group_by_name("pihole")?;
+    skillet_pihole::apply(
+        system,
+        files,
+        &skillet_pihole::PiholeUser {
+            uid: user.map(|identity| identity.uid),
+            gid: group.map(|identity| identity.gid),
+            name: "pihole".to_string(),
+            group_name: "pihole".to_string(),
+        },
+        authentication,
+        network_name,
+    )?;
+    Ok(())
+}
+
+/// Apply a canonical host profile. Unknown identities are rejected.
+pub fn apply_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.to_string()))?;
+    apply_profile(&profile, system, files, credentials)
+}
+
+#[allow(clippy::similar_names)]
+fn apply_profile(
+    profile: &HostProfile,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    apply_base(system, files)?;
+    install_syncthing_initializers(system, files, profile)?;
+    application_unit::install(system, files, profile)?;
+    if profile.requires_data_mount {
+        files.require_btrfs_subvolume_mount(
+            std::path::Path::new("/var/lib/data"),
+            std::path::Path::new("/var"),
+            "/data",
+        )?;
+    }
+    if profile.requires_pihole_dns_listener_policy() {
+        skillet_podman::ensure_dns_listener_port(files, 54)?;
+    }
+    if profile.requires_service_network() {
+        skillet_podman::ensure_network(system, files, &profile.service_network())?;
+    }
+    for service in &profile.services {
+        match &service.config {
+            // Independently credential-gated optional services have their own phase.
+            ServiceConfig::Ddns { .. }
+            | ServiceConfig::Datadog { .. }
+            | ServiceConfig::Smtp
+            | ServiceConfig::Network(_)
+            // Homer is rendered after the environment-specific Caddy sites are delivered.
+            | ServiceConfig::Homer
+            // Joplin needs the canonical Caddy site and its separately delivered credential.
+            | ServiceConfig::Joplin(_)
+            | ServiceConfig::Airtrail(_)
+            | ServiceConfig::Media { .. }
+            | ServiceConfig::Plex(_)
+            | ServiceConfig::Gokapi(_) => {}
+            ServiceConfig::Pihole => {
+                apply_pihole(system, files, profile, service, credentials)?;
+            }
+            ServiceConfig::Syncthing { .. } => apply_syncthing(system, files, profile, service)?,
+            ServiceConfig::Mikochi { .. } => apply_mikochi(system, files, profile, service)?,
+            ServiceConfig::Nut(config) => {
+                skillet_nut::apply(system, files, *config)?;
+            }
+            ServiceConfig::HomeAssistant(config) => {
+                skillet_homeassistant::apply(system, files, *config)?;
+            }
+            ServiceConfig::Jellyfin(config) => {
+                skillet_jellyfin::apply(system, files, *config, profile.id.as_str())?;
+            }
+            ServiceConfig::Unifi => skillet_unifi::apply(system, files)?,
+            ServiceConfig::Tailscale {
+                state_path,
+                advertise_exit_node,
+            } => {
+                let input = tailscale::EnrollmentInput::parse(
+                    credentials.require(TAILSCALE_AUTH_KEY_CREDENTIAL)?,
+                )
+                .map_err(|e| ApplyError::FixtureInput(e.to_string()))?;
+                if input.advertise_exit_node && !advertise_exit_node {
+                    return Err(ApplyError::FixtureInput(
+                        "host does not declare exit-node routing".into(),
+                    ));
+                }
+                let auth_key = input.auth_key;
+                system.ensure_podman_secret(TAILSCALE_AUTH_KEY_CREDENTIAL, &auth_key)?;
+                let hostname = runtime_hostname(files, profile.id.as_str())?;
+                skillet_podman::container(
+                    system,
+                    files,
+                    tailscale_config(&hostname, auth_key, state_path, input.advertise_exit_node),
+                )?;
+            }
+            ServiceConfig::Btrbk { .. } => {
+                let config = profile.btrbk_config().ok_or_else(|| {
+                    ApplyError::FixtureInput("btrbk service lacks snapshot configuration".into())
+                })?;
+                skillet_btrbk::apply(system, files, &config)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn runtime_hostname(files: &dyn FileResource, fallback: &str) -> Result<String, ApplyError> {
+    let hostname = files
+        .read_file(std::path::Path::new("/etc/hostname"))?
+        .map(|contents| {
+            String::from_utf8(contents).map_err(|error| ApplyError::FixtureInput(error.to_string()))
+        })
+        .transpose()?
+        .unwrap_or_else(|| fallback.to_string());
+    let hostname = hostname.trim();
+    if hostname.is_empty()
+        || hostname.len() > 63
+        || !hostname
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+    {
+        return Err(ApplyError::FixtureInput(
+            "invalid runtime hostname in /etc/hostname".to_string(),
+        ));
+    }
+    Ok(hostname.to_string())
+}
+
+#[cfg(test)]
+#[path = "hosts_tests.rs"]
+mod tests;
+
+pub fn apply_host_phase(
+    hostname: &str,
+    phase: HostApplyPhase,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    match phase {
+        HostApplyPhase::Base => {
+            let profile = profile_for_name(hostname)
+                .ok_or_else(|| ApplyError::UnknownHost(hostname.to_string()))?;
+            apply_base(system, files)?;
+            install_syncthing_initializers(system, files, &profile)?;
+            application_unit::install(system, files, &profile)?;
+            install_pihole_dns_unit(system, files, &profile)
+        }
+        HostApplyPhase::Full => apply_host(hostname, system, files, credentials),
+        HostApplyPhase::Caddy => apply_caddy_host(hostname, system, files, credentials),
+        HostApplyPhase::Ddns => apply_ddns_host(hostname, system, files, credentials),
+        HostApplyPhase::Datadog => apply_datadog_host(hostname, system, files, credentials),
+        HostApplyPhase::Network => {
+            let selection = profile_for_name(hostname)
+                .and_then(|profile| profile.host_network_selection())
+                .ok_or_else(|| {
+                    ApplyError::FixtureInput("host does not declare native networking".into())
+                })?;
+            let input = skillet_network::Input::parse(
+                credentials.require(skillet_network::CREDENTIAL)?,
+                hostname,
+                selection,
+            )?;
+            skillet_network::prepare(system, files, &input, hostname, selection)?;
+            Ok(())
+        }
+        HostApplyPhase::PiholeDns => {
+            profile_for_name(hostname)
+                .filter(|p| p.supports_service("pihole"))
+                .ok_or_else(|| ApplyError::FixtureInput("host does not declare Pi-hole".into()))?;
+            let input = skillet_pihole::dns::Input::parse(
+                credentials.require(skillet_pihole::dns::CREDENTIAL)?,
+            )?;
+            skillet_pihole::dns::apply(system, files, &input)?;
+            Ok(())
+        }
+        HostApplyPhase::Smtp => {
+            profile_for_name(hostname)
+                .filter(|profile| profile.supports_service("smtp"))
+                .ok_or_else(|| ApplyError::FixtureInput("host does not declare SMTP".into()))?;
+            skillet_smtp::apply(
+                system,
+                files,
+                credentials.require(skillet_smtp::CREDENTIAL)?,
+            )?;
+            Ok(())
+        }
+        HostApplyPhase::Joplin => apply_joplin_host(hostname, system, files, credentials),
+        HostApplyPhase::Airtrail => apply_airtrail_host(hostname, system, files, credentials),
+        HostApplyPhase::Media => apply_media_host(hostname, system, files, credentials),
+        HostApplyPhase::Gokapi => apply_gokapi_host(hostname, system, files, credentials),
+        HostApplyPhase::Plex => apply_plex_host(hostname, system, files, credentials),
+    }
+}
+
+fn apply_media_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.into()))?;
+    let config = profile
+        .media_config()
+        .ok_or_else(|| ApplyError::FixtureInput("host does not declare media".into()))?;
+    let mut networks = BTreeMap::new();
+    let mut apps = std::collections::BTreeSet::new();
+    for service in &profile.services {
+        if let ServiceConfig::Media {
+            app,
+            config: selected,
+        } = service.config
+        {
+            if selected != config || !apps.insert(app) {
+                return Err(ApplyError::FixtureInput(
+                    "inconsistent media declarations".into(),
+                ));
+            }
+            if app != skillet_media::App::Putioarr {
+                let ui = service.ui.filter(|ui| ui.tailnet_identity).ok_or_else(|| {
+                    ApplyError::FixtureInput("Arr requires private identity-protected UI".into())
+                })?;
+                let network = skillet_caddy::private_network(hostname, ui.name);
+                skillet_podman::ensure_network(system, files, &network)?;
+                networks.insert(app, network.unit_name);
+            }
+        }
+    }
+    if apps != skillet_media::App::ALL.into_iter().collect() {
+        return Err(ApplyError::FixtureInput(
+            "incomplete media stack declaration".into(),
+        ));
+    }
+    let input = skillet_media::Credentials::parse(credentials.require(skillet_media::CREDENTIAL)?)?;
+    skillet_media::apply(system, files, config, &networks, &input, hostname)?;
+    Ok(())
+}
+
+fn apply_joplin_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.into()))?;
+    let config = profile
+        .services
+        .iter()
+        .find_map(|service| match service.config {
+            ServiceConfig::Joplin(config) => Some(config),
+            _ => None,
+        })
+        .ok_or_else(|| ApplyError::FixtureInput("host does not declare Joplin".into()))?;
+    let services = profile.ui_services();
+    let sites = skillet_caddy::CaddySites::parse(
+        credentials.require(CADDY_SITES_CREDENTIAL)?,
+        hostname,
+        &services,
+    )?;
+    let site = sites
+        .services
+        .iter()
+        .find(|site| site.name == "joplin")
+        .ok_or_else(|| ApplyError::FixtureInput("Caddy configuration has no Joplin site".into()))?;
+    let base_url = format!("https://{}/", site.hostname);
+    let ui_network = if site.tailnet_identity {
+        skillet_caddy::private_network(profile.id.as_str(), &site.name).unit_name
+    } else {
+        profile.id.as_str().to_string()
+    };
+    skillet_joplin::apply_with_ui_network(
+        system,
+        files,
+        profile.id.as_str(),
+        config,
+        &base_url,
+        credentials.require(skillet_joplin::DATABASE_PASSWORD_CREDENTIAL)?,
+        &ui_network,
+    )?;
+    Ok(())
+}
+
+fn apply_airtrail_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.into()))?;
+    let config = profile
+        .services
+        .iter()
+        .find_map(|service| match service.config {
+            ServiceConfig::Airtrail(config) => Some(config),
+            _ => None,
+        })
+        .ok_or_else(|| ApplyError::FixtureInput("host does not declare AirTrail".into()))?;
+    let services = profile.ui_services();
+    let sites = skillet_caddy::CaddySites::parse(
+        credentials.require(CADDY_SITES_CREDENTIAL)?,
+        hostname,
+        &services,
+    )?;
+    let origin = sites
+        .services
+        .iter()
+        .find(|site| site.name == "airtrail")
+        .map(|site| format!("https://{}", site.hostname))
+        .ok_or_else(|| {
+            ApplyError::FixtureInput("Caddy configuration has no AirTrail site".into())
+        })?;
+    let integrations = skillet_airtrail::Integrations::parse(
+        credentials.require(skillet_airtrail::INTEGRATIONS_CREDENTIAL)?,
+    )?;
+    skillet_airtrail::apply(
+        system,
+        files,
+        profile.id.as_str(),
+        config,
+        &origin,
+        credentials.require(skillet_airtrail::DATABASE_PASSWORD_CREDENTIAL)?,
+        &integrations,
+    )?;
+    Ok(())
+}
+
+fn apply_ddns_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.to_string()))?;
+    if !profile.supports_service("ddns") {
+        return Err(ApplyError::FixtureInput(
+            "host does not declare DDNS".into(),
+        ));
+    }
+    let payload = credentials.require(CLOUDFLARE_DDNS_CONFIG_CREDENTIAL)?;
+    // Reject malformed secret input before any network or container mutation.
+    skillet_ddns::config::Payload::parse(payload).map_err(skillet_ddns::DdnsError::from)?;
+    files.require_btrfs_subvolume_mount(
+        std::path::Path::new("/var/lib/data"),
+        std::path::Path::new("/var"),
+        "/data",
+    )?;
+    skillet_podman::ensure_network(system, files, &profile.service_network())?;
+    skillet_ddns::apply(system, files, payload, profile.id.as_str())?;
+    Ok(())
+}
+
+fn apply_datadog_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.into()))?;
+    let network_monitoring = profile
+        .services
+        .iter()
+        .find_map(|service| match service.config {
+            ServiceConfig::Datadog {
+                network_monitoring, ..
+            } => Some(network_monitoring),
+            _ => None,
+        })
+        .ok_or_else(|| ApplyError::FixtureInput("host does not declare Datadog".into()))?;
+    let payload = credentials.require(skillet_datadog::CREDENTIAL)?;
+    let hostname = runtime_hostname(files, profile.id.as_str())?;
+    let mut monitored_units = profile
+        .acceptance_plan_with_ddns(true)
+        .services
+        .into_iter()
+        .map(|service| service.unit)
+        .collect::<Vec<_>>();
+    if profile.supports_service("smtp") {
+        monitored_units.extend(
+            skillet_smtp::MONITORED_UNITS
+                .iter()
+                .map(|unit| (*unit).to_string()),
+        );
+    }
+    if profile.supports_service("homeassistant") {
+        monitored_units.extend([
+            skillet_homeassistant::backup::TIMER.into(),
+            skillet_homeassistant::metrics::TIMER.into(),
+        ]);
+    }
+    for service in &profile.services {
+        if let ServiceConfig::Nut(config) = service.config {
+            monitored_units.push(skillet_nut::METRICS_TIMER.into());
+            if system.usb_device_present(config.vendor, config.product)? {
+                monitored_units.extend(skillet_nut::monitored_units(config));
+            }
+        }
+    }
+    skillet_datadog::apply(
+        system,
+        files,
+        payload,
+        &skillet_datadog::RuntimeConfig {
+            hostname: &hostname,
+            network_monitoring,
+            monitored_units: &monitored_units,
+        },
+    )?;
+    for service in &profile.services {
+        if matches!(service.config, ServiceConfig::HomeAssistant(_)) {
+            skillet_homeassistant::metrics::apply(
+                system,
+                files,
+                std::path::Path::new(skillet_datadog::DOGSTATSD_SOCKET),
+            )?;
+        }
+        if let ServiceConfig::Nut(config) = service.config {
+            skillet_nut::apply_metrics(
+                system,
+                files,
+                config,
+                std::path::Path::new(skillet_datadog::DOGSTATSD_SOCKET),
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn apply_caddy_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.to_string()))?;
+    let services = profile.ui_services();
+    if services.is_empty() {
+        return Err(ApplyError::FixtureInput(format!(
+            "host {hostname} declares no UI services"
+        )));
+    }
+    let ui_config = HostUiConfig {
+        network_name: profile.id.as_str().to_string(),
+        services,
+    };
+    if profile.requires_data_mount {
+        files.require_btrfs_subvolume_mount(
+            std::path::Path::new("/var/lib/data"),
+            std::path::Path::new("/var"),
+            "/data",
+        )?;
+    }
+    skillet_podman::ensure_network(system, files, &profile.service_network())?;
+    let mut sites = skillet_caddy::CaddySites::parse(
+        credentials.require(CADDY_SITES_CREDENTIAL)?,
+        hostname,
+        &ui_config.services,
+    )?;
+    project_ui_readiness(&profile, files, &mut sites)?;
+    let token = credentials
+        .require(CLOUDFLARE_ACME_TOKEN_CREDENTIAL)?
+        .to_string();
+    system.ensure_podman_secret(CLOUDFLARE_ACME_TOKEN_CREDENTIAL, &token)?;
+    if profile.supports_service("homer") {
+        let network = skillet_caddy::private_network(hostname, "homer");
+        skillet_podman::ensure_network(system, files, &network)?;
+        let links = dashboard_links(&profile, &sites);
+        skillet_homer::apply(system, files, hostname, &network.unit_name, &links)?;
+    }
+    skillet_caddy::apply(system, files, &sites, &ui_config.network_name)?;
+    Ok(())
+}
+
+fn dashboard_links(
+    profile: &HostProfile,
+    sites: &skillet_caddy::CaddySites,
+) -> Vec<skillet_homer::Link> {
+    sites
+        .services
+        .iter()
+        .filter(|site| site.name != "homer")
+        .map(|site| skillet_homer::Link {
+            group: profile.dashboard_group(&site.name),
+            name: site.name.clone(),
+            hostname: site.hostname.clone(),
+            path: match site.name.as_str() {
+                "pihole" => Some("/admin/"),
+                "plex" => Some("/web/"),
+                "gokapi" => Some("/admin"),
+                _ => None,
+            },
+            // Homer fetches this relative endpoint from the current page origin.
+            // Caddy proxies the read-only Pi-hole widget API on that same host,
+            // avoiding a browser cross-origin request while retaining the
+            // dashboard's tailnet identity gate.
+            endpoint: (site.name == "pihole").then(|| "/pihole-api".to_string()),
+            icon: match site.name.as_str() {
+                "joplin" => Some("fas fa-book-open"),
+                "jellyfin" => Some("fas fa-play-circle"),
+                "plex" => Some("fas fa-play"),
+                "gokapi" | "gokapi-sharing" => Some("fas fa-paper-plane"),
+                "airtrail" => Some("fas fa-plane"),
+                "prowlarr" => Some("fas fa-search"),
+                "sonarr" => Some("fas fa-tv"),
+                "radarr" => Some("fas fa-film"),
+                "lidarr" => Some("fas fa-music"),
+                _ => None,
+            },
+            service_type: match site.name.as_str() {
+                "homeassistant" if sites.homeassistant_api_token.is_some() => Some("HomeAssistant"),
+                "pihole" => Some("PiHole"),
+                _ => None,
+            },
+            logo: match site.name.as_str() {
+                "homeassistant" => Some("assets/custom/homeassistant.svg"),
+                "files" => Some("assets/custom/mikochi.png"),
+                "pihole" => Some("assets/custom/pihole.svg"),
+                "syncthing" | "syncthing-personal" => Some("assets/custom/syncthing.svg"),
+                _ => None,
+            },
+            api_version: (site.name == "pihole").then_some(6),
+            api_key: (site.name == "homeassistant")
+                .then(|| sites.homeassistant_api_token.clone())
+                .flatten(),
+        })
+        .collect::<Vec<_>>()
+}
+
+fn apply_mikochi(
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    profile: &HostProfile,
+    service: &HostService,
+) -> Result<(), ApplyError> {
+    let ServiceConfig::Mikochi {
+        files_path,
+        data_owner,
+        data_group,
+        container_uid,
+        container_gid,
+    } = service.config
+    else {
+        return Err(ApplyError::FixtureInput(
+            "Mikochi apply received an incompatible declaration".into(),
+        ));
+    };
+    let network = skillet_caddy::private_network(profile.id.as_str(), "files");
+    skillet_podman::ensure_network(system, files, &network)?;
+    skillet_mikochi::apply(
+        system,
+        files,
+        &skillet_mikochi::Config {
+            files_path,
+            owner: data_owner,
+            group: data_group,
+            container_uid,
+            container_gid,
+            private_network: &network.unit_name,
+        },
+    )?;
+    Ok(())
+}
+
+fn install_pihole_dns_unit(
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    profile: &HostProfile,
+) -> Result<(), ApplyError> {
+    if !profile.supports_service("pihole") {
+        return Ok(());
+    }
+    let root = skillet_core::files::Ownership::named(Some("root"), Some("root"));
+    let directory = std::path::Path::new("/etc/systemd/system");
+    files.ensure_directory(directory, Some(0o755), &root)?;
+    let content = include_bytes!("pihole-dns-apply.service");
+    let changed = files.ensure_file(
+        &directory.join(skillet_pihole::dns::UNIT),
+        content,
+        Some(0o644),
+        &root,
+    )?;
+    let state = directory.join("skillet-pihole-dns.applied");
+    if changed || files.read_file(&state)?.as_deref() != Some(content) {
+        system.daemon_reload()?;
+        files.ensure_file(&state, content, Some(0o644), &root)?;
+    }
+    Ok(())
+}
+
+fn apply_plex_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.into()))?;
+    let config = profile
+        .services
+        .iter()
+        .find_map(|service| match service.config {
+            ServiceConfig::Plex(config) => Some(config),
+            _ => None,
+        })
+        .ok_or_else(|| ApplyError::FixtureInput("host does not declare Plex".into()))?;
+    let sites = skillet_caddy::CaddySites::parse(
+        credentials.require(CADDY_SITES_CREDENTIAL)?,
+        hostname,
+        &profile.ui_services(),
+    )?;
+    let site = sites
+        .services
+        .iter()
+        .find(|site| site.name == "plex")
+        .ok_or_else(|| ApplyError::FixtureInput("Plex canonical UI is absent".into()))?;
+    skillet_plex::apply(
+        system,
+        files,
+        config,
+        hostname,
+        &format!("https://{}/", site.hostname),
+    )?;
+    Ok(())
+}
+
+fn project_ui_readiness(
+    profile: &HostProfile,
+    files: &dyn FileResource,
+    sites: &mut skillet_caddy::CaddySites,
+) -> Result<(), ApplyError> {
+    for service in &profile.services {
+        if let ServiceConfig::Plex(config) = service.config {
+            let ready = skillet_plex::claimed(files, config)?;
+            if let Some(site) = sites
+                .services
+                .iter_mut()
+                .find(|site| site.name == service.name())
+            {
+                site.setup_pending = !ready;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn apply_gokapi_host(
+    hostname: &str,
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    credentials: &CredentialInputs,
+) -> Result<(), ApplyError> {
+    let profile =
+        profile_for_name(hostname).ok_or_else(|| ApplyError::UnknownHost(hostname.into()))?;
+    let config = profile
+        .services
+        .iter()
+        .find_map(|service| match service.config {
+            ServiceConfig::Gokapi(config) => Some(config),
+            _ => None,
+        })
+        .ok_or_else(|| ApplyError::FixtureInput("host does not declare Gokapi".into()))?;
+    let sites = skillet_caddy::CaddySites::parse(
+        credentials.require(CADDY_SITES_CREDENTIAL)?,
+        hostname,
+        &profile.ui_services(),
+    )?;
+    let settings = gokapi_settings(
+        &sites,
+        credentials.require(skillet_gokapi::ADMIN_CREDENTIAL)?,
+    )?;
+    let network = skillet_caddy::private_network(hostname, "gokapi");
+    skillet_gokapi::apply(system, files, config, &network.unit_name, &settings)?;
+    Ok(())
+}
+
+pub fn gokapi_settings(
+    sites: &skillet_caddy::CaddySites,
+    admin: &str,
+) -> Result<skillet_gokapi::Settings, ApplyError> {
+    let public = sites
+        .services
+        .iter()
+        .find(|site| {
+            site.name == "gokapi-sharing"
+                && site.public_routes == Some(skillet_caddy::sharing::Policy::Gokapi224)
+        })
+        .ok_or_else(|| {
+            ApplyError::FixtureInput(
+                "Gokapi sharing declaration absent; redeliver Caddy configuration".into(),
+            )
+        })?;
+    let settings = skillet_gokapi::Settings {
+        public_url: format!("https://{}/", public.hostname),
+        admin: admin.trim().into(),
+        users: sites.tailnet_users.clone(),
+    };
+    settings.validate()?;
+    let mut settings = settings;
+    settings.users.sort();
+    Ok(settings)
+}

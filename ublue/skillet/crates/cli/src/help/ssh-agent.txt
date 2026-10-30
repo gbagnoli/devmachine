@@ -1,0 +1,7 @@
+SSH keys:
+  Skillet uses noninteractive SSH. Load password-protected keys into your SSH
+  agent before applying or deploying. If no agent exists, start one in the same
+  shell before running ssh-add. This is separate from the KeePass vault cache.
+
+Setup: ublue/skillet/crates/workstation/README.md#ssh-agent
+https://github.com/gbagnoli/devmachine/blob/skillet/ublue/skillet/crates/workstation/README.md#ssh-agent

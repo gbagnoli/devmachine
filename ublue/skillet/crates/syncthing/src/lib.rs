@@ -1,0 +1,212 @@
+pub mod initial;
+mod instance;
+pub use instance::Instance;
+use skillet_core::files::{
+    FileError, FileMutationResource, FileReadResource, Ownership, StorageResource,
+};
+use skillet_core::system::{
+    AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
+};
+use skillet_podman::{
+    self, HostUser, MountDependency, NetworkAttachment, PodmanConfig, PodmanError, PortProtocol,
+    PortPublication, ProcessIdentity, UserNamespaceMapping, Volume,
+};
+use std::collections::BTreeMap;
+use std::path::Path;
+use thiserror::Error;
+use tracing::info;
+
+#[derive(Error, Debug)]
+pub enum SyncthingError {
+    #[error("System error: {0}")]
+    System(#[from] SystemError),
+    #[error("File error: {0}")]
+    File(#[from] FileError),
+    #[error("Podman error: {0}")]
+    Podman(#[from] PodmanError),
+    #[error("configured Syncthing data owner user `{0}` does not exist")]
+    UnknownDataOwner(String),
+    #[error("configured Syncthing data owner group `{0}` does not exist")]
+    UnknownDataGroup(String),
+    #[error("configured Syncthing data group `{group}` is not the primary group of `{owner}`")]
+    NonPrimaryDataGroup { owner: String, group: String },
+    #[error("Syncthing user-file scope must be a separate directory beneath its data root")]
+    InvalidFileScope,
+}
+
+pub struct SyncthingConfig {
+    pub instance: Instance,
+    pub files_path: String,
+    pub data_path: String,
+    pub data_owner: String,
+    pub data_group: String,
+    pub container_uid: u32,
+    pub container_gid: u32,
+    pub network_name: String,
+}
+
+pub fn apply<S, F>(system: &S, files: &F, config: SyncthingConfig) -> Result<(), SyncthingError>
+where
+    S: AccountLookupResource + AccountResource + PodmanSecretResource + ServiceResource + ?Sized,
+    F: FileMutationResource + FileReadResource + StorageResource + ?Sized,
+{
+    info!("Applying Syncthing configuration...");
+    let container_home = container_home(&config)?;
+    let user = system
+        .user_by_name(&config.data_owner)?
+        .ok_or_else(|| SyncthingError::UnknownDataOwner(config.data_owner.clone()))?;
+    let group = system
+        .group_by_name(&config.data_group)?
+        .ok_or_else(|| SyncthingError::UnknownDataGroup(config.data_group.clone()))?;
+    if user.primary_gid != group.gid {
+        return Err(SyncthingError::NonPrimaryDataGroup {
+            owner: config.data_owner,
+            group: config.data_group,
+        });
+    }
+
+    prepare_storage(files, &config)?;
+    initial::install_instance(system, files, config.instance)?;
+    let volumes = vec![Volume {
+        host_path: config.data_path,
+        container_path: "/var/syncthing".to_string(),
+        options: Some("z".to_string()),
+        host_mode: None,
+        host_ownership: None,
+    }];
+
+    let mut extra_config = BTreeMap::new();
+    extra_config.insert("Service".to_string(), vec!["Restart=always".to_string()]);
+    extra_config.insert(
+        "Container".to_string(),
+        vec![
+            "AutoUpdate=registry".to_string(),
+            format!("ContainerName={}", config.instance.name()),
+            format!("Environment=HOME={container_home}"),
+            skillet_datadog::http(
+                config.instance.name(),
+                "http://%%host%%:8384/rest/noauth/health",
+            ),
+        ],
+    );
+    extra_config.insert(
+        "Unit".to_string(),
+        vec![
+            "Description=Syncthing file synchronization".to_string(),
+            format!(
+                "After=network-online.target {}",
+                config.instance.initial_unit()
+            ),
+            format!("Requires={}", config.instance.initial_unit()),
+        ],
+    );
+    extra_config.insert(
+        "Install".to_string(),
+        vec!["WantedBy=multi-user.target default.target".to_string()],
+    );
+
+    skillet_podman::container(
+        system,
+        files,
+        PodmanConfig {
+            name: config.instance.name().to_string(),
+            image: "docker.io/syncthing/syncthing:latest".to_string(),
+            network_attachments: vec![NetworkAttachment::Bridge(config.network_name)],
+            port_publications: vec![
+                PortPublication {
+                    host_address: std::net::Ipv6Addr::UNSPECIFIED.into(),
+                    host_port: config.instance.peer_port(),
+                    container_port: 22000,
+                    protocol: PortProtocol::Tcp,
+                },
+                PortPublication {
+                    host_address: std::net::Ipv4Addr::UNSPECIFIED.into(),
+                    host_port: config.instance.peer_port(),
+                    container_port: 22000,
+                    protocol: PortProtocol::Tcp,
+                },
+                PortPublication {
+                    host_address: std::net::Ipv6Addr::UNSPECIFIED.into(),
+                    host_port: config.instance.peer_port(),
+                    container_port: 22000,
+                    protocol: PortProtocol::Udp,
+                },
+                PortPublication {
+                    host_address: std::net::Ipv4Addr::UNSPECIFIED.into(),
+                    host_port: config.instance.peer_port(),
+                    container_port: 22000,
+                    protocol: PortProtocol::Udp,
+                },
+            ],
+            storage_dependency: Some(MountDependency::shared_service_data()),
+            process_identity: ProcessIdentity::Numeric {
+                uid: config.container_uid,
+                gid: config.container_gid,
+            },
+            namespace_mapping: Some(UserNamespaceMapping {
+                host_user: HostUser::Name(config.data_owner),
+            }),
+            volumes,
+            secrets: Vec::new(),
+            config_revisions: Vec::new(),
+            extra_config,
+        },
+    )?;
+
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "tests.rs"]
+mod tests;
+
+pub fn container_home(config: &SyncthingConfig) -> Result<String, SyncthingError> {
+    let file_scope = Path::new(&config.files_path)
+        .strip_prefix(&config.data_path)
+        .map_err(|_| SyncthingError::InvalidFileScope)?;
+    if file_scope.as_os_str().is_empty()
+        || file_scope.starts_with("config")
+        || file_scope
+            .components()
+            .any(|part| !matches!(part, std::path::Component::Normal(_)))
+    {
+        return Err(SyncthingError::InvalidFileScope);
+    }
+    Ok(format!("/var/syncthing/{}", file_scope.display()))
+}
+
+pub fn prepare_storage<F>(files: &F, config: &SyncthingConfig) -> Result<(), SyncthingError>
+where
+    F: FileMutationResource + StorageResource + ?Sized,
+{
+    let data_path = Path::new(&config.data_path);
+    files.require_btrfs_subvolume_mount(Path::new("/var/lib/data"), Path::new("/var"), "/data")?;
+    match config.instance {
+        Instance::Shared => {
+            files.ensure_btrfs_subvolume(data_path)?;
+        }
+        Instance::Personal => {
+            let home = format!("/home/{}", config.data_owner);
+            if !data_path.starts_with(home) {
+                return Err(SyncthingError::InvalidFileScope);
+            }
+        }
+    }
+    let mode = if config.instance == Instance::Personal {
+        0o700
+    } else {
+        0o755
+    };
+    files.ensure_directory(
+        data_path,
+        Some(mode),
+        &Ownership::named(Some(&config.data_owner), Some(&config.data_group)),
+    )?;
+
+    files.ensure_directory(
+        Path::new(&config.files_path),
+        Some(mode),
+        &Ownership::named(Some(&config.data_owner), Some(&config.data_group)),
+    )?;
+    Ok(())
+}

@@ -1,0 +1,34 @@
+//! Workstation-only provisioning capabilities.
+
+pub mod cloudflare;
+pub mod configuration_templates;
+pub mod credential_delivery;
+pub mod ddns_provisioning;
+pub mod provisioning_policy;
+pub mod provisioning_state;
+pub mod secrets;
+pub mod smtp_provisioning;
+pub mod tailscale;
+pub mod tailscale_enrollment;
+pub mod ui_provisioning;
+pub mod vault;
+pub mod zone_token;
+
+pub mod root_recovery;
+
+pub mod host_apply;
+pub mod installation;
+
+pub mod network_provisioning;
+pub mod pihole_dns;
+
+pub mod deployment;
+
+pub mod syncthing_provisioning;
+
+pub mod airtrail_provisioning;
+pub mod homeassistant_provisioning;
+pub mod joplin_provisioning;
+pub mod media_provisioning;
+
+pub mod gokapi_provisioning;

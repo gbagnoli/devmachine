@@ -1,0 +1,38 @@
+[package]
+name = "skillet_hosts"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+skillet_gokapi.workspace = true
+skillet_homeassistant.workspace = true
+skillet_network.workspace = true
+skillet_smtp.workspace = true
+skillet_datadog.workspace = true
+skillet_core.workspace = true
+skillet_hardening.workspace = true
+skillet_pihole.workspace = true
+skillet_unifi.workspace = true
+skillet_syncthing.workspace = true
+skillet_mikochi.workspace = true
+skillet_nut.workspace = true
+skillet_btrbk.workspace = true
+skillet_caddy.workspace = true
+skillet_homer.workspace = true
+skillet_joplin.workspace = true
+skillet_jellyfin.workspace = true
+skillet_plex.workspace = true
+skillet_airtrail.workspace = true
+skillet_media.workspace = true
+skillet_ddns.workspace = true
+skillet_podman.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+serde_yml.workspace = true
+skillet_core = { workspace = true, features = ["test-utils"] }

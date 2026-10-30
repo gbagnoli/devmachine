@@ -1,0 +1,6 @@
+SSH_AUTH_SOCK is unset or empty: no SSH agent is advertised to Skillet.
+In your current shell, start an agent and load your private key:
+  eval "$(ssh-agent -s)"
+  ssh-add /path/to/your/key
+Enter the key passphrase in your terminal, then retry from that same shell.
+Setup: ublue/skillet/crates/workstation/README.md#ssh-agent

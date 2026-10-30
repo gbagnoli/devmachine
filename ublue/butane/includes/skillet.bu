@@ -1,0 +1,94 @@
+variant: fcos
+version: 1.6.0
+storage:
+  files:
+    - path: /var/usrlocal/bin/skillet
+      mode: 0755
+      contents:
+        local: files/skillet
+systemd:
+  units:
+    - name: skillet-apply.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Apply Skillet base configuration
+        Requires=ucore-bootstrap.service
+        After=ucore-bootstrap.service
+        ConditionPathExists=/run/ucore-bootstrap-ready
+
+        [Service]
+        Type=oneshot
+        ExecStart=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase base
+
+        [Install]
+        WantedBy=multi-user.target
+    - name: skillet-caddy-apply.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Apply Skillet Caddy private UI configuration
+        Requires=skillet-apply.service
+        After=skillet-apply.service
+        AssertPathIsMountPoint=/var/lib/data
+        ConditionPathExists=/etc/credstore.encrypted/skillet/caddy_sites.cred
+        ConditionPathExists=/etc/credstore.encrypted/skillet/cloudflare_acme_token.cred
+
+        [Service]
+        Type=oneshot
+        LoadCredentialEncrypted=caddy_sites:/etc/credstore.encrypted/skillet/caddy_sites.cred
+        LoadCredentialEncrypted=cloudflare_acme_token:/etc/credstore.encrypted/skillet/cloudflare_acme_token.cred
+        ExecStart=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase caddy
+
+        [Install]
+        WantedBy=multi-user.target
+    - name: skillet-ddns-apply.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Apply Skillet optional Cloudflare DDNS configuration
+        Requires=skillet-apply.service skillet-data-prepare.service
+        After=skillet-apply.service skillet-data-prepare.service
+        AssertPathIsMountPoint=/var/lib/data
+        ConditionPathExists=/etc/credstore.encrypted/skillet/cloudflare_ddns_config.cred
+
+        [Service]
+        Type=oneshot
+        LoadCredentialEncrypted=cloudflare_ddns_config:/etc/credstore.encrypted/skillet/cloudflare_ddns_config.cred
+        ExecStart=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase ddns
+
+        [Install]
+        WantedBy=multi-user.target
+    - name: skillet-datadog-apply.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Apply Skillet optional Datadog monitoring configuration
+        Requires=skillet-apply.service skillet-data-prepare.service
+        After=skillet-apply.service skillet-data-prepare.service
+        AssertPathIsMountPoint=/var/lib/data
+        ConditionPathExists=/etc/credstore.encrypted/skillet/datadog_config.cred
+
+        [Service]
+        Type=oneshot
+        LoadCredentialEncrypted=datadog_config:/etc/credstore.encrypted/skillet/datadog_config.cred
+        ExecStart=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase datadog
+
+        [Install]
+        WantedBy=multi-user.target
+    - name: skillet-smtp-apply.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Apply shared fleet SMTP configuration
+        Requires=skillet-apply.service
+        After=skillet-apply.service
+        ConditionPathExists=/etc/credstore.encrypted/skillet/smtp_config.cred
+
+        [Service]
+        Type=oneshot
+        LoadCredentialEncrypted=smtp_config:/etc/credstore.encrypted/skillet/smtp_config.cred
+        ExecStart=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase smtp
+
+        [Install]
+        WantedBy=multi-user.target

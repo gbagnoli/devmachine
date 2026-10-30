@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, skillet ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, skillet ]
 
 jobs:
   chef-lint:
@@ -40,7 +40,9 @@ jobs:
       - name: Run Ruff Format
         run: uv run ruff format --diff .
       - name: Run Mypy
-        run: uv run mypy --ignore-missing-imports site-cookbooks fabfile.py
+        run: uv run mypy --ignore-missing-imports site-cookbooks fabfile.py ublue/skillet/crates/homeassistant
+      - name: Test Home Assistant missing-only bootstrap
+        run: uv run python -m unittest discover -s ublue/skillet/crates/homeassistant/tests -p "test_*.py"
 
   shell-lint:
     runs-on: ubuntu-latest
@@ -48,5 +50,115 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run ShellCheck
         run: |
-          find . -name "*.sh" -not -path "./.venv/*" -not -path "./berks-cookbooks/*" -exec shellcheck -x {} +
-          shellcheck -x run
+          find . -type f \
+            \( -name '*.sh' -o -name run -o -name butane -o -name flatpak-virt \
+               -o -name test-vm -o -name test-vm-ready -o -name virsh -o -name virt-install \
+               -o -name install-hardware \
+               -o -name setup-llama-server -o -name update-llama \) \
+            -not -path './.git/*' -not -path './.venv/*' -not -path './berks-cookbooks/*' \
+            -not -path '*/target/*' -not -path './ublue/llama/files/update-llama' \
+            -exec shellcheck -x {} +
+          # This desktop helper intentionally ignores a failed best-effort stop.
+          shellcheck -x --exclude=SC2015 ublue/llama/files/update-llama
+
+  skillet-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            rust:
+              - 'ublue/skillet/**'
+              - 'ublue/butane/**'
+              - 'ublue/AGENTS.md'
+              - '.github/workflows/ci.yml'
+      
+      - name: Set up Rust
+        if: steps.filter.outputs.rust == 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: x86_64-unknown-linux-musl
+
+      - name: Install musl linker
+        if: steps.filter.outputs.rust == 'true'
+        run: sudo apt-get update && sudo apt-get install --yes musl-tools
+
+      - name: Rust Cache
+        if: steps.filter.outputs.rust == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ublue/skillet
+
+      - name: Run Clippy
+        if: steps.filter.outputs.rust == 'true'
+        run: cd ublue/skillet && cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Check formatting
+        if: steps.filter.outputs.rust == 'true'
+        run: cd ublue/skillet && cargo fmt --all -- --check
+
+      - name: Run Unit Tests
+        if: steps.filter.outputs.rust == 'true'
+        run: cd ublue/skillet && cargo test --workspace --all-targets
+
+      - name: Run Integration Tests
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          cargo run --bin skillet -- test run joey --phase base --image fedora:latest
+
+      - name: Validate private UI Caddy configuration
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          cargo test -p skillet_caddy generated_identity_caddyfile_validates_with_the_real_consumer -- --ignored
+          cargo test -p skillet_caddy real_caddy_no_auth_refresh_stays_behind_identity_gate -- --ignored
+          cargo test -p skillet_caddy real_caddy_public_native_auth_and_private_denial_share_the_same_listener -- --ignored
+
+      - name: Build and test the pinned Jellyfin cache image
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          podman build -t ghcr.io/gbagnoli/skillet-caddy:cache-v1 ublue/skillet/crates/caddy/image
+          cd ublue/skillet
+          cargo test -p skillet_caddy real_caddy_static_cache_ -- --ignored
+
+      - name: Test Gokapi native bootstrap and paired state without external credentials
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          cargo test -p skillet_gokapi real_gokapi_ -- --ignored
+
+      - name: Test Pi-hole proxy authentication without external credentials
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          cargo test -p skillet_pihole real_pihole_ -- --ignored
+
+      - name: Test Syncthing bootstrap without external credentials
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          cargo test -p skillet_syncthing real_upstream_generator_preserves_identity_and_user_edits -- --ignored
+
+      - name: Test Mikochi file operations without external credentials
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          cargo test -p skillet_mikochi real_mikochi_no_auth_backend_supports_owned_file_operations -- --ignored
+
+      - name: Test native UPS configuration without hardware
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          podman build -t localhost/skillet-nut-runtime crates/nut/tests
+          cargo test -p skillet_nut real_fedora_nut_accepts_config_and_monitors_a_safe_dummy_ups -- --ignored
+
+      - name: Run installation and bootstrap regressions
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          bash ublue/butane/tests/bootstrap.sh
+          bash ublue/butane/tests/storage-bootstrap.sh
+          bash ublue/butane/tests/hardware.sh

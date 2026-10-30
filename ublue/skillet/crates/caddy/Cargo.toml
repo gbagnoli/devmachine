@@ -1,0 +1,24 @@
+[package]
+name = "skillet_caddy"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+tracing.workspace = true
+skillet_datadog.workspace = true
+skillet_core.workspace = true
+skillet_homeassistant.workspace = true
+skillet_podman.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+reqwest.workspace = true
+sha2.workspace = true
+tiny_http = "0.12"
+
+[dev-dependencies]
+tempfile.workspace = true
+skillet_core = { workspace = true, features = ["test-utils"] }

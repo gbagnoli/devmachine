@@ -1,0 +1,9 @@
+[Unit]
+Description=Back up Gokapi configuration, metadata and files together
+After=gokapi.service
+RequiresMountsFor=/var/lib/data
+[Service]
+Type=oneshot
+ExecStart=/var/usrlocal/bin/skillet gokapi backup --host-file /etc/skillet/host
+TimeoutStartSec=1800
+UMask=0077

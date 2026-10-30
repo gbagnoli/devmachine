@@ -1,0 +1,8 @@
+[Unit]
+Description=Daily Gokapi paired-state backup
+[Timer]
+OnCalendar=*-*-* 04:15:00
+RandomizedDelaySec=15min
+Persistent=yes
+[Install]
+WantedBy=timers.target
