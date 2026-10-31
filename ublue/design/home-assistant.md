@@ -31,10 +31,15 @@ requires an explicit LAN listener. Expose Zigbee2MQTT and the optional ESPHome
 dashboard through the existing private UI identity gate, with their raw listeners
 isolated. Hue, Overkiz, Dyson and ESPHome device connections remain HA-managed.
 The clamps caller selects host Bluetooth access: its image installs and enables
-BlueZ, while its Home Assistant Quadlet mounts the host system bus socket and
-receives `NET_ADMIN`/`NET_RAW`. This supports the built-in adapter without
-privileged container mode. A read-only bind limits filesystem writes, not
-D-Bus method calls; the container can communicate with host bus services.
+BlueZ, while its Home Assistant Quadlet receives `NET_ADMIN`/`NET_RAW`. The
+Bluetooth path uses `xdg-dbus-proxy --filter --talk=org.bluez` in a dedicated
+confined host domain. Only its private socket is mounted at the container's
+system-bus path; the host bus inode is neither mounted nor relabelled. A read-only
+bind does not filter D-Bus calls, and ordinary container domains cannot connect
+to the confined host bus. The broker therefore permits BlueZ traffic without
+granting containers access to arbitrary host daemons or disabling enforcement.
+Policy and broker startup precede HA; runtime acceptance of this replacement is
+tracked in the plan before physical deployment.
 Other callers must select this capability deliberately and supply BlueZ in
 their image.
 

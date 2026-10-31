@@ -4089,3 +4089,49 @@ acceptance; no production host or private DNS values were committed.
   physical retry must show the installer verification line and preserve the
   first failure before any manual reboot. Whole-install hardware acceptance is
   still pending; these guards do not prove the previous interruption's cause.
+
+## 2026-10-31 — Replacement SSD and Bluetooth bus isolation
+
+- Operator's subsequent fresh physical Clamps installation printed the verified
+  initial XFS root, booted through the signed uCore image without recovery and
+  reported `target boot verified: true`. Base apply succeeded, `/var/lib/data`
+  was mounted from the encrypted root's `/data` Btrfs subvolume, and no failed
+  units remained. Full credential/application delivery subsequently succeeded.
+  Cold power-off/unattended power-on acceptance remains unresolved: the operator
+  reported that poweroff did not turn the machine off.
+- Reconnected to the replacement installation after the operator explicitly
+  authorized accepting its new SSH host key. HA is rootful, BlueZ is active,
+  and SELinux is enforcing. A socket connection from the actual HA container
+  reproduces EACCES. A read-only libselinux policy query explicitly denies
+  `container_t` write access to `system_dbusd_var_run_t:sock_file`; Unix socket
+  mode alone does not authorize the connection. Audit-file queries found no
+  matching records. Temporary dontaudit suppression was restored after probing.
+- Implemented a private, BlueZ-filtering `xdg-dbus-proxy` with its own confined
+  process domain, leaving the real host bus unmounted and unmodified. The
+  installed extension has a distinct module name to preserve vendor policy.
+  Workspace tests, Clippy, formatting, ShellCheck and the credential-free joey
+  base integration passed. Policy compilation passed inside a disposable cached
+  uCore container with `semodule -N` (no kernel policy reload).
+- Created the independently owned `clamps-test-bluetooth` VM on native libvirt,
+  SSH port 2207, for enforcing-SELinux assertions without credentials or a radio.
+  The VM booted the signed uCore image. Runtime assertions passed with enforcing
+  SELinux: real container BlueZ calls succeed, unrelated systemd calls and direct
+  host-bus connections fail, broker restart succeeds and the original host socket
+  label is preserved. Repeat checks passed after VM reboot, verifying policy and
+  broker startup before any repair/reinstallation. This exposed and corrected a
+  missing entrypoint permission for the confined readiness helper. Physical HA
+  adapter discovery remains unverified.
+- Standard `test smoke clamps --instance bluetooth` passed its fixture cases,
+  repeat apply, reboot and final base/user readiness checks. Synthetic guest
+  snapshots/journals are exported to `/tmp/skillet-bluetooth-smoke-evidence.tar`;
+  focused broker results are in `/tmp/skillet-bluetooth-vm-reboot-assertions.log`.
+  The image recipe explicitly declares the already-installed proxy package;
+  YAML parsing and image-repository whitespace checks passed. No image was
+  pulled onto physical Clamps, and no secrets were needed for these tests.
+  The owned Bluetooth VM was disposed after exporting evidence and repeating
+  the broker checks after the standard smoke reboot; the existing Donbot VM
+  was untouched.
+- Automatic approval review rejected installing the new SELinux module on
+  physical Clamps because it changes a production security boundary. No broker
+  policy or replacement HA container has been deployed there; approval is still
+  required for that specific deployment.

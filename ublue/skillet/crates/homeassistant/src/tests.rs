@@ -83,3 +83,66 @@ fn export_ancestors_have_consumer_ownership_and_paths_stay_within_declared_root(
         assert!(invalid.validate().is_err());
     }
 }
+
+#[test]
+fn bluetooth_uses_a_filtered_confined_bus_and_repeat_apply_does_not_restart() {
+    let files = MockFiles::new();
+    let system = MockSystem::new();
+    files.record_btrfs_mount(Path::new("/var"), "/dev/test", "/", "btrfs");
+    files.record_btrfs_mount(Path::new("/var/lib/data"), "/dev/test", "/data", "btrfs");
+    files
+        .ensure_btrfs_subvolume(Path::new("/var/lib/data/syncthing"))
+        .unwrap();
+    let mut selected = config();
+    selected.bluetooth = true;
+    apply(&system, &files, selected).unwrap();
+    let data = files.files.lock().unwrap();
+    let quadlet = String::from_utf8_lossy(&data["/etc/containers/systemd/homeassistant.container"]);
+    assert!(quadlet.contains("Volume=/run/skillet-ha-bluetooth:/run/dbus:ro"));
+    assert!(!quadlet.contains("Volume=/run/dbus:"));
+    assert!(quadlet.contains("Requires=skillet-ha-bluetooth.service"));
+    assert!(quadlet.contains("AddCapability=NET_ADMIN NET_RAW"));
+    assert!(!quadlet.contains("SecurityLabelDisable"));
+    let unit = String::from_utf8_lossy(&data["/etc/systemd/system/skillet-ha-bluetooth.service"]);
+    assert!(unit.contains("--filter --talk=org.bluez"));
+    assert!(!unit.contains("--talk=*"));
+    assert!(unit.contains("SELinuxContext=system_u:system_r:skillet_ha_bluetooth_t:s0"));
+    let policy = String::from_utf8_lossy(
+        &data["/etc/skillet/homeassistant-bluetooth/skillet-ha-bluetooth.cil"],
+    );
+    assert!(!policy.contains("(allow container_t system_dbusd_t"));
+    assert!(!policy.contains("(typepermissive"));
+    let policy_unit =
+        String::from_utf8_lossy(&data["/etc/systemd/system/skillet-ha-bluetooth-policy.service"]);
+    assert!(policy_unit.contains(
+        "ExecStart=/usr/bin/semodule -i /etc/skillet/homeassistant-bluetooth/skillet-ha-bluetooth.cil"
+    ));
+    drop(data);
+    let restarts = system
+        .restart_count
+        .load(std::sync::atomic::Ordering::SeqCst);
+    apply(&system, &files, selected).unwrap();
+    assert_eq!(
+        restarts,
+        system
+            .restart_count
+            .load(std::sync::atomic::Ordering::SeqCst)
+    );
+}
+
+#[test]
+fn unselected_bluetooth_does_not_install_a_bus_bridge() {
+    let files = MockFiles::new();
+    let system = MockSystem::new();
+    files.record_btrfs_mount(Path::new("/var"), "/dev/test", "/", "btrfs");
+    files.record_btrfs_mount(Path::new("/var/lib/data"), "/dev/test", "/data", "btrfs");
+    files
+        .ensure_btrfs_subvolume(Path::new("/var/lib/data/syncthing"))
+        .unwrap();
+    apply(&system, &files, config()).unwrap();
+    let data = files.files.lock().unwrap();
+    assert!(!data.keys().any(|path| path.contains("bluetooth")));
+    let quadlet = String::from_utf8_lossy(&data["/etc/containers/systemd/homeassistant.container"]);
+    assert!(!quadlet.contains("/run/dbus"));
+    assert!(!quadlet.contains("AddCapability=NET_ADMIN"));
+}

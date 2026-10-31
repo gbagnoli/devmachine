@@ -1,0 +1,14 @@
+[Unit]
+Description=Load confined Home Assistant Bluetooth broker policy
+ConditionSecurity=selinux
+After=skillet-tailnet-ui-policy.service skillet-ui-host-policy.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/semodule -i /etc/skillet/homeassistant-bluetooth/skillet-ha-bluetooth.cil
+RuntimeDirectory=skillet-ha-bluetooth
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+ExecStartPost=/usr/bin/chcon -t container_file_t /run/skillet-ha-bluetooth
+TimeoutStartSec=120

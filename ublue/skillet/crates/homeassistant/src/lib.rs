@@ -12,6 +12,7 @@ use std::{collections::BTreeMap, path::Path};
 use thiserror::Error;
 
 pub mod backup;
+mod bluetooth;
 mod listener;
 pub mod metrics;
 pub const IMAGE: &str = "ghcr.io/home-assistant/home-assistant:2026.10.1";
@@ -142,16 +143,17 @@ where
         host_ownership: None,
     }];
     if config.bluetooth {
+        bluetooth::apply(system, files)?;
         extra_config
             .entry("Container".into())
             .or_default()
             .push("AddCapability=NET_ADMIN NET_RAW".into());
         extra_config.entry("Unit".into()).or_default().extend([
-            "After=bluetooth.service".into(),
-            "Wants=bluetooth.service".into(),
+            format!("After={}", bluetooth::UNIT),
+            format!("Requires={}", bluetooth::UNIT),
         ]);
         volumes.push(Volume {
-            host_path: "/run/dbus".into(),
+            host_path: "/run/skillet-ha-bluetooth".into(),
             container_path: "/run/dbus".into(),
             options: Some("ro".into()),
             host_mode: None,

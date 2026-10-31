@@ -34,14 +34,29 @@ configuration and HTTP state are preserved.
 
 ## Bluetooth on clamps
 
-The clamps image includes BlueZ and enables `bluetooth.service`. The selected
-Home Assistant profile mounts `/run/dbus` read-only and grants `NET_ADMIN` and
-`NET_RAW`, as required for full Bluetooth management. The mount is read-only at
-the filesystem level; Home Assistant can still send D-Bus requests to host
-services. Apply the updated Skillet binary after booting the updated clamps
-image so Podman recreates the container with the mount and capabilities. Check
-`systemctl status bluetooth.service` and the Bluetooth integration in Home
-Assistant. Bluetooth devices and pairing remain application-managed.
+The clamps image includes BlueZ and `xdg-dbus-proxy` and enables
+`bluetooth.service`. The selected profile grants `NET_ADMIN`/`NET_RAW` and mounts
+`/run/skillet-ha-bluetooth` read-only at `/run/dbus`. The confined
+`skillet-ha-bluetooth.service` filters bus traffic to `org.bluez`; the host system
+bus is not mounted into HA. Its prerequisite policy unit loads the dedicated
+SELinux domain before startup. Apply Skillet to recreate HA with this mount.
+
+Check `systemctl status bluetooth.service skillet-ha-bluetooth.service` and
+`journalctl -u skillet-ha-bluetooth.service -u homeassistant.service`. Bluetooth
+devices and pairing remain application-managed. Do not relabel `/run/dbus` or
+disable SELinux to work around a connection error.
+
+For enforcing-SELinux VM acceptance, upload `tests/bluetooth.sh`,
+`tests/bluetooth.Containerfile`, `src/skillet-ha-bluetooth{.cil,.service,-policy.service}`,
+and `src/wait-ready.sh`
+to one private guest directory through the owned VM adapter, then run the shell
+helper as root through that adapter. It refuses physical hosts, checks allowed
+BlueZ calls and denied systemd/direct-bus calls from a real container, and repeats
+after broker restart. It builds a disposable probe image; no vault or radio is
+required. Reboot through `skillet test vm reboot HOST INSTANCE` and rerun the
+helper with `--verify`; it first checks boot startup without reinstalling the
+policy or repairing units. Physical adapter discovery remains a separate
+acceptance check.
 
 ## Enable encrypted backups
 

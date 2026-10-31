@@ -1,0 +1,32 @@
+[Unit]
+Description=Bluetooth-only system bus for Home Assistant
+Requires=dbus.socket skillet-ha-bluetooth-policy.service
+Wants=bluetooth.service
+After=dbus.socket bluetooth.service skillet-ha-bluetooth-policy.service
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/xdg-dbus-proxy unix:path=/run/dbus/system_bus_socket /run/skillet-ha-bluetooth/system_bus_socket --filter --talk=org.bluez
+ExecStartPre=/usr/bin/rm -f /run/skillet-ha-bluetooth/system_bus_socket
+ExecStartPost=/usr/bin/bash /etc/skillet/homeassistant-bluetooth/wait-ready.sh
+RuntimeDirectory=skillet-ha-bluetooth
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+SELinuxContext=system_u:system_r:skillet_ha_bluetooth_t:s0
+Restart=on-failure
+RestartSec=2
+TimeoutStartSec=20
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+RestrictAddressFamilies=AF_UNIX
+ReadWritePaths=/run/skillet-ha-bluetooth
+CapabilityBoundingSet=
+LockPersonality=yes
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -251,6 +251,9 @@
   permissions as well as inode labels and Unix ownership. Prefer a dedicated
   confined broker domain with explicit permissions; do not grant containers
   access to arbitrary host daemons or disable enforcement to fix a denial.
+- Managed security-policy extensions must use distinct module identities that
+  cannot shadow vendor policy. Validate the installed filename and identity,
+  not just an independently renamed temporary policy file.
 
 - Authentication subrequests must explicitly normalize their method/path/query
   without altering the original application request. Validate the consumer's
