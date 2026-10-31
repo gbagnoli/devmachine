@@ -1,8 +1,8 @@
 # Physical installation
 
-Status: media generation is implemented. Beelink S13 installation, physical TPM,
-MOK enrollment, and LAN acceptance remain unverified. VM commands continue to
-use `clamps.bu` with `/dev/vda`; never compile that template directly for hardware.
+VM commands use `clamps.bu` with `/dev/vda`; never compile that template directly
+for hardware. Use a fresh bundle for a replacement disk, since its by-id
+identifier differs. Installation erases the explicitly selected disk.
 See [storage policy](../design/storage.md) and [remaining encryption checks](../plan/TPM-ENCRYPTED-ROOT.md).
 
 ## Prepare

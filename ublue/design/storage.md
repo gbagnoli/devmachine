@@ -39,6 +39,22 @@ verification label does not itself explain or fix TPM policy mismatches. Final
 MOK/Secure Boot policy and independently verified recovery are required before
 changing enrollment. Routine convergence never replaces TPM bindings.
 
+Physical TPM media installs a separate prerequisite for the initial image
+transition. It verifies the firmware log against live SHA256 PCR 7, predicts
+shim's additional authority event from the operator-supplied DER certificate,
+and seals the existing high-entropy root passphrase for that exact target.
+The original FCOS binding remains available for rollback. No unrestricted TPM
+policy or plaintext disk key bridges the transition. Ciphertext and volume-bound
+intent are persisted before adding the second keyslot/token; retries verify the
+same key rather than replacing an occupied slot. The uCore boot must unseal the
+target binding before it is marked verified. Unexpected measurements fail closed.
+This is an installation action, separate from host apply. Plain-root and existing
+VM profiles are unchanged. Physical fresh-install acceptance is tracked in the
+TPM plan; policy prediction is not itself hardware acceptance.
+Standard Clevis envelopes are constructed with the installed TPM/JOSE tools:
+some deployed pin versions silently ignore future-PCR options. Inspecting the
+sealed object's actual authorization policy is required before LUKS mutation.
+
 Recovery uses a printable independent passphrase and protected volume-bound
 header in the portable vault. Refresh headers after enrollment changes; a header
 is not a data backup. Write-ahead persistence/readback protects the original

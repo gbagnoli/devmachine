@@ -24,6 +24,25 @@ fn symlink_errors_identify_link_target_and_requested_path() {
     reject_symlinks(&target.join("new-bundle")).unwrap();
 }
 
+#[test]
+fn output_allows_canonical_parent_aliases_but_never_reuses_an_existing_leaf() {
+    let temporary = tempfile::tempdir().unwrap();
+    let actual = temporary.path().join("actual");
+    fs::create_dir(&actual).unwrap();
+    let alias = temporary.path().join("alias");
+    std::os::unix::fs::symlink(&actual, &alias).unwrap();
+    assert_eq!(
+        resolve_output(&alias.join("new-parent/bundle")).unwrap(),
+        actual.join("new-parent/bundle")
+    );
+    assert!(resolve_output(&alias).is_err());
+    let dangling = actual.join("dangling");
+    std::os::unix::fs::symlink(actual.join("missing"), &dangling).unwrap();
+    assert!(resolve_output(&dangling).is_err());
+    assert!(resolve_output(&dangling.join("bundle")).is_err());
+    assert!(resolve_output(&alias.join("../bundle")).is_err());
+}
+
 fn host() -> Value {
     serde_yml::from_str(include_str!("../../../../../butane/clamps.bu")).unwrap()
 }
@@ -152,6 +171,11 @@ fn requests_reject_missing_tpm_certificate_unknown_hosts_and_public_outputs() {
     request.host = "clamps";
     let public_output = fs::canonicalize(&workspace).unwrap().join("install-bundle");
     request.output = &public_output;
+    assert!(validate_request(&request).is_err());
+    let alias = temporary.path().join("repository-alias");
+    std::os::unix::fs::symlink(fs::canonicalize(&workspace).unwrap(), &alias).unwrap();
+    let redirected = resolve_output(&alias.join("private-bundle")).unwrap();
+    request.output = &redirected;
     assert!(validate_request(&request).is_err());
     request.output = &output;
     fs::create_dir(&output).unwrap();

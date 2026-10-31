@@ -56,7 +56,7 @@ enum Commands {
         #[command(subcommand)]
         command: skillet_cli_common::TailnetUiCommands,
     },
-    /// Prepare physical installation media without writing a block device
+    /// Prepare physical installation media and manage initial TPM enrollment
     Install {
         #[command(subcommand)]
         command: installation::Commands,

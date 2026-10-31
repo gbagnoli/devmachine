@@ -162,3 +162,10 @@ jobs:
           bash ublue/butane/tests/bootstrap.sh
           bash ublue/butane/tests/storage-bootstrap.sh
           bash ublue/butane/tests/hardware.sh
+
+      - name: Test TPM bootstrap without hardware or external credentials
+        if: steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          cargo test -p skillet_workstation physical_tpm_payload_passes_real_butane_merge -- --ignored
+          cargo test -p skillet_workstation real_software_tpm_bootstrap_driver -- --ignored

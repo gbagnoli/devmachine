@@ -150,6 +150,14 @@
 - Installation profiles are explicit and independent of host identity. Preserve
   compatible defaults and reject missing prerequisites rather than silently
   weakening a requested security policy. Convergence never reformats live data.
+- Installation must account for every trust-changing bootstrap boot before
+  sealing unattended unlock policies. Verify predicted measurements and the
+  actual sealed object's policy, including supported consumer-version behavior;
+  accepted configuration alone does not prove it was enforced. Preserve the
+  working unlock path and journal sealed retry material before enrollment changes.
+- Filesystem containment checks compare resolved locations, including existing
+  parent aliases. Preserve new-output/no-clobber and source-leaf validation
+  instead of rejecting normal aliases in every path ancestor.
 - Trust predicates must verify explicit positive evidence as well as supported
   tool statuses; pending requests, blocked resources and unknown results must
   fail closed. Cover supported consumer-version semantics in regression checks.

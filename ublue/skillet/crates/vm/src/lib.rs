@@ -73,6 +73,15 @@ pub fn capture_command(
     process::capture(command, timeout)
 }
 
+/// Run a bounded tool with a memory-backed input, never a shell command string.
+pub fn capture_command_with_input(
+    command: std::process::Command,
+    timeout: std::time::Duration,
+    input: &[u8],
+) -> Result<std::process::Output> {
+    process::capture_with_input(command, timeout, Some(input))
+}
+
 pub fn current_uid() -> u32 {
     users::get_current_uid()
 }

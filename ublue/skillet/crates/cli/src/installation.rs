@@ -7,6 +7,11 @@ use std::path::PathBuf;
 pub(super) enum Commands {
     /// Build a USB-ready live ISO; installation requires confirmation on the server
     Prepare(PrepareArgs),
+    /// Enroll the approved signing-authority transition on a fresh installed root
+    TpmBootstrap {
+        #[arg(long)]
+        certificate: PathBuf,
+    },
 }
 #[derive(clap::Args, Debug)]
 pub(super) struct PrepareArgs {
@@ -33,7 +38,17 @@ pub(super) struct PrepareArgs {
     mok_certificate: Option<PathBuf>,
 }
 pub(super) fn dispatch(command: Commands) -> Result<()> {
-    let Commands::Prepare(args) = command;
+    match command {
+        Commands::Prepare(args) => prepare(&args),
+        Commands::TpmBootstrap { certificate } => {
+            let verified = skillet_workstation::installation::tpm::bootstrap(&certificate)?;
+            println!("TPM bootstrap policy ready; target boot verified: {verified}");
+            Ok(())
+        }
+    }
+}
+
+fn prepare(args: &PrepareArgs) -> Result<()> {
     let butane = super::butane_root()?;
     let workspace = super::workspace_root()?;
     let output = std::path::absolute(&args.output)?;

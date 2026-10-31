@@ -4004,3 +4004,64 @@ acceptance; no production host or private DNS values were committed.
   documents selecting `/usr/bin/gpth` or PATH and configuring rclone separately.
   Source scripts and private configuration were not modified. Rebuilt-image
   publication/boot acceptance remains pending; no workstation tools were installed.
+
+## 2026-10-31 — Physical TPM bootstrap authority-event diagnosis
+
+- Operator collected previous/failing initramfs boot reports from the replacement
+  SSD using `skillet/scripts/tpm-boot-report.sh`. Both report the same kernel
+  version and volume identity, distinct boot IDs/deployments, and the same
+  diagnostic arguments `rd.break=initqueue rd.luks=0`. Original reports remain
+  outside the repository; no raw firmware log or machine identifiers are copied
+  into source.
+- Parsed both TCG EFI event logs read-only and replayed SHA256 PCR 7 from zero,
+  excluding non-extending events. Both replays exactly match the corresponding
+  `tpm2_pcrread` observations. Earlier PCR 7 event types, digests and payloads
+  match, including SecureBoot, PK, KEK, db, dbx, SBAT and Fedora authority.
+- The failing boot has one additional `EV_EFI_VARIABLE_AUTHORITY` / `MokListRT`
+  measurement. OpenSSL decoded its certificate as Universal Blue kernel signing,
+  CN `ublue kernel`. Its logged SHA256 digest equals the hash of the serialized
+  event payload. Extending the previous boot's PCR with this event exactly
+  reproduces the failing boot's PCR.
+- This establishes the concrete signing-authority measurement difference.
+  Earlier MOK enrollment does not ensure identical boot measurements. No TPM
+  binding, firmware state, LUKS slot or disk was modified during analysis.
+  Original enrollment-policy verification, clean-install implementation and
+  unattended replacement-SSD acceptance are still pending.
+
+## 2026-10-31 — Clean-install TPM transition implementation
+
+- Physical `install prepare --root-profile tpm` now installs a separate
+  prerequisite for uCore bootstrap. Rust replays the live firmware log, verifies
+  the original TPM public object's SHA256 PCR 7 policy, predicts the supplied
+  trusted MOK's authority event, and persists a volume-bound sealed-key journal
+  before adding the target keyslot/token. The original binding remains intact.
+  Target boot verification completes the journal; completed runs do not
+  recreate later-removed slots. Plain-root and retained VM profiles are unchanged.
+- The real Fedora pin accepted but ignored a supplied future-PCR option. The
+  public-object policy check rejected that result before LUKS mutation. The
+  implementation instead constructs standard Clevis envelopes with existing
+  TPM/JOSE tools and verifies the actual object policy/attributes. Plaintext is
+  confined to memory and private `/run` tmpfs. No workstation packages installed.
+- Passed workspace tests, workspace strict Clippy, formatting, Fedora/Joey base
+  apply twice, bootstrap/storage/hardware regression scripts, affected ShellCheck,
+  and workflow YAML validation. Rust prediction against the operator's private
+  boot reports and the official public ublue certificate exactly reproduced the
+  measured target PCR. No private reports or machine PCR constants were committed.
+- Passed `physical_tpm_payload_passes_real_butane_merge` using strict real
+  Butane compilation. The payload retains the embedded base bootstrap unit and
+  adds the TPM prerequisite/drop-in plus supplied certificate.
+- Passed `real_software_tpm_bootstrap_driver` in a disposable Fedora 44 container
+  with external networking disabled, an owned swtpm and a regular sparse LUKS2
+  file. Actual native adapters passed initial/future restricted unlock, sealed
+  intent persistence, interrupted keyslot-before-token import retry, refusal to
+  overwrite an unrelated token, unchanged repeated enrollment, original-token
+  preservation, recovery-key enrollment through a working non-first binding,
+  and denial of both TPM paths after an additional unapproved PCR extension.
+  CI runs the real compiler and software-TPM checks without a vault or hardware.
+- Canonical installation parents now permit normal home/source aliases while
+  preserving repository exclusion, source-leaf checks and new-output/no-clobber.
+  Regression coverage rejects redirected repository output and dangling leaves.
+- KVM and native libvirt are available outside the sandbox; the existing Donbot
+  VM was untouched. No fresh UEFI VM or replacement-SSD unattended boot was run
+  for this new flow. Regenerate the hardware bundle and USB before physical
+  acceptance; the previous USB does not contain this enrollment prerequisite.

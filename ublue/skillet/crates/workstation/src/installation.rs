@@ -1,4 +1,5 @@
-//! Physical install media preparation. Never opens or writes a host block device.
+//! Physical install media and explicit initial-root TPM enrollment.
+//! Media preparation never opens or writes a workstation block device.
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde_yml::Value;
 use sha2::{Digest as _, Sha256};
@@ -11,6 +12,8 @@ use std::{
     process::Command,
     time::Duration,
 };
+
+pub mod tpm;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -40,6 +43,15 @@ pub struct Request<'a> {
 
 /// Prepare an explicitly new private bundle. Existing bundles are never overwritten.
 pub fn prepare(request: &Request<'_>) -> Result<PathBuf> {
+    // Resolve normal OS aliases such as /home -> /var/home before enforcing
+    // repository boundaries. The output leaf must still be genuinely new.
+    let output = resolve_output(request.output)?;
+    let butane = fs::canonicalize(request.butane)?;
+    let request = &Request {
+        output: &output,
+        butane: &butane,
+        ..*request
+    };
     validate_request(request)?;
     let key = fs::read_to_string(request.public_key)?;
     let hash = fs::read_to_string(request.password_hash)?;
@@ -52,6 +64,13 @@ pub fn prepare(request: &Request<'_>) -> Result<PathBuf> {
     )?)?;
     configure_access(&mut passwd, &key, &hash)?;
     skillet_vm::install::normalize_butane_modes(&mut passwd)?;
+    let certificate = request.mok_certificate.map(fs::read).transpose()?;
+    if request.root_profile == RootProfile::Tpm {
+        let certificate = certificate
+            .as_deref()
+            .ok_or_else(|| Error::Invalid("TPM media requires a MOK certificate".into()))?;
+        tpm::configure_bootstrap(&mut config, certificate)?;
+    }
     let iso = fs::canonicalize(request.iso)?;
     if !iso.is_file() {
         return Err(Error::Invalid("ISO must be a regular file".into()));
@@ -84,7 +103,6 @@ pub fn prepare(request: &Request<'_>) -> Result<PathBuf> {
     fs::set_permissions(&ignition_path, fs::Permissions::from_mode(0o600))?;
     let ignition = fs::read(ignition_path)?;
     let helper = fs::read(request.butane.join("bin/install-hardware"))?;
-    let certificate = request.mok_certificate.map(fs::read).transpose()?;
     let live = live_ignition(
         request.disk,
         request.root_profile,
@@ -106,6 +124,50 @@ pub fn prepare(request: &Request<'_>) -> Result<PathBuf> {
         fs::rename(entry.path(), request.output.join(entry.file_name()))?;
     }
     Ok(request.output.join("install.iso"))
+}
+
+fn resolve_output(path: &Path) -> Result<PathBuf> {
+    if !path.is_absolute()
+        || path
+            .components()
+            .any(|c| matches!(c, std::path::Component::ParentDir))
+    {
+        return Err(Error::Invalid(
+            "output must be absolute without parent traversal".into(),
+        ));
+    }
+    match fs::symlink_metadata(path) {
+        Ok(_) => {
+            return Err(Error::Invalid(
+                "output already exists; choose a new bundle directory".into(),
+            ))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e.into()),
+    }
+    let mut ancestor = path;
+    let mut suffix = Vec::new();
+    loop {
+        match fs::symlink_metadata(ancestor) {
+            Ok(_) => break,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                suffix.push(
+                    ancestor
+                        .file_name()
+                        .ok_or_else(|| Error::Invalid("output has no directory name".into()))?,
+                );
+                ancestor = ancestor
+                    .parent()
+                    .ok_or_else(|| Error::Invalid("output has no existing parent".into()))?;
+            }
+            Err(e) => return Err(e.into()),
+        }
+    }
+    let mut resolved = fs::canonicalize(ancestor)?;
+    for name in suffix.into_iter().rev() {
+        resolved.push(name);
+    }
+    Ok(resolved)
 }
 
 fn run(command: Command, operation: &str) -> Result<()> {

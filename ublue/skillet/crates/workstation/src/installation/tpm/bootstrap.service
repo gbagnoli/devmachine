@@ -1,0 +1,12 @@
+[Unit]
+Description=Enroll approved TPM boot states before the initial uCore rebase
+After=local-fs.target
+Before=ucore-bootstrap.service
+AssertPathExists=/etc/skillet-install/ublue.der
+
+[Service]
+Type=oneshot
+ExecStart=/var/usrlocal/bin/skillet install tpm-bootstrap --certificate /etc/skillet-install/ublue.der
+RemainAfterExit=yes
+UMask=0077
+TimeoutStartSec=10min
