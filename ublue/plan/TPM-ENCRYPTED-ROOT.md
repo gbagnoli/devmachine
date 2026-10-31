@@ -110,6 +110,25 @@ header/archive, verify their bytes against the intended volume, preserve the
 source unlock path, and disable secret-bearing console recording. Never restore
 a header onto a running root. Record exact actual results and unresolved checks.
 
+## Replacement-disk first-boot retry
+
+The next operator report failed in initramfs partition-save, before the TPM
+bootstrap unit. The saved report shows `ignition.firstboot` and an already
+encrypted root. The copied boot configuration contains only one initial Fedora
+entry, no saved GRUB override, a retained first-boot marker and no encrypted-root
+kernel arguments. This excludes selection of an older listed deployment; it
+does not establish what interrupted the preceding storage conversion. The
+operator is unsure whether an intermediate reboot was missed. Do not label this
+as the earlier PCR mismatch or claim that stale competing signatures were found.
+
+Implemented guards for the next fresh trial: live installation verifies a
+single labelled initial root filesystem before reporting success, and uCore
+bootstrap requires/orders after CoreOS first-boot completion. Capture the
+installer's verification line and preserve the first failure report before
+any manual reboot. A new bundle/USB is required for the dependency change.
+Fresh physical acceptance remains pending; no repair/wipe of the failed disk
+was performed by the agent.
+
 ## Deferred scope
 
 Tang, custom UKIs and signed-PCR-policy whole-machine boot integrity are separate

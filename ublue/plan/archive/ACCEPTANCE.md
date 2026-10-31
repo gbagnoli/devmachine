@@ -4065,3 +4065,27 @@ acceptance; no production host or private DNS values were committed.
   VM was untouched. No fresh UEFI VM or replacement-SSD unattended boot was run
   for this new flow. Regenerate the hardware bundle and USB before physical
   acceptance; the previous USB does not contain this enrollment prerequisite.
+
+## 2026-10-31 — First-boot storage failure and installation boundaries
+
+- Operator-provided initramfs report shows failure saving the initial filesystem
+  at `/dev/disk/by-label/root`. The root partition is already LUKS2 before that
+  boot's Ignition disk stage. The two observed signatures are its normal primary
+  and backup headers; no conflicting filesystem signature was established.
+- Copied boot metadata has one initial Fedora entry, an empty GRUB environment
+  without saved-entry overrides, the first-boot marker and no encrypted-root
+  boot arguments. An older listed-deployment selection is excluded. The files
+  do not identify what interrupted the preceding conversion; the operator is
+  uncertain about intermediate reboot history. The new TPM bootstrap unit was
+  not reached in the captured failed boot. Private reports remain outside Git.
+- Added a read-only post-install root probe, scoped to the confirmed disk,
+  before reporting successful installation. It refuses encrypted/missing/
+  duplicate roots, incorrect labels, failed inventory and ambiguous probes.
+  Source filesystem signatures are not wiped automatically.
+- uCore bootstrap now requires and orders after CoreOS first-boot completion
+  before it can switch the image or reboot. A failed completion service stops
+  bootstrap; later boots retain the platform service's normal condition checks.
+- Bootstrap, storage and hardware regressions and ShellCheck passed. The
+  physical retry must show the installer verification line and preserve the
+  first failure before any manual reboot. Whole-install hardware acceptance is
+  still pending; these guards do not prove the previous interruption's cause.

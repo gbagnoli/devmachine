@@ -69,6 +69,9 @@ for destructive confirmation. Private bootstrap access replaces inherited keys
 and hashes. The small live Ignition embeds access/helper/destination digest;
 the full payload travels separately and is verified in root-only live tmpfs,
 respecting CoreOS's embedding limit. VM /dev/vda remains a separate template.
+Live installation verifies the initial labelled root filesystem before reporting
+success. Rebase/reboot waits for CoreOS's first-boot completion service; a disk
+already converted by Ignition must not accidentally repeat root reprovisioning.
 
 Disk choice and hardware/update acceptance are in [clamps migration](../plan/CLAMPS-MIGRATION.md)
 and [TPM acceptance](../plan/TPM-ENCRYPTED-ROOT.md). Stock-SSD installation evidence

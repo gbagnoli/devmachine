@@ -155,6 +155,9 @@
   actual sealed object's policy, including supported consumer-version behavior;
   accepted configuration alone does not prove it was enforced. Preserve the
   working unlock path and journal sealed retry material before enrollment changes.
+- Verify expected disk state after an installer reports success. Boot-image
+  switches and automatic reboots require the platform's initialization-complete
+  barrier, not merely network availability or completion of one provisioning task.
 - Filesystem containment checks compare resolved locations, including existing
   parent aliases. Preserve new-output/no-clobber and source-leaf validation
   instead of rejecting normal aliases in every path ancestor.

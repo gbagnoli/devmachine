@@ -2,6 +2,9 @@
 set -euo pipefail
 
 source_dir="$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")"
+unit_contents="$(yq -r '.systemd.units[] | select(.name == "ucore-bootstrap.service") | .contents' "$source_dir/includes/ucore-bootstrap.bu")"
+grep -Fxq 'Requires=coreos-ignition-firstboot-complete.service' <<< "$unit_contents"
+grep -Eq '^After=.*coreos-ignition-firstboot-complete\.service' <<< "$unit_contents"
 tmp="$(mktemp -d)"
 trap 'rm -rf -- "$tmp"' EXIT
 mkdir "$tmp/bin"

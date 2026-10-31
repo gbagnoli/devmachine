@@ -62,7 +62,8 @@ systemd:
       contents: |
         [Unit]
         Description=Boot through the configured signed uCore image
-        After=network-online.target
+        Requires=coreos-ignition-firstboot-complete.service
+        After=network-online.target coreos-ignition-firstboot-complete.service
         Wants=network-online.target
 
         [Service]

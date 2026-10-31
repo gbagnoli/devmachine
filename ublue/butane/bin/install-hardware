@@ -19,6 +19,30 @@ disk_confirmation_matches() {
   [[ -n "$confirmation" && ( "$confirmation" == "$prepared_disk" || "$confirmation" == "${resolved_disk##*/}" ) ]]
 }
 
+verify_installed_root() {
+  local selected_disk="$1" layout path kind label root="" filesystem filesystem_label
+  layout="$(lsblk --list --noheadings --paths --output PATH,TYPE,PARTLABEL "$selected_disk")" || return 1
+  while read -r path kind label; do
+    if [[ "$kind" == part && "$label" == root ]]; then
+      [[ -z "$root" ]] || { echo 'Multiple installed root partitions; refusing to report success.' >&2; return 1; }
+      root="$path"
+    fi
+  done <<< "$layout"
+  [[ -n "$root" ]] || { echo 'Installed root partition is absent.' >&2; return 1; }
+  filesystem="$(blkid --probe --match-tag TYPE --output value "$root")" || return 1
+  filesystem_label="$(blkid --probe --match-tag LABEL --output value "$root")" || return 1
+  case "$filesystem:$filesystem_label" in
+    xfs:root|ext4:root|btrfs:root)
+      printf 'Verified initial Fedora root: %s TYPE=%s LABEL=%s\n' "$root" "$filesystem" "$filesystem_label"
+      ;;
+    *)
+      echo "Installed root is not the expected initial Fedora filesystem: TYPE=$filesystem LABEL=$filesystem_label" >&2
+      echo 'Do not reboot. Retain the installer output and inspect the selected disk.' >&2
+      return 1
+      ;;
+  esac
+}
+
 [[ $EUID -eq 0 ]] || { echo 'Run with sudo.' >&2; exit 1; }
 [[ $# -le 1 ]] || { echo 'Usage: skillet-install /path/to/destination.ign' >&2; exit 2; }
 config="${1:-/etc/skillet-install/config.ign}"
@@ -76,4 +100,9 @@ disk_confirmation_matches "$disk" "$resolved_disk" "$confirmation" || { echo 'Ca
   echo 'Prepared disk changed during confirmation; refusing installation.' >&2; exit 1;
 }
 coreos-installer install "$disk" --ignition-file "$staged_config"
+udevadm settle
+[[ -b "$disk" && "$(readlink -f -- "$disk")" == "$resolved_disk" ]] || {
+  echo 'Prepared disk changed during installation; refusing to report success.' >&2; exit 1;
+}
+verify_installed_root "$disk"
 echo 'Installed. Remove the USB before booting the installed system.'

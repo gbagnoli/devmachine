@@ -168,10 +168,19 @@ See [storage policy](../design/storage.md) and [remaining encryption checks](../
    that disk. A hardware mismatch stops installation; regenerate the bundle
    instead of editing its target ad hoc.
 
+   Before reporting success, the helper probes the installed disk and requires
+   exactly one root partition containing an initial filesystem labelled `root`.
+   It prints `Verified initial Fedora root: ...` before the final success line.
+   Encryption happens on the installed system's first boot; an already encrypted
+   root at this verification point is refused. Retain the installer output if
+   this check fails and do not reboot into a partially written installation.
+
 7. Remove the USB and reboot. Allow FCOS-to-uCore signed bootstrap and its
    intermediate reboots to complete. Connect using the supplied SSH key;
    verify the host key independently. Check signed boot, Skillet base apply,
    Btrfs `/var/lib/data`, DNS, user environment and enforcing SELinux.
+   The bootstrap service requires successful CoreOS first-boot completion before
+   rebasing or rebooting, so the Ignition first-boot marker is retired first.
 
 ## Provision and cut over
 
