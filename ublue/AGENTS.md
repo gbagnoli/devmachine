@@ -259,6 +259,10 @@
   without altering the original application request. Validate the consumer's
   adapted configuration and query-bearing API/assets, rather than testing only
   a successful HTML root response.
+- Browser-navigation exceptions must be explicit about their method, landing
+  path, destination and origin. Retain identity authorization and reject API,
+  subresource and embedding requests; validate both navigation and denial through
+  the actual proxy consumer.
 
 - Prepare declared storage identities before every first consumer, including OS
   image import and early background jobs. Application service ordering alone

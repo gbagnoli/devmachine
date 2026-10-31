@@ -18,6 +18,8 @@ pub mod metrics;
 pub const IMAGE: &str = "ghcr.io/home-assistant/home-assistant:2026.10.1";
 pub const DATA: &str = "/var/lib/data/homeassistant";
 pub const PORT: u16 = 8123;
+/// Frontend landing page used by external My Home Assistant integration links.
+pub const CONFIG_FLOW_REDIRECT_PATH: &str = "/_my_redirect/config_flow_start";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Config {

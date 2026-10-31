@@ -408,6 +408,18 @@ fn render_identity_policy(
 ) {
     use std::fmt::Write as _;
 
+    // My Home Assistant links enter from an external site. Permit only its
+    // integration landing page as a top-level GET navigation without Origin;
+    // API/subresource requests keep their cross-site checks, and forward_auth
+    // still authorizes this request using the actual tailnet peer.
+    let navigation_guard = if service.name == "homeassistant" {
+        format!(
+            " && !({{http.request.method}} == \"GET\" && {{http.request.uri.path}} == \"{}\" && {{http.request.header.Origin}} == \"\" && {{http.request.header.Sec-Fetch-Mode}} == \"navigate\" && {{http.request.header.Sec-Fetch-Dest}} == \"document\")",
+            skillet_homeassistant::CONFIG_FLOW_REDIRECT_PATH
+        )
+    } else {
+        String::new()
+    };
     let homepage_api =
         matches!(service.name.as_str(), "pihole" | "homeassistant") && !homer_origins.is_empty();
     if homepage_api {
@@ -435,7 +447,7 @@ fn render_identity_policy(
         }
         let _ = writeln!(
             config,
-            "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {denied}`\n        respond @cross_origin 403\n        @cross_site expression `{{http.request.header.Sec-Fetch-Site}} == \"cross-site\" && {{http.request.header.Origin}} != \"{own_origin}\"{cross_site_origins}`\n        respond @cross_site 403"
+            "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {denied}`\n        respond @cross_origin 403\n        @cross_site expression `{{http.request.header.Sec-Fetch-Site}} == \"cross-site\" && {{http.request.header.Origin}} != \"{own_origin}\"{cross_site_origins}{navigation_guard}`\n        respond @cross_site 403"
         );
         render_homer_cors(config, service.name.as_str(), &allowed_origins);
         // Browser preflights cannot carry the authorization material used by
@@ -445,7 +457,13 @@ fn render_identity_policy(
             "        @homer_preflight method OPTIONS\n        respond @homer_preflight \"\" 204\n",
         );
     } else {
-        let _ = writeln!(config, "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {{http.request.header.Origin}} != \"https://{hostname}\"`\n        respond @cross_origin 403\n        @cross_site header Sec-Fetch-Site cross-site\n        respond @cross_site 403");
+        let _ = writeln!(config, "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {{http.request.header.Origin}} != \"https://{hostname}\"`\n        respond @cross_origin 403");
+        if navigation_guard.is_empty() {
+            config.push_str("        @cross_site header Sec-Fetch-Site cross-site\n");
+        } else {
+            let _ = writeln!(config, "        @cross_site expression `{{http.request.header.Sec-Fetch-Site}} == \"cross-site\"{navigation_guard}`");
+        }
+        config.push_str("        respond @cross_site 403\n");
     }
     // A trailing '?' clears the inherited application query on the cloned auth
     // request; the backend keeps its original URI.

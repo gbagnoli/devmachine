@@ -4135,3 +4135,32 @@ acceptance; no production host or private DNS values were committed.
   physical Clamps because it changes a production security boundary. No broker
   policy or replacement HA container has been deployed there; approval is still
   required for that specific deployment.
+
+## 2026-10-31 — Authenticated HA integration links
+
+- The private HA backend returns HTTP 200 for
+  `/_my_redirect/config_flow_start?domain=hue`. The deployed proxy's cross-site
+  guard rejects the external documentation navigation before identity lookup,
+  matching the reported 403 despite a working main UI.
+- The shared renderer now permits only that exact HA landing path for GET
+  `navigate`/`document` requests without Origin. Tailnet source and per-request
+  identity checks remain required. Other services retain their existing guard.
+- A real-Caddy regression checks both Homer and non-Homer declarations,
+  preserved application queries, cleared auth-subrequest queries, denied
+  identities/forged user headers, POSTs, iframes, fetches, unrelated API paths,
+  path suffixes and foreign Origins. It runs in routine CI without vault/provider
+  access. The generated production Caddyfile also validates with Caddy itself.
+- The isolated HTTP fixture passed on `donbot-test-joplin` through the locked,
+  ownership-checked guest adapter. Its first attempt exposed host-domain Unix
+  socket restrictions in the fixture; loopback-only TCP stubs now exercise the
+  HTTP policy without weakening SELinux. Production Unix transport has separate
+  acceptance. No declared Donbot service was reapplied or restarted; the
+  uploaded assertion binary and fixture containers were removed.
+- A read-only libselinux query confirms enforcement is enabled and rejects
+  container-to-host `unconfined_t` Unix-stream connections, accounting for the
+  initial fixture's 502. No SELinux policy was installed or relaxed for this
+  HTTP test. Workspace tests, pedantic Clippy, formatting, base integration and
+  all Caddy CI consumer checks passed locally.
+- Physical renderer deployment and an allowed-client browser check remain
+  pending. The new shared binary also contains the separately reviewed Bluetooth
+  policy, whose production activation still awaits the requested approval.

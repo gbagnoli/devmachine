@@ -9,15 +9,17 @@ use std::{
     time::Duration,
 };
 
-struct AuthStub {
+struct HttpStub {
     server: Arc<tiny_http::Server>,
+    address: std::net::SocketAddr,
     allowed: Arc<AtomicBool>,
     stopped: Arc<AtomicBool>,
     worker: Option<std::thread::JoinHandle<()>>,
 }
-impl AuthStub {
-    fn new(path: &Path) -> Self {
-        let server = Arc::new(tiny_http::Server::http_unix(path).unwrap());
+impl HttpStub {
+    fn new(authorization: bool) -> Self {
+        let server = Arc::new(tiny_http::Server::http("127.0.0.1:0").unwrap());
+        let address = server.server_addr().to_ip().unwrap();
         let allowed = Arc::new(AtomicBool::new(true));
         let stopped = Arc::new(AtomicBool::new(false));
         let (thread_server, thread_allowed, thread_stopped) =
@@ -28,26 +30,36 @@ impl AuthStub {
                     .recv_timeout(Duration::from_millis(100))
                     .unwrap()
                 {
-                    assert_eq!(request.method(), &tiny_http::Method::Get);
-                    assert_eq!(request.url(), "/auth");
-                    let status = if thread_allowed.load(Ordering::SeqCst) {
-                        200
+                    let response = if authorization {
+                        assert_eq!(request.method(), &tiny_http::Method::Get);
+                        assert_eq!(request.url(), "/auth");
+                        let status = if thread_allowed.load(Ordering::SeqCst) {
+                            204
+                        } else {
+                            403
+                        };
+                        tiny_http::Response::from_string("").with_status_code(status)
                     } else {
-                        403
+                        tiny_http::Response::from_string(format!(
+                            "{} {}",
+                            request.method(),
+                            request.url()
+                        ))
                     };
-                    let _ = request.respond(tiny_http::Response::empty(status));
+                    let _ = request.respond(response);
                 }
             }
         });
         Self {
             server,
+            address,
             allowed,
             stopped,
             worker: Some(worker),
         }
     }
 }
-impl Drop for AuthStub {
+impl Drop for HttpStub {
     fn drop(&mut self) {
         self.stopped.store(true, Ordering::SeqCst);
         self.server.unblock();
@@ -70,8 +82,9 @@ impl Drop for Container {
 #[ignore = "requires Podman and the Caddy container image"]
 fn real_caddy_no_auth_refresh_stays_behind_identity_gate() {
     let temp = tempfile::tempdir().unwrap();
-    let stub = AuthStub::new(&temp.path().join("auth.sock"));
-    let (_container, address) = start_caddy(temp.path());
+    let stub = HttpStub::new(true);
+    let (_container, address) =
+        start_caddy(temp.path(), "files", false, "127.0.0.1:9", stub.address);
     let base = format!("http://{address}");
     let client = reqwest::blocking::Client::builder()
         .no_proxy()
@@ -130,35 +143,141 @@ fn real_caddy_no_auth_refresh_stays_behind_identity_gate() {
     }
 }
 
-fn start_caddy(root: &Path) -> (Container, std::net::SocketAddr) {
+#[test]
+#[ignore = "requires Podman and the Caddy container image"]
+fn real_caddy_homeassistant_navigation_retains_identity_and_origin_guards() {
+    for with_homer in [false, true] {
+        let temp = tempfile::tempdir().unwrap();
+        let auth = HttpStub::new(true);
+        let backend = HttpStub::new(false);
+        let (_container, address) = start_caddy(
+            temp.path(),
+            "homeassistant",
+            with_homer,
+            &backend.address.to_string(),
+            auth.address,
+        );
+        let client = reqwest::blocking::Client::builder()
+            .no_proxy()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .unwrap();
+        let base = format!("http://{address}");
+        let path = "/_my_redirect/config_flow_start?domain=hue";
+        let navigation = |method, path: &str, mode, destination| {
+            client
+                .request(method, format!("{base}{path}"))
+                .header("Sec-Fetch-Site", "cross-site")
+                .header("Sec-Fetch-Mode", mode)
+                .header("Sec-Fetch-Dest", destination)
+        };
+        let deadline = std::time::Instant::now() + Duration::from_secs(30);
+        let response = loop {
+            match navigation(reqwest::Method::GET, path, "navigate", "document").send() {
+                Ok(response) => break response,
+                Err(error) => {
+                    assert!(
+                        std::time::Instant::now() < deadline,
+                        "Caddy not ready: {error}"
+                    );
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+            }
+        };
+        assert_eq!(response.status().as_u16(), 200);
+        assert_eq!(response.text().unwrap(), format!("GET {path}"));
+        for (method, path, mode, destination) in [
+            (reqwest::Method::POST, path, "navigate", "document"),
+            (reqwest::Method::GET, path, "cors", "empty"),
+            (reqwest::Method::GET, path, "navigate", "iframe"),
+            (reqwest::Method::GET, path, "", ""),
+            (reqwest::Method::GET, "/api/config", "navigate", "document"),
+            (
+                reqwest::Method::GET,
+                "/_my_redirect/config_flow_start/extra",
+                "navigate",
+                "document",
+            ),
+        ] {
+            assert_eq!(
+                navigation(method, path, mode, destination)
+                    .send()
+                    .unwrap()
+                    .status()
+                    .as_u16(),
+                403
+            );
+        }
+        assert_eq!(
+            navigation(reqwest::Method::GET, path, "navigate", "document")
+                .header("Origin", "https://evil.example.invalid")
+                .send()
+                .unwrap()
+                .status()
+                .as_u16(),
+            403
+        );
+        auth.allowed.store(false, Ordering::SeqCst);
+        assert_eq!(
+            navigation(reqwest::Method::GET, path, "navigate", "document")
+                .header("X-Skillet-User", "forged@example.invalid")
+                .send()
+                .unwrap()
+                .status()
+                .as_u16(),
+            403
+        );
+    }
+}
+
+fn start_caddy(
+    root: &Path,
+    service: &str,
+    with_homer: bool,
+    upstream: &str,
+    authorization: std::net::SocketAddr,
+) -> (Container, std::net::SocketAddr) {
+    let mut services = vec![UiService {
+        public_names: Vec::new(),
+        cache: None,
+        name: service.into(),
+        upstream: "backend".into(),
+        transport: crate::UpstreamTransport::Bridge,
+        port: 8080,
+        aliases: Vec::new(),
+        tailnet_identity: true,
+        anonymous_token_refresh: service == "files",
+        sharing: None,
+    }];
+    if with_homer {
+        let mut homer = services[0].clone();
+        homer.name = "homer".into();
+        homer.anonymous_token_refresh = false;
+        services.push(homer);
+    }
     let sites = CaddySites::from_host(
         "fixture",
         &UiEnvironment {
             ui_domain: "ui.example.invalid".into(),
             acme_staging: true,
         },
-        &[UiService {
-            public_names: Vec::new(),
-            cache: None,
-            name: "files".into(),
-            upstream: "backend".into(),
-            transport: crate::UpstreamTransport::Bridge,
-            port: 8080,
-            aliases: Vec::new(),
-            tailnet_identity: true,
-            anonymous_token_refresh: true,
-            sharing: None,
-        }],
+        &services,
     )
     .unwrap();
     let rendered = sites.render();
-    // Use plain HTTP and allow the container ingress only in this loopback-published
-    // fixture. Production rendering and the actual identity gate are unchanged.
+    // Loopback-only TCP fixtures avoid granting container processes access to
+    // host-domain Unix sockets on enforcing hosts. This exercises HTTP guards;
+    // production Unix transport and real WhoIs policy have separate acceptance.
+    let reservation = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = reservation.local_addr().unwrap();
     let site = rendered
-        .split("\nfiles.fixture.ui.example.invalid {")
+        .split(&format!("\n{service}.fixture.ui.example.invalid {{"))
         .nth(1)
+        .unwrap()
+        .split("\nhomer.fixture.ui.example.invalid {")
+        .next()
         .unwrap();
-    let configuration = format!("{{\n admin off\n auto_https off\n}}\nhttp://:8080 {{{site}")
+    let configuration = format!("{{\n admin off\n auto_https off\n}}\nhttp://{address} {{{site}")
         .replace("    tls {\n        resolvers 1.1.1.1 1.0.0.1\n    }\n", "")
         .replace(
             "not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48",
@@ -166,10 +285,14 @@ fn start_caddy(root: &Path) -> (Container, std::net::SocketAddr) {
         )
         .replace(
             "unix//run/skillet-tailnet-ui/auth.sock",
-            "unix//fixture/auth.sock",
+            &format!("http://{authorization}"),
         )
-        .replace("reverse_proxy backend:8080", "reverse_proxy 127.0.0.1:9");
+        .replace(
+            "reverse_proxy backend:8080",
+            &format!("reverse_proxy {upstream}"),
+        );
     std::fs::write(root.join("Caddyfile"), configuration).unwrap();
+    drop(reservation);
     let container = Container(format!(
         "skillet-refresh-{}-{}",
         std::process::id(),
@@ -182,8 +305,7 @@ fn start_caddy(root: &Path) -> (Container, std::net::SocketAddr) {
             "--detach",
             "--name",
             &container.0,
-            "--publish",
-            "127.0.0.1::8080",
+            "--network=host",
             "--volume",
             &volume,
             "ghcr.io/caddybuilds/caddy-cloudflare:2",
@@ -201,16 +323,6 @@ fn start_caddy(root: &Path) -> (Container, std::net::SocketAddr) {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let output = std::process::Command::new("podman")
-        .args(["port", &container.0, "8080/tcp"])
-        .output()
-        .unwrap();
-    assert!(output.status.success());
-    let address: std::net::SocketAddr = String::from_utf8(output.stdout)
-        .unwrap()
-        .trim()
-        .parse()
-        .unwrap();
     assert!(address.ip().is_loopback());
     (container, address)
 }

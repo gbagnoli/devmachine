@@ -221,6 +221,10 @@ limitations in `../plan/archive/ACCEPTANCE.md`.
 - Configure production UI/credentials through the existing vault workflow;
   validate real-client DNS, HTTPS, login and device discovery on clamps.
   Keep smoke names, identities, archives and destinations separate from prod.
+- After deploying the navigation fix, open a My Home Assistant integration
+  setup link on an allowed personal client. Confirm that the frontend redirect
+  works while tagged/unapproved clients remain denied; automated proxy checks
+  cover cross-site API, iframe, POST and forged-Origin rejection.
 - Confirm daily encrypted backup, last-success monitoring, off-machine receipt,
   recovery-key availability and free-space/retention policy. Keep an independent
   recovery copy before an application update and test restore compatibility.

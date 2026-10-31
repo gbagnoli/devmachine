@@ -61,6 +61,13 @@ other networks. Host root remains trusted; no backend port is published.
 Strict isolation is supported by the guest's Netavark 1.17.2, independently of
 Podman 6's newer default. Verify the actual bridge boundary during acceptance.
 Cross-origin browser requests are rejected before authentication/proxying.
+Home Assistant's exact `/_my_redirect/config_flow_start` frontend entry point
+permits cross-site top-level GET navigation (`navigate`/`document`, no Origin),
+so [My Home Assistant documentation links](https://www.home-assistant.io/integrations/my/)
+can open integration setup. It still
+passes the same tailnet identity gate, and its query reaches the application.
+This exception grants no CORS access: POSTs, fetches, iframes and other paths
+retain their existing protections. It works with or without a Homer dashboard.
 
 Using the Tailscale client LocalAPI with Headscale is the intended portable
 approach, but this does not establish compatible returned identities or authorization.
