@@ -34,3 +34,5 @@ pub mod media_provisioning;
 pub mod gokapi_provisioning;
 
 pub mod sudo;
+
+pub mod credential_cache;

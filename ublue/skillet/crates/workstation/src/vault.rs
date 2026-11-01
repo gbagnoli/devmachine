@@ -1,22 +1,18 @@
 //! `KeePassXC` database access, atomic persistence, and session password cache.
 
+use crate::credential_cache::{CacheError, CredentialCache as _, KernelCache};
 use keepass::{Database, DatabaseKey};
-use keyutils::{keytypes::User, Keyring, Permission, SpecialKeyring};
-use sha2::{Digest, Sha256};
 use std::{
     error::Error as StdError,
     fs,
     io::Write as _,
     os::unix::fs::OpenOptionsExt as _,
     path::{Path, PathBuf},
-    sync::Mutex,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use thiserror::Error;
 
 const CACHE_LIFETIME: Duration = Duration::from_hours(3);
-const SESSION_KEYRING_NAME: &str = "skillet-vault-cache";
-static SESSION_KEYRING: Mutex<Option<Keyring>> = Mutex::new(None);
 
 #[derive(Debug, Error)]
 pub enum VaultError {
@@ -533,85 +529,36 @@ fn create_entry(database: &mut Database, path: &str, password: &str) -> Result<(
     Ok(())
 }
 
-fn cache_description(database: &Path) -> String {
-    let digest = Sha256::digest(database.as_os_str().as_encoded_bytes());
-    format!("skillet:vault:{}", hex::encode(digest))
-}
-
-fn session_keyring() -> Result<Keyring, VaultError> {
-    let mut cached = SESSION_KEYRING
-        .lock()
-        .map_err(|_| VaultError::Invalid("vault session keyring lock was poisoned".into()))?;
-    if let Some(ring) = cached.as_ref() {
-        return Ok(ring.clone());
-    }
-    let current = Keyring::attach_or_create(SpecialKeyring::Session)
-        .ok()
-        .and_then(|ring| {
-            ring.description()
-                .ok()
-                .filter(|description| description.description == SESSION_KEYRING_NAME)
-                .map(|_| ring)
-        });
-    let mut ring = match current {
-        Some(ring) => ring,
-        None => Keyring::join_session(SESSION_KEYRING_NAME)
-            .map_err(|error| source("opening the named Linux session keyring", error))?,
-    };
-    ring.set_permissions(Permission::POSSESSOR_ALL | Permission::USER_SEARCH)
-        .map_err(|error| source("setting access on the named vault session keyring", error))?;
-    let mut user = Keyring::attach_or_create(SpecialKeyring::User)
-        .map_err(|error| source("opening the Linux user keyring", error))?;
-    user.link_keyring(&ring)
-        .map_err(|error| source("linking the named vault session keyring", error))?;
-    *cached = Some(ring.clone());
-    Ok(ring)
-}
-
 fn cache_read(database: &Path) -> Result<Option<String>, VaultError> {
-    let Ok(ring) = session_keyring() else {
-        return Ok(None);
-    };
-    let Ok(key) = ring.search_for_key::<User, _, _>(cache_description(database), None) else {
-        return Ok(None);
-    };
-    String::from_utf8(
-        key.read()
-            .map_err(|error| source("reading cached vault password", error))?,
-    )
-    .map(Some)
-    .map_err(|error| source("decoding cached vault password", error))
+    match KernelCache::new("vault").read(database.as_os_str().as_encoded_bytes()) {
+        Ok(value) => Ok(value.map(|value| value.to_string())),
+        Err(CacheError::Kernel(_)) => Ok(None),
+        Err(error) => Err(source("reading cached vault password", error)),
+    }
 }
 
 fn cache_store(database: &Path, password: &str) -> Result<bool, VaultError> {
-    let mut ring = match session_keyring() {
-        Ok(ring) => ring,
+    match KernelCache::new("vault").remember_verified(
+        database.as_os_str().as_encoded_bytes(),
+        password,
+        CACHE_LIFETIME,
+    ) {
+        Ok(()) => Ok(true),
+        Err(CacheError::Cleanup) => Err(source(
+            "removing a vault key without expiry",
+            CacheError::Cleanup,
+        )),
         Err(error) => {
-            eprintln!("Vault password was not cached: Linux session keyring unavailable: {error}");
-            return Ok(false);
+            eprintln!("Vault password was not cached: {error}");
+            Ok(false)
         }
-    };
-    let Ok(mut key) = ring.add_key::<User, _, _>(cache_description(database), password.as_bytes())
-    else {
-        eprintln!("Vault password was not cached: could not add a kernel key");
-        return Ok(false);
-    };
-    if key.set_timeout(CACHE_LIFETIME).is_err() {
-        ring.unlink_key(&key)
-            .map_err(|error| source("removing a vault key whose expiry could not be set", error))?;
-        eprintln!("Vault password was not cached: kernel denied the three-hour expiry");
-        return Ok(false);
     }
-    Ok(true)
 }
 
 fn cache_clear(database: &Path) -> Result<(), VaultError> {
-    let mut ring = session_keyring()?;
-    if let Ok(key) = ring.search_for_key::<User, _, _>(cache_description(database), None) {
-        ring.unlink_key(&key)
-            .map_err(|error| source("removing cached vault password", error))?;
-    }
-    Ok(())
+    KernelCache::new("vault")
+        .forget(database.as_os_str().as_encoded_bytes())
+        .map_err(|error| source("clearing cached vault password", error))
 }
 
 #[cfg(test)]
