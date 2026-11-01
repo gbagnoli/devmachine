@@ -6,12 +6,14 @@ include_recipe "pihole::disable_systemd_resolved"
 include_recipe "rupik::nginx"
 node.default["pihole"]["container"]["Pod"] = "web.pod"
 include_recipe "pihole"
-# include_recipe "rupik::unifi"
 include_recipe "rupik::btrbk"
 include_recipe "rupik::syncthing"
 include_recipe "rupik::tailscale"
-include_recipe "rupik::cloudflare_ddns"
 include_recipe "rupik::eternal_terminal"
+
+# on clamps
+# include_recipe "rupik::cloudflare_ddns"
+# include_recipe "rupik::unifi"
 
 domain = node["rupik"]["www"]["pihole_domain"]
 unless domain.nil?

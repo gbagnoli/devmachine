@@ -12,6 +12,7 @@ __pycache__
 ublue/butane/images
 ublue/butane/ignition/*
 ublue/butane/runs/*
+ublue/skillet/
 berks-cookbooks
 chef_guid
 cinc_guid
