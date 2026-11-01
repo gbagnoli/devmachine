@@ -55,6 +55,7 @@ impl crate::firewall::FirewallResource for MockSystem {
     fn ensure_private_ipv4_lan_ports(
         &self,
         ports: &[crate::firewall::FirewallPort],
+        _missing_lan: crate::firewall::MissingLanPolicy,
     ) -> Result<bool, SystemError> {
         if self.fail_firewall.load(Ordering::SeqCst) {
             return Err(SystemError::Firewall("injected firewall failure".into()));

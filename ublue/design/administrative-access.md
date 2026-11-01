@@ -30,10 +30,18 @@ Instructions: [access finalization](../skillet/crates/cli-common/README.md#admin
 
 
 Eternal Terminal is part of the shared OS image. Its TCP 2022 transport is allowed
-only from the standard Tailscale IPv4/IPv6 source ranges; native SSH authentication
-remains required. This is an administrative transport policy, separate from the
-personal-device identity gate for application UIs. The image's ET service drop-in
-orders startup after firewalld and adds persistent-before-runtime rich rules in
-the default zone without a global reload. Rules are additive; policy retirement
-requires explicit cleanup. The image also supplies English UTF-8 locale data for
-remote shells rather than suppressing requested locales or changing SSH auth.
+from the standard Tailscale IPv4/IPv6 ranges and directly attached private IPv4
+LAN subnets; native SSH authentication remains required. This administrative
+transport policy is separate from the personal-device identity gate for UIs.
+The image supplies static tailnet grants. Shared Skillet baseline convergence
+derives LAN subnets from active hardware NIC addresses and netmasks and uses
+each interface's firewalld zone. Container/VPN interfaces and public subnets are
+excluded. Hosts without a private LAN skip those grants; services that require
+one retain an explicit fail-closed policy. No extra vault entry is introduced.
+
+SSH TCP 22 stays source-unrestricted and listens on both address families,
+independent of Tailscale. ET policy never replaces that recovery path. Firewall
+convergence persists before runtime activation without a global reload. Rules
+are additive; retiring a network requires explicit cleanup of obsolete grants.
+The image supplies English UTF-8 locale data rather than suppressing requested
+locales or changing SSH authentication.

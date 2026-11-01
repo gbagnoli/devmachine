@@ -29,21 +29,41 @@ pub struct FirewallPort {
     pub protocol: FirewallProtocol,
 }
 
+/// Whether a service requires a private LAN or merely permits one when present.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MissingLanPolicy {
+    #[default]
+    Reject,
+    Skip,
+}
+
 pub trait FirewallResource {
     /// Ensure runtime and permanent grants for up, hardware-backed NICs' RFC1918
     /// subnets. Does not reload firewalld or remove existing/shared grants.
-    fn ensure_private_ipv4_lan_ports(&self, ports: &[FirewallPort]) -> Result<bool, SystemError>;
+    fn ensure_private_ipv4_lan_ports(
+        &self,
+        ports: &[FirewallPort],
+        missing_lan: MissingLanPolicy,
+    ) -> Result<bool, SystemError>;
 }
 
 impl FirewallResource for LinuxSystemResource {
-    fn ensure_private_ipv4_lan_ports(&self, ports: &[FirewallPort]) -> Result<bool, SystemError> {
+    fn ensure_private_ipv4_lan_ports(
+        &self,
+        ports: &[FirewallPort],
+        missing_lan: MissingLanPolicy,
+    ) -> Result<bool, SystemError> {
         validate_ports(ports)?;
         if ports.is_empty() {
             return Ok(false);
         }
         let lans = observe_lans()?;
+        if lans.is_empty() && missing_lan == MissingLanPolicy::Skip {
+            return Ok(false);
+        }
         let backend = DbusFirewall(Connection::system()?);
-        converge(&backend, &lans, ports)
+        converge(&backend, &lans, ports, missing_lan)
     }
 }
 
@@ -132,9 +152,13 @@ fn converge(
     backend: &impl Firewalld,
     lans: &[Lan],
     ports: &[FirewallPort],
+    missing_lan: MissingLanPolicy,
 ) -> Result<bool, SystemError> {
     validate_ports(ports)?;
     if ports.is_empty() {
+        return Ok(false);
+    }
+    if lans.is_empty() && missing_lan == MissingLanPolicy::Skip {
         return Ok(false);
     }
     if lans.is_empty() {

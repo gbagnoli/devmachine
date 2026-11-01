@@ -36,6 +36,7 @@ stay in the vault or private installation inputs.
 | Vault / remote apply | [Workstation](../workstation/README.md) |
 | Root encryption / recovery | [TPM](../workstation/docs/tpm.md) |
 | Disposable testing | [VM](../vm/README.md) |
+| SSH / Eternal Terminal | [Administrative transport](docs/administrative-transport.md) |
 | Sudo / first-login password | [Guest access](../cli-common/README.md) |
 
 Design: [fleet ownership](../../../design/fleet-hosts.md).

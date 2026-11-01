@@ -175,6 +175,15 @@ pub enum ApplyError {
 /// Shared host baseline used by both CLI entry points.
 pub fn apply_base(system: &dyn SystemResource, files: &dyn FileResource) -> Result<(), ApplyError> {
     skillet_hardening::apply(system, files).map_err(|e| ApplyError::Hardening(e.to_string()))?;
+    // ET is installed on every fleet host. A public-only host has no LAN grant;
+    // never make its baseline depend on an RFC1918 address or widen ET to WAN.
+    system.ensure_private_ipv4_lan_ports(
+        &[skillet_core::firewall::FirewallPort {
+            port: 2022,
+            protocol: skillet_core::firewall::FirewallProtocol::Tcp,
+        }],
+        skillet_core::firewall::MissingLanPolicy::Skip,
+    )?;
     skillet_network::install(system, files)?;
     skillet_syncthing::initial::install(system, files)?;
     Ok(())

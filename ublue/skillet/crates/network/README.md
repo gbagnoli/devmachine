@@ -38,6 +38,10 @@ with autoconnect enabled before NetworkManager starts. Existing boot profiles
 preserve autoconnect during later live preparation. Ethernet routes are preferred
 over Wi-Fi. DHCP profiles are retained. `--phase network --record` is rejected.
 
+ET LAN access is derived by shared baseline apply from active NIC addresses and
+netmasks; it needs no extra vault subnet entry. SSH remains source-unrestricted
+independently of Tailscale. See [administrative transport](../host-profiles/docs/administrative-transport.md).
+
 Before physical reboot, verify image Wi-Fi support and keep local-console access
 available. Reconnect on the new address or Tailscale. Check
 `journalctl -b -u skillet-network-prepare.service`, `ip address`, `ip route` and

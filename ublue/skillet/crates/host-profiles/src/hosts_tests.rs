@@ -1473,3 +1473,25 @@ fn donbot_personal_sync_is_explicit_and_does_not_expand_shared_file_browsing() {
             .supports_service("syncthing-personal"));
     }
 }
+
+#[test]
+fn shared_baseline_grants_et_on_available_lans_without_restricting_ssh() {
+    use skillet_core::{
+        firewall::{FirewallPort, FirewallProtocol},
+        test_utils::MockFiles,
+    };
+    use std::sync::atomic::Ordering;
+    let system = MockSystem::new();
+    let files = MockFiles::new();
+    super::apply_base(&system, &files).unwrap();
+    assert_eq!(
+        *system.firewall_ports.lock().unwrap(),
+        std::collections::HashSet::from([FirewallPort {
+            port: 2022,
+            protocol: FirewallProtocol::Tcp
+        }])
+    );
+    let restarts = system.restart_count.load(Ordering::SeqCst);
+    super::apply_base(&system, &files).unwrap();
+    assert_eq!(system.restart_count.load(Ordering::SeqCst), restarts);
+}

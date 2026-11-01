@@ -72,9 +72,9 @@ fn rules_are_scoped_persisted_first_deduplicated_and_idempotent() {
     let backend = Fake::default();
     let unrelated = (true, "home-test".into(), "unrelated operator rule".into());
     backend.rules.borrow_mut().insert(unrelated.clone());
-    assert!(converge(&backend, &[lan(), lan()], PORTS).unwrap());
+    assert!(converge(&backend, &[lan(), lan()], PORTS, MissingLanPolicy::Reject).unwrap());
     assert_eq!(*backend.added.borrow(), [true, false, true, false]);
-    assert!(!converge(&backend, &[lan()], PORTS).unwrap());
+    assert!(!converge(&backend, &[lan()], PORTS, MissingLanPolicy::Reject).unwrap());
     assert!(backend.rules.borrow().contains(&unrelated));
     for entry in backend
         .rules
@@ -90,43 +90,73 @@ fn rules_are_scoped_persisted_first_deduplicated_and_idempotent() {
 fn interruption_and_either_kind_of_drift_are_repaired_without_duplicate_adds() {
     let backend = Fake::default();
     backend.fail_runtime_once.set(true);
-    assert!(converge(&backend, &[lan()], &PORTS[..1]).is_err());
+    assert!(converge(&backend, &[lan()], &PORTS[..1], MissingLanPolicy::Reject).is_err());
     assert_eq!(*backend.added.borrow(), [true]);
-    assert!(converge(&backend, &[lan()], &PORTS[..1]).unwrap());
+    assert!(converge(&backend, &[lan()], &PORTS[..1], MissingLanPolicy::Reject).unwrap());
     for permanent in [false, true] {
         backend
             .rules
             .borrow_mut()
             .retain(|entry| entry.0 != permanent);
-        assert!(converge(&backend, &[lan()], &PORTS[..1]).unwrap());
-        assert!(!converge(&backend, &[lan()], &PORTS[..1]).unwrap());
+        assert!(converge(&backend, &[lan()], &PORTS[..1], MissingLanPolicy::Reject).unwrap());
+        assert!(!converge(&backend, &[lan()], &PORTS[..1], MissingLanPolicy::Reject).unwrap());
     }
 }
 #[test]
 fn missing_scope_and_invalid_ports_fail_closed_before_any_mutation() {
     let backend = Fake::default();
-    assert!(converge(&backend, &[], PORTS).is_err());
+    assert!(converge(&backend, &[], PORTS, MissingLanPolicy::Reject).is_err());
+    assert!(!converge(&backend, &[], PORTS, MissingLanPolicy::Skip).unwrap());
     assert!(converge(
         &backend,
         &[lan()],
         &[FirewallPort {
             port: 0,
             protocol: FirewallProtocol::Tcp
-        }]
+        }],
+        MissingLanPolicy::Reject
     )
     .is_err());
     assert!(backend.rules.borrow().is_empty());
-    assert!(!converge(&backend, &[], &[]).unwrap());
+    assert!(!converge(&backend, &[], &[], MissingLanPolicy::Reject).unwrap());
 }
 #[test]
 fn recorder_reports_changes_without_recording_lan_addresses() {
     use crate::{recorder::Recorder, resource_op::EffectResult, test_utils::MockSystem};
     let recorder = Recorder::new(MockSystem::new());
-    assert!(recorder.ensure_private_ipv4_lan_ports(PORTS).unwrap());
-    assert!(!recorder.ensure_private_ipv4_lan_ports(PORTS).unwrap());
+    assert!(recorder
+        .ensure_private_ipv4_lan_ports(PORTS, MissingLanPolicy::Reject)
+        .unwrap());
+    assert!(!recorder
+        .ensure_private_ipv4_lan_ports(PORTS, MissingLanPolicy::Reject)
+        .unwrap());
     let operations = recorder.get_ops();
     assert_eq!(operations[0].result, EffectResult::Changed(true));
     assert_eq!(operations[1].result, EffectResult::Changed(false));
+}
+
+#[test]
+fn retained_recording_requires_a_lan_unless_skipping_is_explicit() {
+    let operation: crate::resource_op::ResourceOp =
+        serde_yml::from_str("!EnsurePrivateIpv4LanPorts {ports: [{port: 2022, protocol: tcp}]}")
+            .unwrap();
+    assert!(matches!(
+        operation,
+        crate::resource_op::ResourceOp::EnsurePrivateIpv4LanPorts {
+            missing_lan: MissingLanPolicy::Reject,
+            ..
+        }
+    ));
+    assert!(converge(
+        &Fake::default(),
+        &[],
+        &[FirewallPort {
+            port: 0,
+            protocol: FirewallProtocol::Tcp
+        }],
+        MissingLanPolicy::Skip
+    )
+    .is_err());
 }
 
 fn remove(
@@ -193,14 +223,14 @@ fn real_firewalld_repairs_runtime_and_permanent_lan_grants() {
         backend: &backend,
         rules: rules.into_iter().collect(),
     };
-    assert!(converge(&backend, &lans, &ports).unwrap());
-    assert!(!converge(&backend, &lans, &ports).unwrap());
+    assert!(converge(&backend, &lans, &ports, MissingLanPolicy::Reject).unwrap());
+    assert!(!converge(&backend, &lans, &ports, MissingLanPolicy::Reject).unwrap());
     for permanent in [false, true] {
         for (zone, rule) in &cleanup.rules {
             remove(&backend, zone, rule, permanent).unwrap();
         }
-        assert!(converge(&backend, &lans, &ports).unwrap());
-        assert!(!converge(&backend, &lans, &ports).unwrap());
+        assert!(converge(&backend, &lans, &ports, MissingLanPolicy::Reject).unwrap());
+        assert!(!converge(&backend, &lans, &ports, MissingLanPolicy::Reject).unwrap());
     }
     for (zone, rule) in &cleanup.rules {
         assert!(backend.contains(zone, rule, false).unwrap());

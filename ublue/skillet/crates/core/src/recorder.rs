@@ -47,11 +47,13 @@ impl<T: crate::firewall::FirewallResource> crate::firewall::FirewallResource for
     fn ensure_private_ipv4_lan_ports(
         &self,
         ports: &[crate::firewall::FirewallPort],
+        missing_lan: crate::firewall::MissingLanPolicy,
     ) -> Result<bool, SystemError> {
-        let result = self.inner.ensure_private_ipv4_lan_ports(ports);
+        let result = self.inner.ensure_private_ipv4_lan_ports(ports, missing_lan);
         self.record(
             ResourceOp::EnsurePrivateIpv4LanPorts {
                 ports: ports.to_vec(),
+                missing_lan,
             },
             changed(&result),
         );

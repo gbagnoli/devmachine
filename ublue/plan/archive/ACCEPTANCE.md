@@ -4268,3 +4268,36 @@ acceptance; no production host or private DNS values were committed.
 - Firmware/database installation remains untouched. Follow-up research for
   strict TPM policy preservation across firmware updates is recorded in
   CLAMPS-FIRMWARE.md; no unattended firmware mechanism has been enabled.
+
+
+## 2026-11-01 — Derived ET LAN access and independent SSH recovery
+
+- The operator requested LAN ET access derived from existing networking and
+  source-unrestricted SSH independent of Tailscale. On Clamps, derived the private
+  IPv4 subnet from up hardware NIC addresses/netmasks and each interface zone;
+  added/verified TCP 2022 grants in permanent and runtime firewalld state without
+  reloads, network activation or service restarts. No extra vault entry is needed.
+- From Rupik, direct TCP 22 and TCP 2022 connections to both Clamps LAN interfaces
+  passed. Route observation selected the physical LAN NIC, not Tailscale. SSH
+  listens on IPv4/IPv6; the default zone includes source-unrestricted SSH in
+  runtime and permanent state. SSH key authentication remains required. Tailscale
+  was not stopped while the operator lacks console access.
+- Shared baseline now requests the existing injectable LAN firewall capability
+  for ET. An explicit Skip policy permits public-only/no-LAN baselines without
+  contacting firewalld, while UniFi retains Reject. Other errors still propagate;
+  neither policy widens a grant to public subnets or scopes SSH to private sources.
+  Recorder policy fields preserve default Reject for retained recordings.
+- Workspace tests: 593 passed, 19 ignored. Pedantic all-target Clippy, formatting,
+  image recipe YAML parsing and diff checks passed. Fedora Joey base integration
+  succeeded twice without repeat service starts/restarts, covering a container
+  without eligible hardware LANs or a system D-Bus.
+- Updated Rust scoped-firewall convergence passed in the owned disposable
+  `donbot-test-joplin` with a temporary private address: real D-Bus rule creation,
+  no-op repeat and runtime/permanent drift repair. Temporary address, binary and
+  rules were removed, and cleanup verified. Its application services were not
+  reapplied/restarted.
+- Physical live rules are installed and persistent. Automatic convergence uses
+  the new baseline code after the next controlled Skillet deployment; no guest
+  binary or unrelated policy was deployed during this change. Shared image
+  comments/guidance now distinguish static tailnet grants from derived LAN
+  grants. Full image/physical reboot acceptance remains separate.

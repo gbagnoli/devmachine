@@ -1,7 +1,7 @@
 use skillet_core::files::{
     FileError, FileMutationResource, FileReadResource, OwnerIdentity, Ownership, StorageResource,
 };
-use skillet_core::firewall::{FirewallPort, FirewallProtocol, FirewallResource};
+use skillet_core::firewall::{FirewallPort, FirewallProtocol, FirewallResource, MissingLanPolicy};
 use skillet_core::system::{
     AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
 };
@@ -56,7 +56,7 @@ where
 {
     info!("Applying UniFi Network container...");
     files.require_btrfs_subvolume_mount(Path::new("/var/lib/data"), Path::new("/var"), "/data")?;
-    system.ensure_private_ipv4_lan_ports(DEVICE_PORTS)?;
+    system.ensure_private_ipv4_lan_ports(DEVICE_PORTS, MissingLanPolicy::Reject)?;
     files.ensure_btrfs_subvolume(Path::new(DATA_PATH))?;
     let mut extra_config = BTreeMap::new();
     extra_config.insert(

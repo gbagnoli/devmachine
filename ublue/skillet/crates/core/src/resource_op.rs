@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 pub enum ResourceOp {
     EnsurePrivateIpv4LanPorts {
         ports: Vec<crate::firewall::FirewallPort>,
+        #[serde(default)]
+        missing_lan: crate::firewall::MissingLanPolicy,
     },
     CreateFileIfAbsent {
         path: String,
