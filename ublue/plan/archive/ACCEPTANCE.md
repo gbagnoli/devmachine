@@ -4164,3 +4164,36 @@ acceptance; no production host or private DNS values were committed.
 - Physical renderer deployment and an allowed-client browser check remain
   pending. The new shared binary also contains the separately reviewed Bluetooth
   policy, whose production activation still awaits the requested approval.
+
+## 2026-11-01 — UniFi LAN firewall and production adoption
+
+- On physical Clamps, UniFi 10.0.162 was healthy and listening on host TCP 8080,
+  but the host firewall rejected LAN inform traffic. Added source-scoped rich
+  rules for TCP 8080, UDP 3478 and UDP 10001 to runtime and permanent interface
+  zones without reloading firewalld or restarting the controller. Rupik reached
+  TCP 8080 over both wired and Wi-Fi addresses; management TCP 8443 remained
+  blocked from that LAN client. The operator confirms both APs appear in the UI.
+- UniFi now owns its device-port declaration and requests the shared injectable
+  firewall capability before container activation. The concrete adapter observes
+  active hardware-backed private IPv4 subnets, resolves interface zones, and
+  converges permanent-before-runtime rich rules through D-Bus. No private CIDRs
+  appear in recordings or source configuration. Rules are additive; retirement
+  requires explicit cleanup rather than deleting potentially shared grants.
+- Regression tests cover subnet/mask eligibility, deduplication, no-op retries,
+  interrupted activation, runtime/permanent drift, preserved unrelated rules,
+  recorder outcomes and preventing controller activation after firewall failure.
+- `cargo test --workspace --all-targets`: 591 passed, 19 environment-dependent
+  tests ignored. Pedantic workspace/all-target Clippy, formatting and diff checks
+  passed. The Fedora Joey base integration passed both applies with no repeat
+  service starts/restarts.
+- The ignored real-firewalld test passed on the existing named disposable
+  `donbot-test-joplin`, using the locked ownership-checked guest transport. Its
+  public-only NIC initially failed the private-scope prerequisite as intended;
+  a temporary private secondary address supplied the LAN fixture. Actual D-Bus
+  queries/additions, no-op apply and repair of both drift types passed. Temporary
+  rules, address and uploaded binary were removed; applications were not
+  reapplied/restarted. Routine CI runs fake-backed regressions without privileged
+  firewall/provider access.
+- Physical full apply and a new controller/reboot smoke were not performed during
+  adoption. Persistent configuration verification is not reboot evidence. Final
+  production WLAN/Site Manager/reboot checks remain in the cutover plan.

@@ -10,6 +10,8 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 pub struct MockSystem {
+    pub firewall_ports: Arc<Mutex<HashSet<crate::firewall::FirewallPort>>>,
+    pub fail_firewall: Arc<AtomicBool>,
     pub usb_devices: Arc<Mutex<HashSet<(u16, u16)>>>,
     pub usb_refresh_count: Arc<AtomicUsize>,
     pub groups: Arc<Mutex<HashSet<String>>>,
@@ -29,6 +31,8 @@ pub struct MockSystem {
 impl MockSystem {
     pub fn new() -> Self {
         Self {
+            firewall_ports: Arc::new(Mutex::new(HashSet::new())),
+            fail_firewall: Arc::new(AtomicBool::new(false)),
             usb_devices: Arc::new(Mutex::new(HashSet::new())),
             usb_refresh_count: Arc::new(AtomicUsize::new(0)),
             groups: Arc::new(Mutex::new(HashSet::new())),
@@ -44,6 +48,29 @@ impl MockSystem {
             start_count: Arc::new(AtomicUsize::new(0)),
             services: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+}
+
+impl crate::firewall::FirewallResource for MockSystem {
+    fn ensure_private_ipv4_lan_ports(
+        &self,
+        ports: &[crate::firewall::FirewallPort],
+    ) -> Result<bool, SystemError> {
+        if self.fail_firewall.load(Ordering::SeqCst) {
+            return Err(SystemError::Firewall("injected firewall failure".into()));
+        }
+        if ports.iter().any(|port| port.port == 0) {
+            return Err(SystemError::Firewall("port zero is invalid".into()));
+        }
+        let mut existing = self
+            .firewall_ports
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut changed = false;
+        for port in ports {
+            changed |= existing.insert(*port);
+        }
+        Ok(changed)
     }
 }
 

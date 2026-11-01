@@ -15,6 +15,15 @@ brokers access to the local controller; configuration and device management
 remain on the server. Do not add UniFi to Caddy's private UI routes. Keep the
 controller's local HTTPS management endpoint available on the host network.
 
+Host networking requires explicit host firewall grants. UniFi owns its device
+port declaration; the shared firewall capability derives private IPv4 source
+subnets from active hardware-backed NICs and resolves their firewalld zones.
+It queries/adds permanent and runtime rich rules through D-Bus, persisting first
+and never reloading the firewall. This preserves Podman/Tailscale state and keeps
+8443 out of the device allowlist. Missing private LAN scope fails closed.
+The resource is additive: retiring a service or subnet requires explicit cleanup
+of old grants, preserving potentially shared/operator rules during normal apply.
+
 Rupik is ARM64 and runs UniFi 10.0.162; clamps is x86_64. Validate a supported
 application backup restore across architectures in an isolated VM before
 production migration. The restored test copy must be fenced from production devices and cloud

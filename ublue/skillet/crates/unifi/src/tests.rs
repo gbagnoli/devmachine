@@ -27,6 +27,13 @@ fn unifi_uses_host_network_and_persistent_numeric_owned_data() {
     assert!(content.contains("Volume=/var/lib/data/unifi:/unifi:Z"));
     assert!(content.contains("Requires=skillet-data-prepare.service"));
     assert!(content.contains("AssertPathIsMountPoint=/var/lib/data"));
+    assert_eq!(system.firewall_ports.lock().unwrap().len(), 3);
+    assert!(!system
+        .firewall_ports
+        .lock()
+        .unwrap()
+        .iter()
+        .any(|port| port.port == 8443));
     drop(quadlets);
 
     assert_eq!(
@@ -52,6 +59,18 @@ fn unifi_rejects_a_missing_data_mount_before_writing_state() {
     assert!(apply(&system, &files).is_err());
     assert_eq!(*files.directories.lock().unwrap(), initial_directories);
     assert!(files.files.lock().unwrap().is_empty());
+    assert!(system.firewall_ports.lock().unwrap().is_empty());
+}
+
+#[test]
+fn firewall_failure_prevents_controller_activation() {
+    let system = MockSystem::new();
+    let files = MockFiles::new();
+    setup_data_mount(&files);
+    system.fail_firewall.store(true, Ordering::SeqCst);
+    assert!(apply(&system, &files).is_err());
+    assert!(files.files.lock().unwrap().is_empty());
+    assert_eq!(system.restart_count.load(Ordering::SeqCst), 0);
 }
 
 fn setup_data_mount(files: &MockFiles) {

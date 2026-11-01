@@ -43,6 +43,22 @@ impl<T> Recorder<T> {
     }
 }
 
+impl<T: crate::firewall::FirewallResource> crate::firewall::FirewallResource for Recorder<T> {
+    fn ensure_private_ipv4_lan_ports(
+        &self,
+        ports: &[crate::firewall::FirewallPort],
+    ) -> Result<bool, SystemError> {
+        let result = self.inner.ensure_private_ipv4_lan_ports(ports);
+        self.record(
+            ResourceOp::EnsurePrivateIpv4LanPorts {
+                ports: ports.to_vec(),
+            },
+            changed(&result),
+        );
+        result
+    }
+}
+
 fn changed<E>(result: &Result<bool, E>) -> EffectResult {
     result
         .as_ref()

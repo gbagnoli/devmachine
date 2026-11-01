@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub enum ResourceOp {
+    EnsurePrivateIpv4LanPorts {
+        ports: Vec<crate::firewall::FirewallPort>,
+    },
     CreateFileIfAbsent {
         path: String,
         mode: Option<String>,

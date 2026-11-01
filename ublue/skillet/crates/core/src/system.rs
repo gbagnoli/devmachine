@@ -57,6 +57,8 @@ pub enum SystemError {
     DBus(#[from] zbus::Error),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("Firewall configuration: {0}")]
+    Firewall(String),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -113,6 +115,7 @@ pub trait SystemResource:
     + PodmanSecretResource
     + ServiceResource
     + crate::usb::UsbResource
+    + crate::firewall::FirewallResource
 {
 }
 
@@ -122,6 +125,7 @@ impl<T> SystemResource for T where
         + PodmanSecretResource
         + ServiceResource
         + crate::usb::UsbResource
+        + crate::firewall::FirewallResource
 {
 }
 

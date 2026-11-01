@@ -2,6 +2,7 @@ pub mod activation;
 pub mod credential_install;
 pub mod credentials;
 pub mod files;
+pub mod firewall;
 pub mod recorder;
 pub mod resource_op;
 pub mod system;

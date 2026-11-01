@@ -10,6 +10,21 @@ Use [remote apply](../workstation/README.md#apply-a-production-host). Inspect
 UniFi Site Manager at `unifi.ui.com`; there is no Caddy route. Controller/UI
 accounts are managed inside UniFi, not Skillet's vault.
 
+## Device firewall access
+
+Apply ensures TCP 8080 (inform), UDP 3478 (STUN), and UDP 10001 (discovery)
+in both runtime and permanent firewalld configuration. Sources are the private
+IPv4 subnets of active hardware/virtio NICs, in each NIC's current firewall zone.
+Container bridges, VPNs, public subnets and the admin port 8443 are excluded.
+The host must have firewalld and an active directly attached RFC1918 LAN.
+No private addresses are compiled into the binary.
+
+Convergence adds missing rules without a firewall reload or controller restart.
+It preserves existing rules; opting out or moving networks does not remove old
+grants automatically. Remove obsolete grants explicitly when retiring a network.
+Check device reachability from another LAN machine: a local listener check alone
+does not establish that the host firewall permits adoption traffic.
+
 ## Restore and inspect
 
 Use a compatible `.unf` backup through the setup/UI flow. Keep backups private

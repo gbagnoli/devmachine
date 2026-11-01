@@ -72,6 +72,11 @@
 
 ## Shared infrastructure boundaries
 
+- Host-network listeners require explicit ingress declarations and firewall
+  convergence. Verify reachability from the intended client network; loopback
+  listener/health checks alone cannot establish access. Keep device and management
+  ports distinct and avoid global firewall reloads that disturb other runtimes.
+
 - Management connectivity changes require a separate explicit activation
   boundary. Staging preserves the current control connection. Boot preparation
   avoids network-online dependency cycles, retains a recovery profile, and keeps

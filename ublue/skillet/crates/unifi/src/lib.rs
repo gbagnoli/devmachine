@@ -1,6 +1,7 @@
 use skillet_core::files::{
     FileError, FileMutationResource, FileReadResource, OwnerIdentity, Ownership, StorageResource,
 };
+use skillet_core::firewall::{FirewallPort, FirewallProtocol, FirewallResource};
 use skillet_core::system::{
     AccountLookupResource, AccountResource, PodmanSecretResource, ServiceResource, SystemError,
 };
@@ -12,6 +13,20 @@ use thiserror::Error;
 use tracing::info;
 
 const DATA_PATH: &str = "/var/lib/data/unifi";
+pub const DEVICE_PORTS: &[FirewallPort] = &[
+    FirewallPort {
+        port: 8080,
+        protocol: FirewallProtocol::Tcp,
+    },
+    FirewallPort {
+        port: 3478,
+        protocol: FirewallProtocol::Udp,
+    },
+    FirewallPort {
+        port: 10001,
+        protocol: FirewallProtocol::Udp,
+    },
+];
 
 #[derive(Debug, Error)]
 pub enum UnifiError {
@@ -31,11 +46,17 @@ pub enum UnifiError {
 /// changing existing application data or requiring matching host accounts.
 pub fn apply<S, F>(system: &S, files: &F) -> Result<(), UnifiError>
 where
-    S: AccountLookupResource + AccountResource + PodmanSecretResource + ServiceResource + ?Sized,
+    S: AccountLookupResource
+        + AccountResource
+        + PodmanSecretResource
+        + ServiceResource
+        + FirewallResource
+        + ?Sized,
     F: FileMutationResource + FileReadResource + StorageResource + ?Sized,
 {
     info!("Applying UniFi Network container...");
     files.require_btrfs_subvolume_mount(Path::new("/var/lib/data"), Path::new("/var"), "/data")?;
+    system.ensure_private_ipv4_lan_ports(DEVICE_PORTS)?;
     files.ensure_btrfs_subvolume(Path::new(DATA_PATH))?;
     let mut extra_config = BTreeMap::new();
     extra_config.insert(
