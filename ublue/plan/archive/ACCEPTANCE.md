@@ -4224,3 +4224,22 @@ acceptance; no production host or private DNS values were committed.
   the Fedora Joey base integration passed; both applies succeeded without repeat
   service starts/restarts. Profile and CLI regressions now allow Clamps production
   DDNS while retaining caller opt-in and the independent production hold policy.
+
+
+## 2026-11-01 — Physical ET, locale and firmware audit
+
+- ET is enabled/running and listens on both TCP 2022 address families. From
+  Calculon, the resolved tailnet IPv6 address accepts SSH TCP 22 but rejects
+  TCP 2022. The host default firewalld zone permits SSH and has no ET grant;
+  tailscale0 has no explicit zone. A source-scoped tailnet ET firewall fix is
+  awaiting explicit approval after automatic review rejected policy changes.
+  No production firewall change was made during this audit.
+- Physical `locale -a` contains only C, C.utf8 and POSIX; the image lacks
+  glibc-langpack-en despite clients/login configuration requesting en_US.UTF-8.
+  Added the English locale package to the shared image recipe. Runtime acceptance
+  awaits a rebuilt image and reboot; no host package installation was attempted.
+- Firmware metadata refresh is already enabled. Read-only fwupd inventory offers
+  Secure Boot dbx updates, not a system BIOS update. Current root bindings use
+  SHA-256 PCR 7; firmware/database changes can require recovery and re-enrollment.
+  No firmware was staged/installed and no BIOS settings were changed. Console
+  maintenance and automation follow-up are tracked in CLAMPS-FIRMWARE.md.

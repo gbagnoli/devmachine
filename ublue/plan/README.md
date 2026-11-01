@@ -9,6 +9,7 @@ Only unfinished implementation and acceptance belongs here. Commands live in
 | --- | --- |
 | Clamps | [Migration/cutover](CLAMPS-MIGRATION.md), [source parity](CLAMPS-PARITY.md) |
 | Networking | [Static profiles and physical adoption](HOST-NETWORKING.md) |
+| Firmware | [Clamps supervised firmware/BIOS maintenance](CLAMPS-FIRMWARE.md) |
 | Encryption | [TPM/recovery acceptance](TPM-ENCRYPTED-ROOT.md) |
 | UIs | [Private UI/browser acceptance](GENERIC-PRIVATE-UIS.md) |
 | DDNS | [Rotation and production handover](CLAMPS-CLOUDFLARE-DDNS.md) |

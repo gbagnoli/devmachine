@@ -19,6 +19,9 @@ unattended reboot on the stock disk. The operator also confirmed a successful
 signed image rebase/reboot onto the moving `:latest` tag. Rollback and wider
 data/credential preservation checks remain open. See [acceptance](archive/ACCEPTANCE.md).
 
+Firmware/dbx changes are deferred to [supervised maintenance](CLAMPS-FIRMWARE.md)
+while the operator lacks physical console access.
+
 ## Remaining matrix
 
 | Check | Required evidence |
