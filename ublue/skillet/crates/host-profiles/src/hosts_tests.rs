@@ -586,7 +586,15 @@ fn ddns_is_caller_selected_and_independently_credential_gated() {
     assert!(files.files.lock().unwrap().is_empty());
     let profile = super::profile_for_name("clamps").unwrap();
     assert!(profile.supports_service("ddns"));
-    assert!(!profile.supports_production_service("ddns"));
+    assert!(profile.supports_production_service("ddns"));
+    let mut held_profile = profile.clone();
+    for service in &mut held_profile.services {
+        if let super::ServiceConfig::Ddns { production_enabled } = &mut service.config {
+            *production_enabled = false;
+        }
+    }
+    assert!(held_profile.supports_service("ddns"));
+    assert!(!held_profile.supports_production_service("ddns"));
     assert!(!profile
         .acceptance_plan()
         .services

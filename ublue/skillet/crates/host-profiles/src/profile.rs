@@ -847,9 +847,8 @@ fn clamps() -> HostProfile {
                 ui: None,
             },
             HostService {
-                // Rupik remains the production DDNS writer until cutover.
                 config: ServiceConfig::Ddns {
-                    production_enabled: false,
+                    production_enabled: true,
                 },
                 ui: None,
             },

@@ -4197,3 +4197,30 @@ acceptance; no production host or private DNS values were committed.
 - Physical full apply and a new controller/reboot smoke were not performed during
   adoption. Persistent configuration verification is not reboot evidence. Final
   production WLAN/Site Manager/reboot checks remain in the cutover plan.
+
+
+## 2026-11-01 — Production DDNS handover to Clamps
+
+- The operator stopped Rupik DDNS; read-only inspection confirmed its unit is
+  masked and not running. Clamps' fresh installation initially had no DDNS
+  credential or active updater. Its canonical caller now enables production
+  delivery; normal remote apply will include the DDNS phase.
+- Normal provisioning refused the existing unmarked public A record. A read-only
+  preview confirmed the selected record, and the operator explicitly approved
+  its takeover after automatic approval review required confirmation. A temporary
+  Clamps-only template override enabled explicit adoption through the normal
+  protected delivery path. The shared template was restored byte-for-byte;
+  takeover remains false in committed source. UI/foreign-owner protections were
+  retained. The persistent scoped token is in the vault, not source or logs.
+- Narrow credential delivery/activation passed using the installed guest binary;
+  no full application apply, binary deployment or controller restart was needed.
+  Cloudflare readback with the scoped credential verified the public A address
+  against Clamps' independently observed egress IPv4, the Clamps DDNS ownership
+  marker and the configured proxy policy. IPv4 is enabled, IPv6 and unknown-record
+  purging remain disabled. Strict repeat delivery after removing the adoption
+  override succeeded. The container is running, the service active and its
+  credential apply unit enabled at boot. A new production reboot was not performed.
+- Workspace/all-target tests passed: 591 passed, 19 ignored. Pedantic Clippy and
+  the Fedora Joey base integration passed; both applies succeeded without repeat
+  service starts/restarts. Profile and CLI regressions now allow Clamps production
+  DDNS while retaining caller opt-in and the independent production hold policy.

@@ -6,11 +6,16 @@ reboot and disposal have evidence in [acceptance](archive/ACCEPTANCE.md).
 [Previous implementation record](archive/CLAMPS-CLOUDFLARE-DDNS.md).
 Current commands/configuration: [DDNS guide](../skillet/crates/ddns/README.md).
 
-Rupik still owns the production public A record. Clamps retains DDNS support
-for disposable tests but production delivery is disabled until the one-writer
-handover. The existing clamps writer was stopped, its Quadlet retained under a
-disabled filename, and its boot apply unit disabled. Restore these only during
-step 3, after stopping rupik's writer.
+## Production handover completed — 2026-11-01
+
+The operator stopped Rupik's updater; its unit is masked and not running.
+Clamps now selects production DDNS in its caller profile. The operator explicitly
+approved adoption of the configured existing public A record. Scoped credential
+delivery and activation passed; Cloudflare reports the target's public IPv4,
+expected Clamps ownership marker and configured proxy policy. The one-time
+host-specific takeover override was removed, and strict repeat delivery passed.
+The target updater is active and its credential apply unit is enabled at boot.
+No unrelated application or guest binary was deployed for this handover.
 
 ## Remaining
 
@@ -21,11 +26,11 @@ step 3, after stopping rupik's writer.
    owned persistence, redeliver, verify actual publication/consumer use, and
    retire only the owned superseded credential after success. Preserve retry
    evidence if persistence or delivery fails.
-3. Schedule production one-writer handover: stop rupik's updater, preserve its
-   approved records, activate the caller-selected target and verify authoritative
-   DNS. Keep a rollback route without two active writers.
-4. Verify target repeat apply/reboot and final production cleanup ownership.
-   Disposable cleanup must never delete production or unrelated records.
+3. Verify target publication after its next planned reboot; repeat delivery
+   already passed. Keep the source writer stopped during target operation.
+4. Preserve production cleanup ownership. Disposable cleanup must never delete
+   production or unrelated records. If rolling back, stop the target writer
+   before restarting the source.
 
 Use the existing vault/transport/provider boundaries; no new master key or
 manual smoke token is needed. Routine checks remain provider/vault free.
