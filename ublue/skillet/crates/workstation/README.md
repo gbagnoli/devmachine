@@ -57,8 +57,9 @@ Deploy binaries separately, without vault access or service activation:
 cargo run --release -p skillet -- deploy HOST
 ```
 
-Keep temporary passwordless sudo
-until provisioning/recovery operations finish. Stop old DNS writers and restored
+Remote privileged operations support password-required sudo after access
+finalization when run from an interactive terminal; see
+[sudo authentication](#sudo-authentication). Stop old DNS writers and restored
 controller identities before activating their replacements. Apply does not
 migrate service data. Deployment verifies host identity before
 building and again before transfer, installs each binary through a unique staged
@@ -76,7 +77,8 @@ host profile. `--port`, `--identity` and `--known-hosts` override only those set
 Guest units keep `apply --host-file /etc/skillet/host --phase PHASE`; for an
 explicit local invocation use `apply HOST --local --phase PHASE`.
 
-SSH runs noninteractively with strict host verification. Follow
+SSH key authentication uses OpenSSH and its agent with strict host verification.
+Follow
 [SSH-agent setup](#ssh-agent) for password-protected keys. SSH failures are
 reported separately from guest identity mismatches. Verify the host fingerprint
 at the server console and establish trust with SSH; unknown/changed keys are
@@ -150,3 +152,38 @@ an existing host. Deliberate vault edits plus redelivery perform rotation.
 
 Designs: [secret delivery](../../../design/secrets.md),
 [host application](../../../design/host-application.md).
+
+## Sudo authentication
+
+`deploy`, remote `apply`, credential delivery and physical recovery commands
+support password-required sudo from an interactive terminal. Commands remain the
+same after `access finalize`. First unlock an encrypted SSH key through your
+normal SSH agent (`ssh-add`); then Skillet prompts separately for the remote sudo
+password when sudo requests it. The KeePassXC password and cache are separate.
+
+Sudo passwords are held only in memory for this invocation and reused across its
+privileged operations. A rejected password prompts again. No-password sudo does
+not prompt. Without an interactive terminal, execution retains `sudo -n` behavior
+and fails with guidance if a password is required; authentication is never weakened.
+
+Skillet builds a small musl askpass helper using the existing Cargo artifact
+selection, verifies its upload in a private `/var/tmp/skillet-sudo-*` directory,
+and opens a private Unix-socket SSH reverse forward. SSH stream-local forwarding
+must be permitted by the server. Passwords use this channel, not command stdin,
+argv, environment variables or files; credential/binary stdin remains unchanged.
+The helper, sockets and forwarding process are scoped to the command and cleaned
+up afterward. An interrupted network connection may leave a helper directory,
+but it contains no password and cannot obtain one after the forward closes.
+This interactive path needs the source checkout, Cargo and musl toolchain just
+like deployment; it also works with the old guest binary on the first update.
+
+Provider-free live authentication acceptance uses only generated disposable state:
+
+```sh
+cargo run --release -p skillet_workstation --example sudo_acceptance -- \
+  ../butane HOST INSTANCE
+```
+
+Use an existing owned disposable VM with temporary passwordless administration.
+The runner creates/removes its own password-required account and an encrypted
+SSH key in an isolated agent; it preserves the operator's agent and VM apps.

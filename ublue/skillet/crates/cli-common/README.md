@@ -15,9 +15,10 @@ The command requires an existing unlocked password; it does not create one.
 
 Finalization is explicit and persistent, with interrupted-operation recovery.
 Repeating it never expires the changed password again. Base apply does not undo
-it. Smoke VMs are not finalized automatically. Subsequent workstation credential
-and VM automation assumes passwordless sudo: finish those operations before
-finalization, then use interactive sudo or root for further administration.
+it. Smoke VMs are not finalized automatically. Subsequent workstation deploy/apply
+and credential delivery support interactive sudo password authentication; see [the workstation guide](../workstation/README.md#sudo-authentication).
+Unattended commands still require noninteractive privileges and never change sudo
+policy to obtain them. Disposable VM automation retains its existing policy.
 Do not delete `/var/lib/skillet/access/` to rerun provisioning.
 
 Design: [administrative access](../../../design/administrative-access.md).

@@ -1,7 +1,7 @@
 use super::{SecretDeliverArgs, UiEnvironmentName};
 use anyhow::{anyhow, Context, Result};
 use skillet_cli_common::hosts::ApplyPhase;
-use skillet_vm::{credential::ActivationPolicy, transport::SshTransport};
+use skillet_vm::{credential::ActivationPolicy, transport::GuestTransport};
 use skillet_workstation::{host_apply, vault::Vault};
 use std::path::PathBuf;
 
@@ -166,14 +166,14 @@ fn remote(args: &Args) -> Result<()> {
     Ok(())
 }
 
-struct Runner<'a> {
+struct Runner<'a, T: GuestTransport> {
     delivery: SecretDeliverArgs,
     vault: &'a mut Vault,
-    transport: &'a SshTransport,
+    transport: &'a T,
     wait_for_tailscale: bool,
 }
 
-impl host_apply::Actions for Runner<'_> {
+impl<T: GuestTransport> host_apply::Actions for Runner<'_, T> {
     type Error = anyhow::Error;
 
     fn stage(&mut self, service: &'static str) -> Result<()> {

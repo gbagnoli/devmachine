@@ -100,6 +100,12 @@
   delivery path as the service. Give proxy processes only the API surface they
   consume; a read-only Unix socket bind does not limit API methods.
 
+- Keep SSH-key unlock, privilege authentication and vault unlock independent.
+  Interactive privilege secrets must use a separate channel from command/payload
+  stdin, remain invocation-scoped in memory, and never require weakening sudo.
+  Preserve no-password and noninteractive operation; test protected payload bytes,
+  authentication rejection and cleanup through the actual transport.
+
 - Authentication finalization must follow explicit provisioning completion, not
   base readiness. One-time account mutations need durable recovery state and
   must preserve later operator password changes; routine apply must not reopen

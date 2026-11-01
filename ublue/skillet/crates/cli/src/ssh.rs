@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use skillet_vm::transport::{SshConnection, SshTransport};
-use std::path::Path;
+use skillet_workstation::sudo::{PasswordPrompt, SudoTransport};
+use std::{io::IsTerminal as _, path::Path, sync::Arc};
 
 pub(super) fn connection(
     target: &str,
@@ -29,9 +30,15 @@ pub(super) fn transport(
     port: Option<u16>,
     identity: Option<&Path>,
     known_hosts: Option<&Path>,
-) -> Result<SshTransport> {
-    SshTransport::workstation(connection(target, port, identity, known_hosts)?)
-        .context("validating workstation SSH connection")
+) -> Result<SudoTransport> {
+    let ssh = SshTransport::workstation(connection(target, port, identity, known_hosts)?)
+        .context("validating workstation SSH connection")?;
+    let prompt: Option<PasswordPrompt> = std::io::stdin().is_terminal().then(|| {
+        let message = format!("Sudo password for {target}: ");
+        Arc::new(move || rpassword::prompt_password(&message).map(zeroize::Zeroizing::new))
+            as PasswordPrompt
+    });
+    Ok(SudoTransport::new(ssh, super::workspace_root()?, prompt))
 }
 
 #[cfg(test)]

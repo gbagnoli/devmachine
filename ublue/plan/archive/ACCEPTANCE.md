@@ -4301,3 +4301,42 @@ acceptance; no production host or private DNS values were committed.
   binary or unrelated policy was deployed during this change. Shared image
   comments/guidance now distinguish static tailnet grants from derived LAN
   grants. Full image/physical reboot acceptance remains separate.
+
+## 2026-11-01 — Routine deployment after sudo finalization
+
+- Replaced the passwordless-only workstation transport assumption. Deploy,
+  remote apply, selected credential delivery and physical recovery share an
+  interactive sudo adapter. SSH key authentication stays with OpenSSH's agent;
+  the sudo password is independently prompted, reused only within this invocation,
+  and zeroized on channel teardown. Noninteractive calls retain `sudo -n` and
+  give an authentication error rather than weakening policy or blocking on input.
+- A minimal static Rust askpass artifact bootstraps independently of the installed
+  guest Skillet. Cargo reports its path; upload bytes are verified inside a private
+  uniquely named guest directory. A private SSH Unix-socket reverse forward carries
+  only askpass responses; normal command/credential/binary stdin is unchanged.
+  Passwords never enter command arguments, environment values, files or the vault.
+  The helper/server impose message bounds, protect local sockets and re-prompt
+  when sudo rejects an answer. Forward processes cannot detach through SSH config;
+  their subprocess group and owned files are cleaned without application changes.
+- The same ownership wrapper guards guest operations and reverse forwarding.
+  Tests cover explicit agent scoping, ownership loss, broker caching/re-prompt,
+  redaction, strict cleanup paths, socket permissions and bounded helper replies.
+  Routine CI needs no passwords, vault, sudo/PAM, provider or VM access.
+- Reusable live acceptance: `cargo run --release -p skillet_workstation --example
+  sudo_acceptance -- BUTANE HOST INSTANCE` with an explicit owned host/instance. On `donbot-test-joplin`, an encrypted newly
+  generated SSH key was unlocked through an isolated agent. A dedicated temporary
+  account demonstrably required sudo authentication; the first synthetic wrong
+  password was rejected, the next succeeded, repeated root commands reused it,
+  and binary stdin (including NUL/non-UTF8/CRLF bytes) was preserved exactly.
+  No-password sudo did not prompt or consume payload bytes. Noninteractive sudo
+  failed closed. The original agent and application services were untouched.
+- The runner verifies that its account/sudoers file are gone and helper-directory
+  inventory matches the original. One intermediate live run returned a bounded
+  Timeout while the VM remained running/responding. Nonsecret phase diagnostics
+  were added; the final complete run passed, including cleanup. The timeout was
+  not established as an authentication defect and is retained as failed evidence.
+- Final local checks: 599 workspace tests passed, 19 environment-dependent tests
+  ignored; pedantic all-target Clippy, formatting and diff checks passed. Fedora
+  Joey base integration passed both applies without repeat service starts/restarts.
+  No real Clamps password was requested and its sudo policy was not changed;
+  operator execution of the updated deploy command remains the physical check.

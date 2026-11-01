@@ -20,8 +20,8 @@ a later sudoers include is rejected rather than risking a conflicting override.
 
 Smoke VMs retain temporary passwordless access unless explicitly finalized. Base
 apply, boot and image rebases preserve the final policy and expiry receipt. Later
-SSH provisioning automation currently assumes passwordless sudo; after finalization
-use interactive sudo/root administration until an authenticated transport is added.
+SSH provisioning supports interactive password-required sudo after finalization.
+Unattended execution fails closed if it lacks noninteractive privileges.
 The policy applies to the selected account; other accounts remain unchanged.
 
 Private installation inputs are supplied at media generation; never include
@@ -45,3 +45,16 @@ convergence persists before runtime activation without a global reload. Rules
 are additive; retiring a network requires explicit cleanup of obsolete grants.
 The image supplies English UTF-8 locale data rather than suppressing requested
 locales or changing SSH authentication.
+
+
+SSH-key unlock stays with OpenSSH's agent; sudo authentication is a separate
+invocation-scoped secret. Workstation provisioning uses an ephemeral static Rust
+askpass helper and a private SSH-forwarded Unix socket, independently of command
+stdin. This prevents sudo from consuming credential payloads or receiving a
+password when its policy does not request one. No password enters argv, environment
+or files, the vault or its three-hour cache. Shared deploy/apply/delivery paths
+use the same adapter; raw disposable automation keeps its noninteractive policy.
+The helper is a separate minimal guest artifact, so the first update does not
+require a newer installed Skillet and does not link workstation vault/provider
+code into the helper. Forwarding uses the existing SSH target/trust/agent options
+and ownership checks; command exit removes the ephemeral resources.

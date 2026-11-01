@@ -458,7 +458,9 @@ fn tailscale_credentials(vault: &Vault) -> Result<tailscale::OAuthCredentials> {
     Ok(tailscale::OAuthCredentials::new(client_id, client_secret)?)
 }
 
-pub(super) fn credential_transport(args: &SecretDeliverArgs) -> Result<SshTransport> {
+pub(super) fn credential_transport(
+    args: &SecretDeliverArgs,
+) -> Result<skillet_workstation::sudo::SudoTransport> {
     super::ssh::transport(
         &args.target,
         args.port,
