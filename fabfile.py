@@ -117,8 +117,8 @@ def rsync(
         "ohai/plugins",
         ".gnupg",
         ".cache",
-        "butane",
         ".rustup",
+        "ublue",
     ]
     exclude_opts = " ".join([f"--exclude='{e}'" for e in excludes])
     local_path = os.path.dirname(os.path.abspath(__file__))
