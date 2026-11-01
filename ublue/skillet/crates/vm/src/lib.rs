@@ -24,6 +24,8 @@ pub use manifest::{
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("remote authentication: {0}")]
+    Authentication(String),
     #[error("invalid VM state: {0}")]
     Invalid(String),
     #[error("VM artifact I/O: {0}")]

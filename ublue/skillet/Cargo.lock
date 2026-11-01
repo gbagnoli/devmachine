@@ -3715,6 +3715,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "skillet-sudo-askpass"
+version = "0.1.0"
+dependencies = [
+ "thiserror 1.0.69",
+ "zeroize",
+]
+
+[[package]]
 name = "skillet_airtrail"
 version = "0.1.0"
 dependencies = [

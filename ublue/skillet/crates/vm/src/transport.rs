@@ -1,6 +1,7 @@
 //! Verified SSH execution/file delivery with explicit target and trust policy.
 use crate::{Error, Result, SshTarget};
 use std::{
+    os::unix::process::CommandExt as _,
     path::Path,
     process::{Command, ExitStatus, Output},
     time::Duration,
@@ -72,20 +73,44 @@ impl<T: GuestTransport> GuestTransport for OwnershipCheckedTransport<'_, T> {
     }
 }
 
+/// The same ownership boundary also guards reverse credential forwarding.
+pub trait ReverseUnixForward {
+    fn reverse_unix_forward(&self, remote: &str, local: &Path) -> Result<UnixForward>;
+}
+impl<T> Clone for OwnershipCheckedTransport<'_, T> {
+    fn clone(&self) -> Self {
+        Self {
+            transport: self.transport,
+            ownership: self.ownership,
+        }
+    }
+}
+impl<T: ReverseUnixForward> ReverseUnixForward for OwnershipCheckedTransport<'_, T> {
+    fn reverse_unix_forward(&self, remote: &str, local: &Path) -> Result<UnixForward> {
+        (self.ownership)()?;
+        let result = self.transport.reverse_unix_forward(remote, local);
+        (self.ownership)()?;
+        result
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HostKeyPolicy {
     Enroll,
     Verify,
 }
 
+#[derive(Clone)]
 pub struct SshTransport {
     target: SshConnection,
     policy: HostKeyPolicy,
+    agent_socket: Option<std::path::PathBuf>,
     pub timeout: Duration,
 }
 
 /// SSH configuration for a workstation target. An omitted identity delegates
 /// authentication to OpenSSH configuration, default keys and the SSH agent.
+#[derive(Clone)]
 pub struct SshConnection {
     pub user: Option<String>,
     pub address: String,
@@ -148,11 +173,27 @@ impl SshTransport {
         Ok(Self {
             target,
             policy,
+            agent_socket: None,
             timeout: Duration::from_mins(10),
         })
     }
 
+    /// Scope an SSH-agent override to this connection, without mutating the process environment.
+    pub fn with_agent_socket(mut self, socket: std::path::PathBuf) -> Result<Self> {
+        if !socket.is_absolute() {
+            return Err(Error::Invalid("SSH agent socket must be absolute".into()));
+        }
+        self.agent_socket = Some(socket);
+        Ok(self)
+    }
+
     fn options(&self, command: &mut Command, port_flag: &str) {
+        if let Some(socket) = &self.agent_socket {
+            command
+                .env("SSH_AUTH_SOCK", socket)
+                .arg("-o")
+                .arg(format!("IdentityAgent={}", socket.display()));
+        }
         command
             .args([
                 "-o",
@@ -270,6 +311,8 @@ impl SshTransport {
                 "-o",
                 "ExitOnForwardFailure=yes",
                 "-o",
+                "ForkAfterAuthentication=no",
+                "-o",
                 "ControlMaster=no",
                 "-o",
                 "ControlPath=none",
@@ -279,6 +322,83 @@ impl SshTransport {
         }
         command.arg(self.remote_target());
         Ok(command)
+    }
+
+    /// A private remote Unix socket forwarded to a local credential broker.
+    /// The caller creates the remote parent privately and owns its cleanup.
+    pub fn reverse_unix_forward(&self, remote: &str, local: &Path) -> Result<UnixForward> {
+        if !remote.starts_with("/var/tmp/skillet-sudo-")
+            || remote.split('/').any(|part| matches!(part, "." | ".."))
+            || !remote
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"/-_.".contains(&b))
+            || !local.is_absolute()
+            || local.as_os_str().as_encoded_bytes().contains(&b':')
+        {
+            return Err(Error::Invalid(
+                "invalid private askpass forwarding path".into(),
+            ));
+        }
+        let mut command = Command::new("ssh");
+        self.options(&mut command, "-p");
+        command
+            .args([
+                "-N",
+                "-T",
+                "-o",
+                "ExitOnForwardFailure=yes",
+                "-o",
+                "ForkAfterAuthentication=no",
+                "-o",
+                "ControlMaster=no",
+                "-o",
+                "ControlPath=none",
+                "-o",
+                "ControlPersist=no",
+                "-o",
+                "ServerAliveInterval=5",
+                "-o",
+                "ServerAliveCountMax=2",
+                "-o",
+                "StreamLocalBindMask=0177",
+                "-o",
+                "StreamLocalBindUnlink=no",
+                "-R",
+            ])
+            .arg(format!("{remote}:{}", local.display()))
+            .arg(self.remote_target())
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .process_group(0);
+        let mut forward = UnixForward(command.spawn()?);
+        let deadline = std::time::Instant::now() + Duration::from_secs(15);
+        let mut probe = self.clone();
+        probe.timeout = Duration::from_secs(5);
+        loop {
+            if forward.0.try_wait()?.is_some() {
+                return Err(Error::Invalid(
+                    "SSH askpass forwarding failed; check server forwarding policy".into(),
+                ));
+            }
+            if probe
+                .execute(
+                    &GuestCommand {
+                        program: "test",
+                        arguments: &["-S", remote],
+                    },
+                    None,
+                )?
+                .status
+                .success()
+            {
+                return Ok(forward);
+            }
+            if std::time::Instant::now() >= deadline {
+                return Err(Error::Timeout);
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
     }
 
     /// Run an interactive guest shell with the caller's terminal attached.
@@ -296,6 +416,12 @@ impl SshTransport {
     }
 }
 
+impl ReverseUnixForward for SshTransport {
+    fn reverse_unix_forward(&self, remote: &str, local: &Path) -> Result<UnixForward> {
+        Self::reverse_unix_forward(self, remote, local)
+    }
+}
+
 impl GuestTransport for SshTransport {
     fn execute(&self, command: &GuestCommand<'_>, input: Option<&[u8]>) -> Result<Output> {
         crate::process::capture_with_input(self.command(command)?, self.timeout, input)
@@ -310,6 +436,23 @@ impl GuestTransport for SshTransport {
             });
         }
         Ok(())
+    }
+}
+
+/// Owns the SSH forwarding process. Never leaves a detached master behind.
+pub struct UnixForward(std::process::Child);
+impl Drop for UnixForward {
+    fn drop(&mut self) {
+        if matches!(self.0.try_wait(), Ok(None)) {
+            if let Ok(id) = i32::try_from(self.0.id()) {
+                let _ = nix::sys::signal::killpg(
+                    nix::unistd::Pid::from_raw(id),
+                    nix::sys::signal::Signal::SIGKILL,
+                );
+            }
+            let _ = self.0.kill();
+        }
+        let _ = self.0.wait();
     }
 }
 

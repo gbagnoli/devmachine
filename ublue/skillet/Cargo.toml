@@ -33,6 +33,7 @@ members = [
     "crates/vm",
     "crates/host-profiles",
     "crates/workstation",
+    "crates/sudo-askpass",
 ]
 
 [workspace.package]

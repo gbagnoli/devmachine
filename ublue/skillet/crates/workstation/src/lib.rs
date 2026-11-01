@@ -32,3 +32,5 @@ pub mod joplin_provisioning;
 pub mod media_provisioning;
 
 pub mod gokapi_provisioning;
+
+pub mod sudo;

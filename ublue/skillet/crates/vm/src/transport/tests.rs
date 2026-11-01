@@ -366,3 +366,49 @@ fn workstation_alias_uses_openssh_config_without_overriding_user_port_or_known_h
     assert!(text.lines().any(|line| line == "user operator"));
     assert!(text.lines().any(|line| line == "port 2227"));
 }
+
+#[test]
+fn explicit_ssh_agent_is_scoped_to_the_connection() {
+    let directory = tempfile::tempdir().unwrap();
+    let socket = directory.path().join("agent.sock");
+    let transport = SshTransport::new(target(directory.path()), HostKeyPolicy::Verify)
+        .unwrap()
+        .with_agent_socket(socket.clone())
+        .unwrap();
+    let command = transport
+        .command(&GuestCommand {
+            program: "true",
+            arguments: &[],
+        })
+        .unwrap();
+    assert!(command
+        .get_envs()
+        .any(|(key, value)| key == "SSH_AUTH_SOCK" && value == Some(socket.as_os_str())));
+    assert!(command
+        .get_args()
+        .any(|arg| arg == std::ffi::OsStr::new(&format!("IdentityAgent={}", socket.display()))));
+    assert!(transport
+        .reverse_unix_forward("/var/tmp/skillet-sudo-a/../socket", &socket)
+        .is_err());
+    assert!(transport
+        .reverse_unix_forward("/etc/unsafe.sock", &socket)
+        .is_err());
+}
+
+#[test]
+fn ownership_loss_prevents_reverse_credential_forwarding() {
+    struct Forward(std::cell::Cell<usize>);
+    impl ReverseUnixForward for Forward {
+        fn reverse_unix_forward(&self, _: &str, _: &Path) -> Result<UnixForward> {
+            self.0.set(self.0.get() + 1);
+            Err(Error::Invalid("synthetic forwarding failure".into()))
+        }
+    }
+    let inner = Forward(std::cell::Cell::new(0));
+    let guard = || Err(Error::Invalid("ownership lost".into()));
+    let checked = OwnershipCheckedTransport::new(&inner, &guard);
+    assert!(checked
+        .reverse_unix_forward("/var/tmp/skillet-sudo-a/socket", Path::new("/tmp/socket"))
+        .is_err());
+    assert_eq!(inner.0.get(), 0);
+}
