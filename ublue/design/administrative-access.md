@@ -48,13 +48,28 @@ locales or changing SSH authentication.
 
 
 SSH-key unlock stays with OpenSSH's agent; sudo authentication is a separate
-invocation-scoped secret. Workstation provisioning uses an ephemeral static Rust
+credential with a separate 30-minute fixed-expiry kernel cache. Workstation provisioning uses an ephemeral static Rust
 askpass helper and a private SSH-forwarded Unix socket, independently of command
 stdin. This prevents sudo from consuming credential payloads or receiving a
 password when its policy does not request one. No password enters argv, environment
-or files, the vault or its three-hour cache. Shared deploy/apply/delivery paths
+or files, or the vault. The vault keeps its independent three-hour cache. Shared deploy/apply/delivery paths
 use the same adapter; raw disposable automation keeps its noninteractive policy.
 The helper is a separate minimal guest artifact, so the first update does not
 require a newer installed Skillet and does not link workstation vault/provider
 code into the helper. Forwarding uses the existing SSH target/trust/agent options
 and ownership checks; command exit removes the ephemeral resources.
+
+The shared workstation transport caches sudo only after a successful operation
+actually used the password. Its scope hashes effective local SSH configuration
+and pinned host-trust file contents, binding the remote user, host and connection
+policy. Trust changes invalidate reuse; dynamic or unavailable trust disables
+persistent caching. This conservative binding can miss after unrelated known-host
+changes. A target/trust change during an invocation aborts reuse.
+
+Each privileged operation rereads the kernel entry. Hits never extend expiry;
+rejected/unverified answers are evicted. Valid cached credentials also support
+noninteractive commands; a miss requires a terminal, without retrying an ambiguous
+privileged operation. If kernel expiry is unavailable, use only bounded in-process
+memory. `skillet auth lock` clears sudo credentials, independently of vault unlock
+and ssh-agent. Other workstation sudo consumers reuse this transport and generic
+purpose-separated kernel cache rather than adding another password mechanism.

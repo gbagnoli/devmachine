@@ -81,3 +81,9 @@ in guest tmpfs/workstation memory. [Recovery instructions](../skillet/crates/wor
 References: [KeePassXC](https://keepassxc.org/docs/KeePassXC_GettingStarted),
 [KDBX library](https://github.com/sseemayer/keepass-rs),
 [systemd credentials](https://github.com/systemd/systemd/blob/main/docs/CREDENTIALS.md).
+
+Workstation kernel caching is shared infrastructure with separate purpose
+namespaces and hashed context bindings. Vault unlock retains three-hour expiry;
+verified remote sudo uses thirty minutes. Reads never renew expiry. Sudo passwords
+are not vault entries; `auth lock` clears only their cache. Each consumer owns its
+verification and target binding policy.

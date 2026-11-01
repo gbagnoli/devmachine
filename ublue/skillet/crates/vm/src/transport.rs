@@ -6,6 +6,7 @@ use std::{
     process::{Command, ExitStatus, Output},
     time::Duration,
 };
+use users::os::unix::UserExt as _;
 
 /// A localhost listener forwarded only to the guest's localhost.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -68,6 +69,20 @@ impl<T: GuestTransport> GuestTransport for OwnershipCheckedTransport<'_, T> {
     fn upload(&self, source: &Path, destination: &str) -> Result<()> {
         (self.ownership)()?;
         let result = self.transport.upload(source, destination);
+        (self.ownership)()?;
+        result
+    }
+}
+
+/// Bind cached credentials to locally selected SSH identity and trust configuration.
+/// None means this connection cannot safely use a persistent credential cache.
+pub trait CredentialIdentity {
+    fn credential_scope(&self) -> Result<Option<[u8; 32]>>;
+}
+impl<T: CredentialIdentity> CredentialIdentity for OwnershipCheckedTransport<'_, T> {
+    fn credential_scope(&self) -> Result<Option<[u8; 32]>> {
+        (self.ownership)()?;
+        let result = self.transport.credential_scope();
         (self.ownership)()?;
         result
     }
@@ -414,6 +429,129 @@ impl SshTransport {
             .status()
             .map_err(Error::Io)
     }
+}
+
+impl CredentialIdentity for SshTransport {
+    fn credential_scope(&self) -> Result<Option<[u8; 32]>> {
+        if self.policy != HostKeyPolicy::Verify {
+            return Ok(None);
+        }
+        let mut command = Command::new("ssh");
+        self.options(&mut command, "-p");
+        command.arg("-G").arg(self.remote_target());
+        let output = crate::process::capture(command, Duration::from_secs(15))?;
+        if !output.status.success() {
+            return Ok(None);
+        }
+        let config = std::str::from_utf8(&output.stdout)
+            .map_err(|_| Error::Invalid("invalid effective SSH configuration".into()))?;
+        let user = users::get_user_by_uid(users::get_current_uid())
+            .ok_or_else(|| Error::Invalid("local SSH user is absent".into()))?;
+        credential_scope_from_config(
+            config,
+            self.target.known_hosts.as_deref(),
+            user.home_dir(),
+            |path| match std::fs::metadata(path) {
+                Ok(metadata) if metadata.is_file() && metadata.len() <= 4 * 1024 * 1024 => {
+                    std::fs::read(path).map(Some)
+                }
+                Ok(_) => Ok(None),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+                Err(error) => Err(error),
+            },
+        )
+        .or(Ok(None))
+    }
+}
+
+// Hash the whole effective client configuration and pinned trust file contents.
+// This is deliberately conservative: unrelated trust-file changes can invalidate
+// a cache hit. Dynamic DNS/command trust and ambiguous paths disable caching.
+fn credential_scope_from_config(
+    config: &str,
+    explicit_known: Option<&Path>,
+    home: &Path,
+    read: impl Fn(&Path) -> std::io::Result<Option<Vec<u8>>>,
+) -> Result<Option<[u8; 32]>> {
+    use sha2::{Digest as _, Sha256};
+    let setting = |name: &str| config.lines().find_map(|line| line.strip_prefix(name));
+    if setting("knownhostscommand ").is_some_and(|v| v != "none")
+        || setting("verifyhostkeydns ").is_some_and(|v| !matches!(v, "false" | "no"))
+    {
+        return Ok(None);
+    }
+    let mut paths = Vec::new();
+    for (name, explicit) in [
+        ("userknownhostsfile ", explicit_known),
+        ("globalknownhostsfile ", None),
+    ] {
+        if let Some(path) = explicit {
+            paths.push(path.to_owned());
+            continue;
+        }
+        let Some(value) = setting(name) else {
+            return Ok(None);
+        };
+        if value == "none" {
+            continue;
+        }
+        let entries: Vec<_> = value.split_whitespace().collect();
+        let defaults = if name == "userknownhostsfile " {
+            ["~/.ssh/known_hosts", "~/.ssh/known_hosts2"]
+        } else {
+            ["/etc/ssh/ssh_known_hosts", "/etc/ssh/ssh_known_hosts2"]
+        };
+        if entries.len() != 1 && entries != defaults {
+            let names = if name == "userknownhostsfile " {
+                ["known_hosts", "known_hosts2"]
+            } else {
+                ["ssh_known_hosts", "ssh_known_hosts2"]
+            };
+            if entries.len() != 2
+                || entries.iter().zip(names).any(|(entry, expected)| {
+                    Path::new(entry).file_name().and_then(|v| v.to_str()) != Some(expected)
+                })
+                || Path::new(entries[0]).parent() != Path::new(entries[1]).parent()
+            {
+                return Ok(None);
+            }
+        }
+        for entry in entries {
+            if entry.contains(['%', '\'', '"']) {
+                return Ok(None);
+            }
+            let path = entry
+                .strip_prefix("~/")
+                .map_or_else(|| std::path::PathBuf::from(entry), |tail| home.join(tail));
+            if !path.is_absolute() {
+                return Ok(None);
+            }
+            paths.push(path);
+        }
+    }
+    if setting("user ").is_none() || setting("hostname ").is_none() {
+        return Ok(None);
+    }
+    let mut hash = Sha256::new();
+    hash.update(
+        u64::try_from(config.len())
+            .map_err(|_| Error::Invalid("SSH scope overflow".into()))?
+            .to_be_bytes(),
+    );
+    hash.update(config.as_bytes());
+    let mut pinned = false;
+    for path in paths {
+        let bytes = read(&path)?;
+        let value = bytes.as_deref().unwrap_or_default();
+        pinned |= !value.is_empty();
+        hash.update(
+            u64::try_from(value.len())
+                .map_err(|_| Error::Invalid("SSH trust scope overflow".into()))?
+                .to_be_bytes(),
+        );
+        hash.update(value);
+    }
+    Ok(pinned.then(|| hash.finalize().into()))
 }
 
 impl ReverseUnixForward for SshTransport {

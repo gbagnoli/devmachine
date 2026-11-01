@@ -8,7 +8,10 @@ use skillet_vm::{
     },
     ManifestStore, RunIdentity,
 };
-use skillet_workstation::sudo::{PasswordPrompt, SudoTransport};
+use skillet_workstation::{
+    credential_cache::{CredentialCache, KernelCache},
+    sudo::{PasswordPrompt, SudoTransport},
+};
 use std::{
     error::Error,
     fs,
@@ -60,15 +63,47 @@ struct Account<'a, T: GuestTransport> {
     name: String,
     sudoers: String,
 }
+impl<T: GuestTransport> Account<'_, T> {
+    fn cleanup(&self) -> Result<()> {
+        guest(self.guest, "sudo", &["-n", "rm", "-f", &self.sudoers], None)?;
+        // sshd/PAM can keep this generated account's session alive briefly after
+        // the client exits. Terminate only its sessions before deleting it.
+        let _ = self.guest.execute(
+            &GuestCommand {
+                program: "sudo",
+                arguments: &["-n", "loginctl", "terminate-user", &self.name],
+            },
+            None,
+        )?;
+        let deadline = Instant::now() + Duration::from_secs(15);
+        loop {
+            let output = self.guest.execute(
+                &GuestCommand {
+                    program: "sudo",
+                    arguments: &["-n", "userdel", "--remove", &self.name],
+                },
+                None,
+            )?;
+            if output.status.success() || output.status.code() == Some(6) {
+                return Ok(());
+            }
+            if Instant::now() >= deadline {
+                return Err(format!(
+                    "test account {} cleanup failed: {}",
+                    self.name,
+                    String::from_utf8_lossy(&output.stderr)
+                )
+                .into());
+            }
+            std::thread::sleep(Duration::from_millis(200));
+        }
+    }
+}
 impl<T: GuestTransport> Drop for Account<'_, T> {
     fn drop(&mut self) {
-        let _ = guest(self.guest, "sudo", &["-n", "rm", "-f", &self.sudoers], None);
-        let _ = guest(
-            self.guest,
-            "sudo",
-            &["-n", "userdel", "--remove", &self.name],
-            None,
-        );
+        if let Err(error) = self.cleanup() {
+            eprintln!("{error}");
+        }
     }
 }
 
@@ -261,6 +296,13 @@ fn create_account<'a, T: GuestTransport>(
     Ok((account, password))
 }
 
+struct CacheCleanup(Arc<dyn CredentialCache>, [u8; 32]);
+impl Drop for CacheCleanup {
+    fn drop(&mut self) {
+        let _ = self.0.forget(&self.1);
+    }
+}
+
 fn authentication_checks<A, T>(
     actor: A,
     trusted: T,
@@ -268,8 +310,14 @@ fn authentication_checks<A, T>(
     password: Zeroizing<String>,
 ) -> Result<()>
 where
-    A: GuestTransport + skillet_vm::transport::ReverseUnixForward + Clone,
-    T: GuestTransport + skillet_vm::transport::ReverseUnixForward + Clone,
+    A: GuestTransport
+        + skillet_vm::transport::ReverseUnixForward
+        + skillet_vm::transport::CredentialIdentity
+        + Clone,
+    T: GuestTransport
+        + skillet_vm::transport::ReverseUnixForward
+        + skillet_vm::transport::CredentialIdentity
+        + Clone,
 {
     assert!(!actor
         .execute(
@@ -289,7 +337,18 @@ where
         }
         Ok(Zeroizing::new(password.to_string()))
     });
-    let authenticated = SudoTransport::new(actor.clone(), workspace.to_owned(), Some(prompt));
+    let cache: Arc<dyn CredentialCache> = Arc::new(KernelCache::new("sudo-acceptance"));
+    let scope = actor
+        .credential_scope()?
+        .ok_or("test SSH trust binding unavailable")?;
+    let _cleanup = CacheCleanup(Arc::clone(&cache), scope);
+    cache.forget(&scope)?;
+    let authenticated = SudoTransport::with_cache(
+        actor.clone(),
+        workspace.to_owned(),
+        Some(prompt),
+        Arc::clone(&cache),
+    );
     let payload = b"binary stdin stays unchanged\x00\x01\xff\r\n";
     println!("Acceptance: password-required sudo with rejected first password");
     let first = guest(&authenticated, "sudo", &["-n", "-k", "cat"], Some(payload))?;
@@ -300,7 +359,16 @@ where
     assert_eq!(prompts.load(Ordering::SeqCst), 2);
     println!("Acceptance: close password-required sudo channel");
     drop(authenticated);
-    let noninteractive = SudoTransport::new(actor, workspace.to_owned(), None);
+    println!("Acceptance: new transport reuses kernel cache without a terminal");
+    assert!(cache.read(&scope)?.is_some());
+    let noninteractive =
+        SudoTransport::with_cache(actor, workspace.to_owned(), None, Arc::clone(&cache));
+    assert_eq!(
+        guest(&noninteractive, "sudo", &["-n", "-k", "cat"], Some(payload))?.stdout,
+        payload
+    );
+    println!("Acceptance: explicit cache eviction prevents unattended authentication");
+    cache.forget(&scope)?;
     assert!(noninteractive
         .execute(
             &GuestCommand {
@@ -311,21 +379,49 @@ where
         )
         .is_err());
     println!("Acceptance: no-password sudo with binary stdin");
-    let nopasswd = SudoTransport::new(
+    let trusted_scope = trusted
+        .credential_scope()?
+        .ok_or("trusted SSH binding unavailable")?;
+    let nopasswd = SudoTransport::with_cache(
         trusted,
         workspace.to_owned(),
         Some(Arc::new(|| {
             Err(std::io::Error::other("NOPASSWD must not prompt"))
         })),
+        Arc::clone(&cache),
     );
     assert_eq!(
         guest(&nopasswd, "sudo", &["-n", "-k", "cat"], Some(payload))?.stdout,
         payload
     );
     println!("Acceptance: close no-password sudo channel");
+    assert!(cache.read(&trusted_scope)?.is_none());
     drop(nopasswd);
     drop(noninteractive);
     Ok(())
+}
+
+fn helper_inventory(guest: &impl GuestTransport) -> Result<std::collections::BTreeSet<String>> {
+    let output = crate::guest(
+        guest,
+        "find",
+        &[
+            "/var/tmp",
+            "-maxdepth",
+            "1",
+            "-type",
+            "d",
+            "-name",
+            "skillet-sudo-*",
+            "-printf",
+            "%f\n",
+        ],
+        None,
+    )?;
+    Ok(String::from_utf8(output.stdout)?
+        .lines()
+        .map(str::to_owned)
+        .collect::<std::collections::BTreeSet<_>>())
 }
 
 fn main() -> Result<()> {
@@ -367,6 +463,7 @@ fn main() -> Result<()> {
     let (_agent, key, agent_socket) = encrypted_agent(helper, temporary.path())?;
     println!("Acceptance: create password-required disposable account");
     let (account, password) = create_account(&trusted, &key)?;
+    println!("Acceptance: disposable account {}", account.name);
     let user = account.name.clone();
     let actor = SshTransport::workstation(SshConnection {
         user: Some(user),
@@ -377,34 +474,13 @@ fn main() -> Result<()> {
     })?
     .with_agent_socket(agent_socket)?;
     let actor = OwnershipCheckedTransport::new(&actor, &guard);
-    let helpers = |guest: &OwnershipCheckedTransport<'_, SshTransport>| -> Result<_> {
-        let output = crate::guest(
-            guest,
-            "find",
-            &[
-                "/var/tmp",
-                "-maxdepth",
-                "1",
-                "-type",
-                "d",
-                "-name",
-                "skillet-sudo-*",
-                "-printf",
-                "%f\n",
-            ],
-            None,
-        )?;
-        Ok(String::from_utf8(output.stdout)?
-            .lines()
-            .map(str::to_owned)
-            .collect::<std::collections::BTreeSet<_>>())
-    };
-    let original_helpers = helpers(&trusted)?;
+    let original_helpers = helper_inventory(&trusted)?;
     authentication_checks(actor, trusted.clone(), workspace, password)?;
-    assert_eq!(helpers(&trusted)?, original_helpers);
+    assert_eq!(helper_inventory(&trusted)?, original_helpers);
     println!("Acceptance: verify helper and account cleanup");
     let account_name = account.name.clone();
     let sudoers = account.sudoers.clone();
+    account.cleanup()?;
     drop(account);
     assert!(!trusted
         .execute(

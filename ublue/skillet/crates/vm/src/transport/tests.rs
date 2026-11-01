@@ -412,3 +412,69 @@ fn ownership_loss_prevents_reverse_credential_forwarding() {
         .is_err());
     assert_eq!(inner.0.get(), 0);
 }
+
+#[test]
+fn credential_scope_changes_with_user_host_and_trust_without_exposing_them() {
+    let config = "hostname example.invalid\nuser operator\nport 22\nuserknownhostsfile /fixture/known_hosts\nglobalknownhostsfile none\nverifyhostkeydns false\n";
+    let read = |_: &Path| Ok(Some(b"pinned-test-key".to_vec()));
+    let first = credential_scope_from_config(config, None, Path::new("/fixture"), read)
+        .unwrap()
+        .unwrap();
+    assert_ne!(
+        Some(first),
+        credential_scope_from_config(
+            &config.replace("operator", "other"),
+            None,
+            Path::new("/fixture"),
+            read
+        )
+        .unwrap()
+    );
+    assert_ne!(
+        Some(first),
+        credential_scope_from_config(
+            &config.replace("example.invalid", "other.invalid"),
+            None,
+            Path::new("/fixture"),
+            read
+        )
+        .unwrap()
+    );
+    assert_ne!(
+        Some(first),
+        credential_scope_from_config(config, None, Path::new("/fixture"), |_| Ok(Some(
+            b"changed-key".to_vec()
+        )))
+        .unwrap()
+    );
+    for extra in [
+        "knownhostscommand custom-provider\n",
+        "verifyhostkeydns yes\n",
+    ] {
+        let changed = if extra.starts_with("verify") {
+            config.replace("verifyhostkeydns false\n", extra)
+        } else {
+            format!("{config}{extra}")
+        };
+        assert!(
+            credential_scope_from_config(&changed, None, Path::new("/fixture"), read)
+                .unwrap()
+                .is_none()
+        );
+    }
+    assert!(
+        credential_scope_from_config(config, None, Path::new("/fixture"), |_| Ok(None))
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[test]
+fn expanded_default_known_host_paths_support_cache_binding() {
+    let config = "hostname example.invalid\nuser operator\nuserknownhostsfile /fixture/.ssh/known_hosts /fixture/.ssh/known_hosts2\nglobalknownhostsfile /etc/ssh/ssh_known_hosts /etc/ssh/ssh_known_hosts2\n";
+    let scope = credential_scope_from_config(config, None, Path::new("/fixture"), |path| {
+        Ok((path == Path::new("/fixture/.ssh/known_hosts")).then(|| b"test-key".to_vec()))
+    })
+    .unwrap();
+    assert!(scope.is_some());
+}

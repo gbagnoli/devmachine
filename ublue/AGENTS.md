@@ -102,7 +102,9 @@
 
 - Keep SSH-key unlock, privilege authentication and vault unlock independent.
   Interactive privilege secrets must use a separate channel from command/payload
-  stdin, remain invocation-scoped in memory, and never require weakening sudo.
+  stdin and never require weakening sudo. Shared credential caches must have
+  explicit purpose/target scopes, mandatory bounded expiry and independent locking;
+  persist only verified credentials and never extend expiry merely on reuse.
   Preserve no-password and noninteractive operation; test protected payload bytes,
   authentication rejection and cleanup through the actual transport.
 

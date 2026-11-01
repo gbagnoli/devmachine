@@ -1,11 +1,14 @@
-//! Interactive sudo uses a private askpass channel, never command payload stdin.
+//! Cached/interactive sudo uses a private askpass channel, never command payload stdin.
 use skillet_vm::{
     artifacts,
-    transport::{GuestCommand, GuestTransport, ReverseUnixForward, SshTransport, UnixForward},
+    transport::{
+        CredentialIdentity, GuestCommand, GuestTransport, ReverseUnixForward, SshTransport,
+        UnixForward,
+    },
     Error, Result,
 };
 use std::{
-    cell::RefCell,
+    cell::{OnceCell, RefCell},
     fs,
     io::{Read, Write},
     os::unix::{fs::PermissionsExt, net::UnixListener},
@@ -20,26 +23,70 @@ use std::{
 };
 use zeroize::Zeroizing;
 
+mod password_cache;
+use crate::credential_cache::{CredentialCache, KernelCache};
+use password_cache::{CacheBinding, PasswordState};
+
+pub const SUDO_CACHE_LIFETIME: Duration = Duration::from_mins(30);
+pub const SUDO_CACHE_NAMESPACE: &str = "sudo";
+
 pub type PasswordPrompt = Arc<dyn Fn() -> std::io::Result<Zeroizing<String>> + Send + Sync>;
 
 /// Workstation auth policy; VM automation continues to use its recorded transport.
-pub struct SudoTransport<T: GuestTransport + ReverseUnixForward + Clone = SshTransport> {
+pub struct SudoTransport<
+    T: GuestTransport + ReverseUnixForward + CredentialIdentity + Clone = SshTransport,
+> {
     ssh: T,
     workspace: PathBuf,
     prompt: Option<PasswordPrompt>,
     session: RefCell<Option<Session<T>>>,
+    cache: Arc<dyn CredentialCache>,
+    scope: OnceCell<Option<[u8; 32]>>,
 }
-impl<T: GuestTransport + ReverseUnixForward + Clone> SudoTransport<T> {
+impl<T: GuestTransport + ReverseUnixForward + CredentialIdentity + Clone> SudoTransport<T> {
     pub fn new(ssh: T, workspace: PathBuf, prompt: Option<PasswordPrompt>) -> Self {
+        Self::with_cache(
+            ssh,
+            workspace,
+            prompt,
+            Arc::new(KernelCache::new(SUDO_CACHE_NAMESPACE)),
+        )
+    }
+    pub fn with_cache(
+        ssh: T,
+        workspace: PathBuf,
+        prompt: Option<PasswordPrompt>,
+        cache: Arc<dyn CredentialCache>,
+    ) -> Self {
         Self {
             ssh,
             workspace,
             prompt,
             session: RefCell::new(None),
+            cache,
+            scope: OnceCell::new(),
         }
     }
+    fn binding(&self) -> Result<Option<CacheBinding>> {
+        let current = self.ssh.credential_scope()?;
+        if self
+            .scope
+            .get()
+            .is_some_and(|previous| previous != &current)
+        {
+            if let Some(mut session) = self.session.borrow_mut().take() {
+                session.cleanup_allowed = false;
+                drop(session);
+            }
+            return Err(Error::Authentication("SSH target or host trust changed during this invocation; retry with the verified connection".into()));
+        }
+        let _ = self.scope.set(current);
+        Ok(current.map(|scope| CacheBinding::new(Arc::clone(&self.cache), scope)))
+    }
 }
-impl<T: GuestTransport + ReverseUnixForward + Clone> GuestTransport for SudoTransport<T> {
+impl<T: GuestTransport + ReverseUnixForward + CredentialIdentity + Clone> GuestTransport
+    for SudoTransport<T>
+{
     fn upload(&self, source: &Path, destination: &str) -> Result<()> {
         self.ssh.upload(source, destination)
     }
@@ -49,27 +96,37 @@ impl<T: GuestTransport + ReverseUnixForward + Clone> GuestTransport for SudoTran
         {
             return self.ssh.execute(command, input);
         }
-        let Some(prompt) = &self.prompt else {
+        let binding = self.binding()?;
+        if self.prompt.is_none()
+            && binding
+                .as_ref()
+                .is_none_or(|binding| binding.read().is_none())
+        {
             let output = self.ssh.execute(command, input)?;
             if !output.status.success()
                 && String::from_utf8_lossy(&output.stderr).contains("a password is required")
             {
-                return Err(Error::Authentication("remote sudo needs a password; rerun this command in an interactive terminal (SSH key unlock is separate)".into()));
+                return Err(Error::Authentication("remote sudo needs a password; no usable cached credential; rerun in an interactive terminal (SSH key unlock is separate)".into()));
             }
             return Ok(output);
-        };
+        }
         let mut session = self.session.borrow_mut();
         if session.is_none() {
             *session = Some(Session::start(
                 &self.ssh,
                 &self.workspace,
-                Arc::clone(prompt),
+                self.prompt.clone(),
+                binding,
             )?);
         }
         let session = session
             .as_ref()
             .ok_or_else(|| Error::Invalid("sudo session unavailable".into()))?;
-        session.broker.operation.fetch_add(1, Ordering::SeqCst);
+        let operation = session
+            .broker
+            .operation
+            .fetch_add(1, Ordering::SeqCst)
+            .wrapping_add(1);
         let askpass = format!("SUDO_ASKPASS={}/helper", session.directory);
         let mut args = vec![askpass.as_str(), command.program, "-A"];
         args.extend_from_slice(&command.arguments[1..]);
@@ -81,6 +138,10 @@ impl<T: GuestTransport + ReverseUnixForward + Clone> GuestTransport for SudoTran
             },
             input,
         );
+        session.broker.complete(
+            operation,
+            result.as_ref().is_ok_and(|output| output.status.success()),
+        )?;
         let error = session
             .broker
             .error
@@ -118,14 +179,20 @@ fn checked(ssh: &impl GuestTransport, program: &str, args: &[&str]) -> Result<Ou
     Ok(output)
 }
 
-struct Session<T: GuestTransport + ReverseUnixForward + Clone> {
+struct Session<T: GuestTransport + ReverseUnixForward + CredentialIdentity + Clone> {
     ssh: T,
     directory: String,
     forward: Option<UnixForward>,
     broker: Broker,
+    cleanup_allowed: bool,
 }
-impl<T: GuestTransport + ReverseUnixForward + Clone> Session<T> {
-    fn start(ssh: &T, workspace: &Path, prompt: PasswordPrompt) -> Result<Self> {
+impl<T: GuestTransport + ReverseUnixForward + CredentialIdentity + Clone> Session<T> {
+    fn start(
+        ssh: &T,
+        workspace: &Path,
+        prompt: Option<PasswordPrompt>,
+        binding: Option<CacheBinding>,
+    ) -> Result<Self> {
         let artifacts = artifacts::build(&artifacts::BuildRequest {
             workspace,
             packages: &["skillet-sudo-askpass"],
@@ -135,7 +202,7 @@ impl<T: GuestTransport + ReverseUnixForward + Clone> Session<T> {
         let helper = artifacts
             .get("skillet-sudo-askpass")
             .ok_or_else(|| Error::Invalid("sudo helper artifact absent".into()))?;
-        let broker = Broker::start(prompt)?;
+        let broker = Broker::start(prompt, binding)?;
         let output = checked(ssh, "mktemp", &["-d", "/var/tmp/skillet-sudo-XXXXXXXXXXXX"])?;
         let directory = String::from_utf8(output.stdout)
             .map_err(|_| Error::Invalid("invalid sudo staging path".into()))?
@@ -151,6 +218,7 @@ impl<T: GuestTransport + ReverseUnixForward + Clone> Session<T> {
             directory,
             forward: None,
             broker,
+            cleanup_allowed: true,
         };
         let remote_helper = format!("{}/helper", session.directory);
         ssh.upload(helper, &remote_helper)?;
@@ -171,10 +239,14 @@ impl<T: GuestTransport + ReverseUnixForward + Clone> Session<T> {
         Ok(session)
     }
 }
-impl<T: GuestTransport + ReverseUnixForward + Clone> Drop for Session<T> {
+impl<T: GuestTransport + ReverseUnixForward + CredentialIdentity + Clone> Drop for Session<T> {
     fn drop(&mut self) {
         self.forward.take();
         self.broker.shutdown();
+        if !self.cleanup_allowed {
+            eprintln!("SSH identity changed; retained former target's private sudo helper directory {}; no password was stored there", self.directory);
+            return;
+        }
         let helper = format!("{}/helper", self.directory);
         let socket = format!("{}/askpass.sock", self.directory);
         if checked(&self.ssh, "rm", &["-f", &helper, &socket])
@@ -193,9 +265,11 @@ struct Broker {
     stop: Arc<AtomicBool>,
     error: Arc<Mutex<Option<String>>>,
     worker: Option<JoinHandle<()>>,
+    state: Arc<Mutex<PasswordState>>,
+    binding: Option<CacheBinding>,
 }
 impl Broker {
-    fn start(prompt: PasswordPrompt) -> Result<Self> {
+    fn start(prompt: Option<PasswordPrompt>, binding: Option<CacheBinding>) -> Result<Self> {
         let directory = tempfile::Builder::new().prefix("skillet-sudo-").tempdir()?;
         let socket = directory.path().join("askpass.sock");
         let listener = UnixListener::bind(&socket)?;
@@ -207,10 +281,14 @@ impl Broker {
         let worker_operation = Arc::clone(&operation);
         let worker_stop = Arc::clone(&stop);
         let worker_error = Arc::clone(&error);
+        let state = Arc::new(Mutex::new(PasswordState::default()));
+        let worker_state = Arc::clone(&state);
+        let worker_binding = binding.clone();
         let worker = std::thread::spawn(move || {
-            let mut cached: Option<Zeroizing<String>> = None;
-            let mut last_operation = None;
             while !worker_stop.load(Ordering::SeqCst) {
+                if let Ok(mut state) = worker_state.lock() {
+                    state.expire();
+                }
                 let (mut stream, _) = match listener.accept() {
                     Ok(value) => value,
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
@@ -228,28 +306,23 @@ impl Broker {
                         return Ok(());
                     }
                     let current = worker_operation.load(Ordering::SeqCst);
-                    // A second prompt during one operation means sudo rejected it.
-                    if last_operation == Some(current) {
-                        cached = None;
-                    }
-                    if cached.is_none() {
-                        cached = Some(prompt()?);
-                    }
-                    last_operation = Some(current);
-                    let password = cached
-                        .as_ref()
-                        .ok_or_else(|| std::io::Error::other("password unavailable"))?;
-                    if password.len() > 4095 || password.contains(['\n', '\r', '\0']) {
-                        cached = None;
-                        return Err(std::io::Error::other("invalid password input"));
-                    }
+                    let mut state = worker_state
+                        .lock()
+                        .map_err(|_| std::io::Error::other("sudo credential state poisoned"))?;
+                    let password =
+                        state.offer(current, prompt.as_ref(), worker_binding.as_ref())?;
                     stream.write_all(password.as_bytes())?;
                     stream.write_all(b"\n")?;
+                    state.sent();
                     Ok(())
                 })();
                 if result.is_err() {
                     if let Ok(mut error) = worker_error.lock() {
-                        *error = Some("sudo password prompt/channel failed; no password or credential payload was logged".into());
+                        *error = Some(if prompt.is_none() {
+                            "cached sudo credential expired or was rejected; rerun in an interactive terminal".into()
+                        } else {
+                            "sudo password prompt/channel failed; no password or credential payload was logged".into()
+                        });
                     }
                 }
             }
@@ -261,10 +334,19 @@ impl Broker {
             stop,
             error,
             worker: Some(worker),
+            state,
+            binding,
         })
     }
 }
 impl Broker {
+    fn complete(&self, operation: u64, success: bool) -> Result<()> {
+        self.state
+            .lock()
+            .map_err(|_| Error::Invalid("sudo credential state poisoned".into()))?
+            .complete(operation, success, self.binding.as_ref());
+        Ok(())
+    }
     fn shutdown(&mut self) {
         self.stop.store(true, Ordering::SeqCst);
         if let Some(worker) = self.worker.take() {

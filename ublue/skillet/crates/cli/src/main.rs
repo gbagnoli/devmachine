@@ -6,6 +6,7 @@ use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 mod apply;
+mod auth;
 mod deploy;
 mod installation;
 mod root_recovery;
@@ -26,6 +27,11 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Commands {
+    /// Manage temporary workstation authentication caches
+    Auth {
+        #[command(subcommand)]
+        command: auth::Commands,
+    },
     /// Initialize or back up the guest Gokapi installation
     Gokapi {
         #[command(subcommand)]
@@ -427,6 +433,7 @@ fn main() -> Result<()> {
         Commands::Secret {
             command: SecretCommands::Lock(args),
         } => secret_delivery::lock_vault(args.database.as_deref())?,
+        Commands::Auth { command } => auth::dispatch(&command)?,
         Commands::Apply(args) => apply::dispatch(&args)?,
         Commands::Deploy(args) => deploy::dispatch(&args)?,
         Commands::Test {

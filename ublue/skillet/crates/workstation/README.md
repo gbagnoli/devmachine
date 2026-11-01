@@ -161,10 +161,19 @@ same after `access finalize`. First unlock an encrypted SSH key through your
 normal SSH agent (`ssh-add`); then Skillet prompts separately for the remote sudo
 password when sudo requests it. The KeePassXC password and cache are separate.
 
-Sudo passwords are held only in memory for this invocation and reused across its
-privileged operations. A rejected password prompts again. No-password sudo does
-not prompt. Without an interactive terminal, execution retains `sudo -n` behavior
-and fails with guidance if a password is required; authentication is never weakened.
+After a successful authenticated operation, Skillet caches the sudo password in
+the local Linux kernel for at most 30 minutes from entry. Reuse across deploy,
+apply, delivery and recovery commands does not extend expiry. It is bound to the
+effective SSH configuration and pinned host trust; changes can require a new prompt.
+Dynamic/unavailable trust or kernel caching falls back to bounded invocation memory.
+A rejected password prompts again interactively. No-password sudo does not prompt.
+Noninteractive commands can use a valid cache entry; otherwise they fail with guidance.
+
+Clear sudo credentials without affecting the vault or SSH agent:
+
+```sh
+cargo run --release -p skillet -- auth lock
+```
 
 Skillet builds a small musl askpass helper using the existing Cargo artifact
 selection, verifies its upload in a private `/var/tmp/skillet-sudo-*` directory,

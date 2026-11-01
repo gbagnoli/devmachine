@@ -4340,3 +4340,42 @@ acceptance; no production host or private DNS values were committed.
   Joey base integration passed both applies without repeat service starts/restarts.
   No real Clamps password was requested and its sudo policy was not changed;
   operator execution of the updated deploy command remains the physical check.
+
+
+## 2026-11-01 — shared, bounded remote sudo cache
+
+- Generic workstation `CredentialCache` / `KernelCache` owns purpose-separated
+  Linux keyrings, hashed context names, mandatory expiry, scoped eviction and
+  namespace clearing. Vault storage reuses it with its retained names/payloads
+  and three-hour lifetime. Same-user permissions allow independent named caches
+  to coexist without depending on which session ring a thread currently possesses.
+- Every existing `SudoTransport` consumer shares the thirty-minute fixed-expiry
+  policy. Only a successful operation which actually requested the password can
+  persist it. Reuse does not renew expiry; failures evict without replaying commands.
+  Cached credentials can serve noninteractive calls. Kernel failures fall back to
+  bounded invocation memory. `skillet auth lock` clears only sudo cache entries.
+- Cache binding hashes effective local SSH configuration and pinned trust bytes.
+  Dynamic/ambiguous trust disables persistent caching; changed binding aborts
+  further privileged operations. Unit coverage includes user/host/trust separation,
+  changed identity, rejection, expiry, explicit locking, unavailable kernel fallback,
+  protected stdin and CLI parsing. Routine CI needs no vault/provider/VM access.
+- A real-kernel ignored test passed: an independent process read a synthetic key,
+  remembering the same value did not extend six-second expiry, clearing an expired
+  namespace succeeded, and another namespace retained its key. Initial runs exposed
+  and corrected cross-namespace permissions and expired-child enumeration behavior.
+- Formatting, all-target pedantic Clippy and Fedora Joey base integration passed;
+  both container applies succeeded without repeated service starts/restarts.
+- Final workspace checks passed: 608 tests, 21 environment-dependent tests ignored;
+  final all-target pedantic Clippy and formatting passed. Extracting the runner's
+  inventory helper resolved its function-size lint; the final example compiled.
+- Live acceptance passed on `donbot-test-joplin`: an isolated agent unlocked a
+  generated encrypted SSH key, sudo rejected a synthetic wrong answer then accepted
+  the correct one, a new transport reused the kernel credential with no terminal,
+  explicit eviction stopped unattended reuse, NOPASSWD did not cache/prompt, and
+  binary stdin remained unchanged. No production password or vault was needed.
+- An earlier run passed authentication but failed final account-removal verification.
+  The runner now explicitly closes only its generated account's sessions and checks
+  bounded removal; the repeated live run passed helper and account cleanup. The
+  earlier leftover synthetic account was separately identified and removed through
+  the same locked, ownership-checked VM transport. The initial cleanup failure's
+  exact cause was not established; production apps/agents were not changed.
