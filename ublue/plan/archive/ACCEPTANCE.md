@@ -4243,3 +4243,28 @@ acceptance; no production host or private DNS values were committed.
   SHA-256 PCR 7; firmware/database changes can require recovery and re-enrollment.
   No firmware was staged/installed and no BIOS settings were changed. Console
   maintenance and automation follow-up are tracked in CLAMPS-FIRMWARE.md.
+
+
+## 2026-11-01 — ET tailnet firewall repair accepted
+
+- The operator explicitly approved live and shared-image ET firewall changes.
+  Added runtime and permanent TCP 2022 rich rules for standard Tailscale IPv4
+  and IPv6 source ranges in the default zone. No global firewall reload or ET
+  restart was performed; no LAN/public-source grant was added.
+- From Calculon, direct TCP 2022 connections to both physical Clamps tailnet
+  address families passed. A bounded authenticated `et -c` command returned its
+  expected marker and exited successfully. This establishes the missing host
+  firewall rule as the cause of the earlier rejected ET connection.
+- The common image ships an ET systemd drop-in requiring/ordering firewalld,
+  persisting both source-scoped grants before activating runtime grants. Tested
+  its exact startup commands in a temporary oneshot under real systemd/firewalld
+  on the owned disposable `donbot-test-joplin` through the locked verified guest
+  helper. Unit verification, both rule sets and repeated startup passed. Existing
+  rules were preserved; added rules, unit and uploaded file were removed, and
+  the original VM firewall state was verified restored. No application restarted.
+- All image recipe YAML parsed and diff whitespace checks passed. No Rust source
+  changed. Shared-image build and next physical boot adoption remain pending;
+  the live persistent rules already repair the production connection.
+- Firmware/database installation remains untouched. Follow-up research for
+  strict TPM policy preservation across firmware updates is recorded in
+  CLAMPS-FIRMWARE.md; no unattended firmware mechanism has been enabled.

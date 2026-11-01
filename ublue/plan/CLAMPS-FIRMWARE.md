@@ -36,3 +36,23 @@ See [fwupd FDE guidance](https://github.com/fwupd/fwupd/wiki/Full-Disk-Encryptio
 
 Related: [TPM acceptance](TPM-ENCRYPTED-ROOT.md),
 [Clamps cutover](CLAMPS-MIGRATION.md).
+
+
+## Follow-up — research TPM-safe automation
+
+The operator wants this explored before firmware updates become automatic.
+Inventory update classes and their actual measured-boot effects first; a dbx or
+BIOS update is not equivalent to an OS rebase. Evaluate whether approved future
+PCR 7 states can be predicted/enrolled with the installed Clevis/initramfs stack,
+or whether a different supported authorization policy is required. Do not assume
+prediction or policy migration is available merely because another TPM tool
+supports it. Retain recovery and the working enrollment until acceptance succeeds.
+
+Use an owned disposable UEFI/swtpm VM to rehearse a controlled Secure Boot policy
+change, interruption/retry, wrong-state denial, offline cold boot and independent
+recovery. Then perform a supervised physical update: VM measurements cannot prove
+vendor firmware behavior. Exit criteria are an approved update that unlocks
+unattended under the intended strict policy, rejects unapproved states, preserves
+data/recovery, and never falls back to empty PCRs or a plaintext on-disk unlock
+key. Leave installation, firmware scheduling and policy migration unimplemented
+until that evidence exists. Metadata checks may continue normally.

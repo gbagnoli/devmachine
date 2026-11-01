@@ -27,3 +27,13 @@ The policy applies to the selected account; other accounts remain unchanged.
 Private installation inputs are supplied at media generation; never include
 passwords/hashes/fingerprints in logs, manifests or audit records.
 Instructions: [access finalization](../skillet/crates/cli-common/README.md#administrative-access).
+
+
+Eternal Terminal is part of the shared OS image. Its TCP 2022 transport is allowed
+only from the standard Tailscale IPv4/IPv6 source ranges; native SSH authentication
+remains required. This is an administrative transport policy, separate from the
+personal-device identity gate for application UIs. The image's ET service drop-in
+orders startup after firewalld and adds persistent-before-runtime rich rules in
+the default zone without a global reload. Rules are additive; policy retirement
+requires explicit cleanup. The image also supplies English UTF-8 locale data for
+remote shells rather than suppressing requested locales or changing SSH auth.
