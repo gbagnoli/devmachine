@@ -179,10 +179,51 @@ Research checked 2026-11-02. Linux kexec can boot a different kernel, whereas
 systemd soft-reboot keeps the current kernel. Thus kernel updates are possible
 in principle with kexec, but userspace soft-reboot does not apply them.
 
-Current upstream uCore build setup enables rpm-ostreed automatic staging and
-disables Zincati. No supported uCore kexec update workflow was established in
-this research; systemd documenting kexec is not acceptance on the deployed image.
-Do not assume the newest systemd manual describes the installed implementation.
+### Physical Clamps investigation — 2026-11-02
+
+Read-only SSH inspection confirms the deployed uCore has kernel
+`7.2.9-201.fc44.x86_64`, systemd `259.9`, kexec-tools `2.0.32`, OSTree `2026.4`
+and rpm-ostree `2026.3`. Kernel configuration enables `KEXEC`, `KEXEC_FILE`,
+`KEXEC_SIG` and bzImage signature verification. Kexec is not disabled by sysctl;
+no kernel is loaded for kexec. Secure Boot is enabled and lockdown is in integrity
+mode. This establishes available kernel/tooling capability, not a successful
+signed load, kernel handoff, TPM unseal or hardware recovery.
+
+Two concrete integration problems prevent a direct substitution of
+`systemctl kexec` for ordinary update reboots:
+
+- A deployment is currently staged, while neither existing `/boot/loader/entries`
+  file resolves to it. The active `ostree-finalize-staged.service` performs its
+  finalization in `ExecStop`. Systemd v259's `load_kexec_kernel()` selects/loads
+  the default boot entry before initiating shutdown. Therefore selecting current
+  entries before finalization cannot select this staged deployment. This is an
+  ordering problem, not evidence that Linux cannot run the newer kernel.
+- The ESP is not mounted and `/run/boot-loader-entries` is absent. Unprivileged
+  `bootctl` discovery failed to find an ESP; explicitly pointing it at `/boot/efi`
+  also failed its FAT/ESP check. `/boot` is ext4 on an XBOOTLDR-type partition.
+  Systemd v259's automatic loader searches for an ESP before XBOOTLDR; this layout
+  needs explicit handling or a verified compatible discovery arrangement. Do not
+  report an unprivileged inspection as execution of privileged `systemctl kexec`.
+
+Conclusion: uCore provides kexec primitives, but the current staged-update path
+is not ready for a direct fast-reboot switch. Determine and test explicit target
+selection/finalization ordering in a disposable VM before changing the policy.
+An integration may explicitly prepare the intended deployment and preload its
+matching signed kernel/initramfs/options; preserve normal graceful shutdown,
+configuration merging and rollback. Do not blindly preload the running entry.
+
+Production sudo requires a password and `sudo -n` was unavailable in this
+inspection. No password was requested, no kernel loaded/unloaded, no boot files,
+mounts, updates, TPM/firmware state or reboot policy changed. Loading a kexec kernel
+on production merely to test signatures is not read-only: it can change how a later
+ordinary reboot behaves. No end-to-end kexec success is claimed.
+
+Current upstream uCore enables rpm-ostreed staging and disables Zincati. Source
+inspection matches the deployed finalization concern; no uCore-specific tested
+fast-update integration was found. A separate Fedora CoreOS N5105/Coreboot user
+report describes successful kernel loading followed by handoff hangs. That report
+is not evidence of failure on Clamps' different N150/AMI hardware; it reinforces
+why successful loading alone is insufficient.
 
 An experiment must establish:
 
@@ -228,6 +269,9 @@ daily reboots activate approved releases without unplanned live configuration dr
 - [OSTree staged deployment and boot arguments](https://github.com/ostreedev/ostree/blob/main/docs/deployment.md)
 - [OSTree configuration merging](https://ostreedev.github.io/ostree/atomic-upgrades/)
 - [Quadlet vendor locations and precedence](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
+- [Systemd v259 kernel loading before shutdown](https://github.com/systemd/systemd/blob/v259/src/systemctl/systemctl-start-special.c)
+- [Systemd v259 ESP/XBOOTLDR discovery](https://github.com/systemd/systemd/blob/v259/src/shared/bootspec.c)
+- [FCOS hardware-specific kexec report](https://github.com/coreos/fedora-coreos-tracker/issues/2071)
 - [systemctl kexec and soft-reboot](https://www.freedesktop.org/software/systemd/man/latest/systemctl.html)
 - [Linux kexec signature/lockdown validation](https://github.com/torvalds/linux/blob/master/kernel/kexec_file.c)
 - [Shim TPM measurements](https://github.com/rhboot/shim/blob/main/README.tpm)

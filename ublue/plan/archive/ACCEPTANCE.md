@@ -4424,3 +4424,23 @@ acceptance; no production host or private DNS values were committed.
   reboot schedule, production deployment or firmware/TPM state was changed.
   Local Markdown targets and diff whitespace checks passed; runtime tests do not
   apply to this planning change.
+
+
+## 2026-11-02 — Physical uCore kexec capability investigation
+
+- Read-only SSH access to Clamps succeeded through the existing operator agent.
+  Deployed kernel/systemd/kexec versions and kernel flags establish kexec support;
+  Secure Boot and integrity lockdown are active, kexec loading is enabled and no
+  kexec kernel is armed. The command/configuration details are retained in the
+  image-ownership plan without private boot arguments or volume identifiers.
+- Observed one staged deployment and two existing BLS entries, neither resolving
+  to it. The deployed OSTree unit finalizes in ExecStop. Systemd v259 source loads
+  a default entry before shutdown: this does not directly select the unfinalized
+  staged update. Explicit correct target selection and ordering need integration.
+- ESP is unmounted and no runtime boot-entry export exists. Unprivileged bootctl
+  discovery and explicit ESP inspection failed; no privileged kexec attempt was
+  made. Root privileges were unavailable via sudo -n, and no password was sought.
+- No kernel loading, reboot, mount or production mutation occurred. End-to-end
+  signed handoff, TPM unlock, kernel-update activation and hardware recovery remain
+  unverified. The conclusion is available primitives, not a ready drop-in update
+  mechanism. Normal reboot policy remains unchanged pending disposable tests.
