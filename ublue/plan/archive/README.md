@@ -9,6 +9,7 @@ queue. Use [active plans](../README.md) and crate operating guides for current w
 - Refactor workstreams/follow-up: `REFACTOR-*.md`; previous roadmap:
   [SKILLET-REFACTOR.md](SKILLET-REFACTOR.md).
 - [Syncthing missing-only bootstrap](SYNCTHING-INITIAL-CONFIG.md).
+- [Clamps plans before SSD reconciliation](CLAMPS-BEFORE-SSD-RECONCILIATION.md): superseded install trials and rollout orders.
 - Previous clamps milestones: migration, baseline audit, snapshots, storage and
   credentials, DDNS, Datadog, SMTP, UniFi, UI provisioning and TPM root.
 

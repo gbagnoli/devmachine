@@ -20,13 +20,22 @@ Read the [Home Assistant decision](../design/home-assistant.md),
 [secrets](../design/secrets.md), [monitoring](../design/monitoring.md),
 and [VM lifecycle](../design/smoke-vms.md).
 
+## Replacement-installation scope
+
+Clamps is now on its replacement 1 TB SSD with fresh application delivery; the
+operator chose not to restore the stock SSD's data. Syncthing has been paired.
+The October backup/restore results below retain their original installation scope;
+verify current scheduled export and peer receipt, then rehearse recovery from an
+independent copy. No further reinstall is pending. Bluetooth policy activation
+and current adapter discovery remain separately unverified, as recorded below.
+
 ## Current slice status
 
 | Slice | Implementation | Acceptance still required |
 | --- | --- | --- |
 | 1. Container | Implemented; clamps opts in, other callers do not; repeat apply and reboot accepted in the disposable VM; running on physical clamps | Device-specific capability acceptance awaits real devices |
 | 2. Private HTTPS | Implemented; real local TLS/native API/WebSocket checks pass | Provider staging ACME/DNS and explicit source/identity denial pass; allowed-user browser/phone/companion and separate-network denial remain live checks |
-| 3. Backups | Implemented; native encryption/export and seven-export rotation, independent rootless receiver and btrbk inclusion pass in disposable acceptance; production token, key and first encrypted export pass; a manual off-machine copy on calculon matches by SHA-256 | Validate prune behavior in CI and live, then connect Syncthing after reinstall and verify receiver history |
+| 3. Backups | Implemented; native encryption/export and seven-export rotation, independent rootless receiver and btrbk inclusion pass in disposable acceptance; production token, key and first encrypted export pass; a manual off-machine copy on calculon matches by SHA-256 | Replacement SSD is installed and Syncthing paired; verify current scheduled export, prune behavior and off-machine receiver history |
 | 4. Restore | Offline extraction and live clamps restore from the exported archive passed; a reusable host procedure is saved | Isolated full restore from a received peer and snapshot copy in a disposable VM, with synthetic state and reboot/reapply |
 | 5. Hardware | HA runs on clamps; BlueZ is installed. The filtered, confined Bluetooth bus broker passes enforcing-SELinux VM access/denial, restart and reboot checks | Deploy the validated broker on physical clamps and confirm HA adapter discovery; physical policy deployment currently awaits approval. MQTT/USB radios remain unselected |
 

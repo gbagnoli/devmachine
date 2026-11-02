@@ -11,35 +11,29 @@ apply prepares networking without switching the active connection. See
 
 ## Physical acceptance status
 
-On 2026-10-13 the operator confirmed successful provisioning and correctly
-configured wired/Wi-Fi on physical clamps, including a successful Wi-Fi test.
-On 2026-10-20, Rupik verified Pi-hole DNS and generated host answers through
-both clamps addresses, and host inspection confirmed wired route preference.
-The operator also confirmed a reboot and Wi-Fi switch worked the previous day.
-See [acceptance evidence](archive/ACCEPTANCE.md). Permanent-MAC matching,
-normal DHCP-provided resolver use, Pi-hole outage behavior and management
-recovery remain open.
+Wired/Wi-Fi provisioning, wireless connectivity, route preference, reboot and
+Wi-Fi switching have operator/inspection evidence from the stock-SSD installation.
+The replacement 1 TB install completed full credential/application delivery on
+2026-10-31; it is no longer waiting for hardware installation. Earlier NIC checks
+must not silently stand in for replacement-installation observations. See
+[acceptance evidence](archive/ACCEPTANCE.md).
 
-## Detailed acceptance checklist
+## Remaining physical checks
 
-1. Install matching generic and host binaries using the existing deployment
-   paths. Verify the deployed image has NetworkManager Wi-Fi support and a
-   supplicant. Add missing packages to the image repository, not the workstation.
-2. Deliver networking with explicit preparation using the README command.
-   Confirm root-only runtime profiles and encrypted persistent input. Fresh live
-   profiles must have autoconnect disabled; current addresses and management
-   connectivity must remain unchanged. Do not log profile contents or PSKs.
-3. First exercise ordering and repeat preparation in an isolated disposable VM,
-   with fixture inputs and disposable NICs, preserving the management NIC. Never
-   deliver production network entries to test VMs.
-4. With local-console recovery available, reboot physical hardware. Verify
-   preparation precedes NetworkManager, static Ethernet address, requested DNS
-   order, local Pi-hole over loopback and independent DNS before Pi-hole startup.
-5. Verify permanent-MAC matching and management recovery with Ethernet attached
-   and detached. Wi-Fi association/static address and route preference with
-   both links active are confirmed; normal client DNS use and Pi-hole outage
-   behavior remain to be checked. Repeat preparation and another unattended
-   boot after the remaining profile checks.
+1. Verify current prepared runtime profiles, permanent-MAC matching, static
+   addresses, route preference and encrypted input on the replacement installation.
+   Use the existing preparation/activation boundary; do not log profiles or PSKs
+   or switch the management connection during a remote check.
+2. At a supervised boot, verify preparation before NetworkManager, DNS ordering,
+   local Pi-hole and independent DNS availability before Pi-hole starts.
+3. Check normal client DHCP-provided resolver use and Pi-hole outage behavior.
+   Explicit queries from Rupik and earlier route/switch tests are already recorded.
+4. With recovery access available, confirm replacement-installation management
+   through Ethernet/Wi-Fi and independent LAN SSH if Tailscale is unavailable.
+   Preserve earlier acceptance; do not disable management remotely to prove it.
+
+Implementation and disposable ordering/repeat tests are completed work. Their
+previous rollout checklist is [archived](archive/CLAMPS-BEFORE-SSD-RECONCILIATION.md).
 
 Offline parser validation and injected tests do not establish physical wireless
 association or actual reboot reachability. Record evidence separately in

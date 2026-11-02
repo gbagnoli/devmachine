@@ -7,15 +7,15 @@ Only unfinished implementation and acceptance belongs here. Commands live in
 
 | Area | Current work |
 | --- | --- |
-| Clamps | [Migration/cutover](CLAMPS-MIGRATION.md), [source parity](CLAMPS-PARITY.md) |
+| Clamps | [Post-install acceptance/backups](CLAMPS-MIGRATION.md), [source parity](CLAMPS-PARITY.md) |
 | Networking | [Static profiles and physical adoption](HOST-NETWORKING.md) |
 | Firmware | [Clamps supervised firmware/BIOS maintenance](CLAMPS-FIRMWARE.md) |
 | Encryption | [TPM/recovery acceptance](TPM-ENCRYPTED-ROOT.md) |
 | UIs | [Private UI/browser acceptance](GENERIC-PRIVATE-UIS.md) |
-| DDNS | [Rotation and production handover](CLAMPS-CLOUDFLARE-DDNS.md) |
+| DDNS | [Rotation and post-reboot publication](CLAMPS-CLOUDFLARE-DDNS.md) |
 | Monitoring / UPS | [Physical Agent and NUT recovery/ingestion](CLAMPS-DATADOG.md) |
 | SMTP | [Sender checks and separate enhancements](CLAMPS-EMAIL.md) |
-| UniFi | [Production adoption and backup cutover](CLAMPS-UNIFI.md) |
+| UniFi | [Sustained adoption and independent backups](CLAMPS-UNIFI.md) |
 | Refactor | [Parked backend/CI checks and artifact audit](SKILLET-REFACTOR.md) |
 | Joey | [Replacement hardware and full-service VM rehearsal](JOEY-MIGRATION.md) |
 | Donbot | [Calculon migration](DONBOT-MIGRATION.md), [source inventory](DONBOT-INVENTORY.md) |

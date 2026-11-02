@@ -1,81 +1,68 @@
-# Clamps migration and cutover
+# Clamps deployment and remaining acceptance
 
-Current implementation and source parity are in [the parity checklist](CLAMPS-PARITY.md).
-Stock-SSD installation reached signed uCore, an encrypted Btrfs data mount,
-TPM unattended boot and base configuration. The operator confirmed physical
-wired/Wi-Fi configuration and Wi-Fi connectivity after deployment/apply.
-Operator container observations do
-not establish production service-data migration or client reachability.
-See [historical evidence](archive/ACCEPTANCE.md) and
-[the previous milestone record](archive/CLAMPS-MIGRATION.md).
+Status reconciled 2026-11-02 from operator confirmations and
+[dated evidence](archive/ACCEPTANCE.md). Clamps is installed on its replacement
+1 TB SSD. Disk selection, USB preparation and reinstall are complete; there is
+no further SSD move to plan. The operator chose a fresh installation without
+restoring data from the old stock SSD. The old work order is
+[archived](archive/CLAMPS-BEFORE-SSD-RECONCILIATION.md).
 
-## Work order
+## Completed
 
-1. Wired/Wi-Fi setup and Wi-Fi connectivity are operator-confirmed. Finish the
-   remaining [networking checks](HOST-NETWORKING.md): client DHCP resolver use,
-   resolver outage behavior, permanent MAC and management recovery. DNS answers
-   from Rupik, route preference, reboot and Wi-Fi switching are now confirmed;
-   see the [acceptance log](archive/ACCEPTANCE.md). Pi-hole AAAA serving is
-   verified in an isolated v6 container. LAN IPv6 client reachability is not
-   enabled or applicable until the LAN has usable IPv6.
-2. Temporary passphrase cleanup, recovery/header verification and unattended
-   reboot are operator-confirmed. Remaining [TPM checks](TPM-ENCRYPTED-ROOT.md)
-   include networkless boot, rollback and wider update preservation checks; one
-   signed image rebase/reboot is operator-confirmed. Stock-SSD acceptance is separate
-   from final production disk selection/installation.
-3. Private Pi-hole v6 delivery is implemented through the shared environment DNS
-   inventory and dedicated encrypted phase. Dual-stack serialization and Pi-hole
-   AAAA answering are verified. Complete the vault migration to `dns/local-prefix`
-   and `dns/entries`, verify intended production entries, then migrate Pi-hole
-   state. Runtime validation is recorded in the acceptance log.
-4. Inventory and migrate production data/identities from rupik. Stop source
-   Syncthing/UniFi identities before enabling replacements. Retain the source
-   SSD and independent backups until rollback/cutover is accepted. Follow
-   [UniFi](CLAMPS-UNIFI.md), [DDNS](CLAMPS-CLOUDFLARE-DDNS.md) and
-   [private UI](GENERIC-PRIVATE-UIS.md) handover gates.
-5. Validate complete production remote apply with matching guest artifacts:
-   [operating guide](../skillet/crates/workstation/README.md#apply-a-production-host).
-   The operator reports the new deployment/apply workflow worked. Repeat apply
-   and individual production service/data acceptance remain separate checks.
-6. Verify physical repeat apply, reboot and an approved OS update; client access,
-   peer synchronization, UniFi devices/cloud access, and SSH/sudo/ET. Follow
-   [baseline parity](CLAMPS-PARITY.md). Approve the production exit node; routed
-   traffic exercises remain omitted by operator decision.
-7. Complete automated provisioning/recovery before
-   [access finalization](../skillet/crates/cli-common/README.md#administrative-access).
-   Verify first-login password change and password-required sudo interactively.
-   If older media installed `force-pw-change.service`, stop/disable and remove
-   that obsolete expiry unit before adopting explicit finalization.
-8. Agree an outage/rollback window and final disk; establish off-machine data
-   backup retention and rehearse restore before retiring rupik. Local btrbk
-   snapshots are not an independent backup.
+- Fresh physical installation verified the initial Fedora root and completed the
+  TPM transition to signed uCore without manual recovery. Base apply succeeded,
+  encrypted Btrfs `/data` mounted at `/var/lib/data`, and no failed units remained.
+  Full credential/application delivery subsequently succeeded.
+- Wired/Wi-Fi configuration, route preference and reboot/Wi-Fi switching have
+  earlier physical acceptance. Keep those observations distinct from checks on
+  the replacement installation; [networking](HOST-NETWORKING.md).
+- Syncthing is paired on the replacement installation. UniFi was restored from
+  Rupik and the operator confirms both APs appear in the replacement UI. Its LAN
+  device firewall rules work; [UniFi](CLAMPS-UNIFI.md).
+- Production DDNS moved to Clamps, with explicit record takeover and successful
+  strict repeat delivery. Rupik's updater is stopped/masked; keep one writer.
+- The operator finalized password-required sudo. Shared deploy/apply supports
+  interactive sudo and a thirty-minute scoped kernel cache; SSH-key unlock and
+  the three-hour vault cache remain independent.
 
-## Deferred live acceptance batch
+## Next work
 
-Run these with suitable clients and the required private configuration:
+1. Deploy the current artifacts to the finalized host and verify routine
+   password-required deployment. Apply service changes separately when approved;
+   do not treat a broad apply as authorization for the pending production
+   Bluetooth/SELinux policy activation. Verify automatic ET LAN convergence and
+   the rebuilt image's ET drop-in/English locale at the next planned boot.
+2. Establish backup readiness: verify current HA scheduled backup/export, UniFi
+   backup generation, Syncthing off-machine receipt, retention and a restore from
+   an independent copy. Pairing alone does not prove receipt; local btrbk snapshots
+   are not an independent backup. No stock-SSD state transfer is required.
+3. Verify recovery records/header against the current 1 TB volume, independently
+   of the old SSD's records. Finish a supervised cold power-off/power-on check:
+   unattended installation boot passed, but reported poweroff did not turn the
+   machine off. Keep this separate from warm reboot and
+   [other TPM checks](TPM-ENCRYPTED-ROOT.md).
+4. Complete production steady-state checks: UniFi adoption/WLAN/Site Manager,
+   DDNS publication and Datadog recovery after the next agreed reboot, plus
+   [networking checks](HOST-NETWORKING.md). Preserve source-controller rollback
+   until those and independent backups are accepted. No repeat finalization or
+   first-login password expiry is needed during routine updates.
+5. Schedule physical UPS/hotplug/cloud-metric acceptance with supervision;
+   [monitoring](CLAMPS-DATADOG.md). Firmware/dbx installation stays deferred until
+   console/recovery access is available; [firmware](CLAMPS-FIRMWARE.md).
 
-- Pi-hole IPv4 LAN ingress and UDP/TCP answer behavior passed from Rupik; an
-  isolated Pi-hole v6 instance served a synthetic AAAA over UDP/TCP. Client
-  IPv6 ingress remains deferred until usable LAN IPv6 exists. Still test normal
-  DHCP-provided resolver use and local-resolver/bootstrap outage behavior.
-- Private UI DNS/HTTPS from actual tailnet clients and Caddy denial from a
-  separate network outside the tailnet; guest loopback denial is insufficient.
-- Cloudflare production issuance and bounded renewal, preserving owned records.
-- Physical UPS shutdown/restart and NUT timer/SELinux/reboot/cloud metric recovery:
-  [monitoring acceptance](CLAMPS-DATADOG.md). No forced shutdown in routine smoke.
-- Interrupted SSH credential streaming/encryption: preserve or recover the
-  usable full credential, retry through the normal owner, and verify consumer
-  usability. Atomic-save/activation-failure tests do not cover this interruption.
+## Deferred acceptance and separate work
 
-The SSH-only user-mode VM cannot prove real LAN ingress. Preserve each parked
-check explicitly; [refactor acceptance](SKILLET-REFACTOR.md) remains separate.
-Broader OS hardening is a placeholder, not an accepted Chef port. Confirm any
-retained legacy NAT routes/WOL targets privately rather than guessing them.
-
-## Separate optional work
-
-[Home Assistant](HOME-ASSISTANT.md) has an implemented optional module; its
-physical onboarding and remaining acceptance are separate. It is not a
-rupik-retirement gate. Shared SMTP is implemented; [its follow-ups](CLAMPS-EMAIL.md)
-and parked UniFi recovery email are separate. [Joey](JOEY-MIGRATION.md) may
-proceed independently, preserving its own source and acceptance boundaries.
+- Normal DHCP-provided resolver use and Pi-hole/bootstrap outage behavior remain
+  distinct from accepted explicit LAN DNS queries. LAN IPv6 client ingress awaits
+  usable LAN IPv6; isolated Pi-hole AAAA serving has passed.
+- Retain unverified private-client/identity-denial and certificate-renewal checks
+  in [private UI provisioning](GENERIC-PRIVATE-UIS.md). Older browser evidence does
+  not accept every route on the new installation.
+- Interrupted SSH credential streaming/encryption remains a separate recovery
+  check; atomic-save/activation-failure tests do not establish interruption safety.
+- Broad OS hardening remains a placeholder. Inventory legacy NAT/WOL shortcuts
+  privately rather than guessing requirements. [Source parity](CLAMPS-PARITY.md).
+- [Home Assistant](HOME-ASSISTANT.md) and its selected companions are optional,
+  with their own hardware/restore acceptance. UniFi recovery email is
+  [parked](CLAMPS-EMAIL.md). [Joey](JOEY-MIGRATION.md) and
+  [refactor acceptance](SKILLET-REFACTOR.md) remain independent workstreams.

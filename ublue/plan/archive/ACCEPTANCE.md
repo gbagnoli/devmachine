@@ -4379,3 +4379,22 @@ acceptance; no production host or private DNS values were committed.
   earlier leftover synthetic account was separately identified and removed through
   the same locked, ownership-checked VM transport. The initial cleanup failure's
   exact cause was not established; production apps/agents were not changed.
+
+
+## 2026-11-02 — Replacement-SSD plan reconciliation
+
+- Reconciled active plans against the successful 2026-10-31 fresh installation
+  and subsequent operator confirmations. The replacement 1 TB SSD is installed;
+  final disk selection and another reinstall are not pending. The operator chose
+  no restore from the stock SSD. Preserved superseded trial/rollout instructions
+  in `CLAMPS-BEFORE-SSD-RECONCILIATION.md` without rewriting original evidence.
+- Marked application delivery, replacement Syncthing pairing, UniFi restore/AP
+  visibility, production DDNS handover and sudo finalization as completed in their
+  actual scopes. Kept sustained device/client checks and off-machine receipt
+  distinct from pairing, container activity and bootstrap success.
+- Current-volume independent recovery/header verification, cold power-off/on,
+  replacement-installation update/rollback, pending Bluetooth policy activation,
+  backups/restore and supervised UPS/firmware work remain unverified. Earlier
+  stock-disk reboot/update/recovery results do not close those checks.
+- Documentation reconciliation only; no SSH, production mutation, reinstall,
+  recovery enrollment or new live acceptance was performed.
