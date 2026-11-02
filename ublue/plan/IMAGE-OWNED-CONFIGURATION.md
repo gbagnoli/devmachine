@@ -142,11 +142,13 @@ credential rotation, no-op repeat, restart/reboot, data preservation and safe
 failure tests pass. Report image revision, private configuration revision and
 actual component digests separately without leaking values.
 
-## Slice 5 — daily normal reboot policy
+## Slice 5 — daily reboot policy with verified kexec activation
 
 The operator's eventual policy is a daily reboot, including days without a new
-OS deployment. First implement ordinary firmware/bootloader reboots. Keep them
-disabled until production acceptance and the VM/supervised rollout below pass.
+OS deployment. The operator prefers moving directly to kexec if accepted. The
+VM mechanism below now passes; implement one scheduler with explicit activation
+methods rather than a normal-only scheduler followed by a second redesign. Keep
+scheduling disabled until production acceptance and a supervised Clamps handoff pass.
 
 - Use one reboot owner. Retain the effective uCore update-staging mechanism;
   inspect deployed versions rather than enabling competing Zincati/rpm-ostree
@@ -159,8 +161,16 @@ disabled until production acceptance and the VM/supervised rollout below pass.
   veto. Never force a reboot through an active recovery/restore operation.
 - Prevent catch-up reboots immediately after startup and repeated reboot loops.
   Missed windows defer to the next eligible window; track the attempted window.
-- Use graceful shutdown and normal OSTree staged-deployment finalization. Firmware,
-  dbx/BIOS and TPM policy mutations remain separate supervised operations.
+- For accepted kexec hosts, explicitly finalize/select the approved deployment and
+  load its matching signed kernel/initramfs/options before graceful kexec shutdown.
+  Quiesce configuration writers and serialize activation: the VM experiment finalized
+  live in isolated state; production must preserve late `/etc` changes and stop on
+  finalization/load errors before requesting shutdown. Never select an old default
+  entry merely because the new deployment is not yet finalized.
+- Keep an explicit full firmware reboot method for firmware work, recovery and
+  periodic complete boot checks. Any pre-handoff fallback policy must be visible;
+  a hung kernel handoff cannot promise software fallback. Firmware, dbx/BIOS and
+  TPM policy mutations remain separate supervised operations.
 - Expose last attempt/success, deferred reason, booted release, required container
   digests and post-boot health through module-owned monitoring. A system reaching
   SSH alone does not establish Pi-hole/backup/monitor recovery.
@@ -173,7 +183,7 @@ DNS, credentials, backup schedules and monitoring. Rehearse explicit rollback wi
 compatible data. Then one supervised physical Clamps rollout, followed by observed
 daily runs. Firmware installation stays manual; recovery/password policy is unchanged.
 
-## Separate experiment — kexec, not an initial requirement
+## Kexec mechanism — native VM accepted, physical acceptance pending
 
 Research checked 2026-11-02. Linux kexec can boot a different kernel, whereas
 systemd soft-reboot keeps the current kernel. Thus kernel updates are possible
@@ -205,12 +215,11 @@ Two concrete integration problems prevent a direct substitution of
   needs explicit handling or a verified compatible discovery arrangement. Do not
   report an unprivileged inspection as execution of privileged `systemctl kexec`.
 
-Conclusion: uCore provides kexec primitives, but the current staged-update path
-is not ready for a direct fast-reboot switch. Determine and test explicit target
-selection/finalization ordering in a disposable VM before changing the policy.
-An integration may explicitly prepare the intended deployment and preload its
-matching signed kernel/initramfs/options; preserve normal graceful shutdown,
-configuration merging and rollback. Do not blindly preload the running entry.
+Initial conclusion: the existing production staged-update path is not a direct
+`systemctl kexec` substitution. The subsequent native VM trial below proves explicit
+finalization and signed target loading works. Production activation still needs
+its own serialized/quiesced implementation and supervised hardware acceptance.
+Do not blindly preload the running entry.
 
 Production sudo requires a password and `sudo -n` was unavailable in this
 inspection. No password was requested, no kernel loaded/unloaded, no boot files,
@@ -225,7 +234,41 @@ report describes successful kernel loading followed by handoff hangs. That repor
 is not evidence of failure on Clamps' different N150/AMI hardware; it reinforces
 why successful loading alone is insufficient.
 
-An experiment must establish:
+### Completed native VM trial — 2026-11-02
+
+Dedicated `clamps-test-kexec`, native user-session libvirt, q35 UEFI Secure Boot,
+independent swtpm, LUKS2/Btrfs root and Clevis SHA256 PCR 7. No vault/provider or
+production configuration was delivered. Baseline signed Clamps image booted
+kernel `7.2.9-201.fc44.x86_64`.
+
+Passed actual operations:
+
+- File-syscall loading rejects a tampered signed kernel and accepts the original
+  with Secure Boot and integrity lockdown enabled.
+- Same-kernel graceful kexec returns with a changed boot ID and automatic root unlock.
+- Explicitly finalized/selected signed upstream release `stable-20261028` boots
+  kernel `7.2.7-200.fc44.x86_64` through kexec.
+- Forward signed release `stable-20261030` boots kernel `7.2.9-201.fc44.x86_64`
+  through kexec. Running kernel and booted OSTree checksum match the intended target.
+- Explicit rollback via kexec returns to `7.2.7`; a subsequent full firmware reboot
+  also unlocks unattended. Secure Boot/lockdown and the PCR 7 binding remain enabled.
+- Durable synthetic data hashes match throughout. A synthetic host+TPM encrypted
+  credential decrypts after transitions and a real `LoadCredentialEncrypted=`
+  oneshot consumer verifies its hash after different-kernel, forward, rollback and
+  full-reboot checks. No password or TPM-policy weakening was needed.
+
+Both images were signature-enforced and pinned to registry digests. Private script,
+command logs, final state and boot journals remain under the owned run's
+`kexec-acceptance/`. See [dated acceptance](archive/ACCEPTANCE.md) for references.
+The test VM is not standard host readiness/application acceptance; bootstrap and
+apply were fenced to prevent re-entry into the moving Clamps image channel.
+
+This proves the OS/kernel/TPM mechanism in this native VM. It does not prove
+physical NIC/Wi-Fi/USB/UPS/Bluetooth recovery, production application health,
+automatic scheduling/inhibitors, a safe unattended failure fallback, or a measured
+reboot-time improvement. Keep the remaining matrix below for those boundaries.
+
+Remaining implementation/acceptance must establish:
 
 1. Actual deployed kernel configuration, tools, systemd version, Secure Boot/
    lockdown rules, trusted signing keys and platform support. Do not weaken Secure
@@ -240,14 +283,16 @@ An experiment must establish:
 4. Normal service shutdown, storage integrity, NIC/Wi-Fi/USB/Bluetooth/UPS recovery,
    and bounded return to service. A failed transition may need console/power access;
    a local shell cannot promise fallback after it loses control.
-5. Named UEFI/swtpm VM trials for same-kernel restart, real kernel update, retained
-   credentials/data, wrong-signature rejection, rollback and a subsequent full
-   firmware reboot. Only then supervised physical trials and measured downtime
-   comparison. Reserve periodic full boots and use full reboot for firmware work.
+5. Preserve the passed native UEFI/swtpm matrix above; repeat affected cases when
+   the production activation implementation changes. Then run supervised physical
+   trials and measure downtime. VM results do not establish physical device recovery
+   or Flatpak equivalence. Reserve periodic full boots and use full reboot for
+   firmware work.
 
-Exit: optional explicit per-host fast-reboot capability only after the complete
-matrix passes with console recovery. Otherwise retain normal daily reboots.
-This experiment does not block the image-ownership or daily reboot slices.
+Exit: explicit per-host kexec activation after the remaining matrix and supervised
+hardware trial pass with console recovery. The VM checks above need repeating only
+when implementation changes affect them. Keep current production reboot behavior
+until then; this does not block image rendering/pinning work.
 
 ## Validation and completion
 

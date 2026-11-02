@@ -4444,3 +4444,58 @@ acceptance; no production host or private DNS values were committed.
   signed handoff, TPM unlock, kernel-update activation and hardware recovery remain
   unverified. The conclusion is available primitives, not a ready drop-in update
   mechanism. Normal reboot policy remains unchanged pending disposable tests.
+
+
+## 2026-11-02 — Native Secure Boot/TPM kexec acceptance
+
+- Stopped the previously running local `donbot-test-joplin`. Graceful libvirt
+  shutdown did not finish; a subsequent forced stop preserved its disks and
+  retained provider state. Created only the dedicated owned `clamps-test-kexec`
+  on native `qemu:///session`, q35 UEFI Secure Boot, separate swtpm/NVRAM,
+  LUKS2/Btrfs and native Clevis SHA256 PCR 7. No production credentials or provider
+  enrollment was needed. Physical Clamps was untouched.
+- Normal creation booted the signed Clamps image on kernel `7.2.9-201.fc44.x86_64`.
+  Interrupted the long standard readiness wait to inspect bootstrap progress via
+  the locked/ownership-checked `guest_command` adapter; no full application/user
+  readiness is claimed. All guest test operations used that adapter and pinned SSH
+  trust. Created only random synthetic data and a host+TPM encrypted test credential.
+- A modified PE kernel section caused `kexec -s -l` to fail with key rejection;
+  the genuine kernel loaded successfully. Graceful same-kernel `systemctl kexec`
+  changed the boot ID, unlocked root unattended and preserved the test-data hash.
+- Pinned signed upstream images used for different-kernel tests:
+  `ghcr.io/ublue-os/ucore@sha256:34f0df38269a8cb5e80710c5de6cd4bcd6e1d2bb28999db437569635004d4462`
+  (`stable-20261028`, kernel `7.2.7-200.fc44.x86_64`) and
+  `ghcr.io/ublue-os/ucore@sha256:d1bb5bcae9592bff6483d3a0e13cb23132919fe695b26786b7b50651b276b0a1`
+  (`stable-20261030`, kernel `7.2.9-201.fc44.x86_64`). Registry inspection needed
+  `--no-tags`; unrestricted tag enumeration stalled and was stopped.
+- Initial ordinary boot into the older release was redirected by the bootstrap
+  dependency graph back through unsigned/signed Clamps. Disabling the bootstrap
+  unit was insufficient because other units require it. Preserved its original
+  unit and masked it in this disposable VM; also fenced automatic update/apply.
+  Retried the pinned transition successfully. These were test-isolation retries,
+  not evidence of a kexec/TPM failure.
+- Successful tested activation: stage the signed digest, explicitly finalize
+  with `ostree admin finalize-staged` while the test state is quiescent, resolve
+  the exact target checksum through its generated BLS entry, and load that entry's
+  kernel/initramfs/options using `kexec -s -l`. Then invoke graceful
+  `systemctl kexec`. No forced handoff, signature bypass or PCR rebinding was used.
+- Passed: different-kernel kexec to `7.2.7`; forward staged update to `7.2.9`;
+  explicit OSTree rollback and kexec back to `7.2.7`; subsequent full firmware
+  reboot with no kernel armed. Each verified a new boot ID, intended kernel and
+  deployment checksum, automatic encrypted-root unlock, enabled Secure Boot and
+  integrity lockdown, unchanged PCR 7 binding and identical synthetic data hash.
+- Synthetic encrypted credential decrypt/hash checks and an actual systemd
+  `LoadCredentialEncrypted=` oneshot consumer passed after different-kernel,
+  forward, rollback and final firmware boots. Plaintext remained in process/
+  systemd credential memory, not logs. Private assertions, command logs, boot
+  journals and final state are retained in the run's `kexec-acceptance/` directory.
+- This accepts the native VM mechanism, not a production activation implementation,
+  physical device recovery, benchmark, full host application smoke, scheduler,
+  fault fallback or Flatpak equivalence. Production must serialize/quiesce config
+  writers around early finalization so late `/etc` changes are not lost. A later
+  supervised physical trial remains required. No image, runtime provisioning,
+  firmware, TPM policy or production reboot scheduler was changed.
+- Final native libvirt inventory verifies both `clamps-test-kexec` and the previous
+  `donbot-test-joplin` are shut off. Test artifacts/disks are retained for inspection;
+  no domain was undefined. Documentation local targets and whitespace checks pass.
+  No Rust/runtime implementation changed, so no new workspace test result is claimed.

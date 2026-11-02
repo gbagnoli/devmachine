@@ -40,6 +40,12 @@ compiler and synthetic current/future-PCR, interrupted-import and policy-denial
 checks without a vault. Physical success does not silently close unrun backend
 checks. Plain root remains supported.
 
+Native UEFI/swtpm kexec acceptance passed on 2026-11-02: signed-kernel rejection/
+loading, same/different-kernel handoffs, forward update, rollback, automatic PCR 7
+root unlock, encrypted systemd credential use and a later full firmware reboot.
+This is not physical Clamps kexec acceptance or the physical-media bootstrap
+prerequisite test. [Activation plan](IMAGE-OWNED-CONFIGURATION.md).
+
 Firmware/dbx work requires [supervised maintenance](CLAMPS-FIRMWARE.md), current
 recovery material and console access. Before destructive recovery, verify the
 intended volume, preserve the source unlock path and disable secret-bearing

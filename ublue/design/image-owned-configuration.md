@@ -14,7 +14,9 @@ Each output has one owner. Image rollback never implies application-data rollbac
 Move service updates from independent mutable-tag pulls to tested digest updates
 and signed release promotion. The eventual activation policy is daily normal
 reboots in staggered host windows; keep scheduling disabled until accepted.
-Kexec remains an optional separately tested optimization, not a prerequisite.
+The operator prefers kexec directly: the native VM mechanism passes, while
+production activation ordering and supervised hardware acceptance remain required.
+Retain an explicit full firmware reboot method.
 Firmware/TPM policy changes remain supervised. Existing runtime deployment and
 container updates continue until their individual migrations are implemented.
 
