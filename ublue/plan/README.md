@@ -8,6 +8,7 @@ Only unfinished implementation and acceptance belongs here. Commands live in
 | Area | Current work |
 | --- | --- |
 | Clamps | [Post-install acceptance/backups](CLAMPS-MIGRATION.md), [source parity](CLAMPS-PARITY.md) |
+| Image ownership | [Post-production build-time Skillet, pinned releases and daily reboots](IMAGE-OWNED-CONFIGURATION.md) |
 | Networking | [Static profiles and physical adoption](HOST-NETWORKING.md) |
 | Firmware | [Clamps supervised firmware/BIOS maintenance](CLAMPS-FIRMWARE.md) |
 | Encryption | [TPM/recovery acceptance](TPM-ENCRYPTED-ROOT.md) |

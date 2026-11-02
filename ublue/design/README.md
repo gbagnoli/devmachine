@@ -5,7 +5,8 @@ These documents describe decisions, rationale and constraints. Commands live in
 [plans](../plan/README.md).
 
 - Architecture: [Skillet](skillet-architecture.md), [fleet](fleet-hosts.md),
-  [Podman](podman-runtime.md), [VMs](smoke-vms.md)
+  [Podman](podman-runtime.md), [VMs](smoke-vms.md),
+  [planned image ownership](image-owned-configuration.md)
 - Provisioning: [secrets](secrets.md), [templates](configuration-templates.md),
   [host application](host-application.md), [access](administrative-access.md)
 - Storage: [data/root](storage.md), [snapshots](btrbk.md), [Syncthing](syncthing.md)

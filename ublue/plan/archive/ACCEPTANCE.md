@@ -4408,3 +4408,19 @@ acceptance; no production host or private DNS values were committed.
   rollback and individual service/monitoring recovery are not implied by this
   confirmation. The earlier poweroff observation remains historical; no BIOS or
   firmware fix is inferred.
+
+
+## 2026-11-02 — Deferred image-ownership roadmap
+
+- Added `IMAGE-OWNED-CONFIGURATION.md`, explicitly sequenced after Clamps
+  production acceptance. Slices cover pure rendering/image artifacts, a static
+  service pilot, retained-state ownership migration, digest-pinned releases,
+  smaller runtime apply and eventual daily staggered normal reboots.
+- Researched upstream uCore staging defaults, OSTree finalization, systemd kexec/
+  soft-reboot and kernel signature/lockdown behavior. Kexec can start a new kernel;
+  no deployed-uCore fast-update/TPM acceptance was established. Kept it a separate
+  optional UEFI/TPM VM-first experiment with later supervised physical testing.
+- Documentation only. No image/runtime policy, container pin, update timer,
+  reboot schedule, production deployment or firmware/TPM state was changed.
+  Local Markdown targets and diff whitespace checks passed; runtime tests do not
+  apply to this planning change.

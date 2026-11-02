@@ -48,3 +48,7 @@ Git revision and tracked dirty state, collected at build time with vergen-gix.
 All generic/host entry points expose it and guest apply logs it. Build metadata
 contains no timestamp or workstation identity. Git and tracked-source changes
 refresh metadata without a clean build; unavailable provenance is explicit.
+
+Planned after Clamps production acceptance: [image-owned configuration](image-owned-configuration.md)
+will reuse these boundaries for build rendering and a smaller runtime owner.
+Current live deployment/apply semantics remain unchanged until each slice migrates.
