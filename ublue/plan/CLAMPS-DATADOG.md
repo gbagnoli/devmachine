@@ -14,7 +14,8 @@ Operating guides: [Datadog](../skillet/crates/datadog/README.md),
    uCore with enforcing SELinux, default seccomp, explicit PERFMON and read-only
    debugfs. Agent health and live cloud metric submissions passed after the
    independent resolver fix; system-probe reported fresh network-tracer activity.
-   Physical cold-boot recovery remains unverified for this rollout; native VM
+   Physical cold power-on is operator-confirmed; Agent/system-probe health and
+   cloud ingestion after that boot remain unverified for this rollout. Native VM
    reboot evidence is separate. See the dated acceptance record.
 2. Verify selected NUT timer/socket labels, hotplug/absence behavior, repeat
    apply and cold-boot recovery on uCore. Correlate the bounded collector output

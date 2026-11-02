@@ -12,7 +12,7 @@ Sources: `roles/rupik.rb` includes `role[server]`, `server::wol`, and `rupik`.
 
 | Chef capability | Clamps implementation / deliberate change | Remaining work |
 | --- | --- | --- |
-| Btrfs `/srv` and system/user Podman stores | Shared `/var/lib/data` subvolume; system graphroot under `containers/system`, overlay driver on uCore | Fresh replacement 1 TB encrypted install and signed bootstrap passed; current-volume independent recovery, cold power-on and update/rollback checks remain; no old stock-SSD state transfer requested |
+| Btrfs `/srv` and system/user Podman stores | Shared `/var/lib/data` subvolume; system graphroot under `containers/system`, overlay driver on uCore | Fresh replacement 1 TB encrypted install and signed bootstrap passed; physical cold power-on operator-confirmed; current-volume independent recovery and update/rollback checks remain; no old stock-SSD state transfer requested |
 | Disable resolved; Pi-hole | Mask/resolver setup, dual-stack port 53, persistent service data, identity-gated isolated web backend and encrypted shared v6 DNS inventory | Shared DNS inventory delivered; explicit IPv4 LAN queries passed. Verify intended replacement-installation records, DHCP-client use and outage behavior; no old Pi-hole state import assumed |
 | nginx, ACME, OAuth proxy, web pod | Separate bridge containers; generic Caddy routes, Cloudflare DNS-01, tailnet restriction, per-service names and aliases | Production certificate/renewal and external-source denial; inventory any legacy cross-host routes still needed |
 | Syncthing | Container and leaf data subvolume; peer ports retained; host GUI publication removed; explicit host/container identity mapping | Operator paired replacement Clamps; verify actual peer receipt/off-machine backups. Flatpak ownership-fix acceptance remains parked independently |
@@ -41,6 +41,6 @@ exists. Additional private run-list recipes remain an inventory question.
 Follow [clamps migration](CLAMPS-MIGRATION.md) for deployment/cutover sequencing.
 Keep [refactor acceptance](SKILLET-REFACTOR.md) separate from production scopes.
 Replacement 1 TB installation and application delivery are complete. Do not
-repeat stock-SSD migration/finalization; keep cold-power, current-volume recovery,
+repeat stock-SSD migration/finalization; physical cold power-on is confirmed. Keep current-volume recovery,
 off-machine backup and remaining service checks separate from bootstrap success.
 Record actual results in [acceptance](archive/ACCEPTANCE.md).

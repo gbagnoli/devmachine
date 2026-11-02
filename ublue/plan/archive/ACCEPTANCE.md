@@ -4398,3 +4398,13 @@ acceptance; no production host or private DNS values were committed.
   stock-disk reboot/update/recovery results do not close those checks.
 - Documentation reconciliation only; no SSH, production mutation, reinstall,
   recovery enrollment or new live acceptance was performed.
+
+
+## 2026-11-02 — Replacement-SSD cold power-on confirmed
+
+- The operator confirms cold power-on works on physical Clamps after replacement
+  SSD installation. This closes unattended physical cold-start acceptance.
+- No new agent-run check was performed. Networkless boot, current-volume recovery,
+  rollback and individual service/monitoring recovery are not implied by this
+  confirmation. The earlier poweroff observation remains historical; no BIOS or
+  firmware fix is inferred.

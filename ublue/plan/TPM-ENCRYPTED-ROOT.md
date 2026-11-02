@@ -9,8 +9,9 @@ The 2026-10-31 physical retry verified the initial Fedora XFS root, passed all
 bootstrap transitions into signed uCore without manual recovery, reported
 `target boot verified: true`, mounted encrypted Btrfs `/data`, and completed base
 and subsequent credential/application delivery. This accepts the fresh physical
-bootstrap path. It does not establish a later cold power-on, rollback or recovery
-rehearsal. See [dated evidence](archive/ACCEPTANCE.md).
+bootstrap path. On 2026-11-02 the operator additionally confirmed cold power-on
+works, accepting unattended startup on the replacement SSD. Networkless boot,
+rollback and recovery rehearsal remain separate. See [dated evidence](archive/ACCEPTANCE.md).
 
 Earlier stock-SSD assisted recovery/cleanup and successful rebase evidence remain
 historical, distinct from this clean replacement-disk installation. Previous failed
@@ -26,7 +27,6 @@ Operating procedures: [TPM/recovery](../skillet/crates/workstation/docs/tpm.md),
 | Check | Required evidence |
 | --- | --- |
 | Current-volume recovery records | Independently verify recovery key/header and volume identity for the replacement 1 TB SSD; old-disk recovery evidence does not transfer |
-| Physical cold power-on | Resolve reported failure to power off and verify unattended power-on; warm reboot/bootstrap success is separate |
 | Networkless cold boot | Root/data unlock and base storage work with NICs disconnected after images/bootstrap are present; network-dependent apps are separate |
 | Approved OS update/rebase/rollback | Unattended unlock and unchanged data/credentials on the replacement installation across the agreed image matrix; older stock-disk update evidence is separate |
 | Covered-policy change | Expected fail-closed TPM unlock followed by independently verified recovery and deliberate rebinding; never weaken to empty PCRs |

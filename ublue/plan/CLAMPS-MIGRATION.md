@@ -21,6 +21,9 @@ restoring data from the old stock SSD. The old work order is
   device firewall rules work; [UniFi](CLAMPS-UNIFI.md).
 - Production DDNS moved to Clamps, with explicit record takeover and successful
   strict repeat delivery. Rupik's updater is stopped/masked; keep one writer.
+- On 2026-11-02 the operator confirmed cold power-on works on the replacement
+  installation, accepting unattended physical startup. Networkless boot and
+  individual service/metric recovery remain separate checks.
 - The operator finalized password-required sudo. Shared deploy/apply supports
   interactive sudo and a thirty-minute scoped kernel cache; SSH-key unlock and
   the three-hour vault cache remain independent.
@@ -37,10 +40,9 @@ restoring data from the old stock SSD. The old work order is
    an independent copy. Pairing alone does not prove receipt; local btrbk snapshots
    are not an independent backup. No stock-SSD state transfer is required.
 3. Verify recovery records/header against the current 1 TB volume, independently
-   of the old SSD's records. Finish a supervised cold power-off/power-on check:
-   unattended installation boot passed, but reported poweroff did not turn the
-   machine off. Keep this separate from warm reboot and
-   [other TPM checks](TPM-ENCRYPTED-ROOT.md).
+   of the old SSD's records. Physical cold power-on is operator-confirmed; finish
+   the remaining [TPM checks](TPM-ENCRYPTED-ROOT.md), including networkless boot
+   and update/rollback preservation.
 4. Complete production steady-state checks: UniFi adoption/WLAN/Site Manager,
    DDNS publication and Datadog recovery after the next agreed reboot, plus
    [networking checks](HOST-NETWORKING.md). Preserve source-controller rollback
