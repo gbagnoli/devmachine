@@ -153,6 +153,11 @@ scheduling disabled until production acceptance and a supervised Clamps handoff 
 - Use one reboot owner. Retain the effective uCore update-staging mechanism;
   inspect deployed versions rather than enabling competing Zincati/rpm-ostree
   schedulers. Staging downloads/prepares updates; scheduling chooses activation.
+  Do not finalize or load a kernel merely because an image was staged. At each
+  eligible reboot window, re-read the current pending deployment and prepare that
+  target; if none is pending, prepare the running deployment. A deferred reboot
+  leaves updates staged so a later update may replace the target before the next
+  window. Serialize target selection against concurrent staging.
 - Configure a per-host daily window, explicit timezone and fleet staggering.
   Agree the window/outage budget before production activation. Do not reboot both
   DNS peers together; a missing second peer requires an accepted outage policy.
@@ -166,9 +171,15 @@ scheduling disabled until production acceptance and a supervised Clamps handoff 
   Quiesce configuration writers and serialize activation: the VM experiment finalized
   live in isolated state; production must preserve late `/etc` changes and stop on
   finalization/load errors before requesting shutdown. Never select an old default
-  entry merely because the new deployment is not yet finalized.
+  entry merely because the new deployment is not yet finalized. Load only
+  immediately before the intended handoff; if activation is abandoned, unload the
+  prepared kernel and verify it is no longer armed before returning. Systemd may
+  otherwise use it for a later ordinary reboot. An unload failure is visible and
+  blocks further automatic reboot attempts until resolved.
 - Keep an explicit full firmware reboot method for firmware work, recovery and
-  periodic complete boot checks. Any pre-handoff fallback policy must be visible;
+  periodic complete boot checks. A monthly full reboot is a proposed starting
+  cadence, not an established requirement; choose a per-host schedule after the
+  physical trial and stagger DNS peers. Any pre-handoff fallback policy must be visible;
   a hung kernel handoff cannot promise software fallback. Firmware, dbx/BIOS and
   TPM policy mutations remain separate supervised operations.
 - Expose last attempt/success, deferred reason, booted release, required container
@@ -177,7 +188,8 @@ scheduling disabled until production acceptance and a supervised Clamps handoff 
 
 Exit: timer policy tests plus named UEFI/TPM VM tests for no-update daily reboot,
 staged userspace and kernel updates, inhibitors/deferrals, missed windows,
-interrupted staging and reboot-loop prevention. Verify boot ID, deployed digest,
+interrupted staging, a replacement update before the window, abandoned-load
+cleanup and reboot-loop prevention. Verify boot ID, deployed digest,
 `uname -r` when the release changes kernel, automatic unlock, mounts, private UIs,
 DNS, credentials, backup schedules and monitoring. Rehearse explicit rollback with
 compatible data. Then one supervised physical Clamps rollout, followed by observed
