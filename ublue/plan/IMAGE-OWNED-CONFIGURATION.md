@@ -158,6 +158,13 @@ scheduling disabled until production acceptance and a supervised Clamps handoff 
   target; if none is pending, prepare the running deployment. A deferred reboot
   leaves updates staged so a later update may replace the target before the next
   window. Serialize target selection against concurrent staging.
+  `libglnx` uses open-file-description locks when available and unlinks its
+  lock file on release; a plain `flock` on the same path does not coordinate
+  with it on Linux. The activation implementation must prove interoperability
+  with the installed OSTree version, including lock-file replacement, rather
+  than assuming that matching the path is sufficient. OSTree's own sysroot
+  lock is non-reentrant, so do not hold it across `finalize-staged`.
+  See [libglnx's lock-file implementation](https://github.com/GNOME/libglnx/blob/master/glnx-lockfile.c).
 - Configure a per-host daily window, explicit timezone and fleet staggering.
   Agree the window/outage budget before production activation. Do not reboot both
   DNS peers together; a missing second peer requires an accepted outage policy.
@@ -194,6 +201,12 @@ cleanup and reboot-loop prevention. Verify boot ID, deployed digest,
 DNS, credentials, backup schedules and monitoring. Rehearse explicit rollback with
 compatible data. Then one supervised physical Clamps rollout, followed by observed
 daily runs. Firmware installation stays manual; recovery/password policy is unchanged.
+
+Implementation in progress: the shared BLS selector validates the exact resolved
+deployment and has been exercised read-only against the booted deployment in the
+disposable TPM VM. It is not connected to an activation service. Coordination of
+the complete multi-command remote apply, OSTree staging, and cleanup after a killed
+activation process remains to be implemented and tested before enabling a timer.
 
 ## Kexec mechanism — native VM accepted, physical acceptance pending
 

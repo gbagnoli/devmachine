@@ -12,6 +12,7 @@ use tracing_subscriber::FmtSubscriber;
 
 pub mod access;
 pub mod hosts;
+pub mod kexec;
 mod metrics;
 pub mod version;
 pub use metrics::{run_metrics, MetricsCommands};
