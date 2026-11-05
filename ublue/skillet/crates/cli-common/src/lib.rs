@@ -73,6 +73,10 @@ pub struct HostArgs {
 
 #[derive(clap::Subcommand, Debug)]
 pub enum HostCommands {
+    Kexec {
+        #[command(subcommand)]
+        command: kexec::runtime::Commands,
+    },
     Gokapi {
         #[command(subcommand)]
         command: gokapi_runtime::Commands,
@@ -181,6 +185,7 @@ where
     tracing::subscriber::set_global_default(subscriber)?;
 
     match args.command {
+        HostCommands::Kexec { command } => kexec::runtime::dispatch(command),
         HostCommands::Homeassistant { command } => homeassistant_runtime::dispatch(&command),
         HostCommands::Postgres { command } => postgres_runtime::dispatch(command),
         HostCommands::Gokapi { command } => gokapi_runtime::dispatch(command),

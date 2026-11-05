@@ -63,5 +63,23 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
     println!("Verified the booted deployment has one matching BLS entry and valid boot artifacts");
+    if std::env::args().nth(1).as_deref() == Some("--load-and-hold") {
+        if fs::read_to_string("/sys/kernel/kexec_loaded")?.trim() != "0" {
+            return Err(io::Error::other("a foreign kernel is already armed").into());
+        }
+        let status = Command::new("kexec")
+            .args(["-s", "-l"])
+            .arg(&entry.kernel)
+            .arg(format!("--initrd={}", entry.initrd.display()))
+            .arg(format!("--command-line={}", entry.options))
+            .status()?;
+        if !status.success() {
+            return Err(io::Error::other("signed kernel load failed").into());
+        }
+        println!("Kernel armed; waiting for the acceptance supervisor");
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+    }
     Ok(())
 }

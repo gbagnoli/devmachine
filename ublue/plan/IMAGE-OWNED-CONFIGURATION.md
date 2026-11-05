@@ -204,9 +204,38 @@ daily runs. Firmware installation stays manual; recovery/password policy is unch
 
 Implementation in progress: the shared BLS selector validates the exact resolved
 deployment and has been exercised read-only against the booted deployment in the
-disposable TPM VM. It is not connected to an activation service. Coordination of
-the complete multi-command remote apply, OSTree staging, and cleanup after a killed
-activation process remains to be implemented and tested before enabling a timer.
+disposable TPM VM. An opt-in `kexec install` host command now installs
+`skillet-kexec-activate.service`, with boot/invocation ownership and independent
+cleanup. It supports only the booted deployment and refuses pending deployments.
+Coordination of the complete multi-command remote apply and OSTree staging remains
+to be implemented and tested before enabling an update-activation timer.
+
+2026-11-05 VM acceptance: the Rust probe now has a disposable-test-only
+`--load-and-hold` mode. `butane/tests/kexec-interruption.py` runs it under
+systemd supervision with `ExecStopPost=kexec -s -u`. Killing the armed worker
+with SIGKILL cleared `/sys/kernel/kexec_loaded`. The same unit with
+`DefaultDependencies=no` survived the normal shutdown transaction and permitted
+a real same-kernel `systemctl kexec`; the guest returned with a changed boot ID,
+Secure Boot/integrity lockdown, automatic PCR7 unlock, the expected deployment,
+and verified synthetic encrypted credential/data fixture. The journal records
+`System is rebooting with kexec` and successful `systemd-kexec.service`.
+No staged-update coordination or unattended production owner is established by
+this fixture. The transient test service has no production scheduling role.
+
+Subsequent 2026-11-05 service acceptance: installed the host binary and its actual
+`skillet-kexec-activate.service` in the owned VM. Service start completed a graceful
+same-kernel handoff with a changed boot ID. The final worker was also tested with
+a blocking shutdown inhibitor: handoff failed, the kernel was unloaded and its
+ownership marker removed. A SIGSTOP while the loader child ran allowed SIGKILL
+of the actual worker after arming; `ExecStopPost` again unloaded the kernel and
+removed the matching ownership marker. No physical host was changed.
+
+Forced-poweroff recovery: after the service handoff, `virsh destroy` followed by
+`virsh start` performed an abrupt power loss and normal UEFI boot. The guest
+returned unattended with Secure Boot, integrity lockdown, PCR7 root binding,
+Btrfs root, expected deployment, unchanged synthetic data and a successfully
+decrypted synthetic credential; no kernel remained armed. This does not establish
+staged-update recovery or application database durability under power loss.
 
 ## Kexec mechanism — native VM accepted, physical acceptance pending
 

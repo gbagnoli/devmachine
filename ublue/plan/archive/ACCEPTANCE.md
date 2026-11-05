@@ -4499,3 +4499,23 @@ acceptance; no production host or private DNS values were committed.
   `donbot-test-joplin` are shut off. Test artifacts/disks are retained for inspection;
   no domain was undefined. Documentation local targets and whitespace checks pass.
   No Rust/runtime implementation changed, so no new workspace test result is claimed.
+
+## 2026-11-05 — opt-in kexec service and abrupt power-loss recovery
+
+- Installed the actual host CLI's `skillet-kexec-activate.service` in the owned
+  native UEFI/Secure Boot/swtpm `clamps-test-kexec` VM. A service start completed
+  same-kernel kexec with a changed boot ID. The service installs no timer and
+  rejects pending deployments; staged-update/configuration coordination is pending.
+- Final worker: a blocking shutdown inhibitor prevented handoff; independent
+  ownership-checked cleanup unloaded the kernel and removed its `/run` marker.
+  Separately stopped the parent while its loader child armed the kernel, then
+  sent SIGKILL; the actual service's cleanup again cleared kernel and marker.
+- Forced `virsh destroy` after service acceptance, then started through UEFI.
+  Unattended boot returned on kernel `7.2.7-200.fc44.x86_64` with Secure Boot and
+  integrity lockdown, PCR7 binding, Btrfs root, expected deployment and verified
+  synthetic credential/data fixture. `/sys/kernel/kexec_loaded` was `0`.
+  This does not prove application database recovery or staged-update recovery.
+- Fixture-only Rust load/hold worker also passed SIGKILL cleanup and a same-kernel
+  handoff. Execution from `/var/tmp` was rejected by enforcing SELinux; installing
+  in the guest's executable directory and running `restorecon` fixed execution
+  without weakening policy. No physical host or production schedule was changed.

@@ -1,5 +1,7 @@
 # Shared guest CLI
 
+Controlled reboot commands: [kexec activation service](KEXEC.md).
+
 ## Administrative access
 
 Finish service configuration and credential delivery first. On the host, run:
