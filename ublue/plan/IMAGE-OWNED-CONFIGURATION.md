@@ -203,6 +203,11 @@ compatible data. Then one supervised physical Clamps rollout, followed by observ
 daily runs. Firmware installation stays manual; recovery/password policy is unchanged.
 
 Implemented staged activation: the installed service takes cooperative configuration
+exclusion. The `skillet_kexec` crate owns the renderer, convergence and runtime;
+Clamps opts in through its canonical service declaration. Base and full apply
+install/update the unit without starting activation or enabling a timer. The
+separate `kexec install` command is removed. Interrupted systemd reloads are retried
+using a successfully-applied definition marker. The service takes configuration
 exclusion, checks the fresh target under native OSTree OFD locking, pauses the
 existing rpm-ostreed staging owner and finalizes the selected pending deployment.
 Its private mount namespace permits writable sysroot operations without changing

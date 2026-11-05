@@ -1,6 +1,6 @@
 """Failure acceptance for the installed service; owned disposable guest only.
 
-Run as root after installing its executable and running `kexec install`.
+Run as root after installing its executable and running base apply.
 Argument: `inhibited` or `killed`. Neither case should reboot the guest.
 """
 

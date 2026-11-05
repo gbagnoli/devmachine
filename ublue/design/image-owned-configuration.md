@@ -17,6 +17,11 @@ reboots in staggered host windows; keep scheduling disabled until accepted.
 The operator prefers kexec directly: the native VM mechanism passes, while
 production activation ordering and supervised hardware acceptance remain required.
 Retain an explicit full firmware reboot method.
+The `skillet_kexec` crate owns activation convergence and guest runtime behavior.
+Hosts opt in through their canonical service declarations; Clamps declares it.
+Base and full apply install the unit without starting it or enabling a timer.
+Definition convergence records a successful systemd reload so interrupted
+installation retries the reload. No separate installation command is needed.
 The opt-in activation service now coordinates staged activation with cooperative
 Skillet writers and the existing staging daemon. It uses native OSTree locking
 and private mount access to finalize the selected deployment. Once `/etc` is

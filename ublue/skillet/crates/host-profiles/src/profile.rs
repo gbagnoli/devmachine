@@ -54,6 +54,7 @@ pub struct CredentialConsumer {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ServiceConfig {
+    Kexec,
     Pihole,
     Syncthing {
         instance: skillet_syncthing::Instance,
@@ -132,6 +133,7 @@ impl HostService {
     }
     pub fn name(&self) -> &'static str {
         match self.config {
+            ServiceConfig::Kexec => "kexec",
             ServiceConfig::Pihole => "pihole",
             ServiceConfig::Syncthing { instance, .. } => instance.name(),
             ServiceConfig::Mikochi { .. } => "mikochi",
@@ -358,6 +360,9 @@ impl HostProfile {
                 ) && (with_ddns || !matches!(service.config, ServiceConfig::Ddns { .. }))
             })
             .flat_map(|service| {
+                if matches!(service.config, ServiceConfig::Kexec) {
+                    return Vec::new();
+                }
                 let mut declared = vec![acceptance_service(self.id.as_str(), service)];
                 let database = match service.config {
                     ServiceConfig::Joplin(config) => Some(config.postgres()),
@@ -638,15 +643,20 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
             listeners: Vec::new(),
             health_probe: Some(HealthProbe::Tailscale),
         },
-        ServiceConfig::Btrbk { .. } => AcceptanceService {
-            unit: "skillet-btrbk.timer".into(),
-            container: None,
-            network_mode: None,
-            bind_paths: Vec::new(),
-            owner: None,
-            listeners: Vec::new(),
-            health_probe: None,
-        },
+        ServiceConfig::Kexec => host_unit_acceptance(skillet_kexec::service::UNIT),
+        ServiceConfig::Btrbk { .. } => host_unit_acceptance("skillet-btrbk.timer"),
+    }
+}
+
+fn host_unit_acceptance(unit: &str) -> AcceptanceService {
+    AcceptanceService {
+        unit: unit.into(),
+        container: None,
+        network_mode: None,
+        bind_paths: Vec::new(),
+        owner: None,
+        listeners: Vec::new(),
+        health_probe: None,
     }
 }
 
@@ -768,6 +778,11 @@ const SYNCTHING_UI: UiServiceDeclaration = UiServiceDeclaration {
     aliases: &["sync.{host}"],
 };
 
+const KEXEC_SERVICE: HostService = HostService {
+    config: ServiceConfig::Kexec,
+    ui: None,
+};
+
 fn clamps() -> HostProfile {
     HostProfile {
         id: HostId::known("clamps"),
@@ -781,6 +796,7 @@ fn clamps() -> HostProfile {
         },
         requires_data_mount: true,
         services: vec![
+            KEXEC_SERVICE,
             HostService {
                 config: ServiceConfig::Network(skillet_network::Selection {
                     wired: true,

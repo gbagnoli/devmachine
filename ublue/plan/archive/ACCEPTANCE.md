@@ -4547,3 +4547,18 @@ acceptance; no production host or private DNS values were committed.
   power-loss recovery. No physical Clamps changes or timer enablement occurred.
 - Workspace formatting, pedantic Clippy, workspace tests and Joey base container
   integration passed; its repeated apply issued no service start/restart.
+
+## 2026-11-05 — caller-selected kexec crate and apply-time installation
+
+- Extracted rendering, convergence and runtime into `skillet_kexec`. Clamps
+  declares the capability; Joey and Donbot opt out. Both base and full apply
+  install/update the unit with the canonical host-binary path. Apply never
+  starts activation, and no timer is installed. The separate installation
+  command was removed; the shared guest CLI delegates worker/cleanup to the crate.
+- Resource tests verify no start/restart, a no-op repeated installation, and
+  recovery after an injected systemd reload failure. Profile tests verify opt-in
+  isolation and actual Clamps base dispatch installing the inactive unit.
+- Workspace formatting, pedantic Clippy, all workspace tests and Joey base
+  container integration passed. The secrets catalogue includes the no-secret
+  module and regenerated checklist. No live host or VM reboot was performed
+  for this extraction; earlier native activation evidence retains its scope.

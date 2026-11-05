@@ -99,6 +99,10 @@ Dedicated PostgreSQL password is generated once and stored in KeePassXC before d
 | `skillet/environments/prod/hosts/<host>/joplin/database-password` | Generated | Password = Skillet-generated dedicated Joplin database password. Skillet uses the existing value or creates it before delivery. If the host already has an encrypted credential but this entry is missing, restore the KeePassXC value; Skillet will not replace it. |
 | `skillet/environments/test/hosts/<host>/instances/<instance>/joplin/database-password` | Generated | Password = Skillet-generated disposable Joplin database password, scoped to this test VM instance. It remains in KeePassXC after VM destruction until you remove the instance entry. |
 
+## Kexec
+
+No vault entries required. Caller-selected activation service is installed during apply. [Setup](ublue/skillet/crates/kexec/README.md).
+
 ## Media
 
 Linked Arr stack: separate internal API keys, private browser UIs and environment-specific Put.io access. [Setup](ublue/skillet/crates/media/README.md).

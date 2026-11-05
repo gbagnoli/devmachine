@@ -116,6 +116,8 @@ pub fn boot_policy_for_host(hostname: &str) -> Option<HostBootPolicy> {
 
 #[derive(Error, Debug)]
 pub enum ApplyError {
+    #[error(transparent)]
+    Kexec(#[from] skillet_kexec::service::Error),
     #[error("System error: {0}")]
     System(#[from] SystemError),
     #[error("File error: {0}")]
@@ -431,6 +433,7 @@ fn apply_profile(
     credentials: &CredentialInputs,
 ) -> Result<(), ApplyError> {
     apply_base(system, files)?;
+    install_kexec(system, files, profile)?;
     install_syncthing_initializers(system, files, profile)?;
     application_unit::install(system, files, profile)?;
     if profile.requires_data_mount {
@@ -448,8 +451,8 @@ fn apply_profile(
     }
     for service in &profile.services {
         match &service.config {
-            // Independently credential-gated optional services have their own phase.
-            ServiceConfig::Ddns { .. }
+            // These services have base installers or separate credential-gated phases.
+            ServiceConfig::Kexec | ServiceConfig::Ddns { .. }
             | ServiceConfig::Datadog { .. }
             | ServiceConfig::Smtp
             | ServiceConfig::Network(_)
@@ -547,6 +550,7 @@ pub fn apply_host_phase(
             let profile = profile_for_name(hostname)
                 .ok_or_else(|| ApplyError::UnknownHost(hostname.to_string()))?;
             apply_base(system, files)?;
+            install_kexec(system, files, &profile)?;
             install_syncthing_initializers(system, files, &profile)?;
             application_unit::install(system, files, &profile)?;
             install_pihole_dns_unit(system, files, &profile)
@@ -1109,4 +1113,19 @@ pub fn gokapi_settings(
     let mut settings = settings;
     settings.users.sort();
     Ok(settings)
+}
+
+fn install_kexec(
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    profile: &HostProfile,
+) -> Result<(), ApplyError> {
+    if profile.supports_service("kexec") {
+        skillet_kexec::service::apply(
+            system,
+            files,
+            &format!("/var/usrlocal/bin/skillet-{}", profile.id.as_str()),
+        )?;
+    }
+    Ok(())
 }

@@ -13,6 +13,7 @@ stay in the vault or private installation inputs.
 | Module | Operating guide |
 | --- | --- |
 | Snapshots | [btrbk](../btrbk/README.md) |
+| Controlled OS activation | [kexec](../kexec/README.md) |
 | Private HTTPS / identity | [Caddy](../caddy/README.md) |
 | Monitoring | [Datadog](../datadog/README.md) |
 | Public-address DNS updates | [DDNS](../ddns/README.md) |

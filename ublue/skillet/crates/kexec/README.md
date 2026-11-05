@@ -1,15 +1,30 @@
 # Controlled kexec service
 
-On a selected host, using its installed host binary:
+Opt in through the canonical host profile with
+`HostService { config: ServiceConfig::Kexec, ui: None }`. Clamps declares this;
+Joey and Donbot currently do not. The host binary links `skillet_kexec` and the
+shared profile runner calls its `service::apply` in both base and full apply.
+The shared CLI delegates worker/cleanup commands to the same crate.
+
+Deploy and apply normally:
 
 ```sh
-sudo skillet-clamps kexec install
+cargo run --release -p skillet -- apply clamps
+```
+
+Apply installs or updates the activation unit, reloading systemd only when its
+content changes. It never starts the activation service and creates no timer.
+There is no separate `kexec install` step.
+
+For a supervised activation on the host:
+
+```sh
 sudo systemd-analyze verify /etc/systemd/system/skillet-kexec-activate.service
 sudo systemctl start skillet-kexec-activate.service
 ```
 
-Installation creates the service without enabling a schedule. Start requests a
-reboot. Keep console/recovery access for initial physical acceptance.
+Starting the service requests a reboot. Keep console/recovery access for initial
+physical acceptance.
 
 The service selects the current pending deployment, or the booted deployment when
 none is pending. It uses OSTree's native OFD sysroot lock to check for a concurrent

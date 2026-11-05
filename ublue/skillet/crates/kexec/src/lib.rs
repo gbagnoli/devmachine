@@ -4,6 +4,7 @@ use thiserror::Error;
 
 pub mod attempt;
 pub mod runtime;
+pub mod service;
 
 /// Select the current activation target from a fresh `rpm-ostree` observation.
 /// Selection must be repeated under staging exclusion before loading a kernel.
@@ -146,5 +147,5 @@ fn boot_path(boot: &Path, value: &str) -> Result<PathBuf, Error> {
 }
 
 #[cfg(test)]
-#[path = "kexec/tests.rs"]
+#[path = "tests.rs"]
 mod tests;

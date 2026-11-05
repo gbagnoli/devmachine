@@ -1,6 +1,6 @@
 # Shared guest CLI
 
-Controlled reboot commands: [kexec activation service](KEXEC.md).
+Controlled reboot commands: [kexec activation service](../kexec/README.md).
 
 ## Administrative access
 

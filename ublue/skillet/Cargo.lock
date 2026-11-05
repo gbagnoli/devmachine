@@ -3683,6 +3683,7 @@ dependencies = [
  "skillet_cli_common",
  "skillet_core",
  "skillet_hardening",
+ "skillet_kexec",
  "skillet_pihole",
  "skillet_podman",
 ]
@@ -3782,6 +3783,7 @@ dependencies = [
  "skillet_homeassistant",
  "skillet_hosts",
  "skillet_joplin",
+ "skillet_kexec",
  "skillet_media",
  "skillet_nut",
  "skillet_podman",
@@ -3916,6 +3918,7 @@ dependencies = [
  "skillet_homer",
  "skillet_jellyfin",
  "skillet_joplin",
+ "skillet_kexec",
  "skillet_media",
  "skillet_mikochi",
  "skillet_network",
@@ -3946,6 +3949,17 @@ dependencies = [
  "skillet_core",
  "skillet_podman",
  "skillet_postgres",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "skillet_kexec"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "nix",
+ "serde_json",
+ "skillet_core",
  "thiserror 1.0.69",
 ]
 

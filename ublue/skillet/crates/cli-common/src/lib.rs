@@ -12,7 +12,7 @@ use tracing_subscriber::FmtSubscriber;
 
 pub mod access;
 pub mod hosts;
-pub mod kexec;
+pub use skillet_kexec as kexec;
 mod metrics;
 pub mod version;
 pub use metrics::{run_metrics, MetricsCommands};
@@ -28,6 +28,8 @@ use hosts::ApplyPhase;
 
 #[derive(Error, Debug)]
 pub enum CliCommonError {
+    #[error(transparent)]
+    Kexec(#[from] skillet_kexec::runtime::RuntimeError),
     #[error(transparent)]
     HomeAssistant(#[from] skillet_homeassistant::Error),
     #[error(transparent)]
@@ -185,7 +187,7 @@ where
     tracing::subscriber::set_global_default(subscriber)?;
 
     match args.command {
-        HostCommands::Kexec { command } => kexec::runtime::dispatch(command),
+        HostCommands::Kexec { command } => Ok(kexec::runtime::dispatch(command)?),
         HostCommands::Homeassistant { command } => homeassistant_runtime::dispatch(&command),
         HostCommands::Postgres { command } => postgres_runtime::dispatch(command),
         HostCommands::Gokapi { command } => gokapi_runtime::dispatch(command),

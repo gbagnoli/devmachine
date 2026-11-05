@@ -1,12 +1,11 @@
 //! Guest-side activation with systemd-owned interruption cleanup.
 use super::{select_entry, BootEntry};
-use crate::CliCommonError;
 use std::io::Write as _;
 use std::os::unix::fs::OpenOptionsExt as _;
 use std::{fs, io, path::Path, process::Command};
 
 #[derive(Debug, thiserror::Error)]
-enum RuntimeError {
+pub enum RuntimeError {
     #[error(transparent)]
     Io(#[from] io::Error),
     #[error(transparent)]
@@ -19,19 +18,16 @@ enum RuntimeError {
 
 #[derive(clap::Subcommand, Debug, Clone, Copy)]
 pub enum Commands {
-    /// Install the opt-in activation service (does not start it)
-    Install,
     /// Supervised activation worker; invoke through the service
     Run,
     /// Clean up a kernel owned by this service invocation
     Cleanup,
 }
 
-const UNIT: &str = "skillet-kexec-activate.service";
 const OWNER: &str = "/run/skillet-kexec-owner";
 
-pub fn dispatch(command: Commands) -> Result<(), CliCommonError> {
-    dispatch_inner(command).map_err(|e| CliCommonError::Config(format!("kexec activation: {e}")))
+pub fn dispatch(command: Commands) -> Result<(), RuntimeError> {
+    dispatch_inner(command)
 }
 
 fn checked(program: &str, args: &[&str]) -> Result<(), RuntimeError> {
@@ -48,22 +44,6 @@ fn armed() -> io::Result<bool> {
 fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
     if !nix::unistd::Uid::effective().is_root() {
         return Err(io::Error::other("root is required").into());
-    }
-    if matches!(command, Commands::Install) {
-        let binary = fs::canonicalize(std::env::current_exe()?)?;
-        let binary = binary
-            .to_str()
-            .ok_or_else(|| io::Error::other("invalid executable path"))?;
-        if !binary
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b"/._-".contains(&b))
-        {
-            return Err(io::Error::other("unsupported executable path").into());
-        }
-        let unit = format!("[Unit]\nDescription=Controlled Skillet kexec activation\nDefaultDependencies=no\nAfter=local-fs.target\n[Service]\nType=exec\nPrivateMounts=yes\nExecStart={binary} kexec run\nExecStopPost={binary} kexec cleanup\nRuntimeMaxSec=120\nTimeoutStopSec=20\nRestart=no\n");
-        fs::write(format!("/etc/systemd/system/{UNIT}"), unit)?;
-        checked("systemctl", &["daemon-reload"])?;
-        return Ok(());
     }
     let invocation = std::env::var("INVOCATION_ID")?;
     if invocation.len() != 32 || !invocation.bytes().all(|b| b.is_ascii_hexdigit()) {
