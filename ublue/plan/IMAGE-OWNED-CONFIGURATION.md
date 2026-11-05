@@ -202,13 +202,17 @@ DNS, credentials, backup schedules and monitoring. Rehearse explicit rollback wi
 compatible data. Then one supervised physical Clamps rollout, followed by observed
 daily runs. Firmware installation stays manual; recovery/password policy is unchanged.
 
-Implementation in progress: the shared BLS selector validates the exact resolved
-deployment and has been exercised read-only against the booted deployment in the
-disposable TPM VM. An opt-in `kexec install` host command now installs
-`skillet-kexec-activate.service`, with boot/invocation ownership and independent
-cleanup. It supports only the booted deployment and refuses pending deployments.
-Coordination of the complete multi-command remote apply and OSTree staging remains
-to be implemented and tested before enabling an update-activation timer.
+Implemented staged activation: the installed service takes cooperative configuration
+exclusion, checks the fresh target under native OSTree OFD locking, pauses the
+existing rpm-ostreed staging owner and finalizes the selected pending deployment.
+Its private mount namespace permits writable sysroot operations without changing
+the host mount. It loads the exact checksum/serial's matching BLS artifacts.
+Post-finalization failures retain a boot-local gate that refuses further managed
+configuration writes until reboot; cleanup unloads its kernel and restores its
+runtime staging mask. Other root tools must respect the maintenance boundary.
+A remote apply interrupted between phases is retried after reboot, rather than
+being an atomic transaction. Timer policy, physical acceptance and the remaining
+broader service-health matrix are still pending.
 
 2026-11-05 VM acceptance: the Rust probe now has a disposable-test-only
 `--load-and-hold` mode. `butane/tests/kexec-interruption.py` runs it under

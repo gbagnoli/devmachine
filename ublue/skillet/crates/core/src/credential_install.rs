@@ -49,6 +49,7 @@ pub fn state(name: &str) -> Result<&'static str, CredentialInstallError> {
 }
 
 pub fn install(name: &str, unit: &str, start_unit: bool) -> Result<(), CredentialInstallError> {
+    let _maintenance = crate::maintenance::writer()?;
     let path = credential_path(name)?;
     if !valid_unit(unit) {
         return Err(CredentialInstallError::InvalidName);

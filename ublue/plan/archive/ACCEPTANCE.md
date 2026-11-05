@@ -4519,3 +4519,31 @@ acceptance; no production host or private DNS values were committed.
   handoff. Execution from `/var/tmp` was rejected by enforcing SELinux; installing
   in the guest's executable directory and running `restorecon` fixed execution
   without weakening policy. No physical host or production schedule was changed.
+
+## 2026-11-05 — installed staged-update activation and failed-handoff recovery
+
+- The owned native UEFI/Secure Boot/swtpm VM staged signed uCore digest
+  `d1bb5bcae9592bff6483d3a0e13cb23132919fe695b26786b7b50651b276b0a1`.
+  Its installed activation service finalized the selected deployment, copied a
+  deliberately late `/etc` fixture and booted the expected checksum via kexec,
+  changing the kernel from `7.2.7-200.fc44.x86_64` to `7.2.9-201.fc44.x86_64`.
+  Secure Boot/integrity lockdown, PCR7 automatic unlock, synthetic data and
+  encrypted credential verification passed after boot.
+- Verified interoperability with installed OSTree: holding the sysroot's native
+  locking protocol caused `ostree admin finalize-staged` to wait and time out
+  before performing finalization. Production uses nonblocking OFD locks with
+  inode-link validation; plain BSD flock is not substituted for this protocol.
+- Staged retained signed digest
+  `34f0df38269a8cb5e80710c5de6cd4bcd6e1d2bb28999db437569635004d4462` for
+  failure recovery. A shutdown inhibitor blocked the actual service's handoff
+  after finalization. Kernel and ownership marker cleared, the staging daemon's
+  runtime mask was removed, and a subsequent apply was refused by the retained
+  finalized-configuration gate.
+- Forced `virsh destroy`, then started through UEFI. The expected finalized older
+  deployment booted unattended with kernel `7.2.7`; the same synthetic data,
+  encrypted credential and late `/etc` fixture verified. The write gate cleared
+  on boot and base apply succeeded. This accepts the tested failed-handoff and
+  cold-boot sequence, not arbitrary application-database or mid-finalization
+  power-loss recovery. No physical Clamps changes or timer enablement occurred.
+- Workspace formatting, pedantic Clippy, workspace tests and Joey base container
+  integration passed; its repeated apply issued no service start/restart.

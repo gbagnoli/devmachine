@@ -72,6 +72,12 @@
 
 ## Shared infrastructure boundaries
 
+- Activation and configuration writers must share exclusion. If finalization
+  freezes a deployment's configuration, a failed worker must leave a durable
+  refusal of further writes until recovery; an in-process lock alone is insufficient.
+- Interoperate with a component's actual locking protocol, including inode
+  replacement and namespace rules. A matching lock-file path is not proof of exclusion.
+
 - Host-network listeners require explicit ingress declarations and firewall
   convergence. Verify reachability from the intended client network; loopback
   listener/health checks alone cannot establish access. Keep device and management

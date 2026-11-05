@@ -5,6 +5,42 @@ use thiserror::Error;
 pub mod attempt;
 pub mod runtime;
 
+/// Select the current activation target from a fresh `rpm-ostree` observation.
+/// Selection must be repeated under staging exclusion before loading a kernel.
+pub fn activation_target(status: &serde_json::Value) -> Result<&serde_json::Value, Error> {
+    if status
+        .get("transaction")
+        .is_none_or(|value| !value.is_null())
+    {
+        return Err(Error::InvalidDeployment);
+    }
+    let deployments = status["deployments"]
+        .as_array()
+        .ok_or(Error::InvalidDeployment)?;
+    if deployments
+        .iter()
+        .filter(|item| item["booted"] == true)
+        .count()
+        != 1
+        || deployments
+            .iter()
+            .filter(|item| item["staged"] == true)
+            .count()
+            > 1
+    {
+        return Err(Error::InvalidDeployment);
+    }
+    let target = deployments.first().ok_or(Error::InvalidDeployment)?;
+    if deployments
+        .iter()
+        .skip(1)
+        .any(|item| item["staged"] == true)
+    {
+        return Err(Error::InvalidDeployment);
+    }
+    Ok(target)
+}
+
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum Error {
     #[error("boot entry lacks a required field or contains a duplicate")]

@@ -265,6 +265,7 @@ where
             "network preparation cannot be recorded".into(),
         ));
     }
+    let _maintenance = skillet_core::maintenance::writer()?;
     let required = skillet_hosts::credentials_for_phase(hostname, phase)
         .map_err(|error| CliCommonError::Config(error.to_string()))?;
     let mut credentials = CredentialInputs::default();
@@ -378,6 +379,7 @@ pub enum SmtpCommands {
 }
 
 pub fn prepare_smtp() -> Result<(), CliCommonError> {
+    let _maintenance = skillet_core::maintenance::writer()?;
     let manager = CredentialManager::new()?;
     let payload = manager.read_secret(skillet_smtp::CREDENTIAL)?;
     let input =

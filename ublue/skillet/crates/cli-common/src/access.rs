@@ -24,6 +24,7 @@ pub enum AccessCommands {
 }
 
 pub fn dispatch(command: AccessCommands) -> Result<(), CliCommonError> {
+    let _maintenance = skillet_core::maintenance::writer()?;
     match command {
         AccessCommands::Finalize { user } => {
             validate_user(&user)?;

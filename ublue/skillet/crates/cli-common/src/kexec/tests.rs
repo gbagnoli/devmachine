@@ -1,5 +1,22 @@
 use super::*;
 
+#[test]
+fn activation_selection_uses_latest_pending_and_rejects_active_transactions() {
+    let mut status = serde_json::json!({"transaction": null, "deployments": [
+        {"checksum": "new", "staged": true, "booted": false},
+        {"checksum": "old", "staged": false, "booted": true}
+    ]});
+    assert_eq!(activation_target(&status).unwrap()["checksum"], "new");
+    status["deployments"][0]["checksum"] = serde_json::json!("replacement");
+    assert_eq!(
+        activation_target(&status).unwrap()["checksum"],
+        "replacement"
+    );
+    status["transaction"] = serde_json::json!(["update", "initiator", "address"]);
+    assert!(activation_target(&status).is_err());
+    assert!(activation_target(&serde_json::json!({"deployments": []})).is_err());
+}
+
 #[derive(Default)]
 struct FakeActivation {
     armed: bool,

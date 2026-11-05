@@ -17,6 +17,14 @@ reboots in staggered host windows; keep scheduling disabled until accepted.
 The operator prefers kexec directly: the native VM mechanism passes, while
 production activation ordering and supervised hardware acceptance remain required.
 Retain an explicit full firmware reboot method.
+The opt-in activation service now coordinates staged activation with cooperative
+Skillet writers and the existing staging daemon. It uses native OSTree locking
+and private mount access to finalize the selected deployment. Once `/etc` is
+finalized, a boot-local gate refuses further managed writes until reboot, even
+after worker failure; unloading the kernel alone cannot undo that merge boundary.
+Cleanup restores the staging daemon's temporary mask. Other administrative tools
+must observe the maintenance boundary. Remote multi-phase apply may be interrupted
+and retried after reboot; its complete sequence is not an atomic transaction.
 Firmware/TPM policy changes remain supervised. Existing runtime deployment and
 container updates continue until their individual migrations are implemented.
 

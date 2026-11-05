@@ -60,7 +60,7 @@ fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
         {
             return Err(io::Error::other("unsupported executable path").into());
         }
-        let unit = format!("[Unit]\nDescription=Controlled Skillet kexec activation\nDefaultDependencies=no\nAfter=local-fs.target\n[Service]\nType=exec\nExecStart={binary} kexec run\nExecStopPost={binary} kexec cleanup\nRuntimeMaxSec=120\nTimeoutStopSec=20\nRestart=no\n");
+        let unit = format!("[Unit]\nDescription=Controlled Skillet kexec activation\nDefaultDependencies=no\nAfter=local-fs.target\n[Service]\nType=exec\nPrivateMounts=yes\nExecStart={binary} kexec run\nExecStopPost={binary} kexec cleanup\nRuntimeMaxSec=120\nTimeoutStopSec=20\nRestart=no\n");
         fs::write(format!("/etc/systemd/system/{UNIT}"), unit)?;
         checked("systemctl", &["daemon-reload"])?;
         return Ok(());
@@ -83,6 +83,10 @@ fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
                 if armed()? {
                     return Err(io::Error::other("kernel remains armed").into());
                 }
+                if Path::new("/run/skillet-maintenance/paused").exists() {
+                    checked("systemctl", &["unmask", "--runtime", "rpm-ostreed.service"])?;
+                    fs::remove_file("/run/skillet-maintenance/paused")?;
+                }
                 fs::remove_file(OWNER)?;
             }
             Err(error) if error.kind() == io::ErrorKind::NotFound => (),
@@ -98,7 +102,7 @@ fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
     if armed()? || Path::new(OWNER).exists() {
         return Err(io::Error::other("preexisting armed kernel or unresolved attempt").into());
     }
-    let entry = select_booted()?;
+    let _configuration = skillet_core::maintenance::activation()?;
     let mut owner = fs::OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -106,6 +110,9 @@ fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
         .open(OWNER)?;
     owner.write_all(identity.as_bytes())?;
     owner.sync_all()?;
+    checked("mount", &["--bind", "/sysroot", "/sysroot"])?;
+    checked("mount", &["-o", "remount,bind,rw", "/sysroot"])?;
+    let entry = prepare_target()?;
     let loaded = Command::new("kexec")
         .args(["-s", "-l"])
         .arg(&entry.kernel)
@@ -123,7 +130,7 @@ fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
     }
 }
 
-fn select_booted() -> Result<BootEntry, RuntimeError> {
+fn prepare_target() -> Result<BootEntry, RuntimeError> {
     let output = Command::new("rpm-ostree")
         .args(["status", "--json"])
         .output()?;
@@ -131,26 +138,37 @@ fn select_booted() -> Result<BootEntry, RuntimeError> {
         return Err(io::Error::other("rpm-ostree status failed").into());
     }
     let status: serde_json::Value = serde_json::from_slice(&output.stdout)?;
-    let deployments = status["deployments"]
-        .as_array()
-        .ok_or_else(|| io::Error::other("missing deployments"))?;
-    if deployments.iter().any(|v| {
-        v["staged"].as_bool() == Some(true)
-            || v["booted"].as_bool() != Some(true) && deployments.first() == Some(v)
-    }) {
-        return Err(io::Error::other(
-            "pending deployment requires coordinated finalization; refusing activation",
-        )
-        .into());
+    let item = super::activation_target(&status)?.clone();
+    // Pause the existing staging owner; do not introduce a second updater.
+    // The native lock excludes in-flight OSTree mutations while pausing it.
+    let native = sysroot_lock()?;
+    let fresh = Command::new("rpm-ostree")
+        .args(["status", "--json"])
+        .output()?;
+    if !fresh.status.success() {
+        return Err(io::Error::other("fresh status failed").into());
     }
-    let booted: Vec<_> = deployments
-        .iter()
-        .filter(|v| v["booted"].as_bool() == Some(true))
-        .collect();
-    if booted.len() != 1 {
-        return Err(io::Error::other("ambiguous booted deployment").into());
+    let fresh: serde_json::Value = serde_json::from_slice(&fresh.stdout)?;
+    if super::activation_target(&fresh)? != &item {
+        return Err(io::Error::other("deployment changed before staging exclusion").into());
     }
-    let item = booted[0];
+    let enabled = Command::new("systemctl")
+        .args(["is-enabled", "rpm-ostreed.service"])
+        .output()?;
+    if String::from_utf8_lossy(&enabled.stdout).contains("masked") {
+        return Err(io::Error::other("staging daemon was already masked").into());
+    }
+    fs::write("/run/skillet-maintenance/paused", b"owned")?;
+    checked("systemctl", &["mask", "--runtime", "rpm-ostreed.service"])?;
+    checked("systemctl", &["stop", "rpm-ostreed.service"])?;
+    drop(native);
+    if item["staged"].as_bool() == Some(true) {
+        // Retain this gate even on failure: after finalization, further live
+        // /etc writes would not reach the finalized deployment. Reboot clears it.
+        fs::write("/run/skillet-maintenance/finalized", b"reboot required")?;
+        checked("ostree", &["admin", "finalize-staged"])?;
+    }
+    let _native = sysroot_lock()?;
     let checksum = item["checksum"]
         .as_str()
         .ok_or_else(|| io::Error::other("missing checksum"))?;
@@ -193,4 +211,31 @@ fn select_booted() -> Result<BootEntry, RuntimeError> {
         }
     }
     Ok(entry)
+}
+
+fn sysroot_lock() -> io::Result<fs::File> {
+    use nix::fcntl::{fcntl, FcntlArg};
+    use std::os::fd::AsRawFd as _;
+    use std::os::unix::fs::MetadataExt as _;
+    loop {
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .mode(0o600)
+            .custom_flags(nix::libc::O_NOFOLLOW)
+            .open("/sysroot/ostree/lock")?;
+        let lock = nix::libc::flock {
+            l_type: nix::libc::F_WRLCK.try_into().map_err(io::Error::other)?,
+            l_whence: nix::libc::SEEK_SET.try_into().map_err(io::Error::other)?,
+            l_start: 0,
+            l_len: 0,
+            l_pid: 0,
+        };
+        fcntl(file.as_raw_fd(), FcntlArg::F_OFD_SETLK(&lock)).map_err(io::Error::from)?;
+        if file.metadata()?.nlink() > 0 {
+            return Ok(file);
+        }
+    }
 }
