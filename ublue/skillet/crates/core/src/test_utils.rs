@@ -491,6 +491,14 @@ impl StorageResource for MockFiles {
 
 impl FileReadResource for MockFiles {
     fn read_regular_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
+        if self
+            .directories
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains(&path.display().to_string())
+        {
+            return Err(FileError::NotAFile(path.display().to_string()));
+        }
         self.read_file(path)
     }
     fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {

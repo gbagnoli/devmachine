@@ -37,6 +37,40 @@ fn mock_file_resource_obeys_shared_mutation_contract() {
 }
 
 #[test]
+fn regular_read_and_retirement_share_local_and_mock_contracts() {
+    let temporary = tempfile::tempdir().unwrap();
+    let local = LocalFileResource::new();
+    let mock = MockFiles::new();
+    for (name, resource) in [
+        ("local", &local as &dyn crate::files::FileResource),
+        ("mock", &mock),
+    ] {
+        let parent = temporary.path().join(name);
+        resource
+            .ensure_directory(&parent, Some(0o755), &Ownership::default())
+            .unwrap();
+        assert!(resource.read_regular_file(&parent).is_err());
+        let file = parent.join("legacy");
+        let archive = parent.join("retired");
+        assert!(resource.read_regular_file(&file).unwrap().is_none());
+        resource
+            .ensure_file(&file, b"owned", Some(0o640), &Ownership::default())
+            .unwrap();
+        assert!(resource.retire_file(&file, b"edited", &archive).is_err());
+        assert_eq!(
+            resource.read_regular_file(&file).unwrap().unwrap(),
+            b"owned"
+        );
+        assert!(resource.retire_file(&file, b"owned", &archive).unwrap());
+        assert!(!resource.retire_file(&file, b"owned", &archive).unwrap());
+        assert_eq!(
+            resource.read_regular_file(&archive).unwrap().unwrap(),
+            b"owned"
+        );
+    }
+}
+
+#[test]
 fn local_and_mock_file_resources_reject_file_directory_conflicts() {
     let directory = tempfile::tempdir().unwrap();
     let local_path = directory.path().join("local-conflict");
