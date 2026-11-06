@@ -1,0 +1,17 @@
+[package]
+name = "skillet_kexec"
+version.workspace = true
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+skillet_core.workspace = true
+nix.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+skillet_core = { workspace = true, features = ["test-utils"] }

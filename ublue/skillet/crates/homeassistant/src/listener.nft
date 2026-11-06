@@ -1,0 +1,8 @@
+# Own only the Home Assistant HTTP listener policy, in both address families.
+destroy table inet skillet_homeassistant
+table inet skillet_homeassistant {
+    chain input {
+        type filter hook input priority -10; policy accept;
+        iifname != "lo" tcp dport 8123 drop
+    }
+}

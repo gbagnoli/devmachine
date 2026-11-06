@@ -1,0 +1,24 @@
+[package]
+name = "skillet_pihole"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+toml_edit = "0.25"
+skillet_datadog.workspace = true
+skillet_core.workspace = true
+skillet_podman.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+reqwest.workspace = true
+tempfile.workspace = true
+skillet_core = { path = "../core", features = ["test-utils"] }
+users.workspace = true

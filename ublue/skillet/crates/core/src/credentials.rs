@@ -1,0 +1,73 @@
+use std::path::PathBuf;
+use std::{collections::HashMap, io::Read as _};
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum CredentialError {
+    #[error("CREDENTIALS_DIRECTORY environment variable not set")]
+    NoDirectory,
+    #[error("Invalid secret name {0:?}: must be a plain file name")]
+    InvalidName(String),
+    #[error("Failed to read secret {0}: {1}")]
+    ReadError(String, std::io::Error),
+    #[error("Required credential {0} was not supplied to host composition")]
+    MissingInput(String),
+}
+
+/// Credential bytes loaded at an entry point and passed explicitly into
+/// composition. Values intentionally have no Debug implementation.
+#[derive(Default)]
+pub struct CredentialInputs {
+    values: HashMap<String, String>,
+}
+
+impl CredentialInputs {
+    pub fn insert(&mut self, name: impl Into<String>, value: String) {
+        self.values.insert(name.into(), value);
+    }
+
+    pub fn require(&self, name: &str) -> Result<&str, CredentialError> {
+        self.values
+            .get(name)
+            .map(String::as_str)
+            .ok_or_else(|| CredentialError::MissingInput(name.to_string()))
+    }
+}
+
+pub struct CredentialManager {
+    base_path: PathBuf,
+}
+
+impl CredentialManager {
+    pub fn new() -> Result<Self, CredentialError> {
+        let path = std::env::var("CREDENTIALS_DIRECTORY")
+            .map(|s| PathBuf::from(s.trim()))
+            .map_err(|_| CredentialError::NoDirectory)?;
+        Ok(Self { base_path: path })
+    }
+
+    /// Read a secret by name from the credentials directory.
+    ///
+    /// The name must be a plain file name: path separators, parent
+    /// references and absolute paths are rejected so a caller can never
+    /// escape the credentials directory, even if the name ever stops
+    /// being a hardcoded constant.
+    pub fn read_secret(&self, name: &str) -> Result<String, CredentialError> {
+        if name.is_empty() || name.contains('/') || name.contains('\\') || name.contains("..") {
+            return Err(CredentialError::InvalidName(name.to_string()));
+        }
+
+        let secret_path = self.base_path.join(name);
+
+        let mut file = std::fs::File::open(&secret_path)
+            .map_err(|e| CredentialError::ReadError(name.to_string(), e))?;
+        let mut content = String::new();
+        file.read_to_string(&mut content)
+            .map_err(|e| CredentialError::ReadError(name.to_string(), e))?;
+        Ok(content)
+    }
+}
+
+#[cfg(test)]
+#[path = "credentials/tests.rs"]
+mod tests;

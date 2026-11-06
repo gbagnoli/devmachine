@@ -1,0 +1,25 @@
+; Confine the broker independently of ordinary host daemons. Caddy can connect
+; only to this process type, not unconfined_service_t. Unix permissions and the
+; private mount remain root-only; the host tailscaled socket is never in Caddy.
+(type skillet_tailnet_ui_t)
+(typeattributeset domain (skillet_tailnet_ui_t))
+(roletype system_r skillet_tailnet_ui_t)
+(allow init_t skillet_tailnet_ui_t (process (transition)))
+(allow init_t skillet_tailnet_ui_t (process2 (nnp_transition nosuid_transition)))
+(allow skillet_tailnet_ui_t bin_t (file (entrypoint execute read open getattr map)))
+(allow skillet_tailnet_ui_t self (process (fork getrlimit setrlimit sigchld signal sigkill signull getcap getattr)))
+(allow skillet_tailnet_ui_t self (unix_stream_socket (create read write ioctl bind listen accept connect getopt setopt shutdown getattr recvfrom sendto)))
+(allow skillet_tailnet_ui_t init_t (fd (use)))
+(allow skillet_tailnet_ui_t init_t (unix_stream_socket (read write getattr getopt setopt shutdown)))
+(allow skillet_tailnet_ui_t init_t (fifo_file (read write append getattr ioctl)))
+; Read the root-only delivered policy; systemd protects host filesystem writes.
+(allow skillet_tailnet_ui_t etc_t (dir (search getattr)))
+(allow skillet_tailnet_ui_t etc_t (file (read open getattr map)))
+; RuntimeDirectory exists before exec and is shared/relabelled only with Caddy.
+(allow skillet_tailnet_ui_t var_run_t (dir (search getattr write add_name remove_name)))
+(allow skillet_tailnet_ui_t var_run_t (sock_file (create read write getattr setattr unlink)))
+(allow skillet_tailnet_ui_t container_file_t (dir (search getattr write add_name remove_name)))
+(allow skillet_tailnet_ui_t container_file_t (sock_file (create read write getattr setattr unlink)))
+; The broker alone queries the host-network tailscaled LocalAPI.
+(allow skillet_tailnet_ui_t container_t (unix_stream_socket (connectto)))
+(allow container_t skillet_tailnet_ui_t (unix_stream_socket (connectto)))

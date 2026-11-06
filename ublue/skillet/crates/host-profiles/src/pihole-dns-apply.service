@@ -1,0 +1,9 @@
+[Unit]
+Description=Apply private Pi-hole v6 DNS records
+After=pihole.service
+ConditionPathExists=/etc/credstore.encrypted/skillet/pihole_dns.cred
+
+[Service]
+Type=oneshot
+LoadCredentialEncrypted=pihole_dns:/etc/credstore.encrypted/skillet/pihole_dns.cred
+ExecStart=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase pihole-dns

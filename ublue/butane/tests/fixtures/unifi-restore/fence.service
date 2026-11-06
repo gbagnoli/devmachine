@@ -1,0 +1,9 @@
+[Unit]
+Description=Isolate disposable UniFi restore from production and cloud
+Before=unifi.service
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/nft -f /etc/skillet-unifi-restore.nft
+RemainAfterExit=yes
+[Install]
+WantedBy=multi-user.target

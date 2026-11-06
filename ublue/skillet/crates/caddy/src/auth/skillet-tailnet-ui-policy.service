@@ -1,0 +1,10 @@
+[Unit]
+Description=Load Skillet tailnet UI socket SELinux policy
+ConditionSecurity=selinux
+Before=skillet-tailnet-ui.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/semodule -i /etc/skillet/selinux/skillet-tailnet-ui.cil
+TimeoutStartSec=120

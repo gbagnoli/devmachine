@@ -1,0 +1,19 @@
+[package]
+name = "skillet_mikochi"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+skillet_core.workspace = true
+skillet_podman.workspace = true
+skillet_datadog.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+skillet_core = { workspace = true, features = ["test-utils"] }
+tempfile.workspace = true
+reqwest = { workspace = true, features = ["multipart"] }
+serde_json.workspace = true

@@ -1,0 +1,9 @@
+# Edit this template and rebuild Skillet to change the shared dashboard style.
+# Skillet supplies the host subtitle and services list at apply time.
+title: Services
+header: true
+footer: false
+connectivityCheck: false
+defaults:
+  layout: columns
+  colorTheme: auto

@@ -1,0 +1,8 @@
+variant: fcos
+version: 1.6.0
+storage:
+  files:
+    - path: /var/usrlocal/bin/skillet-donbot
+      mode: 0755
+      contents:
+        local: files/skillet-donbot

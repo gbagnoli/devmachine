@@ -27,9 +27,11 @@ systemd:
       contents: |
         [Unit]
         Description=Install Homebrew
-        After=network-online.target
+        Requires=ucore-bootstrap.service
+        After=ucore-bootstrap.service network-online.target
         Wants=network-online.target
-        ConditionPathExists=!/home/linuxbrew/.linuxbrew/bin/brew
+        ConditionPathExists=/run/ucore-bootstrap-ready
+        ConditionPathExists=!/var/lib/ucore-bootstrap/brew-installed
 
         [Service]
         Type=oneshot
@@ -38,7 +40,8 @@ systemd:
         Environment="NONINTERACTIVE=1"
         ExecStart=curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o /tmp/install_brew.sh
         ExecStart=/bin/bash /tmp/install_brew.sh
-        RemainAfterExit=yes
+        ExecStartPost=+/usr/bin/touch /var/lib/ucore-bootstrap/brew-installed
+        TimeoutStartSec=30min
 
         [Install]
         WantedBy=multi-user.target
@@ -47,11 +50,11 @@ systemd:
       contents: |
         [Unit]
         Description=Install dotfiles
-        # This ensures the service waits for brew to finish
-        After=brew-install.service
-        Requires=brew-install.service
+        Requires=ucore-bootstrap.service brew-install.service
+        After=ucore-bootstrap.service brew-install.service
         Wants=network-online.target
-        ConditionPathExists=!/home/giacomo/.local/src/dotfiles
+        ConditionPathExists=/run/ucore-bootstrap-ready
+        ConditionPathExists=!/var/lib/ucore-bootstrap/dotfiles-installed
 
         [Service]
         Type=oneshot
@@ -59,9 +62,10 @@ systemd:
         StandardOutput=journal+console
         WorkingDirectory=/home/giacomo/.local/src
         Environment="PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/bin:/bin"
-        ExecStart=/usr/bin/git clone https://github.com/gbagnoli/dotfiles.git
+        ExecStart=/usr/bin/bash -c 'if ! test -d /home/giacomo/.local/src/dotfiles/.git; then git clone https://github.com/gbagnoli/dotfiles.git /home/giacomo/.local/src/dotfiles; fi'
         ExecStart=/bin/bash /home/giacomo/.local/src/dotfiles/install.sh -b core -V
-        RemainAfterExit=yes
+        ExecStartPost=+/usr/bin/touch /var/lib/ucore-bootstrap/dotfiles-installed
+        TimeoutStartSec=30min
 
         [Install]
         WantedBy=multi-user.target

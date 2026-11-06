@@ -1,0 +1,10 @@
+SSH keys:
+  Skillet uses noninteractive SSH. Load password-protected keys into your SSH
+  agent before applying or deploying. If no agent exists, start one in the same
+  shell before running ssh-add. Remote sudo passwords are prompted separately
+  in interactive terminals and cached separately for up to 30 minutes.
+  Use `skillet auth lock` to clear cached sudo passwords. The KeePass
+  vault password/cache is independent of both.
+
+Setup: ublue/skillet/crates/workstation/README.md#ssh-agent
+https://github.com/gbagnoli/devmachine/blob/skillet/ublue/skillet/crates/workstation/README.md#ssh-agent

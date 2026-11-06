@@ -1,0 +1,14 @@
+# Plugins compile in an isolated builder, never on the provisioned host.
+FROM docker.io/caddy:2.11.4-builder AS builder
+RUN xcaddy build v2.11.4 \
+    --with github.com/caddy-dns/cloudflare@v0.2.4 \
+    --with github.com/caddyserver/cache-handler@v0.17.0 \
+    --with github.com/darkweak/storages/simplefs/caddy@81250fe6fc63358ff9f12faa72b01f36e48ed60c \
+    && rm -rf /go/pkg/mod /root/.cache/go-build /tmp/buildenv_*
+
+FROM docker.io/caddy:2.11.4
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy
+ENV GOMEMLIMIT=384MiB
+RUN caddy list-modules | grep -Fx http.handlers.cache \
+    && caddy list-modules | grep -Fx dns.providers.cloudflare \
+    && caddy list-modules | grep simplefs

@@ -1,0 +1,20 @@
+[package]
+name = "skillet_smtp"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+skillet_core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+sha2.workspace = true
+hex.workspace = true
+askama.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+skillet_core = { workspace = true, features = ["test-utils"] }

@@ -1,0 +1,11 @@
+[package]
+name = "skillet-sudo-askpass"
+version.workspace = true
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror.workspace = true
+zeroize = "1.9"
