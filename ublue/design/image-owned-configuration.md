@@ -1,6 +1,7 @@
 # Direction: image-owned service configuration
 
-Planned after Clamps production acceptance; not the current deployment behavior.
+Image service migration remains gated on Clamps acceptance; runtime ownership is
+currently retained. The first public artifact bundle is independent of that migration.
 Signed host releases will bind Skillet binaries, public static configuration and
 pinned container digests. Reuse canonical declarations and pure rendering for
 build output; do not run machine-observing apply during image construction.
@@ -34,3 +35,13 @@ Firmware/TPM policy changes remain supervised. Existing runtime deployment and
 container updates continue until their individual migrations are implemented.
 
 [Implementation slices and acceptance](../plan/IMAGE-OWNED-CONFIGURATION.md).
+
+Image bundles are assembled from supplied clean, matching generic/caller binaries
+and the canonical public service declaration. The only initial output is `/usr/bin`
+binaries plus `/usr/share/skillet/release.json` recording exact source revision and
+binary hashes/modes. No apply is executed to discover output, and no private input
+is accepted. CI consumes a full source commit rather than a moving branch; the
+receipt identifies actual binary bytes without promising bit-identical rebuilds.
+Mutable `/var/usrlocal` references retain operational ownership until a separately
+tested precedence/override migration; candidate image artifacts do not silently
+replace those consumers. btrbk is the first static-service pilot.

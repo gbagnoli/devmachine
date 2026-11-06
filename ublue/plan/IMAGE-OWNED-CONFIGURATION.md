@@ -1,9 +1,10 @@
 # Image-owned Skillet configuration and scheduled reboots
 
-Status: planned, 2026-11-02. Finish [Clamps production acceptance](CLAMPS-MIGRATION.md)
-first. This is the next architectural workstream, not a reason to interrupt the
-current production rollout. No image pins, runtime ownership, auto-update policy,
-reboot scheduler or kexec behavior are changed by this plan.
+Status: in progress, 2026-11-06. Staged kexec activation has native VM acceptance;
+production scheduling remains disabled. The ownership inventory and public binary
+bundle exporter are implemented. Exact-revision image CI integration is being
+prepared; hosted image-build and image-artifact boot acceptance remain pending.
+Existing mutable runtime owners are retained until explicit migration acceptance.
 
 ## Goal and boundaries
 
@@ -31,6 +32,9 @@ Read `../AGENTS.md`, `../skillet/AGENTS.md`, the image repo's instructions, and
 
 ## Slice 0 — production baseline and ownership inventory
 
+Initial audit: [ownership inventory](IMAGE-OWNERSHIP-INVENTORY.md). Clamps backup
+acceptance remains in its tracker; artifact-only work does not change production.
+
 Start implementation after Clamps production handover/backups are accepted in the
 Clamps tracker. Park optional/backend checks explicitly rather than declaring all
 historical tests blockers. Save current service/data/credential acceptance before
@@ -46,6 +50,10 @@ Exit: reviewed ownership table, first pilot and retained-state migration contrac
 no ambiguous dual owner or build-time need for live systemd, Btrfs or credentials.
 
 ## Slice 1 — pure build output and immutable guest artifacts
+
+Implemented entry point: `skillet image <host>`; [bundle guide](../skillet/crates/workstation/docs/image-bundles.md).
+Current allowlist is matching binaries and a public release manifest. Static service
+rendering, retained-state executable migration and owned image boot remain pending.
 
 1. Extract/reuse pure declarations and renderers; avoid a second host/service
    inventory or executing apply through mocks to capture filesystem side effects.

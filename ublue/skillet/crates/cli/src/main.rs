@@ -27,6 +27,18 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Commands {
+    /// Assemble a deterministic public image tree from matching clean binaries
+    Image {
+        host: String,
+        #[arg(long)]
+        source_revision: String,
+        #[arg(long)]
+        generic_binary: PathBuf,
+        #[arg(long)]
+        host_binary: PathBuf,
+        #[arg(long)]
+        output: PathBuf,
+    },
     /// Manage temporary workstation authentication caches
     Auth {
         #[command(subcommand)]
@@ -399,6 +411,21 @@ fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     match args.command {
+        Commands::Image {
+            host,
+            source_revision,
+            generic_binary,
+            host_binary,
+            output,
+        } => {
+            skillet_workstation::image::export(
+                &host,
+                &source_revision,
+                &generic_binary,
+                &host_binary,
+                &output,
+            )?;
+        }
         Commands::Gokapi { command } => skillet_cli_common::gokapi_runtime::dispatch(command)?,
         Commands::Homeassistant { command } => {
             skillet_cli_common::homeassistant_runtime::dispatch(&command)?;

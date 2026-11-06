@@ -34,6 +34,7 @@ stay in the vault or private installation inputs.
 | Synchronization | [Syncthing](../syncthing/README.md), including Donbot's personal instance |
 | Tailnet enrollment / routing | [Tailscale](docs/tailscale.md) |
 | Controller | [UniFi](../unifi/README.md) |
+| Public image bundles | [Artifact guide](../workstation/docs/image-bundles.md) |
 | Vault / remote apply | [Workstation](../workstation/README.md) |
 | Root encryption / recovery | [TPM](../workstation/docs/tpm.md) |
 | Disposable testing | [VM](../vm/README.md) |
