@@ -256,6 +256,16 @@ staged-update recovery or application database durability under power loss.
 
 ## Kexec mechanism — native VM accepted, physical acceptance pending
 
+Physical gate remains open after 2026-11-06 testing. An initial supervised Clamps
+handoff succeeded, but the next staged activation stopped responding after the
+old boot completed its kexec shutdown transaction. No new boot journal or pstore
+record explains the failure. Operator power cycling recovered the intended signed
+image and cleared the boot-local gates. This is not reliable unattended kexec
+acceptance. Keep scheduling disabled; further physical testing needs a working
+console and early-boot evidence to distinguish late shutdown, handoff, initramfs
+unlock and device recovery. Do not infer handoff completion from a successful
+`systemd-kexec.service` shutdown job alone.
+
 Research checked 2026-11-02. Linux kexec can boot a different kernel, whereas
 systemd soft-reboot keeps the current kernel. Thus kernel updates are possible
 in principle with kexec, but userspace soft-reboot does not apply them.

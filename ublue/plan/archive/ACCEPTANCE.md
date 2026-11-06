@@ -4592,3 +4592,23 @@ acceptance; no production host or private DNS values were committed.
   unverified until the source commit and image changes are pushed. No production
   host, timer, service ownership or container pin was changed. btrbk migration is
   the next pilot after artifact/image acceptance.
+
+## 2026-11-06 — physical Clamps kexec failure and power-cycle recovery
+
+- Operator reported a failed staged kexec: no ping, blank display, no usable
+  keyboard observation; power cycling restored access. Read-only SSH diagnostics
+  confirmed finalization and the old boot's kexec shutdown target completed at
+  14:48:32. No intervening boot journal exists before the 14:54 cold boot, and
+  pstore contains no retained crash evidence. Failure location remains unresolved
+  between final shutdown, kernel handoff and early boot; no cause is assigned.
+- Current boot is the intended signed image built 2026-11-06, kernel
+  `7.2.11-200.fc44.x86_64`. The finalized gate and ownership marker are absent,
+  no kernel is armed and rpm-ostreed is unmasked. Zero failed units; Pi-hole,
+  Syncthing, Caddy, Mikochi, Homer and Tailscale report active. These observations
+  do not establish application-data integrity or full client-path health.
+- Both image-owned `/usr/bin` executables report source `b09429d4358d`, accepting
+  their presence/version on this physical image. Mutable runtime delivery remains
+  active; no executable-precedence or service-owner migration is accepted here.
+- An earlier physical attempt reached a new boot successfully; this repeated
+  failure keeps unattended physical kexec acceptance open. No further reboot,
+  firmware/TPM mutation or production change was performed by the agent.
