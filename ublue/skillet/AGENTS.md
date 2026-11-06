@@ -239,6 +239,9 @@ skillet/
   lock an exact version and commit, verifying the annotated tag, publication and
   built artifact identity. Never reuse a published version or weaken commit pins
   to moving refs; release checks must run independently of changed-path filters.
+  Delegate release mutations to the pinned upstream tool, verify compatibility
+  before mutation and test both preview and execution in disposable repositories.
+  Keep local preparation separate from remote publication.
 
 - Keep release and source identity shared across generic and host binaries.
   Version metadata must refresh after Git or tracked-source changes without

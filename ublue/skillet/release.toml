@@ -1,0 +1,10 @@
+# cargo-release owns the local version bump, consolidated commit and annotated tag.
+# GitHub Actions publishes the source release after its tag is pushed explicitly.
+allow-branch = ["master"]
+shared-version = true
+consolidate-commits = true
+pre-release-commit-message = "chore(skillet): release {{version}}"
+publish = false
+push = false
+tag-name = "skillet-v{{version}}"
+tag-message = "Skillet {{version}}"

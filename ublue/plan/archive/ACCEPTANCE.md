@@ -4686,3 +4686,27 @@ acceptance; no production host or private DNS values were committed.
   published release before compiling its locked source. Repository-side release
   immutability and first hosted publication/build acceptance remain unverified.
   Production hosts, runtime configuration and local VM power state were unchanged.
+
+## 2026-11-06 — cargo-release preparation
+
+- Pinned the already available cargo-release `0.25.16`. The launcher checks its
+  version before delegation, uses explicit isolated configuration, and permits
+  local preparation only. `master` is required; crates.io publication and automatic
+  Git pushes are disabled. The GitHub source-publication gates remain unchanged.
+- Actual tool acceptance passed in a cached uCore container using read-only
+  existing Rust/tool mounts. The native executable requires glibc newer than this
+  Rocky 9 workstation provides; nothing was installed or replaced on the host.
+  Upstream still needs read-only crates.io name lookups with publishing disabled;
+  Cargo dependency resolution in the fixtures was offline.
+- A temporary monorepo workspace with two dependent inherited-version crates
+  successfully cut `0.1.1` and `0.1.2-rc.1`: exactly one commit and annotated tag
+  each, matching lockfiles/source validation and unchanged local bare-remote refs.
+  Dry-run and forbidden-branch refusal preserved repository state. The fixture
+  is now an explicit CI job using the same tool pin and no provider/vault access.
+- Twelve Python unit tests, Ruff check/format, Mypy, all workflow actionlint and
+  embedded shell validation passed. Rust formatting, pedantic workspace Clippy,
+  workspace tests (635 passed, 21 existing ignored) and Joey base integration
+  passed; its second apply issued no service start/restart.
+- No real workspace version was bumped, release tag changed, commit pushed or
+  release published. Existing `skillet-v0.1.0` and the consumer lock remain intact.
+  Hosted CI/tool installation and first release publication remain unverified.

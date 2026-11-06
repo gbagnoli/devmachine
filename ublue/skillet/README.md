@@ -22,7 +22,6 @@ are in `target/x86_64-unknown-linux-musl/release/`: `skillet` and
 `skillet-HOST`. Both are included in prepared installation payloads.
 
 Check installed binaries with `skillet --version` or `skillet-HOST --version`.
-Bump releases in `[workspace.package].version` in `Cargo.toml`.
 Both report the shared release version, 12-character Git revision and `.dirty`
 for tracked changes. Source archives without Git metadata report `git.unknown`.
 For tagged releases and image dependency updates, use the

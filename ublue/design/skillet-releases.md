@@ -5,6 +5,13 @@ of other devmachine content. Executables retain `X.Y.Z+git.<revision>` provenanc
 The compatibility contract covers CLI commands, credential payloads, image bundles
 and retained-state migrations. The workspace is released as one component.
 
+Pinned cargo-release owns version/lockfile edits, the consolidated release commit
+and annotated tag; a small launcher verifies its version before delegating with
+explicit configuration. This avoids maintaining another versioning implementation.
+Releases start on clean `master`, default to preview, and never publish crates or
+push automatically. CI exercises actual patch/prerelease cuts in disposable Git
+repositories. Identity validation and GitHub publication remain separate gates.
+
 During `0.x`, compatible fixes increment the patch; features or intentional
 compatibility breaks increment the minor. Breaking changes require documented
 migration/rollback behavior. Starting at `1.0.0`, follow normal
