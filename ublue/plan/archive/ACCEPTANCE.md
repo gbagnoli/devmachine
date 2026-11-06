@@ -4658,3 +4658,31 @@ acceptance; no production host or private DNS values were committed.
   `image-btrbk-acceptance/` (assertions, Containerfiles, release/input manifests and
   case logs). Fresh Ignition/whole-host acceptance, hosted signed pilot image and
   production migration remain open. Physical Clamps and its kexec policy were unchanged.
+
+## 2026-11-06 — semantic Skillet source releases
+
+- Local annotated tag `skillet-v0.1.0` peels to
+  `02ced894cbbd907ab50dd4d544b2afb63a6da05c`. Every Cargo member inherits the
+  workspace version. ucore-images replaces the commit-only file with
+  `skillet-release.json`, selecting version `0.1.0` and that exact commit.
+- Nine independent Git/metadata tests passed: tag/version/commit consistency,
+  actual retag drift, lightweight-tag refusal, dirty/untracked source, inherited
+  versions, strict lock schema, binary identity and published-release metadata.
+  They require no vault, provider account or pre-existing workstation Git identity.
+- Local fmt, pedantic workspace Clippy, workspace tests (635 passed, 21 existing
+  ignored), Joey base integration, Ruff check/format and Mypy passed. Both repos'
+  complete workflows passed pinned actionlint/ShellCheck, including the reusable
+  CI full-check input and release publication job.
+- Built every release binary from the clean tagged commit. The validator accepted
+  real generic/caller versions and the consumer's generated lock. All three host
+  bundles rendered, survived normalized tar transport and re-verified using their
+  transported binaries. Temporary public artifacts are in
+  `/tmp/skillet-v0.1.0-acceptance/`.
+- Published-release response validation additionally passed with an explicitly
+  labelled JSON fixture. No hosted release workflow or real publication is accepted
+  by this result. An anonymous remote tag query found no existing Skillet release
+  tags. Neither commits nor the new tag were pushed; no GitHub settings changed.
+- The tag workflow reuses full CI before publishing; image CI requires the matching
+  published release before compiling its locked source. Repository-side release
+  immutability and first hosted publication/build acceptance remain unverified.
+  Production hosts, runtime configuration and local VM power state were unchanged.
