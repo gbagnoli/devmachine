@@ -4764,3 +4764,12 @@ acceptance; no production host or private DNS values were committed.
   (`VM artifact I/O: No such file or directory`). VM smoke and production
   activation remain unverified; this build attempt did not create a VM or
   deploy to Clamps.
+
+## 2026-11-06 — physical Home Assistant backup credential recovery
+
+- A credential-redacted native WebSocket probe confirmed that the installed
+  backup API token was rejected. The operator replaced the token in KeePassXC
+  and delivered it through the existing encrypted credential path.
+- The physical backup unit exited successfully at 23:55 CET, publishing one new
+  encrypted archive. The hourly exporter timer was enabled and active, and the
+  host reported zero failed units. Temporary diagnostic files were removed.
