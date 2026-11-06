@@ -2,8 +2,8 @@
 
 Status: in progress, 2026-11-06. Staged kexec activation has native VM acceptance;
 production scheduling remains disabled. The ownership inventory and public binary
-bundle exporter are implemented. Exact-revision image CI integration is being
-prepared; hosted image-build and image-artifact boot acceptance remain pending.
+bundle exporter are implemented. Exact-revision image CI integration is implemented; hosted image-build and
+image-artifact boot acceptance remain pending.
 Existing mutable runtime owners are retained until explicit migration acceptance.
 
 ## Goal and boundaries

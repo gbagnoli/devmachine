@@ -20,7 +20,9 @@ are rejected. The output contains only two executables and their public release
 manifest under `usr/`; it needs no vault, SSH, running services or storage mounts.
 
 An image builder can copy the bundle contents into `/`. Preserve modes when
-transporting it: archive the tree rather than uploading individual executables.
+transporting it: archive the tree rather than uploading individual executables,
+and extract with `tar --same-permissions --no-same-owner` so the receiving umask
+does not remove executable bits.
 To verify a transported tree, run its generic executable with the same command,
 using the transported binary paths and its existing root as `--output`.
 

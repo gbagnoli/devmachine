@@ -4562,3 +4562,33 @@ acceptance; no production host or private DNS values were committed.
   container integration passed. The secrets catalogue includes the no-secret
   module and regenerated checklist. No live host or VM reboot was performed
   for this extraction; earlier native activation evidence retains its scope.
+
+## 2026-11-06 — public image bundles and exact-source image CI
+
+- Audited ownership in `IMAGE-OWNERSHIP-INVENTORY.md`. The first artifact allowlist
+  is two `/usr/bin` executables and `/usr/share/skillet/release.json`; existing
+  mutable delivery, boot references and service definitions retain ownership.
+- Exporter source `b09429d4358d35e83a2d90c186393b5e4ad1f739` was committed, then
+  generic/Clamps/Joey/Donbot release binaries were built from that clean checkout.
+  All three bundles passed real export, identical repeat, normalized tar creation,
+  extraction and verification by the transported executable. Source/version,
+  hashes, permissions and the public manifest agreed. A restrictive receiving
+  umask was correctly rejected until extraction explicitly preserved permissions.
+- Built isolated `FROM scratch` images for every bundle and ran generic/caller
+  `--version` with networking disabled. All reported the expected clean source
+  revision without host libraries. Removed the temporary images afterward.
+  This is executable/artifact acceptance, not uCore boot acceptance.
+- Workspace formatting, pedantic Clippy, workspace tests and Joey base container
+  integration passed. Pure tests cover deterministic output, dirty/mismatched
+  versions, unknown hosts, dynamic/invalid ELF, repeat export and conflict
+  preservation on the real filesystem.
+- Prepared ucore-images to consume that full source commit, build all matching
+  artifacts once, preserve/verify archive modes and copy the selected tree into
+  each host image. Common-before-host ordering and signing remain. Explicit
+  checkout plus `skip_checkout` preserves generated trees. Source pin existence,
+  YAML/job graph, Bash syntax and ShellCheck passed locally.
+- BlueBuild is not installed locally; no workstation installation was attempted.
+  Hosted image build/signing and fresh/retained-state image VM acceptance remain
+  unverified until the source commit and image changes are pushed. No production
+  host, timer, service ownership or container pin was changed. btrbk migration is
+  the next pilot after artifact/image acceptance.
