@@ -1,5 +1,8 @@
 # Public image bundles
 
+ucore-images selects a tagged source release through its version/commit lock.
+See [release and dependency updates](releases.md).
+
 Build matching binaries from a clean, exact source checkout:
 
 ```sh

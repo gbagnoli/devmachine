@@ -1,12 +1,29 @@
 name: CI
 
 on:
+  workflow_call:
+    inputs:
+      full-skillet:
+        type: boolean
+        default: false
+        description: Run every Skillet check regardless of changed paths
   push:
     branches: [ main, master, skillet ]
   pull_request:
     branches: [ main, master, skillet ]
 
 jobs:
+  workflow-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate workflows and embedded shell
+        uses: docker://rhysd/actionlint@sha256:9d36088643581e728c969f35141f88139fec77280b2be23c1f66f8e40e1025e7
+        with:
+          args: -color
+
   chef-lint:
     # Ruby 3.1 has no prebuilt binaries for Ubuntu 26.04 (ubuntu-latest).
     runs-on: ubuntu-24.04
@@ -36,11 +53,13 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
       - name: Run Ruff Check
-        run: uv run ruff check --diff .
+        run: uv run ruff check --diff . ublue/skillet/tools
       - name: Run Ruff Format
-        run: uv run ruff format --diff .
+        run: uv run ruff format --diff . ublue/skillet/tools
+      - name: Test release metadata validation
+        run: uv run python -m unittest discover -s ublue/skillet/tools/tests -p "test_*.py"
       - name: Run Mypy
-        run: uv run mypy --ignore-missing-imports site-cookbooks fabfile.py ublue/skillet/crates/homeassistant
+        run: uv run mypy --ignore-missing-imports site-cookbooks fabfile.py ublue/skillet/crates/homeassistant ublue/skillet/tools
       - name: Test Home Assistant missing-only bootstrap
         run: uv run python -m unittest discover -s ublue/skillet/crates/homeassistant/tests -p "test_*.py"
 
@@ -66,6 +85,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
+        if: ${{ !inputs.full-skillet }}
         id: filter
         with:
           filters: |
@@ -74,44 +94,45 @@ jobs:
               - 'ublue/butane/**'
               - 'ublue/AGENTS.md'
               - '.github/workflows/ci.yml'
+              - '.github/workflows/skillet-release.yml'
       
       - name: Set up Rust
-        if: steps.filter.outputs.rust == 'true'
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
           targets: x86_64-unknown-linux-musl
 
       - name: Install musl linker
-        if: steps.filter.outputs.rust == 'true'
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         run: sudo apt-get update && sudo apt-get install --yes musl-tools
 
       - name: Rust Cache
-        if: steps.filter.outputs.rust == 'true'
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ublue/skillet
 
       - name: Run Clippy
-        if: steps.filter.outputs.rust == 'true'
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         run: cd ublue/skillet && cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Check formatting
-        if: steps.filter.outputs.rust == 'true'
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         run: cd ublue/skillet && cargo fmt --all -- --check
 
       - name: Run Unit Tests
-        if: steps.filter.outputs.rust == 'true'
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         run: cd ublue/skillet && cargo test --workspace --all-targets
 
       - name: Run Integration Tests
-        if: steps.filter.outputs.rust == 'true'
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         run: |
           cd ublue/skillet
           cargo run --bin skillet -- test run joey --phase base --image fedora:latest
 
       - name: Validate private UI Caddy configuration
-        if: steps.filter.outputs.rust == 'true'
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         run: |
           cd ublue/skillet
           cargo test -p skillet_caddy generated_identity_caddyfile_validates_with_the_real_consumer -- --ignored
@@ -120,52 +141,52 @@ jobs:
           cargo test -p skillet_caddy real_caddy_public_native_auth_and_private_denial_share_the_same_listener -- --ignored
 
       - name: Build and test the pinned Jellyfin cache image
-        if: steps.filter.outputs.rust == 'true'
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         run: |
           podman build -t ghcr.io/gbagnoli/skillet-caddy:cache-v1 ublue/skillet/crates/caddy/image
           cd ublue/skillet
           cargo test -p skillet_caddy real_caddy_static_cache_ -- --ignored
 
       - name: Test Gokapi native bootstrap and paired state without external credentials
-        if: steps.filter.outputs.rust == 'true'
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         run: |
           cd ublue/skillet
           cargo test -p skillet_gokapi real_gokapi_ -- --ignored
 
       - name: Test Pi-hole proxy authentication without external credentials
-        if: steps.filter.outputs.rust == 'true'
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         run: |
           cd ublue/skillet
           cargo test -p skillet_pihole real_pihole_ -- --ignored
 
       - name: Test Syncthing bootstrap without external credentials
-        if: steps.filter.outputs.rust == 'true'
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         run: |
           cd ublue/skillet
           cargo test -p skillet_syncthing real_upstream_generator_preserves_identity_and_user_edits -- --ignored
 
       - name: Test Mikochi file operations without external credentials
-        if: steps.filter.outputs.rust == 'true'
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         run: |
           cd ublue/skillet
           cargo test -p skillet_mikochi real_mikochi_no_auth_backend_supports_owned_file_operations -- --ignored
 
       - name: Test native UPS configuration without hardware
-        if: steps.filter.outputs.rust == 'true'
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         run: |
           cd ublue/skillet
           podman build -t localhost/skillet-nut-runtime crates/nut/tests
           cargo test -p skillet_nut real_fedora_nut_accepts_config_and_monitors_a_safe_dummy_ups -- --ignored
 
       - name: Run installation and bootstrap regressions
-        if: steps.filter.outputs.rust == 'true'
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         run: |
           bash ublue/butane/tests/bootstrap.sh
           bash ublue/butane/tests/storage-bootstrap.sh
           bash ublue/butane/tests/hardware.sh
 
       - name: Test TPM bootstrap without hardware or external credentials
-        if: steps.filter.outputs.rust == 'true'
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         run: |
           cd ublue/skillet
           cargo test -p skillet_workstation physical_tpm_payload_passes_real_butane_merge -- --ignored

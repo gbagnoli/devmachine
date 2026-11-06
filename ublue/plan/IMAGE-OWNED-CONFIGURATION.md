@@ -117,6 +117,13 @@ are verified. Directory preparation still works on a fresh installation.
 
 ## Slice 3 — pinned application images and release inputs
 
+Skillet source releases now have a shared workspace version, annotated scoped
+tags, full-CI publication workflow and a version/commit lock in ucore-images.
+Consumer CI verifies publication, tag, source and binary provenance while retaining
+source builds. See [release design](../design/skillet-releases.md). First hosted
+release/publication acceptance remains pending; this does not complete the
+application-image/digest and promotion work below.
+
 - Introduce a reviewed lock manifest covering every selected container image,
   including custom Caddy/cache/helper images. Use registry digests for immutable
   selection, with readable upstream version/channel and architecture metadata.

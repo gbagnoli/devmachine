@@ -235,6 +235,11 @@ skillet/
 
 ## Build identity
 
+- Release metadata has one authoritative workspace version. Image dependencies
+  lock an exact version and commit, verifying the annotated tag, publication and
+  built artifact identity. Never reuse a published version or weaken commit pins
+  to moving refs; release checks must run independently of changed-path filters.
+
 - Keep release and source identity shared across generic and host binaries.
   Version metadata must refresh after Git or tracked-source changes without
   requiring a clean build; report unavailable provenance explicitly.

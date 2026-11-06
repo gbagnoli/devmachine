@@ -44,6 +44,8 @@ recording exact source revision and all artifact hashes/modes.
 No apply is executed to discover output, and no private input
 is accepted. CI consumes a full source commit rather than a moving branch; the
 receipt identifies actual binary bytes without promising bit-identical rebuilds.
+The version/commit dependency lock and published source releases follow the
+[Skillet release contract](skillet-releases.md).
 Mutable `/var/usrlocal` references retain operational ownership until a separately
 tested precedence/override migration; candidate image artifacts do not silently
 replace those consumers. btrbk is the first static-service pilot: its verified

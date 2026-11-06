@@ -1,0 +1,133 @@
+name: Skillet release
+
+on:
+  push:
+    tags: ['skillet-v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skillet-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  identity:
+    name: Validate source release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Validate annotated tag and shared version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 ublue/skillet/tools/release.py --tag "$RELEASE_TAG"
+
+  checks:
+    needs: identity
+    uses: ./.github/workflows/ci.yml
+    with:
+      full-skillet: true
+
+  build:
+    name: Validate release binaries and image bundles
+    needs: checks
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/ublue/skillet/target
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      commit: ${{ steps.release.outputs.commit }}
+      tag: ${{ steps.release.outputs.tag }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+      - name: Install CI musl linker
+        run: sudo apt-get update && sudo apt-get install --yes musl-tools
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ublue/skillet
+      - name: Build matching release binaries
+        working-directory: ublue/skillet
+        run: cargo build --locked --release --target x86_64-unknown-linux-musl --workspace --bins
+      - name: Verify source and binary identity
+        id: release
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 ublue/skillet/tools/release.py --tag "$RELEASE_TAG" \
+            --binary-dir "$CARGO_TARGET_DIR/x86_64-unknown-linux-musl/release" \
+            --write-lock "$RUNNER_TEMP/skillet-release.json" --github-output "$GITHUB_OUTPUT"
+      - name: Render and verify every host bundle
+        working-directory: ublue/skillet
+        env:
+          RELEASE_COMMIT: ${{ steps.release.outputs.commit }}
+        run: |
+          set -euo pipefail
+          binary_dir="$CARGO_TARGET_DIR/x86_64-unknown-linux-musl/release"
+          for crate in crates/hosts/*; do
+            host=${crate##*/}
+            tree="$RUNNER_TEMP/skillet-$host"
+            "$binary_dir/skillet" image "$host" --source-revision "$RELEASE_COMMIT" \
+              --generic-binary "$binary_dir/skillet" --host-binary "$binary_dir/skillet-$host" --output "$tree"
+            "$tree/usr/bin/skillet" image "$host" --source-revision "$RELEASE_COMMIT" \
+              --generic-binary "$tree/usr/bin/skillet" --host-binary "$tree/usr/bin/skillet-$host" --output "$tree"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: skillet-release-identity
+          path: ${{ runner.temp }}/skillet-release.json
+          if-no-files-found: error
+
+  publish:
+    name: Publish source release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/download-artifact@v4
+        with:
+          name: skillet-release-identity
+          path: ${{ runner.temp }}/release-identity
+      - name: Recheck the tag and tested commit before publication
+        env:
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          python3 ublue/skillet/tools/release.py --tag "$RELEASE_TAG" \
+            --lock-file "$RUNNER_TEMP/release-identity/skillet-release.json"
+      - name: Create release without replacing an existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+          PRERELEASE: ${{ needs.build.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          args=(release create "$RELEASE_TAG" --verify-tag --generate-notes --title "Skillet $RELEASE_VERSION")
+          if [[ "$PRERELEASE" == true ]]; then
+            args+=(--prerelease --latest=false)
+          fi
+          gh "${args[@]}"
