@@ -144,7 +144,7 @@ fn remote(args: &Args) -> Result<()> {
         database: Some(path),
         key_file: args.key_file.clone(),
         environment: args.environment,
-        target: target.into(),
+        target: Some(target.into()),
         port: args.port,
         identity: args.identity.clone(),
         known_hosts: args.known_hosts.clone(),

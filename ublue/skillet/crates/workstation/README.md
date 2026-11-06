@@ -130,8 +130,11 @@ stops it when finished; do not stop a shared desktop/session agent.
 ## Deliver one service
 
 ```sh
-cargo run --release -p skillet -- secrets deliver HOST SERVICE --target USER@ADDRESS
+cargo run --release -p skillet -- secrets deliver HOST SERVICE
 ```
+
+The host also selects the default SSH alias, as with `apply` and `deploy`.
+Use `--target HOST` or `--target USER@ADDRESS` to override only the connection.
 
 Delivery stages by default. Add `--activate` to start its consumer. Pi-hole and
 Tailscale share full apply; activating either can configure other declared

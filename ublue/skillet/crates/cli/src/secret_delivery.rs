@@ -462,7 +462,7 @@ pub(super) fn credential_transport(
     args: &SecretDeliverArgs,
 ) -> Result<skillet_workstation::sudo::SudoTransport> {
     super::ssh::transport(
-        &args.target,
+        args.target.as_deref().unwrap_or(&args.hostname),
         args.port,
         args.identity.as_deref(),
         args.known_hosts.as_deref(),

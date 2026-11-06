@@ -4773,3 +4773,18 @@ acceptance; no production host or private DNS values were committed.
 - The physical backup unit exited successfully at 23:55 CET, publishing one new
   encrypted archive. The hourly exporter timer was enabled and active, and the
   host reported zero failed units. Temporary diagnostic files were removed.
+
+## 2026-11-07 — standalone credential delivery SSH defaults
+
+- `secrets deliver HOST SERVICE` now defaults its SSH destination to the selected
+  host alias, matching remote apply and deploy. Optional `--target` still accepts
+  a bare alias or `USER@HOST` without changing the selected host profile.
+- CLI regression coverage passed for two host/service selections with default
+  and explicit destinations. Actual command help shows the target as optional.
+  Workstation instructions and the host-application design were updated.
+- Musl formatting, pedantic workspace Clippy and all workspace tests passed
+  (636 passed, 22 existing ignored). Joey base container integration passed both
+  applies with no repeated service starts/restarts; cleanup used its normal
+  SIGKILL fallback after the container ignored SIGTERM.
+- This changes workstation argument handling; no production deployment or
+  credential delivery was performed for this slice.

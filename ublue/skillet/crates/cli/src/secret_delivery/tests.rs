@@ -2,6 +2,34 @@ use super::{validate_delivery_service, validate_tailscale_unit_config};
 use clap::Parser;
 
 #[test]
+fn service_delivery_accepts_host_alias_and_optional_ssh_override() {
+    for (host, service) in [("clamps", "homeassistant"), ("joey", "syncthing")] {
+        for target in [None, Some("alternate"), Some("admin@example.invalid")] {
+            let mut arguments = vec!["skillet", "secrets", "deliver", host, service, "--activate"];
+            if let Some(target) = target {
+                arguments.extend(["--target", target]);
+            }
+            let parsed = crate::Args::try_parse_from(arguments).unwrap();
+            let crate::Commands::Secret {
+                command: crate::SecretCommands::Deliver(args),
+            } = parsed.command
+            else {
+                panic!("wrong command");
+            };
+            assert_eq!(args.hostname, host);
+            assert_eq!(args.target.as_deref(), target);
+            assert!(args.activate);
+            assert!(args.identity.is_none());
+            assert!(args.known_hosts.is_none());
+            assert!(args.port.is_none());
+        }
+    }
+    assert!(
+        crate::Args::try_parse_from(["skillet", "secrets", "deliver", "homeassistant"]).is_err()
+    );
+}
+
+#[test]
 fn plural_secrets_commands_parse_and_unknown_check_host_fails_before_unlock() {
     for command in ["unlock", "lock", "check"] {
         assert!(crate::Args::try_parse_from(["skillet", "secrets", command]).is_ok());

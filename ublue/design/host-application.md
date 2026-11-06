@@ -15,7 +15,8 @@ monitoring last. Failure stops later steps; retained credentials and convergence
 allow a retry. Existing Tailscale enrollment is reused; explicit delivery refreshes
 it. Caddy staging still performs scoped-token and DNS provider operations.
 
-The mandatory positional profile defaults to the matching SSH alias; optional
+For remote apply, deployment and standalone credential delivery, the mandatory
+positional profile defaults to the matching SSH alias; optional
 `--target HOST`/`USER@HOST` overrides connection identity only. OpenSSH resolves
 its own config. Omitted user, port, key and known-host settings are not replaced
 by workstation defaults that would override per-alias configuration. Strict host

@@ -176,6 +176,7 @@ struct SecretDeliverArgs {
     /// Public ingress IP or existing DNS hostname; repeat for IPv4 and IPv6
     #[arg(long)]
     public_target: Vec<String>,
+    /// Canonical host profile and default SSH alias
     hostname: String,
     #[arg(value_parser = ["pihole", "pihole-dns", "tailscale", "caddy", "ddns", "datadog", "smtp", "network", "syncthing", "homeassistant", "joplin", "airtrail", "media", "gokapi"])]
     service: String,
@@ -186,8 +187,9 @@ struct SecretDeliverArgs {
     /// `KeePassXC` environment to use for service configuration
     #[arg(long, value_enum, default_value_t = UiEnvironmentName::Production)]
     environment: UiEnvironmentName,
+    /// Override SSH destination: HOST, alias, or USER@HOST
     #[arg(long)]
-    target: String,
+    target: Option<String>,
     /// Override SSH config port
     #[arg(long)]
     port: Option<u16>,
