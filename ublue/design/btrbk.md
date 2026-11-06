@@ -35,8 +35,10 @@ and successful legacy receipt match. Same-filesystem, no-replace relocation
 preserves recovery copies and metadata, including across interrupted retries.
 Unknown edits and symlinks are refused. Enablement is explicitly repointed;
 success is recorded only after timer activation. The retained migration-capable
-caller restores legacy definitions on an older image, giving rollback an explicit
-configuration reconciliation step. Existing bootstrap binaries and the shared
+caller converges legacy definitions on an older image. OSTree deployments retain
+their own `/etc`, whereas the activation receipt in `/var` is shared; rollback
+therefore includes explicit module reconciliation, recreating missing definitions
+when necessary. Existing bootstrap binaries and the shared
 Podman storage helper are otherwise unchanged by this pilot.
 
 Instructions: [btrbk](../skillet/crates/btrbk/README.md).

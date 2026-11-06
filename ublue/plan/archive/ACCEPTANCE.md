@@ -4612,3 +4612,49 @@ acceptance; no production host or private DNS values were committed.
 - An earlier physical attempt reached a new boot successfully; this repeated
   failure keeps unattended physical kexec acceptance open. No further reboot,
   firmware/TPM mutation or production change was performed by the agent.
+
+## 2026-11-06 — btrbk image ownership pilot, native retained VM
+
+- Tested source `3c485f872abe5fb5d87672888c78767af99cc3c9`. All three host bundles
+  rendered without private inputs and passed normalized archive extraction and
+  re-verification using their transported executable. Six artifact hashes/modes
+  plus the release manifest cover binaries and selected btrbk vendor files.
+- Local OCI images were built from the cached public common image
+  `68aa32dbcb86…` with the supplied clean bundle. The legacy baseline included
+  binaries only; the vendor candidate included all btrbk artifacts. Actual OSTree
+  commits: baseline `ffe586e63e68…`, vendor `c554a0bafeab…`. Local imports were
+  explicitly unsigned; this does not accept publication/signature enforcement.
+- Owned native `clamps-test-kexec`: UEFI Secure Boot, independent swtpm, encrypted
+  Btrfs root and `/data` mount. Its disk was expanded to 30 GiB for local OCI input
+  and OSTree storage. Bootstrap/update owners remained fenced for this test.
+  No provider credentials, production networking or application state were delivered.
+- Passed fresh **module** state on the vendor image, retained legacy upgrade,
+  preservation/refusal of an administrator edit, and refusal while an actual
+  oneshot worker was `activating`. Recovery from a fixture stopped after the first
+  legacy file relocation retired the remainder and activated the vendor timer.
+  This partial-state fixture is not a process-kill or power-loss injection test.
+- Repeated apply kept the active timer timestamp and receipt unchanged. Effective
+  unit fragments/enablement moved to `/usr/lib/systemd/system`; retired copies
+  retained legacy bytes. Actual `ExecStartPre=/usr/bin/skillet-clamps btrbk prepare`
+  and btrbk execution succeeded. A real snapshot was restored to a separate
+  disposable subvolume, compared, then only that restored test copy was removed.
+- Normal reboot retained vendor units, data and a synthetic encrypted credential.
+  A missing data mount was refused inside a private mount namespace. Unit syntax
+  verification passed with the real generated mount-unit search paths included.
+- Actual `rpm-ostree rollback` returned to the baseline. The retained caller
+  reconciled the shared `/var` receipt with its legacy `/etc` units, enabled the
+  correct timer and created a snapshot. Synthetic data and credential hashes
+  remained correct. Final boot: Secure Boot enabled, no armed kernel, zero failed
+  units. VM shut down normally; both recorded local VMs are now off.
+- Initial archive import exceeded the bounded SSH client; the daemon continued.
+  Target staging and transaction completion were independently checked before
+  reboot. Directory-based OCI import initially needed public cache permissions
+  for its unprivileged helper; the final candidate imported only two new layers.
+- Final local checks: formatting, pedantic workspace Clippy, workspace tests
+  (635 passed, 21 existing ignored), Joey base container integration (two applies,
+  no repeat start/restart), and image workflow actionlint passed. Shared real/mock
+  resource contract tests additionally cover regular reads and verified retirement.
+- Private reproducibility inputs/logs are under the owned run's
+  `image-btrbk-acceptance/` (assertions, Containerfiles, release/input manifests and
+  case logs). Fresh Ignition/whole-host acceptance, hosted signed pilot image and
+  production migration remain open. Physical Clamps and its kexec policy were unchanged.

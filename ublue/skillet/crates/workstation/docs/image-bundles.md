@@ -24,7 +24,8 @@ SSH, running services or storage mounts.
 An image builder can copy the bundle contents into `/`. Preserve modes when
 transporting it: archive the tree rather than uploading individual executables,
 and extract with `tar --same-permissions --no-same-owner` so the receiving umask
-does not remove executable bits.
+does not remove executable bits. Create the receiving output root with
+`install -d -m 0755` before extraction; all bundle directories must be `0755`.
 To verify a transported tree, run its generic executable with the same command,
 using the transported binary paths and its existing root as `--output`.
 

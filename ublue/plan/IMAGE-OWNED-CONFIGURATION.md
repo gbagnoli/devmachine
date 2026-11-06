@@ -4,7 +4,8 @@ Status: in progress, 2026-11-06. Staged kexec activation has native VM acceptanc
 production scheduling remains disabled. The ownership inventory and public binary
 bundle exporter are implemented. Exact-revision image CI integration passed hosted
 builds; the initial binary bundle booted on Clamps. The btrbk vendor pilot and
-recoverable migration are implemented; its VM acceptance is in progress.
+recoverable migration passed scoped native retained-VM acceptance. Fresh Ignition,
+whole-host rollout and the signed pilot image build/boot remain pending.
 Existing mutable runtime owners are retained until explicit migration acceptance.
 
 ## Goal and boundaries
@@ -87,7 +88,14 @@ legacy-content/receipt preflight, recoverable regular-file retirement, timer
 enablement migration and explicit legacy fallback on older images. Keep a
 migration-capable mutable caller for rollback reconciliation. CI tests cover
 interrupted retirement/activation, edits, missing vendor files and repeated apply.
-Live VM upgrade, boot and OS rollback evidence remains to be recorded below.
+Native `clamps-test-kexec` acceptance passed: absent module state on the vendor
+image, upgrade with retained definitions, custom-edit refusal, a real activating
+oneshot, recovery from a retained partial-retirement fixture, no-op repeats, actual
+snapshot/restore, normal reboot and OS rollback with module reconciliation.
+Synthetic data and encrypted credential hashes stayed unchanged. Local OCI builds
+used explicit unsigned import; Secure Boot/TPM remained enabled. This is not fresh
+Ignition or full application-profile acceptance. The published signed pilot image
+and production transition remain unverified. See [evidence](archive/ACCEPTANCE.md).
 
 - Prefer consumer vendor locations in `/usr`; Quadlets use
   `/usr/share/containers/systemd`, systemd units `/usr/lib/systemd/system`.

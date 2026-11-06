@@ -29,6 +29,7 @@ and units under `/usr/lib/systemd/system`. Their guard is
 source before preparing snapshot directories. No workstation credentials are needed.
 
 After booting the new image, ordinary host apply migrates verified legacy files.
+Use matching generic and caller binaries; workstation apply deploys both by default.
 For this module alone, run `sudo /var/usrlocal/bin/skillet-<host> btrbk apply`
 using a migration-capable caller; after migration `/usr/bin/skillet-<host>` works
 too. Matching legacy files move to sibling `.skillet-legacy` recovery copies,
@@ -36,13 +37,16 @@ and the timer is reenabled against its vendor definition. Interrupted attempts c
 be retried. A subsequent retirement with an existing recovery copy retains an
 additional `.skillet-retired-*/retired` copy beside it. Recovery copies are not deleted automatically.
 
+The successful activation receipt is `/var/lib/skillet/btrbk/timer.applied`.
 Custom files, symlinks, mismatched receipts or incomplete vendor output cause an
 error before retirement. Preserve and resolve the reported path, then retry;
 do not remove the receipt to bypass the ownership check. A running snapshot must
 finish before migration. Keep the migration-capable `/var/usrlocal` caller for
 OS rollback: on an older image without vendor definitions, its module apply
-restores legacy `/etc` files and enablement. OS rollback alone does not reconstruct
-mutable configuration. Legacy inspection uses `--config /etc/btrbk/btrbk.conf`.
+converges legacy `/etc` files and enablement. OSTree rollback uses the previous
+deployment's `/etc`; run module/host apply to reconcile the shared `/var` activation
+receipt. Missing legacy definitions are recreated; later edits are preserved.
+Legacy inspection uses `--config /etc/btrbk/btrbk.conf`.
 
 Designs: [snapshot policy](../../../design/btrbk.md),
 [storage](../../../design/storage.md).

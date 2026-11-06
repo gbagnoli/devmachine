@@ -1,7 +1,8 @@
 # Direction: image-owned service configuration
 
-Image service migration remains gated on Clamps acceptance; runtime ownership is
-currently retained. The first public artifact bundle is independent of that migration.
+btrbk has an image-owned pilot with scoped native VM acceptance. Other services
+retain runtime ownership; published-image and physical migration acceptance remain
+explicit gates for changing their owners.
 Signed host releases will bind Skillet binaries, public static configuration and
 pinned container digests. Reuse canonical declarations and pure rendering for
 build output; do not run machine-observing apply during image construction.
@@ -45,4 +46,6 @@ is accepted. CI consumes a full source commit rather than a moving branch; the
 receipt identifies actual binary bytes without promising bit-identical rebuilds.
 Mutable `/var/usrlocal` references retain operational ownership until a separately
 tested precedence/override migration; candidate image artifacts do not silently
-replace those consumers. btrbk is the first static-service pilot.
+replace those consumers. btrbk is the first static-service pilot: its verified
+migration switches the snapshot service to the image caller, while general apply
+and bootstrap references retain their existing owners.
