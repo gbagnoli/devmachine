@@ -101,12 +101,26 @@ impl<T: StorageResource> StorageResource for Recorder<T> {
 }
 
 impl<T: FileReadResource> FileReadResource for Recorder<T> {
+    fn read_regular_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
+        self.inner.read_regular_file(path)
+    }
     fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
         self.inner.read_file(path)
     }
 }
 
 impl<T: FileMutationResource> FileMutationResource for Recorder<T> {
+    fn retire_file(&self, path: &Path, expected: &[u8], archive: &Path) -> Result<bool, FileError> {
+        let result = self.inner.retire_file(path, expected, archive);
+        self.record(
+            ResourceOp::RetireFile {
+                path: path.display().to_string(),
+                archive: archive.display().to_string(),
+            },
+            changed(&result),
+        );
+        result
+    }
     fn create_file_if_absent(
         &self,
         path: &Path,
@@ -192,6 +206,14 @@ impl<T: PodmanSecretResource> PodmanSecretResource for Recorder<T> {
 }
 
 impl<T: ServiceResource> ServiceResource for Recorder<T> {
+    fn service_reenable(&self, name: &str) -> Result<(), SystemError> {
+        let result = self.inner.service_reenable(name);
+        self.record(
+            ResourceOp::ServiceReenable { name: name.into() },
+            succeeded(&result),
+        );
+        result
+    }
     fn service_is_active(&self, name: &str) -> Result<bool, SystemError> {
         self.inner.service_is_active(name)
     }

@@ -215,6 +215,9 @@ impl PodmanSecretResource for MockSystem {
 }
 
 impl ServiceResource for MockSystem {
+    fn service_reenable(&self, name: &str) -> Result<(), SystemError> {
+        self.service_enable(name)
+    }
     fn service_is_active(&self, name: &str) -> Result<bool, SystemError> {
         Ok(matches!(
             self.services
@@ -477,6 +480,9 @@ impl StorageResource for MockFiles {
 }
 
 impl FileReadResource for MockFiles {
+    fn read_regular_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
+        self.read_file(path)
+    }
     fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
         Ok(self
             .files
@@ -488,6 +494,37 @@ impl FileReadResource for MockFiles {
 }
 
 impl FileMutationResource for MockFiles {
+    fn retire_file(&self, path: &Path, expected: &[u8], archive: &Path) -> Result<bool, FileError> {
+        if path == archive || path.parent() != archive.parent() {
+            return Err(FileError::Retirement(
+                "archive must be a distinct sibling".into(),
+            ));
+        }
+        let mut files = self
+            .files
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let key = path.display().to_string();
+        let backup = archive.display().to_string();
+        if files.get(&backup).is_some_and(|v| v != expected)
+            || files.get(&key).is_some_and(|v| v != expected)
+        {
+            return Err(FileError::Retirement(key));
+        }
+        if let Some(bytes) = files.remove(&key) {
+            files.entry(backup.clone()).or_insert(bytes);
+            let mut metadata = self
+                .metadata
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if let Some(value) = metadata.remove(&key) {
+                metadata.entry(backup).or_insert(value);
+            }
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
     fn create_file_if_absent(
         &self,
         path: &Path,

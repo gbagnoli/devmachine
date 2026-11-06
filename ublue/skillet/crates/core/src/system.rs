@@ -98,6 +98,11 @@ pub trait PodmanSecretResource {
 }
 
 pub trait ServiceResource {
+    fn service_reenable(&self, name: &str) -> Result<(), SystemError> {
+        Err(SystemError::Command(format!(
+            "reenable unsupported: {name}"
+        )))
+    }
     fn service_is_active(&self, name: &str) -> Result<bool, SystemError>;
     fn service_start(&self, name: &str) -> Result<(), SystemError>;
     fn service_stop(&self, name: &str) -> Result<(), SystemError>;
@@ -453,6 +458,18 @@ impl PodmanSecretResource for LinuxSystemResource {
 }
 
 impl ServiceResource for LinuxSystemResource {
+    fn service_reenable(&self, name: &str) -> Result<(), SystemError> {
+        let output = Command::new("systemctl")
+            .args(["reenable", name])
+            .output()?;
+        if !output.status.success() {
+            return Err(SystemError::Command(format!(
+                "systemctl reenable {name} failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            )));
+        }
+        Ok(())
+    }
     fn service_is_active(&self, name: &str) -> Result<bool, SystemError> {
         let name = ensure_systemd_suffix(name);
         let output = Command::new("systemctl")

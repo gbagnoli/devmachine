@@ -3,6 +3,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone)]
 pub enum ResourceOp {
+    RetireFile {
+        path: String,
+        archive: String,
+    },
+    ServiceReenable {
+        name: String,
+    },
     EnsurePrivateIpv4LanPorts {
         ports: Vec<crate::firewall::FirewallPort>,
         #[serde(default)]

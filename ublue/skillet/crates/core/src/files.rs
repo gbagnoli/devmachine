@@ -1,3 +1,5 @@
+mod retirement;
+
 use nix::unistd::{chown, fchown, Gid, Uid};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -13,6 +15,8 @@ use users::{get_group_by_name, get_user_by_name};
 
 #[derive(Error, Debug)]
 pub enum FileError {
+    #[error("File retirement refused: {0}")]
+    Retirement(String),
     #[error("IO error: {0}")]
     Io(#[from] io::Error),
     #[error("Failed to persist temporary file to {0}: {1}")]
@@ -71,10 +75,28 @@ impl Ownership {
 }
 
 pub trait FileReadResource {
+    fn read_regular_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
+        Err(FileError::Retirement(format!(
+            "regular-file observation unsupported: {}",
+            path.display()
+        )))
+    }
     fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError>;
 }
 
 pub trait FileMutationResource {
+    /// Retire only matching regular content; preserve a same-directory recovery copy.
+    fn retire_file(
+        &self,
+        path: &Path,
+        _expected: &[u8],
+        _archive: &Path,
+    ) -> Result<bool, FileError> {
+        Err(FileError::Retirement(format!(
+            "verified retirement unsupported: {}",
+            path.display()
+        )))
+    }
     /// Atomically publish a new regular file. Existing files retain all bytes and
     /// metadata; symlinks and directories are rejected without modification.
     fn create_file_if_absent(
@@ -386,6 +408,9 @@ impl StorageResource for LocalFileResource {
 }
 
 impl FileReadResource for LocalFileResource {
+    fn read_regular_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
+        retirement::regular(path)
+    }
     fn read_file(&self, path: &Path) -> Result<Option<Vec<u8>>, FileError> {
         match fs::read(path) {
             Ok(bytes) => Ok(Some(bytes)),
@@ -396,6 +421,9 @@ impl FileReadResource for LocalFileResource {
 }
 
 impl FileMutationResource for LocalFileResource {
+    fn retire_file(&self, path: &Path, expected: &[u8], archive: &Path) -> Result<bool, FileError> {
+        retirement::retire(path, expected, archive)
+    }
     fn create_file_if_absent(
         &self,
         path: &Path,

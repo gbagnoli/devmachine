@@ -285,6 +285,11 @@ skillet/
 - Verify atomic replacement metadata with the real filesystem adapter, not only
   mocks. Omitted ownership/permission fields on existing regular files must be
   preserved through content changes as well as no-op writes.
+- Ownership migrations preflight every retained definition and applied receipt
+  before retirement. Relocate verified regular files without replacement, retain
+  recovery copies and recheck after relocation; never delete concurrently edited
+  content. Test enablement/precedence changes and explicit rollback reconciliation
+  through the real consumer, as well as interrupted retries.
 
 - Shared response caches require consumer-tested request and response eligibility.
   Keep protected content uncached until authorization/revocation on hits is proven;
