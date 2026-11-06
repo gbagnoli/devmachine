@@ -71,12 +71,18 @@ where
     let image_revision = revision_for_image(&vendor);
     let pending = applied.as_deref() != Some(image_revision.as_bytes());
     if !old.is_empty() || pending {
-        if system.service_is_active("skillet-btrbk.service")? {
+        if system.service_is_busy("skillet-btrbk.service")? {
             return Err(BtrbkError::Conflict(
                 "snapshot service is running; retry after completion".into(),
             ));
         }
         system.service_stop(TIMER)?;
+        if system.service_is_busy("skillet-btrbk.service")? {
+            return Err(BtrbkError::Conflict(
+                "snapshot started before timer stopped; retry after completion to reactivate timer"
+                    .into(),
+            ));
+        }
     }
     let mut changed = false;
     for (path, content, archive) in old {

@@ -145,7 +145,7 @@ fn running_snapshot_or_partial_vendor_tree_is_not_migrated() {
         .services
         .lock()
         .unwrap()
-        .insert("skillet-btrbk.service".into(), "started".into());
+        .insert("skillet-btrbk.service".into(), "activating".into());
     assert!(selected(&system, &files).is_err());
     assert!(files.read_file(Path::new(CONFIG_PATH)).unwrap().is_some());
     files.delete_file(Path::new(image::MARKER)).unwrap();

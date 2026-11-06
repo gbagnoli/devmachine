@@ -98,6 +98,12 @@ pub trait PodmanSecretResource {
 }
 
 pub trait ServiceResource {
+    /// Include activation/deactivation, particularly running oneshot workers.
+    fn service_is_busy(&self, name: &str) -> Result<bool, SystemError> {
+        Err(SystemError::Command(format!(
+            "busy-state observation unsupported: {name}"
+        )))
+    }
     fn service_reenable(&self, name: &str) -> Result<(), SystemError> {
         Err(SystemError::Command(format!(
             "reenable unsupported: {name}"
@@ -458,6 +464,23 @@ impl PodmanSecretResource for LinuxSystemResource {
 }
 
 impl ServiceResource for LinuxSystemResource {
+    fn service_is_busy(&self, name: &str) -> Result<bool, SystemError> {
+        let output = Command::new("systemctl")
+            .args(["show", name, "--property=ActiveState", "--value"])
+            .output()?;
+        if output.status.success() {
+            match String::from_utf8_lossy(&output.stdout).trim() {
+                "active" | "activating" | "deactivating" | "reloading" | "refreshing"
+                | "maintenance" => return Ok(true),
+                "inactive" | "failed" => return Ok(false),
+                _ => {}
+            }
+        }
+        Err(SystemError::Command(format!(
+            "cannot observe busy state for {name}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )))
+    }
     fn service_reenable(&self, name: &str) -> Result<(), SystemError> {
         let output = Command::new("systemctl")
             .args(["reenable", name])

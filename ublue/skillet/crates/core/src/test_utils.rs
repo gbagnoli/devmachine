@@ -215,6 +215,16 @@ impl PodmanSecretResource for MockSystem {
 }
 
 impl ServiceResource for MockSystem {
+    fn service_is_busy(&self, name: &str) -> Result<bool, SystemError> {
+        let services = self
+            .services
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        Ok(matches!(
+            services.get(name).map(String::as_str),
+            Some("started" | "restarted" | "reloaded" | "activating" | "deactivating")
+        ))
+    }
     fn service_reenable(&self, name: &str) -> Result<(), SystemError> {
         self.service_enable(name)
     }

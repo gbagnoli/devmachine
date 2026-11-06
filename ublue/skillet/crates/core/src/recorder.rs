@@ -206,6 +206,9 @@ impl<T: PodmanSecretResource> PodmanSecretResource for Recorder<T> {
 }
 
 impl<T: ServiceResource> ServiceResource for Recorder<T> {
+    fn service_is_busy(&self, name: &str) -> Result<bool, SystemError> {
+        self.inner.service_is_busy(name)
+    }
     fn service_reenable(&self, name: &str) -> Result<(), SystemError> {
         let result = self.inner.service_reenable(name);
         self.record(
