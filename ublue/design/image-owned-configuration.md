@@ -37,9 +37,10 @@ container updates continue until their individual migrations are implemented.
 [Implementation slices and acceptance](../plan/IMAGE-OWNED-CONFIGURATION.md).
 
 Image bundles are assembled from supplied clean, matching generic/caller binaries
-and the canonical public service declaration. The only initial output is `/usr/bin`
-binaries plus `/usr/share/skillet/release.json` recording exact source revision and
-binary hashes/modes. No apply is executed to discover output, and no private input
+and the canonical public service declaration. Output includes `/usr/bin`
+binaries, selected btrbk vendor artifacts and `/usr/share/skillet/release.json`
+recording exact source revision and all artifact hashes/modes.
+No apply is executed to discover output, and no private input
 is accepted. CI consumes a full source commit rather than a moving branch; the
 receipt identifies actual binary bytes without promising bit-identical rebuilds.
 Mutable `/var/usrlocal` references retain operational ownership until a separately

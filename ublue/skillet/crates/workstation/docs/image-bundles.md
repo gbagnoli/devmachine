@@ -16,8 +16,10 @@ target/x86_64-unknown-linux-musl/release/skillet image clamps \
 The output parent must exist. Identical repeats are accepted; changed content,
 extra files, symlinks or unexpected permissions are refused. Both binaries must
 report the same clean source version and be static x86-64 ELF files. Dirty builds
-are rejected. The output contains only two executables and their public release
-manifest under `usr/`; it needs no vault, SSH, running services or storage mounts.
+are rejected. The output contains two executables, caller-selected btrbk vendor
+config/units/ownership marker, and a public release manifest under `usr/`.
+The manifest covers every output's hash and mode. Rendering needs no vault,
+SSH, running services or storage mounts.
 
 An image builder can copy the bundle contents into `/`. Preserve modes when
 transporting it: archive the tree rather than uploading individual executables,
@@ -29,7 +31,10 @@ using the transported binary paths and its existing root as `--output`.
 Existing `/var/usrlocal/bin` delivery and unit references remain active. Inspect
 the candidate binaries explicitly as `/usr/bin/skillet --version` and
 `/usr/bin/skillet-clamps --version` after building an image. No boot consumer is
-switched by this bundle. Service definitions and precedence migration are pending.
+switched for general apply by this bundle. After module reconciliation, btrbk's
+vendor service uses the image caller binary. See the
+[btrbk migration guide](../../btrbk/README.md) before retiring legacy overrides;
+retain a migration-capable mutable caller for OS rollback.
 
 Ownership: [inventory](../../../../plan/IMAGE-OWNERSHIP-INVENTORY.md),
 [design](../../../../design/image-owned-configuration.md).

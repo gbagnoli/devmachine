@@ -5,6 +5,8 @@ use std::{fs, io, os::unix::fs::PermissionsExt as _, path::Path};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error(transparent)]
+    Btrbk(#[from] skillet_btrbk::BtrbkError),
     #[error("unknown image host")]
     Host,
     #[error("image bundles require a full source commit and matching clean binary versions")]
@@ -99,6 +101,16 @@ fn render(
             mode: 0o755,
         },
     ];
+    if let Some(config) = profile.btrbk_config() {
+        for artifact in skillet_btrbk::image::render(&config, &format!("/usr/bin/skillet-{host}"))?
+        {
+            files.push(Output {
+                path: artifact.path.trim_start_matches('/').into(),
+                bytes: artifact.content.into_bytes(),
+                mode: 0o644,
+            });
+        }
+    }
     let release = Release {
         format_version: 1,
         host,

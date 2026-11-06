@@ -1,7 +1,9 @@
 # Local Btrfs snapshots
 
 Install btrbk in the shared uCore image, mask its packaged daily timer, and
-manage configuration and the hourly timer through a reusable Skillet module.
+render vendor configuration and the hourly timer through a reusable Skillet module.
+Bundles own `/usr/share/skillet/btrbk` and the two `/usr/lib/systemd/system`
+units. Runtime retains storage checks and activation.
 Each host opts in by passing explicit
 subvolume paths relative to `/var/lib/data`; an empty list opts out. Clamps
 selects only `syncthing`, stored at `/var/lib/data/syncthing`, with snapshots
@@ -16,7 +18,7 @@ invariant of the current policy rather than a recursively discovered source
 list. A future need for nested subvolumes requires an explicit design change.
 
 Keep rupik's hourly schedule and retention (`6h` minimum; `24h 31d 6m`). The
-service reruns the shared data preparation validation before calling btrbk, so
+service runs its Rust caller's `btrbk prepare` validation before calling btrbk, so
 it fails closed if the intended `/data` Btrfs mount is absent or wrong. Pi-hole
 snapshot policy remains separate.
 
@@ -26,6 +28,16 @@ snapshots on the intended filesystem and avoids duplicate runs. Local
 snapshots share the source disk's failure domain and are not an independent
 backup. Verify recovery by restoring a disposable snapshot to a separate path
 before relying on the schedule.
+
+The image ownership marker selects vendor mode; incomplete/mismatched vendor
+files fail closed. Retained `/etc` definitions are retired only when their bytes
+and successful legacy receipt match. Same-filesystem, no-replace relocation
+preserves recovery copies and metadata, including across interrupted retries.
+Unknown edits and symlinks are refused. Enablement is explicitly repointed;
+success is recorded only after timer activation. The retained migration-capable
+caller restores legacy definitions on an older image, giving rollback an explicit
+configuration reconciliation step. Existing bootstrap binaries and the shared
+Podman storage helper are otherwise unchanged by this pilot.
 
 Instructions: [btrbk](../skillet/crates/btrbk/README.md).
 Storage contract: [design](storage.md).

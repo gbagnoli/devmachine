@@ -1,4 +1,9 @@
-use super::{apply, BtrbkConfig, BtrbkError, CONFIG_PATH, SERVICE_PATH, TIMER_PATH};
+use super::{
+    apply, apply_for_host, image, BtrbkConfig, BtrbkError, CONFIG_PATH, SERVICE_PATH, TIMER_PATH,
+};
+
+#[path = "migration_tests.rs"]
+mod migration_tests;
 use skillet_core::files::FileReadResource;
 use skillet_core::test_utils::{MockFiles, MockSystem};
 use std::path::PathBuf;

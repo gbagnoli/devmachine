@@ -505,7 +505,7 @@ fn apply_profile(
                 let config = profile.btrbk_config().ok_or_else(|| {
                     ApplyError::FixtureInput("btrbk service lacks snapshot configuration".into())
                 })?;
-                skillet_btrbk::apply(system, files, &config)?;
+                skillet_btrbk::apply_for_host(system, files, &config, &format!("/usr/bin/skillet-{}", profile.id.as_str()))?;
             }
         }
     }

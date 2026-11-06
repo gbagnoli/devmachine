@@ -29,6 +29,8 @@ use hosts::ApplyPhase;
 #[derive(Error, Debug)]
 pub enum CliCommonError {
     #[error(transparent)]
+    Btrbk(#[from] skillet_btrbk::BtrbkError),
+    #[error(transparent)]
     Kexec(#[from] skillet_kexec::runtime::RuntimeError),
     #[error(transparent)]
     HomeAssistant(#[from] skillet_homeassistant::Error),
@@ -75,6 +77,11 @@ pub struct HostArgs {
 
 #[derive(clap::Subcommand, Debug)]
 pub enum HostCommands {
+    /// Validate declared snapshot storage and prepare destination directories
+    Btrbk {
+        #[command(subcommand)]
+        command: BtrbkCommands,
+    },
     Kexec {
         #[command(subcommand)]
         command: kexec::runtime::Commands,
@@ -146,6 +153,14 @@ pub enum HostCommands {
 }
 
 #[derive(clap::Subcommand, Debug)]
+pub enum BtrbkCommands {
+    /// Validate snapshot storage before a scheduled run.
+    Prepare,
+    /// Reconcile this caller's snapshot configuration and timer only.
+    Apply,
+}
+
+#[derive(clap::Subcommand, Debug)]
 pub enum CredentialCommands {
     /// Print `present` if a host credential or Podman secret exists, otherwise `absent`
     State { name: String },
@@ -187,6 +202,26 @@ where
     tracing::subscriber::set_global_default(subscriber)?;
 
     match args.command {
+        HostCommands::Btrbk { command } => {
+            let config = skillet_hosts::profile_for_name(hostname)
+                .and_then(|p| p.btrbk_config())
+                .ok_or_else(|| CliCommonError::Config("host does not declare btrbk".into()))?;
+            match command {
+                BtrbkCommands::Prepare => {
+                    skillet_btrbk::prepare(&LocalFileResource::new(), &config)?;
+                }
+                BtrbkCommands::Apply => {
+                    let _maintenance = skillet_core::maintenance::writer()?;
+                    skillet_btrbk::apply_for_host(
+                        &LinuxSystemResource::new(),
+                        &LocalFileResource::new(),
+                        &config,
+                        &format!("/usr/bin/skillet-{hostname}"),
+                    )?;
+                }
+            }
+            Ok(())
+        }
         HostCommands::Kexec { command } => Ok(kexec::runtime::dispatch(command)?),
         HostCommands::Homeassistant { command } => homeassistant_runtime::dispatch(&command),
         HostCommands::Postgres { command } => postgres_runtime::dispatch(command),

@@ -2,8 +2,9 @@
 
 Status: in progress, 2026-11-06. Staged kexec activation has native VM acceptance;
 production scheduling remains disabled. The ownership inventory and public binary
-bundle exporter are implemented. Exact-revision image CI integration is implemented; hosted image-build and
-image-artifact boot acceptance remain pending.
+bundle exporter are implemented. Exact-revision image CI integration passed hosted
+builds; the initial binary bundle booted on Clamps. The btrbk vendor pilot and
+recoverable migration are implemented; its VM acceptance is in progress.
 Existing mutable runtime owners are retained until explicit migration acceptance.
 
 ## Goal and boundaries
@@ -52,8 +53,8 @@ no ambiguous dual owner or build-time need for live systemd, Btrfs or credential
 ## Slice 1 — pure build output and immutable guest artifacts
 
 Implemented entry point: `skillet image <host>`; [bundle guide](../skillet/crates/workstation/docs/image-bundles.md).
-Current allowlist is matching binaries and a public release manifest. Static service
-rendering, retained-state executable migration and owned image boot remain pending.
+Current allowlist is matching binaries, a public release manifest and caller-selected
+btrbk vendor artifacts. General retained-state executable migration remains pending.
 
 1. Extract/reuse pure declarations and renderers; avoid a second host/service
    inventory or executing apply through mocks to capture filesystem side effects.
@@ -80,6 +81,13 @@ No production deployment in this slice.
 Use caller-selected btrbk as the first candidate: configuration/timer are static,
 while mount/source checks and actual snapshots remain runtime operations. Confirm
 this choice against slice 0; keep its explicit leaf source, never snapshot all data.
+
+Implemented: pure shared renderer and bundle inventory, image Rust guard, exact
+legacy-content/receipt preflight, recoverable regular-file retirement, timer
+enablement migration and explicit legacy fallback on older images. Keep a
+migration-capable mutable caller for rollback reconciliation. CI tests cover
+interrupted retirement/activation, edits, missing vendor files and repeated apply.
+Live VM upgrade, boot and OS rollback evidence remains to be recorded below.
 
 - Prefer consumer vendor locations in `/usr`; Quadlets use
   `/usr/share/containers/systemd`, systemd units `/usr/lib/systemd/system`.

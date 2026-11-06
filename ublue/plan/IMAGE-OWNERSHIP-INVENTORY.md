@@ -9,7 +9,7 @@ Companion: [implementation slices](IMAGE-OWNED-CONFIGURATION.md).
 | Storage preparation and collector/proxy helpers | Runtime installation and generated units | Versioned programs under `/usr/libexec/skillet` or `/usr/bin` | Observed disks, mounts, Btrfs subvolumes, identities and actual metrics |
 | SSH/sysctl/ET hardening | Image files plus idempotent runtime convergence | Vendor static defaults | Preserve admin overrides; distinguish managed receipts before migration |
 | Apply, credential, kexec and initialization units | Generated `/etc/systemd/system` | Static vendor units under `/usr/lib/systemd/system` | Private credential drop-ins, activation gates, convergence receipts and explicit reboot policy |
-| btrbk | `/etc/btrbk/btrbk.conf`, generated service/timer | First service pilot: caller-selected static source/config and units | Require mounted data and leaf subvolume; snapshot-directory preparation; snapshots themselves |
+| btrbk | Vendor bundle with verified retirement of legacy `/etc` definitions; VM acceptance pending | `/usr/share/skillet/btrbk` config/marker, `/usr/lib/systemd/system` units, image Rust guard | Require mounted data and leaf subvolume; snapshot-directory preparation, activation/rollback reconciliation and snapshots themselves |
 | Podman networks, graphroot, firewall/storage prerequisites | Runtime resource adapters | Public declaration/rendering only where static | Inspect/converge actual storage, forwarding and observed private LAN policy |
 | Pi-hole, Syncthing, Mikochi, Homer, UniFi | Generated Quadlets/config, mutable volumes | Public container/service skeletons and bundled UI assets | Private DNS, UI/environment inputs, first-use config, application edits and data |
 | Home Assistant, NUT and companions | Runtime units/config plus image prerequisites | Static capability/security policy and public unit structure | Hardware access, private integration credentials, initialization and application state |
@@ -21,11 +21,11 @@ Companion: [implementation slices](IMAGE-OWNED-CONFIGURATION.md).
 | TPM recovery, enrollment and networking | Ignition plus private runtime state | Generic preparation tools only | LUKS/TPM/key material, recovery records, machine enrollment, Wi-Fi and LAN configuration |
 | Backup schedules/exporters | Runtime-generated units and programs | Static units/programs once prerequisites are explicit | Backup/restore, retention, independent receipt and actual data |
 
-First bundle allowlist: only `/usr/bin/skillet`, `/usr/bin/skillet-<host>` and
-`/usr/share/skillet/release.json`. The manifest records the exact source commit,
-matching version, public service names and binary hashes/modes. No runtime apply
-is executed to produce it. Service selection is descriptive in this first bundle;
-service definitions have not moved yet.
+Bundle allowlist: `/usr/bin/skillet`, `/usr/bin/skillet-<host>`, selected btrbk
+vendor artifacts and `/usr/share/skillet/release.json`. The manifest records exact
+source commit, matching version, public service names and all output hashes/modes.
+No runtime apply is executed to produce it. Other service definitions retain
+their current runtime owners.
 
 Pilot migration contract: btrbk must retain its declared Syncthing leaf source.
 Separate pure rendering from mount/subvolume checks; keep runtime preparation.

@@ -18,12 +18,12 @@ fn rendering_is_deterministic_public_and_allowlisted() {
     let bytes = binary();
     let files = render("clamps", REVISION, VERSION, &bytes, &bytes).unwrap();
     let again = render("clamps", REVISION, VERSION, &bytes, &bytes).unwrap();
-    assert_eq!(files.len(), 3);
+    assert_eq!(files.len(), 7);
     for (a, b) in files.iter().zip(again) {
         assert_eq!(a.bytes, b.bytes);
         assert!(a.path.starts_with("usr/"));
     }
-    let manifest: serde_json::Value = serde_json::from_slice(&files[2].bytes).unwrap();
+    let manifest: serde_json::Value = serde_json::from_slice(&files.last().unwrap().bytes).unwrap();
     assert_eq!(manifest["source_commit"], REVISION);
     assert_eq!(
         manifest["artifacts"][0]["sha256"],

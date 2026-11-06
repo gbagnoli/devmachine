@@ -33,3 +33,12 @@ fn host_version_displays_caller_identity() {
         format!("skillet-example {}\n", version())
     );
 }
+
+#[test]
+fn btrbk_guard_and_reconciliation_are_distinct_host_commands() {
+    for operation in ["prepare", "apply"] {
+        crate::host_command("example")
+            .try_get_matches_from(["skillet-example", "btrbk", operation])
+            .unwrap();
+    }
+}

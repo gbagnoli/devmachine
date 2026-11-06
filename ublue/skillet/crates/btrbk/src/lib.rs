@@ -1,3 +1,6 @@
+pub mod image;
+mod migration;
+
 use sha2::{Digest, Sha256};
 use skillet_core::{
     activation::{self, ActivationRequest, ConsumerKind},
@@ -14,6 +17,8 @@ const TIMER_PATH: &str = "/etc/systemd/system/skillet-btrbk.timer";
 
 #[derive(Debug, Error)]
 pub enum BtrbkError {
+    #[error("btrbk ownership conflict: {0}")]
+    Conflict(String),
     #[error("File error: {0}")]
     File(#[from] FileError),
     #[error("System error: {0}")]
@@ -39,23 +44,8 @@ where
         return Ok(());
     }
 
-    files.require_btrfs_subvolume_mount(Path::new(DATA_MOUNT), Path::new("/var"), "/data")?;
-
-    let mut sources = Vec::with_capacity(config.snapshot_subvolumes.len());
-    for relative in &config.snapshot_subvolumes {
-        validate_relative_subvolume(relative)?;
-        let source = Path::new(DATA_MOUNT).join(relative);
-        files.require_btrfs_subvolume(&source)?;
-        let snapshot_dir = Path::new(DATA_MOUNT).join("snapshots").join(relative);
-        files.ensure_directory(&snapshot_dir, Some(0o755), &Ownership::default())?;
-        sources.push((
-            relative,
-            snapshot_dir
-                .strip_prefix(DATA_MOUNT)
-                .map_err(|_| BtrbkError::InvalidSubvolume(relative.display().to_string()))?
-                .to_path_buf(),
-        ));
-    }
+    prepare(files, config)?;
+    let sources = sources(config)?;
 
     files.ensure_directory(
         Path::new("/etc/btrbk"),
@@ -87,7 +77,16 @@ where
     hasher.update(service_unit().as_bytes());
     hasher.update(timer_unit().as_bytes());
     let revision = hex::encode(hasher.finalize());
-    system.service_enable("skillet-btrbk.timer")?;
+    if definition_changed
+        || files
+            .read_file(Path::new("/var/lib/skillet/btrbk/timer.applied"))?
+            .as_deref()
+            != Some(revision.as_bytes())
+    {
+        system.service_reenable("skillet-btrbk.timer")?;
+    } else {
+        system.service_enable("skillet-btrbk.timer")?;
+    }
     let state_dir = Path::new("/var/lib/skillet/btrbk");
     files.ensure_directory(
         state_dir,
@@ -168,3 +167,91 @@ fn timer_unit() -> &'static str {
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
+
+fn sources(config: &BtrbkConfig) -> Result<Vec<(&PathBuf, PathBuf)>, BtrbkError> {
+    config
+        .snapshot_subvolumes
+        .iter()
+        .map(|relative| {
+            validate_relative_subvolume(relative)?;
+            Ok((relative, Path::new("snapshots").join(relative)))
+        })
+        .collect()
+}
+
+pub fn prepare<F>(files: &F, config: &BtrbkConfig) -> Result<(), BtrbkError>
+where
+    F: FileReadResource + FileMutationResource + StorageResource + ?Sized,
+{
+    let selected = sources(config)?;
+    if selected.is_empty() {
+        return Ok(());
+    }
+    files.require_btrfs_subvolume_mount(Path::new(DATA_MOUNT), Path::new("/var"), "/data")?;
+    for (source, _) in &selected {
+        files.require_btrfs_subvolume(&Path::new(DATA_MOUNT).join(source))?;
+    }
+    for (_, destination) in selected {
+        files.ensure_directory(
+            &Path::new(DATA_MOUNT).join(destination),
+            Some(0o755),
+            &Ownership::default(),
+        )?;
+    }
+    Ok(())
+}
+
+pub fn apply_for_host<S, F>(
+    system: &S,
+    files: &F,
+    config: &BtrbkConfig,
+    binary: &str,
+) -> Result<(), BtrbkError>
+where
+    S: ServiceResource + ?Sized,
+    F: FileReadResource + FileMutationResource + StorageResource + ?Sized,
+{
+    if config.snapshot_subvolumes.is_empty() {
+        return Ok(());
+    }
+    match files.read_regular_file(Path::new(image::MARKER))? {
+        None => {
+            for path in [image::CONFIG, image::SERVICE, image::TIMER] {
+                if files.read_regular_file(Path::new(path))?.is_some() {
+                    return Err(BtrbkError::Conflict(format!(
+                        "partial image installation: {path} exists without ownership marker"
+                    )));
+                }
+            }
+            // Rollback reconciliation may restore absent generated definitions,
+            // but must not overwrite edits made after the image migration.
+            let legacy_config = render_config(&sources(config)?);
+            let legacy = [
+                (CONFIG_PATH, legacy_config.as_str()),
+                (SERVICE_PATH, service_unit()),
+                (TIMER_PATH, timer_unit()),
+            ];
+            let mut restoring = false;
+            for (path, _) in legacy {
+                restoring |= files
+                    .read_regular_file(Path::new(&format!("{path}.skillet-legacy")))?
+                    .is_some();
+            }
+            if restoring {
+                for (path, expected) in legacy {
+                    if files
+                        .read_regular_file(Path::new(path))?
+                        .as_deref()
+                        .is_some_and(|bytes| bytes != expected.as_bytes())
+                    {
+                        return Err(BtrbkError::Conflict(format!(
+                            "custom rollback definition: {path}; preserve it before reconciliation"
+                        )));
+                    }
+                }
+            }
+            apply(system, files, config)
+        }
+        Some(_) => migration::apply(system, files, config, binary),
+    }
+}
