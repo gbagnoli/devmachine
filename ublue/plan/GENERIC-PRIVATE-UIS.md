@@ -23,6 +23,9 @@ retains their original scope. [Caddy guide](../skillet/crates/caddy/README.md).
    mapped ownership, symlink/root containment, reboot, no second login and denial
    of unauthorized users/direct backend access. Existing container/LocalAPI
    results do not establish every browser or containment case.
+   Deploy the broker's empty-query fix and confirm normal browser listings on
+   physical Clamps; the reproduced `/api/browse/?` 403 and source/runtime
+   regression results are recorded in the acceptance log.
 
 Keep public/mixed ingress work in [donbot migration](DONBOT-MIGRATION.md), not
 this private renderer. Hosted Tailscale enrollment and Headscale compatibility

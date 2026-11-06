@@ -32,5 +32,11 @@ service data are outside this browser's scope.
 Inspect `mikochi.service`, `skillet-tailnet-ui.service` and `caddy.service`.
 Do not publish the backend port or bypass its isolated Caddy network.
 
+If creating directories succeeds but the file table stays empty, inspect the
+browser's `/api/browse/?` request. Older Skillet identity brokers reject the
+bare trailing `?` with 403 even when `/api/browse/` succeeds. Deploy the updated
+Skillet binary and restart `skillet-tailnet-ui.service`; no file moves or
+permission changes are needed.
+
 Designs: [file browsing](../../../design/file-browsing.md),
 [tailnet identity](../../../design/tailnet-ui-authentication.md).

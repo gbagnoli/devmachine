@@ -4710,3 +4710,57 @@ acceptance; no production host or private DNS values were committed.
 - No real workspace version was bumped, release tag changed, commit pushed or
   release published. Existing `skillet-v0.1.0` and the consumer lock remain intact.
   Hosted CI/tool installation and first release publication remain unverified.
+
+## 2026-11-06 — Mikochi empty directory table diagnosis and broker fix
+
+- Read-only physical Clamps inspection confirmed populated Syncthing data,
+  matching Mikochi bind mount/identity and successful directory creation.
+  Verified HTTPS requests returned 200 with 15 folders for `/api/browse/`,
+  403 from the identity broker for `/api/browse/?`, and 200 for populated query
+  forms. Chromium reproduced the empty table and failing bare-query request.
+- Caddy's auth rewrite clears query contents but preserves Go's `ForceQuery`
+  marker. The broker now accepts exactly GET `/auth` and `/auth?`; both retain
+  fresh policy/WhoIs checks. Nonempty queries, other paths/methods, missing or
+  duplicate peer headers, forged identity and revoked users remain denied.
+- `cargo fmt --all -- --check`, workspace Clippy with `-D warnings`, and
+  `cargo test --workspace --all-targets` passed with the explicit native target
+  `--target x86_64-unknown-linux-gnu`: 635 passed, 22 ignored. Unix-socket broker
+  regression checks observed both exact request targets and revocation.
+  Sandbox socket restrictions required running tests outside the sandbox.
+- Real Podman/Caddy tests `real_caddy_authorizes_empty_queries_and_preserves_backend_uri`
+  and `real_caddy_no_auth_refresh_stays_behind_identity_gate` passed with that
+  native target. The new CI case checks absent, bare-empty and populated queries,
+  original backend URI preservation, and denial after authorization revocation.
+- A separate Chromium diagnostic rewrote only its own bare browse queries to
+  add a harmless parameter: all 15 root folders and navigation into a folder
+  rendered successfully. This confirms the query-specific diagnosis, not
+  deployment of the broker fix. No production configuration or data was changed.
+- Configured static-musl builds, Joey base integration and
+  `cargo run --release -p skillet -- test smoke clamps --instance mikochi-empty-query`
+  could not complete: `x86_64-linux-musl-gcc` was absent, including at the
+  documented `/opt/x86_64-linux-musl-cross/bin` path. Those checks remain
+  unverified; no toolchain was installed and no VM was created by these attempts.
+- Production activation remains pending: this session has no sudo on Clamps.
+  Deploy the updated generic Skillet binary and restart
+  `skillet-tailnet-ui.service`, then verify ordinary browser listing/navigation.
+  Retain all other browser, containment and reboot gates in the active UI plan.
+
+### Follow-up: available development-container musl toolchain
+
+- The running Ubuntu development container provides
+  `/usr/bin/x86_64-linux-musl-gcc`; the earlier host-only toolchain search missed
+  it. No compiler installation was needed. Cargo commands ran as the existing
+  `giacomo` account in the shared Skillet checkout.
+- `cargo build --release -p skillet -p skillet-clamps` passed with the workspace's
+  default musl target. Both artifacts were verified as static PIE executables,
+  and their version commands ran successfully on the host.
+- Default-target formatting, strict workspace Clippy and all workspace tests
+  passed: 635 passed, 22 ignored. Joey's Fedora base integration passed both
+  applies; the repeat apply issued no service start/restart.
+- The default-musl real Caddy empty-query regression passed. The changed CI
+  workflow passed the same pinned actionlint container used by CI.
+- The freshly built static CLI reached VM smoke artifact validation, but the
+  named `mikochi-empty-query` instance has no recorded VM artifacts
+  (`VM artifact I/O: No such file or directory`). VM smoke and production
+  activation remain unverified; this build attempt did not create a VM or
+  deploy to Clamps.

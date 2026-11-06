@@ -44,6 +44,10 @@ This document defines the architectural mandates and project structure for `skil
 - Ensure this PATH is inherited by Cargo and its child build commands. Check
   the installed Rust target and compiler before reporting musl as unavailable;
   a missing binary artifact alone does not indicate a missing toolchain.
+- If the host lacks that compiler, inspect the existing Ubuntu development
+  container: it provides `/usr/bin/x86_64-linux-musl-gcc`. Run Cargo there as
+  `giacomo` with the workspace as its working directory; the host and container
+  share the checkout and build artifacts.
 
 ## Architecture and refactoring rules
 

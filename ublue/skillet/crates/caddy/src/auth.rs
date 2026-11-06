@@ -190,7 +190,10 @@ fn respond(request: tiny_http::Request, api: &LocalApi, policy_file: &Path) {
         .filter(|header| header.field.equiv("X-Skillet-Peer"));
     let peer = peers.next().map(|header| header.value.as_str());
     let user = if request.method() == &tiny_http::Method::Get
-        && request.url() == "/auth"
+        // Caddy clears the application's query, but Go's URL.ForceQuery can
+        // preserve a bare '?' (Mikochi sends /api/browse/?). Both forms have
+        // the same empty query; keep rejecting all nonempty queries.
+        && matches!(request.url(), "/auth" | "/auth?")
         && peers.next().is_none()
     {
         std::fs::read(policy_file)

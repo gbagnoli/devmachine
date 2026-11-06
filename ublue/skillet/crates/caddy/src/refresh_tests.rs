@@ -32,7 +32,7 @@ impl HttpStub {
                 {
                     let response = if authorization {
                         assert_eq!(request.method(), &tiny_http::Method::Get);
-                        assert_eq!(request.url(), "/auth");
+                        assert!(matches!(request.url(), "/auth" | "/auth?"));
                         let status = if thread_allowed.load(Ordering::SeqCst) {
                             204
                         } else {
@@ -141,6 +141,54 @@ fn real_caddy_no_auth_refresh_stays_behind_identity_gate() {
             "non-bootstrap requests must reach the deliberately absent backend"
         );
     }
+}
+
+#[test]
+#[ignore = "requires Podman and the Caddy container image"]
+fn real_caddy_authorizes_empty_queries_and_preserves_backend_uri() {
+    let temp = tempfile::tempdir().unwrap();
+    let auth = HttpStub::new(true);
+    let backend = HttpStub::new(false);
+    let (_container, address) = start_caddy(
+        temp.path(),
+        "files",
+        false,
+        &backend.address.to_string(),
+        auth.address,
+    );
+    let client = reqwest::blocking::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap();
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
+    for path in [
+        "/api/browse/",
+        "/api/browse/?",
+        "/api/browse/?search=",
+        "/api/browse/?search=ebooks",
+    ] {
+        let response = loop {
+            match client.get(format!("http://{address}{path}")).send() {
+                Ok(response) => break response,
+                Err(error) => {
+                    assert!(
+                        std::time::Instant::now() < deadline,
+                        "Caddy not ready: {error}"
+                    );
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+            }
+        };
+        assert_eq!(response.status().as_u16(), 200, "{path}");
+        assert_eq!(response.text().unwrap(), format!("GET {path}"));
+    }
+    auth.allowed.store(false, Ordering::SeqCst);
+    let denied = client
+        .get(format!("http://{address}/api/browse/?"))
+        .send()
+        .unwrap();
+    assert_eq!(denied.status().as_u16(), 403);
 }
 
 #[test]

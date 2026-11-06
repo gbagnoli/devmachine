@@ -277,7 +277,9 @@
 - Authentication subrequests must explicitly normalize their method/path/query
   without altering the original application request. Validate the consumer's
   adapted configuration and query-bearing API/assets, rather than testing only
-  a successful HTML root response.
+  a successful HTML root response. Cover absent, bare-empty and populated query
+  forms through the actual proxy and authorization endpoint; URL libraries may
+  preserve an empty-query marker independently of query contents.
 - Browser-navigation exceptions must be explicit about their method, landing
   path, destination and origin. Retain identity authorization and reject API,
   subresource and embedding requests; validate both navigation and denial through

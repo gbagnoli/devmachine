@@ -129,7 +129,7 @@ fn authorization_endpoint_ignores_forged_headers_and_reloads_revocations() {
     .unwrap();
     let api_server = tiny_http::Server::http_unix(&daemon).unwrap();
     let api_thread = std::thread::spawn(move || {
-        for _ in 0..2 {
+        for _ in 0..4 {
             let request = api_server
                 .recv_timeout(Duration::from_secs(5))
                 .unwrap()
@@ -141,11 +141,14 @@ fn authorization_endpoint_ignores_forged_headers_and_reloads_revocations() {
     let api = LocalApi::new(&daemon).unwrap();
     let policy_path = policy.clone();
     let auth_thread = std::thread::spawn(move || {
-        for _ in 0..5 {
+        for index in 0..11 {
             let request = server
                 .recv_timeout(Duration::from_secs(5))
                 .unwrap()
                 .unwrap();
+            if index < 2 {
+                assert_eq!(request.url(), if index == 0 { "/auth" } else { "/auth?" });
+            }
             super::respond(request, &api, &policy_path);
         }
     });
@@ -156,53 +159,57 @@ fn authorization_endpoint_ignores_forged_headers_and_reloads_revocations() {
         .build()
         .unwrap();
     let url = "http://auth.local/auth";
-    let allowed = client
-        .get(url)
-        .header("X-Skillet-Peer", "100.100.100.1:1234")
-        .header("X-Skillet-User", "attacker")
-        .send()
-        .unwrap();
-    assert_eq!(allowed.status(), 204);
-    assert_eq!(allowed.headers()["X-Skillet-User"], "alice@example.invalid");
-    assert_eq!(
+    for target in [url.to_owned(), format!("{url}?")] {
+        let allowed = client
+            .get(target)
+            .header("X-Skillet-Peer", "100.100.100.1:1234")
+            .header("X-Skillet-User", "attacker")
+            .send()
+            .unwrap();
+        assert_eq!(allowed.status(), 204);
+        assert_eq!(allowed.headers()["X-Skillet-User"], "alice@example.invalid");
+    }
+    for suffix in ["?search=ebooks", "??", "/"] {
+        assert_eq!(
+            client
+                .get(format!("{url}{suffix}"))
+                .header("X-Skillet-Peer", "100.100.100.1:1234")
+                .send()
+                .unwrap()
+                .status(),
+            403
+        );
+    }
+    for request in [
+        client
+            .post(format!("{url}?"))
+            .header("X-Skillet-Peer", "100.100.100.1:1234"),
         client
             .get(url)
-            .header("X-Skillet-User", "alice@example.invalid")
-            .send()
-            .unwrap()
-            .status(),
-        403
-    );
-    assert_eq!(
+            .header("X-Skillet-User", "alice@example.invalid"),
         client
             .get(url)
             .header("X-Skillet-Peer", "127.0.0.1:1234")
-            .header("X-Forwarded-For", "100.100.100.1")
-            .send()
-            .unwrap()
-            .status(),
-        403
-    );
-    assert_eq!(
+            .header("X-Forwarded-For", "100.100.100.1"),
         client
             .get(url)
             .header("X-Skillet-Peer", "100.100.100.1:1234")
-            .header("X-Skillet-Peer", "100.100.100.2:1234")
-            .send()
-            .unwrap()
-            .status(),
-        403
-    );
+            .header("X-Skillet-Peer", "100.100.100.2:1234"),
+    ] {
+        assert_eq!(request.send().unwrap().status(), 403);
+    }
     std::fs::write(&policy, br#"{"users":[]}"#).unwrap();
-    assert_eq!(
-        client
-            .get(url)
-            .header("X-Skillet-Peer", "100.100.100.1:1234")
-            .send()
-            .unwrap()
-            .status(),
-        403
-    );
+    for target in [url.to_owned(), format!("{url}?")] {
+        assert_eq!(
+            client
+                .get(target)
+                .header("X-Skillet-Peer", "100.100.100.1:1234")
+                .send()
+                .unwrap()
+                .status(),
+            403
+        );
+    }
     auth_thread.join().unwrap();
     api_thread.join().unwrap();
 }
