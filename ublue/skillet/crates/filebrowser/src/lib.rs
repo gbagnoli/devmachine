@@ -143,6 +143,10 @@ fn definition(config: &Config<'_>) -> PodmanConfig {
             ),
             ("Service".into(), vec!["Restart=always".into()]),
             (
+                "Install".into(),
+                vec!["WantedBy=multi-user.target default.target".into()],
+            ),
+            (
                 "Unit".into(),
                 vec![
                     "Description=File Browser Quantum private Syncthing file browser".into(),

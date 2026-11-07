@@ -52,6 +52,7 @@ fn private_scope_and_namespace_match_syncthing_without_publishing_a_port() {
         "Environment=FILEBROWSER_CONFIG=/etc/filebrowser/config.yaml",
         "User=1000:1000",
         "Volume=/var/lib/data/syncthing/data:/files:z",
+        "WantedBy=multi-user.target default.target",
     ] {
         assert!(quadlet.contains(directive), "missing {directive}");
     }

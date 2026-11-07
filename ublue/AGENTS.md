@@ -134,6 +134,9 @@
 - Generated unit executable paths must agree with the actual bootstrap and
   update delivery paths. Cover that agreement in regression checks; consumer
   placeholders alone cannot establish deployment correctness.
+- Long-running services declare their own boot activation and dependencies.
+  Configuration apply must not be their only startup path; verify reboot with
+  already converged configuration as well as initial activation.
 - Native metric collectors use bounded read-only queries and a finite metric/tag
   inventory. Failed observations must report failure rather than synthetic zero
   readings. Keep ingestion credentials in the Agent and explicitly scope local
