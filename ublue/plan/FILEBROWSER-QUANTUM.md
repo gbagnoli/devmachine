@@ -7,7 +7,11 @@ Current status: module, migration, fleet wiring and local checks are implemented
 The real pinned container passed proxy login, file mutations, ownership,
 source-escape refusal and PDF byte-range tests. The owned VM reached signed
 base/user-environment readiness. Full test-environment provisioning, ACME staging HTTPS, and declared-application
-repeat-apply/reboot acceptance passed. Phone acceptance remains open.
+repeat-apply/reboot acceptance passed. PDF downloads work on the phone; inline
+PDF viewing exposed Caddy's cross-site request guard. A per-service exact GET
+exception for Quantum's short-lived `/api/resources/view` endpoint is implemented
+with same-origin/absent-Origin checks and the identity gate retained. Redeploy
+and phone preview acceptance remain open.
 
 1. Replace the shared Syncthing file UI with a reusable Quantum module, pinned to
    `2.0.2-stable`. Preserve files scope, mapped ownership, `files` DNS identity,

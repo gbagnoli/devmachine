@@ -788,6 +788,7 @@ fn synthetic_profile_derives_network_and_ui_from_its_identity() {
                 sharing: None,
                 public_names: &[],
                 cache: None,
+                cross_site_get_paths: &[],
                 name: "sync",
                 upstream: "sync",
                 transport: skillet_caddy::UpstreamTransport::Bridge,
@@ -1017,6 +1018,7 @@ fn every_syncthing_caller_has_matching_private_file_browsing() {
             assert_eq!(ui.name, "files");
             assert!(ui.tailnet_identity);
             assert_eq!(ui.upstream, "filebrowser");
+            assert_eq!(ui.cross_site_get_paths, &["/api/resources/view"]);
             let plan = profile.acceptance_plan();
             let acceptance = plan
                 .services

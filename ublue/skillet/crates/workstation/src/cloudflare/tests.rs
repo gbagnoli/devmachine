@@ -16,6 +16,7 @@ fn desired_dns_contains_dual_stack_machine_ui_and_alias_records() {
         port: 8384,
         tailnet_identity: false,
         anonymous_token_refresh: false,
+        cross_site_get_paths: Vec::new(),
         sharing: None,
         aliases: vec!["sync.{host}".to_string()],
     }];
@@ -70,6 +71,7 @@ fn desired_dns_rejects_missing_address_family() {
             port: 8384,
             tailnet_identity: false,
             anonymous_token_refresh: false,
+            cross_site_get_paths: Vec::new(),
             sharing: None,
             aliases: Vec::new(),
         }],

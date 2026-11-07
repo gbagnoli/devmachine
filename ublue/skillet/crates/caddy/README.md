@@ -131,6 +131,12 @@ the loader must succeed before the broker starts. The managed policy is
 `isolate=strict` support. [File Browser Quantum](../filebrowser/README.md) uses this gate without
 an additional application login. Headscale identity acceptance is not established.
 
+If a private UI needs a browser cross-site read endpoint, declare its exact
+GET path on that service. Caddy allows that path through the Fetch Metadata
+guard only when `Origin` is absent or matches the service origin. Foreign
+origins remain denied, and the request still passes the tailnet identity gate.
+Do not use prefixes or wildcard paths.
+
 Designs: [private access](../../../design/private-ui-access.md),
 [identity gate](../../../design/tailnet-ui-authentication.md),
 [Cloudflare lifecycle](../../../design/cloudflare-ui-lifecycle.md).

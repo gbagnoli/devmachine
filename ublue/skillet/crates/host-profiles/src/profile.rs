@@ -44,6 +44,9 @@ pub struct UiServiceDeclaration {
     pub aliases: &'static [&'static str],
     pub public_names: &'static [&'static str],
     pub cache: Option<skillet_caddy::cache::Policy>,
+    /// Read-only endpoints that accept cross-site GETs; Caddy still authorizes
+    /// every request through the tailnet identity broker.
+    pub cross_site_get_paths: &'static [&'static str],
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -473,6 +476,11 @@ impl HostProfile {
                 port: ui.port,
                 tailnet_identity: ui.tailnet_identity,
                 anonymous_token_refresh: false,
+                cross_site_get_paths: ui
+                    .cross_site_get_paths
+                    .iter()
+                    .map(|path| (*path).to_string())
+                    .collect(),
                 sharing: ui
                     .sharing
                     .map(|sharing| skillet_caddy::sharing::Declaration {
@@ -762,6 +770,7 @@ const PIHOLE_UI: UiServiceDeclaration = UiServiceDeclaration {
     transport: skillet_caddy::UpstreamTransport::Bridge,
     port: 8088,
     tailnet_identity: true,
+    cross_site_get_paths: &[],
     aliases: &[],
 };
 
@@ -775,6 +784,7 @@ const SYNCTHING_UI: UiServiceDeclaration = UiServiceDeclaration {
     transport: skillet_caddy::UpstreamTransport::Bridge,
     port: 8384,
     tailnet_identity: true,
+    cross_site_get_paths: &[],
     aliases: &["sync.{host}"],
 };
 
@@ -855,6 +865,7 @@ fn clamps() -> HostProfile {
                     transport: skillet_caddy::UpstreamTransport::HostLoopback,
                     port: 8123,
                     tailnet_identity: true,
+                    cross_site_get_paths: &[],
                     aliases: &[],
                 }),
             },
@@ -1027,6 +1038,7 @@ fn donbot_application_services() -> Vec<HostService> {
                 transport: skillet_caddy::UpstreamTransport::Bridge,
                 port: skillet_joplin::PORT,
                 tailnet_identity: false,
+                cross_site_get_paths: &[],
                 aliases: &[],
             }),
         },
@@ -1052,6 +1064,7 @@ fn donbot_application_services() -> Vec<HostService> {
                 transport: skillet_caddy::UpstreamTransport::Bridge,
                 port: skillet_airtrail::PORT,
                 tailnet_identity: true,
+                cross_site_get_paths: &[],
                 aliases: &[],
             }),
         },
@@ -1079,6 +1092,7 @@ fn donbot_personal_syncthing() -> HostService {
             transport: skillet_caddy::UpstreamTransport::Bridge,
             port: 8384,
             tailnet_identity: true,
+            cross_site_get_paths: &[],
             aliases: &["sync-personal.{host}"],
         }),
     }
@@ -1112,6 +1126,7 @@ fn donbot_media_services() -> Vec<HostService> {
             public_names: &["video", "media"],
             aliases: &[],
             tailnet_identity: false,
+            cross_site_get_paths: &[],
             cache: Some(skillet_caddy::cache::Policy::JellyfinStatic),
         }),
     }];
@@ -1134,6 +1149,7 @@ fn donbot_media_services() -> Vec<HostService> {
             public_names: &["plex"],
             aliases: &[],
             tailnet_identity: false,
+            cross_site_get_paths: &[],
             cache: None,
         }),
     });
@@ -1158,6 +1174,7 @@ fn donbot_media_services() -> Vec<HostService> {
             public_names: &[],
             aliases: &[],
             tailnet_identity: true,
+            cross_site_get_paths: &[],
             cache: None,
         }),
     });
@@ -1173,6 +1190,7 @@ fn donbot_media_services() -> Vec<HostService> {
             transport: skillet_caddy::UpstreamTransport::Bridge,
             port: app.port(),
             tailnet_identity: true,
+            cross_site_get_paths: &[],
             aliases: &[],
         }),
     }));
@@ -1257,6 +1275,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
                     port: 8080,
                     aliases: &[],
                     tailnet_identity: true,
+                    cross_site_get_paths: &["/api/resources/view"],
                 }),
             })
         })
@@ -1275,6 +1294,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
             port: 8080,
             aliases: &["{host}", "ui.{host}.{zone}"],
             tailnet_identity: true,
+            cross_site_get_paths: &[],
         }),
     });
     profile.services.push(HostService {

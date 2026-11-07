@@ -60,6 +60,14 @@ Private backends must not bypass Caddy. Syncthing's GUI port is unpublished;
 identity-protected file browsing has its own strictly isolated bridge. Host root
 remains trusted. Retain SSH/tailnet-device access for DNS recovery.
 
+The identity gate rejects cross-origin `Origin` values and cross-site browser
+requests by default. A service may declare an exact GET path for a read-only
+viewer endpoint that browsers need to fetch in a cross-site context; this only
+passes the Fetch Metadata check when `Origin` is absent or matches that UI's
+own origin. The request still requires tailnet identity authorization, and a
+viewer-specific short-lived token remains the application's responsibility.
+Never exempt a path prefix or an entire API.
+
 Public/mixed ingress is a distinct [proposed access contract](public-service-access.md),
 not a relaxation of private defaults. Implementation and acceptance are tracked
 in [private UIs](../plan/GENERIC-PRIVATE-UIS.md) and

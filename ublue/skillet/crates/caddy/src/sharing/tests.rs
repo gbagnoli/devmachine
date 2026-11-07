@@ -11,6 +11,7 @@ fn declaration_adds_separate_public_site_and_preserves_private_authentication() 
         cache: None,
         tailnet_identity: true,
         anonymous_token_refresh: false,
+        cross_site_get_paths: Vec::new(),
         sharing: Some(Declaration {
             names: vec!["send".into()],
             policy: Policy::Gokapi224,
@@ -66,6 +67,7 @@ fn retained_private_payload_does_not_implicitly_enable_new_public_sharing() {
         cache: None,
         tailnet_identity: true,
         anonymous_token_refresh: false,
+        cross_site_get_paths: Vec::new(),
         sharing: Some(Declaration {
             names: vec!["send".into()],
             policy: Policy::Gokapi224,

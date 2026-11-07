@@ -287,6 +287,10 @@
   path, destination and origin. Retain identity authorization and reject API,
   subresource and embedding requests; validate both navigation and denial through
   the actual proxy consumer.
+- Cross-site read exceptions must be caller-declared exact GET paths, never
+  prefixes or wildcard APIs. Require an absent or same-service Origin, preserve
+  identity authorization, and validate both the exception and nearby denied
+  paths/methods through the actual proxy consumer.
 
 - Prepare declared storage identities before every first consumer, including OS
   image import and early background jobs. Application service ordering alone

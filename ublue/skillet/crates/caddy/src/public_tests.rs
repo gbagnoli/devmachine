@@ -11,6 +11,7 @@ pub(super) fn public_service() -> UiService {
         cache: None,
         tailnet_identity: false,
         anonymous_token_refresh: false,
+        cross_site_get_paths: Vec::new(),
         sharing: None,
     }
 }
