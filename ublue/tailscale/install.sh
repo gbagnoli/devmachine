@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+if [[ $EUID -eq 0 ]]; then
+    echo 'Run this installer as a normal desktop user, not root.' >&2
+    exit 1
+fi
+
 # Check if required directories exist
 if [ ! -d "/usr/local/bin" ]; then
     echo "Error: Directory /usr/local/bin does not exist. Aborting." >&2
@@ -19,33 +24,42 @@ cd "$SCRIPT_DIR"
 USER_NAME=$(whoami)
 RETRY_LOGIC=$(cat "$SCRIPT_DIR/lib/wait_for_tailscale.sh")
 
-echo "Preparing bazzite_set_operator.sh..." >&2
+if (( $# == 0 )); then
+    set -- "$USER_NAME"
+fi
+
+for operator_user in "$@"; do
+    if ! id "$operator_user" >/dev/null 2>&1 || [[ $operator_user == root ]]; then
+        echo "Invalid operator user: $operator_user" >&2
+        exit 1
+    fi
+done
 
 # We'll use a temporary file to construct the final script
-TMP_SCRIPT=$(mktemp)
 TMP_RENEW_SCRIPT=$(mktemp)
 cleanup() {
-  rm -f "$TMP_SCRIPT" "${TMP_RENEW_SCRIPT}"
+  rm -f "${TMP_RENEW_SCRIPT}"
 }
 trap cleanup EXIT
 
 # Use python3 to perform substitutions as it handles multi-line strings and special characters better than sed
 # We pass RETRY_LOGIC and USER_NAME as environment variables to avoid issues with quotes and delimiters
 export RETRY_LOGIC
-export USER_NAME
 export SCRIPT_DIR
-python3 -c 'import os, sys; content = open(os.path.join(os.environ["SCRIPT_DIR"], "bazzite_set_operator.sh")).read().replace("{{RETRY_LOGIC}}", os.environ["RETRY_LOGIC"]).replace("{{USER}}", os.environ["USER_NAME"]); sys.stdout.write(content)' > "$TMP_SCRIPT"
+sudo install -m 755 "$SCRIPT_DIR/bazzite_set_operator.sh" /usr/local/bin/bazzite_set_operator.sh
+sudo install -m 755 "$SCRIPT_DIR/tailscale-login.sh" /usr/local/bin/tailscale-login.sh
+sudo install -D -m 644 "$SCRIPT_DIR/tailscale-login.desktop" /etc/xdg/autostart/tailscale-login.desktop
 
-echo "Copying bazzite_set_operator.sh to /usr/local/bin/" >&2
-sudo cp "$TMP_SCRIPT" /usr/local/bin/bazzite_set_operator.sh
-sudo chmod +x /usr/local/bin/bazzite_set_operator.sh
+sudo groupadd -f tailscale-operators
+for operator_user in "$@"; do
+    sudo usermod -aG tailscale-operators "$operator_user"
+done
+sudo install -d -m 755 /etc/sudoers.d
+printf '%%tailscale-operators ALL=(root) NOPASSWD: /usr/local/bin/bazzite_set_operator.sh ""\n' | sudo tee /etc/sudoers.d/tailscale-operators >/dev/null
+sudo chmod 440 /etc/sudoers.d/tailscale-operators
+sudo visudo -cf /etc/sudoers.d/tailscale-operators
 
-echo "Copying bazzite_tailscaled_operator.service to /etc/systemd/system/" >&2
-sudo cp "$SCRIPT_DIR/bazzite_tailscaled_operator.service" /etc/systemd/system/
-
-echo "Reloading systemd daemon..." >&2
-sudo systemctl daemon-reload
-sudo systemctl enable bazzite_tailscaled_operator.service
+sudo systemctl disable --now bazzite_tailscaled_operator.service 2>/dev/null || true
 
 echo >&2 "Create tailscale-certs directory"
 CERT_DIR="$HOME/.config/tailscale-certs"
@@ -97,5 +111,5 @@ systemctl --user daemon-reload
 systemctl --user enable --now tailscale-renew-cert.timer
 
 echo "Installation complete." >&2
+echo "Log out and back in for new group membership to take effect." >&2
 unset RETRY_LOGIC
-unset USER_NAME

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Tailscale
+Comment=Set the current operator and start the Tailscale tray
+Exec=/usr/local/bin/tailscale-login.sh
+OnlyShowIn=GNOME;
+Terminal=false
