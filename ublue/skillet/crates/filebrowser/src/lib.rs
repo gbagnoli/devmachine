@@ -4,7 +4,6 @@
 pub const IMAGE: &str = "ghcr.io/gtsteffaniak/filebrowser:2.0.2-stable";
 pub const DATA: &str = "/var/lib/data/filebrowser";
 pub const CONFIG: &str = include_str!("config.yaml");
-mod migration;
 use skillet_core::{
     files::{FileError, FileMutationResource, FileReadResource, Ownership},
     system::{
@@ -30,10 +29,6 @@ pub enum FileBrowserError {
     Owner,
     #[error("FileBrowser requires a dedicated file directory below /var/lib/data")]
     Scope,
-    #[error(
-        "legacy Mikochi definition differs from its managed receipt; inspect it before replacement"
-    )]
-    Legacy,
 }
 
 pub struct Config<'a> {
@@ -70,7 +65,6 @@ where
     if user.primary_gid != group.gid {
         return Err(FileBrowserError::Owner);
     }
-    migration::retire(system, files)?;
     let root = Ownership::named(Some("root"), Some("root"));
     let owner = Ownership::named(Some(config.owner), Some(config.group));
     files.ensure_directory(Path::new(DATA), Some(0o700), &owner)?;

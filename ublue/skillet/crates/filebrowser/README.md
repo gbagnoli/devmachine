@@ -56,20 +56,5 @@ device. Inspect `filebrowser.service`, `skillet-tailnet-ui.service` and
 `caddy.service`. Test a multipage PDF, folder navigation, upload, rename, download
 and delete; a successful HTTP probe does not establish phone usability.
 
-## Existing installations
-
-After merging and deliberate deployment, full apply verifies the old Mikochi
-Quadlet against its completed Skillet receipt, stops it and retains it as
-`mikochi.container.skillet-legacy`. Custom edits or missing/mismatched receipts
-require operator inspection. Reload completion is recorded for interrupted retries.
-No user files or application databases are deleted. Redeliver Caddy configuration
-through remote apply to select the new upstream and remove the legacy frontend
-refresh workaround. Retained older Caddy payloads still parse.
-
-For a deliberate rollback, stop Quantum, deploy the previous Skillet binaries
-and run that version's full apply with its Caddy delivery. It regenerates the old
-Mikochi definition; synchronized files retain the same paths and ownership.
-Retain Quantum's state directory if planning to resume the trial.
-
 Design: [file browsing](../../../design/file-browsing.md).
 Trial/remaining acceptance: [plan](../../../plan/FILEBROWSER-QUANTUM.md).
