@@ -11,8 +11,9 @@ repeat-apply/reboot acceptance passed. PDF downloads work on the phone; inline
 PDF viewing exposed Caddy's cross-site request guard. A per-service exact GET
 exception for Quantum's short-lived `/api/resources/view` endpoint is implemented
 with same-origin/absent-Origin checks and the identity gate retained. The updated
-payload is deployed to the disposable VM and its Caddyfile validates. Phone
-preview acceptance remains open.
+payload is deployed to the disposable VM and its Caddyfile validates. The
+operator confirmed PDF preview works on the phone. Upload and multipage PDF
+acceptance remain open.
 
 1. Replace the shared Syncthing file UI with a reusable Quantum module, pinned to
    `2.0.2-stable`. Preserve files scope, mapped ownership, `files` DNS identity,
@@ -31,5 +32,5 @@ preview acceptance remains open.
 
 Exit: working private test VM with Quantum and no Mikochi container, automated
 auth/file/ownership/isolation checks recorded in archive/ACCEPTANCE.md, focused
-commits ready for PR, and explicit pending phone acceptance. No real domains,
+commits ready for PR, and remaining phone checks recorded. No real domains,
 zone IDs or credentials in source or acceptance logs.

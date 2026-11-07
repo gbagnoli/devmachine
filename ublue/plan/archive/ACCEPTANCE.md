@@ -4830,3 +4830,22 @@ acceptance; no production host or private DNS values were committed.
 - Repeated workspace tests: 638 passed, zero failed, 22 ignored. Pedantic Clippy
   and formatting passed. Earlier real pinned-container file/PDF tests passed.
 - Production was unchanged. The disposable VM remains for operator inspection.
+
+## 2026-11-07 — Quantum inline PDF preview
+
+- Added a per-service exact `GET /api/resources/view` exception to Caddy's
+  browser cross-site guard. It accepts only an absent or same-service Origin;
+  foreign Origins remain denied and every request keeps tailnet authorization.
+  Older Caddy payload readers remain compatible.
+- Updated the disposable `clamps` / `quantum` VM. The generated Caddyfile
+  validates with its running Caddy container, the service is active, and the
+  declared route is present. The operator confirmed PDF preview succeeds in
+  the phone browser; PDF downloads were already working. Upload and multipage
+  PDF checks remain open.
+- `cargo fmt --all -- --check` and pedantic Clippy for `skillet_caddy` and
+  `skillet_hosts` passed. Their relevant tests passed (28 Caddy tests and 40
+  host-profile tests). Three Caddy Unix-socket tests were filtered because this
+  sandbox denies socket creation. The local Podman validation test could not
+  start because `/run/user/4000/libpod` is read-only; the actual Caddy parser
+  validation above ran inside the disposable VM.
+- Production was unchanged; no real domain, zone ID, or credential was recorded.
