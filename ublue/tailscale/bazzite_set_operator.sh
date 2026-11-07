@@ -7,11 +7,11 @@ if [[ $EUID -ne 0 || -z ${SUDO_USER:-} || $SUDO_USER == root ]]; then
 fi
 
 for ((attempt=1; attempt<=30; attempt++)); do
-    if tailscale status --json 2>/dev/null | jq -e '.BackendState == "Running"' >/dev/null; then
-        exec tailscale set --operator="$SUDO_USER"
+    if tailscale set --operator="$SUDO_USER"; then
+        exit 0
     fi
     sleep 1
 done
 
-echo 'Tailscale did not connect within 30 seconds.' >&2
+echo 'Could not set the Tailscale operator after 30 attempts.' >&2
 exit 1

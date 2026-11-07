@@ -16,7 +16,9 @@ The installer adds these users to `tailscale-operators`, installs a narrowly sco
 
 GNOME needs an AppIndicator/StatusNotifier extension enabled to show the tray icon. Tailscale's systray requires version 1.88 or later. The GNOME tray currently selects Mullvad exit nodes by country, not by city. For precise selection, the active operator can run `tailscale set --exit-node=<node>`.
 
-Tailscale supports only one Unix operator at a time: the last login wins. If both desktop sessions stay open during user switching, the earlier session's tray may lose permission to change settings. Log in again to make that user the operator.
+Tailscale supports only one Unix operator at a time: the last login wins. Switching back to an already-open GNOME session does not rerun autostart, so that session's tray may lack permission to change settings. Log out and back in to make that user the operator. Tracking session activation is deferred; see [the follow-up](FOLLOW-UP.md).
+
+Operator assignment works even when Tailscale is disconnected. The login helper retries failed assignment up to 30 times with a one-second delay. If all attempts fail, the tray still starts; once the daemon is available, the authorized user can retry assignment with `sudo -n /usr/local/bin/bazzite_set_operator.sh`.
 
 ## Permission scope
 

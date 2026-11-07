@@ -45,6 +45,7 @@ trap cleanup EXIT
 # Use python3 to perform substitutions as it handles multi-line strings and special characters better than sed
 # We pass RETRY_LOGIC and USER_NAME as environment variables to avoid issues with quotes and delimiters
 export RETRY_LOGIC
+export USER_NAME
 export SCRIPT_DIR
 sudo install -m 755 "$SCRIPT_DIR/bazzite_set_operator.sh" /usr/local/bin/bazzite_set_operator.sh
 sudo install -m 755 "$SCRIPT_DIR/tailscale-login.sh" /usr/local/bin/tailscale-login.sh
