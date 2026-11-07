@@ -10,8 +10,9 @@ base/user-environment readiness. Full test-environment provisioning, ACME stagin
 repeat-apply/reboot acceptance passed. PDF downloads work on the phone; inline
 PDF viewing exposed Caddy's cross-site request guard. A per-service exact GET
 exception for Quantum's short-lived `/api/resources/view` endpoint is implemented
-with same-origin/absent-Origin checks and the identity gate retained. Redeploy
-and phone preview acceptance remain open.
+with same-origin/absent-Origin checks and the identity gate retained. The updated
+payload is deployed to the disposable VM and its Caddyfile validates. Phone
+preview acceptance remains open.
 
 1. Replace the shared Syncthing file UI with a reusable Quantum module, pinned to
    `2.0.2-stable`. Preserve files scope, mapped ownership, `files` DNS identity,
