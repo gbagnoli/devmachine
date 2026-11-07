@@ -56,7 +56,7 @@ by commas or newlines. Both environments share that allowlist; explicit caller
 UI declarations select which routes use it. Missing/invalid input fails delivery;
 a missing or malformed host policy denies access.
 
-Mikochi runs on a dedicated backend bridge with explicit Netavark strict
+File Browser Quantum runs on a dedicated backend bridge with explicit Netavark strict
 isolation. Only it and Caddy join that bridge; Caddy has IP forwarding disabled.
 Do not set `Internal=true`: Netavark skips the firewall rules for internal
 networks, which allowed direct access in the dual-stack acceptance probe.
@@ -89,7 +89,7 @@ callers disable native Pi-hole login only in this mode and do not require a web
 password credential. Retained units converge their credential prerequisites from
 the same host declaration; obsolete encrypted passwords are no longer loaded.
 
-Mikochi's upstream `NO_AUTH=true` middleware skips JWT parsing, but its refresh
+Retained legacy payloads only: Mikochi's upstream `NO_AUTH=true` middleware skips JWT parsing, but its refresh
 handler still requires the omitted token ID. The browser therefore stays on its
 login screen despite working anonymous file APIs. For this caller-selected
 frontend only, Caddy answers GET `/api/refresh` with a nonsecret compatibility
@@ -98,6 +98,11 @@ no-store`. It grants no app identity or bearer capability: every file/API reques
 still passes the same gate. Other paths/methods retain normal proxy behavior.
 The typed payload declares this compatibility mode and rejects it without the
 gate; stale credentials must be redelivered. No upstream image fork is needed.
+
+New file-browser declarations use Quantum native proxy authentication with the
+verified `X-Skillet-User` header and do not select that refresh workaround.
+Quantum creates ordinary per-person accounts over one declared shared scope.
+Application passwords and public sharing are disabled.
 
 Current route selection is in the caller; operating setup is in
 [Caddy](../skillet/crates/caddy/README.md#identity-protected-uis). Browser/identity

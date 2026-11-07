@@ -1,7 +1,5 @@
-The Homer dashboard bundles the Syncthing logo from the Syncthing project
-(`assets/logo-only.svg`) and the Mikochi logo from its frontend public assets.
-Both are included locally so dashboard rendering does not depend on a CDN.
+The dashboard bundles upstream logos locally, without CDN requests.
 
 - Syncthing: <https://github.com/syncthing/syncthing/blob/main/assets/logo-only.svg>
-- Mikochi: <https://github.com/zer0tonin/Mikochi/blob/main/frontend/public/logo.png>
+- File Browser Quantum: <https://github.com/gtsteffaniak/filebrowser/blob/v2.0.2-stable/frontend/public/img/icons/favicon.svg> ([Apache-2.0 license](filebrowser-LICENSE.txt))
 - Pi-hole and Home Assistant marks here are simple local illustrations.

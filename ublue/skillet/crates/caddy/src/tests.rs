@@ -15,6 +15,7 @@ fn syncthing_only() -> Vec<UiService> {
         port: 8384,
         tailnet_identity: false,
         anonymous_token_refresh: false,
+        cross_site_get_paths: Vec::new(),
         sharing: None,
         aliases: Vec::new(),
     }]
@@ -36,6 +37,7 @@ fn identity_service(
         aliases: Vec::new(),
         tailnet_identity: true,
         anonymous_token_refresh: false,
+        cross_site_get_paths: Vec::new(),
         sharing: None,
     }
 }
@@ -126,6 +128,7 @@ fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
             port: 8088,
             tailnet_identity: false,
             anonymous_token_refresh: false,
+            cross_site_get_paths: Vec::new(),
             sharing: None,
             aliases: Vec::new(),
         },
@@ -173,6 +176,7 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
             aliases: Vec::new(),
             tailnet_identity: true,
             anonymous_token_refresh: false,
+            cross_site_get_paths: Vec::new(),
             sharing: None,
         },
         UiService {
@@ -185,6 +189,7 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
             aliases: Vec::new(),
             tailnet_identity: true,
             anonymous_token_refresh: false,
+            cross_site_get_paths: Vec::new(),
             sharing: None,
         },
         UiService {
@@ -197,6 +202,7 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
             aliases: vec!["dashboard.{host}".into()],
             tailnet_identity: true,
             anonymous_token_refresh: false,
+            cross_site_get_paths: Vec::new(),
             sharing: None,
         },
     ];
@@ -310,6 +316,7 @@ fn renders_declared_aliases_and_rejects_conflicting_names() {
         port: 8384,
         tailnet_identity: false,
         anonymous_token_refresh: false,
+        cross_site_get_paths: Vec::new(),
         sharing: None,
         aliases: vec!["sync".to_string(), "sync.{host}".to_string()],
     }];
@@ -342,6 +349,7 @@ fn renders_declared_aliases_and_rejects_conflicting_names() {
             cache: None,
             tailnet_identity: false,
             anonymous_token_refresh: false,
+            cross_site_get_paths: Vec::new(),
             sharing: None,
             aliases: vec![alias.to_string()],
             ..services[0].clone()
@@ -419,6 +427,7 @@ fn file_ui_is_gated_before_proxy_and_cannot_disable_declared_identity() {
         aliases: vec!["browse.{host}".into()],
         tailnet_identity: true,
         anonymous_token_refresh: true,
+        cross_site_get_paths: Vec::new(),
         sharing: None,
     }];
     let mut sites = CaddySites::from_host(
@@ -471,6 +480,78 @@ fn file_ui_is_gated_before_proxy_and_cannot_disable_declared_identity() {
 }
 
 #[test]
+fn declared_pdf_view_path_only_relaxes_cross_site_get_guard() {
+    let mut service = identity_service(
+        "files",
+        "filebrowser",
+        crate::UpstreamTransport::Bridge,
+        8080,
+    );
+    service.cross_site_get_paths = vec!["/api/resources/view".into()];
+    let services = vec![service.clone()];
+    let sites = CaddySites::from_host(
+        "clamps",
+        &UiEnvironment {
+            ui_domain: "ui.example.invalid".into(),
+            acme_staging: true,
+        },
+        &services,
+    )
+    .unwrap();
+    assert_eq!(sites.version, 9);
+    let rendered = sites.render();
+    let own_origin = "https://files.clamps.ui.example.invalid";
+    assert!(rendered.contains(&format!(
+        "{{http.request.method}} == \"GET\" && {{http.request.uri.path}} == \"/api/resources/view\" && ({{http.request.header.Origin}} == \"\" || {{http.request.header.Origin}} == \"{own_origin}\")"
+    )));
+    assert!(rendered.contains(
+        "@cross_origin expression `{http.request.header.Origin} != \"\" && {http.request.header.Origin} != \"https://files.clamps.ui.example.invalid\"`"
+    ));
+    assert!(rendered.contains("respond @cross_site 403"));
+    assert!(rendered.contains("forward_auth unix//run/skillet-tailnet-ui/auth.sock"));
+    assert!(
+        rendered.find("respond @cross_origin 403").unwrap()
+            < rendered.find("respond @cross_site 403").unwrap()
+    );
+    assert!(
+        rendered.find("respond @cross_site 403").unwrap()
+            < rendered
+                .find("forward_auth unix//run/skillet-tailnet-ui/auth.sock")
+                .unwrap()
+    );
+
+    let payload = serde_json::to_string(&sites).unwrap();
+    assert_eq!(
+        CaddySites::parse(&payload, "clamps", &services).unwrap(),
+        sites
+    );
+
+    for invalid_path in ["/", "//api/view", "/api/*", "/api/../view", "/api/view?x"] {
+        let mut invalid = service.clone();
+        invalid.cross_site_get_paths = vec![invalid_path.into()];
+        assert!(CaddySites::from_host(
+            "clamps",
+            &UiEnvironment {
+                ui_domain: "ui.example.invalid".into(),
+                acme_staging: true,
+            },
+            &[invalid],
+        )
+        .is_err());
+    }
+    service.tailnet_identity = false;
+    assert!(CaddySites::from_host(
+        "clamps",
+        &UiEnvironment {
+            ui_domain: "ui.example.invalid".into(),
+            acme_staging: true,
+        },
+        &[service],
+    )
+    .is_err());
+}
+
+#[test]
 fn identity_caddy_has_only_the_authorization_socket_and_a_private_backend() {
     let system = MockSystem::new();
     let files = MockFiles::new();
@@ -493,6 +574,7 @@ fn identity_caddy_has_only_the_authorization_socket_and_a_private_backend() {
             aliases: Vec::new(),
             tailnet_identity: true,
             anonymous_token_refresh: false,
+            cross_site_get_paths: Vec::new(),
             sharing: None,
         }],
     )
@@ -544,6 +626,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
                 aliases: Vec::new(),
                 tailnet_identity: true,
                 anonymous_token_refresh: true,
+                cross_site_get_paths: vec!["/api/resources/view".into()],
                 sharing: None,
             },
             UiService {
@@ -556,6 +639,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
                 aliases: vec!["sync.{host}".into()],
                 tailnet_identity: true,
                 anonymous_token_refresh: false,
+                cross_site_get_paths: Vec::new(),
                 sharing: None,
             },
         ],

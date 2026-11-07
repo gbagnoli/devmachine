@@ -44,6 +44,9 @@ pub struct UiServiceDeclaration {
     pub aliases: &'static [&'static str],
     pub public_names: &'static [&'static str],
     pub cache: Option<skillet_caddy::cache::Policy>,
+    /// Read-only endpoints that accept cross-site GETs; Caddy still authorizes
+    /// every request through the tailnet identity broker.
+    pub cross_site_get_paths: &'static [&'static str],
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -65,7 +68,7 @@ pub enum ServiceConfig {
         container_uid: u32,
         container_gid: u32,
     },
-    Mikochi {
+    FileBrowser {
         files_path: &'static str,
         data_owner: &'static str,
         data_group: &'static str,
@@ -122,7 +125,7 @@ impl HostService {
                 }
                 ServiceConfig::Gokapi(_)
                 | ServiceConfig::Syncthing { .. }
-                | ServiceConfig::Mikochi { .. } => skillet_homer::FILES,
+                | ServiceConfig::FileBrowser { .. } => skillet_homer::FILES,
                 _ => skillet_homer::HOME_INFRA,
             })
     }
@@ -136,7 +139,7 @@ impl HostService {
             ServiceConfig::Kexec => "kexec",
             ServiceConfig::Pihole => "pihole",
             ServiceConfig::Syncthing { instance, .. } => instance.name(),
-            ServiceConfig::Mikochi { .. } => "mikochi",
+            ServiceConfig::FileBrowser { .. } => "filebrowser",
             ServiceConfig::Homer => "homer",
             ServiceConfig::Joplin(_) => "joplin",
             ServiceConfig::Jellyfin(_) => "jellyfin",
@@ -296,7 +299,7 @@ pub enum HealthProbe {
     Jellyfin,
     Media,
     Homeassistant,
-    Mikochi,
+    FileBrowser,
     Pihole,
     Tailscale,
 }
@@ -464,15 +467,20 @@ impl HostProfile {
     pub fn ui_services(&self) -> Vec<skillet_caddy::UiService> {
         self.services
             .iter()
-            .filter_map(|service| service.ui.as_ref().map(|ui| (service, ui)))
-            .map(|(service, ui)| skillet_caddy::UiService {
+            .filter_map(|service| service.ui.as_ref())
+            .map(|ui| skillet_caddy::UiService {
                 name: ui.name.to_string(),
                 cache: ui.cache,
                 upstream: ui.upstream.to_string(),
                 transport: ui.transport,
                 port: ui.port,
                 tailnet_identity: ui.tailnet_identity,
-                anonymous_token_refresh: matches!(service.config, ServiceConfig::Mikochi { .. }),
+                anonymous_token_refresh: false,
+                cross_site_get_paths: ui
+                    .cross_site_get_paths
+                    .iter()
+                    .map(|path| (*path).to_string())
+                    .collect(),
                 sharing: ui
                     .sharing
                     .map(|sharing| skillet_caddy::sharing::Declaration {
@@ -615,14 +623,14 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
                 .into(),
             health_probe: None,
         },
-        ServiceConfig::Mikochi {
+        ServiceConfig::FileBrowser {
             files_path,
             data_owner,
             data_group,
             ..
         } => AcceptanceService {
-            unit: "mikochi.service".into(),
-            container: Some("mikochi".into()),
+            unit: "filebrowser.service".into(),
+            container: Some("filebrowser".into()),
             network_mode: Some(format!("{profile}-files")),
             bind_paths: vec![files_path.into()],
             owner: Some(AcceptanceOwner::Named {
@@ -630,7 +638,7 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
                 group: data_group.into(),
             }),
             listeners: Vec::new(),
-            health_probe: Some(HealthProbe::Mikochi),
+            health_probe: Some(HealthProbe::FileBrowser),
         },
         ServiceConfig::Homer => homer_acceptance(profile),
         ServiceConfig::Unifi => unifi_acceptance(),
@@ -762,6 +770,7 @@ const PIHOLE_UI: UiServiceDeclaration = UiServiceDeclaration {
     transport: skillet_caddy::UpstreamTransport::Bridge,
     port: 8088,
     tailnet_identity: true,
+    cross_site_get_paths: &[],
     aliases: &[],
 };
 
@@ -775,6 +784,7 @@ const SYNCTHING_UI: UiServiceDeclaration = UiServiceDeclaration {
     transport: skillet_caddy::UpstreamTransport::Bridge,
     port: 8384,
     tailnet_identity: true,
+    cross_site_get_paths: &[],
     aliases: &["sync.{host}"],
 };
 
@@ -855,6 +865,7 @@ fn clamps() -> HostProfile {
                     transport: skillet_caddy::UpstreamTransport::HostLoopback,
                     port: 8123,
                     tailnet_identity: true,
+                    cross_site_get_paths: &[],
                     aliases: &[],
                 }),
             },
@@ -1027,6 +1038,7 @@ fn donbot_application_services() -> Vec<HostService> {
                 transport: skillet_caddy::UpstreamTransport::Bridge,
                 port: skillet_joplin::PORT,
                 tailnet_identity: false,
+                cross_site_get_paths: &[],
                 aliases: &[],
             }),
         },
@@ -1052,6 +1064,7 @@ fn donbot_application_services() -> Vec<HostService> {
                 transport: skillet_caddy::UpstreamTransport::Bridge,
                 port: skillet_airtrail::PORT,
                 tailnet_identity: true,
+                cross_site_get_paths: &[],
                 aliases: &[],
             }),
         },
@@ -1079,6 +1092,7 @@ fn donbot_personal_syncthing() -> HostService {
             transport: skillet_caddy::UpstreamTransport::Bridge,
             port: 8384,
             tailnet_identity: true,
+            cross_site_get_paths: &[],
             aliases: &["sync-personal.{host}"],
         }),
     }
@@ -1112,6 +1126,7 @@ fn donbot_media_services() -> Vec<HostService> {
             public_names: &["video", "media"],
             aliases: &[],
             tailnet_identity: false,
+            cross_site_get_paths: &[],
             cache: Some(skillet_caddy::cache::Policy::JellyfinStatic),
         }),
     }];
@@ -1134,6 +1149,7 @@ fn donbot_media_services() -> Vec<HostService> {
             public_names: &["plex"],
             aliases: &[],
             tailnet_identity: false,
+            cross_site_get_paths: &[],
             cache: None,
         }),
     });
@@ -1158,6 +1174,7 @@ fn donbot_media_services() -> Vec<HostService> {
             public_names: &[],
             aliases: &[],
             tailnet_identity: true,
+            cross_site_get_paths: &[],
             cache: None,
         }),
     });
@@ -1173,6 +1190,7 @@ fn donbot_media_services() -> Vec<HostService> {
             transport: skillet_caddy::UpstreamTransport::Bridge,
             port: app.port(),
             tailnet_identity: true,
+            cross_site_get_paths: &[],
             aliases: &[],
         }),
     }));
@@ -1239,7 +1257,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
                 return None;
             };
             Some(HostService {
-                config: ServiceConfig::Mikochi {
+                config: ServiceConfig::FileBrowser {
                     files_path,
                     data_owner,
                     data_group,
@@ -1252,11 +1270,12 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
                     public_names: &[],
                     cache: None,
                     name: "files",
-                    upstream: "mikochi",
+                    upstream: "filebrowser",
                     transport: skillet_caddy::UpstreamTransport::Bridge,
                     port: 8080,
                     aliases: &[],
                     tailnet_identity: true,
+                    cross_site_get_paths: &["/api/resources/view"],
                 }),
             })
         })
@@ -1275,6 +1294,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
             port: 8080,
             aliases: &["{host}", "ui.{host}.{zone}"],
             tailnet_identity: true,
+            cross_site_get_paths: &[],
         }),
     });
     profile.services.push(HostService {

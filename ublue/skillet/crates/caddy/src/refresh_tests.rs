@@ -295,6 +295,7 @@ fn start_caddy(
         aliases: Vec::new(),
         tailnet_identity: true,
         anonymous_token_refresh: service == "files",
+        cross_site_get_paths: Vec::new(),
         sharing: None,
     }];
     if with_homer {

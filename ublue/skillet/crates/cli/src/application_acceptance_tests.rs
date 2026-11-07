@@ -163,13 +163,13 @@ struct FilesTransport {
 impl GuestTransport for FilesTransport {
     fn execute(&self, request: &GuestCommand<'_>, _: Option<&[u8]>) -> skillet_vm::Result<Output> {
         let (stdout, code) = match (request.program, request.arguments) {
-            ("sudo", ["-n", "podman", "inspect", "--format", _, "mikochi"]) => (
+            ("sudo", ["-n", "podman", "inspect", "--format", _, "filebrowser"]) => (
                 br#"{"fixture-files":{"IPAddress":"172.28.0.2","GlobalIPv6Address":"fd00:1234::2"}}"#.to_vec(),
                 0,
             ),
             ("curl", arguments) => {
                 self.probes.lock().unwrap().push(arguments.last().unwrap().to_string());
-                (br#"{"status":"ok"}"#.to_vec(), 0)
+                (br#"{"message":"ok"}"#.to_vec(), 0)
             }
             ("sudo", ["-n", "podman", "exec", "syncthing", "curl", arguments @ ..]) => {
                 self.probes.lock().unwrap().push(arguments.last().unwrap().to_string());
@@ -198,7 +198,7 @@ fn file_ui_health_proves_readiness_and_sibling_denial_in_both_ip_families() {
             sibling_exit,
             probes: std::sync::Mutex::default(),
         };
-        super::check_mikochi_health(&guest).unwrap();
+        super::check_filebrowser_health(&guest).unwrap();
         let probes = guest.probes.lock().unwrap();
         assert_eq!(probes.len(), 4);
         assert_eq!(probes[0], probes[1]);
@@ -215,6 +215,6 @@ fn file_ui_health_rejects_accessible_backends_and_broken_probe_commands() {
             sibling_exit,
             probes: std::sync::Mutex::default(),
         };
-        assert!(super::check_mikochi_health(&guest).is_err());
+        assert!(super::check_filebrowser_health(&guest).is_err());
     }
 }

@@ -360,7 +360,7 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
             "ddns",
             "datadog",
             "btrbk",
-            "mikochi",
+            "filebrowser",
             "homer",
             "smtp"
         ]
@@ -405,7 +405,7 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
             "ddns",
             "datadog",
             "btrbk",
-            "mikochi",
+            "filebrowser",
             "homer",
             "smtp"
         ]
@@ -629,7 +629,7 @@ fn host_ui_declarations_include_only_the_services_each_host_runs() {
     assert_eq!(clamps.services[0].upstream, "pihole");
     assert_eq!(clamps.services[0].port, 8088);
     assert!(clamps.services[0].tailnet_identity);
-    assert!(clamps.services[3].anonymous_token_refresh);
+    assert!(!clamps.services[3].anonymous_token_refresh);
     assert_eq!(
         clamps.services[2].transport,
         skillet_caddy::UpstreamTransport::HostLoopback
@@ -644,7 +644,7 @@ fn host_ui_declarations_include_only_the_services_each_host_runs() {
     assert_eq!(joey.services.len(), 4);
     assert_eq!(joey.services[0].name, "pihole");
     assert!(joey.services[0].tailnet_identity);
-    assert!(joey.services[2].anonymous_token_refresh);
+    assert!(!joey.services[2].anonymous_token_refresh);
     assert_eq!(joey.services[1].name, "syncthing");
     assert!(joey.services[1].tailnet_identity);
     assert_eq!(joey.services[1].aliases, ["sync.{host}"]);
@@ -671,7 +671,7 @@ fn application_acceptance_tracks_each_profiles_declared_services() {
             "homeassistant.service",
             "unifi.service",
             "skillet-btrbk.timer",
-            "mikochi.service",
+            "filebrowser.service",
             "homer.service",
             "caddy.service",
             "skillet-tailnet-ui.service"
@@ -721,7 +721,7 @@ fn application_acceptance_tracks_each_profiles_declared_services() {
             "tailscale.service",
             "syncthing.service",
             "skillet-btrbk.timer",
-            "mikochi.service",
+            "filebrowser.service",
             "homer.service",
             "caddy.service",
             "skillet-tailnet-ui.service"
@@ -788,6 +788,7 @@ fn synthetic_profile_derives_network_and_ui_from_its_identity() {
                 sharing: None,
                 public_names: &[],
                 cache: None,
+                cross_site_get_paths: &[],
                 name: "sync",
                 upstream: "sync",
                 transport: skillet_caddy::UpstreamTransport::Bridge,
@@ -1010,20 +1011,24 @@ fn every_syncthing_caller_has_matching_private_file_browsing() {
         let files = profile
             .services
             .iter()
-            .find(|service| matches!(service.config, ServiceConfig::Mikochi { .. }));
+            .find(|service| matches!(service.config, ServiceConfig::FileBrowser { .. }));
         assert_eq!(syncthing.is_some(), files.is_some());
         if let Some(files) = files {
             let ui = files.ui.unwrap();
             assert_eq!(ui.name, "files");
             assert!(ui.tailnet_identity);
-            assert_eq!(ui.upstream, "mikochi");
+            assert_eq!(ui.upstream, "filebrowser");
+            assert_eq!(ui.cross_site_get_paths, &["/api/resources/view"]);
             let plan = profile.acceptance_plan();
             let acceptance = plan
                 .services
                 .iter()
-                .find(|service| service.unit == "mikochi.service")
+                .find(|service| service.unit == "filebrowser.service")
                 .unwrap();
-            assert_eq!(acceptance.health_probe, Some(crate::HealthProbe::Mikochi));
+            assert_eq!(
+                acceptance.health_probe,
+                Some(crate::HealthProbe::FileBrowser)
+            );
         }
     }
 }
@@ -1440,7 +1445,7 @@ fn donbot_personal_sync_is_explicit_and_does_not_expand_shared_file_browsing() {
         profile
             .services
             .iter()
-            .filter(|s| s.name() == "mikochi")
+            .filter(|s| s.name() == "filebrowser")
             .count(),
         1
     );

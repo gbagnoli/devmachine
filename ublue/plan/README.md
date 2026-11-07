@@ -12,6 +12,7 @@ Only unfinished implementation and acceptance belongs here. Commands live in
 | Networking | [Static profiles and physical adoption](HOST-NETWORKING.md) |
 | Firmware | [Clamps supervised firmware/BIOS maintenance](CLAMPS-FIRMWARE.md) |
 | Encryption | [TPM/recovery acceptance](TPM-ENCRYPTED-ROOT.md) |
+| File browsing | [Quantum replacement and phone trial](FILEBROWSER-QUANTUM.md) |
 | UIs | [Private UI/browser acceptance](GENERIC-PRIVATE-UIS.md) |
 | DDNS | [Rotation and post-reboot publication](CLAMPS-CLOUDFLARE-DDNS.md) |
 | Monitoring / UPS | [Physical Agent and NUT recovery/ingestion](CLAMPS-DATADOG.md) |

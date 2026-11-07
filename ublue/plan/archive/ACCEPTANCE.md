@@ -4788,3 +4788,64 @@ acceptance; no production host or private DNS values were committed.
   SIGKILL fallback after the container ignored SIGTERM.
 - This changes workstation argument handling; no production deployment or
   credential delivery was performed for this slice.
+
+## 2026-11-07 — Quantum replacement: local slice and base VM
+
+- On `feat/filebrowser-quantum`, the shared Syncthing composition selects the
+  reusable Quantum module instead of Mikochi. The official `2.0.2-stable` image
+  uses native proxy login, the existing identity header/backend, mapped file
+  ownership and separate SQLite/cache state. Newly rendered Caddy payloads
+  disable the old frontend refresh mode; retained payload readers still support it.
+- The actual pinned container passed proxy login, missing-identity refusal,
+  browse/upload/download/rename/delete, mapped ownership and refusal of a source
+  symlink into the private SQLite database. A synthetic PDF returned correct
+  partial bytes for a Range request. No mobile rendering claim follows from this.
+- Legacy retirement checks the completed receipt, preserves the Quadlet in a
+  recovery file and stops its service. Tests covered missing receipts and modified recovery content,
+  retained file data and an interrupted retirement/reload retry.
+- Local fmt, pedantic Clippy, workspace tests (638 passed, 22 existing ignored),
+  Joey base integration, Ruff/Mypy and pinned workflow actionlint passed.
+- Created owned `clamps` / `quantum` with SSH port 2203. Its first and signed
+  uCore rebases completed and base/user-environment readiness passed. Creation's
+  waiting CLI was interrupted to inspect bootstrap through the owned logs command,
+  then resumed with the normal ready command; the VM was retained throughout.
+- Full application/HTTPS provisioning, reboot smoke and actual phone approval
+  remain pending vault unlock. Production hosts and existing VMs were unchanged.
+
+## 2026-11-07 — Quantum disposable VM acceptance
+
+- Full test provisioning passed for owned `clamps` / `quantum`. Expanded the
+  plain-root source disk to 64 GiB using the ownership-checked helper. This
+  workstation's public-address passt backend needed a disposable private LAN
+  fixture before UniFi/full apply; the fixture persists across reboot.
+- The first application smoke failed after reboot: the temporary LAN address
+  vanished and Quantum lacked independent boot activation. Added its explicit
+  boot target, covered the directive and recorded the general service rule.
+- After recovery through normal readiness and verified binary update, the full
+  smoke passed: fixture phases, declared applications, repeat apply, persistence,
+  Quantum dual-stack health and sibling-container backend isolation.
+- HTTPS certificate covers the files hostname and uses the intended staging CA.
+  The tagged workstation received the expected 403. Authorized phone/browser
+  acceptance remains pending; this does not establish mobile PDF rendering.
+- Repeated workspace tests: 638 passed, zero failed, 22 ignored. Pedantic Clippy
+  and formatting passed. Earlier real pinned-container file/PDF tests passed.
+- Production was unchanged. The disposable VM remains for operator inspection.
+
+## 2026-11-07 — Quantum inline PDF preview
+
+- Added a per-service exact `GET /api/resources/view` exception to Caddy's
+  browser cross-site guard. It accepts only an absent or same-service Origin;
+  foreign Origins remain denied and every request keeps tailnet authorization.
+  Older Caddy payload readers remain compatible.
+- Updated the disposable `clamps` / `quantum` VM. The generated Caddyfile
+  validates with its running Caddy container, the service is active, and the
+  declared route is present. The operator confirmed PDF preview succeeds in
+  the phone browser; PDF downloads were already working. Upload and multipage
+  PDF checks remain open.
+- `cargo fmt --all -- --check` and pedantic Clippy for `skillet_caddy` and
+  `skillet_hosts` passed. Their relevant tests passed (28 Caddy tests and 40
+  host-profile tests). Three Caddy Unix-socket tests were filtered because this
+  sandbox denies socket creation. The local Podman validation test could not
+  start because `/run/user/4000/libpod` is read-only; the actual Caddy parser
+  validation above ran inside the disposable VM.
+- Production was unchanged; no real domain, zone ID, or credential was recorded.

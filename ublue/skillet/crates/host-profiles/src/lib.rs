@@ -139,7 +139,7 @@ pub enum ApplyError {
     #[error(transparent)]
     Nut(#[from] skillet_nut::NutError),
     #[error(transparent)]
-    Mikochi(#[from] skillet_mikochi::MikochiError),
+    FileBrowser(#[from] skillet_filebrowser::FileBrowserError),
     #[error("Btrbk apply error: {0}")]
     Btrbk(#[from] skillet_btrbk::BtrbkError),
     #[error("Caddy apply error: {0}")]
@@ -468,7 +468,7 @@ fn apply_profile(
                 apply_pihole(system, files, profile, service, credentials)?;
             }
             ServiceConfig::Syncthing { .. } => apply_syncthing(system, files, profile, service)?,
-            ServiceConfig::Mikochi { .. } => apply_mikochi(system, files, profile, service)?,
+            ServiceConfig::FileBrowser { .. } => apply_filebrowser(system, files, profile, service)?,
             ServiceConfig::Nut(config) => {
                 skillet_nut::apply(system, files, *config)?;
             }
@@ -927,7 +927,7 @@ fn dashboard_links(
             },
             logo: match site.name.as_str() {
                 "homeassistant" => Some("assets/custom/homeassistant.svg"),
-                "files" => Some("assets/custom/mikochi.png"),
+                "files" => Some("assets/custom/filebrowser.svg"),
                 "pihole" => Some("assets/custom/pihole.svg"),
                 "syncthing" | "syncthing-personal" => Some("assets/custom/syncthing.svg"),
                 _ => None,
@@ -940,13 +940,13 @@ fn dashboard_links(
         .collect::<Vec<_>>()
 }
 
-fn apply_mikochi(
+fn apply_filebrowser(
     system: &dyn SystemResource,
     files: &dyn FileResource,
     profile: &HostProfile,
     service: &HostService,
 ) -> Result<(), ApplyError> {
-    let ServiceConfig::Mikochi {
+    let ServiceConfig::FileBrowser {
         files_path,
         data_owner,
         data_group,
@@ -955,15 +955,15 @@ fn apply_mikochi(
     } = service.config
     else {
         return Err(ApplyError::FixtureInput(
-            "Mikochi apply received an incompatible declaration".into(),
+            "FileBrowser apply received an incompatible declaration".into(),
         ));
     };
     let network = skillet_caddy::private_network(profile.id.as_str(), "files");
     skillet_podman::ensure_network(system, files, &network)?;
-    skillet_mikochi::apply(
+    skillet_filebrowser::apply(
         system,
         files,
-        &skillet_mikochi::Config {
+        &skillet_filebrowser::Config {
             files_path,
             owner: data_owner,
             group: data_group,

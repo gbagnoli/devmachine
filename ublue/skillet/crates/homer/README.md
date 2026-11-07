@@ -14,7 +14,7 @@ retained on the next apply.
 
 Cards are grouped as **Media**, **Applications**, **Files**, and **Home & Infra**,
 in that order; empty groups are omitted. Arr, Jellyfin and Plex use Media, Joplin and
-AirTrail use Applications, Syncthing, Mikochi and both Gokapi admin/public links
+AirTrail use Applications, Syncthing, File Browser Quantum and both Gokapi admin/public links
 use Files, and Home Assistant, Pi-hole and UniFi use Home & Infra. Each host's `UiServiceDeclaration` can set
 `dashboard_group: Some("Custom name")` to override the service default. Custom
 groups follow the standard groups alphabetically. Grouping changes presentation
@@ -38,7 +38,7 @@ file is mode `0600` on the host and Caddy serves it only behind the tailnet
 identity gate. Anyone authorized to view the dashboard can inspect that API
 token in their browser, so keep the Homer allowlist limited to trusted users.
 
-Service artwork is bundled in [`assets/`](assets/). Syncthing and Mikochi use
+Service artwork is bundled in [`assets/`](assets/). Syncthing and File Browser Quantum use
 their upstream logos, avoiding a runtime CDN dependency. Joplin and AirTrail
 use Homer's built-in Font Awesome icons.
 

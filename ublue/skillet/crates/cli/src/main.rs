@@ -1167,7 +1167,7 @@ fn check_health(
             )?;
             Ok(Some("health:homeassistant:running".into()))
         }
-        Some(HealthProbe::Mikochi) => check_mikochi_health(transport),
+        Some(HealthProbe::FileBrowser) => check_filebrowser_health(transport),
         Some(HealthProbe::Pihole) => {
             smoke_guest_command(
                 transport,
@@ -1205,7 +1205,7 @@ fn check_health(
     }
 }
 
-fn check_mikochi_health(
+fn check_filebrowser_health(
     transport: &impl skillet_vm::transport::GuestTransport,
 ) -> Result<Option<String>> {
     let inspected = guest_text(
@@ -1217,26 +1217,26 @@ fn check_mikochi_health(
             "inspect",
             "--format",
             "{{json .NetworkSettings.Networks}}",
-            "mikochi",
+            "filebrowser",
         ],
     )?;
     let networks: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&inspected)?;
     if networks.len() != 1 {
         return Err(anyhow!(
-            "Mikochi must have exactly one private backend network"
+            "FileBrowser must have exactly one private backend network"
         ));
     }
     let network = networks
         .values()
         .next()
-        .ok_or_else(|| anyhow!("Mikochi backend absent"))?;
+        .ok_or_else(|| anyhow!("FileBrowser backend absent"))?;
     for field in ["IPAddress", "GlobalIPv6Address"] {
         let address: std::net::IpAddr = network
             .get(field)
             .and_then(serde_json::Value::as_str)
-            .ok_or_else(|| anyhow!("Mikochi backend address absent"))?
+            .ok_or_else(|| anyhow!("FileBrowser backend address absent"))?
             .parse()?;
-        let url = format!("http://{}/ready", std::net::SocketAddr::new(address, 8080));
+        let url = format!("http://{}/health", std::net::SocketAddr::new(address, 8080));
         let reply = guest_text(
             transport,
             "curl",
@@ -1252,15 +1252,15 @@ fn check_mikochi_health(
             ],
         )?;
         let ready: serde_json::Value = serde_json::from_str(&reply)?;
-        if ready.get("status").and_then(serde_json::Value::as_str) != Some("ok") {
-            return Err(anyhow!("Mikochi is not ready"));
+        if ready.get("message").and_then(serde_json::Value::as_str) != Some("ok") {
+            return Err(anyhow!("FileBrowser is not ready"));
         }
-        check_mikochi_backend_isolation(transport, &url)?;
+        check_filebrowser_backend_isolation(transport, &url)?;
     }
-    Ok(Some("health:mikochi:ready:isolated-dual-stack".into()))
+    Ok(Some("health:filebrowser:ready:isolated-dual-stack".into()))
 }
 
-fn check_mikochi_backend_isolation(
+fn check_filebrowser_backend_isolation(
     transport: &impl skillet_vm::transport::GuestTransport,
     url: &str,
 ) -> Result<()> {
@@ -1289,7 +1289,7 @@ fn check_mikochi_backend_isolation(
     // A missing probe executable or malformed command is not isolation evidence.
     if !matches!(output.status.code(), Some(7 | 28)) {
         return Err(anyhow!(
-            "Mikochi backend isolation probe did not reject a sibling application connection"
+            "FileBrowser backend isolation probe did not reject a sibling application connection"
         ));
     }
     Ok(())

@@ -74,6 +74,10 @@ pub struct UiService {
     /// This response is only available after the identity gate authorizes it.
     #[serde(default)]
     pub anonymous_token_refresh: bool,
+    /// Exact read-only GET paths allowed through the browser cross-site guard.
+    /// Requests still pass the tailnet identity authorization below.
+    #[serde(default)]
+    pub cross_site_get_paths: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -144,6 +148,9 @@ pub struct CaddySite {
     /// This response is only available after the identity gate authorizes it.
     #[serde(default)]
     pub anonymous_token_refresh: bool,
+    /// Exact read-only GET paths allowed through the browser cross-site guard.
+    #[serde(default)]
+    pub cross_site_get_paths: Vec<String>,
 }
 
 #[derive(Debug, Error)]
@@ -211,7 +218,12 @@ impl CaddySites {
             services,
         )?;
         Ok(Self {
-            version: if services.iter().any(|service| service.sharing.is_some()) {
+            version: if services
+                .iter()
+                .any(|service| !service.cross_site_get_paths.is_empty())
+            {
+                9
+            } else if services.iter().any(|service| service.sharing.is_some()) {
                 8
             } else if services.iter().any(|service| service.cache.is_some()) {
                 7
@@ -248,6 +260,11 @@ impl CaddySites {
         // during deployment. Its canonical names and identity protection remain
         // exact; only a newly delivered v6 payload selects public exposure.
         let mut declarations = services.to_vec();
+        if sites.version < 9 {
+            for service in &mut declarations {
+                service.cross_site_get_paths.clear();
+            }
+        }
         if sites.version < 8 {
             for service in &mut declarations {
                 service.sharing = None;
@@ -420,6 +437,22 @@ fn render_identity_policy(
     } else {
         String::new()
     };
+    let cross_site_exceptions = if service.cross_site_get_paths.is_empty() {
+        String::new()
+    } else {
+        let origin = format!("https://{hostname}");
+        let exceptions = service
+            .cross_site_get_paths
+            .iter()
+            .map(|path| {
+                format!(
+                    "({{http.request.method}} == \"GET\" && {{http.request.uri.path}} == \"{path}\" && ({{http.request.header.Origin}} == \"\" || {{http.request.header.Origin}} == \"{origin}\"))"
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(" || ");
+        format!(" && !({exceptions})")
+    };
     let homepage_api =
         matches!(service.name.as_str(), "pihole" | "homeassistant") && !homer_origins.is_empty();
     if homepage_api {
@@ -447,7 +480,7 @@ fn render_identity_policy(
         }
         let _ = writeln!(
             config,
-            "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {denied}`\n        respond @cross_origin 403\n        @cross_site expression `{{http.request.header.Sec-Fetch-Site}} == \"cross-site\" && {{http.request.header.Origin}} != \"{own_origin}\"{cross_site_origins}{navigation_guard}`\n        respond @cross_site 403"
+            "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {denied}`\n        respond @cross_origin 403\n        @cross_site expression `{{http.request.header.Sec-Fetch-Site}} == \"cross-site\" && {{http.request.header.Origin}} != \"{own_origin}\"{cross_site_origins}{navigation_guard}{cross_site_exceptions}`\n        respond @cross_site 403"
         );
         render_homer_cors(config, service.name.as_str(), &allowed_origins);
         // Browser preflights cannot carry the authorization material used by
@@ -458,16 +491,48 @@ fn render_identity_policy(
         );
     } else {
         let _ = writeln!(config, "        @cross_origin expression `{{http.request.header.Origin}} != \"\" && {{http.request.header.Origin}} != \"https://{hostname}\"`\n        respond @cross_origin 403");
-        if navigation_guard.is_empty() {
+        if navigation_guard.is_empty() && cross_site_exceptions.is_empty() {
             config.push_str("        @cross_site header Sec-Fetch-Site cross-site\n");
         } else {
-            let _ = writeln!(config, "        @cross_site expression `{{http.request.header.Sec-Fetch-Site}} == \"cross-site\"{navigation_guard}`");
+            let _ = writeln!(
+                config,
+                "        @cross_site expression `{{http.request.header.Sec-Fetch-Site}} == \"cross-site\"{navigation_guard}{cross_site_exceptions}`"
+            );
         }
         config.push_str("        respond @cross_site 403\n");
     }
     // A trailing '?' clears the inherited application query on the cloned auth
     // request; the backend keeps its original URI.
     config.push_str("        forward_auth unix//run/skillet-tailnet-ui/auth.sock {\n            uri /auth?\n            header_up X-Skillet-Peer {http.request.remote}\n            copy_headers X-Skillet-User\n        }\n");
+}
+
+fn valid_guard_path(path: &str) -> bool {
+    path.len() > 1
+        && path.starts_with('/')
+        && !path.starts_with("//")
+        && !path
+            .split('/')
+            .any(|segment| segment == "." || segment == "..")
+        && path
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"/-_.~".contains(&byte))
+}
+
+fn validate_cross_site_get_paths(service: &UiService) -> Result<(), CaddyError> {
+    let mut guarded_paths = std::collections::BTreeSet::new();
+    for path in &service.cross_site_get_paths {
+        if !service.tailnet_identity
+            || !service.public_names.is_empty()
+            || !valid_guard_path(path)
+            || !guarded_paths.insert(path)
+        {
+            return Err(CaddyError::InvalidConfiguration(format!(
+                "service {} has an invalid cross-site GET path exception",
+                service.name
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn render_homer_cors(config: &mut String, service_name: &str, allowed_origins: &[&String]) {
@@ -555,6 +620,7 @@ fn build_sites(
                 "anonymous token refresh requires identity protection".into(),
             ));
         }
+        validate_cross_site_get_paths(service)?;
         if service.port == 0 {
             return Err(CaddyError::InvalidConfiguration(format!(
                 "service {} has an invalid upstream port",
@@ -633,6 +699,7 @@ fn build_sites(
             port: service.port,
             tailnet_identity: service.tailnet_identity,
             anonymous_token_refresh: service.anonymous_token_refresh,
+            cross_site_get_paths: service.cross_site_get_paths.clone(),
         });
     }
     sharing::extend(&mut sites, services, zone_domain, &mut all_hostnames)?;
@@ -1002,7 +1069,7 @@ fn state_volumes() -> Vec<Volume> {
 }
 
 fn validate_payload_version(sites: &CaddySites) -> Result<(), CaddyError> {
-    if !matches!(sites.version, 2..=8) {
+    if !matches!(sites.version, 2..=9) {
         return Err(CaddyError::InvalidConfiguration(format!(
             "unsupported payload version {}",
             sites.version
@@ -1013,9 +1080,20 @@ fn validate_payload_version(sites: &CaddySites) -> Result<(), CaddyError> {
             "zone-level aliases require payload version 5".into(),
         ));
     }
-    if sites.version >= 5 && sites.zone_domain.is_none() {
+    if (5..=8).contains(&sites.version) && sites.zone_domain.is_none() {
         return Err(CaddyError::InvalidConfiguration(
             "payload version 5 requires the Cloudflare zone".into(),
+        ));
+    }
+    if sites.version == 9
+        && sites.zone_domain.is_none()
+        && sites
+            .services
+            .iter()
+            .any(|site| site.access == SiteAccess::Public)
+    {
+        return Err(CaddyError::InvalidConfiguration(
+            "public ingress requires the Cloudflare zone".into(),
         ));
     }
     if sites.version < 7 && sites.services.iter().any(|site| site.cache.is_some()) {
@@ -1031,6 +1109,16 @@ fn validate_payload_version(sites: &CaddySites) -> Result<(), CaddyError> {
     {
         return Err(CaddyError::InvalidConfiguration(
             "public sharing routes require payload version 8".into(),
+        ));
+    }
+    if sites.version < 9
+        && sites
+            .services
+            .iter()
+            .any(|site| !site.cross_site_get_paths.is_empty())
+    {
+        return Err(CaddyError::InvalidConfiguration(
+            "cross-site GET exceptions require payload version 9".into(),
         ));
     }
     Ok(())

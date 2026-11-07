@@ -1,0 +1,43 @@
+http:
+  listen: "::"
+  port: 8080
+  baseURL: /
+  trustProxyHeaders: true
+  disableWebDAV: true
+server:
+  database:
+    path: /home/filebrowser/data/database.sqlite
+  cacheDir: /home/filebrowser/data/cache
+  cacheDirCleanup: true
+  disableUpdateCheck: true
+  sources:
+    - path: /files
+      name: Files
+      config:
+        defaultEnabled: true
+        defaultUserScope: /
+        createUserDir: false
+        defaultPermissions:
+          view: true
+          download: true
+          create: true
+          modify: true
+          delete: true
+auth:
+  methods:
+    password:
+      enabled: false
+      signup: false
+    proxy:
+      enabled: true
+      header: X-Skillet-User
+userDefaults:
+  account:
+    permissions:
+      admin: false
+      share: false
+      api: false
+      realtime: true
+frontend:
+  name: Files
+  disableDefaultLinks: true

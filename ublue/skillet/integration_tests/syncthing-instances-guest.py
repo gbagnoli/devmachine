@@ -79,7 +79,7 @@ def main():
         assert not ports.get("8384/tcp")
         for protocol in ("tcp", "udp"):
             assert {value["HostPort"] for value in ports[f"22000/{protocol}"]} == {port}
-    for mount in inspect("mikochi")["Mounts"]:
+    for mount in inspect("filebrowser")["Mounts"]:
         source = Path(mount["Source"]).resolve()
         assert not personal_root.is_relative_to(source)
     config = Path("/etc/skillet/homer/assets/config.yml").read_text()

@@ -107,7 +107,7 @@ stays outside synchronized/snapshotted folders. The
 and [Caddy cache module status](https://caddyserver.com/docs/modules/http.handlers.cache).
 
 The original [File Browser](https://github.com/filebrowser/filebrowser) is
-archived. [File browsing](file-browsing.md) records the shortlist, with Mikochi
+archived. [File browsing](file-browsing.md) records the shortlist, with the Quantum trial replacing Mikochi
 as the selected shared implementation on clamps and joey. Keep any
 persistent app state outside synchronized user files and serve declared folders.
 

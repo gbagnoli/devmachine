@@ -1,5 +1,8 @@
 # Donbot fresh installation
 
+File UI update: [Quantum trial](FILEBROWSER-QUANTUM.md) supersedes the Mikochi
+selection below; historical acceptance does not establish Quantum acceptance.
+
 Status: **Joplin and AirTrail implementation, named-VM provisioning, and
 database restore acceptance are complete; client/API acceptance remains open**,
 refreshed 2026-10-29. Jellyfin library access and static-cache consumer checks

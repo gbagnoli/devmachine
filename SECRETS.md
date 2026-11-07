@@ -64,6 +64,10 @@ Prepare the shared Cloudflare token creator and Zone ID. [DDNS setup](ublue/skil
 | `skillet/environments/<environment>/dns/local-prefix` | Required | Password = relative site name below the selected Cloudflare zone, shared with private Pi-hole names. Move the former host cloudflare/ddns-dns-name value here; remove the old entry after verified delivery. |
 | `skillet/environments/prod/hosts/<host>/cloudflare/ddns-token` | Generated | Skillet creates the persistent scoped token; disposable tokens are lifecycle-owned. |
 
+## FileBrowser Quantum
+
+No application password; native proxy authentication uses the shared Tailnet UI allowlist. [Setup](ublue/skillet/crates/filebrowser/README.md).
+
 ## Gokapi
 
 Native accounts behind Tailscale identity authentication; no second application password. [Setup and backups](ublue/skillet/crates/gokapi/README.md).
@@ -120,10 +124,6 @@ Linked Arr stack: separate internal API keys, private browser UIs and environmen
 | `skillet/environments/test/hosts/<host>/instances/<instance>/media/radarr-api-key` | Generated | Password = Skillet-generated radarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
 | `skillet/environments/test/hosts/<host>/instances/<instance>/media/lidarr-api-key` | Generated | Password = Skillet-generated lidarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
 | `skillet/environments/test/hosts/<host>/instances/<instance>/media/putioarr-password` | Generated | Password = Skillet-generated Transmission RPC password shared only with the three declared download clients. Ordinary apply reuses it. |
-
-## Mikochi
-
-No application password; uses the shared Tailnet UI allowlist. [Setup](ublue/skillet/crates/mikochi/README.md).
 
 ## Network
 

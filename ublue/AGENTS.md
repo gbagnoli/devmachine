@@ -134,6 +134,9 @@
 - Generated unit executable paths must agree with the actual bootstrap and
   update delivery paths. Cover that agreement in regression checks; consumer
   placeholders alone cannot establish deployment correctness.
+- Long-running services declare their own boot activation and dependencies.
+  Configuration apply must not be their only startup path; verify reboot with
+  already converged configuration as well as initial activation.
 - Native metric collectors use bounded read-only queries and a finite metric/tag
   inventory. Failed observations must report failure rather than synthetic zero
   readings. Keep ingestion credentials in the Agent and explicitly scope local
@@ -284,6 +287,10 @@
   path, destination and origin. Retain identity authorization and reject API,
   subresource and embedding requests; validate both navigation and denial through
   the actual proxy consumer.
+- Cross-site read exceptions must be caller-declared exact GET paths, never
+  prefixes or wildcard APIs. Require an absent or same-service Origin, preserve
+  identity authorization, and validate both the exception and nearby denied
+  paths/methods through the actual proxy consumer.
 
 - Prepare declared storage identities before every first consumer, including OS
   image import and early background jobs. Application service ordering alone

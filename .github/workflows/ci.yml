@@ -53,9 +53,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
       - name: Run Ruff Check
-        run: uv run ruff check --diff . ublue/skillet/tools
+        run: uv run ruff check --diff . ublue/skillet/tools ublue/skillet/integration_tests/quantum-trial-guest.py
       - name: Run Ruff Format
-        run: uv run ruff format --diff . ublue/skillet/tools
+        run: uv run ruff format --diff . ublue/skillet/tools ublue/skillet/integration_tests/quantum-trial-guest.py
       - name: Test release metadata validation
         run: uv run python -m unittest discover -s ublue/skillet/tools/tests -p "test_*.py"
       - name: Run Mypy
@@ -186,11 +186,11 @@ jobs:
           cd ublue/skillet
           cargo test -p skillet_syncthing real_upstream_generator_preserves_identity_and_user_edits -- --ignored
 
-      - name: Test Mikochi file operations without external credentials
+      - name: Test FileBrowser Quantum file operations without external credentials
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         run: |
           cd ublue/skillet
-          cargo test -p skillet_mikochi real_mikochi_no_auth_backend_supports_owned_file_operations -- --ignored
+          cargo test -p skillet_filebrowser real_quantum_proxy_auth_supports_owned_file_operations -- --ignored
 
       - name: Test native UPS configuration without hardware
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
