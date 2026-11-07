@@ -150,7 +150,7 @@ this run's lock, validates UUID/disk ownership around every operation and uses
 manifest-bound SSH trust. Keep credentials out of assertion output.
 
 ```sh
-cargo run -p skillet_vm --example guest_command -- "$PWD/../butane" clamps homeassistant /usr/bin/true
+cargo run -p skillet_vm --example guest_command -- "$(realpath ../butane)" clamps homeassistant /usr/bin/true
 ```
 
 `--upload ABSOLUTE_SOURCE /var/tmp/FILENAME` verifies the uploaded artifact hash.
@@ -164,9 +164,9 @@ plain-root profile, grow the owned disk, then expand the data partition and its
 Btrfs filesystem through the same ownership-checked helper:
 
 ```sh
-cargo run -p skillet_vm --example guest_command -- "$PWD/../butane" HOST INSTANCE --grow-disk 64
-cargo run -p skillet_vm --example guest_command -- "$PWD/../butane" HOST INSTANCE /usr/bin/sudo -n /usr/bin/growpart /dev/vda 4
-cargo run -p skillet_vm --example guest_command -- "$PWD/../butane" HOST INSTANCE /usr/bin/sudo -n /usr/bin/btrfs filesystem resize max /var/lib/data
+cargo run -p skillet_vm --example guest_command -- "$(realpath ../butane)" HOST INSTANCE --grow-disk 64
+cargo run -p skillet_vm --example guest_command -- "$(realpath ../butane)" HOST INSTANCE /usr/bin/sudo -n /usr/bin/growpart /dev/vda 4
+cargo run -p skillet_vm --example guest_command -- "$(realpath ../butane)" HOST INSTANCE /usr/bin/sudo -n /usr/bin/btrfs filesystem resize max /var/lib/data
 ```
 
 These guest device paths apply only to the disposable QEMU plain-root layout;

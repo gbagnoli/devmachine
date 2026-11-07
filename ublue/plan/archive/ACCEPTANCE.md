@@ -4811,3 +4811,22 @@ acceptance; no production host or private DNS values were committed.
   then resumed with the normal ready command; the VM was retained throughout.
 - Full application/HTTPS provisioning, reboot smoke and actual phone approval
   remain pending vault unlock. Production hosts and existing VMs were unchanged.
+
+## 2026-11-07 — Quantum disposable VM acceptance
+
+- Full test provisioning passed for owned `clamps` / `quantum`. Expanded the
+  plain-root source disk to 64 GiB using the ownership-checked helper. This
+  workstation's public-address passt backend needed a disposable private LAN
+  fixture before UniFi/full apply; the fixture persists across reboot.
+- The first application smoke failed after reboot: the temporary LAN address
+  vanished and Quantum lacked independent boot activation. Added its explicit
+  boot target, covered the directive and recorded the general service rule.
+- After recovery through normal readiness and verified binary update, the full
+  smoke passed: fixture phases, declared applications, repeat apply, persistence,
+  Quantum dual-stack health and sibling-container backend isolation.
+- HTTPS certificate covers the files hostname and uses the intended staging CA.
+  The tagged workstation received the expected 403. Authorized phone/browser
+  acceptance remains pending; this does not establish mobile PDF rendering.
+- Repeated workspace tests: 638 passed, zero failed, 22 ignored. Pedantic Clippy
+  and formatting passed. Earlier real pinned-container file/PDF tests passed.
+- Production was unchanged. The disposable VM remains for operator inspection.

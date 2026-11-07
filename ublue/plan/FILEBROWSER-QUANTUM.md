@@ -6,8 +6,8 @@ the phone/browser trial is accepted and the PR is merged and deliberately applie
 Current status: module, migration, fleet wiring and local checks are implemented.
 The real pinned container passed proxy login, file mutations, ownership,
 source-escape refusal and PDF byte-range tests. The owned VM reached signed
-base/user-environment readiness. Full test-environment provisioning is pending
-the operator's vault unlock; phone acceptance remains open.
+base/user-environment readiness. Full test-environment provisioning, ACME staging HTTPS, and declared-application
+repeat-apply/reboot acceptance passed. Phone acceptance remains open.
 
 1. Replace the shared Syncthing file UI with a reusable Quantum module, pinned to
    `2.0.2-stable`. Preserve files scope, mapped ownership, `files` DNS identity,
