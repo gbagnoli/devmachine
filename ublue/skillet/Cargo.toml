@@ -8,7 +8,7 @@ members = [
     "crates/unifi",
     "crates/homeassistant",
     "crates/syncthing",
-    "crates/mikochi",
+    "crates/filebrowser",
     "crates/nut",
     "crates/btrbk",
     "crates/caddy",
@@ -51,7 +51,7 @@ skillet_pihole = { path = "crates/pihole" }
 skillet_homeassistant = { path = "crates/homeassistant" }
 skillet_unifi = { path = "crates/unifi" }
 skillet_nut = { path = "crates/nut" }
-skillet_mikochi = { path = "crates/mikochi" }
+skillet_filebrowser = { path = "crates/filebrowser" }
 skillet_syncthing = { path = "crates/syncthing" }
 skillet_btrbk = { path = "crates/btrbk" }
 skillet_caddy = { path = "crates/caddy" }

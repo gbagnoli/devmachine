@@ -19,7 +19,7 @@ services before production migration. Private overrides/live state remain uninsp
 | --- | --- |
 | One Btrfs filesystem, separate data subvolume; rootful/rootless Podman stores | Shared root + `/var/lib/data`; rootful overlay graphroot; retain rootless storage only for workloads that need it |
 | Pi-hole; resolved disabled | Selected shared Pi-hole and bridge DNS policy; image/day-zero mask; shared encrypted v6 custom DNS delivery implemented; joey-specific settings migration and DNS/LAN acceptance pending |
-| Mikochi file browsing | Already included with Syncthing, identity-protected with no app login; joey-specific file operations and isolation acceptance pending |
+| File Browser Quantum file browsing | Already included with Syncthing, identity-protected with no app login; joey-specific file operations and isolation acceptance pending |
 | Syncthing data `/var/lib/data/sync`, dedicated account and ACLs | Shared `/var/lib/data/syncthing` leaf, declared host ownership/user mapping; transfer folder definitions, identity and ACLs explicitly, never copy live identity into smoke |
 | btrbk snapshots `sync` only | Caller opts in for `syncthing` only; preserve leaf-only snapshots and settle production retention/off-machine backup |
 | nginx/OAuth/ACME, local and cross-host routes | Generic Caddy, declared Pi-hole/Syncthing UIs and service alias policy; Cloudflare credentials and tailnet ingress reused; inventory needed cross-host routes before omitting them |
@@ -77,7 +77,7 @@ No private addresses, domains, keys or effective Chef overrides belong here.
    - Every selected unit starts; repeated provisioning/apply and reboot preserve state.
    - Pi-hole answers synthetic A/AAAA records on TCP/UDP; repeated/empty DNS
      delivery preserves unrelated v6 settings.
-   - Syncthing transfers harmless data only between disposable peers. Mikochi
+   - Syncthing transfers harmless data only between disposable peers. File Browser Quantum
      upload/read/delete preserves ownership; source identities are never reused.
    - Trusted HTTPS and browser/API flows work for an allowed human-owned tailnet
      client. Tagged/denied clients, forged headers, identity lookup outages and

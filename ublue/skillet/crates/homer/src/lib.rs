@@ -179,8 +179,8 @@ where
             include_bytes!("../assets/homeassistant.svg").as_slice(),
         ),
         (
-            "mikochi.png",
-            include_bytes!("../assets/mikochi.png").as_slice(),
+            "filebrowser.svg",
+            include_bytes!("../assets/filebrowser.svg").as_slice(),
         ),
         (
             "pihole.svg",

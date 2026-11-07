@@ -1,31 +1,35 @@
 # Private file browsing
 
-Select Mikochi as the shared file-management UI on Syncthing hosts. Users already
-authorized by [tailnet identity](tailnet-ui-authentication.md) must not enter another
-application password. Serve caller-declared user files, never Syncthing config or
-the entire data filesystem. Keep application state outside synchronized data.
+Select File Browser Quantum as the shared file-management UI composed from each
+shared Syncthing declaration. The feature branch is a trial; phone acceptance
+and production activation remain in [the plan](../plan/FILEBROWSER-QUANTUM.md).
+The prior [Mikochi choice](../plan/archive/MIKOCHI-SELECTION.md) is retained as history.
 
-## Selection
+Use the official pinned stable image with native proxy authentication, consuming
+Caddy's verified `X-Skillet-User` identity. The existing per-request WhoIs allowlist,
+origin checks and isolated backend remain authoritative. This supports separate
+application accounts without another password or identity provider. Disable
+password signup/login, public sharing and user API-token creation; ordinary
+accounts share the caller-selected synchronized files, not the whole data mount.
 
-| Candidate | Tradeoff |
-| --- | --- |
-| [Mikochi](https://github.com/zer0tonin/Mikochi) | Small browsing/upload/download/rename/delete UI; NO_AUTH fits the authenticated proxy and shared file scope. Selected. |
-| [FileBrowser Quantum](https://github.com/gtsteffaniak/filebrowser) | Richer sources/permissions and proxy auth, with more configuration/state migration. |
-| [Copyparty](https://github.com/9001/copyparty) | Broader file server, per-user/folder rights, resumable uploads and WebDAV. |
-| [Filestash](https://www.filestash.app/) | Multi-backend browser client rather than this simple local-folder scope. |
+Reuse Syncthing's declared host/container identity without recursively changing
+ownership or moving files. Persist Quantum's SQLite database and cache outside
+synchronized documents. Skillet owns deployment and public configuration; Quantum
+owns account/session state. Its signing material stays in that protected state.
+No new vault entry is required. Database backup/export is not implemented yet;
+existing Syncthing/btrbk coverage protects document data, not the application DB.
 
-Mikochi's single-login model does not supply per-user folder permissions. With
-native auth disabled, the explicit proxy allowlist controls entry and both users
-share the declared mount. Different folder rights require evaluating a richer
-application rather than pretending this mapping supplies them.
+Verified legacy retirement preserves the old Quadlet and checks its applied
+receipt before stopping it. Interrupted reload retries remain recoverable. Older
+Caddy payload readers retain the Mikochi refresh compatibility mode, but newly
+rendered Quantum sites do not enable it.
 
-Mikochi follows upstream `:latest` with Podman registry auto-update, matching
-the operator-selected unattended application update policy. Its original pinned
-trial established the initial behavior; future upstream changes require continued
-private-proxy and file-operation acceptance. The deployment shares Syncthing's
-mapped numeric process identity and uses its data directory, outside config. Only Caddy joins the strictly isolated
-backend; no host port is published. Existing synchronized paths are not moved
-implicitly. NO_AUTH is allowed only with that verified sole private entry point.
+The richer frontend and preview support motivate this replacement. Mobile PDF
+rendering still depends on the browser; current stable explicitly uses an
+open/download fallback on mobile Chromium. Native container/API acceptance is
+separate from actual phone approval. Do not add an office server or custom viewer
+until the trial establishes whether either is needed.
 
-Setup: [Mikochi guide](../skillet/crates/mikochi/README.md).
-Browser/containment acceptance: [UI plan](../plan/GENERIC-PRIVATE-UIS.md).
+Operations: [Quantum guide](../skillet/crates/filebrowser/README.md).
+Upstream: [proxy auth](https://filebrowserquantum.com/en/docs/configuration/authentication/proxy/),
+[PDF previews](https://filebrowserquantum.com/en/docs/features/previewing-files/).

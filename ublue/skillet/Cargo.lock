@@ -3841,6 +3841,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "skillet_filebrowser"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "reqwest",
+ "serde_json",
+ "sha2 0.10.9",
+ "skillet_core",
+ "skillet_datadog",
+ "skillet_podman",
+ "tempfile",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "skillet_gokapi"
 version = "0.1.0"
 dependencies = [
@@ -3914,6 +3929,7 @@ dependencies = [
  "skillet_core",
  "skillet_datadog",
  "skillet_ddns",
+ "skillet_filebrowser",
  "skillet_gokapi",
  "skillet_hardening",
  "skillet_homeassistant",
@@ -3922,7 +3938,6 @@ dependencies = [
  "skillet_joplin",
  "skillet_kexec",
  "skillet_media",
- "skillet_mikochi",
  "skillet_network",
  "skillet_nut",
  "skillet_pihole",
@@ -3974,19 +3989,6 @@ dependencies = [
  "serde",
  "serde_json",
  "skillet_core",
- "skillet_podman",
- "tempfile",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "skillet_mikochi"
-version = "0.1.0"
-dependencies = [
- "reqwest",
- "serde_json",
- "skillet_core",
- "skillet_datadog",
  "skillet_podman",
  "tempfile",
  "thiserror 1.0.69",

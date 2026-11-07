@@ -17,7 +17,7 @@ stay in the vault or private installation inputs.
 | Private HTTPS / identity | [Caddy](../caddy/README.md) |
 | Monitoring | [Datadog](../datadog/README.md) |
 | Public-address DNS updates | [DDNS](../ddns/README.md) |
-| File browsing | [Mikochi](../mikochi/README.md) |
+| File browsing | [File Browser Quantum](../filebrowser/README.md) |
 | Service dashboard | [Homer](../homer/README.md) |
 | Static Ethernet / Wi-Fi | [Networking](../network/README.md) |
 | UPS and metrics | [NUT](../nut/README.md) |

@@ -109,7 +109,7 @@ remain uncached until explicit redelivery. See the
 
 ## Identity-protected UIs
 
-Pi-hole, Syncthing (canonical name and aliases), Mikochi and Home Assistant use
+Pi-hole, Syncthing (canonical name and aliases), File Browser Quantum and Home Assistant use
 identity protection. Home Assistant also retains its native login.
 
 For caller-declared identity protection:
@@ -128,7 +128,7 @@ mount these sockets into unrelated containers. On SELinux hosts, inspect
 `skillet-tailnet-ui-policy.service` as well as `skillet-tailnet-ui.service`;
 the loader must succeed before the broker starts. The managed policy is
 `/etc/skillet/selinux/skillet-tailnet-ui.cil`. Keep enforcement enabled. The backend needs Netavark
-`isolate=strict` support. [Mikochi](../mikochi/README.md) uses this gate without
+`isolate=strict` support. [File Browser Quantum](../filebrowser/README.md) uses this gate without
 an additional application login. Headscale identity acceptance is not established.
 
 Designs: [private access](../../../design/private-ui-access.md),

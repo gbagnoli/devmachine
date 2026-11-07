@@ -1,5 +1,9 @@
 # Private UI remaining acceptance
 
+The [Quantum replacement trial](FILEBROWSER-QUANTUM.md) supersedes Mikochi for
+new host declarations. Existing Mikochi results below are historical and do not
+close Quantum phone/auth/isolation acceptance.
+
 Caller-selected services/aliases, environment resolution, Caddy credential sets,
 account-scoped Cloudflare issuance, DNS ownership/reconciliation and disposable
 cleanup are implemented. Staging ACME/HTTPS and mutation-recovery regression

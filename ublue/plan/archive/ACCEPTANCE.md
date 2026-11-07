@@ -4788,3 +4788,26 @@ acceptance; no production host or private DNS values were committed.
   SIGKILL fallback after the container ignored SIGTERM.
 - This changes workstation argument handling; no production deployment or
   credential delivery was performed for this slice.
+
+## 2026-11-07 — Quantum replacement: local slice and base VM
+
+- On `feat/filebrowser-quantum`, the shared Syncthing composition selects the
+  reusable Quantum module instead of Mikochi. The official `2.0.2-stable` image
+  uses native proxy login, the existing identity header/backend, mapped file
+  ownership and separate SQLite/cache state. Newly rendered Caddy payloads
+  disable the old frontend refresh mode; retained payload readers still support it.
+- The actual pinned container passed proxy login, missing-identity refusal,
+  browse/upload/download/rename/delete, mapped ownership and refusal of a source
+  symlink into the private SQLite database. A synthetic PDF returned correct
+  partial bytes for a Range request. No mobile rendering claim follows from this.
+- Legacy retirement checks the completed receipt, preserves the Quadlet in a
+  recovery file and stops its service. Tests covered missing receipts and modified recovery content,
+  retained file data and an interrupted retirement/reload retry.
+- Local fmt, pedantic Clippy, workspace tests (638 passed, 22 existing ignored),
+  Joey base integration, Ruff/Mypy and pinned workflow actionlint passed.
+- Created owned `clamps` / `quantum` with SSH port 2203. Its first and signed
+  uCore rebases completed and base/user-environment readiness passed. Creation's
+  waiting CLI was interrupted to inspect bootstrap through the owned logs command,
+  then resumed with the normal ready command; the VM was retained throughout.
+- Full application/HTTPS provisioning, reboot smoke and actual phone approval
+  remain pending vault unlock. Production hosts and existing VMs were unchanged.
