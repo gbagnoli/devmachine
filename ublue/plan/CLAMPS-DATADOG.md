@@ -29,6 +29,10 @@ Operating guides: [Datadog](../skillet/crates/datadog/README.md),
 
 ## Separate enhancements
 
+Optional NETGEAR switch collection on Clamps is tracked in the
+[network switch monitoring plan](NETWORK-SWITCH-MONITORING.md). Vault inventory,
+collector packaging and switch-attributed Datadog telemetry are planned, not deployed.
+
 Private ping targets, richer Syncthing metrics and a Pi-hole v6-compatible API
 check require private inputs/compatibility review. Queue-age/send-failure metrics
 belong to the [SMTP follow-up](CLAMPS-EMAIL.md). Local Grafana/metrics replacement

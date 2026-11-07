@@ -75,3 +75,15 @@ Sources: [collector](https://github.com/DataDog/datadog-agent/blob/8e795c5e/comp
 [Autodiscovery](https://docs.datadoghq.com/containers/docker/integrations/),
 [network monitoring](https://docs.datadoghq.com/network_monitoring/cloud_network_monitoring/setup/),
 [DogStatsD](https://docs.datadoghq.com/extend/dogstatsd/).
+
+## Planned switch collectors
+
+Clamps will collect optional NETGEAR Plus telemetry through per-device Podman
+collectors containing pinned `py-netgear-plus` dependencies. Private OpenMetrics
+endpoints feed the existing Agent; collectors receive only their switch password
+and no Datadog API key. Switch identity is explicit rather than inherited from
+the collection host. These are custom metrics, not automatic Network Device
+Monitoring inventory. Failed polls expose failure without fresh device readings.
+Expected-speed alerts apply only to configured uplink ports. Implementation and
+physical firmware compatibility remain in the
+[switch monitoring plan](../plan/NETWORK-SWITCH-MONITORING.md).

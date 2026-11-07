@@ -15,7 +15,7 @@ Only unfinished implementation and acceptance belongs here. Commands live in
 | File browsing | [Quantum replacement and phone trial](FILEBROWSER-QUANTUM.md) |
 | UIs | [Private UI/browser acceptance](GENERIC-PRIVATE-UIS.md) |
 | DDNS | [Rotation and post-reboot publication](CLAMPS-CLOUDFLARE-DDNS.md) |
-| Monitoring / UPS | [Physical Agent and NUT recovery/ingestion](CLAMPS-DATADOG.md) |
+| Monitoring / UPS | [Physical Agent and NUT recovery/ingestion](CLAMPS-DATADOG.md), [Clamps switch monitoring](NETWORK-SWITCH-MONITORING.md) |
 | SMTP | [Sender checks and separate enhancements](CLAMPS-EMAIL.md) |
 | UniFi | [Sustained adoption and independent backups](CLAMPS-UNIFI.md) |
 | Refactor | [Parked backend/CI checks and artifact audit](SKILLET-REFACTOR.md) |

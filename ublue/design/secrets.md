@@ -87,3 +87,21 @@ namespaces and hashed context bindings. Vault unlock retains three-hour expiry;
 verified remote sudo uses thirty minutes. Reads never renew expiry. Sudo passwords
 are not vault entries; `auth lock` clears only their cache. Each consumer owns its
 verification and target binding policy.
+
+## Planned switch inventory
+
+Switch monitoring on Clamps will use the default inventory entry
+`hosts/clamps/network/switches`, with a comma-separated `switches` custom field
+listing stable device names. Each `network/switches/<name>` entry supplies
+Password, URL and make; adapters define additional requirements. Resolve through
+existing namespace/template policy. Device credentials are independent of their
+collection host and management address. A missing inventory disables collection;
+lookup errors fail rather than remove services. An explicit empty list removes
+managed collectors.
+
+The user-selected inventory is a narrow exception to credential-presence gating:
+it enables switch collection only on callers already declaring Datadog. Delivery
+uses existing encrypted host credentials and per-device mounted Podman secrets.
+Test environments never inherit production targets. Dynamic field audits and
+secret checklist metadata remain implementation work in the
+[switch monitoring plan](../plan/NETWORK-SWITCH-MONITORING.md).
