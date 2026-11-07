@@ -31,11 +31,23 @@ From `ublue/skillet`:
 
 ```sh
 cargo run --release -p skillet -- test vm create clamps quantum --port 2203
+```
+
+Before full provisioning, expand the plain-root VM for the fleet's application
+images using the [owned disk growth commands](../vm/README.md#owned-guest-assertions).
+The source image has only 10 GiB; use 64 GiB for this trial.
+
+```sh
 cargo run --release -p skillet -- secrets unlock
 cargo run --release -p skillet -- test vm provision clamps quantum --with-ui
 cargo run --release -p skillet -- test smoke clamps --instance quantum --with-applications
 cargo run --release -p skillet_workstation --example filebrowser_trial -- ../butane clamps quantum
 ```
+
+If the VM was created before the current build, run `test vm update clamps quantum`
+before provisioning and again after smoke: readiness restores its original captured
+bootstrap binaries. This preserves capture evidence while explicitly deploying the
+current build.
 
 The final command seeds a `Quantum trial` folder with harmless text and a two-page
 PDF, using the recorded VM ownership and declared file identity.
