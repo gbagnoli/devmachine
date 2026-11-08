@@ -1,5 +1,16 @@
 # uBlue agent instructions
 
+## Temporary files and build caches
+
+- Inspect available filesystems before selecting scratch space for large builds.
+  Use an owner-private directory scoped to the user/task and explicitly set
+  `CARGO_TARGET_DIR` when the default filesystem has insufficient space.
+- Check free space before large builds. At task completion, remove unused
+  task-owned scratch files and duplicate caches, particularly under `/tmp`.
+  Retain useful acceptance evidence in the owned run or task directory. Never
+  remove unrelated files, active build caches, SSH-agent sockets or VM artifacts
+  through broad wildcard cleanup.
+
 ## Current work and acceptance
 
 - Use [the active plan index](plan/README.md) for unfinished work and
