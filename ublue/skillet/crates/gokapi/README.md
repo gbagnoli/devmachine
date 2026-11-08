@@ -1,8 +1,8 @@
 # Gokapi
 
-Donbot selects `f0rc3/gokapi:v2.2.4`. It runs rootful with the shared data
+Donbot selects `f0rc3/gokapi:latest`. It runs rootful with the shared data
 UID/GID, on its own private proxy network, with no published backend port.
-Upgrade the pinned image together with its tested public route policy. Only
+The latest channel uses registry auto-update. Only
 the dedicated proxy network is trusted for forwarded client addresses; automatic
 trust of other container networks and Cloudflare-specific headers is disabled.
 Initialization regenerates `/run/skillet/gokapi/proxy.env` from the actual
@@ -36,7 +36,7 @@ initial admin or public URL requires explicit native reconfiguration; apply
 refuses to silently rewrite ownership or security policy. The temporary unused
 internal password is random, never logged or stored in KeePassXC.
 
-The public proxy permits only pinned-version download/static routes and the
+The public proxy permits only explicitly allowed download/static routes and the
 four guest-upload chunk endpoints. Native password cookies, request keys,
 expiry and limits remain application-owned. Admin identity and Authorization
 headers are removed publicly. Encoded paths and undeclared methods/routes are

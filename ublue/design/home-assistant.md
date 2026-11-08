@@ -43,7 +43,7 @@ tracked in the plan before physical deployment.
 Other callers must select this capability deliberately and supply BlueZ in
 their image.
 
-An offline invocation of the pinned image generates missing upstream config and
+An offline invocation of the stable-channel image generates missing upstream config and
 its includes. Its own HTTP store API initializes confirmed loopback/proxy settings
 before publication; an unconfirmed YAML migration would otherwise revert after
 five minutes. Existing app files and HTTP state are preserved. Skillet manages deployment and explicitly owned initial settings; Home Assistant
@@ -65,7 +65,7 @@ sources before forwarding; the raw listener remains private. Loopback and LAN
 addresses are not trusted login networks. Native password login remains available
 for local recovery. Existing account credentials are never replaced.
 
-A managed authentication include selects the owner through the pinned app's
+A managed authentication include selects the owner through the app's
 store API before startup. No owner means onboarding/password login only; restart
 after onboarding to enable shared login. Preserve original configuration and
 refuse conflicting operator-managed auth configuration. Existing HA tokens still

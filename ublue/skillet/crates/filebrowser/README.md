@@ -1,8 +1,8 @@
 # File Browser Quantum
 
 Shared Syncthing hosts serve Quantum at `https://files.<host>.<ui-domain>`.
-The official `ghcr.io/gtsteffaniak/filebrowser:2.0.2-stable` image includes previews.
-The trial is pinned; automatic application upgrades are disabled.
+The official `ghcr.io/gtsteffaniak/filebrowser:stable` image includes previews.
+The stable channel follows registry automatic updates.
 
 ## Access and storage
 

@@ -1,4 +1,4 @@
-//! Private input and the pinned updater's JSON contract.
+//! Private input and the updater's JSON contract.
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use thiserror::Error;

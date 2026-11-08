@@ -15,7 +15,7 @@ pub mod backup;
 mod bluetooth;
 mod listener;
 pub mod metrics;
-pub const IMAGE: &str = "ghcr.io/home-assistant/home-assistant:2026.10.1";
+pub const IMAGE: &str = "ghcr.io/home-assistant/home-assistant:stable";
 pub const DATA: &str = "/var/lib/data/homeassistant";
 pub const PORT: u16 = 8123;
 /// Frontend landing page used by external My Home Assistant integration links.
@@ -112,6 +112,7 @@ where
             "Container".into(),
             vec![
                 "ContainerName=homeassistant".into(),
+                "AutoUpdate=registry".into(),
                 "StopTimeout=60".into(),
                 "Environment=TZ=UTC".into(),
                 skillet_datadog::process("homeassistant", "homeassistant"),

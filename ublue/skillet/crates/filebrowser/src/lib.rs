@@ -1,7 +1,7 @@
 //! Private file browsing over a caller-declared user-file scope.
 
-/// Stable upstream consumer used by provisioning and real-container checks.
-pub const IMAGE: &str = "ghcr.io/gtsteffaniak/filebrowser:2.0.2-stable";
+/// Moving stable channel used by provisioning and real-container checks.
+pub const IMAGE: &str = "ghcr.io/gtsteffaniak/filebrowser:stable";
 pub const DATA: &str = "/var/lib/data/filebrowser";
 pub const CONFIG: &str = include_str!("config.yaml");
 use skillet_core::{
@@ -128,6 +128,7 @@ fn definition(config: &Config<'_>) -> PodmanConfig {
                 "Container".into(),
                 vec![
                     "ContainerName=filebrowser".into(),
+                    "AutoUpdate=registry".into(),
                     "Environment=FILEBROWSER_CONFIG=/etc/filebrowser/config.yaml".into(),
                     "HealthCmd=curl --fail --silent http://127.0.0.1:8080/health".into(),
                     "DropCapability=ALL".into(),

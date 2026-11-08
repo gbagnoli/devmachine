@@ -16,7 +16,7 @@ use thiserror::Error;
 
 pub const CREDENTIAL: &str = "cloudflare_ddns_config";
 /// Version 2.2.0 multi-platform index, evaluated against the shipped binary.
-pub const IMAGE: &str = "docker.io/timothyjmiller/cloudflare-ddns@sha256:5f2471be9efd9f0c95f973645cc87f05d501020ded94d380a2120fbfdf812d3d";
+pub const IMAGE: &str = "docker.io/timothyjmiller/cloudflare-ddns:latest";
 
 #[derive(Debug, Error)]
 pub enum DdnsError {
@@ -65,6 +65,7 @@ where
                     "Container".into(),
                     vec![
                         "ContainerName=cloudflare-ddns".into(),
+                        "AutoUpdate=registry".into(),
                         skillet_datadog::process("ddns", "cloudflare-ddns"),
                     ],
                 ),

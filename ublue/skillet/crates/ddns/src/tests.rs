@@ -36,7 +36,7 @@ fn mounts_secret_as_root_without_publishing_ports_or_plaintext() {
     assert!(quadlet.contains("WantedBy=multi-user.target"));
     assert!(quadlet.contains("AssertPathIsMountPoint=/var/lib/data"));
     assert!(!quadlet.contains("PublishPort="));
-    assert!(!quadlet.contains("AutoUpdate="));
+    assert!(quadlet.contains("AutoUpdate=registry"));
     assert!(state
         .values()
         .all(|bytes| !String::from_utf8_lossy(bytes).contains("dummy-token")));

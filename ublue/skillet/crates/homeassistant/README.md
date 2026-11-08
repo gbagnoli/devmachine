@@ -7,7 +7,7 @@ radio passthrough is selected. Container mode has no Supervisor/app store.
 ## Apply and onboard
 
 From `ublue/skillet`, use normal `cargo run --release -p skillet -- apply clamps`.
-Home Assistant's version is pinned in this crate; registry auto-update is disabled.
+Home Assistant follows the stable image channel with registry auto-update enabled.
 Open the declared `homeassistant.<host>.<ui-domain>` HTTPS endpoint from an allowed
 user-owned tailnet client and complete native onboarding, creating the shared
 owner account with a recovery password. Restart `homeassistant.service` once after
@@ -27,8 +27,8 @@ Do not change the application's HTTP bind/proxy settings to wildcard interfaces.
 
 State: `/var/lib/data/homeassistant/config` → `/config`. Existing configuration
 is preserved on apply, including accounts, automations, integrations and recorder.
-An offline pinned-image generator publishes missing configuration and includes.
-It initializes confirmed loopback/proxy settings through the pinned application
+An offline application-image generator publishes missing configuration and includes.
+It initializes confirmed loopback/proxy settings through the application
 HTTP store API, avoiding an unconfirmed migration trial. Existing application
 configuration and HTTP state are preserved.
 

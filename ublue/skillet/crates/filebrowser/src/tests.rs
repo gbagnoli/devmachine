@@ -47,7 +47,7 @@ fn private_scope_and_namespace_match_syncthing_without_publishing_a_port() {
     let quadlet =
         String::from_utf8_lossy(&definitions["/etc/containers/systemd/filebrowser.container"]);
     for directive in [
-        "Image=ghcr.io/gtsteffaniak/filebrowser:2.0.2-stable",
+        "Image=ghcr.io/gtsteffaniak/filebrowser:stable",
         "Network=example-files.network",
         "Environment=FILEBROWSER_CONFIG=/etc/filebrowser/config.yaml",
         "User=1000:1000",

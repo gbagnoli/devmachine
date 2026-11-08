@@ -16,7 +16,7 @@ fn requires_data_mount() {
     assert!(apply(&MockSystem::new(), &MockFiles::new(), config()).is_err());
 }
 #[test]
-fn host_network_is_pinned_loopback_and_existing_state_is_preserved() {
+fn host_network_is_loopback_and_existing_state_is_preserved() {
     let files = MockFiles::new();
     let system = MockSystem::new();
     files.record_btrfs_mount(Path::new("/var"), "/dev/test", "/", "btrfs");
@@ -30,7 +30,7 @@ fn host_network_is_pinned_loopback_and_existing_state_is_preserved() {
     assert!(quadlet.contains(IMAGE));
     assert!(quadlet.contains("Network=host"));
     assert!(quadlet.contains("StopTimeout=60"));
-    assert!(!quadlet.contains("AutoUpdate="));
+    assert!(quadlet.contains("AutoUpdate=registry"));
     assert!(!quadlet.contains("Privileged=true"));
     let yaml =
         String::from_utf8_lossy(&data["/etc/skillet/homeassistant-initialize/initialize.py"]);

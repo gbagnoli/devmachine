@@ -5,7 +5,7 @@ shared Syncthing declaration. The feature branch is a trial; phone acceptance
 and production activation remain in [the plan](../plan/FILEBROWSER-QUANTUM.md).
 The prior [Mikochi choice](../plan/archive/MIKOCHI-SELECTION.md) is retained as history.
 
-Use the official pinned stable image with native proxy authentication, consuming
+Use the official moving stable image with registry auto-update with native proxy authentication, consuming
 Caddy's verified `X-Skillet-User` identity. The existing per-request WhoIs allowlist,
 origin checks and isolated backend remain authoritative. This supports separate
 application accounts without another password or identity provider. Disable

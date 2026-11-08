@@ -10,7 +10,7 @@ use std::{collections::BTreeMap, path::Path};
 use thiserror::Error;
 pub mod backup;
 pub mod initial;
-pub const IMAGE: &str = "docker.io/f0rc3/gokapi:v2.2.4";
+pub const IMAGE: &str = "docker.io/f0rc3/gokapi:latest";
 pub const PORT: u16 = 53842;
 pub const ADMIN_CREDENTIAL: &str = "gokapi_admin_user";
 pub const APPLY_UNIT: &str = "skillet-gokapi-apply.service";
@@ -159,6 +159,7 @@ where
                     "Container".into(),
                     vec![
                         "ContainerName=gokapi".into(),
+                        "AutoUpdate=registry".into(),
                         "Environment=TZ=Etc/UTC".into(),
                         "Environment=GOKAPI_DATA_DIR=/app/data".into(),
                         "Environment=GOKAPI_CONFIG_DIR=/app/config".into(),

@@ -4,7 +4,7 @@ use skillet_core::{
     test_utils::{MockFiles, MockSystem},
 };
 #[test]
-fn definition_uses_pinned_image_private_network_and_reuses_data_identity() {
+fn definition_uses_latest_image_private_network_and_reuses_data_identity() {
     let system = MockSystem::new();
     system.ensure_group("data", Some(3001)).unwrap();
     system.ensure_user("data", Some(2001), Some(3001)).unwrap();
@@ -47,6 +47,6 @@ fn definition_uses_pinned_image_private_network_and_reuses_data_identity() {
         assert!(unit.contains(expected), "{expected}");
     }
     assert!(!unit.contains("PublishPort="));
-    assert!(!unit.contains("AutoUpdate="));
+    assert!(unit.contains("AutoUpdate=registry"));
     assert!(!unit.contains(&settings.admin));
 }

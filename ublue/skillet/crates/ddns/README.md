@@ -1,6 +1,8 @@
 # Cloudflare DDNS
 
 The caller must declare DDNS. Run Cargo commands from `ublue/skillet`.
+The updater follows `docker.io/timothyjmiller/cloudflare-ddns:latest` with
+registry auto-update enabled.
 
 ## Setup
 
