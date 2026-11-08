@@ -4911,3 +4911,10 @@ acceptance; no production host or private DNS values were committed.
 - Live SSH authentication was unavailable, so actual device ownership/labels,
   driver/collector recovery and physical USB acceptance remain unverified.
   Deploy/apply the fix and verify native `upsc` plus collector status.
+- Subsequent physical verification after operator apply passed: the USB node is
+  root:nut mode 0660; driver, server and monitor are active. `upsc` reports online
+  mains, 100% charge and current electrical readings. Full apply and the metric
+  collector both completed with status 0; the collector timer is firing every
+  30 seconds. Cloud ingestion and battery/shutdown behavior were not exercised.
+  The connected device identifies as BR1000ELCD, differing from the descriptive
+  CP1500 AVR label; its configured USB vendor/product IDs match.
