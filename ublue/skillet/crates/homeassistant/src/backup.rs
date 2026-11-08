@@ -79,7 +79,7 @@ where
         files.ensure_directory(&directory, Some(0o700), &owner)?;
     }
     let unit = format!("[Unit]\nDescription=Export completed encrypted Home Assistant backups\nAfter=homeassistant.service\nRequiresMountsFor=/var/lib/data\nConditionPathExists=/etc/credstore.encrypted/skillet/{CREDENTIAL}.cred\n[Service]\nType=oneshot\nLoadCredentialEncrypted={CREDENTIAL}:/etc/credstore.encrypted/skillet/{CREDENTIAL}.cred\nExecStart=/var/usrlocal/bin/skillet homeassistant backup --host-file /etc/skillet/host\nTimeoutStartSec=600\nUMask=0077\nNoNewPrivileges=yes\nProtectHome=yes\nPrivateTmp=yes\n[Install]\nWantedBy=multi-user.target\n");
-    let timer = "[Unit]\nDescription=Check Home Assistant backup publication hourly\n[Timer]\nOnBootSec=10min\nOnUnitActiveSec=1h\nRandomizedDelaySec=5min\nPersistent=yes\n[Install]\nWantedBy=timers.target\n";
+    let timer = "[Unit]\nDescription=Export Home Assistant backups daily\n[Timer]\nOnCalendar=*-*-* 04:00:00 Europe/Paris\nRandomizedDelaySec=0\nPersistent=yes\n[Install]\nWantedBy=timers.target\n";
     let a = files.ensure_file(
         &Path::new("/etc/systemd/system").join(UNIT),
         unit.as_bytes(),

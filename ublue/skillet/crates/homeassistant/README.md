@@ -72,8 +72,9 @@ acceptance check.
    encryption password at that path before applying; Skillet will not replace it.
 4. Run `skillet secrets deliver clamps homeassistant --activate` (with normal SSH
    target overrides if needed) to request the first immediate backup/export.
-   Subsequent timer checks run hourly; native encrypted backups run daily with
-   seven local copies. Missing API-token entry skips delivery during normal apply.
+   Subsequent exports run daily at 04:00 Europe/Paris, with catch-up after a missed
+   run. Native encrypted backups run daily with seven local copies; their initial
+   creation time is 03:00. Missing API-token entry skips delivery during normal apply.
 5. Add a Syncthing folder at `/var/syncthing/data/backups/homeassistant` (the
    container path), shared with an approved receiving peer. Verify received bytes and
    independent receiving-side history/retention. Directory placement alone does
