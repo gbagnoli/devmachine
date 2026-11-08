@@ -4893,3 +4893,21 @@ acceptance; no production host or private DNS values were committed.
 - Final teardown confirmed `clamps-test-kexec` shut off and the existing Quantum
   trial still running. Native fixture output is retained at
   `butane/runs/clamps-test-kexec/vendor-units-acceptance.log` (ignored local data).
+
+
+## 2026-11-08 — connected NUT USB permission repair
+
+- Operator logs from physical Clamps show `usbhid-ups` failing to open USB HID
+  devices with insufficient permissions; full apply then stops at driver
+  activation. Source inspection found the scoped udev rule only created the
+  alias/hotplug trigger and did not grant the consumer group USB-node access.
+- Added `GROUP="nut", MODE="0660"` for the caller-selected USB vendor/product
+  pair. Existing rule hashing/reload/retrigger converges already-connected
+  devices before driver activation. The fix does not weaken service privileges
+  or alter SELinux policy.
+- NUT tests: 13 passed, one existing real-container test ignored. Pedantic
+  module Clippy and formatting passed. Regression coverage includes upgrading
+  the old rule with a connected device and idempotent subsequent apply.
+- Live SSH authentication was unavailable, so actual device ownership/labels,
+  driver/collector recovery and physical USB acceptance remain unverified.
+  Deploy/apply the fix and verify native `upsc` plus collector status.

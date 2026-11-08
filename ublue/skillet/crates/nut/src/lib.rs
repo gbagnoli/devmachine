@@ -120,7 +120,7 @@ where
         )?;
     }
     files.ensure_directory(Path::new("/etc/udev/rules.d"), Some(0o755), &root)?;
-    let rule = format!("SUBSYSTEM==\"usb\", ENV{{DEVTYPE}}==\"usb_device\", ATTR{{idVendor}}==\"{:04x}\", ATTR{{idProduct}}==\"{:04x}\", SYMLINK+=\"skillet-ups-{}\", TAG+=\"systemd\", ENV{{SYSTEMD_WANTS}}+=\"nut-monitor.service\"\n", config.vendor, config.product, config.name);
+    let rule = format!("SUBSYSTEM==\"usb\", ENV{{DEVTYPE}}==\"usb_device\", ATTR{{idVendor}}==\"{:04x}\", ATTR{{idProduct}}==\"{:04x}\", GROUP=\"nut\", MODE=\"0660\", SYMLINK+=\"skillet-ups-{}\", TAG+=\"systemd\", ENV{{SYSTEMD_WANTS}}+=\"nut-monitor.service\"\n", config.vendor, config.product, config.name);
     let rule_changed = files.ensure_file(
         Path::new("/etc/udev/rules.d/70-skillet-ups.rules"),
         rule.as_bytes(),

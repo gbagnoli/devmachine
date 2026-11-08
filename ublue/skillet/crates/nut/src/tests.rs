@@ -26,6 +26,10 @@ fn absent_hardware_converges_without_starting_and_preserves_password() {
     let driver = String::from_utf8(all["/etc/ups/ups.conf"].clone()).unwrap();
     assert!(driver.contains("vendorid = 0764"));
     assert!(driver.contains("productid = 0501"));
+    let rule = String::from_utf8_lossy(&all["/etc/udev/rules.d/70-skillet-ups.rules"]);
+    assert!(rule.contains(
+        "ATTR{idVendor}==\"0764\", ATTR{idProduct}==\"0501\", GROUP=\"nut\", MODE=\"0660\""
+    ));
     let monitor = String::from_utf8(all["/etc/ups/upsmon.conf"].clone()).unwrap();
     assert!(monitor.contains(" primary\n"));
     assert!(monitor.contains("POWERDOWNFLAG /run/nut/killpower"));
@@ -60,6 +64,95 @@ fn attached_hardware_activates_and_repeat_apply_does_not_restart() {
     system.usb_devices.lock().unwrap().clear();
     apply(&system, &files, CONFIG).unwrap();
     assert!(system.service_is_active("nut-monitor.service").unwrap());
+}
+
+#[test]
+fn upgrading_the_usb_rule_refreshes_permissions_before_hardware_activation() {
+    let files = MockFiles::new();
+    let system = MockSystem::new();
+    apply(&system, &files, CONFIG).unwrap();
+    let path = "/etc/udev/rules.d/70-skillet-ups.rules";
+    let current = String::from_utf8(files.read_file(Path::new(path)).unwrap().unwrap()).unwrap();
+    let old = current.replace("GROUP=\"nut\", MODE=\"0660\", ", "");
+    files
+        .files
+        .lock()
+        .unwrap()
+        .insert(path.into(), old.as_bytes().to_vec());
+    files.files.lock().unwrap().insert(
+        format!("{STATE}/udev.applied"),
+        Sha256::digest(old.as_bytes()).to_vec(),
+    );
+    system
+        .usb_devices
+        .lock()
+        .unwrap()
+        .insert((CONFIG.vendor, CONFIG.product));
+    assert_eq!(apply(&system, &files, CONFIG).unwrap(), Outcome::Active);
+    assert_eq!(
+        files.read_file(Path::new(path)).unwrap().unwrap(),
+        current.as_bytes()
+    );
+    assert_eq!(system.usb_refresh_count.load(Ordering::SeqCst), 2);
+    apply(&system, &files, CONFIG).unwrap();
+    assert_eq!(system.usb_refresh_count.load(Ordering::SeqCst), 2);
+}
+#[test]
+fn interrupted_activation_retries_without_replacing_credentials() {
+    let files = MockFiles::new();
+    let system = MockSystem::new();
+    system
+        .usb_devices
+        .lock()
+        .unwrap()
+        .insert((CONFIG.vendor, CONFIG.product));
+    system.fail_restart_once.store(true, Ordering::SeqCst);
+    assert!(apply(&system, &files, CONFIG).is_err());
+    let before = files.read_file(Path::new(PASSWORD)).unwrap().unwrap();
+    assert_eq!(apply(&system, &files, CONFIG).unwrap(), Outcome::Active);
+    assert_eq!(
+        files.read_file(Path::new(PASSWORD)).unwrap().unwrap(),
+        before
+    );
+    files
+        .ensure_file(
+            Path::new(PASSWORD),
+            b"malformed",
+            Some(0o600),
+            &Ownership::default(),
+        )
+        .unwrap();
+    assert!(matches!(
+        apply(&system, &files, CONFIG),
+        Err(NutError::InvalidCredential)
+    ));
+    assert_eq!(
+        files.read_file(Path::new(PASSWORD)).unwrap().unwrap(),
+        b"malformed"
+    );
+}
+#[test]
+fn caller_inputs_cannot_inject_units_or_configuration() {
+    for config in [
+        Config {
+            name: "-ups",
+            ..CONFIG
+        },
+        Config {
+            name: "ups\n[evil]",
+            ..CONFIG
+        },
+        Config {
+            description: "bad\"\nsetting",
+            ..CONFIG
+        },
+    ] {
+        assert!(config.ups_config().is_err());
+        let files = MockFiles::new();
+        let system = MockSystem::new();
+        assert!(apply(&system, &files, config).is_err());
+        assert!(files.files.lock().unwrap().is_empty());
+    }
 }
 
 #[test]

@@ -14,6 +14,10 @@ matching USB device is attached. Ordinary VMs without that device only converge
 configuration. Other host callers can select `ServiceConfig::Nut` with their
 own device name, USB IDs and description.
 
+The matching USB device gets group `nut` and mode `0660` through the scoped
+Skillet udev rule. Apply reloads and retriggers that rule when changed, so an
+already connected UPS receives the permissions without unplugging it.
+
 Read status locally with `upsc cyberpower@localhost`. Inspect
 `nut-driver@cyberpower.service`, `nut-server.service` and `nut-monitor.service`
 with `systemctl status` or `journalctl -u`. After attaching hardware, rerun
