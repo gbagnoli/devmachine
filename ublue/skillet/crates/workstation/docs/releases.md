@@ -36,19 +36,44 @@ Upstream performs read-only crates.io name lookups even with publishing disabled
    the tag/version, reuses full CI without path-based skips, builds static binaries,
    verifies every host bundle, then publishes the source release. Only publication
    receives repository write permission. Existing releases are never overwritten.
-   Wait for publication to succeed before updating ucore-images.
-5. From a clean checkout of that release, generate the dependency lock in your
-   ucore-images checkout:
+   Stable releases then open a dependency PR in ucore-images automatically;
+   complete the one-time [CI credential setup](#automatic-image-dependency-pr)
+   before pushing the tag.
+5. Review and merge the generated ucore-images PR. Its normal image CI builds
+   the host images from the exact published release. PRs are not auto-merged.
 
-   ```sh
-   python3 tools/release.py --tag skillet-v0.1.1 \
-     --write-lock "$HOME/workspace/ucore-images/skillet-release.json"
-   ```
+## Automatic image dependency PR
 
-   Review and commit the version/commit change there, then push ucore-images.
-   Image CI checks the published release, annotated tag and Cargo version before
-   building from the locked commit. It verifies matching binary provenance and
-   transported bundles before the host image builds/signing.
+In GitHub, create a **fine-grained personal access token** owned by an account
+with write access to `ucore-images`. Restrict repository access to **ucore-images
+only**, granting **Contents: Read and write** and **Pull requests: Read and write**.
+Metadata read access is implicit; workflow editing permission is unnecessary.
+
+In **devmachine → Settings → Secrets and variables → Actions → New repository
+secret**, save it as **`UCORE_IMAGES_PR_TOKEN`**. This is a CI secret, not a KeePass
+entry. The default workflow token cannot write to the second repository. A PAT
+also allows the resulting target-repository PR to run its normal CI checks.
+
+After stable publication, CI verifies the tested lock and published release again,
+then opens or updates `automation/skillet-vVERSION` against ucore-images `main`,
+changing only `skillet-release.json`. The job summary links to the PR. A missing
+or expired token fails the proposal job with publication already complete; fix
+the secret and rerun **failed jobs**. Prereleases skip the proposal job and remain
+an explicit image-consumer choice.
+
+## Manual dependency update
+
+For a prerelease or a manual fallback, from a clean checkout of the release:
+
+```sh
+python3 tools/release.py --tag skillet-v0.1.1 \
+  --write-lock "$HOME/workspace/ucore-images/skillet-release.json"
+```
+
+Review and commit the version/commit change there, then push ucore-images.
+Image CI checks the published release, annotated tag and Cargo version before
+building from the locked commit. It verifies matching binary provenance and
+transported bundles before the host image builds/signing.
 
 For a prerelease, use `python3 tools/cut_release.py 0.2.0-rc.1 --execute`;
 the workflow marks its GitHub release as a prerelease.

@@ -4918,3 +4918,19 @@ acceptance; no production host or private DNS values were committed.
   30 seconds. Cloud ingestion and battery/shutdown behavior were not exercised.
   The connected device identifies as BR1000ELCD, differing from the descriptive
   CP1500 AVR label; its configured USB vendor/product IDs match.
+
+## 2026-11-08 — release dependency PR automation
+
+- Added a stable-only job after successful release publication. It checks out
+  the tested source commit and ucore-images main, revalidates the tested lock
+  against the published release, then creates/updates a version-specific PR
+  changing only `skillet-release.json`. It does not auto-merge or push main.
+- Cross-repository permission uses the CI-only `UCORE_IMAGES_PR_TOKEN` secret,
+  restricted to ucore-images Contents/Pull requests write access. Setup is in the
+  release guide and generated secrets checklist; no vault entry is required.
+  Missing credentials fail the proposal job without undoing publication.
+- Cached actionlint container passed workflow/shell validation using an isolated
+  labeled copy of the workflows; the source checkout was not relabeled.
+  Release-tool tests: 12 passed. Secret-catalogue tests: 15 passed, including
+  generated-document equality. Live release/PR creation remains unverified until
+  the GitHub secret is configured and the workflow runs on a published release.

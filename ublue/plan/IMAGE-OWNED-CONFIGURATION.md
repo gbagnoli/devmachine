@@ -120,6 +120,9 @@ are verified. Directory preparation still works on a fresh installation.
 
 Skillet source releases now have a shared workspace version, annotated scoped
 tags, full-CI publication workflow and a version/commit lock in ucore-images.
+After stable publication, release CI now proposes the validated lock through a
+version-specific ucore-images PR. Configure the CI-only token in the release
+guide; review/merge remains explicit and prereleases remain manual.
 Consumer CI verifies publication, tag, source and binary provenance while retaining
 source builds. Local release preparation uses pinned cargo-release; CI covers
 preview and actual patch/prerelease cuts in disposable repositories. See

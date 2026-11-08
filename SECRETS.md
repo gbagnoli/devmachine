@@ -152,6 +152,10 @@ Identity-protected UIs use the shared Tailscale allowlist and no application pas
 
 No vault entries. Claim the server with your Plex account through the loopback-only SSH setup tunnel before public activation. Native server identity stays in application state. [Setup](ublue/skillet/crates/plex/README.md).
 
+## Skillet release CI
+
+CI-only credential: store UCORE_IMAGES_PR_TOKEN as a GitHub Actions secret in devmachine, using a fine-grained token restricted to ucore-images with Contents and Pull requests read/write. No KeePass entry. [Release setup](ublue/skillet/crates/workstation/docs/releases.md#automatic-image-dependency-pr).
+
 ## SMTP
 
 Production-only native Postfix relay credentials; smoke machines use a local sink without these values. [SMTP setup](ublue/skillet/crates/smtp/README.md#setup).

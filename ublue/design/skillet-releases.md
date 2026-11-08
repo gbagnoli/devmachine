@@ -31,4 +31,12 @@ are never replaced; GitHub release immutability
 is a repository setting, separate from these workflows. Hosts receive Skillet
 through the signed OS image; existing live delivery remains available during migration.
 
+After successful stable publication, CI proposes the exact tested dependency lock
+to ucore-images through a version-specific branch/PR. A repository-limited
+fine-grained token supplies Contents/Pull requests write access to that repository;
+the source workflow token remains read-only outside publication. Only the lock
+file is proposed, retries reuse the release branch, and review/merge remain
+explicit. Prereleases are excluded from automatic proposals. A failed proposal
+does not undo publication; retry only the failed job after repairing credentials.
+
 Operations: [release guide](../skillet/crates/workstation/docs/releases.md).
