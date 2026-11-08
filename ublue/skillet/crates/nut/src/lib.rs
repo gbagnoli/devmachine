@@ -10,7 +10,7 @@ use std::path::Path;
 use thiserror::Error;
 
 pub mod metrics;
-mod monitoring;
+pub mod monitoring;
 pub use monitoring::{apply_metrics, METRICS_TIMER};
 
 pub const MONITORED_UNITS: &[&str] = &["nut-server.service", "nut-monitor.service"];
@@ -38,6 +38,8 @@ pub struct Config {
 
 #[derive(Debug, Error)]
 pub enum NutError {
+    #[error(transparent)]
+    Vendor(#[from] skillet_core::vendor_units::Error),
     #[error("invalid UPS declaration")]
     InvalidConfig,
     #[error("invalid retained NUT monitor credential; refusing replacement")]

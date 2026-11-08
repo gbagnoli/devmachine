@@ -67,3 +67,13 @@ Before relying on protection, verify battery status and arrange a supervised
 power-loss/shutdown/restart test on the physical machine. Routine smoke tests
 must not run `upsmon -c fsd` or command the real UPS to turn off.
 See [the UPS design](../../../design/ups.md).
+
+## Image collector units
+
+The image bundle supplies the disabled NUT metric service/timer. Datadog activation
+for a caller declaring NUT enables the timer; merely shipping the units activates
+neither UPS monitoring nor Datadog. The collector uses `/usr/bin/skillet` and reads
+the selected UPS/socket from root-only `/etc/skillet/nut/metrics.env`. Absent USB
+hardware or socket skips the collection. Apply retires only verified legacy unit
+definitions and preserves their recovery copies. Old images retain the legacy
+installer. See [image rollout](../workstation/docs/image-bundles.md#optional-vendor-unit-activation).

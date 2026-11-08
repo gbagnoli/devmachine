@@ -146,3 +146,24 @@ fn unselected_bluetooth_does_not_install_a_bus_bridge() {
     assert!(!quadlet.contains("/run/dbus"));
     assert!(!quadlet.contains("AddCapability=NET_ADMIN"));
 }
+#[test]
+fn image_exporter_retires_legacy_units_and_preserves_backup_storage() {
+    let files = MockFiles::new();
+    let system = MockSystem::new();
+    backup::install(&system, &files, config()).unwrap();
+    for unit in backup::image_units() {
+        files.files.lock().unwrap().insert(
+            format!("/usr/lib/systemd/system/{}", unit.name),
+            unit.content.into_bytes(),
+        );
+    }
+    backup::install(&system, &files, config()).unwrap();
+    assert!(!files
+        .files
+        .lock()
+        .unwrap()
+        .contains_key("/etc/systemd/system/skillet-homeassistant-backup.service"));
+    assert!(!system.service_is_active(backup::UNIT).unwrap());
+    assert!(system.service_is_active(backup::TIMER).unwrap());
+    backup::install(&system, &files, config()).unwrap();
+}

@@ -1,11 +1,12 @@
 # Image-owned Skillet configuration and scheduled reboots
 
-Status: in progress, 2026-11-06. Staged kexec activation has native VM acceptance;
-production scheduling remains disabled. The ownership inventory and public binary
-bundle exporter are implemented. Exact-revision image CI integration passed hosted
-builds; the initial binary bundle booted on Clamps. The btrbk vendor pilot and
-recoverable migration passed scoped native retained-VM acceptance. Fresh Ignition,
-whole-host rollout and the signed pilot image build/boot remain pending.
+Status: in progress, 2026-11-08. Staged kexec activation has native VM and supervised
+physical acceptance with an unchanged kernel; daily/monthly scheduling is
+implemented. The ownership inventory and public binary bundle exporter are
+implemented. Exact-revision image CI integration passed hosted builds; the initial
+binary bundle booted on Clamps. The btrbk pilot and optional kexec/HA/NUT unit
+expansion have scoped retained native VM acceptance. Fresh Ignition, whole-host
+rollout and rebuilt signed-image acceptance for the expanded bundle remain pending.
 Existing mutable runtime owners are retained until explicit migration acceptance.
 
 ## Goal and boundaries
@@ -174,6 +175,24 @@ Exit per service: no duplicate writer, fresh boot and retained-state upgrade,
 credential rotation, no-op repeat, restart/reboot, data preservation and safe
 failure tests pass. Report image revision, private configuration revision and
 actual component digests separately without leaking values.
+
+### Optional vendor-unit expansion (2026-11-08)
+
+Implemented public image definitions for kexec activation/monthly normal reboot,
+HA backup export/freshness, and NUT metric collection. Every host bundle includes
+the disabled units/presets and image binary references. Caller/credential gates
+retain activation; runtime input files carry metric socket/UPS selection.
+Shared reconciliation preflights exact known overrides and existing receipts,
+archives them, repairs enablement symlinks, and retries interrupted reloads.
+Old images retain legacy installation until the complete vendor group appears.
+
+Workspace checks and scoped retained native systemd acceptance are recorded in
+[acceptance](archive/ACCEPTANCE.md). The native fixture uses a temporary `/usr`
+overlay and harmless action overrides; it does not establish publication, signed
+image boot, OS rollback or actual scheduled action execution. Publish/rebuild/boot
+the matching release before physical migration. Fresh signed bootstrap of the
+new dedicated test VM did not complete; it was removed after diagnostic recovery
+attempts. This is distinct from the retained VM's passing unit-ownership checks.
 
 ## Slice 5 — daily reboot policy with verified kexec activation
 

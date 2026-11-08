@@ -12,14 +12,16 @@ Deploy and apply normally:
 cargo run --release -p skillet -- apply clamps
 ```
 
-Apply installs or updates the activation unit, reloading systemd only when its
-content changes. Apply enables the maintenance timers without starting a reboot.
+Image bundles ship the activation/reboot services and maintenance timers under
+`/usr/lib/systemd/system`, disabled by default. Apply verifies image definitions,
+retires known runtime overrides and enables the selected host timers without
+starting a reboot. Older images retain the legacy installer until upgraded.
 There is no separate `kexec install` step.
 
 For a supervised activation on the host:
 
 ```sh
-sudo systemd-analyze verify /etc/systemd/system/skillet-kexec-activate.service
+sudo systemd-analyze verify skillet-kexec-activate.service
 sudo systemctl start skillet-kexec-activate.service
 ```
 

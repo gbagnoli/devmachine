@@ -157,6 +157,11 @@
 - Give each resource lifecycle one owner. Every public entry point must use
   the same ownership validation, recovery, and cleanup policy; transport
   adapters must not provide a shortcut that bypasses those guarantees.
+- Image unit presence must not enable optional services. Use disabled vendor
+  presets and the canonical caller's runtime activation. Share pure renderers
+  between image output and runtime validation; retire only exact known generated
+  overrides, validate existing receipts where available, preflight complete groups,
+  preserve recovery copies, and retry interrupted reloads before activation.
 - Removing an optional generated configuration section must tolerate its
   absence, while rejecting malformed present sections. Cover fresh inputs and
   retained compatibility inputs through the actual staging/compiler path.

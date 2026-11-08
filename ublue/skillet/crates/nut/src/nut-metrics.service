@@ -1,0 +1,23 @@
+[Unit]
+Description=Read-only NUT metrics for Datadog
+After=nut-server.service datadog-agent.service
+ConditionPathExists=/etc/skillet/nut/metrics.env
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/skillet/nut/metrics.env
+ExecCondition=/usr/bin/test -e /dev/skillet-ups-${SKILLET_UPS}
+ExecCondition=/usr/bin/test -S ${SKILLET_DOGSTATSD_SOCKET}
+ExecStart=/usr/bin/skillet metrics nut --ups ${SKILLET_UPS} --dogstatsd-socket ${SKILLET_DOGSTATSD_SOCKET}
+TimeoutStartSec=20
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+LockPersonality=true
+UMask=0077

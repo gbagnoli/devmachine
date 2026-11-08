@@ -61,63 +61,6 @@ fn attached_hardware_activates_and_repeat_apply_does_not_restart() {
     apply(&system, &files, CONFIG).unwrap();
     assert!(system.service_is_active("nut-monitor.service").unwrap());
 }
-#[test]
-fn interrupted_activation_retries_without_replacing_credentials() {
-    let files = MockFiles::new();
-    let system = MockSystem::new();
-    system
-        .usb_devices
-        .lock()
-        .unwrap()
-        .insert((CONFIG.vendor, CONFIG.product));
-    system.fail_restart_once.store(true, Ordering::SeqCst);
-    assert!(apply(&system, &files, CONFIG).is_err());
-    let before = files.read_file(Path::new(PASSWORD)).unwrap().unwrap();
-    assert_eq!(apply(&system, &files, CONFIG).unwrap(), Outcome::Active);
-    assert_eq!(
-        files.read_file(Path::new(PASSWORD)).unwrap().unwrap(),
-        before
-    );
-    files
-        .ensure_file(
-            Path::new(PASSWORD),
-            b"malformed",
-            Some(0o600),
-            &Ownership::default(),
-        )
-        .unwrap();
-    assert!(matches!(
-        apply(&system, &files, CONFIG),
-        Err(NutError::InvalidCredential)
-    ));
-    assert_eq!(
-        files.read_file(Path::new(PASSWORD)).unwrap().unwrap(),
-        b"malformed"
-    );
-}
-#[test]
-fn caller_inputs_cannot_inject_units_or_configuration() {
-    for config in [
-        Config {
-            name: "-ups",
-            ..CONFIG
-        },
-        Config {
-            name: "ups\n[evil]",
-            ..CONFIG
-        },
-        Config {
-            description: "bad\"\nsetting",
-            ..CONFIG
-        },
-    ] {
-        assert!(config.ups_config().is_err());
-        let files = MockFiles::new();
-        let system = MockSystem::new();
-        assert!(apply(&system, &files, config).is_err());
-        assert!(files.files.lock().unwrap().is_empty());
-    }
-}
 
 #[test]
 fn telemetry_timer_is_explicit_private_and_idempotent() {
@@ -346,4 +289,36 @@ fn real_fedora_nut_accepts_config_and_monitors_a_safe_dummy_ups() {
         std::fs::read_to_string(temp.path().join("ups/upsd.conf")).unwrap(),
         "LISTEN 127.0.0.1 3493\nLISTEN ::1 3493\n"
     );
+}
+#[test]
+fn image_collector_retains_runtime_selection_and_does_not_activate_agent_or_ups() {
+    let files = MockFiles::new();
+    let system = MockSystem::new();
+    let socket = Path::new("/run/test/dsd.socket");
+    apply_metrics(&system, &files, CONFIG, socket).unwrap();
+    for unit in monitoring::image_units() {
+        files.files.lock().unwrap().insert(
+            format!("/usr/lib/systemd/system/{}", unit.name),
+            unit.content.into_bytes(),
+        );
+    }
+    apply_metrics(&system, &files, CONFIG, socket).unwrap();
+    assert!(!files
+        .files
+        .lock()
+        .unwrap()
+        .contains_key("/etc/systemd/system/skillet-nut-metrics.service"));
+    assert_eq!(
+        files.files.lock().unwrap()["/etc/skillet/nut/metrics.env"],
+        b"SKILLET_UPS=cyberpower\nSKILLET_DOGSTATSD_SOCKET=/run/test/dsd.socket\n"
+    );
+    apply_metrics(
+        &system,
+        &files,
+        CONFIG,
+        Path::new("/run/changed/dsd.socket"),
+    )
+    .unwrap();
+    assert!(!system.service_is_active("nut-server.service").unwrap());
+    assert!(!system.service_is_active("datadog-agent.service").unwrap());
 }

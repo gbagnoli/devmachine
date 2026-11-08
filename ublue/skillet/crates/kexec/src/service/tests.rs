@@ -6,6 +6,35 @@ use skillet_core::{
 use std::sync::atomic::Ordering;
 
 #[test]
+fn image_migration_retires_overrides_and_only_activates_selected_timers() {
+    let files = MockFiles::new();
+    let system = MockSystem::new();
+    let binary = "/var/usrlocal/bin/skillet-fixture";
+    apply(&system, &files, binary).unwrap();
+    for unit in image_units().unwrap() {
+        files.files.lock().unwrap().insert(
+            format!("/usr/lib/systemd/system/{}", unit.name),
+            unit.content.into_bytes(),
+        );
+    }
+    apply(&system, &files, binary).unwrap();
+    assert!(files.read_regular_file(Path::new(PATH)).unwrap().is_none());
+    assert!(files
+        .read_regular_file(Path::new(
+            "/etc/systemd/system/skillet-kexec-activate.service.skillet-legacy"
+        ))
+        .unwrap()
+        .is_some());
+    assert!(!system.service_is_active(UNIT).unwrap());
+    assert!(!system
+        .service_is_active("skillet-firmware-reboot.service")
+        .unwrap());
+    assert!(system.service_is_active(TIMER).unwrap());
+    assert!(system.service_is_active(REBOOT_TIMER).unwrap());
+    apply(&system, &files, binary).unwrap();
+}
+
+#[test]
 fn apply_only_installs_and_preserves_definition_on_repeat() {
     let files = MockFiles::new();
     let system = MockSystem::new();

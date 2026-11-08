@@ -16,6 +16,8 @@ const MONTHLY: &str = "[Unit]\nDescription=Monthly normal firmware reboot\n[Time
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
+    Vendor(#[from] skillet_core::vendor_units::Error),
+    #[error(transparent)]
     File(#[from] FileError),
     #[error(transparent)]
     System(#[from] SystemError),
@@ -34,41 +36,79 @@ pub fn render(binary: &str) -> Result<String, Error> {
     Ok(format!("[Unit]\nDescription=Controlled Skillet kexec activation\nDefaultDependencies=no\nAfter=local-fs.target\n[Service]\nType=exec\nPrivateMounts=yes\nExecStart={binary} kexec run\nExecStopPost={binary} kexec cleanup\nRuntimeMaxSec=120\nTimeoutStopSec=20\nRestart=no\n"))
 }
 
+pub fn image_units() -> Result<Vec<skillet_core::vendor_units::Unit>, Error> {
+    units("/usr/bin/skillet")
+}
+
+fn units(binary: &str) -> Result<Vec<skillet_core::vendor_units::Unit>, Error> {
+    use skillet_core::vendor_units::Unit;
+    Ok(vec![
+        Unit { name: UNIT, content: render(binary)? },
+        Unit { name: TIMER, content: DAILY.into() },
+        Unit { name: REBOOT_TIMER, content: MONTHLY.into() },
+        Unit { name: "skillet-firmware-reboot.service", content: format!("[Unit]\nDescription=Monthly Skillet firmware reboot\n[Service]\nType=exec\nExecStart={binary} kexec firmware-reboot\nRuntimeMaxSec=120\nRestart=no\n") },
+    ])
+}
+
 pub fn apply<S, F>(system: &S, files: &F, binary: &str) -> Result<(), Error>
 where
     S: ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
 {
-    let content = render(binary)?;
+    let vendor = image_units()?;
+    let legacy = units(binary)?;
+    let receipt = skillet_core::vendor_units::LegacyReceipt {
+        path: "/var/lib/skillet/kexec/definition.applied".into(),
+        revisions: vec![
+            legacy
+                .iter()
+                .flat_map(|unit| unit.content.as_bytes())
+                .copied()
+                .collect(),
+            render(binary)?.into_bytes(),
+        ],
+    };
+    if skillet_core::vendor_units::reconcile(
+        system,
+        files,
+        "kexec",
+        &vendor,
+        &legacy,
+        Some(&receipt),
+    )? {
+        for timer in [TIMER, REBOOT_TIMER] {
+            system.service_enable(timer)?;
+            system.service_start(timer)?;
+        }
+        return Ok(());
+    }
     let owner = Ownership::named(Some("root"), Some("root"));
     files.ensure_directory(Path::new("/etc/systemd/system"), Some(0o755), &owner)?;
-    let changed = files.ensure_file(Path::new(PATH), content.as_bytes(), Some(0o644), &owner)?;
-    let reboot = format!("[Unit]\nDescription=Monthly Skillet firmware reboot\n[Service]\nType=exec\nExecStart={binary} kexec firmware-reboot\nRuntimeMaxSec=120\nRestart=no\n");
-    let mut schedules_changed = false;
-    for (name, body) in [
-        (TIMER, DAILY),
-        (REBOOT_TIMER, MONTHLY),
-        ("skillet-firmware-reboot.service", reboot.as_str()),
-    ] {
-        schedules_changed |= files.ensure_file(
-            &Path::new("/etc/systemd/system").join(name),
-            body.as_bytes(),
+    let mut changed = false;
+    for unit in &legacy {
+        changed |= files.ensure_file(
+            &Path::new("/etc/systemd/system").join(unit.name),
+            unit.content.as_bytes(),
             Some(0o644),
             &owner,
         )?;
     }
     let state = Path::new("/var/lib/skillet/kexec/definition.applied");
-    let receipt = format!("{content}{DAILY}{MONTHLY}{reboot}");
-    if changed
-        || schedules_changed
-        || files.read_file(state)?.as_deref() != Some(receipt.as_bytes())
-    {
+    let receipt = legacy
+        .iter()
+        .map(|unit| unit.content.as_str())
+        .collect::<String>();
+    if changed || files.read_file(state)?.as_deref() != Some(receipt.as_bytes()) {
         system.daemon_reload()?;
         files.ensure_directory(Path::new("/var/lib/skillet/kexec"), Some(0o755), &owner)?;
         files.ensure_file(state, receipt.as_bytes(), Some(0o644), &owner)?;
     }
     for timer in [TIMER, REBOOT_TIMER] {
-        system.service_enable(timer)?;
+        if changed {
+            system.service_reenable(timer)?;
+        } else {
+            system.service_enable(timer)?;
+        }
         system.service_start(timer)?;
     }
     Ok(())

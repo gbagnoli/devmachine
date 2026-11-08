@@ -1,0 +1,11 @@
+[Unit]
+Description=Poll local UPS metrics
+
+[Timer]
+OnBootSec=1min
+OnCalendar=*-*-* *:*:00,30
+AccuracySec=1s
+Unit=skillet-nut-metrics.service
+
+[Install]
+WantedBy=timers.target

@@ -63,6 +63,8 @@ impl Config {
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
+    Vendor(#[from] skillet_core::vendor_units::Error),
+    #[error(transparent)]
     File(#[from] FileError),
     #[error(transparent)]
     System(#[from] SystemError),

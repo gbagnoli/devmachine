@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use skillet_core::{
-    files::{FileMutationResource, Ownership},
+    files::{FileMutationResource, FileReadResource, Ownership},
     system::ServiceResource,
 };
 use std::collections::HashSet;
@@ -55,10 +55,29 @@ impl Settings {
     }
 }
 
+pub fn image_units() -> Vec<skillet_core::vendor_units::Unit> {
+    units("/usr/bin/skillet")
+}
+
+fn units(binary: &str) -> Vec<skillet_core::vendor_units::Unit> {
+    let unit = format!("[Unit]\nDescription=Export completed encrypted Home Assistant backups\nAfter=homeassistant.service\nRequiresMountsFor=/var/lib/data\nConditionPathExists=/etc/credstore.encrypted/skillet/{CREDENTIAL}.cred\n[Service]\nType=oneshot\nLoadCredentialEncrypted={CREDENTIAL}:/etc/credstore.encrypted/skillet/{CREDENTIAL}.cred\nExecStart={binary} homeassistant backup --host-file /etc/skillet/host\nTimeoutStartSec=600\nUMask=0077\nNoNewPrivileges=yes\nProtectHome=yes\nPrivateTmp=yes\n[Install]\nWantedBy=multi-user.target\n");
+    let timer = "[Unit]\nDescription=Export Home Assistant backups daily\n[Timer]\nOnCalendar=*-*-* 04:00:00 Europe/Paris\nRandomizedDelaySec=0\nPersistent=yes\n[Install]\nWantedBy=timers.target\n";
+    vec![
+        skillet_core::vendor_units::Unit {
+            name: UNIT,
+            content: unit,
+        },
+        skillet_core::vendor_units::Unit {
+            name: TIMER,
+            content: timer.into(),
+        },
+    ]
+}
+
 pub fn install<S, F>(system: &S, files: &F, config: Config) -> Result<(), Error>
 where
     S: ServiceResource + ?Sized,
-    F: FileMutationResource + ?Sized,
+    F: FileMutationResource + FileReadResource + ?Sized,
 {
     config.validate()?;
     let root = Ownership::named(Some("root"), Some("root"));
@@ -78,8 +97,27 @@ where
         directory.push(component);
         files.ensure_directory(&directory, Some(0o700), &owner)?;
     }
-    let unit = format!("[Unit]\nDescription=Export completed encrypted Home Assistant backups\nAfter=homeassistant.service\nRequiresMountsFor=/var/lib/data\nConditionPathExists=/etc/credstore.encrypted/skillet/{CREDENTIAL}.cred\n[Service]\nType=oneshot\nLoadCredentialEncrypted={CREDENTIAL}:/etc/credstore.encrypted/skillet/{CREDENTIAL}.cred\nExecStart=/var/usrlocal/bin/skillet homeassistant backup --host-file /etc/skillet/host\nTimeoutStartSec=600\nUMask=0077\nNoNewPrivileges=yes\nProtectHome=yes\nPrivateTmp=yes\n[Install]\nWantedBy=multi-user.target\n");
-    let timer = "[Unit]\nDescription=Export Home Assistant backups daily\n[Timer]\nOnCalendar=*-*-* 04:00:00 Europe/Paris\nRandomizedDelaySec=0\nPersistent=yes\n[Install]\nWantedBy=timers.target\n";
+    let vendor = image_units();
+    let mut legacy = units("/var/usrlocal/bin/skillet");
+    legacy.push(skillet_core::vendor_units::Unit {
+        name: TIMER,
+        content: "[Unit]\nDescription=Check Home Assistant backup publication hourly\n[Timer]\nOnBootSec=10min\nOnUnitActiveSec=1h\nRandomizedDelaySec=5min\nPersistent=yes\n[Install]\nWantedBy=timers.target\n".into(),
+    });
+    if skillet_core::vendor_units::reconcile(
+        system,
+        files,
+        "homeassistant-backup",
+        &vendor,
+        &legacy,
+        None,
+    )? {
+        system.service_enable(TIMER)?;
+        system.service_start(TIMER)?;
+        return Ok(());
+    }
+    let definitions = units("/var/usrlocal/bin/skillet");
+    let unit = &definitions[0].content;
+    let timer = &definitions[1].content;
     let a = files.ensure_file(
         &Path::new("/etc/systemd/system").join(UNIT),
         unit.as_bytes(),
@@ -94,8 +132,10 @@ where
     )?;
     if a || b {
         system.daemon_reload()?;
+        system.service_reenable(TIMER)?;
+    } else {
+        system.service_enable(TIMER)?;
     }
-    system.service_enable(TIMER)?;
     system.service_start(TIMER)?;
     Ok(())
 }

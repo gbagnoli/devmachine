@@ -154,3 +154,12 @@ and recovery password remain separate; the script reads the host's encrypted
 Skillet credential and does not take a password argument.
 
 See [deployment/backup design](../../../design/home-assistant.md).
+
+## Image units
+
+The image bundle supplies backup export and freshness service/timer definitions
+under `/usr/lib/systemd/system`, disabled by default and using `/usr/bin/skillet`.
+Caller selection enables export; successful Datadog activation enables freshness.
+Apply preserves runtime storage/credentials and retires exact known `/etc`
+overrides; old images keep the legacy installer until upgraded. Export freshness
+allows 36 hours for the daily schedule. See [image rollout](../workstation/docs/image-bundles.md#optional-vendor-unit-activation).

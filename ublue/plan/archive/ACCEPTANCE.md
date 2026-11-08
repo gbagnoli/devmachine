@@ -4849,3 +4849,47 @@ acceptance; no production host or private DNS values were committed.
   start because `/run/user/4000/libpod` is read-only; the actual Caddy parser
   validation above ran inside the disposable VM.
 - Production was unchanged; no real domain, zone ID, or credential was recorded.
+
+
+## 2026-11-08 — optional maintenance/collector vendor units
+
+- Image bundles now include kexec activation/normal-reboot service/timers, HA
+  backup export/freshness service/timers and NUT collector service/timer under
+  `/usr/lib/systemd/system`. Disabled presets cover every optional unit, and the
+  release manifest hashes all output. Rendered commands use `/usr/bin/skillet`.
+  Caller selection and successful credential-gated monitoring retain activation.
+- Shared ownership reconciliation preflights each complete vendor group and
+  exact known `/etc` overrides. Kexec/NUT also require their retained receipts;
+  old HA installers had none and are recognized by exact generated content.
+  Recovery copies are preserved; partial/mismatched image groups and custom
+  edits are refused. Tests cover interruption before reload completion and retry,
+  busy consumers, repeat apply and runtime metric-input changes. Rollback fallback
+  repairs timer enablement when `/etc` becomes the definition owner again.
+- HA export freshness now allows 36 hours, consistent with daily publication.
+  Runtime metric sockets and NUT UPS selection stay in root-only environment
+  files rather than public image output. Older images keep legacy installation.
+- Local workspace tests passed: 646 passed, 22 existing ignored. Workspace
+  pedantic Clippy and formatting passed. Initial socket tests required execution
+  outside the socket-restricted sandbox. An intermediate repeat ran out of
+  `/tmp` space; the generated debug cache was relocated to the workspace disk
+  and the final full checks passed. No workstation packages were installed.
+- Scoped native systemd acceptance used owned `clamps-test-kexec` via the
+  manifest/domain-checked transport. The fixture used an ephemeral `/usr`
+  overlay and harmless runtime action overrides: no reboot, real backup,
+  Datadog or UPS action was exercised. Legacy override retirement, preservation
+  of recovery copies, unchanged timer activation timestamps on repeat apply,
+  refusal/preservation of a custom edit, effective `/usr/lib` fragment paths,
+  and real systemd syntax validation passed. Verification includes CoreOS's
+  generated mount-unit search paths. Fixture timers are stopped/disabled before
+  teardown. Command: `cargo run -p skillet_workstation --example
+  vendor_units_acceptance -- ../butane clamps kexec`.
+- A separate fresh `clamps-test-image-units` was created without provider
+  credentials. SSH became unreachable while waiting for signed bootstrap;
+  serial inspection produced no output, and a forced power cycle did not
+  complete readiness. It was destroyed. Fresh signed bootstrap, published-image
+  persistence/rollback and physical rollout remain unverified; retained VM unit
+  acceptance does not replace those gates. Production Clamps and the running
+  Quantum trial were not changed.
+- Final teardown confirmed `clamps-test-kexec` shut off and the existing Quantum
+  trial still running. Native fixture output is retained at
+  `butane/runs/clamps-test-kexec/vendor-units-acceptance.log` (ignored local data).

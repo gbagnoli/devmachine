@@ -6,6 +6,8 @@ use std::{fs, io, os::unix::fs::PermissionsExt as _, path::Path};
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
+    Kexec(#[from] skillet_kexec::service::Error),
+    #[error(transparent)]
     Btrbk(#[from] skillet_btrbk::BtrbkError),
     #[error("unknown image host")]
     Host,
@@ -111,6 +113,28 @@ fn render(
             });
         }
     }
+    let mut units = skillet_kexec::service::image_units()?;
+    units.extend(skillet_homeassistant::backup::image_units());
+    units.extend(skillet_homeassistant::metrics::image_units());
+    units.extend(skillet_nut::monitoring::image_units());
+    let mut presets = String::new();
+    for unit in &units {
+        presets.push_str("disable ");
+        presets.push_str(unit.name);
+        presets.push('\n');
+    }
+    for unit in units {
+        files.push(Output {
+            path: format!("usr/lib/systemd/system/{}", unit.name),
+            bytes: unit.content.into_bytes(),
+            mode: 0o644,
+        });
+    }
+    files.push(Output {
+        path: "usr/lib/systemd/system-preset/70-skillet-optional.preset".into(),
+        bytes: presets.into_bytes(),
+        mode: 0o644,
+    });
     let release = Release {
         format_version: 1,
         host,

@@ -18,7 +18,7 @@ fn rendering_is_deterministic_public_and_allowlisted() {
     let bytes = binary();
     let files = render("clamps", REVISION, VERSION, &bytes, &bytes).unwrap();
     let again = render("clamps", REVISION, VERSION, &bytes, &bytes).unwrap();
-    assert_eq!(files.len(), 7);
+    assert_eq!(files.len(), 18);
     for (a, b) in files.iter().zip(again) {
         assert_eq!(a.bytes, b.bytes);
         assert!(a.path.starts_with("usr/"));
@@ -35,6 +35,25 @@ fn rendering_is_deterministic_public_and_allowlisted() {
         .iter()
         .any(|v| v == "btrbk"));
     assert!(manifest.get("network").is_none());
+    let presets = files
+        .iter()
+        .find(|file| file.path.ends_with("70-skillet-optional.preset"))
+        .unwrap();
+    assert!(
+        String::from_utf8_lossy(&presets.bytes).contains("disable skillet-kexec-activate.timer")
+    );
+    assert!(String::from_utf8_lossy(&presets.bytes)
+        .contains("disable skillet-homeassistant-backup.service"));
+    for host in ["joey", "donbot"] {
+        let other = render(host, REVISION, VERSION, &bytes, &bytes).unwrap();
+        assert!(other
+            .iter()
+            .any(|file| file.path == "usr/lib/systemd/system/skillet-kexec-activate.service"));
+        assert!(other
+            .iter()
+            .any(|file| file.path == "usr/lib/systemd/system/skillet-nut-metrics.service"));
+        assert!(other.iter().all(|file| !file.path.starts_with("etc/")));
+    }
 }
 
 #[test]
