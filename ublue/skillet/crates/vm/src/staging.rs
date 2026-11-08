@@ -1,6 +1,5 @@
 //! Stage a host's Butane inputs and captured binaries for one disposable run.
 use crate::{manifest::reject_symlinks, Error, ManifestStore, Phase, Result, VmRun};
-use serde_yml::{Mapping, Value};
 use sha2::{Digest, Sha256};
 use std::{
     fs::{self, File},
@@ -8,6 +7,7 @@ use std::{
     os::unix::fs::PermissionsExt as _,
     path::Path,
 };
+use yaml_serde::{Mapping, Value};
 
 /// Copy and specialize the source Butane tree under the recorded run directory.
 /// Repeated staging writes only changed bytes and never mutates source files.
@@ -210,14 +210,14 @@ fn parse_yaml(path: &Path) -> Result<Value> {
     reject_symlinks(path)?;
     let contents = fs::read_to_string(path)?;
     let mut value: Value =
-        serde_yml::from_str(&contents).map_err(|error| Error::Preparation(error.to_string()))?;
+        yaml_serde::from_str(&contents).map_err(|error| Error::Preparation(error.to_string()))?;
     crate::install::normalize_butane_modes(&mut value)?;
     Ok(value)
 }
 
 fn write_yaml_if_changed(path: &Path, value: &Value) -> Result<()> {
     let contents =
-        serde_yml::to_string(value).map_err(|error| Error::Preparation(error.to_string()))?;
+        yaml_serde::to_string(value).map_err(|error| Error::Preparation(error.to_string()))?;
     write_if_changed(path, contents.as_bytes(), 0o644)
 }
 
@@ -371,7 +371,7 @@ fn add_vm_sudoers(root: &mut Value) -> Result<()> {
     }) {
         return Ok(());
     }
-    files.push(serde_yml::from_str(
+    files.push(yaml_serde::from_str(
         "path: /etc/sudoers.d/90-skillet-vm\nmode: 288\ncontents:\n  inline: |\n    giacomo ALL=(ALL) NOPASSWD: ALL\n",
     )
     .map_err(|error| Error::Preparation(error.to_string()))?);

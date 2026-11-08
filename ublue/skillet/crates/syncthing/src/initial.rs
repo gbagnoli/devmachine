@@ -294,7 +294,7 @@ pub fn configure(xml: &[u8], name: &str, acknowledge_proxy: bool) -> Result<Vec<
                 continue;
             }
             Event::Text(text) => {
-                if stack.last().is_some_and(|tag| tag == b"apikey") && !text.as_ref().is_empty() {
+                if stack.last().is_some_and(|tag| tag == b"apikey") && !text.is_empty() {
                     api_key = true;
                 }
             }

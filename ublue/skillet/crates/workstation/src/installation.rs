@@ -1,7 +1,6 @@
 //! Physical install media and explicit initial-root TPM enrollment.
 //! Media preparation never opens or writes a workstation block device.
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use serde_yml::Value;
 use sha2::{Digest as _, Sha256};
 use skillet_vm::install::RootProfile;
 use std::{
@@ -12,6 +11,7 @@ use std::{
     process::Command,
     time::Duration,
 };
+use yaml_serde::Value;
 
 pub mod tpm;
 
@@ -22,7 +22,7 @@ pub enum Error {
     #[error("installation artifact I/O: {0}")]
     Io(#[from] std::io::Error),
     #[error("installation YAML: {0}")]
-    Yaml(#[from] serde_yml::Error),
+    Yaml(#[from] yaml_serde::Error),
     #[error("installation tooling: {0}")]
     Tool(#[from] skillet_vm::Error),
 }
@@ -56,10 +56,10 @@ pub fn prepare(request: &Request<'_>) -> Result<PathBuf> {
     let key = fs::read_to_string(request.public_key)?;
     let hash = fs::read_to_string(request.password_hash)?;
     let source = request.butane.join(format!("{}.bu", request.host));
-    let mut config: Value = serde_yml::from_str(&fs::read_to_string(source)?)?;
+    let mut config: Value = yaml_serde::from_str(&fs::read_to_string(source)?)?;
     skillet_vm::install::normalize_butane_modes(&mut config)?;
     specialize(&mut config, request.disk, request.root_profile)?;
-    let mut passwd: Value = serde_yml::from_str(&fs::read_to_string(
+    let mut passwd: Value = yaml_serde::from_str(&fs::read_to_string(
         request.butane.join("includes/passwd.bu"),
     )?)?;
     configure_access(&mut passwd, &key, &hash)?;
@@ -228,7 +228,7 @@ fn configure_access(passwd: &mut Value, public_key: &str, hash: &str) -> Result<
         .ok_or_else(|| Error::Invalid("missing production user declarations".into()))?;
     let mut found = false;
     for user in users {
-        user["ssh_authorized_keys"] = serde_yml::to_value([key])?;
+        user["ssh_authorized_keys"] = yaml_serde::to_value([key])?;
         if user["name"].as_str() == Some("giacomo") {
             user["password_hash"] = Value::String(hash.into());
             found = true;
@@ -321,11 +321,11 @@ fn stage_source(
     }
     write_private(
         &source_dir.join(format!("{}.bu", request.host)),
-        serde_yml::to_string(&config)?.as_bytes(),
+        yaml_serde::to_string(&config)?.as_bytes(),
     )?;
     write_private(
         &source_dir.join("includes/passwd.bu"),
-        serde_yml::to_string(&passwd)?.as_bytes(),
+        yaml_serde::to_string(&passwd)?.as_bytes(),
     )?;
     for name in ["skillet", package.as_str()] {
         let binary = binaries

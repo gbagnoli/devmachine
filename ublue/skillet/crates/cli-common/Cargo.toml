@@ -32,7 +32,7 @@ tracing-subscriber.workspace = true
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-serde_yml.workspace = true
+yaml_serde.workspace = true
 tempfile.workspace = true
 
 [dev-dependencies]

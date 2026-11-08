@@ -11,5 +11,5 @@ skillet_core.workspace = true
 skillet_datadog.workspace = true
 skillet_podman.workspace = true
 serde.workspace = true
-serde_yml.workspace = true
+yaml_serde.workspace = true
 thiserror.workspace = true

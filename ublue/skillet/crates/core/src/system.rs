@@ -3,7 +3,7 @@ use std::process::{Command, Stdio};
 use std::sync::LazyLock;
 use thiserror::Error;
 use tracing::{debug, info, warn};
-use users::{get_group_by_name, get_user_by_name, get_user_by_uid};
+use uzers::{get_group_by_name, get_user_by_name, get_user_by_uid};
 use zbus::proxy;
 
 static SYSTEMD_UNIT_SUFFIXES: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
@@ -54,11 +54,17 @@ pub enum SystemError {
     #[error("Command failed: {0}")]
     Command(String),
     #[error("DBus error: {0}")]
-    DBus(#[from] zbus::Error),
+    DBus(#[source] Box<zbus::Error>),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
     #[error("Firewall configuration: {0}")]
     Firewall(String),
+}
+
+impl From<zbus::Error> for SystemError {
+    fn from(error: zbus::Error) -> Self {
+        Self::DBus(Box::new(error))
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

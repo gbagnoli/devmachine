@@ -1,7 +1,7 @@
 //! Explicit root installation policy, independent of host and VM identity.
 use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
-use serde_yml::Value;
+use yaml_serde::Value;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -69,7 +69,7 @@ pub fn configure_root(config: &mut Value, profile: RootProfile) -> Result<()> {
     if roots.next().is_some() {
         return Err(Error::Invalid("multiple root filesystems declared".into()));
     }
-    let luks = serde_yml::to_value(serde_json::json!([{
+    let luks = yaml_serde::to_value(serde_json::json!([{
         "name": "root", "label": "luks-root",
         "device": "/dev/disk/by-partlabel/root", "wipe_volume": true,
         "clevis": {"custom": {
@@ -82,8 +82,8 @@ pub fn configure_root(config: &mut Value, profile: RootProfile) -> Result<()> {
     Ok(())
 }
 
-/// Butane requires file modes to be numeric. `serde_yml` parses YAML values such
-/// as `0644` as strings, so convert octal mode strings before writing staged
+/// Butane requires file modes to be numeric. Templates may represent octal modes
+/// as strings, so convert octal mode strings before writing staged
 /// configs back out.
 pub fn normalize_butane_modes(value: &mut Value) -> Result<()> {
     match value {

@@ -235,10 +235,10 @@ fn already_measured_authority_is_verified_without_mutation_and_tolerates_later_r
 
 #[test]
 fn physical_media_orders_transition_before_rebase_and_keeps_plain_profile_separate() {
-    let mut config: serde_yml::Value =
-        serde_yml::from_str(include_str!("../../../../../../butane/clamps.bu")).unwrap();
+    let mut config: yaml_serde::Value =
+        yaml_serde::from_str(include_str!("../../../../../../butane/clamps.bu")).unwrap();
     configure_bootstrap(&mut config, certificate()).unwrap();
-    let rendered = serde_yml::to_string(&config).unwrap();
+    let rendered = yaml_serde::to_string(&config).unwrap();
     assert!(rendered.contains("Requires=skillet-tpm-bootstrap.service"));
     assert!(rendered.contains("After=skillet-tpm-bootstrap.service"));
     assert!(rendered.contains("install tpm-bootstrap --certificate"));
@@ -299,13 +299,13 @@ fn physical_tpm_payload_passes_real_butane_merge() {
         butane: &butane,
         workspace: &workspace,
     };
-    let mut config: serde_yml::Value =
-        serde_yml::from_str(&fs::read_to_string(butane.join("clamps.bu")).unwrap()).unwrap();
+    let mut config: yaml_serde::Value =
+        yaml_serde::from_str(&fs::read_to_string(butane.join("clamps.bu")).unwrap()).unwrap();
     crate::installation::specialize(&mut config, request.disk, request.root_profile).unwrap();
     skillet_vm::install::normalize_butane_modes(&mut config).unwrap();
     configure_bootstrap(&mut config, certificate()).unwrap();
-    let mut passwd: serde_yml::Value =
-        serde_yml::from_str(&fs::read_to_string(butane.join("includes/passwd.bu")).unwrap())
+    let mut passwd: yaml_serde::Value =
+        yaml_serde::from_str(&fs::read_to_string(butane.join("includes/passwd.bu")).unwrap())
             .unwrap();
     skillet_vm::install::normalize_butane_modes(&mut passwd).unwrap();
     let dummy = temporary.path().join("dummy-binary");

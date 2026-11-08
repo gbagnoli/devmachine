@@ -8,7 +8,8 @@ This document defines the architectural mandates and project structure for `skil
 - **Libraries MUST use `thiserror`** for custom error types.
 - **Libraries MUST NOT use `anyhow`**. `anyhow` is reserved for the CLI binary only.
 - **NEVER use `unwrap()` or `expect()`** in library code. All errors must be propagated and handled.
-- **Prioritize Crates over Shell-out**: Use Rust crates (e.g., `users`, `nix`) for system interactions whenever possible instead of executing shell commands.
+- **Prioritize Crates over Shell-out**: Use Rust crates (e.g., `uzers`, `nix`) for system interactions whenever possible instead of executing shell commands.
+- Dependency security fixes must remove affected versions from the resolved graph. Prefer maintained replacements when no patched release exists; validate consumer semantics and distinguish vulnerabilities from maintenance warnings. Do not suppress advisories to claim a fix.
 - **Never embed shell scripts in Rust string constants or construct shell programs inside Rust.** Use Rust APIs and focused subprocess calls for work owned by Skillet. If a shell script is truly needed, keep it in a standalone script file with its own interface.
 
 ### 2. Idempotency

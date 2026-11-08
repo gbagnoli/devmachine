@@ -1,6 +1,6 @@
 use super::*;
 fn source() -> Value {
-    serde_yml::from_str("storage:\n  filesystems:\n    - device: /dev/disk/by-partlabel/root\n      format: btrfs\n      label: root\n      wipe_filesystem: true\n").unwrap()
+    yaml_serde::from_str("storage:\n  filesystems:\n    - device: /dev/disk/by-partlabel/root\n      format: btrfs\n      label: root\n      wipe_filesystem: true\n").unwrap()
 }
 #[test]
 fn unencrypted_is_preserved_and_tpm_replaces_raw_root() {
@@ -21,7 +21,7 @@ fn unencrypted_is_preserved_and_tpm_replaces_raw_root() {
 }
 #[test]
 fn missing_root_is_an_error_not_unencrypted_fallback() {
-    let mut value = serde_yml::from_str("storage: {}").unwrap();
+    let mut value = yaml_serde::from_str("storage: {}").unwrap();
     assert!(configure_root(&mut value, RootProfile::Tpm).is_err());
 }
 
@@ -36,7 +36,7 @@ fn conflicting_filesystems_and_preexisting_encryption_are_rejected() {
         value["storage"]["filesystems"]
             .as_sequence_mut()
             .unwrap()
-            .push(serde_yml::from_str(extra).unwrap());
+            .push(yaml_serde::from_str(extra).unwrap());
         assert!(configure_root(&mut value, RootProfile::Tpm).is_err());
     }
     let mut value = source();

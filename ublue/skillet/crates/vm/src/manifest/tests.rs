@@ -4,12 +4,12 @@ use std::{os::unix::fs::symlink, path::PathBuf};
 pub(crate) fn legacy_run() -> (tempfile::TempDir, ManifestStore, RunIdentity) {
     let tmp = tempfile::tempdir().unwrap();
     let identity = RunIdentity::new("fixture", "retained-2").unwrap();
-    let store = ManifestStore::new(tmp.path(), users::get_current_uid()).unwrap();
+    let store = ManifestStore::new(tmp.path(), uzers::get_current_uid()).unwrap();
     let dir = store.run_dir(&identity);
     fs::create_dir(&dir).unwrap();
     fs::write(dir.join("run.conf"), format!(
         "vm={}\nhost=fixture\nuri=qemu:///session\nssh_port=2207\nimage=/original/image\nartifact=/original/binary\nruntime_dir=/run/user/{}\nbackend=native\nsource_commit=original-revision\n",
-        identity.domain_name(), users::get_current_uid()
+        identity.domain_name(), uzers::get_current_uid()
     )).unwrap();
     fs::write(
         dir.join("domain.uuid"),
@@ -44,12 +44,12 @@ fn identity_separates_profile_and_instance_and_rejects_path_input() {
 #[test]
 fn preparation_intent_is_durable_repeatable_and_can_be_advanced_after_capture() {
     let tmp = tempfile::tempdir().unwrap();
-    let store = ManifestStore::new(tmp.path(), users::get_current_uid()).unwrap();
+    let store = ManifestStore::new(tmp.path(), uzers::get_current_uid()).unwrap();
     let identity = RunIdentity::new("fixture", "intent").unwrap();
     let connection = Connection {
         backend: Backend::Native,
         uri: "qemu:///session".into(),
-        runtime_dir: PathBuf::from(format!("/run/user/{}", users::get_current_uid())),
+        runtime_dir: PathBuf::from(format!("/run/user/{}", uzers::get_current_uid())),
     };
     let first = store
         .prepare_intent(&identity, connection.clone(), 2205, "fixture-revision")
@@ -262,7 +262,7 @@ fn reboot_invalidates_readiness_before_the_backend_operation() {
 
 #[test]
 fn flatpak_and_native_connections_have_distinct_validated_runtime_paths() {
-    let uid = users::get_current_uid();
+    let uid = uzers::get_current_uid();
     let mut connection = Connection {
         backend: Backend::Flatpak,
         uri: "qemu:///session".into(),

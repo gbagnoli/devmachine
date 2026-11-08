@@ -44,10 +44,10 @@ fn output_allows_canonical_parent_aliases_but_never_reuses_an_existing_leaf() {
 }
 
 fn host() -> Value {
-    serde_yml::from_str(include_str!("../../../../../butane/clamps.bu")).unwrap()
+    yaml_serde::from_str(include_str!("../../../../../butane/clamps.bu")).unwrap()
 }
 fn passwd() -> Value {
-    serde_yml::from_str(include_str!("../../../../../butane/includes/passwd.bu")).unwrap()
+    yaml_serde::from_str(include_str!("../../../../../butane/includes/passwd.bu")).unwrap()
 }
 #[test]
 fn physical_profiles_preserve_vm_source() {

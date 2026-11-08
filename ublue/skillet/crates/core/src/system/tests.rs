@@ -145,9 +145,9 @@ fn linux_and_mock_account_lookup_adapters_follow_shared_contract() {
     use super::{GroupIdentity, LinuxSystemResource, UserIdentity};
     use crate::{system::AccountResource, test_utils::MockSystem};
 
-    let host_user = users::get_user_by_uid(users::get_current_uid())
+    let host_user = uzers::get_user_by_uid(uzers::get_current_uid())
         .expect("the test process must map to an account");
-    let host_group = users::get_group_by_gid(host_user.primary_group_id())
+    let host_group = uzers::get_group_by_gid(host_user.primary_group_id())
         .expect("the test process primary group must exist");
     let user = UserIdentity {
         name: host_user.name().to_string_lossy().into_owned(),

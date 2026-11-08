@@ -11,7 +11,7 @@ use std::process::Command;
 use tempfile::NamedTempFile;
 use thiserror::Error;
 use tracing::info;
-use users::{get_group_by_name, get_user_by_name};
+use uzers::{get_group_by_name, get_user_by_name};
 
 #[derive(Error, Debug)]
 pub enum FileError {

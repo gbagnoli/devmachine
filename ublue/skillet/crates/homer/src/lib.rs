@@ -1,7 +1,6 @@
 //! Shared static service dashboard, generated from the host's Caddy UI sites.
 
 use serde::Serialize;
-use serde_yml::Value;
 use skillet_core::{
     files::{FileError, FileMutationResource, FileReadResource, Ownership},
     system::{
@@ -11,6 +10,7 @@ use skillet_core::{
 use skillet_podman::{MountDependency, NetworkAttachment, PodmanConfig, ProcessIdentity, Volume};
 use std::{collections::BTreeMap, path::Path};
 use thiserror::Error;
+use yaml_serde::Value;
 
 #[cfg(test)]
 #[path = "tests.rs"]
@@ -50,7 +50,7 @@ pub enum HomerError {
     #[error(transparent)]
     Podman(#[from] skillet_podman::PodmanError),
     #[error("invalid Homer template or generated configuration: {0}")]
-    Yaml(#[from] serde_yml::Error),
+    Yaml(#[from] yaml_serde::Error),
     #[error("Homer template root must be a mapping")]
     Template,
     #[error("invalid existing dashboard groups or unnamed card")]
@@ -83,14 +83,14 @@ struct Item<'a> {
 
 /// The checked-in template owns presentation; selected UI sites own links.
 pub fn render(host: &str, links: &[Link]) -> Result<String, HomerError> {
-    let mut document: Value = serde_yml::from_str(TEMPLATE)?;
+    let mut document: Value = yaml_serde::from_str(TEMPLATE)?;
     let mapping = document.as_mapping_mut().ok_or(HomerError::Template)?;
     mapping.insert(Value::String("subtitle".into()), Value::String(host.into()));
     mapping.insert(
         Value::String("services".into()),
-        serde_yml::to_value(groups(links))?,
+        yaml_serde::to_value(groups(links))?,
     );
-    Ok(serde_yml::to_string(&document)?)
+    Ok(yaml_serde::to_string(&document)?)
 }
 
 fn groups(links: &[Link]) -> Vec<Group<'_, Item<'_>>> {
@@ -138,7 +138,7 @@ pub fn regroup(
     contents: &str,
     classify: impl Fn(&str) -> &'static str,
 ) -> Result<String, HomerError> {
-    let mut document: Value = serde_yml::from_str(contents).map_err(|_| HomerError::Input)?;
+    let mut document: Value = yaml_serde::from_str(contents).map_err(|_| HomerError::Input)?;
     let mut entries = Vec::new();
     for group in document["services"]
         .as_sequence()
@@ -152,9 +152,9 @@ pub fn regroup(
     let mapping = document.as_mapping_mut().ok_or(HomerError::Input)?;
     mapping.insert(
         Value::String("services".into()),
-        serde_yml::to_value(collect_groups(entries))?,
+        yaml_serde::to_value(collect_groups(entries))?,
     );
-    Ok(serde_yml::to_string(&document)?)
+    Ok(yaml_serde::to_string(&document)?)
 }
 
 pub fn apply<S, F>(

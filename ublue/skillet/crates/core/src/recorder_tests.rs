@@ -22,7 +22,7 @@ fn records_results_without_payloads_or_fingerprints() {
     let operations = recorder.get_ops();
     assert_eq!(operations[0].result, EffectResult::Changed(true));
     assert_eq!(operations[1].result, EffectResult::Failed);
-    let yaml = serde_yml::to_string(&operations).unwrap();
+    let yaml = yaml_serde::to_string(&operations).unwrap();
     assert!(!yaml.contains(secret));
     assert!(!yaml.contains(&hex::encode(sha2::Sha256::digest(secret.as_bytes()))));
 }
@@ -75,7 +75,7 @@ fn missing_only_recording_reports_creation_and_preservation_without_content() {
     assert!(
         matches!(&operations[0].operation, ResourceOp::CreateFileIfAbsent { ownership, .. } if ownership == &owner)
     );
-    assert!(!serde_yml::to_string(&operations)
+    assert!(!yaml_serde::to_string(&operations)
         .unwrap()
         .contains("private-bootstrap-payload"));
 }

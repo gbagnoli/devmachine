@@ -97,16 +97,16 @@ fn staging_specializes_only_the_owned_copy_and_hashes_artifacts() {
     .unwrap();
     let staged = store.run_dir(&run.identity).join("source");
     let host: Value =
-        serde_yml::from_str(&fs::read_to_string(staged.join("clamps.bu")).unwrap()).unwrap();
+        yaml_serde::from_str(&fs::read_to_string(staged.join("clamps.bu")).unwrap()).unwrap();
     assert_eq!(
         host["storage"]["files"][0]["contents"]["inline"].as_str(),
         Some(run.guest_hostname.as_str())
     );
     let shared: Value =
-        serde_yml::from_str(&fs::read_to_string(staged.join("includes/skillet.bu")).unwrap())
+        yaml_serde::from_str(&fs::read_to_string(staged.join("includes/skillet.bu")).unwrap())
             .unwrap();
     assert_eq!(shared["storage"]["files"].as_sequence().unwrap().len(), 1);
-    let host_include: Value = serde_yml::from_str(
+    let host_include: Value = yaml_serde::from_str(
         &fs::read_to_string(staged.join("includes/skillet-clamps.bu")).unwrap(),
     )
     .unwrap();
@@ -118,7 +118,7 @@ fn staging_specializes_only_the_owned_copy_and_hashes_artifacts() {
         0
     );
     let passwd: Value =
-        serde_yml::from_str(&fs::read_to_string(staged.join("includes/passwd.bu")).unwrap())
+        yaml_serde::from_str(&fs::read_to_string(staged.join("includes/passwd.bu")).unwrap())
             .unwrap();
     let user = &passwd["passwd"]["users"][0];
     assert_eq!(user["ssh_authorized_keys"].as_sequence().unwrap().len(), 2);
@@ -169,7 +169,7 @@ fn staging_converts_octal_mode_strings_to_butane_numbers() {
     )
     .unwrap();
     let staged = store.run_dir(&run.identity).join("source/clamps.bu");
-    let yaml: Value = serde_yml::from_str(&fs::read_to_string(staged).unwrap()).unwrap();
+    let yaml: Value = yaml_serde::from_str(&fs::read_to_string(staged).unwrap()).unwrap();
     assert_eq!(yaml["storage"]["files"][0]["mode"].as_u64(), Some(0o644));
 }
 
@@ -225,16 +225,16 @@ fn staging_is_idempotent_and_refuses_progressed_runs_or_linked_sources() {
 fn staging_accepts_account_only_passwd_includes_and_tpm_root() {
     let (_tmp, store, mut run, config, includes, host, generic, image) = fixture();
     fs::write(includes.join("passwd.bu"),"variant: fcos\nversion: 1.6.0\npasswd:\n  users:\n    - name: giacomo\n      ssh_authorized_keys: []\n").unwrap();
-    let mut value: Value = serde_yml::from_str(&fs::read_to_string(&config).unwrap()).unwrap();
-    value["storage"].as_mapping_mut().unwrap().insert(Value::String("filesystems".into()),serde_yml::from_str("- device: /dev/disk/by-partlabel/root\n  format: btrfs\n  label: root\n  wipe_filesystem: true\n").unwrap());
-    fs::write(&config, serde_yml::to_string(&value).unwrap()).unwrap();
+    let mut value: Value = yaml_serde::from_str(&fs::read_to_string(&config).unwrap()).unwrap();
+    value["storage"].as_mapping_mut().unwrap().insert(Value::String("filesystems".into()),yaml_serde::from_str("- device: /dev/disk/by-partlabel/root\n  format: btrfs\n  label: root\n  wipe_filesystem: true\n").unwrap());
+    fs::write(&config, yaml_serde::to_string(&value).unwrap()).unwrap();
     run.root_profile = crate::install::RootProfile::Tpm;
     store.save(&run).unwrap();
     for _ in 0..2 {
         stage_butane_source(&store, &run, &config, &includes, &host, &generic, &image).unwrap();
     }
     let path = store.run_dir(&run.identity).join("source/clamps.bu");
-    let staged: Value = serde_yml::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+    let staged: Value = yaml_serde::from_str(&fs::read_to_string(path).unwrap()).unwrap();
     assert_eq!(
         staged["storage"]["filesystems"][0]["device"].as_str(),
         Some("/dev/mapper/root")

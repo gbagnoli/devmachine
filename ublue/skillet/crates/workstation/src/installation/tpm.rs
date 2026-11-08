@@ -71,7 +71,10 @@ fn authority_event(certificate: &[u8]) -> Result<Vec<u8>> {
 }
 
 /// Only physical TPM media opts in; retained/plain/VM profiles are unchanged.
-pub(super) fn configure_bootstrap(config: &mut serde_yml::Value, certificate: &[u8]) -> Result<()> {
+pub(super) fn configure_bootstrap(
+    config: &mut yaml_serde::Value,
+    certificate: &[u8],
+) -> Result<()> {
     authority_event(certificate)?;
     let file = serde_json::json!({
         "path": "/etc/skillet-install/ublue.der", "mode": 420,
@@ -86,11 +89,11 @@ pub(super) fn configure_bootstrap(config: &mut serde_yml::Value, certificate: &[
     {
         return Err(invalid("conflicting bootstrap certificate declaration"));
     }
-    files.push(serde_yml::to_value(file)?);
+    files.push(yaml_serde::to_value(file)?);
     if config.get("systemd").is_none() {
-        config["systemd"] = serde_yml::to_value(serde_json::json!({"units": []}))?;
+        config["systemd"] = yaml_serde::to_value(serde_json::json!({"units": []}))?;
     } else if config["systemd"].get("units").is_none() {
-        config["systemd"]["units"] = serde_yml::Value::Sequence(Vec::new());
+        config["systemd"]["units"] = yaml_serde::Value::Sequence(Vec::new());
     }
     let units = config["systemd"]["units"]
         .as_sequence_mut()
@@ -101,11 +104,11 @@ pub(super) fn configure_bootstrap(config: &mut serde_yml::Value, certificate: &[
     {
         return Err(invalid("conflicting TPM bootstrap unit"));
     }
-    units.push(serde_yml::to_value(serde_json::json!({
+    units.push(yaml_serde::to_value(serde_json::json!({
         "name": "skillet-tpm-bootstrap.service",
         "contents": include_str!("tpm/bootstrap.service")
     }))?);
-    units.push(serde_yml::to_value(serde_json::json!({
+    units.push(yaml_serde::to_value(serde_json::json!({
         "name": "ucore-bootstrap.service",
         "dropins": [{"name": "10-tpm-bootstrap.conf", "contents": "[Unit]\nRequires=skillet-tpm-bootstrap.service\nAfter=skillet-tpm-bootstrap.service\n"}]
     }))?);

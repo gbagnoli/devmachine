@@ -138,7 +138,7 @@ fn recorder_reports_changes_without_recording_lan_addresses() {
 #[test]
 fn retained_recording_requires_a_lan_unless_skipping_is_explicit() {
     let operation: crate::resource_op::ResourceOp =
-        serde_yml::from_str("!EnsurePrivateIpv4LanPorts {ports: [{port: 2022, protocol: tcp}]}")
+        yaml_serde::from_str("!EnsurePrivateIpv4LanPorts {ports: [{port: 2022, protocol: tcp}]}")
             .unwrap();
     assert!(matches!(
         operation,

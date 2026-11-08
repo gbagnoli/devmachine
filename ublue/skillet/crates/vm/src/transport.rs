@@ -6,7 +6,7 @@ use std::{
     process::{Command, ExitStatus, Output},
     time::Duration,
 };
-use users::os::unix::UserExt as _;
+use uzers::os::unix::UserExt as _;
 
 /// A localhost listener forwarded only to the guest's localhost.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -445,7 +445,7 @@ impl CredentialIdentity for SshTransport {
         }
         let config = std::str::from_utf8(&output.stdout)
             .map_err(|_| Error::Invalid("invalid effective SSH configuration".into()))?;
-        let user = users::get_user_by_uid(users::get_current_uid())
+        let user = uzers::get_user_by_uid(uzers::get_current_uid())
             .ok_or_else(|| Error::Invalid("local SSH user is absent".into()))?;
         credential_scope_from_config(
             config,

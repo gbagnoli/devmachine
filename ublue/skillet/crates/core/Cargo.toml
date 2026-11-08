@@ -10,7 +10,7 @@ workspace = true
 rustix = { version = "1.1.4", features = ["fs"] }
 thiserror.workspace = true
 sha2.workspace = true
-users.workspace = true
+uzers.workspace = true
 nix = { workspace = true, features = ["net"] }
 tempfile.workspace = true
 hex.workspace = true
@@ -21,7 +21,7 @@ askama.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
-serde_yml.workspace = true
+yaml_serde.workspace = true
 
 [features]
 test-utils = []

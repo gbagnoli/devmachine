@@ -34,7 +34,7 @@ fn template_availability_requires_both_sources_and_is_sorted() {
 #[test]
 fn runs_are_discovered_without_reading_or_rewriting_partial_manifests() {
     let dir = tempfile::tempdir().unwrap();
-    let store = ManifestStore::new(dir.path(), users::get_current_uid()).unwrap();
+    let store = ManifestStore::new(dir.path(), uzers::get_current_uid()).unwrap();
     for name in [
         "fixture-test-2",
         "fixture-test-a",

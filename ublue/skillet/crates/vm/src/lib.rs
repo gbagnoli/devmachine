@@ -85,5 +85,5 @@ pub fn capture_command_with_input(
 }
 
 pub fn current_uid() -> u32 {
-    users::get_current_uid()
+    uzers::get_current_uid()
 }

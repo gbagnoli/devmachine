@@ -47,7 +47,7 @@ pub enum CliCommonError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
     #[error("Serialization error: {0}")]
-    Yaml(#[from] serde_yml::Error),
+    Yaml(#[from] yaml_serde::Error),
     #[error("Credential installation error: {0}")]
     CredentialInstall(#[from] skillet_core::credential_install::CredentialInstallError),
     #[error("Systemd credential error: {0}")]
@@ -390,7 +390,7 @@ fn persist_recording(
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or_else(|| std::path::Path::new("."));
     fs::create_dir_all(parent).map_err(|error| format!("create {}: {error}", parent.display()))?;
-    let yaml = serde_yml::to_string(diagnostic).map_err(|error| format!("serialize: {error}"))?;
+    let yaml = yaml_serde::to_string(diagnostic).map_err(|error| format!("serialize: {error}"))?;
     let mut temp = tempfile::NamedTempFile::new_in(parent)
         .map_err(|error| format!("create temporary recording: {error}"))?;
     temp.write_all(yaml.as_bytes())

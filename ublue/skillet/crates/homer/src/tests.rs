@@ -50,8 +50,8 @@ fn only_populated_groups_are_rendered_in_stable_order_without_losing_card_fields
     let mut custom = link.clone();
     custom.group = "Shared tools";
     custom.name = "custom".into();
-    let yaml: serde_yml::Value =
-        serde_yml::from_str(&render("fixture", &[home, custom, link, media]).unwrap()).unwrap();
+    let yaml: yaml_serde::Value =
+        yaml_serde::from_str(&render("fixture", &[home, custom, link, media]).unwrap()).unwrap();
     let groups = yaml["services"].as_sequence().unwrap();
     assert_eq!(
         groups
@@ -63,16 +63,16 @@ fn only_populated_groups_are_rendered_in_stable_order_without_losing_card_fields
     assert_eq!(groups[2]["items"][0]["type"], "HomeAssistant");
     assert_eq!(groups[2]["items"][0]["apikey"], "synthetic-widget-key");
     assert_eq!(groups[1]["items"][0]["url"], "https://sync.example.invalid");
-    let empty: serde_yml::Value = serde_yml::from_str(&render("fixture", &[]).unwrap()).unwrap();
+    let empty: yaml_serde::Value = yaml_serde::from_str(&render("fixture", &[]).unwrap()).unwrap();
     assert_eq!(empty["services"].as_sequence().unwrap().len(), 0);
 }
 
 #[test]
 fn regrouping_retained_cards_preserves_urls_widgets_and_unrecognized_fields() {
     let input = "title: Existing\nservices:\n  - name: Services\n    items:\n      - name: pihole\n        url: https://existing.example.invalid/admin/\n        custom: {nested: value}\n        apikey: fixture\n";
-    let output: serde_yml::Value =
-        serde_yml::from_str(&super::regroup(input, |_| super::HOME_INFRA).unwrap()).unwrap();
-    let original: serde_yml::Value = serde_yml::from_str(input).unwrap();
+    let output: yaml_serde::Value =
+        yaml_serde::from_str(&super::regroup(input, |_| super::HOME_INFRA).unwrap()).unwrap();
+    let original: yaml_serde::Value = yaml_serde::from_str(input).unwrap();
     assert_eq!(output["services"][0]["name"], "Home & Infra");
     assert_eq!(
         output["services"][0]["items"],

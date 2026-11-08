@@ -1399,7 +1399,7 @@ fn homer_lists_private_and_public_gokapi_links_in_the_owners_group() {
     .unwrap();
     let links = super::dashboard_links(&profile, &sites);
     let yaml = skillet_homer::render("donbot", &links).unwrap();
-    let document: serde_yml::Value = serde_yml::from_str(&yaml).unwrap();
+    let document: yaml_serde::Value = yaml_serde::from_str(&yaml).unwrap();
     let groups = document["services"].as_sequence().unwrap();
     let files = groups
         .iter()

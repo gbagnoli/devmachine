@@ -1,3 +1,17 @@
+## Rust dependency security update — 2026-11-08
+
+- Addressed all nine open Skillet Dependabot alerts (#49–57): removed `users`,
+  `serde_yml` and `libyml`; upgraded rustls; removed the vulnerable rand 0.8
+  dependency branch. The pip/cryptography alert and Python lockfile are unchanged.
+- Patched additional Cargo audit findings in ctutils, pulldown-cmark,
+  rustls-webpki, webpki-roots, event-listener and Tokio, and replaced the yanked
+  async-executor release. Updated Askama and the supported zbus blocking line.
+- Formatting, pedantic workspace Clippy and workspace tests pass. The CI Joey
+  Fedora container integration passed both applies; repeat apply issued no
+  service start/restart. No physical deployment or live VM acceptance was run.
+- Final `cargo audit --json`: zero vulnerabilities; four unsuppressed upstream
+  maintenance warnings tracked in [dependency maintenance](../DEPENDENCY-MAINTENANCE.md).
+
 ## Remote all-services application — 2026-10-12
 
 - Added workstation `apply --host HOST --target USER@HOST` for all canonically
