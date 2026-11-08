@@ -200,7 +200,13 @@ jobs:
 
             Source commit: `${{ needs.build.outputs.commit }}`.
 
-            The release passed full CI, binary provenance and image-bundle validation. Merge after reviewing the dependency update; image CI builds and signs the host images from this exact commit.
+            The release passed full CI, binary provenance and image-bundle validation. GitHub auto-merges this PR after the required image CI checks pass; image CI builds and signs the host images from this exact commit.
+      - name: Enable auto-merge after required image checks
+        if: steps.proposal.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.UCORE_IMAGES_PR_TOKEN }}
+          PR_URL: ${{ steps.proposal.outputs.pull-request-url }}
+        run: gh pr merge "$PR_URL" --auto --squash --repo "${{ github.repository_owner }}/ucore-images"
       - name: Report proposal
         env:
           PR_URL: ${{ steps.proposal.outputs.pull-request-url }}
