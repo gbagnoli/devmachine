@@ -39,14 +39,17 @@ Upstream performs read-only crates.io name lookups even with publishing disabled
    Stable releases then open a dependency PR in ucore-images automatically;
    complete the one-time [CI credential setup](#automatic-image-dependency-pr)
    before pushing the tag.
-5. Review and merge the generated ucore-images PR. Its normal image CI builds
-   the host images from the exact published release. PRs are not auto-merged.
+5. The release workflow waits for the generated ucore-images PR's required
+   checks, then merges it with the cross-repository token. Image CI builds the
+   host images from the exact published release.
 
 ## Automatic image dependency PR
 
 In GitHub, create a **fine-grained personal access token** owned by an account
 with write access to `ucore-images`. Restrict repository access to **ucore-images
 only**, granting **Contents: Read and write** and **Pull requests: Read and write**.
+The workflow uses this token to create the PR, wait for required checks and merge
+the passing PR.
 Metadata read access is implicit; workflow editing permission is unnecessary.
 
 In **devmachine → Settings → Secrets and variables → Actions → New repository

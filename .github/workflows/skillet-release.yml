@@ -143,6 +143,7 @@ jobs:
     needs: [build, publish]
     if: needs.build.outputs.prerelease == 'false'
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Require cross-repository credentials
         env:
@@ -200,13 +201,19 @@ jobs:
 
             Source commit: `${{ needs.build.outputs.commit }}`.
 
-            The release passed full CI, binary provenance and image-bundle validation. GitHub auto-merges this PR after the required image CI checks pass; image CI builds and signs the host images from this exact commit.
-      - name: Enable auto-merge after required image checks
+            The release passed full CI, binary provenance and image-bundle validation. This workflow waits for required image CI checks before merging the dependency update; image CI builds and signs the host images from this exact commit.
+      - name: Wait for required image checks
         if: steps.proposal.outputs.pull-request-number != ''
         env:
           GH_TOKEN: ${{ secrets.UCORE_IMAGES_PR_TOKEN }}
           PR_URL: ${{ steps.proposal.outputs.pull-request-url }}
-        run: gh pr merge "$PR_URL" --auto --squash --repo "${{ github.repository_owner }}/ucore-images"
+        run: gh pr checks "$PR_URL" --required --watch --fail-fast --repo "${{ github.repository_owner }}/ucore-images"
+      - name: Merge validated dependency update
+        if: steps.proposal.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.UCORE_IMAGES_PR_TOKEN }}
+          PR_URL: ${{ steps.proposal.outputs.pull-request-url }}
+        run: gh pr merge "$PR_URL" --squash --repo "${{ github.repository_owner }}/ucore-images"
       - name: Report proposal
         env:
           PR_URL: ${{ steps.proposal.outputs.pull-request-url }}
