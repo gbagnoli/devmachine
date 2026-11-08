@@ -18,6 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Preserve annotated tags: checkout by tag can refetch the peeled SHA
+          # directly into refs/tags and replace the local annotation object.
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@v5
@@ -48,6 +51,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Preserve annotated tags: checkout by tag can refetch the peeled SHA
+          # directly into refs/tags and replace the local annotation object.
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@v5

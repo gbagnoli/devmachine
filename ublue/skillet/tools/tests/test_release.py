@@ -139,6 +139,37 @@ class SourceTests(unittest.TestCase):
         with self.assertRaisesRegex(release.ReleaseError, "dependency lock"):
             self.verify(lock=release.Release("0.1.0", "b" * 40))
 
+    def test_commit_checkout_preserves_annotation_unlike_peeled_tag_refspec(self):
+        expected = self.verify()
+        tag = "skillet-v0.1.0"
+        with tempfile.TemporaryDirectory() as directory:
+            checkout = Path(directory) / "checkout"
+            subprocess.run(
+                ["git", "clone", "--no-checkout", str(self.root), str(checkout)],
+                check=True,
+                capture_output=True,
+                timeout=15,
+            )
+
+            def run(*arguments):
+                return release.git(checkout, *arguments)
+
+            # Reproduce checkout's fallback for a tag event carrying the peeled
+            # commit: it turns a valid remote annotation into a local commit ref.
+            run("fetch", "--no-tags", "origin", f"+{expected.commit}:refs/tags/{tag}")
+            run("checkout", "--detach", expected.commit)
+            self.assertEqual(run("cat-file", "-t", f"refs/tags/{tag}"), "commit")
+            with self.assertRaisesRegex(release.ReleaseError, "annotated"):
+                release.verify_source(checkout / "skillet", tag)
+
+            # Selecting the event commit explicitly needs no tag destination;
+            # the full-history fetch's annotated ref remains intact.
+            run("fetch", "origin", f"+refs/tags/{tag}:refs/tags/{tag}")
+            run("fetch", "--no-tags", "origin", expected.commit)
+            run("checkout", "--detach", expected.commit)
+            self.assertEqual(run("cat-file", "-t", f"refs/tags/{tag}"), "tag")
+            self.assertEqual(release.verify_source(checkout / "skillet", tag), expected)
+
     def test_tag_version_lightweight_and_moved_tags_are_rejected(self):
         locked = self.verify()
         with self.assertRaisesRegex(release.ReleaseError, "workspace version"):

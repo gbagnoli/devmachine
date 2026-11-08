@@ -31,6 +31,10 @@ are never replaced; GitHub release immutability
 is a repository setting, separate from these workflows. Hosts receive Skillet
 through the signed OS image; existing live delivery remains available during migration.
 
+Release identity/build jobs check out the event commit explicitly with full
+history. The fetched annotated tag remains a separate object to validate; a
+checkout fallback must not replace that ref with its peeled commit SHA.
+
 After successful stable publication, CI proposes the exact tested dependency lock
 to ucore-images through a version-specific branch/PR. A repository-limited
 fine-grained token supplies Contents/Pull requests write access to that repository;

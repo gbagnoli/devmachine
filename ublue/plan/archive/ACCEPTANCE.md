@@ -4934,3 +4934,17 @@ acceptance; no production host or private DNS values were committed.
   Release-tool tests: 12 passed. Secret-catalogue tests: 15 passed, including
   generated-document equality. Live release/PR creation remains unverified until
   the GitHub secret is configured and the workflow runs on a published release.
+
+## 2026-11-08 — preserve annotated release tags in Actions checkout
+
+- Run 42524933281 failed annotation validation for `skillet-v0.1.1`. GitHub's
+  remote ref is an annotated tag. Runner logs show checkout fetching all tags,
+  then force-fetching the event's peeled commit SHA into the local tag ref,
+  replacing its annotation. Cargo-release created the correct remote tag.
+- Identity and build jobs now select the event commit explicitly, preserving
+  the fetched annotated refs and the existing strict validator. Publication and
+  proposal jobs already select explicit tested commits.
+- A real-Git regression reproduces the destructive refspec, verifies refusal,
+  and validates commit-only checkout with the annotated ref retained. Release
+  tests: 13 passed; actionlint passed. Hosted confirmation requires a new release
+  containing this workflow fix; rerunning the old tag uses its old workflow.
