@@ -1,5 +1,18 @@
 # Datadog
 
+Hosts declaring kexec automatically receive the `ucore-kexec` Agent tag during
+Datadog apply. Removing the capability removes the tag from the generated Agent
+configuration, including stale values in retained credentials. Templates cannot
+opt an unselected host into this tag. Filter the uptime monitor's metric query by
+`env:prod,ucore-kexec` and group by `host`:
+
+```text
+avg:system.uptime{env:prod,ucore-kexec} by {host}
+```
+
+Use an average over five minutes and a threshold above 604800 seconds. Apply the
+host to deliver a changed tag; VM telemetry remains excluded by `env:prod`.
+
 The caller must declare Datadog. Run Cargo commands from `ublue/skillet`.
 
 ## Setup

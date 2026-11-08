@@ -60,6 +60,12 @@ data filters. Optional monitor administration uses a separate workstation-only
 scoped application key, never an Agent credential. VM disposal does not remove
 historical telemetry.
 
+Guest Datadog apply derives the `ucore-kexec` tag from the canonical host's kexec
+selection. It strips stale/conflicting copies from retained payloads, so templates
+cannot claim that capability. Uptime monitors select `env:prod,ucore-kexec` and
+group by host rather than maintaining a host list. Tag presence describes declared
+policy; uptime remains the check that scheduled activation actually runs.
+
 Commands: [Datadog](../skillet/crates/datadog/README.md),
 [NUT](../skillet/crates/nut/README.md). Remaining acceptance/enhancements:
 [monitoring plan](../plan/CLAMPS-DATADOG.md).

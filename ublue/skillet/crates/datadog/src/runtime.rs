@@ -54,6 +54,16 @@ fn default_dns_servers() -> Vec<IpAddr> {
 }
 
 impl Input {
+    /// Host capability tags are authoritative, including on retained payloads.
+    pub fn render_with_kexec(mut self, enabled: bool) -> Result<String, DatadogError> {
+        self.tags
+            .retain(|tag| tag != "ucore-kexec" && !tag.starts_with("ucore-kexec:"));
+        if enabled {
+            self.tags.push("ucore-kexec".into());
+        }
+        serde_json::to_string(&self).map_err(|_| DatadogError::Invalid)
+    }
+
     pub fn render_for_environment(
         mut self,
         environment: &str,

@@ -2,6 +2,26 @@ use super::*;
 use skillet_core::test_utils::{MockFiles, MockSystem};
 use std::sync::atomic::Ordering;
 
+#[test]
+fn kexec_opt_in_controls_the_tag_and_removes_stale_or_conflicting_values() {
+    let source = json!({"version":1,"api_key":"00000000000000000000000000000000","site":"datadoghq.com","tags":["env:prod","ucore-kexec","ucore-kexec:false"]}).to_string();
+    for enabled in [false, true] {
+        let rendered = Input::parse(&source)
+            .unwrap()
+            .render_with_kexec(enabled)
+            .unwrap();
+        let tags = Input::parse(&rendered).unwrap().tags;
+        assert_eq!(
+            tags.iter()
+                .filter(|tag| tag.as_str() == "ucore-kexec")
+                .count(),
+            usize::from(enabled)
+        );
+        assert!(!tags.iter().any(|tag| tag.starts_with("ucore-kexec:")));
+        assert!(tags.contains(&"env:prod".into()));
+    }
+}
+
 fn payload(key: &str) -> String {
     json!({"version":1,"api_key":key,"site":"datadoghq.eu","tags":["env:test"]}).to_string()
 }

@@ -781,6 +781,8 @@ fn apply_datadog_host(
         })
         .ok_or_else(|| ApplyError::FixtureInput("host does not declare Datadog".into()))?;
     let payload = credentials.require(skillet_datadog::CREDENTIAL)?;
+    let payload = skillet_datadog::Input::parse(payload)?
+        .render_with_kexec(profile.supports_service("kexec"))?;
     let hostname = runtime_hostname(files, profile.id.as_str())?;
     let mut monitored_units = profile
         .acceptance_plan_with_ddns(true)
@@ -812,7 +814,7 @@ fn apply_datadog_host(
     skillet_datadog::apply(
         system,
         files,
-        payload,
+        &payload,
         &skillet_datadog::RuntimeConfig {
             hostname: &hostname,
             network_monitoring,
