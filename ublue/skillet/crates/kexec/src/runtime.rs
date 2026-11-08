@@ -22,6 +22,8 @@ pub enum Commands {
     Run,
     /// Clean up a kernel owned by this service invocation
     Cleanup,
+    /// Monthly normal reboot, respecting maintenance exclusion and inhibitors
+    FirmwareReboot,
 }
 
 const OWNER: &str = "/run/skillet-kexec-owner";
@@ -44,6 +46,14 @@ fn armed() -> io::Result<bool> {
 fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
     if !nix::unistd::Uid::effective().is_root() {
         return Err(io::Error::other("root is required").into());
+    }
+    if matches!(command, Commands::FirmwareReboot) {
+        let _configuration = skillet_core::maintenance::activation()?;
+        ensure_backups_idle()?;
+        checked("systemctl", &["--check-inhibitors=yes", "reboot"])?;
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
     }
     let invocation = std::env::var("INVOCATION_ID")?;
     if invocation.len() != 32 || !invocation.bytes().all(|b| b.is_ascii_hexdigit()) {
@@ -83,6 +93,7 @@ fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
         return Err(io::Error::other("preexisting armed kernel or unresolved attempt").into());
     }
     let _configuration = skillet_core::maintenance::activation()?;
+    ensure_backups_idle()?;
     let mut owner = fs::OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -108,6 +119,24 @@ fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
     loop {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
+}
+
+fn ensure_backups_idle() -> Result<(), RuntimeError> {
+    for unit in [
+        "skillet-btrbk.service",
+        "skillet-homeassistant-backup.service",
+    ] {
+        let output = Command::new("systemctl")
+            .args(["show", "--property=ActiveState", "--value", unit])
+            .output()?;
+        let state = String::from_utf8_lossy(&output.stdout);
+        if !output.status.success() || !matches!(state.trim(), "inactive" | "failed") {
+            return Err(
+                io::Error::other(format!("maintenance deferred: {unit} is not idle")).into(),
+            );
+        }
+    }
+    Ok(())
 }
 
 fn prepare_target() -> Result<BootEntry, RuntimeError> {

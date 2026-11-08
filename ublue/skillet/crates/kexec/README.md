@@ -13,7 +13,7 @@ cargo run --release -p skillet -- apply clamps
 ```
 
 Apply installs or updates the activation unit, reloading systemd only when its
-content changes. It never starts the activation service and creates no timer.
+content changes. Apply enables the maintenance timers without starting a reboot.
 There is no separate `kexec install` step.
 
 For a supervised activation on the host:
@@ -41,8 +41,20 @@ edit `/etc` manually during activation. Other root tools are outside this cooper
 protocol. A remote multi-phase apply interrupted between phases must be retried
 following reboot; it is not an atomic transaction.
 
-Scheduling remains disabled pending physical acceptance and the remaining
-[reboot policy checks](../../../plan/IMAGE-OWNED-CONFIGURATION.md).
+Maintenance runs at 05:30 Europe/Paris. The first Sunday of each month uses
+`skillet-firmware-reboot.timer` for a normal reboot; other days use
+`skillet-kexec-activate.timer`. Timers do not catch up missed runs. Logged-in
+users and shutdown inhibitors can prevent a reboot; an active HA export or btrbk
+job refuses activation before deployment finalization. A refused attempt waits
+until the next scheduled day. Monitor uptime over seven days and host availability.
+Keep heavy scheduled jobs outside 05:15–05:45; the exporter runs at 04:00 and
+btrbk on the hour. Upstream staging/container-update schedules still need live
+inspection. The idle check does not prevent an independently started backup
+from beginning afterwards.
+
+Inspect schedules with `systemctl list-timers --all 'skillet-*reboot*' 'skillet-kexec*'`.
+Disable both timers to suspend automatic reboots. Remaining policy checks:
+[reboot policy](../../../plan/IMAGE-OWNED-CONFIGURATION.md).
 
 The service loads the uniquely matching signed kernel and initramfs, then requests
 graceful kexec respecting shutdown inhibitors. Its independent `ExecStopPost`

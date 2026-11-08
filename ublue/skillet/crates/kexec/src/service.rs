@@ -7,6 +7,11 @@ use std::path::Path;
 
 pub const UNIT: &str = "skillet-kexec-activate.service";
 pub const PATH: &str = "/etc/systemd/system/skillet-kexec-activate.service";
+pub const TIMER: &str = "skillet-kexec-activate.timer";
+pub const REBOOT_TIMER: &str = "skillet-firmware-reboot.timer";
+
+const DAILY: &str = "[Unit]\nDescription=Daily Skillet kexec activation except first Sunday\n[Timer]\nOnCalendar=Mon..Sat *-*-01..07 05:30:00 Europe/Paris\nOnCalendar=*-*-08..31 05:30:00 Europe/Paris\nRandomizedDelaySec=0\nPersistent=false\n[Install]\nWantedBy=timers.target\n";
+const MONTHLY: &str = "[Unit]\nDescription=Monthly normal firmware reboot\n[Timer]\nOnCalendar=Sun *-*-01..07 05:30:00 Europe/Paris\nRandomizedDelaySec=0\nPersistent=false\n[Install]\nWantedBy=timers.target\n";
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -38,11 +43,33 @@ where
     let owner = Ownership::named(Some("root"), Some("root"));
     files.ensure_directory(Path::new("/etc/systemd/system"), Some(0o755), &owner)?;
     let changed = files.ensure_file(Path::new(PATH), content.as_bytes(), Some(0o644), &owner)?;
+    let reboot = format!("[Unit]\nDescription=Monthly Skillet firmware reboot\n[Service]\nType=exec\nExecStart={binary} kexec firmware-reboot\nRuntimeMaxSec=120\nRestart=no\n");
+    let mut schedules_changed = false;
+    for (name, body) in [
+        (TIMER, DAILY),
+        (REBOOT_TIMER, MONTHLY),
+        ("skillet-firmware-reboot.service", reboot.as_str()),
+    ] {
+        schedules_changed |= files.ensure_file(
+            &Path::new("/etc/systemd/system").join(name),
+            body.as_bytes(),
+            Some(0o644),
+            &owner,
+        )?;
+    }
     let state = Path::new("/var/lib/skillet/kexec/definition.applied");
-    if changed || files.read_file(state)?.as_deref() != Some(content.as_bytes()) {
+    let receipt = format!("{content}{DAILY}{MONTHLY}{reboot}");
+    if changed
+        || schedules_changed
+        || files.read_file(state)?.as_deref() != Some(receipt.as_bytes())
+    {
         system.daemon_reload()?;
         files.ensure_directory(Path::new("/var/lib/skillet/kexec"), Some(0o755), &owner)?;
-        files.ensure_file(state, content.as_bytes(), Some(0o644), &owner)?;
+        files.ensure_file(state, receipt.as_bytes(), Some(0o644), &owner)?;
+    }
+    for timer in [TIMER, REBOOT_TIMER] {
+        system.service_enable(timer)?;
+        system.service_start(timer)?;
     }
     Ok(())
 }

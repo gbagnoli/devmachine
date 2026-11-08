@@ -14,6 +14,25 @@ fn apply_only_installs_and_preserves_definition_on_repeat() {
     let first = files.read_file(Path::new(PATH)).unwrap().unwrap();
     assert!(String::from_utf8_lossy(&first).contains("skillet-fixture kexec run"));
     assert!(!String::from_utf8_lossy(&first).contains("[Install]"));
+    let daily = files
+        .read_file(Path::new(
+            "/etc/systemd/system/skillet-kexec-activate.timer",
+        ))
+        .unwrap()
+        .unwrap();
+    let daily = String::from_utf8(daily).unwrap();
+    assert!(daily.contains("OnCalendar=Mon..Sat *-*-01..07 05:30:00 Europe/Paris"));
+    assert!(daily.contains("OnCalendar=*-*-08..31 05:30:00 Europe/Paris"));
+    assert!(daily.contains("Persistent=false"));
+    let monthly = files
+        .read_file(Path::new(
+            "/etc/systemd/system/skillet-firmware-reboot.timer",
+        ))
+        .unwrap()
+        .unwrap();
+    assert!(String::from_utf8(monthly)
+        .unwrap()
+        .contains("OnCalendar=Sun *-*-01..07 05:30:00 Europe/Paris"));
     assert!(system
         .services
         .lock()
@@ -22,9 +41,9 @@ fn apply_only_installs_and_preserves_definition_on_repeat() {
     system.services.lock().unwrap().clear();
     apply(&system, &files, binary).unwrap();
     assert_eq!(files.read_file(Path::new(PATH)).unwrap().unwrap(), first);
-    assert_eq!(system.start_count.load(Ordering::SeqCst), 0);
+    assert_eq!(system.start_count.load(Ordering::SeqCst), 4);
     assert_eq!(system.restart_count.load(Ordering::SeqCst), 0);
-    assert!(system.services.lock().unwrap().is_empty());
+    assert!(!system.services.lock().unwrap().contains_key(UNIT));
 }
 
 #[test]
@@ -57,5 +76,5 @@ fn interrupted_reload_is_retried_even_when_the_definition_already_exists() {
         .lock()
         .unwrap()
         .contains_key("daemon-reload"));
-    assert_eq!(system.start_count.load(Ordering::SeqCst), 0);
+    assert_eq!(system.start_count.load(Ordering::SeqCst), 2);
 }

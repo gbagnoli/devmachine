@@ -413,6 +413,24 @@ Completed target: a signed release binds code, public configuration and applicat
 image digests; runtime handles only explicit local/private/stateful effects; tested
 daily reboots activate approved releases without unplanned live configuration drift.
 
+## Physical scheduling acceptance (2026-11-08)
+
+Clamps completed a supervised kexec into its pending signed image: the boot ID
+changed, the intended digest became booted, and the previous boot journal reached
+`kexec.target`. Both deployments used the same kernel version; different-kernel
+physical acceptance remains separate. Datadog recovered after an initial startup
+health-check failure. Podman shutdown transient-scope cleanup errors remain a
+follow-up.
+
+Caller opt-in now installs daily 05:30 Europe/Paris activation, with the first
+Sunday reserved for a normal firmware reboot. Missed reboots do not catch up;
+inhibitors remain respected. Active HA export/btrbk jobs refuse activation before
+finalization. HA export is daily at 04:00; btrbk stays hourly. The 05:15–05:45
+quiet window still requires live inspection of upstream update schedules, and
+idle checks do not exclude independently started backups. Deployment and timed
+execution of these new definitions remain pending operator apply. Configure the
+operator's uptime-over-seven-days alert and retain unavailable-host monitoring.
+
 ## Research references
 
 - [uCore build update defaults](https://github.com/ublue-os/ucore/blob/main/ucore/post-install-ucore-minimal.sh)
