@@ -197,22 +197,21 @@ the matching release before physical migration. Fresh signed bootstrap of the
 new dedicated test VM did not complete; it was removed after diagnostic recovery
 attempts. This is distinct from the retained VM's passing unit-ownership checks.
 
-## Slice 5 — daily reboot policy with verified kexec activation
+## Slice 5 — staged-update activation with verified kexec
 
-The operator's eventual policy is a daily reboot, including days without a new
-OS deployment. The operator prefers moving directly to kexec if accepted. The
-VM mechanism below now passes; implement one scheduler with explicit activation
-methods rather than a normal-only scheduler followed by a second redesign. Keep
-scheduling disabled until production acceptance and a supervised Clamps handoff pass.
+The operator wants kexec activation after an OS update is staged. A daily reboot
+without an update is unnecessary. On the first Sunday, use one normal firmware
+reboot after the automatic staging service completes, even if no update is staged.
 
 - Use one reboot owner. Retain the effective uCore update-staging mechanism;
   inspect deployed versions rather than enabling competing Zincati/rpm-ostree
   schedulers. Staging downloads/prepares updates; scheduling chooses activation.
-  Do not finalize or load a kernel merely because an image was staged. At each
-  eligible reboot window, re-read the current pending deployment and prepare that
-  target; if none is pending, prepare the running deployment. A deferred reboot
-  leaves updates staged so a later update may replace the target before the next
-  window. Serialize target selection against concurrent staging.
+  Trigger activation only after the rpm-ostreed automatic staging service completes
+  successfully. Re-read the pending deployment; if no new deployment is staged,
+  exit without rebooting. A deferred reboot leaves updates staged so a later update
+  may replace the target. Serialize target selection against concurrent staging.
+  On the first Sunday, choose the normal firmware reboot after staging regardless
+  of whether a new deployment is staged. Do not keep a second monthly reboot timer.
   `libglnx` uses open-file-description locks when available and unlinks its
   lock file on release; a plain `flock` on the same path does not coordinate
   with it on Linux. The activation implementation must prove interoperability
@@ -220,14 +219,16 @@ scheduling disabled until production acceptance and a supervised Clamps handoff 
   than assuming that matching the path is sufficient. OSTree's own sysroot
   lock is non-reentrant, so do not hold it across `finalize-staged`.
   See [libglnx's lock-file implementation](https://github.com/GNOME/libglnx/blob/master/glnx-lockfile.c).
-- Configure a per-host daily window, explicit timezone and fleet staggering.
-  Agree the window/outage budget before production activation. Do not reboot both
-  DNS peers together; a missing second peer requires an accepted outage policy.
+- Let the existing update timer determine when a staged update becomes eligible;
+  Clamps currently stages around 06:30 Europe/Paris. Do not reboot both DNS peers
+  together; a missing second peer requires an accepted outage policy.
 - Honor maintenance inhibits and serialize with updates, enrollment, backup/restore
   and credential activation. Deferral is visible and bounded, not a silent permanent
   veto. Never force a reboot through an active recovery/restore operation.
-- Prevent catch-up reboots immediately after startup and repeated reboot loops.
-  Missed windows defer to the next eligible window; track the attempted window.
+- Do not use a persistent reboot timer or a startup catch-up. A deferred staged
+  update is retried after the next successful automatic staging run; no staged
+  deployment is a successful no-op except on the first Sunday, when the normal
+  firmware reboot runs after staging.
 - For accepted kexec hosts, explicitly finalize/select the approved deployment and
   load its matching signed kernel/initramfs/options before graceful kexec shutdown.
   Quiesce configuration writers and serialize activation: the VM experiment finalized
@@ -248,8 +249,8 @@ scheduling disabled until production acceptance and a supervised Clamps handoff 
   digests and post-boot health through module-owned monitoring. A system reaching
   SSH alone does not establish Pi-hole/backup/monitor recovery.
 
-Exit: timer policy tests plus named UEFI/TPM VM tests for no-update daily reboot,
-staged userspace and kernel updates, inhibitors/deferrals, missed windows,
+Exit: trigger policy tests plus named UEFI/TPM VM tests for no-update no-op,
+staged userspace and kernel updates, inhibitors/deferrals,
 interrupted staging, a replacement update before the window, abandoned-load
 cleanup and reboot-loop prevention. Verify boot ID, deployed digest,
 `uname -r` when the release changes kernel, automatic unlock, mounts, private UIs,
@@ -444,13 +445,18 @@ physical acceptance remains separate. Datadog recovered after an initial startup
 health-check failure. Podman shutdown transient-scope cleanup errors remain a
 follow-up.
 
-Caller opt-in now installs daily 05:30 Europe/Paris activation, with the first
-Sunday reserved for a normal firmware reboot. Missed reboots do not catch up;
-inhibitors remain respected. Active HA export/btrbk jobs refuse activation before
-finalization. HA export is daily at 04:00; btrbk stays hourly. The 05:15–05:45
-quiet window still requires live inspection of upstream update schedules, and
-idle checks do not exclude independently started backups. Deployment and timed
-execution of these new definitions remain pending operator apply. Configure the
+Caller opt-in now triggers activation after successful rpm-ostreed staging. On
+ordinary days, it kexecs only when a deployment is staged and otherwise no-ops.
+On the first Sunday, it requests one normal reboot after staging, even if no
+deployment is staged. Both old activation timers are disabled to avoid a second
+reboot earlier in the morning.
+Inhibitors remain respected. Active HA export/btrbk jobs refuse activation before
+finalization. HA export is daily at 04:00; btrbk stays hourly. Disposable VM
+acceptance applied the previous definitions: `OnSuccess` is loaded on
+`rpm-ostreed-automatic.service`, and the legacy daily timer is disabled.
+`systemd-analyze verify --man=no` passed.
+Starting the activation service with no staged update logged a no-op and retained
+the boot ID. Physical Clamps still needs the updated Skillet applied. Configure the
 operator's uptime-over-seven-days alert and retain unavailable-host monitoring.
 
 ## Research references

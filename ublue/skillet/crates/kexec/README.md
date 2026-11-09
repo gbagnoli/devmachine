@@ -43,19 +43,28 @@ edit `/etc` manually during activation. Other root tools are outside this cooper
 protocol. A remote multi-phase apply interrupted between phases must be retried
 following reboot; it is not an atomic transaction.
 
-Maintenance runs at 05:30 Europe/Paris. The first Sunday of each month uses
-`skillet-firmware-reboot.timer` for a normal reboot; other days use
-`skillet-kexec-activate.timer`. Timers do not catch up missed runs. Logged-in
+OS kexec activation follows successful completion of
+`rpm-ostreed-automatic.service`, after it has staged an update. With no staged
+deployment, activation exits without rebooting on ordinary days. On the first
+Sunday of each month, the same staging completion requests a normal reboot even
+when no update was staged. Both the old daily kexec timer and the separate monthly
+firmware-reboot timer are disabled, so there is one activation after staging.
+Logged-in
 users and shutdown inhibitors can prevent a reboot; an active HA export or btrbk
-job refuses activation before deployment finalization. A refused attempt waits
-until the next scheduled day. Monitor uptime over seven days and host availability.
-Keep heavy scheduled jobs outside 05:15–05:45; the exporter runs at 04:00 and
-btrbk on the hour. Upstream staging/container-update schedules still need live
-inspection. The idle check does not prevent an independently started backup
+job refuses activation before deployment finalization. A refused attempt leaves
+the deployment staged for retry after a later successful automatic staging run.
+Monitor uptime over seven days and host availability.
+The rpm-ostreed staging timer currently runs around 06:30 Europe/Paris; kexec
+starts after successful staging on ordinary days; the first Sunday takes the
+normal reboot path after that staging run. The exporter runs at 04:00 and btrbk
+on the hour. The idle check does not prevent an independently started backup
 from beginning afterwards.
 
 Inspect schedules with `systemctl list-timers --all 'skillet-*reboot*' 'skillet-kexec*'`.
-Disable both timers to suspend automatic reboots. Remaining policy checks:
+To pause update-triggered activation temporarily, use
+`sudo systemctl mask --runtime --now skillet-kexec-activate.service`; unmask it
+to resume. This pauses both update activation and the monthly reboot. A pending
+update remains staged and is retried after activation resumes.
 [reboot policy](../../../plan/IMAGE-OWNED-CONFIGURATION.md).
 
 The service loads the uniquely matching signed kernel and initramfs, then requests

@@ -6,6 +6,42 @@ pub mod attempt;
 pub mod runtime;
 pub mod service;
 
+/// Report whether the latest rpm-ostree observation contains a staged deployment.
+pub fn has_staged_deployment(status: &serde_json::Value) -> Result<bool, Error> {
+    let deployments = status["deployments"]
+        .as_array()
+        .ok_or(Error::InvalidDeployment)?;
+    Ok(deployments.iter().any(|item| item["staged"] == true))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ActivationAction {
+    Noop,
+    Kexec,
+    NormalReboot,
+}
+
+/// Choose one activation after staging: a monthly normal reboot owns the first
+/// Sunday, while other days reboot only when an update is staged.
+pub fn activation_action(
+    status: &serde_json::Value,
+    now: time::OffsetDateTime,
+) -> Result<ActivationAction, Error> {
+    let staged = has_staged_deployment(status)?;
+    if is_monthly_reboot_day(now) {
+        Ok(ActivationAction::NormalReboot)
+    } else if staged {
+        Ok(ActivationAction::Kexec)
+    } else {
+        Ok(ActivationAction::Noop)
+    }
+}
+
+/// The monthly normal firmware reboot is scheduled on the first Sunday.
+fn is_monthly_reboot_day(now: time::OffsetDateTime) -> bool {
+    now.weekday() == time::Weekday::Sunday && now.day() <= 7
+}
+
 /// Select the current activation target from a fresh `rpm-ostree` observation.
 /// Selection must be repeated under staging exclusion before loading a kernel.
 pub fn activation_target(status: &serde_json::Value) -> Result<&serde_json::Value, Error> {
@@ -31,15 +67,14 @@ pub fn activation_target(status: &serde_json::Value) -> Result<&serde_json::Valu
     {
         return Err(Error::InvalidDeployment);
     }
-    let target = deployments.first().ok_or(Error::InvalidDeployment)?;
-    if deployments
+    let staged: Vec<_> = deployments
         .iter()
-        .skip(1)
-        .any(|item| item["staged"] == true)
-    {
+        .filter(|item| item["staged"] == true)
+        .collect();
+    if staged.len() != 1 {
         return Err(Error::InvalidDeployment);
     }
-    Ok(target)
+    Ok(staged[0])
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]

@@ -65,6 +65,9 @@ pub enum ResourceOp {
     ServiceEnable {
         name: String,
     },
+    ServiceDisable {
+        name: String,
+    },
     DaemonReload,
     RefreshUsbRules {
         vendor: u16,

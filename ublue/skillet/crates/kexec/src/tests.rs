@@ -15,6 +15,64 @@ fn activation_selection_uses_latest_pending_and_rejects_active_transactions() {
     status["transaction"] = serde_json::json!(["update", "initiator", "address"]);
     assert!(activation_target(&status).is_err());
     assert!(activation_target(&serde_json::json!({"deployments": []})).is_err());
+    let no_update = serde_json::json!({"transaction": null, "deployments": [
+        {"checksum": "current", "staged": false, "booted": true}
+    ]});
+    assert!(activation_target(&no_update).is_err());
+}
+
+#[test]
+fn automatic_staging_hook_is_a_noop_without_a_staged_deployment() {
+    let staged = serde_json::json!({"deployments": [
+        {"checksum": "current", "staged": false, "booted": true}
+    ]});
+    assert!(!has_staged_deployment(&staged).unwrap());
+
+    let update = serde_json::json!({"deployments": [
+        {"checksum": "next", "staged": true, "booted": false},
+        {"checksum": "current", "staged": false, "booted": true}
+    ]});
+    assert!(has_staged_deployment(&update).unwrap());
+    assert!(has_staged_deployment(&serde_json::json!({})).is_err());
+}
+
+#[test]
+fn first_sunday_normal_reboot_follows_staging_even_without_an_update() {
+    use time::{Date, Month, Time};
+
+    let at = |year, month, day| {
+        Date::from_calendar_date(year, month, day)
+            .unwrap()
+            .with_time(Time::from_hms(4, 30, 0).unwrap())
+            .assume_utc()
+    };
+    let no_update = serde_json::json!({"deployments": [
+        {"checksum": "current", "staged": false, "booted": true}
+    ]});
+    let update = serde_json::json!({"deployments": [
+        {"checksum": "next", "staged": true, "booted": false},
+        {"checksum": "current", "staged": false, "booted": true}
+    ]});
+    let first_sunday = at(2026, Month::November, 1);
+    let ordinary_sunday = at(2026, Month::November, 8);
+    let monday = at(2026, Month::November, 2);
+
+    assert_eq!(
+        activation_action(&no_update, first_sunday).unwrap(),
+        ActivationAction::NormalReboot
+    );
+    assert_eq!(
+        activation_action(&update, first_sunday).unwrap(),
+        ActivationAction::NormalReboot
+    );
+    assert_eq!(
+        activation_action(&no_update, ordinary_sunday).unwrap(),
+        ActivationAction::Noop
+    );
+    assert_eq!(
+        activation_action(&update, monday).unwrap(),
+        ActivationAction::Kexec
+    );
 }
 
 #[derive(Default)]

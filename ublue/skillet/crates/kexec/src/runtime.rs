@@ -48,12 +48,7 @@ fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
         return Err(io::Error::other("root is required").into());
     }
     if matches!(command, Commands::FirmwareReboot) {
-        let _configuration = skillet_core::maintenance::activation()?;
-        ensure_backups_idle()?;
-        checked("systemctl", &["--check-inhibitors=yes", "reboot"])?;
-        loop {
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
+        return request_normal_reboot();
     }
     let invocation = std::env::var("INVOCATION_ID")?;
     if invocation.len() != 32 || !invocation.bytes().all(|b| b.is_ascii_hexdigit()) {
@@ -92,6 +87,24 @@ fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
     if armed()? || Path::new(OWNER).exists() {
         return Err(io::Error::other("preexisting armed kernel or unresolved attempt").into());
     }
+    let status = Command::new("rpm-ostree")
+        .args(["status", "--json"])
+        .output()?;
+    if !status.status.success() {
+        return Err(io::Error::other("rpm-ostree status failed").into());
+    }
+    let status: serde_json::Value = serde_json::from_slice(&status.stdout)?;
+    match super::activation_action(&status, time::OffsetDateTime::now_utc())? {
+        super::ActivationAction::NormalReboot => {
+            tracing::info!("First Sunday staging run; requesting the monthly normal reboot");
+            return request_normal_reboot();
+        }
+        super::ActivationAction::Noop => {
+            tracing::info!("No staged deployment; skipping automatic kexec activation");
+            return Ok(());
+        }
+        super::ActivationAction::Kexec => (),
+    }
     let _configuration = skillet_core::maintenance::activation()?;
     ensure_backups_idle()?;
     let mut owner = fs::OpenOptions::new()
@@ -116,6 +129,15 @@ fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
     checked("systemctl", &["--check-inhibitors=yes", "kexec"])?;
     // Remain alive until shutdown. RuntimeMaxSec makes a cancelled handoff
     // fail and invokes independent ExecStopPost cleanup, including on SIGKILL.
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+}
+
+fn request_normal_reboot() -> Result<(), RuntimeError> {
+    let _configuration = skillet_core::maintenance::activation()?;
+    ensure_backups_idle()?;
+    checked("systemctl", &["--check-inhibitors=yes", "reboot"])?;
     loop {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }

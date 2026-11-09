@@ -121,6 +121,11 @@ pub trait ServiceResource {
     fn service_restart(&self, name: &str) -> Result<(), SystemError>;
     fn service_reload(&self, name: &str) -> Result<(), SystemError>;
     fn service_enable(&self, name: &str) -> Result<(), SystemError>;
+    fn service_disable(&self, name: &str) -> Result<(), SystemError> {
+        Err(SystemError::Command(format!(
+            "service disable unsupported: {name}"
+        )))
+    }
     fn daemon_reload(&self) -> Result<(), SystemError>;
 }
 
@@ -544,6 +549,21 @@ impl ServiceResource for LinuxSystemResource {
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(SystemError::Command(format!(
                 "systemctl enable {name_with_suffix} failed: {stderr}"
+            )));
+        }
+        Ok(())
+    }
+
+    fn service_disable(&self, name: &str) -> Result<(), SystemError> {
+        let name = ensure_systemd_suffix(name);
+        let output = Command::new("systemctl")
+            .arg("disable")
+            .arg(&name)
+            .output()?;
+        if !output.status.success() {
+            return Err(SystemError::Command(format!(
+                "systemctl disable {name} failed: {}",
+                String::from_utf8_lossy(&output.stderr)
             )));
         }
         Ok(())

@@ -9,9 +9,12 @@ pub const UNIT: &str = "skillet-kexec-activate.service";
 pub const PATH: &str = "/etc/systemd/system/skillet-kexec-activate.service";
 pub const TIMER: &str = "skillet-kexec-activate.timer";
 pub const REBOOT_TIMER: &str = "skillet-firmware-reboot.timer";
+pub const UPDATE_DROPIN: &str =
+    "/etc/systemd/system/rpm-ostreed-automatic.service.d/50-skillet-kexec.conf";
 
 const DAILY: &str = "[Unit]\nDescription=Daily Skillet kexec activation except first Sunday\n[Timer]\nOnCalendar=Mon..Sat *-*-01..07 05:30:00 Europe/Paris\nOnCalendar=*-*-08..31 05:30:00 Europe/Paris\nRandomizedDelaySec=0\nPersistent=false\n[Install]\nWantedBy=timers.target\n";
 const MONTHLY: &str = "[Unit]\nDescription=Monthly normal firmware reboot\n[Timer]\nOnCalendar=Sun *-*-01..07 05:30:00 Europe/Paris\nRandomizedDelaySec=0\nPersistent=false\n[Install]\nWantedBy=timers.target\n";
+const UPDATE_DROPIN_CONTENT: &str = "[Unit]\nOnSuccess=skillet-kexec-activate.service\n";
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -55,6 +58,18 @@ where
     S: ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
 {
+    let owner = Ownership::named(Some("root"), Some("root"));
+    files.ensure_directory(
+        Path::new("/etc/systemd/system/rpm-ostreed-automatic.service.d"),
+        Some(0o755),
+        &owner,
+    )?;
+    let trigger_changed = files.ensure_file(
+        Path::new(UPDATE_DROPIN),
+        UPDATE_DROPIN_CONTENT.as_bytes(),
+        Some(0o644),
+        &owner,
+    )?;
     let vendor = image_units()?;
     let legacy = units(binary)?;
     let receipt = skillet_core::vendor_units::LegacyReceipt {
@@ -76,13 +91,12 @@ where
         &legacy,
         Some(&receipt),
     )? {
-        for timer in [TIMER, REBOOT_TIMER] {
-            system.service_enable(timer)?;
-            system.service_start(timer)?;
+        if trigger_changed {
+            system.daemon_reload()?;
         }
+        converge_timers(system)?;
         return Ok(());
     }
-    let owner = Ownership::named(Some("root"), Some("root"));
     files.ensure_directory(Path::new("/etc/systemd/system"), Some(0o755), &owner)?;
     let mut changed = false;
     for unit in &legacy {
@@ -98,18 +112,20 @@ where
         .iter()
         .map(|unit| unit.content.as_str())
         .collect::<String>();
-    if changed || files.read_file(state)?.as_deref() != Some(receipt.as_bytes()) {
+    let state_changed = files.read_file(state)?.as_deref() != Some(receipt.as_bytes());
+    if changed || trigger_changed || state_changed {
         system.daemon_reload()?;
         files.ensure_directory(Path::new("/var/lib/skillet/kexec"), Some(0o755), &owner)?;
         files.ensure_file(state, receipt.as_bytes(), Some(0o644), &owner)?;
     }
+    converge_timers(system)?;
+    Ok(())
+}
+
+fn converge_timers<S: ServiceResource + ?Sized>(system: &S) -> Result<(), Error> {
     for timer in [TIMER, REBOOT_TIMER] {
-        if changed {
-            system.service_reenable(timer)?;
-        } else {
-            system.service_enable(timer)?;
-        }
-        system.service_start(timer)?;
+        system.service_stop(timer)?;
+        system.service_disable(timer)?;
     }
     Ok(())
 }

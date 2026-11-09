@@ -6,7 +6,7 @@ use skillet_core::{
 use std::sync::atomic::Ordering;
 
 #[test]
-fn image_migration_retires_overrides_and_only_activates_selected_timers() {
+fn image_migration_retires_overrides_and_disables_legacy_timers() {
     let files = MockFiles::new();
     let system = MockSystem::new();
     let binary = "/var/usrlocal/bin/skillet-fixture";
@@ -29,8 +29,31 @@ fn image_migration_retires_overrides_and_only_activates_selected_timers() {
     assert!(!system
         .service_is_active("skillet-firmware-reboot.service")
         .unwrap());
-    assert!(system.service_is_active(TIMER).unwrap());
-    assert!(system.service_is_active(REBOOT_TIMER).unwrap());
+    assert!(!system.service_is_active(TIMER).unwrap());
+    assert_eq!(
+        system
+            .services
+            .lock()
+            .unwrap()
+            .get(TIMER)
+            .map(String::as_str),
+        Some("disabled")
+    );
+    assert_eq!(
+        system
+            .services
+            .lock()
+            .unwrap()
+            .get(REBOOT_TIMER)
+            .map(String::as_str),
+        Some("disabled")
+    );
+    assert!(
+        String::from_utf8(files.read_file(Path::new(UPDATE_DROPIN)).unwrap().unwrap())
+            .unwrap()
+            .contains("OnSuccess=skillet-kexec-activate.service")
+    );
+    assert!(!system.service_is_active(REBOOT_TIMER).unwrap());
     apply(&system, &files, binary).unwrap();
 }
 
@@ -70,7 +93,7 @@ fn apply_only_installs_and_preserves_definition_on_repeat() {
     system.services.lock().unwrap().clear();
     apply(&system, &files, binary).unwrap();
     assert_eq!(files.read_file(Path::new(PATH)).unwrap().unwrap(), first);
-    assert_eq!(system.start_count.load(Ordering::SeqCst), 4);
+    assert_eq!(system.start_count.load(Ordering::SeqCst), 0);
     assert_eq!(system.restart_count.load(Ordering::SeqCst), 0);
     assert!(!system.services.lock().unwrap().contains_key(UNIT));
 }
@@ -105,5 +128,5 @@ fn interrupted_reload_is_retried_even_when_the_definition_already_exists() {
         .lock()
         .unwrap()
         .contains_key("daemon-reload"));
-    assert_eq!(system.start_count.load(Ordering::SeqCst), 2);
+    assert_eq!(system.start_count.load(Ordering::SeqCst), 0);
 }

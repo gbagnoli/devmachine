@@ -299,6 +299,14 @@ impl ServiceResource for MockSystem {
         Ok(())
     }
 
+    fn service_disable(&self, name: &str) -> Result<(), SystemError> {
+        self.services
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(name.to_string(), "disabled".to_string());
+        Ok(())
+    }
+
     fn daemon_reload(&self) -> Result<(), SystemError> {
         if self.fail_reload_once.swap(false, Ordering::SeqCst) {
             return Err(SystemError::Command("injected reload failure".to_string()));

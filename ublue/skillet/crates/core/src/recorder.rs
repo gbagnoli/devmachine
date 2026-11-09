@@ -270,6 +270,16 @@ impl<T: ServiceResource> ServiceResource for Recorder<T> {
         );
         result
     }
+    fn service_disable(&self, name: &str) -> Result<(), SystemError> {
+        let result = self.inner.service_disable(name);
+        self.record(
+            ResourceOp::ServiceDisable {
+                name: name.to_string(),
+            },
+            succeeded(&result),
+        );
+        result
+    }
     fn daemon_reload(&self) -> Result<(), SystemError> {
         let result = self.inner.daemon_reload();
         self.record(ResourceOp::DaemonReload, succeeded(&result));

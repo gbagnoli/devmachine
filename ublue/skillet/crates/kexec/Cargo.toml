@@ -9,9 +9,11 @@ workspace = true
 [dependencies]
 skillet_core.workspace = true
 nix.workspace = true
+tracing.workspace = true
 clap.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+time.workspace = true
 
 [dev-dependencies]
 skillet_core = { workspace = true, features = ["test-utils"] }
