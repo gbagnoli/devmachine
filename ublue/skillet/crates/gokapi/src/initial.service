@@ -7,6 +7,6 @@ RequiresMountsFor=/var/lib/data
 Type=oneshot
 LoadCredentialEncrypted=caddy_sites:/etc/credstore.encrypted/skillet/caddy_sites.cred
 LoadCredentialEncrypted=gokapi_admin_user:/etc/credstore.encrypted/skillet/gokapi_admin_user.cred
-ExecStart=/var/usrlocal/bin/skillet gokapi initialize --host-file /etc/skillet/host
+ExecStart=/usr/bin/skillet gokapi initialize --host-file /etc/skillet/host
 TimeoutStartSec=300
 UMask=0077

@@ -15,7 +15,7 @@ monitoring last. Failure stops later steps; retained credentials and convergence
 allow a retry. Existing Tailscale enrollment is reused; explicit delivery refreshes
 it. Caddy staging still performs scoped-token and DNS provider operations.
 
-For remote apply, deployment and standalone credential delivery, the mandatory
+For remote apply and standalone credential delivery, the mandatory
 positional profile defaults to the matching SSH alias; optional
 `--target HOST`/`USER@HOST` overrides connection identity only. OpenSSH resolves
 its own config. Omitted user, port, key and known-host settings are not replaced
@@ -24,16 +24,18 @@ verification and noninteractive authentication remain; encrypted keys use the
 operator's SSH agent. Failed SSH and unreadable host identity are distinct from
 a positively observed profile mismatch. Explicit `--local` or the retained
 `--host-file` form selects guest apply; an omitted target never means local apply. VM keys remain explicit run-owned artifacts.
-Remote apply deploys current generic and caller binaries before vault access or
-service activation; `--no-deploy` explicitly reuses installed binaries. Standalone
-`deploy` has no vault or service side effects. Both use Cargo-reported artifacts
-and the VM delivery owner without manufacturing a VM identity. VM callers retain
-run locks and ownership guards. Delivery verifies identity, bytes, root metadata
-and version, and uses unique staging plus atomic replacement per executable.
-A failed partial pair stops apply and can be retried; pair-wide atomicity and
-concurrent independent deployment are not guaranteed. Temporary provisioning
-sudo is required. Deployment does not migrate data, finalize access or isolate
-controllers.
+The active signed image owns persistent guest binaries at `/usr/bin`. Remote
+`apply` verifies the selected host and image versions, stages the workstation's
+generic CLI at a unique temporary path, then replaces each one-shot unit's
+`ExecStart` through `/run/systemd/system` for that activation. This works with
+older persistent `/etc` unit definitions too. Every persistent apply unit invokes
+the generic image-owned `/usr/bin/skillet` with `/etc/skillet/host`; each unit's
+`ExecStopPost` removes its override, and the workstation removes the temporary
+CLI after the full sequence. `/usr/bin` is never replaced. `--no-deploy` skips
+the temporary runner and uses the image-owned binary for apply too. New
+long-running helpers still require a Skillet release, ucore-images pin and
+activated image. VM provisioning retains its separate run-owned binaries and
+lifecycle guards.
 
 
 Caller-selected native networking prepares boot profiles before monitoring,

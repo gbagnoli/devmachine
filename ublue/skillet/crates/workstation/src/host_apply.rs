@@ -8,6 +8,57 @@ pub enum Step {
     Activate(&'static str),
 }
 
+/// Exact generic CLI arguments for every unit activated by remote apply. The
+/// temporary `ExecStart` override uses these to run workstation code even when
+/// the guest's persistent `/etc` unit still has an older executable path.
+pub fn temporary_arguments(unit: &str) -> Option<&'static [&'static str]> {
+    const HOST_FILE: &str = "/etc/skillet/host";
+    match unit {
+        "skillet-apply.service" => Some(&["apply", "--host-file", HOST_FILE, "--phase", "base"]),
+        "skillet-syncthing-initialize.service"
+        | "skillet-syncthing-personal-initialize.service" => {
+            Some(&["syncthing", "initialize", "--host-file", HOST_FILE])
+        }
+        "skillet-full-apply.service" => {
+            Some(&["apply", "--host-file", HOST_FILE, "--phase", "full"])
+        }
+        "skillet-pihole-dns-apply.service" => {
+            Some(&["apply", "--host-file", HOST_FILE, "--phase", "pihole-dns"])
+        }
+        "skillet-caddy-apply.service" => {
+            Some(&["apply", "--host-file", HOST_FILE, "--phase", "caddy"])
+        }
+        "skillet-gokapi-apply.service" => {
+            Some(&["apply", "--host-file", HOST_FILE, "--phase", "gokapi"])
+        }
+        "skillet-plex-apply.service" => {
+            Some(&["apply", "--host-file", HOST_FILE, "--phase", "plex"])
+        }
+        "skillet-joplin-apply.service" => {
+            Some(&["apply", "--host-file", HOST_FILE, "--phase", "joplin"])
+        }
+        "skillet-airtrail-apply.service" => {
+            Some(&["apply", "--host-file", HOST_FILE, "--phase", "airtrail"])
+        }
+        "skillet-media-apply.service" => {
+            Some(&["apply", "--host-file", HOST_FILE, "--phase", "media"])
+        }
+        "skillet-smtp-apply.service" => {
+            Some(&["apply", "--host-file", HOST_FILE, "--phase", "smtp"])
+        }
+        "skillet-ddns-apply.service" => {
+            Some(&["apply", "--host-file", HOST_FILE, "--phase", "ddns"])
+        }
+        "skillet-network-prepare.service" => {
+            Some(&["apply", "--host-file", HOST_FILE, "--phase", "network"])
+        }
+        "skillet-datadog-apply.service" => {
+            Some(&["apply", "--host-file", HOST_FILE, "--phase", "datadog"])
+        }
+        _ => None,
+    }
+}
+
 /// Service preparation and activation are distinct effects. Preparation must
 /// defer consumer activation; each related set is complete before its start.
 pub trait Actions {

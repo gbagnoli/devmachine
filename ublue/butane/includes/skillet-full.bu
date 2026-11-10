@@ -19,7 +19,7 @@ systemd:
         [Service]
         Type=oneshot
         LoadCredentialEncrypted=tailscale_auth_key:/etc/credstore.encrypted/skillet/tailscale_auth_key.cred
-        ExecStart=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase full
+        ExecStart=/usr/bin/skillet apply --host-file /etc/skillet/host --phase full
 
         [Install]
         WantedBy=multi-user.target

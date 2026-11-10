@@ -31,8 +31,8 @@ pub(super) struct Args {
     /// Override SSH destination: HOST, alias, or USER@HOST
     #[arg(long)]
     target: Option<String>,
-    /// Reuse installed guest binaries instead of deploying current source
-    #[arg(long)]
+    /// Use only the active image binaries; skip temporary workstation runners
+    #[arg(long, conflicts_with_all = ["host_file", "local"])]
     no_deploy: bool,
     /// Override SSH config port
     #[arg(long)]
@@ -104,17 +104,10 @@ fn remote(args: &Args) -> Result<()> {
         args.known_hosts.as_deref(),
     )?;
     skillet_workstation::deployment::verify_host(host, &transport)?;
-    if args.no_deploy {
-        println!(
-            "Workstation Skillet {}; deployment skipped (--no-deploy)",
-            skillet_cli_common::version::version()
-        );
-        let installed = skillet_workstation::deployment::installed_versions(host, &transport)?;
-        println!("Installed: {}", installed.generic_version);
-        println!("Installed: {}", installed.host_version);
-    } else {
-        super::deploy::deploy(host, &transport)?;
-    }
+    let installed = skillet_workstation::deployment::installed_versions(host, &transport)?;
+    println!("Image-owned guest binaries:");
+    println!("  {}", installed.generic_version);
+    println!("  {}", installed.host_version);
     let path = args.database.clone().map_or_else(Vault::default_path, Ok)?;
     let mut vault = Vault::open(&path, args.key_file.as_deref())?;
     let report = skillet_workstation::secrets::check_with_entries(
@@ -150,15 +143,61 @@ fn remote(args: &Args) -> Result<()> {
         known_hosts: args.known_hosts.clone(),
         activate: false,
     };
-    host_apply::run(
-        &profile,
+    apply_remote_services(
+        host, args, &profile, &installed, delivery, &mut vault, &transport,
+    )
+}
+
+fn apply_remote_services<T: GuestTransport>(
+    host: &str,
+    args: &Args,
+    profile: &skillet_hosts::HostProfile,
+    installed: &skillet_workstation::deployment::Report,
+    delivery: SecretDeliverArgs,
+    vault: &mut Vault,
+    transport: &T,
+) -> Result<()> {
+    let temporary_runner = if args.no_deploy {
+        println!("Using the active image binaries (--no-deploy)");
+        None
+    } else {
+        println!("Building and staging a temporary remote apply runner");
+        Some(skillet_workstation::deployment::stage_temporary_runner(
+            host,
+            &super::workspace_root()?,
+            transport,
+        )?)
+    };
+    if let Some(runner) = &temporary_runner {
+        println!("Temporary workstation runner: {}", runner.version());
+        if runner.version() != installed.generic_version {
+            eprintln!(
+                "These versions differ. This command uses the workstation runner only for the current apply. After cleanup, systemd uses the image's /usr/bin/skillet; update the image before relying on newer code after reboot."
+            );
+        }
+    }
+    let apply_result = host_apply::run(
+        profile,
         &mut Runner {
             delivery,
-            vault: &mut vault,
-            transport: &transport,
+            vault,
+            transport,
+            temporary_binary: temporary_runner
+                .as_ref()
+                .map(|runner| runner.path().to_owned()),
+            temporary_token: temporary_runner
+                .as_ref()
+                .map(|runner| runner.token().to_owned()),
             wait_for_tailscale: profile.supports_service("tailscale"),
         },
-    )?;
+    );
+    let cleanup_result = temporary_runner
+        .as_ref()
+        .map(|runner| skillet_workstation::deployment::cleanup_temporary_runner(runner, transport));
+    apply_result?;
+    if let Some(result) = cleanup_result {
+        result?;
+    }
     println!("Applied all declared services for {host}");
     if profile.host_network_selection().is_some() {
         println!("Network profiles prepared for the next boot; live connections were not switched");
@@ -170,6 +209,8 @@ struct Runner<'a, T: GuestTransport> {
     delivery: SecretDeliverArgs,
     vault: &'a mut Vault,
     transport: &'a T,
+    temporary_binary: Option<String>,
+    temporary_token: Option<String>,
     wait_for_tailscale: bool,
 }
 
@@ -195,7 +236,25 @@ impl<T: GuestTransport> host_apply::Actions for Runner<'_, T> {
 
     fn activate(&mut self, unit: &'static str) -> Result<()> {
         println!("Applying {unit}");
-        host_apply::activate(self.transport, unit).with_context(|| format!("applying {unit}"))?;
+        if let Some(token) = &self.temporary_token {
+            let binary = self
+                .temporary_binary
+                .as_deref()
+                .ok_or_else(|| anyhow!("temporary apply runner is incomplete"))?;
+            let arguments = host_apply::temporary_arguments(unit)
+                .ok_or_else(|| anyhow!("missing temporary command declaration for {unit}"))?;
+            skillet_workstation::deployment::activate_with_runner(
+                self.transport,
+                unit,
+                binary,
+                token,
+                arguments,
+            )
+            .with_context(|| format!("applying {unit} with the temporary runner"))?;
+        } else {
+            host_apply::activate(self.transport, unit)
+                .with_context(|| format!("applying {unit}"))?;
+        }
         if unit == "skillet-full-apply.service" && self.wait_for_tailscale {
             println!("Waiting for Tailscale enrollment before configuring UI DNS");
             skillet_workstation::tailscale_enrollment::wait_for_guest_addresses(

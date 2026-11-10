@@ -16,6 +16,7 @@ pub mod provisioning;
 pub mod readiness;
 pub mod runtime;
 pub mod staging;
+pub mod temporary_override;
 pub mod transport;
 
 pub use manifest::{

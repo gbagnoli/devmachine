@@ -55,8 +55,8 @@ fn guest_host_file_and_explicit_local_modes_remain_available() {
     for args in [
         vec!["skillet", "apply", "--target", "alias"],
         vec!["skillet", "apply", "clamps", "--host-file", "/tmp/host"],
-        vec!["skillet", "apply", "clamps", "--local", "--target", "alias"],
         vec!["skillet", "apply", "clamps", "--local", "--no-deploy"],
+        vec!["skillet", "apply", "clamps", "--local", "--target", "alias"],
         vec!["skillet", "apply", "clamps", "--record", "/tmp/record"],
     ] {
         assert!(crate::Args::try_parse_from(args).is_err());
@@ -78,7 +78,7 @@ fn invalid_remote_profile_or_policy_fails_before_connection_and_unlock() {
     }
 }
 #[test]
-fn no_deploy_and_ssh_overrides_do_not_require_explicit_target() {
+fn image_owned_apply_and_ssh_overrides_do_not_require_explicit_target() {
     assert!(parse(&["skillet", "apply", "clamps", "--no-deploy"]).no_deploy);
     let args = parse(&[
         "skillet",
@@ -93,36 +93,15 @@ fn no_deploy_and_ssh_overrides_do_not_require_explicit_target() {
     assert!(args.identity.is_some());
 }
 #[test]
-fn deploy_requires_positional_host_but_target_is_an_optional_override() {
-    for args in [
-        vec!["skillet", "deploy", "clamps"],
-        vec!["skillet", "deploy", "clamps", "--target", "alternate"],
-        vec![
-            "skillet",
-            "deploy",
-            "clamps",
-            "--target",
-            "user@example.invalid",
-        ],
-    ] {
-        assert!(crate::Args::try_parse_from(args).is_ok());
-    }
-    assert!(crate::Args::try_parse_from(["skillet", "deploy"]).is_err());
-    assert!(crate::Args::try_parse_from(["skillet", "deploy", "--host", "clamps"]).is_err());
-}
-
-#[test]
-fn apply_and_deploy_help_link_to_ssh_agent_setup() {
+fn apply_help_links_to_ssh_agent_setup() {
     use clap::CommandFactory as _;
-    for command in ["apply", "deploy"] {
-        let mut cli = crate::Args::command();
-        let help = cli
-            .find_subcommand_mut(command)
-            .unwrap()
-            .render_help()
-            .to_string();
-        assert!(help.contains("SSH keys:"));
-        assert!(help.contains("README.md#ssh-agent"));
-        assert!(help.contains("KeePass"));
-    }
+    let mut cli = crate::Args::command();
+    let help = cli
+        .find_subcommand_mut("apply")
+        .unwrap()
+        .render_help()
+        .to_string();
+    assert!(help.contains("SSH keys:"));
+    assert!(help.contains("README.md#ssh-agent"));
+    assert!(help.contains("KeePass"));
 }

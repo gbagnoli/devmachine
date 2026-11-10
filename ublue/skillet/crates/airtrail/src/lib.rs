@@ -310,7 +310,7 @@ where
     let root = skillet_core::files::Ownership::named(Some("root"), Some("root"));
     let unit_dir = std::path::Path::new("/etc/systemd/system");
     files.ensure_directory(unit_dir, Some(0o755), &root)?;
-    let binary = format!("/var/usrlocal/bin/skillet-{host}");
+    let binary = format!("/usr/bin/skillet-{host}");
     let backup_service = format!(
         "[Unit]\nDescription=Create a consistent AirTrail database and uploads backup\nRequiresMountsFor=/var/lib/data\nRequires=postgresql-airtrail.service\nAfter=postgresql-airtrail.service\nConditionPathIsMountPoint=/var/lib/data\n[Service]\nType=oneshot\nTimeoutStartSec=2h\nExecStart={binary} airtrail backup\nUMask=0027\nNoNewPrivileges=yes\nProtectHome=yes\nPrivateTmp=yes\n"
     );

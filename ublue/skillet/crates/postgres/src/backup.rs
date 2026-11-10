@@ -99,7 +99,7 @@ where
     files.ensure_directory(unit_dir, Some(0o755), &root)?;
     let service_name = format!("skillet-postgres-{}-backup.service", config.instance);
     let timer_name = format!("skillet-postgres-{}-backup.timer", config.instance);
-    let binary = format!("/var/usrlocal/bin/skillet-{host}");
+    let binary = format!("/usr/bin/skillet-{host}");
     let service = format!(
         "[Unit]\nDescription=Back up the {} PostgreSQL database\nRequiresMountsFor=/var/lib/data\nRequires={}.service\nAfter={}.service\nConditionPathIsMountPoint=/var/lib/data\n[Service]\nType=oneshot\nTimeoutStartSec=2h\nExecStart={binary} postgres backup --instance {}\nUMask=0027\nNoNewPrivileges=yes\nProtectHome=yes\nPrivateTmp=yes\n",
         config.instance, config.container, config.container, config.instance

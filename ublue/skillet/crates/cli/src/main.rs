@@ -7,7 +7,6 @@ use tracing_subscriber::FmtSubscriber;
 
 mod apply;
 mod auth;
-mod deploy;
 mod installation;
 mod root_recovery;
 mod secret_delivery;
@@ -97,8 +96,6 @@ enum Commands {
     },
     /// Apply locally, or deliver credentials and apply all declared services over SSH
     Apply(apply::Args),
-    /// Build and deploy current generic and host binaries over verified SSH
-    Deploy(deploy::Args),
     /// Run the real-runtime smoke scenario against a disposable VM
     Test {
         #[command(subcommand)]
@@ -464,7 +461,6 @@ fn main() -> Result<()> {
         } => secret_delivery::lock_vault(args.database.as_deref())?,
         Commands::Auth { command } => auth::dispatch(&command)?,
         Commands::Apply(args) => apply::dispatch(&args)?,
-        Commands::Deploy(args) => deploy::dispatch(&args)?,
         Commands::Test {
             command: TestCommands::Run(args),
         } => run_container_test(&args)?,

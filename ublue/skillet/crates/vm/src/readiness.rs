@@ -103,9 +103,33 @@ pub fn ready(
         verify_signed_origin(&status, &policy.signed_image)?;
         report("Applying the base profile and user environment");
         let transport = &operations;
+        checked(
+            transport,
+            "sudo",
+            &["-n", "systemctl", "reset-failed", "skillet-apply.service"],
+        )?;
+        crate::temporary_override::with_exec_start(
+            transport,
+            "skillet-apply.service",
+            &uuid::Uuid::new_v4().simple().to_string(),
+            "/var/usrlocal/bin/skillet",
+            &[
+                "apply",
+                "--host-file",
+                "/etc/skillet/host",
+                "--phase",
+                "base",
+            ],
+            || {
+                checked(
+                    transport,
+                    "sudo",
+                    &["-n", "systemctl", "restart", "skillet-apply.service"],
+                )
+                .map(|_| ())
+            },
+        )?;
         for arguments in [
-            vec!["reset-failed", "skillet-apply.service"],
-            vec!["restart", "skillet-apply.service"],
             vec![
                 "reset-failed",
                 "brew-install.service",
@@ -349,10 +373,13 @@ fn verify(
         )?;
     }
     let definition = checked(transport, "systemctl", &["cat", "skillet-apply.service"])?;
-    if !String::from_utf8_lossy(&definition).lines().any(|line| {
-        line == "ExecStart=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase base"
+    let definition = String::from_utf8_lossy(&definition);
+    if !definition.lines().any(|line| {
+        line == "ExecStart=/usr/bin/skillet apply --host-file /etc/skillet/host --phase base"
     }) {
-        return Err(Error::Invalid("base unit does not use the stable host profile".into()));
+        return Err(Error::Invalid(
+            "base unit does not use the stable host profile".into(),
+        ));
     }
     for unit in &policy.masked_units {
         // systemctl is-enabled returns nonzero for a correctly masked unit.

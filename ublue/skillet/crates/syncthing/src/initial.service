@@ -8,5 +8,5 @@ ConditionPathExists=/etc/credstore.encrypted/skillet/syncthing_initial.cred
 [Service]
 Type=oneshot
 LoadCredentialEncrypted=syncthing_initial:/etc/credstore.encrypted/skillet/syncthing_initial.cred
-ExecStart=/var/usrlocal/bin/skillet syncthing initialize --host-file /etc/skillet/host
+ExecStart=/usr/bin/skillet syncthing initialize --host-file /etc/skillet/host
 TimeoutStartSec=120

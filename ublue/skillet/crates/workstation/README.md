@@ -45,31 +45,29 @@ After signed bootstrap, data/identity migration preparation and the vault audit:
 cargo run --release -p skillet -- apply HOST
 ```
 
-Remote apply first builds and deploys both current binaries, prints their verified
-versions, then configures all caller-selected services. Deployment requires this
-source checkout, Cargo and the musl compiler; it honors Cargo's target directory.
-Use `apply HOST --no-deploy` to reuse installed
-binaries (their versions are still printed).
-
-Deploy binaries separately, without vault access or service activation:
-
-```sh
-cargo run --release -p skillet -- deploy HOST
-```
+Remote apply prints the generic and host-specific `/usr/bin` versions, then stages
+the workstation's generic CLI at a unique temporary path. Every persistent apply
+unit invokes the image-owned `/usr/bin/skillet` with `/etc/skillet/host`; a
+runtime `ExecStart` override selects the temporary CLI for that activation,
+including when an older `/etc` unit has a hard-coded executable path. The
+temporary file and overrides are removed at the end. Use
+`apply HOST --no-deploy` to skip the temporary runner and use only the active
+image binary. New long-running helpers and service commands must ship in a
+Skillet release pinned by ucore-images and an activated image. Try new code on a
+disposable VM first.
 
 Remote privileged operations support password-required sudo after access
 finalization when run from an interactive terminal; see
 [sudo authentication](#sudo-authentication). Stop old DNS writers and restored
 controller identities before activating their replacements. Apply does not
-migrate service data. Deployment verifies host identity before
-building and again before transfer, installs each binary through a unique staged
-file and atomic rename, restores its SELinux label, then checks hashes, root
-ownership, mode and versions. The pair is not an atomic transaction: failed
-partial deployment stops apply; retry converges the remaining binary. Service
-units converge through the newly deployed guest base phase.
+migrate service data. It verifies host identity before vault access and again
+before credential delivery. The temporary binary's hash and version are checked;
+a host-wide runtime lock prevents overlapping temporary overrides. Each unit
+removes its own override on stop. If an interruption leaves the lock behind,
+verify no apply is active before removing `/run/skillet-remote-apply.lock`.
 
 The positional host is mandatory and also the default SSH alias: `apply HOST`
-and `deploy HOST` connect as the equivalent of `ssh HOST`. OpenSSH reads its
+connects as the equivalent of `ssh HOST`. OpenSSH reads its
 normal configuration, including HostName, User, Port, IdentityFile and known-host
 settings; otherwise its standard defaults apply. `--target OTHER_ALIAS` or
 `--target USER@ADDRESS` overrides the destination while retaining the selected
@@ -133,7 +131,7 @@ stops it when finished; do not stop a shared desktop/session agent.
 cargo run --release -p skillet -- secrets deliver HOST SERVICE
 ```
 
-The host also selects the default SSH alias, as with `apply` and `deploy`.
+The host also selects the default SSH alias, as with `apply`.
 Use `--target HOST` or `--target USER@ADDRESS` to override only the connection.
 
 Delivery stages by default. Add `--activate` to start its consumer. Pi-hole and
@@ -158,15 +156,15 @@ Designs: [secret delivery](../../../design/secrets.md),
 
 ## Sudo authentication
 
-`deploy`, remote `apply`, credential delivery and physical recovery commands
+Remote `apply`, credential delivery and physical recovery commands
 support password-required sudo from an interactive terminal. Commands remain the
 same after `access finalize`. First unlock an encrypted SSH key through your
 normal SSH agent (`ssh-add`); then Skillet prompts separately for the remote sudo
 password when sudo requests it. The KeePassXC password and cache are separate.
 
 After a successful authenticated operation, Skillet caches the sudo password in
-the local Linux kernel for at most 30 minutes from entry. Reuse across deploy,
-apply, delivery and recovery commands does not extend expiry. It is bound to the
+the local Linux kernel for at most 30 minutes from entry. Reuse across apply,
+delivery and recovery commands does not extend expiry. It is bound to the
 effective SSH configuration and pinned host trust; changes can require a new prompt.
 Dynamic/unavailable trust or kernel caching falls back to bounded invocation memory.
 A rejected password prompts again interactively. No-password sudo does not prompt.
@@ -187,7 +185,7 @@ The helper, sockets and forwarding process are scoped to the command and cleaned
 up afterward. An interrupted network connection may leave a helper directory,
 but it contains no password and cannot obtain one after the forward closes.
 This interactive path needs the source checkout, Cargo and musl toolchain just
-like deployment; it also works with the old guest binary on the first update.
+like the temporary apply runner; the active image binary remains untouched.
 
 Provider-free live authentication acceptance uses only generated disposable state:
 

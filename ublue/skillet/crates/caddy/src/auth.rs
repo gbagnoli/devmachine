@@ -236,7 +236,7 @@ where
     apply_socket_policy(system, files, &root)?;
     let payload = serde_json::to_vec(policy)?;
     let policy_changed = files.ensure_file(Path::new(POLICY_FILE), &payload, Some(0o600), &root)?;
-    let unit = "[Unit]\nDescription=Skillet tailnet UI authorization\nRequires=skillet-tailnet-ui-policy.service\nAfter=skillet-tailnet-ui-policy.service tailscale.service\n\n[Service]\nExecStart=/var/usrlocal/bin/skillet tailnet-ui serve\nRuntimeDirectory=skillet-tailnet-ui\nRuntimeDirectoryMode=0700\nRuntimeDirectoryPreserve=yes\nRestart=on-failure\nUMask=0077\nSELinuxContext=system_u:system_r:skillet_tailnet_ui_t:s0\nNoNewPrivileges=yes\nProtectSystem=strict\nProtectHome=yes\nPrivateTmp=yes\nReadWritePaths=/run/skillet-tailnet-ui\nRestrictAddressFamilies=AF_UNIX\n\n[Install]\nWantedBy=multi-user.target\n";
+    let unit = "[Unit]\nDescription=Skillet tailnet UI authorization\nRequires=skillet-tailnet-ui-policy.service\nAfter=skillet-tailnet-ui-policy.service tailscale.service\n\n[Service]\nExecStart=/usr/bin/skillet tailnet-ui serve\nRuntimeDirectory=skillet-tailnet-ui\nRuntimeDirectoryMode=0700\nRuntimeDirectoryPreserve=yes\nRestart=on-failure\nUMask=0077\nSELinuxContext=system_u:system_r:skillet_tailnet_ui_t:s0\nNoNewPrivileges=yes\nProtectSystem=strict\nProtectHome=yes\nPrivateTmp=yes\nReadWritePaths=/run/skillet-tailnet-ui\nRestrictAddressFamilies=AF_UNIX\n\n[Install]\nWantedBy=multi-user.target\n";
     let changed = files.ensure_file(
         Path::new("/etc/systemd/system/skillet-tailnet-ui.service"),
         unit.as_bytes(),

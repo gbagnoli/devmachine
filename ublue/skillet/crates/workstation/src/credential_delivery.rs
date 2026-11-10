@@ -258,7 +258,7 @@ pub(crate) fn remote_credential_present(
     credential: &str,
     guest: &impl GuestTransport,
 ) -> Result<bool, CredentialDeliveryError> {
-    let program = format!("/var/usrlocal/bin/skillet-{host}");
+    let program = format!("/usr/bin/skillet-{host}");
     let output = guest.execute(
         &skillet_vm::transport::GuestCommand {
             program: "/usr/bin/sudo",

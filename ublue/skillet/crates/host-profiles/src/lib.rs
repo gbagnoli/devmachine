@@ -10,6 +10,7 @@ use std::collections::BTreeMap;
 use thiserror::Error;
 
 mod application_unit;
+mod apply_units;
 pub mod profile;
 pub mod tailscale;
 pub use profile::{

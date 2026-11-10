@@ -6,4 +6,4 @@ ConditionPathExists=/etc/credstore.encrypted/skillet/pihole_dns.cred
 [Service]
 Type=oneshot
 LoadCredentialEncrypted=pihole_dns:/etc/credstore.encrypted/skillet/pihole_dns.cred
-ExecStart=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase pihole-dns
+ExecStart=/usr/bin/skillet apply --host-file /etc/skillet/host --phase pihole-dns

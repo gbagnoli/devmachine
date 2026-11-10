@@ -195,7 +195,7 @@ where
     let units = App::ALL
         .map(|app| format!("{}.service", app.name()))
         .join(" ");
-    let unit = format!("[Unit]\nDescription=Reconcile the declared Arr application links\nRequires={units}\nAfter={units}\nRequiresMountsFor=/var/lib/data\n[Service]\nType=oneshot\nTimeoutStartSec=10min\nLoadCredentialEncrypted={CREDENTIAL}:/etc/credstore.encrypted/skillet/{CREDENTIAL}.cred\nExecStart=/var/usrlocal/bin/skillet-{host} media reconcile\nUMask=0077\n[Install]\nWantedBy=multi-user.target\n");
+    let unit = format!("[Unit]\nDescription=Reconcile the declared Arr application links\nRequires={units}\nAfter={units}\nRequiresMountsFor=/var/lib/data\n[Service]\nType=oneshot\nTimeoutStartSec=10min\nLoadCredentialEncrypted={CREDENTIAL}:/etc/credstore.encrypted/skillet/{CREDENTIAL}.cred\nExecStart=/usr/bin/skillet media reconcile\nUMask=0077\n[Install]\nWantedBy=multi-user.target\n");
     let path = Path::new("/etc/systemd/system/skillet-media-reconcile.service");
     if files.ensure_file(
         path,

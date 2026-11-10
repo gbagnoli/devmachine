@@ -33,6 +33,8 @@ pub(super) fn install(
     if !profile.requires_full_apply_credentials() {
         return Ok(());
     }
+    crate::apply_units::install(system, files)?;
+    crate::apply_units::install_full(system, files)?;
     let directory = Path::new("/etc/systemd/system/skillet-full-apply.service.d");
     let root = Ownership::named(Some("root"), Some("root"));
     files.ensure_directory(directory, Some(0o755), &root)?;
@@ -128,8 +130,7 @@ fn install_application(
     }
     let _ = writeln!(
         unit,
-        "ExecStart=/var/usrlocal/bin/skillet-{} apply --phase {phase}\n[Install]\nWantedBy=multi-user.target\n",
-        profile.id.as_str()
+        "ExecStart=/usr/bin/skillet apply --host-file /etc/skillet/host --phase {phase}\n[Install]\nWantedBy=multi-user.target\n"
     );
     let changed = files.ensure_file(&path, unit.as_bytes(), Some(0o644), &root)?;
     if changed {

@@ -71,7 +71,7 @@ where
     )?;
     for site in services {
         let name = &site.name;
-        let unit = format!("[Unit]\nDescription=Private host UI relay for {name}\nRequires=skillet-ui-host-policy.service\nAfter=skillet-ui-host-policy.service\n[Service]\nExecStart=/var/usrlocal/bin/skillet ui-proxy serve --name {name} --port {}\nRuntimeDirectory=skillet-ui-host\nRuntimeDirectoryMode=0700\nRuntimeDirectoryPreserve=yes\nRestart=on-failure\nUMask=0077\nSELinuxContext=system_u:system_r:skillet_ui_host_t:s0\nNoNewPrivileges=yes\nProtectSystem=strict\nProtectHome=yes\nPrivateTmp=yes\nReadWritePaths=/run/skillet-ui-host\nRestrictAddressFamilies=AF_UNIX AF_INET\nIPAddressDeny=any\nIPAddressAllow=localhost\nTasksMax=300\n[Install]\nWantedBy=multi-user.target\n", site.port);
+        let unit = format!("[Unit]\nDescription=Private host UI relay for {name}\nRequires=skillet-ui-host-policy.service\nAfter=skillet-ui-host-policy.service\n[Service]\nExecStart=/usr/bin/skillet ui-proxy serve --name {name} --port {}\nRuntimeDirectory=skillet-ui-host\nRuntimeDirectoryMode=0700\nRuntimeDirectoryPreserve=yes\nRestart=on-failure\nUMask=0077\nSELinuxContext=system_u:system_r:skillet_ui_host_t:s0\nNoNewPrivileges=yes\nProtectSystem=strict\nProtectHome=yes\nPrivateTmp=yes\nReadWritePaths=/run/skillet-ui-host\nRestrictAddressFamilies=AF_UNIX AF_INET\nIPAddressDeny=any\nIPAddressAllow=localhost\nTasksMax=300\n[Install]\nWantedBy=multi-user.target\n", site.port);
         let service = format!("skillet-ui-host-{name}.service");
         let changed = files.ensure_file(
             &Path::new("/etc/systemd/system").join(&service),

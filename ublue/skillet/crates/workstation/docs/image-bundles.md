@@ -33,11 +33,14 @@ does not remove executable bits. Create the receiving output root with
 To verify a transported tree, run its generic executable with the same command,
 using the transported binary paths and its existing root as `--output`.
 
-Existing `/var/usrlocal/bin` delivery and unit references remain active. Inspect
-the candidate binaries explicitly as `/usr/bin/skillet --version` and
-`/usr/bin/skillet-clamps --version` after building an image. No boot consumer is
-switched for general apply by this bundle. After module reconciliation, btrbk's
-vendor service uses the image caller binary. See the
+Persistent service units use `/usr/bin/skillet` or `/usr/bin/skillet-<host>` from
+the active image. `/var/usrlocal/bin` remains for early bootstrap and legacy
+compatibility, not as a persistent service override. Remote `apply` can stage a
+unique, verified workstation binary and select it with a temporary runtime
+`ExecStart` override; the persistent executable remains unchanged. `--no-deploy` uses the
+image binary for the apply transaction too. Inspect candidate binaries with
+`/usr/bin/skillet --version` and `/usr/bin/skillet-clamps --version` after
+building an image. See the
 [btrbk migration guide](../../btrbk/README.md) before retiring legacy overrides;
 retain a migration-capable mutable caller for OS rollback.
 

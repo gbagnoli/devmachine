@@ -6,5 +6,5 @@ Before=postfix.service
 Type=oneshot
 RemainAfterExit=yes
 LoadCredentialEncrypted=smtp_config:/etc/credstore.encrypted/skillet/smtp_config.cred
-ExecStart=/var/usrlocal/bin/skillet smtp prepare
+ExecStart=/usr/bin/skillet smtp prepare
 ExecStartPost=/usr/sbin/restorecon -RF /var/spool/postfix /var/lib/postfix

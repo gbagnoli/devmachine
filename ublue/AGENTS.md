@@ -149,6 +149,11 @@
 - Generated unit executable paths must agree with the actual bootstrap and
   update delivery paths. Cover that agreement in regression checks; consumer
   placeholders alone cannot establish deployment correctness.
+- Treat the immutable image binary as the sole authority for persistent guest
+  services. Remote configuration apply must not leave a mutable executable that
+  silently shadows it; any temporary guest execution must be isolated, bounded,
+  and cleaned up on success and failure. Keep bootstrap-only executables clearly
+  separate from normal service entry points.
 - Long-running services declare their own boot activation and dependencies.
   Configuration apply must not be their only startup path; verify reboot with
   already converged configuration as well as initial activation.

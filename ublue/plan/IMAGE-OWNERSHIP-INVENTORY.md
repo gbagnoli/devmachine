@@ -6,10 +6,10 @@ Companion: [implementation slices](IMAGE-OWNED-CONFIGURATION.md).
 
 | Outputs/effects | Current owner/location | Image candidate | Retained runtime responsibility |
 | --- | --- | --- | --- |
-| Generic/caller executables | Workstation delivery, `/var/usrlocal/bin/skillet*` | Matching clean binaries in `/usr/bin`, public release manifest | Explicit live repair; migrate mutable precedence before switching consumers |
+| Generic/caller executables | Matching clean binaries in `/usr/bin`; unique workstation runner only during remote apply | Public release manifest and exact source pin | Early bootstrap and verified legacy migration; temporary apply cleanup/recovery |
 | Storage preparation and collector/proxy helpers | Runtime installation and generated units | Versioned programs under `/usr/libexec/skillet` or `/usr/bin` | Observed disks, mounts, Btrfs subvolumes, identities and actual metrics |
 | SSH/sysctl/ET hardening | Image files plus idempotent runtime convergence | Vendor static defaults | Preserve admin overrides; distinguish managed receipts before migration |
-| Apply, credential, kexec and initialization units | Kexec vendor units; other definitions generated under `/etc/systemd/system` | Static vendor units under `/usr/lib/systemd/system` | Private credential drop-ins, activation gates, convergence receipts and explicit reboot policy |
+| Apply, credential, kexec and initialization units | Image `/usr/bin` defaults; remote apply may use a temporary runtime environment override | Static vendor units under `/usr/lib/systemd/system` | Private credential drop-ins, activation gates, convergence receipts and explicit reboot policy |
 | btrbk | Vendor bundle with verified retirement of legacy `/etc` definitions; scoped native retained-VM acceptance passed | `/usr/share/skillet/btrbk` config/marker, `/usr/lib/systemd/system` units, image Rust guard | Require mounted data and leaf subvolume; snapshot-directory preparation, activation/rollback reconciliation and snapshots themselves |
 | Podman networks, graphroot, firewall/storage prerequisites | Runtime resource adapters | Public declaration/rendering only where static | Inspect/converge actual storage, forwarding and observed private LAN policy |
 | Pi-hole, Syncthing, File Browser Quantum, Homer, UniFi | Generated Quadlets/config, mutable volumes | Public container/service skeletons and bundled UI assets | Private DNS, UI/environment inputs, first-use config, application edits and data |

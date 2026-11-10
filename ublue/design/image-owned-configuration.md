@@ -33,8 +33,15 @@ after worker failure; unloading the kernel alone cannot undo that merge boundary
 Cleanup restores the staging daemon's temporary mask. Other administrative tools
 must observe the maintenance boundary. Remote multi-phase apply may be interrupted
 and retried after reboot; its complete sequence is not an atomic transaction.
-Firmware/TPM policy changes remain supervised. Existing runtime deployment and
-container updates continue until their individual migrations are implemented.
+Firmware/TPM policy changes remain supervised. Remote apply may use a uniquely
+named, hash-verified workstation binary for one transaction through a runtime
+systemd `ExecStart` override. Each apply unit removes its override on stop, and
+the workstation removes the binary and lock after the full apply. This path does
+not replace the image binary or provide new long-running helpers: persistent
+units and post-reboot behavior use `/usr/bin`. `--no-deploy` skips the temporary
+runner. An interrupted client can leave the `/run` lock for inspection; the
+unique runner never shadows the fixed image path. Container updates continue
+until their individual migrations are implemented.
 
 [Implementation slices and acceptance](../plan/IMAGE-OWNED-CONFIGURATION.md).
 

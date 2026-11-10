@@ -55,11 +55,11 @@ fn output(code: i32, stdout: impl Into<Vec<u8>>) -> Output {
 }
 
 impl GuestTransport for FakeGuest {
-    fn execute(&self, command: &GuestCommand<'_>, _: Option<&[u8]>) -> Result<Output> {
+    fn execute(&self, command: &GuestCommand<'_>, input: Option<&[u8]>) -> Result<Output> {
         self.calls
             .borrow_mut()
             .push(format!("{} {:?}", command.program, command.arguments));
-        let (program, args) = if command.program == "sudo" {
+        let (program, args) = if matches!(command.program, "sudo" | "/usr/bin/sudo") {
             if self.no_ssh {
                 return Ok(output(255, ""));
             }
@@ -100,6 +100,13 @@ impl GuestTransport for FakeGuest {
                 return Ok(output(i32::from(!self.files.borrow().contains_key(*path)), ""));
             }
             ("test", ["-e", path]) if path.starts_with("/var/lib/ucore-bootstrap/") => String::new(),
+            ("tee", [path]) => {
+                self.files.borrow_mut().insert(
+                    (*path).into(),
+                    String::from_utf8_lossy(input.unwrap_or_default()).into_owned(),
+                );
+                String::new()
+            }
             ("install", ["-o", "0", "-g", "0", "-m", "0755", source, destination]) => {
                 let hash = self.files.borrow().get(*source).cloned().ok_or_else(|| Error::Invalid("unstaged fake file".into()))?;
                 self.files.borrow_mut().insert((*destination).into(), hash);
@@ -135,11 +142,17 @@ impl GuestTransport for FakeGuest {
             ("getent", ["hosts", "ghcr.io"]) => "192.0.2.1 ghcr.io\n".into(),
             ("systemctl", ["show", "-p", "Result", "--value", _]) => "success\n".into(),
             ("systemctl", ["show", "-p", "ExecMainStatus", "--value", _]) => "0\n".into(),
-            ("systemctl", ["cat", "skillet-apply.service"]) => "ExecStart=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase base\n".into(),
+            ("systemctl", ["show", "--property=ExecStart", "--value", _]) => "{ path=/var/usrlocal/bin/skillet ; argv[]=/var/usrlocal/bin/skillet apply --host-file /etc/skillet/host --phase base ; ignore_errors=no }\n".into(),
+            ("systemctl", ["cat", "skillet-apply.service"]) => "ExecStart=/usr/bin/skillet apply --host-file /etc/skillet/host --phase base\n".into(),
             ("systemctl", ["status", "--no-pager", "skillet-apply.service"]) => "Active: active (exited)\n".into(),
             ("cat", ["/etc/resolv.conf"]) => "nameserver 192.0.2.53\n".into(),
             ("systemctl", ["is-enabled", "fixture-masked.service"]) => return Ok(output(1, "masked\n")),
-            ("restorecon", ["-F", _]) | ("true", []) | ("/home/linuxbrew/.linuxbrew/bin/brew", ["bundle", "check", "--no-upgrade", "--file", _]) => String::new(),
+            ("install", ["-d", ..])
+            | ("systemctl", ["daemon-reload"])
+            | ("rmdir", ["--ignore-fail-on-non-empty", _])
+            | ("restorecon", ["-F", _])
+            | ("true", [])
+            | ("/home/linuxbrew/.linuxbrew/bin/brew", ["bundle", "check", "--no-upgrade", "--file", _]) => String::new(),
             _ => return Err(Error::Invalid(format!("unsupported fake operation: {program} {args:?}"))),
         };
         Ok(output(0, stdout))

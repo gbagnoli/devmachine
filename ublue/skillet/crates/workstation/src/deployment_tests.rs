@@ -1,5 +1,5 @@
 use super::*;
-use std::{cell::Cell, os::unix::process::ExitStatusExt as _, process::Output};
+use std::{cell::Cell, os::unix::process::ExitStatusExt as _, path::Path, process::Output};
 struct Guest {
     identity: &'static str,
     calls: Cell<usize>,
@@ -21,18 +21,16 @@ impl GuestTransport for Guest {
     }
 }
 #[test]
-fn mismatch_prevents_build_and_delivery() {
+fn mismatch_prevents_credential_delivery() {
     let guest = Guest {
         identity: "joey\n",
         calls: Cell::new(0),
         code: 0,
     };
-    assert!(
-        deploy("clamps", Path::new("/nonexistent-workspace"), &guest)
-            .unwrap_err()
-            .to_string()
-            .contains("identity differs")
-    );
+    assert!(verify_host("clamps", &guest)
+        .unwrap_err()
+        .to_string()
+        .contains("identity differs"));
     assert_eq!(guest.calls.get(), 1);
 }
 #[test]
