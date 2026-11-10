@@ -1516,8 +1516,7 @@ fn kexec_is_opt_in_and_installed_without_activation() {
             .unwrap();
         assert_eq!(content.is_some(), enabled);
         if let Some(content) = content {
-            assert!(String::from_utf8_lossy(&content)
-                .contains("/var/usrlocal/bin/skillet-clamps kexec run"));
+            assert!(String::from_utf8_lossy(&content).contains("/usr/bin/skillet kexec run"));
         }
         assert!(!profile
             .acceptance_plan()

@@ -47,12 +47,13 @@ OS kexec activation follows successful completion of
 `rpm-ostreed-automatic.service`, after it has staged an update. With no staged
 deployment, activation exits without rebooting on ordinary days. On the first
 Sunday of each month, the same staging completion requests a normal reboot even
-when no update was staged. Both the old daily kexec timer and the separate monthly
+when no update was pending. Both the old daily kexec timer and the separate monthly
 firmware-reboot timer are disabled, so there is one activation after staging.
-Logged-in
-users and shutdown inhibitors can prevent a reboot; an active HA export or btrbk
-job refuses activation before deployment finalization. A refused attempt leaves
-the deployment staged for retry after a later successful automatic staging run.
+Logged-in users are detected before deployment finalization, so activation safely
+defers and the staged update remains available for a later automatic staging run.
+If a login or other inhibitor races with the final kexec request after finalization,
+the next run can reuse the finalized default deployment. An active HA export or
+btrbk job also refuses activation before deployment finalization.
 Monitor uptime over seven days and host availability.
 The rpm-ostreed staging timer currently runs around 06:30 Europe/Paris; kexec
 starts after successful staging on ordinary days; the first Sunday takes the

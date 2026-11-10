@@ -1123,11 +1123,7 @@ fn install_kexec(
     profile: &HostProfile,
 ) -> Result<(), ApplyError> {
     if profile.supports_service("kexec") {
-        skillet_kexec::service::apply(
-            system,
-            files,
-            &format!("/var/usrlocal/bin/skillet-{}", profile.id.as_str()),
-        )?;
+        skillet_kexec::service::apply(system, files, "/usr/bin/skillet")?;
     }
     Ok(())
 }

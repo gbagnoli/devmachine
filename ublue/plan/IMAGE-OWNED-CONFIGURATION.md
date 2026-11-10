@@ -1,13 +1,16 @@
 # Image-owned Skillet configuration and scheduled reboots
 
-Status: in progress, 2026-11-08. Staged kexec activation has native VM and supervised
+Status: in progress, 2026-11-10. Staged kexec activation has native VM and supervised
 physical acceptance with an unchanged kernel; daily/monthly scheduling is
 implemented. The ownership inventory and public binary bundle exporter are
 implemented. Exact-revision image CI integration passed hosted builds; the initial
 binary bundle booted on Clamps. The btrbk pilot and optional kexec/HA/NUT unit
 expansion have scoped retained native VM acceptance. Fresh Ignition, whole-host
 rollout and rebuilt signed-image acceptance for the expanded bundle remain pending.
-Existing mutable runtime owners are retained until explicit migration acceptance.
+Persistent apply units now point to the image-owned generic `/usr/bin/skillet`.
+Remote apply uses a hash-verified temporary workstation runner with runtime
+`ExecStart` overrides; the image path remains authoritative after cleanup and reboot. Native interruption,
+SELinux and end-to-end remote-apply acceptance for this path remain pending.
 
 ## Goal and boundaries
 
@@ -56,7 +59,8 @@ no ambiguous dual owner or build-time need for live systemd, Btrfs or credential
 
 Implemented entry point: `skillet image <host>`; [bundle guide](../skillet/crates/workstation/docs/image-bundles.md).
 Current allowlist is matching binaries, a public release manifest and caller-selected
-btrbk vendor artifacts. General retained-state executable migration remains pending.
+btrbk vendor artifacts. Persistent unit path migration is implemented in source;
+whole-host image and retained-state acceptance remain pending.
 
 1. Extract/reuse pure declarations and renderers; avoid a second host/service
    inventory or executing apply through mocks to capture filesystem side effects.
@@ -450,14 +454,32 @@ ordinary days, it kexecs only when a deployment is staged and otherwise no-ops.
 On the first Sunday, it requests one normal reboot after staging, even if no
 deployment is staged. Both old activation timers are disabled to avoid a second
 reboot earlier in the morning.
-Inhibitors remain respected. Active HA export/btrbk jobs refuse activation before
-finalization. HA export is daily at 04:00; btrbk stays hourly. Disposable VM
+Inhibitors remain respected. Active login sessions are checked before deployment
+finalization. If a login races with final kexec, a subsequent run can select the
+already-finalized default deployment. Active HA export/btrbk jobs refuse activation
+before finalization. HA export is daily at 04:00; btrbk stays hourly. Disposable VM
 acceptance applied the previous definitions: `OnSuccess` is loaded on
 `rpm-ostreed-automatic.service`, and the legacy daily timer is disabled.
 `systemd-analyze verify --man=no` passed.
 Starting the activation service with no staged update logged a no-op and retained
 the boot ID. Physical Clamps still needs the updated Skillet applied. Configure the
 operator's uptime-over-seven-days alert and retain unavailable-host monitoring.
+
+### Clamps deferral finding (2026-11-10)
+
+The staged-update attempt was refused by systemd because Giacomo was logged in
+on `pts/0`. The old runtime had already finalized the update before making that
+request; `ExecStopPost` unloaded the kernel, leaving the finalized deployment
+selected for the next boot. The implementation now checks login sessions before
+finalization and can retry a newer finalized default if a login races with the
+final kexec request. Physical acceptance of this recovery path remains pending.
+
+Read-only inspection after the failed attempt confirmed `kexec_loaded=0`, the
+finalized marker present, and the pause marker absent. The newer deployment
+(`b757f0…`) is the non-booted default; `1b6420…` remains booted. The installed
+unit still invokes `/var/usrlocal/bin/skillet-clamps` (0.1.3), so the updated
+runtime and `/usr/bin/skillet` unit path have not reached Clamps yet. No reboot
+was triggered during inspection.
 
 ## Research references
 

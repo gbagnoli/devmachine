@@ -43,6 +43,41 @@ fn armed() -> io::Result<bool> {
     Ok(fs::read_to_string("/sys/kernel/kexec_loaded")?.trim() == "1")
 }
 
+fn defer_for_logged_in_users() -> Result<bool, RuntimeError> {
+    let output = Command::new("loginctl")
+        .args(["--json=short", "list-sessions"])
+        .output()?;
+    if !output.status.success() {
+        return Err(io::Error::other("loginctl session query failed").into());
+    }
+    let sessions: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    let blocking = has_interactive_session(&sessions)?;
+    if blocking {
+        tracing::info!("OS activation deferred: an interactive login session is active");
+    }
+    Ok(blocking)
+}
+
+fn has_interactive_session(sessions: &serde_json::Value) -> Result<bool, RuntimeError> {
+    let sessions = sessions
+        .as_array()
+        .ok_or_else(|| io::Error::other("loginctl returned an invalid session list"))?;
+    sessions.iter().try_fold(false, |blocking, session| {
+        let class = session["class"]
+            .as_str()
+            .ok_or_else(|| io::Error::other("loginctl session has no class"))?;
+        Ok(blocking
+            || matches!(
+                class,
+                "user" | "user-early" | "user-incomplete" | "greeter" | "lock-screen"
+            ))
+    })
+}
+
+#[cfg(test)]
+#[path = "runtime_tests.rs"]
+mod tests;
+
 fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
     if !nix::unistd::Uid::effective().is_root() {
         return Err(io::Error::other("root is required").into());
@@ -100,10 +135,16 @@ fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
             return request_normal_reboot();
         }
         super::ActivationAction::Noop => {
-            tracing::info!("No staged deployment; skipping automatic kexec activation");
+            tracing::info!("No pending deployment; skipping automatic kexec activation");
             return Ok(());
         }
         super::ActivationAction::Kexec => (),
+    }
+    // Check before finalizing: systemctl refuses kexec while an interactive
+    // user session is open. Leaving the update staged lets the next successful
+    // automatic staging check retry without stranding a finalized deployment.
+    if defer_for_logged_in_users()? {
+        return Ok(());
     }
     let _configuration = skillet_core::maintenance::activation()?;
     ensure_backups_idle()?;
@@ -135,6 +176,9 @@ fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
 }
 
 fn request_normal_reboot() -> Result<(), RuntimeError> {
+    if defer_for_logged_in_users()? {
+        return Ok(());
+    }
     let _configuration = skillet_core::maintenance::activation()?;
     ensure_backups_idle()?;
     checked("systemctl", &["--check-inhibitors=yes", "reboot"])?;
@@ -198,6 +242,10 @@ fn prepare_target() -> Result<BootEntry, RuntimeError> {
         // /etc writes would not reach the finalized deployment. Reboot clears it.
         fs::write("/run/skillet-maintenance/finalized", b"reboot required")?;
         checked("ostree", &["admin", "finalize-staged"])?;
+    } else {
+        // A previous activation may have finalized the default deployment but
+        // failed at the final kexec request. Reuse that selected deployment.
+        fs::write("/run/skillet-maintenance/finalized", b"reboot required")?;
     }
     let _native = sysroot_lock()?;
     let checksum = item["checksum"]

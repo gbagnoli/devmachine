@@ -15,6 +15,12 @@ fn activation_selection_uses_latest_pending_and_rejects_active_transactions() {
     status["transaction"] = serde_json::json!(["update", "initiator", "address"]);
     assert!(activation_target(&status).is_err());
     assert!(activation_target(&serde_json::json!({"deployments": []})).is_err());
+    let multiple_staged = serde_json::json!({"transaction": null, "deployments": [
+        {"checksum": "newer", "staged": true, "booted": false},
+        {"checksum": "new", "staged": true, "booted": false},
+        {"checksum": "old", "staged": false, "booted": true}
+    ]});
+    assert!(activation_target(&multiple_staged).is_err());
     let no_update = serde_json::json!({"transaction": null, "deployments": [
         {"checksum": "current", "staged": false, "booted": true}
     ]});
@@ -22,18 +28,32 @@ fn activation_selection_uses_latest_pending_and_rejects_active_transactions() {
 }
 
 #[test]
-fn automatic_staging_hook_is_a_noop_without_a_staged_deployment() {
+fn activation_hook_recognizes_staged_and_previously_finalized_targets() {
     let staged = serde_json::json!({"deployments": [
         {"checksum": "current", "staged": false, "booted": true}
     ]});
-    assert!(!has_staged_deployment(&staged).unwrap());
+    assert!(!has_activation_target(&staged).unwrap());
 
-    let update = serde_json::json!({"deployments": [
-        {"checksum": "next", "staged": true, "booted": false},
-        {"checksum": "current", "staged": false, "booted": true}
+    let update = serde_json::json!({"transaction": null, "deployments": [
+        {"checksum": "next", "staged": true, "booted": false, "timestamp": 20},
+        {"checksum": "current", "staged": false, "booted": true, "timestamp": 10}
     ]});
-    assert!(has_staged_deployment(&update).unwrap());
-    assert!(has_staged_deployment(&serde_json::json!({})).is_err());
+    assert!(has_activation_target(&update).unwrap());
+    assert_eq!(activation_target(&update).unwrap()["checksum"], "next");
+
+    let finalized = serde_json::json!({"transaction": null, "deployments": [
+        {"checksum": "next", "staged": false, "booted": false, "timestamp": 20},
+        {"checksum": "current", "staged": false, "booted": true, "timestamp": 10}
+    ]});
+    assert!(has_activation_target(&finalized).unwrap());
+    assert_eq!(activation_target(&finalized).unwrap()["checksum"], "next");
+
+    let old_rollback = serde_json::json!({"transaction": null, "deployments": [
+        {"checksum": "old", "staged": false, "booted": false, "timestamp": 5},
+        {"checksum": "current", "staged": false, "booted": true, "timestamp": 10}
+    ]});
+    assert!(!has_activation_target(&old_rollback).unwrap());
+    assert!(has_activation_target(&serde_json::json!({})).is_err());
 }
 
 #[test]

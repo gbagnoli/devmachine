@@ -6,12 +6,48 @@ pub mod attempt;
 pub mod runtime;
 pub mod service;
 
-/// Report whether the latest rpm-ostree observation contains a staged deployment.
-pub fn has_staged_deployment(status: &serde_json::Value) -> Result<bool, Error> {
+/// Report whether rpm-ostree has an update selected for the next boot.
+/// This includes a staged deployment and a deployment finalized by an earlier
+/// attempt that was deferred before kexec could run.
+pub fn has_activation_target(status: &serde_json::Value) -> Result<bool, Error> {
     let deployments = status["deployments"]
         .as_array()
         .ok_or(Error::InvalidDeployment)?;
-    Ok(deployments.iter().any(|item| item["staged"] == true))
+    let staged = deployments
+        .iter()
+        .filter(|item| item["staged"] == true)
+        .count();
+    if staged > 1 {
+        return Err(Error::InvalidDeployment);
+    }
+    if staged == 1 {
+        return Ok(true);
+    }
+    if deployments
+        .iter()
+        .filter(|item| item["booted"] == true)
+        .count()
+        != 1
+    {
+        return Err(Error::InvalidDeployment);
+    }
+    let Some(target) = deployments.first() else {
+        return Ok(false);
+    };
+    if target["booted"] != false {
+        return Ok(false);
+    }
+    let booted = deployments
+        .iter()
+        .find(|item| item["booted"] == true)
+        .ok_or(Error::InvalidDeployment)?;
+    let target_timestamp = target["timestamp"]
+        .as_u64()
+        .ok_or(Error::InvalidDeployment)?;
+    let booted_timestamp = booted["timestamp"]
+        .as_u64()
+        .ok_or(Error::InvalidDeployment)?;
+    Ok(target_timestamp > booted_timestamp)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,10 +63,10 @@ pub fn activation_action(
     status: &serde_json::Value,
     now: time::OffsetDateTime,
 ) -> Result<ActivationAction, Error> {
-    let staged = has_staged_deployment(status)?;
+    let pending = has_activation_target(status)?;
     if is_monthly_reboot_day(now) {
         Ok(ActivationAction::NormalReboot)
-    } else if staged {
+    } else if pending {
         Ok(ActivationAction::Kexec)
     } else {
         Ok(ActivationAction::Noop)
@@ -42,8 +78,10 @@ fn is_monthly_reboot_day(now: time::OffsetDateTime) -> bool {
     now.weekday() == time::Weekday::Sunday && now.day() <= 7
 }
 
-/// Select the current activation target from a fresh `rpm-ostree` observation.
-/// Selection must be repeated under staging exclusion before loading a kernel.
+/// Select the current default activation target from a fresh `rpm-ostree`
+/// observation. This may be newly staged or already finalized by an earlier
+/// attempt. Selection must be repeated under staging exclusion before loading
+/// a kernel.
 pub fn activation_target(status: &serde_json::Value) -> Result<&serde_json::Value, Error> {
     if status
         .get("transaction")
@@ -71,10 +109,27 @@ pub fn activation_target(status: &serde_json::Value) -> Result<&serde_json::Valu
         .iter()
         .filter(|item| item["staged"] == true)
         .collect();
-    if staged.len() != 1 {
+    if staged.len() > 1 {
         return Err(Error::InvalidDeployment);
     }
-    Ok(staged[0])
+    if let Some(target) = staged.first() {
+        return Ok(target);
+    }
+    let target = deployments.first().ok_or(Error::InvalidDeployment)?;
+    let booted = deployments
+        .iter()
+        .find(|item| item["booted"] == true)
+        .ok_or(Error::InvalidDeployment)?;
+    let target_timestamp = target["timestamp"]
+        .as_u64()
+        .ok_or(Error::InvalidDeployment)?;
+    let booted_timestamp = booted["timestamp"]
+        .as_u64()
+        .ok_or(Error::InvalidDeployment)?;
+    if target["booted"] != false || target_timestamp <= booted_timestamp {
+        return Err(Error::InvalidDeployment);
+    }
+    Ok(target)
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
