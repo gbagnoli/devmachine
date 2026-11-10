@@ -1,6 +1,9 @@
 # Network switch monitoring on Clamps
 
-Status: planned; no collector, credentials, image or monitors have been deployed.
+Status: in progress. Workstation-side typed inventory resolution, ownership
+checks, dynamic Vault auditing, generated secret documentation and encrypted
+Datadog payload delivery are implemented. No guest collector, image or metrics
+have been deployed.
 Clamps is the production collection host, independently of the workstation used
 for configuration delivery. Preserve existing Datadog and NUT acceptance in
 [Clamps monitoring](CLAMPS-DATADOG.md).
@@ -22,12 +25,19 @@ The initial physical target is a GS308EP with firmware 2.0.0.11. Upstream lists
 2.0.0.5 as tested; compatibility with 2.0.0.11 remains a physical acceptance gate.
 Do not commit private IPs, MACs or credentials in fixtures or documentation.
 
+The upstream library documents login and statistics requests over plain HTTP.
+Before sending the UI password, verify this management endpoint is restricted to
+the trusted LAN path. Treat credential confidentiality on that LAN as a required
+deployment assumption unless the library's HTTPS support is proven.
+
 ## Vault and configuration contract
 
 Use one inventory entry per collection host and one credential entry per device:
 
 - `hosts/clamps/network/switches`: custom field `switches` is a comma-separated
-  list of stable device names, for example `office,router-uplink`.
+  list of stable device names, for example `office,router_uplink`. Names use
+  lowercase letters, digits, hyphens or underscores; they start with a letter
+  and end with a letter or digit.
 - `network/switches/<name>`: standard Password is the UI password; standard URL
   is the management endpoint; custom field `make` is `netgear`. Username is
   optional and unused by the initial NETGEAR adapter.
@@ -54,16 +64,20 @@ Disposable environments never inherit production switch targets or passwords.
 
 ## Implementation sequence
 
-1. Add typed inventory/configuration and make dispatch behind existing injected
-   workstation boundaries. Extend structured Vault auditing to resolve device
-   references and make-specific fields. Update secret-requirements metadata and
-   regenerate the repository secrets checklist, distinguishing planned inputs
-   from implemented requirements.
-2. Deliver the resolved typed payload through the existing verified SSH and
-   encrypted host credential lifecycle. Expose each password only to its own
-   collector through a mounted Podman secret file. Keep secrets out of argv,
-   environment literals, labels, diagnostics and image layers. Regenerate volatile
-   inputs at boot; stage complete sets before activation.
+1. Add typed inventory/configuration behind the workstation Vault boundary.
+   Implemented in `skillet_workstation::switch_inventory`: validate stable
+   names, private management URLs, supported make, passwords and one-owner
+   inventory while reading other hosts' names without their passwords. Test
+   policy does not look up production entries. Dynamic Vault audit reports the
+   exact required fields for configured switch entries; the root checklist is
+   generated from the shared schema. Delivery places the resolved records only
+   in the encrypted Datadog credential payload. An absent inventory remains
+   unmanaged; an explicitly empty one is a removal request. Fixture tests
+   verify test payloads do not retain production addresses or passwords.
+2. Finish guest lifecycle delivery: interpret the optional/explicit-empty
+   selection, stage per-switch Podman secrets, run collectors, render the Agent
+   OpenMetrics configuration, and safely retire removed collectors and secrets.
+   Keep idempotent recovery for interrupted updates. This remains pending.
 3. Package a read-only collector with bounded network operations, session reuse
    where supported, retry backoff and approximately 30-second polling. Run one
    Quadlet container per switch with a private OpenMetrics endpoint reachable by

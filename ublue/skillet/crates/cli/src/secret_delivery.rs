@@ -273,6 +273,17 @@ fn deliver_datadog_from_vault(
         policy.vault_name(),
         vault,
     )?;
+    let switches = skillet_workstation::switch_inventory::resolve(
+        host,
+        policy.vault_name(),
+        |path: &str, field: &str| vault.get_field(path, field),
+    )?;
+    let input = skillet_workstation::switch_inventory::add_to_datadog_payload(
+        &input,
+        switches,
+        skillet_hosts::profile_for_name(host)
+            .is_some_and(|profile| profile.supports_service("kexec")),
+    )?;
     skillet_workstation::credential_delivery::deliver_datadog_credential(
         host, policy, &input, transport, activation,
     )?;
@@ -413,7 +424,11 @@ pub(super) fn check_vault(args: &SecretCheckArgs) -> Result<()> {
         &vault.entry_paths(),
         &|path, field| vault.get_field(path, field),
     )?;
-    let unused = skillet_workstation::secrets::unused_paths(&all_profiles, &vault.entry_paths())?;
+    let unused = skillet_workstation::secrets::unused_paths_with_lookup(
+        &all_profiles,
+        &vault.entry_paths(),
+        &|path, field| vault.get_field(path, field),
+    )?;
     let hyperlinks = std::io::IsTerminal::is_terminal(&std::io::stdout())
         && supports_hyperlinks::on(supports_hyperlinks::Stream::Stdout);
     print!(

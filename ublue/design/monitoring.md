@@ -87,3 +87,8 @@ Monitoring inventory. Failed polls expose failure without fresh device readings.
 Expected-speed alerts apply only to configured uplink ports. Implementation and
 physical firmware compatibility remain in the
 [switch monitoring plan](../plan/NETWORK-SWITCH-MONITORING.md).
+
+The selected NETGEAR library uses cleartext HTTP for switch login and statistics.
+Accept that only for a private or link-local IP on the trusted LAN; do not accept
+public addresses or imply TLS support. The management endpoint and password stay
+in KeePassXC and are delivered only to that switch's collector.

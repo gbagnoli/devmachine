@@ -3749,6 +3749,7 @@ dependencies = [
  "skillet_core",
  "skillet_podman",
  "thiserror 1.0.69",
+ "url",
 ]
 
 [[package]]
@@ -4089,6 +4090,7 @@ dependencies = [
  "skillet_vm",
  "tempfile",
  "thiserror 1.0.69",
+ "url",
  "uuid",
  "x509-cert",
  "yaml_serde",

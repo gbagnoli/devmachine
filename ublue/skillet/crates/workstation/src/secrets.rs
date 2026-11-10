@@ -25,6 +25,8 @@ pub enum CheckError {
     Template(#[from] configuration_templates::ConfigurationTemplateError),
     #[error(transparent)]
     Vault(#[from] VaultError),
+    #[error(transparent)]
+    SwitchInventory(#[from] crate::switch_inventory::SwitchInventoryError),
 }
 
 #[derive(Clone, Copy, Deserialize, PartialEq, Eq)]
@@ -229,6 +231,28 @@ pub fn unused_paths(
         .collect())
 }
 
+/// Include dynamically referenced switch entries in the ordinary unused-entry
+/// audit without ever reading their password values.
+pub fn unused_paths_with_lookup(
+    profiles: &[HostProfile],
+    stored: &[String],
+    lookup: &impl Fn(&str, &str) -> Result<Option<String>, VaultError>,
+) -> Result<Vec<String>, CheckError> {
+    let mut unused = unused_paths(profiles, stored)?
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    let references = crate::switch_inventory::referenced_entry_paths(
+        profiles,
+        ProvisioningPolicy::new(Environment::Production),
+        stored,
+        lookup,
+    )?;
+    for path in references {
+        unused.remove(&path);
+    }
+    Ok(unused.into_iter().collect())
+}
+
 fn matches_entry(pattern: &str, path: &str) -> bool {
     if let Some(prefix) = pattern.strip_suffix("<record>") {
         return path
@@ -425,6 +449,49 @@ fn validate_entry(
     }))
 }
 
+fn check_switch_entries(
+    report: &mut CheckReport,
+    profiles: &[HostProfile],
+    policy: ProvisioningPolicy,
+    stored: &[String],
+    lookup: &impl Fn(&str, &str) -> Result<Option<String>, VaultError>,
+) -> Result<(), CheckError> {
+    let all_profiles = skillet_hosts::declared_profiles();
+    let switch_audit = crate::switch_inventory::requirement_problems(
+        profiles,
+        &all_profiles,
+        policy,
+        stored,
+        lookup,
+    )?;
+    report.checked += switch_audit.len();
+    let switch_help = catalog()?
+        .into_iter()
+        .find(|module| module.module == "Network Switch Monitoring")
+        .map(|module| module.description)
+        .unwrap_or_default();
+    for issue in switch_audit {
+        let mut guide = switch_help.clone();
+        if !issue.fields.is_empty() {
+            let _ = write!(
+                guide,
+                " Missing or invalid fields: {}.",
+                issue.fields.join(", ")
+            );
+        }
+        if let Some(detail) = issue.detail {
+            let _ = write!(guide, " Reason: {detail}.");
+        }
+        report.missing.push(MissingEntry {
+            module: "Network Switch Monitoring".into(),
+            path: issue.path,
+            guide,
+            invalid: issue.invalid,
+        });
+    }
+    Ok(())
+}
+
 /// Audit dynamic DNS inventory through the same pure compiler used by delivery.
 pub fn check_with_entries(
     profiles: &[HostProfile],
@@ -433,6 +500,7 @@ pub fn check_with_entries(
     lookup: &impl Fn(&str, &str) -> Result<Option<String>, VaultError>,
 ) -> Result<CheckReport, CheckError> {
     let mut report = check(profiles, policy, lookup)?;
+    check_switch_entries(&mut report, profiles, policy, stored, lookup)?;
     let mut audited = report
         .present
         .iter()

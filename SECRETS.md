@@ -134,6 +134,15 @@ Caller-selected native static IPv4 and personal WPA Wi-Fi. Test VMs retain DHCP;
 | `skillet/hosts/<host>/network/wired` | Required | Create custom fields interface, address, mask (prefix or dotted mask), gateway, dns1 and dns2. Use the wired interface name. DNS order is preserved; Username and Password are unused. |
 | `skillet/hosts/<host>/network/wifi` | Required | Username = SSID; Password = WPA personal key (8–63 printable ASCII bytes or 64 hex digits). Custom fields interface, address, mask, gateway, dns1 and dns2 follow the wired schema. DNS entries may include loopback for a local resolver. |
 
+## Network Switch Monitoring
+
+Optional read-only NETGEAR Plus switch monitoring. When enabled, add the production collector-host inventory and each switch entry; switch passwords go only to their corresponding collectors. Plain HTTP is accepted only for trusted internal LAN management endpoints.
+
+| Entry | Status | Fields / how to obtain them |
+| --- | --- | --- |
+| `skillet/hosts/<host>/network/switches` | Optional | Optional custom field switches = comma- or newline-separated names containing lowercase letters, digits, hyphens or underscores (must start with a letter and end with a letter or digit). An empty value removes managed collectors. Do not include production inventory in test environments. |
+| `skillet/network/switches/<name>` | Optional | For each listed device, Password = switch UI password; URL = http://<private-or-link-local-IP> management endpoint; custom field make = netgear. The collector library uses cleartext HTTP, so use only an internal LAN address. Username is unused. |
+
 ## NUT
 
 No vault entry required. Skillet generates a local-only monitoring password on each opted-in host; no operator login. [UPS setup](ublue/skillet/crates/nut/README.md).

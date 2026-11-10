@@ -47,6 +47,64 @@ pub struct Input {
     tags: Vec<String>,
     #[serde(default = "default_dns_servers")]
     dns_servers: Vec<IpAddr>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    switches: Option<Vec<SwitchConfig>>,
+}
+
+/// Secret-bearing switch configuration delivered only inside the encrypted
+/// Datadog credential payload. Deliberately has no `Debug` implementation.
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct SwitchConfig {
+    pub name: String,
+    pub endpoint: String,
+    pub make: String,
+    pub password: String,
+    pub metrics_port: u16,
+}
+
+impl SwitchConfig {
+    fn valid(&self) -> bool {
+        valid_switch_name(&self.name)
+            && self.make == "netgear"
+            && !self.password.is_empty()
+            && !self.password.contains('\0')
+            && valid_switch_endpoint(&self.endpoint)
+            && (9500..9532).contains(&self.metrics_port)
+    }
+}
+
+fn valid_switch_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 32
+        && name.as_bytes()[0].is_ascii_lowercase()
+        && name
+            .as_bytes()
+            .last()
+            .is_some_and(u8::is_ascii_alphanumeric)
+        && name.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_')
+        })
+}
+
+fn valid_switch_endpoint(value: &str) -> bool {
+    let Ok(url) = url::Url::parse(value) else {
+        return false;
+    };
+    let private_host = match url.host() {
+        Some(url::Host::Ipv4(address)) => address.is_private() || address.is_link_local(),
+        Some(url::Host::Ipv6(address)) => {
+            address.is_unique_local() || address.is_unicast_link_local()
+        }
+        Some(url::Host::Domain(_)) | None => false,
+    };
+    url.scheme() == "http"
+        && private_host
+        && url.username().is_empty()
+        && url.password().is_none()
+        && (url.path().is_empty() || url.path() == "/")
+        && url.query().is_none()
+        && url.fragment().is_none()
 }
 
 fn default_dns_servers() -> Vec<IpAddr> {
@@ -54,6 +112,29 @@ fn default_dns_servers() -> Vec<IpAddr> {
 }
 
 impl Input {
+    pub fn set_switches(
+        &mut self,
+        switches: Option<Vec<SwitchConfig>>,
+    ) -> Result<(), DatadogError> {
+        let mut names = BTreeSet::new();
+        let mut ports = BTreeSet::new();
+        if switches.as_ref().is_some_and(|switches| {
+            switches.iter().any(|switch| {
+                !switch.valid()
+                    || !names.insert(switch.name.as_str())
+                    || !ports.insert(switch.metrics_port)
+            })
+        }) {
+            return Err(DatadogError::Invalid);
+        }
+        self.switches = switches;
+        Ok(())
+    }
+
+    pub fn switches(&self) -> Option<&[SwitchConfig]> {
+        self.switches.as_deref()
+    }
+
     /// Host capability tags are authoritative, including on retained payloads.
     pub fn render_with_kexec(mut self, enabled: bool) -> Result<String, DatadogError> {
         self.tags
@@ -97,6 +178,9 @@ impl Input {
         // into a production location or override the host caller's location.
         self.tags.retain(|tag| !tag.starts_with("region:"));
         self.tags.push(format!("region:{region}"));
+        if environment == "test" {
+            self.switches = None;
+        }
         serde_json::to_string(&self).map_err(|_| DatadogError::Invalid)
     }
 
@@ -130,6 +214,26 @@ impl Input {
                         .chars()
                         .any(|character| character.is_whitespace() || character.is_control())
             })
+            || value.switches.as_ref().is_some_and(|switches| {
+                switches.iter().any(|switch| !switch.valid())
+                    || switches
+                        .iter()
+                        .map(|switch| switch.name.as_str())
+                        .collect::<BTreeSet<_>>()
+                        .len()
+                        != switches.len()
+                    || switches
+                        .iter()
+                        .map(|switch| switch.metrics_port)
+                        .collect::<BTreeSet<_>>()
+                        .len()
+                        != switches.len()
+            })
+            || (value.tags.iter().any(|tag| tag == "env:test")
+                && value
+                    .switches
+                    .as_ref()
+                    .is_some_and(|switches| !switches.is_empty()))
         {
             return Err(DatadogError::Invalid);
         }

@@ -8,6 +8,7 @@ pub mod provisioning_policy;
 pub mod provisioning_state;
 pub mod secrets;
 pub mod smtp_provisioning;
+pub mod switch_inventory;
 pub mod tailscale;
 pub mod tailscale_enrollment;
 pub mod ui_provisioning;
