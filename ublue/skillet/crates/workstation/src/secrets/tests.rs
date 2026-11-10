@@ -470,3 +470,40 @@ fn generated_media_audit_enumerates_instances_only_in_the_selected_environment()
         .iter()
         .all(|entry| entry.path != prod && !entry.guide.contains("bad-secret-never-print")));
 }
+
+#[test]
+fn switch_inventory_audit_uses_custom_fields_and_requires_only_device_passwords() {
+    let profiles = [skillet_hosts::profile_for_name("clamps").unwrap()];
+    let inventory = "skillet/hosts/clamps/network/switches";
+    let device = "skillet/network/switches/lab_switch_1";
+    let stored = vec![inventory.to_string(), device.to_string()];
+    let policy = ProvisioningPolicy::new(Environment::Production);
+    let report = check_with_entries(&profiles, policy, &stored, &|path, field| {
+        Ok(match (path, field) {
+            (p, "switches") if p == inventory => Some("lab_switch_1".into()),
+            (p, "make") if p == device => Some("netgear".into()),
+            (p, "URL") if p == device => Some("http://192.168.50.10".into()),
+            (p, "Password") if p == device => Some("fixture-password".into()),
+            _ => None,
+        })
+    })
+    .unwrap();
+    for path in [&inventory, &device] {
+        assert!(report.present.iter().any(|present| present == path));
+        assert!(!report.missing.iter().any(|issue| issue.path == *path));
+    }
+    let empty = check_with_entries(&profiles, policy, &stored[..1], &|path, field| {
+        Ok((path == inventory && field == "switches").then(String::new))
+    })
+    .unwrap();
+    assert!(empty.present.iter().any(|path| path == inventory));
+    assert!(!empty.missing.iter().any(|issue| issue.path == inventory));
+    let missing = check_with_entries(&profiles, policy, &stored[..1], &|_, _| Ok(None)).unwrap();
+    let issue = missing
+        .missing
+        .iter()
+        .find(|issue| issue.path == inventory)
+        .unwrap();
+    assert!(issue.guide.contains("fields: switches"));
+    assert!(!issue.guide.contains("fields: Password"));
+}

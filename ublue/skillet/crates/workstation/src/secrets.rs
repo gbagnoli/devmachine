@@ -102,15 +102,19 @@ enum FieldRule {
     Hatoken,
     Hapassword,
     Hex32,
+    Switchlist,
 }
 
 impl FieldRequirement {
     fn valid(&self, value: &str) -> bool {
+        if matches!(self.rule, FieldRule::Switchlist) {
+            return crate::switch_inventory::parse_names(value).is_ok();
+        }
         if value.trim().is_empty() {
             return false;
         }
         match self.rule {
-            FieldRule::Nonempty => true,
+            FieldRule::Nonempty | FieldRule::Switchlist => true,
             FieldRule::Hatoken => skillet_homeassistant::backup::valid_token(value),
             FieldRule::Hapassword => skillet_homeassistant::backup::valid_password(value),
             FieldRule::Hex32 => skillet_media::valid_key(value),
@@ -457,20 +461,21 @@ fn check_switch_entries(
     lookup: &impl Fn(&str, &str) -> Result<Option<String>, VaultError>,
 ) -> Result<(), CheckError> {
     let all_profiles = skillet_hosts::declared_profiles();
-    let switch_audit = crate::switch_inventory::requirement_problems(
-        profiles,
-        &all_profiles,
-        policy,
-        stored,
-        lookup,
-    )?;
-    report.checked += switch_audit.len();
+    let switch_audit =
+        crate::switch_inventory::audit(profiles, &all_profiles, policy, stored, lookup)?;
+    report.checked += switch_audit.checked;
+    report.present.extend(
+        switch_audit
+            .present
+            .into_iter()
+            .filter(|path| !switch_audit.missing.iter().any(|issue| issue.path == *path)),
+    );
     let switch_help = catalog()?
         .into_iter()
         .find(|module| module.module == "Network Switch Monitoring")
         .map(|module| module.description)
         .unwrap_or_default();
-    for issue in switch_audit {
+    for issue in switch_audit.missing {
         let mut guide = switch_help.clone();
         if !issue.fields.is_empty() {
             let _ = write!(
