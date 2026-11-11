@@ -9,7 +9,7 @@ use zeroize::Zeroizing;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("sudo askpass channel failed")]
+    #[error("sudo askpass channel failed: {0}")]
     Io(#[from] std::io::Error),
     #[error("invalid sudo askpass response")]
     Invalid,
