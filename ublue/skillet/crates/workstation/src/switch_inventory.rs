@@ -41,6 +41,7 @@ pub fn add_to_datadog_payload(
                 make: switch.make,
                 password: switch.password,
                 metrics_port: switch.metrics_port,
+                port_labels: switch.port_labels,
             })
             .collect()
     });
@@ -57,6 +58,8 @@ pub struct SwitchCredential {
     pub make: String,
     pub password: String,
     pub metrics_port: u16,
+    #[serde(default)]
+    pub port_labels: BTreeMap<u16, String>,
 }
 
 /// `None` means no inventory field is configured; `Some([])` is an explicit
@@ -129,7 +132,24 @@ pub fn resolve(
         let make = lookup(&entry_path, "make")?.ok_or(SwitchInventoryError::Invalid)?;
         let endpoint = lookup(&entry_path, "URL")?.ok_or(SwitchInventoryError::Invalid)?;
         let password = lookup(&entry_path, "Password")?.ok_or(SwitchInventoryError::Invalid)?;
+        let mut port_labels = BTreeMap::new();
+        let mut seen_labels = BTreeSet::new();
+        for port in 1..=99_u16 {
+            if let Some(label) = lookup(&entry_path, &format!("port-{port}-label"))? {
+                if label.is_empty()
+                    || label.len() > 64
+                    || !label
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b"-_. ".contains(&b))
+                    || !seen_labels.insert(label.clone())
+                {
+                    return Err(SwitchInventoryError::InvalidSwitchList("port labels must be unique, nonempty, at most 64 ASCII letters, digits, spaces, dots, hyphens or underscores"));
+                }
+                port_labels.insert(port, label);
+            }
+        }
         let credential = SwitchCredential {
+            port_labels,
             name,
             endpoint,
             make,

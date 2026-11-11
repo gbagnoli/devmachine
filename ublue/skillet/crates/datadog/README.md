@@ -80,3 +80,10 @@ publishing. Collectors opt into the existing Podman auto-update timer. Daily
 rebuilds refresh the Python base; library updates require updating the hash lock.
 Build its source from `switch-collector/Containerfile`; its Python dependencies
 are pinned with hashes in `requirements.txt`.
+
+Switch vault entries accept optional custom fields `port-1-label` through
+`port-99-label`. Labels add `port_label` while preserving the numeric `port` tag.
+Use unique labels per switch, at most 64 ASCII letters, digits, spaces, dots,
+hyphens or underscores. Missing labels leave those ports unchanged. Both the
+workstation payload compiler and collector image need this support; update the
+guest binary before delivering the extended credential payload.

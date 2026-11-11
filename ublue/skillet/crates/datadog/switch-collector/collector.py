@@ -20,7 +20,7 @@ NAMES = {
 }
 
 
-def readings(data):
+def readings(data, port_labels=None):
     """Only emit metrics whose values and units the upstream library documents."""
     result = []
     for key, value in sorted(data.items()):
@@ -38,7 +38,11 @@ def readings(data):
             if not math.isfinite(value) or value < 0:
                 continue
             name = NAMES[field]
-        result.append(f'{name}{{port="{port}"}} {value}')
+        labels = f'port="{port}"'
+        label = (port_labels or {}).get(port)
+        if label is not None:
+            labels += f",port_label={json.dumps(label)}"
+        result.append(f"{name}{{{labels}}} {value}")
     if not result:
         raise ValueError("switch returned no recognized port data")
     return result
@@ -61,14 +65,15 @@ def typed_readings(lines):
 
 
 class Snapshot:
-    def __init__(self):
+    def __init__(self, port_labels=None):
+        self.port_labels = port_labels or {}
         self.lock = threading.Lock()
         self.ok = False
         self.last_success = 0.0
         self.lines = []
 
     def update(self, data, now):
-        lines = readings(data)
+        lines = readings(data, self.port_labels)
         with self.lock:
             self.ok, self.last_success, self.lines = True, now, lines
 
@@ -120,7 +125,7 @@ def run():
     port = int(config["metrics_port"])
     if not 9500 <= port < 9532:
         raise ValueError("invalid metrics port")
-    snapshot = Snapshot()
+    snapshot = Snapshot(config.get("port_labels", {}))
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):

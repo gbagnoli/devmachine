@@ -61,11 +61,21 @@ pub struct SwitchConfig {
     pub make: String,
     pub password: String,
     pub metrics_port: u16,
+    #[serde(default)]
+    pub port_labels: BTreeMap<u16, String>,
 }
 
 impl SwitchConfig {
     fn valid(&self) -> bool {
         valid_switch_name(&self.name)
+            && self.port_labels.iter().all(|(port, label)| {
+                (1..=99).contains(port)
+                    && !label.is_empty()
+                    && label.len() <= 64
+                    && label
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b"-_. ".contains(&b))
+            })
             && self.make == "netgear"
             && !self.password.is_empty()
             && !self.password.contains('\0')

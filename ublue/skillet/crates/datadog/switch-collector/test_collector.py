@@ -83,3 +83,12 @@ class CollectorTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PortLabelTests(unittest.TestCase):
+    def test_labels_preserve_numeric_port_and_unlabelled_ports(self):
+        result = readings(
+            {"port_1_status": "on", "port_2_status": "off"}, {"1": "uplink"}
+        )
+        self.assertIn('netgear_port_link_up{port="1",port_label="uplink"} 1', result)
+        self.assertIn('netgear_port_link_up{port="2"} 0', result)

@@ -130,6 +130,7 @@ fn validates_make_endpoint_and_password_without_echoing_values() {
         ("netgear", "http://example.com", ""),
     ] {
         let value = SwitchCredential {
+            port_labels: BTreeMap::default(),
             name: "office".into(),
             endpoint: endpoint.into(),
             make: make.into(),
@@ -144,6 +145,7 @@ fn validates_make_endpoint_and_password_without_echoing_values() {
 #[test]
 fn rejects_duplicate_owners() {
     let first = vec![SwitchCredential {
+        port_labels: BTreeMap::default(),
         name: "office".into(),
         endpoint: "http://192.168.50.10".into(),
         make: "netgear".into(),
@@ -151,6 +153,7 @@ fn rejects_duplicate_owners() {
         metrics_port: 9500,
     }];
     let second = vec![SwitchCredential {
+        port_labels: BTreeMap::default(),
         name: "office".into(),
         endpoint: "http://192.168.50.11".into(),
         make: "netgear".into(),
@@ -320,4 +323,22 @@ fn invalid_inventory_audit_explains_name_format_without_echoing_values() {
         .detail
         .is_some_and(|detail| detail.contains("lowercase ASCII")));
     assert!(!report[0].detail.unwrap().contains("GS308EP-private-name"));
+}
+
+#[test]
+fn resolves_port_labels_and_rejects_duplicate_labels() {
+    let mut fields = fields();
+    let path = "skillet/network/switches/office";
+    fields.insert((path.into(), "port-1-label".into()), "uplink".into());
+    let resolved = resolve("clamps", "prod", |path, field| {
+        Ok(fields.get(&(path.into(), field.into())).cloned())
+    })
+    .unwrap()
+    .unwrap();
+    assert_eq!(resolved[0].port_labels.get(&1).unwrap(), "uplink");
+    fields.insert((path.into(), "port-3-label".into()), "uplink".into());
+    assert!(resolve("clamps", "prod", |path, field| Ok(fields
+        .get(&(path.into(), field.into()))
+        .cloned()))
+    .is_err());
 }
