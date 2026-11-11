@@ -203,8 +203,12 @@ fn unit_dropins(config: Config, driver: &str) -> Vec<(String, String)> {
     [(driver, "Wants=nut-udev-settle.service\nAfter=nut-udev-settle.service\n".into()),
      ("nut-server.service", format!("Requires={driver}\nAfter={driver}\n")),
      ("nut-monitor.service", "Requires=nut-server.service\nAfter=nut-server.service\n".into())]
-        .into_iter().map(|(unit, dependencies)| (unit.to_string(),
-            format!("[Unit]\n{condition}{dependencies}\n[Service]\nExecStartPre=/usr/sbin/restorecon -RF /etc/ups\n")))
+        .into_iter().map(|(unit, dependencies)| {
+            // Fedora's NUT PID directory is nut:dialout 0770. The root
+            // supervisor needs group write access without DAC override.
+            let groups = if unit == "nut-monitor.service" { "SupplementaryGroups=dialout\n" } else { "" };
+            (unit.to_string(), format!("[Unit]\n{condition}{dependencies}\n[Service]\n{groups}ExecStartPre=/usr/sbin/restorecon -RF /etc/ups\n"))
+        })
         .collect()
 }
 
