@@ -3,8 +3,10 @@
 Status: in progress. Workstation-side typed inventory resolution, ownership
 checks, dynamic Vault auditing, generated secret documentation and encrypted
 Datadog payload delivery are implemented. A preliminary read-only collector and fixture tests exist in the Datadog crate;
-image packaging, guest integration, live metrics and alerts remain pending. No
-collector or metrics have been deployed.
+image packaging and initial guest integration are implemented. The collector
+publication workflow runs daily and on default-branch source changes; registry
+publication itself and managed production deployment remain unverified. Temporary
+physical-switch polling and VM Agent parsing passed; alerts remain pending.
 Clamps is the production collection host, independently of the workstation used
 for configuration delivery. Preserve existing Datadog and NUT acceptance in
 [Clamps monitoring](CLAMPS-DATADOG.md).

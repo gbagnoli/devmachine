@@ -529,6 +529,7 @@ where
                         "Container".into(),
                         vec![
                             format!("ContainerName={name}"),
+                            "AutoUpdate=registry".into(),
                             "NoNewPrivileges=true".into(),
                             "DropCapability=all".into(),
                             "ReadOnly=true".into(),

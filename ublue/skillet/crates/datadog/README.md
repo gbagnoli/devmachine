@@ -73,7 +73,10 @@ its generated `openmetrics.d/conf.yaml` configuration.
 An omitted inventory preserves existing collectors. An explicitly empty inventory
 removes managed collectors and their secrets. The private inventory journal under
 `/var/lib/skillet/switches` retains cleanup intent for retry after interruption.
-The collector image must be published as
-`ghcr.io/gbagnoli/skillet-switch-collector:v1` before activating this feature.
+The `Switch collector image` workflow publishes
+`ghcr.io/gbagnoli/skillet-switch-collector:v1` from the default branch after source
+changes, daily at 04:20 UTC, or on manual dispatch. Pull requests build without
+publishing. Collectors opt into the existing Podman auto-update timer. Daily
+rebuilds refresh the Python base; library updates require updating the hash lock.
 Build its source from `switch-collector/Containerfile`; its Python dependencies
 are pinned with hashes in `requirements.txt`.
