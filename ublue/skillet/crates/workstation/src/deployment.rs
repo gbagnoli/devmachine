@@ -122,8 +122,10 @@ pub fn stage_temporary_runner(
     let token = uuid::Uuid::new_v4().simple().to_string();
     let path = format!("/var/usrlocal/bin/.skillet-remote-apply-{token}");
     let upload = format!("/var/tmp/skillet-remote-apply-{token}.upload");
-    run_sudo(guest, &["mkdir", "-m", "0700", APPLY_LOCK], None).map_err(|_| {
-        VmError::Invalid("could not acquire the remote-apply lock; another apply may be active, or a previous interrupted apply may have left /run/skillet-remote-apply.lock".into())
+    run_sudo(guest, &["mkdir", "-m", "0700", APPLY_LOCK], None).map_err(|error| {
+        VmError::Invalid(format!(
+            "could not create remote-apply lock {APPLY_LOCK}: {error}. If the directory already exists, verify no apply is active before removing it"
+        ))
     })?;
     let staged =
         stage_one(guest, binary, &upload, &path).and_then(|()| verify_staged(guest, binary, &path));
@@ -168,7 +170,7 @@ fn stage_one(guest: &impl GuestTransport, binary: &Path, upload: &str, path: &st
 fn verify_staged(guest: &impl GuestTransport, binary: &Path, path: &str) -> Result<()> {
     let expected_hash = skillet_vm::delivery::sha256(binary)?;
     let expected_version = artifacts::binary_version(binary)?;
-    let hash = run_checked(guest, "sha256sum", &[path], None)?;
+    let hash = run_sudo(guest, &["sha256sum", path], None)?;
     let actual_hash = std::str::from_utf8(&hash)
         .ok()
         .and_then(|output| output.split_whitespace().next())
@@ -178,7 +180,7 @@ fn verify_staged(guest: &impl GuestTransport, binary: &Path, path: &str) -> Resu
             VmError::Invalid("temporary apply binary failed hash verification".into()).into(),
         );
     }
-    let version = run_checked(guest, path, &["--version"], None)?;
+    let version = run_sudo(guest, &[path, "--version"], None)?;
     if artifacts::version_text(&version)? != expected_version {
         return Err(VmError::Invalid(
             "temporary apply binary reports an unexpected version".into(),
