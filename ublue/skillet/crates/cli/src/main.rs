@@ -26,6 +26,11 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Commands {
+    /// Run controlled guest kernel activation
+    Kexec {
+        #[command(subcommand)]
+        command: skillet_cli_common::kexec::runtime::Commands,
+    },
     /// Assemble a deterministic public image tree from matching clean binaries
     Image {
         host: String,
@@ -435,6 +440,7 @@ fn main() -> Result<()> {
         Commands::Syncthing { command } => {
             skillet_cli_common::syncthing_runtime::dispatch(command)?;
         }
+        Commands::Kexec { command } => skillet_cli_common::kexec::runtime::dispatch(command)?,
         Commands::Metrics { command } => skillet_cli_common::run_metrics(command)?,
         Commands::TailnetUi { command } => skillet_cli_common::run_tailnet_ui(command)?,
         Commands::Install { command } => installation::dispatch(command)?,
