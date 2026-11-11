@@ -44,6 +44,22 @@ def readings(data):
     return result
 
 
+def typed_readings(lines):
+    """Declare each family explicitly for Agent OpenMetrics ingestion.
+
+    Cumulative switch readings stay gauges: resets must not create negative rates.
+    """
+    result = []
+    declared = set()
+    for line in lines:
+        name = line.split("{", 1)[0]
+        if name not in declared:
+            result.append(f"# TYPE {name} gauge")
+            declared.add(name)
+        result.append(line)
+    return result
+
+
 class Snapshot:
     def __init__(self):
         self.lock = threading.Lock()
@@ -67,9 +83,11 @@ class Snapshot:
             return (
                 "\n".join(
                     [
+                        "# TYPE netgear_collection_success gauge",
                         f"netgear_collection_success {int(fresh)}",
+                        "# TYPE netgear_last_success_timestamp_seconds gauge",
                         f"netgear_last_success_timestamp_seconds {self.last_success}",
-                        *(self.lines if fresh else []),
+                        *(typed_readings(self.lines) if fresh else []),
                         "# EOF",
                         "",
                     ]

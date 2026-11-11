@@ -46,6 +46,14 @@ class CollectorTests(unittest.TestCase):
         self.assertIn("netgear_collection_success 0", output)
         self.assertNotIn("netgear_port_link_up", output)
 
+    def test_exposition_declares_types_for_agent(self):
+        snapshot = Snapshot()
+        snapshot.update({"port_1_status": "on", "port_2_status": "off"}, 42)
+        output = snapshot.render(now=43).decode()
+        self.assertIn("# TYPE netgear_collection_success gauge", output)
+        self.assertIn("# TYPE netgear_last_success_timestamp_seconds gauge", output)
+        self.assertEqual(output.count("# TYPE netgear_port_link_up gauge"), 1)
+
     def test_empty_data_is_failure(self):
         with self.assertRaises(ValueError):
             readings({})

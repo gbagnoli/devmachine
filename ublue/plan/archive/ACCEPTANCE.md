@@ -4989,3 +4989,13 @@ The VM's kexec failure was an unrecognized `kexec` subcommand in the generic
 image binary. Generic CLI dispatch now exposes the shared runtime; formatting,
 Clippy and CLI/Datadog tests pass. This source fix has not been deployed in an
 image or exercised as a kernel handoff on this VM.
+
+### 2026-11-11 — Collector OpenMetrics ingestion correction
+
+The zero-sample result was corrected by declaring metric family types explicitly.
+The locally rebuilt collector was restarted in `clamps-test-switches`; the actual
+Agent OpenMetrics check then emitted two gauge samples (collection success and
+last-success timestamp), versus zero before the change. The unreachable dummy
+switch intentionally produced no port readings. This proves local Agent parsing,
+not Datadog backend ingestion or successful physical-switch polling.
+Five collector unit tests, Ruff and commit-hook Mypy passed.
