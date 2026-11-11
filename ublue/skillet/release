@@ -4,4 +4,5 @@ set -euo pipefail
 script_dir="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 pushd "$script_dir" &>/dev/null
 
+git push
 cargo release patch --workspace --isolated --config release.toml --no-publish --push --execute
