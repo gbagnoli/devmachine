@@ -4974,3 +4974,18 @@ VM lifecycle acceptance remains pending: the named `clamps switches` creation
 command was started, but successful guest lifecycle execution is not established.
 No production collector or Datadog alert has been deployed. Image publication,
 actual Agent parsing, switch attribution and physical acceptance remain open.
+
+### 2026-11-11 — Switch collector reboot and generic kexec dispatch
+
+Disposable `clamps-test-switches` completed dummy-credential Datadog apply and
+normal reboot. Post-reboot boot ID was
+`4ce422c0-0c2b-45d4-9252-2f48345debf3`; collector and Agent were both active,
+and loopback metrics returned collection failure with no fabricated port data.
+The real Agent discovered the OpenMetrics instance but emitted zero metric
+samples: ingestion acceptance remains failed/pending investigation, not passed.
+Rotation, removal and successful synthetic switch observations remain pending.
+
+The VM's kexec failure was an unrecognized `kexec` subcommand in the generic
+image binary. Generic CLI dispatch now exposes the shared runtime; formatting,
+Clippy and CLI/Datadog tests pass. This source fix has not been deployed in an
+image or exercised as a kernel handoff on this VM.
