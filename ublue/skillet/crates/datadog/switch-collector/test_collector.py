@@ -54,6 +54,28 @@ class CollectorTests(unittest.TestCase):
         self.assertIn("# TYPE netgear_last_success_timestamp_seconds gauge", output)
         self.assertEqual(output.count("# TYPE netgear_port_link_up gauge"), 1)
 
+    def test_multiple_ports_remain_contiguous_within_each_metric_family(self):
+        snapshot = Snapshot()
+        snapshot.update(
+            {
+                f"port_{port}_{field}": value
+                for port in range(1, 9)
+                for field, value in (("status", "on"), ("connection_speed", 1000))
+            },
+            42,
+        )
+        family = None
+        counts = {}
+        for line in snapshot.render(now=43).decode().splitlines():
+            if line.startswith("# TYPE "):
+                family = line.split()[2]
+            elif line and not line.startswith("#"):
+                name = line.split("{", 1)[0].split()[0]
+                self.assertEqual(name, family)
+                counts[name] = counts.get(name, 0) + 1
+        self.assertEqual(counts["netgear_port_link_up"], 8)
+        self.assertEqual(counts["netgear_port_connection_speed_megabits_per_second"], 8)
+
     def test_empty_data_is_failure(self):
         with self.assertRaises(ValueError):
             readings({})

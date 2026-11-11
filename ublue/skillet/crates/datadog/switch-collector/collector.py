@@ -49,14 +49,14 @@ def typed_readings(lines):
 
     Cumulative switch readings stay gauges: resets must not create negative rates.
     """
-    result = []
-    declared = set()
+    families = {}
     for line in lines:
         name = line.split("{", 1)[0]
-        if name not in declared:
-            result.append(f"# TYPE {name} gauge")
-            declared.add(name)
-        result.append(line)
+        families.setdefault(name, []).append(line)
+    result = []
+    for name, samples in sorted(families.items()):
+        result.append(f"# TYPE {name} gauge")
+        result.extend(samples)
     return result
 
 
