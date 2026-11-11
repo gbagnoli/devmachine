@@ -125,7 +125,15 @@ jobs:
 
       - name: Install musl linker
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
-        run: sudo apt-get update && sudo apt-get install --yes musl-tools
+        timeout-minutes: 10
+        run: |
+          apt_options=(
+            -o Acquire::Retries=3
+            -o Acquire::http::Timeout=30
+            -o Acquire::https::Timeout=30
+          )
+          sudo apt-get "${apt_options[@]}" -o APT::Update::Error-Mode=any update
+          sudo apt-get "${apt_options[@]}" install --yes musl-tools
 
       - name: Rust Cache
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
