@@ -306,3 +306,56 @@ fn resolver_configuration_is_typed_and_legacy_payloads_keep_independent_defaults
     assert!(!unit.contains("DNS=1.1.1.1"));
     assert!(!unit.contains("DD_SKIP_SSL_VALIDATION"));
 }
+
+#[test]
+fn empty_switch_inventory_writes_empty_scrape_configuration() {
+    let system = MockSystem::new();
+    let files = mounted_files();
+    apply_switches(&system, &files, &[]).unwrap();
+    let state = files.files.lock().unwrap();
+    let config: serde_json::Value =
+        serde_json::from_slice(&state["/etc/skillet/datadog/conf.d/openmetrics.d/conf.yaml"])
+            .unwrap();
+    assert_eq!(config["instances"], json!([]));
+    assert_eq!(state["/var/lib/skillet/switches/inventory.json"], b"[]");
+}
+
+#[test]
+fn invalid_retained_switch_inventory_refuses_cleanup() {
+    let system = MockSystem::new();
+    let files = mounted_files();
+    files
+        .ensure_file(
+            Path::new("/var/lib/skillet/switches/inventory.json"),
+            br#"["../../other"]"#,
+            Some(0o600),
+            &Ownership::default(),
+        )
+        .unwrap();
+    assert!(apply_switches(&system, &files, &[]).is_err());
+}
+
+#[test]
+fn switch_removal_cleans_up_secret_and_retains_empty_journal() {
+    let system = MockSystem::new();
+    let files = mounted_files();
+    let root = Ownership::default();
+    files
+        .ensure_file(
+            Path::new("/var/lib/skillet/switches/inventory.json"),
+            br#"["office"]"#,
+            Some(0o600),
+            &root,
+        )
+        .unwrap();
+    system
+        .ensure_podman_secret("skillet-switch-office", "dummy")
+        .unwrap();
+    apply_switches(&system, &files, &[]).unwrap();
+    assert!(!system
+        .podman_secrets
+        .lock()
+        .unwrap()
+        .contains("skillet-switch-office"));
+    apply_switches(&system, &files, &[]).unwrap();
+}

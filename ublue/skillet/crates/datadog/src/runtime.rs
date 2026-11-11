@@ -287,7 +287,15 @@ where
         Some(0o644),
         &root,
     )?;
+    files.ensure_directory(
+        &Path::new(CONFIG_DIR).join("openmetrics.d"),
+        Some(0o755),
+        &root,
+    )?;
     let mut revisions = Vec::new();
+    if let Some(switches) = input.switches() {
+        revisions.push(apply_switches(system, files, switches)?);
+    }
     for (name, instance) in [
         ("btrfs", json!({})),
         ("network", json!({})),
@@ -389,7 +397,7 @@ fn container_config(
     .collect::<Vec<_>>();
     volumes.push(dogstatsd_volume());
     // Preserve the image's built-in integrations and auto-configuration.
-    for name in ["btrfs", "network", "tcp_check", "systemd"] {
+    for name in ["btrfs", "network", "tcp_check", "systemd", "openmetrics"] {
         volumes.push(Volume {
             host_path: format!("{CONFIG_DIR}/{name}.d"),
             container_path: format!("/etc/datadog-agent/conf.d/{name}.d"),
@@ -449,6 +457,100 @@ fn container_config(
             ("Install".into(), vec!["WantedBy=multi-user.target".into()]),
         ]),
     }
+}
+
+fn apply_switches<S, F>(
+    system: &S,
+    files: &F,
+    switches: &[SwitchConfig],
+) -> Result<Vec<u8>, DatadogError>
+where
+    S: AccountLookupResource + AccountResource + PodmanSecretResource + ServiceResource + ?Sized,
+    F: FileMutationResource + FileReadResource + StorageResource + ?Sized,
+{
+    let root = Ownership::named(Some("root"), Some("root"));
+    let state_dir = Path::new("/var/lib/skillet/switches");
+    files.ensure_directory(state_dir, Some(0o700), &root)?;
+    let journal = state_dir.join("inventory.json");
+    let previous: BTreeSet<String> = files
+        .read_file(&journal)?
+        .map(|bytes| serde_json::from_slice(&bytes).map_err(|_| DatadogError::Invalid))
+        .transpose()?
+        .unwrap_or_default();
+    if previous.iter().any(|name| !valid_switch_name(name)) {
+        return Err(DatadogError::Invalid);
+    }
+    let desired: BTreeSet<String> = switches.iter().map(|switch| switch.name.clone()).collect();
+    let pending = previous.union(&desired).cloned().collect::<BTreeSet<_>>();
+    let pending_bytes = serde_json::to_vec(&pending).map_err(|_| DatadogError::Invalid)?;
+    files.ensure_file(&journal, &pending_bytes, Some(0o600), &root)?;
+    for obsolete in previous.difference(&desired) {
+        let name = format!("skillet-switch-{obsolete}");
+        let quadlet = Path::new("/etc/containers/systemd").join(format!("{name}.container"));
+        if files.read_file(&quadlet)?.is_some() {
+            system.service_stop(&format!("{name}.service"))?;
+            files.delete_file(&quadlet)?;
+            system.daemon_reload()?;
+        }
+        system.delete_podman_secret(&name)?;
+    }
+    let mut instances = Vec::new();
+    for switch in switches {
+        let name = format!("skillet-switch-{}", switch.name);
+        let payload = serde_json::to_string(switch).map_err(|_| DatadogError::Invalid)?;
+        system.ensure_podman_secret(&name, &payload)?;
+        skillet_podman::container(
+            system,
+            files,
+            PodmanConfig {
+                name: name.clone(),
+                image: "ghcr.io/gbagnoli/skillet-switch-collector:v1".into(),
+                network_attachments: vec![NetworkAttachment::Host],
+                port_publications: Vec::new(),
+                storage_dependency: None,
+                process_identity: ProcessIdentity::Numeric {
+                    uid: 65534,
+                    gid: 65534,
+                },
+                namespace_mapping: None,
+                volumes: Vec::new(),
+                secrets: vec![QuadletSecret {
+                    secret_name: name.clone(),
+                    target: SecretTarget::File {
+                        target_path: "/run/secrets/switch_config".into(),
+                        mode: Some("0400".into()),
+                        uid: Some(65534),
+                        gid: Some(65534),
+                    },
+                }],
+                config_revisions: vec![payload.into_bytes()],
+                extra_config: BTreeMap::from([
+                    (
+                        "Container".into(),
+                        vec![
+                            format!("ContainerName={name}"),
+                            "NoNewPrivileges=true".into(),
+                            "DropCapability=all".into(),
+                            "ReadOnly=true".into(),
+                        ],
+                    ),
+                    ("Service".into(), vec!["Restart=always".into()]),
+                    ("Install".into(), vec!["WantedBy=multi-user.target".into()]),
+                ]),
+            },
+        )?;
+        instances.push(json!({"openmetrics_endpoint":format!("http://127.0.0.1:{}/metrics", switch.metrics_port), "namespace":"netgear", "metrics":["netgear_collection_success", "netgear_last_success_timestamp_seconds", "netgear_port_link_up", "netgear_port_connection_speed_megabits_per_second"], "tags":[format!("switch:{}", switch.name)]}));
+    }
+    let root = Ownership::named(Some("root"), Some("root"));
+    let directory = Path::new(CONFIG_DIR).join("openmetrics.d");
+    files.ensure_directory(&directory, Some(0o755), &root)?;
+    let config = json!({"init_config":{},"instances":instances})
+        .to_string()
+        .into_bytes();
+    files.ensure_file(&directory.join("conf.yaml"), &config, Some(0o644), &root)?;
+    let desired_bytes = serde_json::to_vec(&desired).map_err(|_| DatadogError::Invalid)?;
+    files.ensure_file(&journal, &desired_bytes, Some(0o600), &root)?;
+    Ok(config)
 }
 
 fn dogstatsd_volume() -> Volume {

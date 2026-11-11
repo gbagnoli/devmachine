@@ -4962,3 +4962,15 @@ acceptance; no production host or private DNS values were committed.
   and validates commit-only checkout with the annotated ref retained. Release
   tests: 13 passed; actionlint passed. Hosted confirmation requires a new release
   containing this workflow fix; rerunning the old tag uses its old workflow.
+
+### 2026-11-11 — NETGEAR collector implementation checks
+
+Native GNU workspace Clippy and all-target workspace tests passed. Updated
+core/Datadog Clippy and 15 Datadog tests passed, including explicit-empty
+inventory handling, invalid journal refusal and repeat secret cleanup. Four
+Python collector tests and Ruff passed. The locally built collector image
+passed non-root import/snapshot acceptance after fixing copied-file permissions.
+VM lifecycle acceptance remains pending: the named `clamps switches` creation
+command was started, but successful guest lifecycle execution is not established.
+No production collector or Datadog alert has been deployed. Image publication,
+actual Agent parsing, switch attribution and physical acceptance remain open.

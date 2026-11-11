@@ -99,6 +99,12 @@ pub trait AccountResource {
 }
 
 pub trait PodmanSecretResource {
+    fn delete_podman_secret(&self, name: &str) -> Result<(), SystemError> {
+        Err(SystemError::Command(format!(
+            "secret removal unsupported: {name}"
+        )))
+    }
+
     fn ensure_podman_secret(&self, name: &str, payload: &str) -> Result<bool, SystemError>;
     fn podman_secret_id(&self, name: &str) -> Result<String, SystemError>;
 }
@@ -452,6 +458,18 @@ impl PodmanSecretResource for LinuxSystemResource {
         }
 
         Ok(true)
+    }
+
+    fn delete_podman_secret(&self, name: &str) -> Result<(), SystemError> {
+        let output = Command::new("podman")
+            .args(["secret", "rm", "--ignore", name])
+            .output()?;
+        if !output.status.success() {
+            return Err(SystemError::Command(format!(
+                "podman secret removal failed: {name}"
+            )));
+        }
+        Ok(())
     }
 
     fn podman_secret_id(&self, name: &str) -> Result<String, SystemError> {

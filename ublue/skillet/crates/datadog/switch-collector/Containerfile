@@ -1,0 +1,8 @@
+FROM docker.io/library/python:3.13-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /collector
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
+COPY --chmod=0444 collector.py ./
+USER 65534:65534
+ENTRYPOINT ["python", "/collector/collector.py"]

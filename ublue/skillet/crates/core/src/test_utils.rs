@@ -185,6 +185,18 @@ impl AccountResource for MockSystem {
 }
 
 impl PodmanSecretResource for MockSystem {
+    fn delete_podman_secret(&self, name: &str) -> Result<(), SystemError> {
+        self.podman_secrets
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(name);
+        self.secret_ids
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(name);
+        Ok(())
+    }
+
     fn podman_secret_id(&self, name: &str) -> Result<String, SystemError> {
         self.secret_ids
             .lock()

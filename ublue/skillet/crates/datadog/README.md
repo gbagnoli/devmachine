@@ -61,3 +61,19 @@ Hosts with NUT also configure its [collector timer](../nut/README.md#metrics).
 
 Design: [monitoring](../../../design/monitoring.md).
 Acceptance backlog: [Datadog plan](../../../plan/CLAMPS-DATADOG.md).
+
+## NETGEAR switch collectors
+
+Production switch inventories arrive in the encrypted Datadog credential payload.
+Skillet creates one `skillet-switch-<name>` host-network container per switch,
+with a rootless container identity and a read-only Podman secret containing its
+configuration. The metrics listener binds only to host loopback; the Agent reads
+its generated `openmetrics.d/conf.yaml` configuration.
+
+An omitted inventory preserves existing collectors. An explicitly empty inventory
+removes managed collectors and their secrets. The private inventory journal under
+`/var/lib/skillet/switches` retains cleanup intent for retry after interruption.
+The collector image must be published as
+`ghcr.io/gbagnoli/skillet-switch-collector:v1` before activating this feature.
+Build its source from `switch-collector/Containerfile`; its Python dependencies
+are pinned with hashes in `requirements.txt`.

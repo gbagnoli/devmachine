@@ -190,6 +190,10 @@ impl<T: FileMutationResource> FileMutationResource for Recorder<T> {
 }
 
 impl<T: PodmanSecretResource> PodmanSecretResource for Recorder<T> {
+    fn delete_podman_secret(&self, name: &str) -> Result<(), SystemError> {
+        self.inner.delete_podman_secret(name)
+    }
+
     fn podman_secret_id(&self, name: &str) -> Result<String, SystemError> {
         self.inner.podman_secret_id(name)
     }
