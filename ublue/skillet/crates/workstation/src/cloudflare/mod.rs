@@ -222,16 +222,15 @@ impl Cloudflare {
                 .get("name")
                 .and_then(Value::as_str)
                 .unwrap_or_default();
-            let scopes = group
-                .get("scopes")
-                .and_then(Value::as_array)
-                .map(|values| {
+            let scopes = group.get("scopes").and_then(Value::as_array).map_or_else(
+                BTreeSet::new,
+                |values| {
                     values
                         .iter()
                         .filter_map(Value::as_str)
                         .collect::<BTreeSet<_>>()
-                })
-                .unwrap_or_default();
+                },
+            );
             if name == "Zone Read" && scopes.contains("com.cloudflare.api.account.zone") {
                 zone_read = Some(id.to_string());
             }

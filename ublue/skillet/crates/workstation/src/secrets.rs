@@ -473,8 +473,7 @@ fn check_switch_entries(
     let switch_help = catalog()?
         .into_iter()
         .find(|module| module.module == "Network Switch Monitoring")
-        .map(|module| module.description)
-        .unwrap_or_default();
+        .map_or_else(String::new, |module| module.description);
     for issue in switch_audit.missing {
         let mut guide = switch_help.clone();
         if !issue.fields.is_empty() {
@@ -582,8 +581,7 @@ pub fn check_with_entries(
                 .into_iter()
                 .find(|m| m.module == "Pi-hole")
                 .and_then(|m| m.entries.into_iter().find(|e| e.path.ends_with("<record>")))
-                .map(|entry| entry.help)
-                .unwrap_or_default();
+                .map_or_else(String::new, |entry| entry.help);
             report.missing.push(MissingEntry {
                 module: "Pi-hole".into(), path,
                 guide: format!("Invalid private DNS inventory or generated-host/UI namespace conflict. Use the exact dns/entries group name without whitespace. {schema}"), invalid: true,
