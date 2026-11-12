@@ -14,6 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &RuntimeConfig {
             hostname: "fixture-test-monitoring",
             network_monitoring: true,
+            dogstatsd_loopback_udp: false,
             monitored_units: &["syncthing.service".into(), "btrbk.timer".into()],
         },
     )?;

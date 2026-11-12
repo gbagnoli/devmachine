@@ -819,6 +819,7 @@ fn apply_datadog_host(
         &skillet_datadog::RuntimeConfig {
             hostname: &hostname,
             network_monitoring,
+            dogstatsd_loopback_udp: profile.supports_service("homeassistant"),
             monitored_units: &monitored_units,
         },
     )?;

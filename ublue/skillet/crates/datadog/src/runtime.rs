@@ -254,6 +254,7 @@ impl Input {
 pub struct RuntimeConfig<'a> {
     pub hostname: &'a str,
     pub network_monitoring: bool,
+    pub dogstatsd_loopback_udp: bool,
     pub monitored_units: &'a [String],
 }
 
@@ -361,6 +362,7 @@ fn container_config(
     site: &str,
     dns_servers: &[IpAddr],
 ) -> PodmanConfig {
+    let dogstatsd_port = u16::from(runtime.dogstatsd_loopback_udp) * 8125;
     let mut settings = vec![
         "ContainerName=datadog-agent".into(),
         "AutoUpdate=registry".into(),
@@ -372,7 +374,9 @@ fn container_config(
         "Environment=DD_APM_ENABLED=false".into(),
         "Environment=DD_LOGS_ENABLED=false".into(),
         "Environment=DD_USE_DOGSTATSD=true".into(),
-        "Environment=DD_DOGSTATSD_PORT=0".into(),
+        format!("Environment=DD_DOGSTATSD_PORT={dogstatsd_port}"),
+        "Environment=DD_BIND_HOST=127.0.0.1".into(),
+        "Environment=DD_DOGSTATSD_NON_LOCAL_TRAFFIC=false".into(),
         format!("Environment=DD_DOGSTATSD_SOCKET={DOGSTATSD_SOCKET}"),
     ];
     // Monitoring must not depend on a filtered/unavailable resolver it observes.

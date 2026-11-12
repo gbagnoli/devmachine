@@ -163,3 +163,18 @@ Caller selection enables export; successful Datadog activation enables freshness
 Apply preserves runtime storage/credentials and retires exact known `/etc`
 overrides; old images keep the legacy installer until upgraded. Export freshness
 allows 36 hours for the daily schedule. See [image rollout](../workstation/docs/image-bundles.md#optional-vendor-unit-activation).
+
+## Datadog entity export
+
+When the host declares both HA and Datadog, Agent apply enables DogStatsD on
+`127.0.0.1:8125/udp` alongside its existing Unix socket. Other hosts retain UDP
+disabled. There is no LAN listener or published container port.
+After applying Agent configuration, add the built-in Datadog integration in HA:
+Settings → Devices & services → Add integration → Datadog. Use host `127.0.0.1`,
+port `8125`, metric prefix `homeassistant` and sample rate `1`. HA's UI-managed
+integration state is preserved by subsequent Skillet applies and HA backups.
+No additional API key is needed in HA. The integration exports state changes
+broadly; review metric volume and avoid unwanted personal/presence telemetry.
+
+Working Dyson integration on Clamps: `cmgrayb/hass-dyson` (user confirmed).
+The previous `libdyson-wg/ha-dyson` cloud setup failed during OTP completion.

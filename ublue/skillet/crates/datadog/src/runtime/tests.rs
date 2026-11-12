@@ -37,6 +37,7 @@ fn runtime(network_monitoring: bool) -> RuntimeConfig<'static> {
     RuntimeConfig {
         hostname: "clamps-test-monitoring",
         network_monitoring,
+        dogstatsd_loopback_udp: false,
         monitored_units: &[],
     }
 }
@@ -296,6 +297,7 @@ fn resolver_configuration_is_typed_and_legacy_payloads_keep_independent_defaults
     let config = RuntimeConfig {
         hostname: "fixture",
         network_monitoring: false,
+        dogstatsd_loopback_udp: false,
         monitored_units: &["example.service".into()],
     };
     apply(&system, &files, &value.to_string(), &config).unwrap();
@@ -358,4 +360,37 @@ fn switch_removal_cleans_up_secret_and_retains_empty_journal() {
         .unwrap()
         .contains("skillet-switch-office"));
     apply_switches(&system, &files, &[]).unwrap();
+}
+
+#[test]
+fn dogstatsd_udp_opt_in_is_loopback_only_and_preserves_unix_socket() {
+    for enabled in [false, true] {
+        let config = RuntimeConfig {
+            hostname: "fixture",
+            network_monitoring: false,
+            dogstatsd_loopback_udp: enabled,
+            monitored_units: &["sshd.service".into()],
+        };
+        let system = MockSystem::new();
+        let files = mounted_files();
+        apply(
+            &system,
+            &files,
+            &payload("00000000000000000000000000000000"),
+            &config,
+        )
+        .unwrap();
+        let state = files.files.lock().unwrap();
+        let unit =
+            String::from_utf8_lossy(&state["/etc/containers/systemd/datadog-agent.container"]);
+        assert!(unit.contains(if enabled {
+            "DD_DOGSTATSD_PORT=8125"
+        } else {
+            "DD_DOGSTATSD_PORT=0"
+        }));
+        assert!(unit.contains("DD_BIND_HOST=127.0.0.1"));
+        assert!(unit.contains("DD_DOGSTATSD_NON_LOCAL_TRAFFIC=false"));
+        assert!(unit.contains(DOGSTATSD_SOCKET));
+        assert!(!unit.contains("PublishPort="));
+    }
 }

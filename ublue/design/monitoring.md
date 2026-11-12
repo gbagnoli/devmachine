@@ -92,3 +92,8 @@ The selected NETGEAR library uses cleartext HTTP for switch login and statistics
 Accept that only for a private or link-local IP on the trusted LAN; do not accept
 public addresses or imply TLS support. The management endpoint and password stay
 in KeePassXC and are delivered only to that switch's collector.
+
+HA state export uses the built-in Datadog integration and host-loopback
+DogStatsD UDP. Canonical host composition opts the Agent into this listener only
+when HA is declared. The Agent owns listener configuration and ingestion keys;
+HA owns its UI-managed integration state. Unix-socket collectors remain unchanged.

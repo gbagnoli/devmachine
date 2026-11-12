@@ -13,6 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &RuntimeConfig {
             hostname: "switch-lifecycle-fixture",
             network_monitoring: false,
+            dogstatsd_loopback_udp: false,
             monitored_units: &["sshd.service".into()],
         },
     )?;
