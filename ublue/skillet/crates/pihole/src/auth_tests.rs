@@ -47,7 +47,11 @@ fn start(root: &Path, password: &str, suffix: &str) -> (Container, String) {
         .args(["port", &container.0, "8088/tcp"])
         .output()
         .unwrap();
-    assert!(output.status.success());
+    assert!(
+        output.status.success(),
+        "Podman fixture operation failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let address: std::net::SocketAddr = String::from_utf8(output.stdout)
         .unwrap()
         .trim()
@@ -93,7 +97,11 @@ fn real_pihole_proxy_mode_overrides_retained_password_and_survives_restart() {
         ])
         .output()
         .unwrap();
-    assert!(output.status.success());
+    assert!(
+        output.status.success(),
+        "Podman fixture operation failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     drop(native);
     let (proxy, base) = start(temp.path(), "", "proxy");
     wait_status(&client, &format!("{base}/api/stats/summary"), 200);
@@ -101,7 +109,11 @@ fn real_pihole_proxy_mode_overrides_retained_password_and_survives_restart() {
         .args(["restart", &proxy.0])
         .output()
         .unwrap();
-    assert!(output.status.success());
+    assert!(
+        output.status.success(),
+        "Podman fixture operation failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     wait_status(&client, &format!("{base}/api/stats/summary"), 200);
     let output = std::process::Command::new("podman")
         .args([
@@ -113,7 +125,11 @@ fn real_pihole_proxy_mode_overrides_retained_password_and_survives_restart() {
         ])
         .output()
         .unwrap();
-    assert!(output.status.success());
+    assert!(
+        output.status.success(),
+        "Podman fixture operation failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 #[test]
