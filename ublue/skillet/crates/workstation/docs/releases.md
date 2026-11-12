@@ -16,7 +16,15 @@ Upstream performs read-only crates.io name lookups even with publishing disabled
 
    Use `minor`, `major`, `rc`, or an explicit version instead of `patch` when
    appropriate. The default is a dry run. All workspace crates inherit one version.
-2. Review the preview, then execute locally:
+2. Review the preview, then execute locally. Executed releases first run every
+   Skillet CI check, including Podman acceptance and Butane/bootstrap checks.
+   `tools/ci-checks.json` is shared with CI; failures prevent release mutation.
+   All existing CI runtime prerequisites must be available; no tools are installed.
+   Dry-run previews skip these checks. To run the suite separately, use
+   `python3 tools/ci_checks.py`. Other repository lint and release-publication jobs
+   still run in GitHub Actions.
+
+   Execute locally:
 
    ```sh
    python3 tools/cut_release.py patch --execute

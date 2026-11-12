@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from ci_checks import run_checks
 from release import ReleaseError, validate_version
 
 WORKSPACE = Path(__file__).resolve().parents[1]
@@ -52,6 +53,8 @@ def main() -> int:
     args = parser.parse_args()
     try:
         check_tool(WORKSPACE)
+        if args.execute:
+            run_checks(workspace=WORKSPACE)
         command = [
             "cargo",
             "release",

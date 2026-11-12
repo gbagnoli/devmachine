@@ -4999,3 +4999,26 @@ last-success timestamp), versus zero before the change. The unreachable dummy
 switch intentionally produced no port readings. This proves local Agent parsing,
 not Datadog backend ingestion or successful physical-switch polling.
 Five collector unit tests, Ruff and commit-hook Mypy passed.
+
+### 2026-11-13 — Rust 1.100 release preflight
+
+The 0.1.8 release failed on three Rust 1.100 Clippy Option-combinator lints;
+local validation had used Rust 1.99. Replaced the expressions without changing
+fallback semantics. Rust 1.100 workspace Clippy and all-target musl unit tests
+passed, as did the Fedora repeat-apply integration, private UI Caddy tests,
+pinned cache build/tests, Gokapi, Syncthing, Quantum, NUT runtime, installation
+scripts, real Butane TPM payload and isolated software-TPM driver tests.
+
+The initial full run stopped at a Pi-hole restart assertion. An isolated retry
+and the complete two-test Pi-hole CI step both passed. Cause remains unproven;
+fixture assertions now retain Podman stderr for recurrence. This was not an
+uninterrupted green suite run.
+
+CI and local release preparation now consume the same 13 Skillet command
+entries from `tools/ci-checks.json`. Executed launcher releases run every entry
+before delegating release mutation; dry-run previews remain quick. Tests cover
+failure stopping mutation, CI/manifest parity and fail-fast execution. All 19
+release-tool tests, Python lint/type checks and pinned workflow lint passed.
+Real pinned cargo-release fixture acceptance passed in the existing Ubuntu
+container; the host cargo-release binary requires a newer glibc. No host tools
+were installed and no real tag or remote reference was changed.

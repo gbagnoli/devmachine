@@ -4,6 +4,7 @@ Cargo dependency resolution is offline. Upstream cargo-release still performs
 read-only crates.io name lookups even when publishing is disabled.
 """
 
+import json
 import os
 import shutil
 import subprocess
@@ -71,8 +72,23 @@ def run_fixture(root: Path) -> None:
         git("commit", "-qm", "feat: fixture change")
 
     (workspace / "tools").mkdir()
-    for filename in ["cut_release.py", "release.py", "cargo-release-version"]:
+    for filename in [
+        "cut_release.py",
+        "release.py",
+        "cargo-release-version",
+        "ci_checks.py",
+    ]:
         shutil.copyfile(SOURCE / "tools" / filename, workspace / "tools" / filename)
+    (workspace / "tools/ci-checks.json").write_text(
+        json.dumps(
+            {
+                "fixture": {
+                    "name": "Fixture workspace tests",
+                    "run": "cd ublue/skillet && cargo test --workspace",
+                }
+            }
+        )
+    )
     shutil.copyfile(SOURCE / "release.toml", workspace / "release.toml")
     (repository / ".gitignore").write_text("__pycache__/\ntarget/\n")
     (workspace / "Cargo.toml").write_text(

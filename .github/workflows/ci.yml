@@ -143,80 +143,52 @@ jobs:
 
       - name: Run Clippy
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
-        run: cd ublue/skillet && cargo clippy --workspace --all-targets -- -D warnings
+        run: python3 ublue/skillet/tools/ci_checks.py --step run-clippy
 
       - name: Check formatting
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
-        run: cd ublue/skillet && cargo fmt --all -- --check
+        run: python3 ublue/skillet/tools/ci_checks.py --step check-formatting
 
       - name: Run Unit Tests
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
-        run: cd ublue/skillet && cargo test --workspace --all-targets
+        run: python3 ublue/skillet/tools/ci_checks.py --step run-unit-tests
 
       - name: Run Integration Tests
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
-        run: |
-          cd ublue/skillet
-          cargo run --bin skillet -- test run joey --phase base --image fedora:latest
+        run: python3 ublue/skillet/tools/ci_checks.py --step run-integration-tests
 
       - name: Validate private UI Caddy configuration
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
-        run: |
-          cd ublue/skillet
-          cargo test -p skillet_caddy generated_identity_caddyfile_validates_with_the_real_consumer -- --ignored
-          cargo test -p skillet_caddy real_caddy_no_auth_refresh_stays_behind_identity_gate -- --ignored
-          cargo test -p skillet_caddy real_caddy_authorizes_empty_queries_and_preserves_backend_uri -- --ignored
-          cargo test -p skillet_caddy real_caddy_homeassistant_navigation_retains_identity_and_origin_guards -- --ignored
-          cargo test -p skillet_caddy real_caddy_public_native_auth_and_private_denial_share_the_same_listener -- --ignored
+        run: python3 ublue/skillet/tools/ci_checks.py --step validate-private-ui-caddy-configuration
 
       - name: Build and test the pinned Jellyfin cache image
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
-        run: |
-          podman build -t ghcr.io/gbagnoli/skillet-caddy:cache-v1 ublue/skillet/crates/caddy/image
-          cd ublue/skillet
-          cargo test -p skillet_caddy real_caddy_static_cache_ -- --ignored
+        run: python3 ublue/skillet/tools/ci_checks.py --step build-and-test-the-pinned-jellyfin-cache-image
 
       - name: Test Gokapi native bootstrap and paired state without external credentials
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
-        run: |
-          cd ublue/skillet
-          cargo test -p skillet_gokapi real_gokapi_ -- --ignored
+        run: python3 ublue/skillet/tools/ci_checks.py --step test-gokapi-native-bootstrap-and-paired-state-without-external-credentials
 
       - name: Test Pi-hole proxy authentication without external credentials
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
-        run: |
-          cd ublue/skillet
-          cargo test -p skillet_pihole real_pihole_ -- --ignored
+        run: python3 ublue/skillet/tools/ci_checks.py --step test-pi-hole-proxy-authentication-without-external-credentials
 
       - name: Test Syncthing bootstrap without external credentials
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
-        run: |
-          cd ublue/skillet
-          cargo test -p skillet_syncthing real_upstream_generator_preserves_identity_and_user_edits -- --ignored
+        run: python3 ublue/skillet/tools/ci_checks.py --step test-syncthing-bootstrap-without-external-credentials
 
       - name: Test FileBrowser Quantum file operations without external credentials
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
-        run: |
-          cd ublue/skillet
-          cargo test -p skillet_filebrowser real_quantum_proxy_auth_supports_owned_file_operations -- --ignored
+        run: python3 ublue/skillet/tools/ci_checks.py --step test-filebrowser-quantum-file-operations-without-external-credentials
 
       - name: Test native UPS configuration without hardware
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
-        run: |
-          cd ublue/skillet
-          podman build -t localhost/skillet-nut-runtime crates/nut/tests
-          cargo test -p skillet_nut real_fedora_nut_accepts_config_and_monitors_a_safe_dummy_ups -- --ignored
+        run: python3 ublue/skillet/tools/ci_checks.py --step test-native-ups-configuration-without-hardware
 
       - name: Run installation and bootstrap regressions
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
-        run: |
-          bash ublue/butane/tests/bootstrap.sh
-          bash ublue/butane/tests/storage-bootstrap.sh
-          bash ublue/butane/tests/hardware.sh
+        run: python3 ublue/skillet/tools/ci_checks.py --step run-installation-and-bootstrap-regressions
 
       - name: Test TPM bootstrap without hardware or external credentials
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
-        run: |
-          cd ublue/skillet
-          cargo test -p skillet_workstation physical_tpm_payload_passes_real_butane_merge -- --ignored
-          cargo test -p skillet_workstation real_software_tpm_bootstrap_driver -- --ignored
+        run: python3 ublue/skillet/tools/ci_checks.py --step test-tpm-bootstrap-without-hardware-or-external-credentials

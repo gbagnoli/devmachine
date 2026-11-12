@@ -42,6 +42,7 @@ class LauncherTests(unittest.TestCase):
         for flags in [[], ["--execute", "--no-confirm"]]:
             with (
                 self.subTest(flags=flags),
+                patch.object(cut_release, "run_checks") as checks,
                 patch.object(cut_release, "WORKSPACE", self.workspace),
                 patch.object(sys, "argv", ["cut_release.py", "0.2.0-rc.1", *flags]),
                 patch.object(
@@ -56,6 +57,10 @@ class LauncherTests(unittest.TestCase):
                 ) as runner,
             ):
                 self.assertEqual(cut_release.main(), 0)
+                if "--execute" in flags:
+                    checks.assert_called_once_with(workspace=self.workspace)
+                else:
+                    checks.assert_not_called()
                 self.assertEqual(
                     runner.call_args.args[0],
                     [
@@ -72,6 +77,21 @@ class LauncherTests(unittest.TestCase):
                     ],
                 )
                 self.assertEqual(runner.call_args.kwargs["cwd"], self.workspace)
+
+    def test_failed_preflight_prevents_release_mutation(self):
+        with (
+            patch.object(cut_release, "WORKSPACE", self.workspace),
+            patch.object(sys, "argv", ["cut_release.py", "patch", "--execute"]),
+            patch.object(cut_release, "check_tool"),
+            patch.object(
+                cut_release,
+                "run_checks",
+                side_effect=subprocess.CalledProcessError(1, "check"),
+            ),
+            patch.object(cut_release.subprocess, "run") as runner,
+        ):
+            self.assertEqual(cut_release.main(), 1)
+            runner.assert_not_called()
 
     def test_policy_overrides_are_not_accepted_by_launcher(self):
         for flag in ["--push", "--publish", "--config", "--allow-branch"]:
