@@ -207,7 +207,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.UCORE_IMAGES_PR_TOKEN }}
           PR_URL: ${{ steps.proposal.outputs.pull-request-url }}
-        run: gh pr checks "$PR_URL" --required --watch --fail-fast --repo "${{ github.repository_owner }}/ucore-images"
+        run: python3 source/ublue/skillet/tools/wait_pr_checks.py --pr "$PR_URL" --repo "${{ github.repository_owner }}/ucore-images"
       - name: Merge validated dependency update
         if: steps.proposal.outputs.pull-request-number != ''
         env:
