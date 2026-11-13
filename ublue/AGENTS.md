@@ -83,6 +83,12 @@
 
 ## Shared infrastructure boundaries
 
+- New operational helper programs must be written in Rust, compiled for musl,
+  and delivered as minimal container images published by devmachine CI. Do not
+  introduce Python scripts for operational service helpers. Keep runtime images
+  free of build tools and unnecessary dependencies; PRs validate images without
+  publishing them. Existing helpers are not implicitly scheduled for migration.
+
 - Activation and configuration writers must share exclusion. If finalization
   freezes a deployment's configuration, a failed worker must leave a durable
   refusal of further writes until recovery; an in-process lock alone is insufficient.
