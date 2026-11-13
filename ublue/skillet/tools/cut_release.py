@@ -1,4 +1,4 @@
-"""Run the pinned cargo-release with the workspace's local-only release policy."""
+"""Run the installed cargo-release with the workspace's local-only release policy."""
 
 import argparse
 import subprocess
@@ -11,21 +11,16 @@ from release import ReleaseError, validate_version
 WORKSPACE = Path(__file__).resolve().parents[1]
 
 
-def tool_version(workspace: Path) -> str:
-    return validate_version(
-        (workspace / "tools/cargo-release-version").read_text().strip()
-    )
-
-
 def check_tool(workspace: Path) -> None:
-    expected = f"cargo-release {tool_version(workspace)}"
     result = subprocess.run(
-        ["cargo", "release", "--version"], capture_output=True, text=True, timeout=10
+        ["cargo", "release", "--version"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        cwd=workspace,
     )
     if result.returncode != 0:
-        raise ReleaseError(f"cannot run {expected}: {result.stderr.strip()}")
-    if result.stdout.strip() != expected:
-        raise ReleaseError(f"expected {expected}; found {result.stdout.strip()}")
+        raise ReleaseError(f"cannot run cargo-release: {result.stderr.strip()}")
 
 
 def release_level(value: str) -> str:

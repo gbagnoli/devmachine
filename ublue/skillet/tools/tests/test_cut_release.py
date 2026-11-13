@@ -17,11 +17,9 @@ class LauncherTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.workspace = Path(temporary.name)
         (self.workspace / "tools").mkdir()
-        (self.workspace / "tools/cargo-release-version").write_text("0.25.16\n")
 
-    def test_wrong_or_unusable_tool_is_rejected_before_release(self):
+    def test_unusable_tool_is_rejected_before_release(self):
         for result in [
-            subprocess.CompletedProcess([], 0, "cargo-release 0.26.0\n", ""),
             subprocess.CompletedProcess([], 1, "", "incompatible runtime"),
         ]:
             with (
@@ -38,7 +36,7 @@ class LauncherTests(unittest.TestCase):
                     runner.call_args.args[0], ["cargo", "release", "--version"]
                 )
 
-    def test_matching_tool_delegates_local_only_dry_run_or_execute(self):
+    def test_installed_tool_delegates_local_only_dry_run_or_execute(self):
         for flags in [[], ["--execute", "--no-confirm"]]:
             with (
                 self.subTest(flags=flags),
@@ -50,7 +48,7 @@ class LauncherTests(unittest.TestCase):
                     "run",
                     side_effect=[
                         subprocess.CompletedProcess(
-                            [], 0, "cargo-release 0.25.16\n", ""
+                            [], 0, "cargo-release 99.0.0\n", ""
                         ),
                         subprocess.CompletedProcess([], 0),
                     ],

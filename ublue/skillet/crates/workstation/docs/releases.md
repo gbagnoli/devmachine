@@ -1,8 +1,8 @@
 # Skillet releases
 
-Run commands from `ublue/skillet`. Python 3.11+, Git, Cargo and the exact
-`cargo-release` version in `tools/cargo-release-version` must be available on
-`PATH`. The launcher checks that version before making changes; it installs nothing.
+Run commands from `ublue/skillet`. Python 3.11+, Git, Cargo and `cargo-release`
+must be available on `PATH`. The launcher checks that cargo-release runs before
+making changes; it accepts any installed version and installs nothing.
 Use a cargo-release executable compatible with your host's glibc, or run the
 tools together in a compatible container/toolbox.
 Upstream performs read-only crates.io name lookups even with publishing disabled.
@@ -90,7 +90,7 @@ For a prerelease, use `python3 tools/cut_release.py 0.2.0-rc.1 --execute`;
 the workflow marks its GitHub release as a prerelease.
 Image consumers must explicitly select it in their dependency lock.
 
-CI tests the pinned tool against temporary Git repositories and a local bare
+CI tests the currently installed tool against temporary Git repositories and a local bare
 remote: dry-run preservation, patch/prerelease tags, lockfile consistency,
 branch refusal and unchanged remote refs. Run that check explicitly with
 `python3 tools/tests/cargo_release_acceptance.py` in a compatible tool environment.

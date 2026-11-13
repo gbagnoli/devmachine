@@ -5,7 +5,7 @@ of other devmachine content. Executables retain `X.Y.Z+git.<revision>` provenanc
 The compatibility contract covers CLI commands, credential payloads, image bundles
 and retained-state migrations. The workspace is released as one component.
 
-Pinned cargo-release owns version/lockfile edits, the consolidated release commit
+The installed cargo-release owns version/lockfile edits, the consolidated release commit
 and annotated tag; a small launcher verifies its version before delegating with
 explicit configuration. This avoids maintaining another versioning implementation.
 Releases start on clean `master`, default to preview, and never publish crates or
@@ -44,3 +44,6 @@ explicit. Prereleases are excluded from automatic proposals. A failed proposal
 does not undo publication; retry only the failed job after repairing credentials.
 
 Operations: [release guide](../skillet/crates/workstation/docs/releases.md).
+
+Cargo-release is not version-pinned. The launcher verifies availability, while
+CI tests the current tool in disposable repositories to catch behavior changes.

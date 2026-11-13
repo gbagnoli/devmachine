@@ -1,4 +1,4 @@
-"""Exercise the pinned upstream release tool in disposable Git repositories.
+"""Exercise the installed upstream release tool in disposable Git repositories.
 
 Cargo dependency resolution is offline. Upstream cargo-release still performs
 read-only crates.io name lookups even when publishing is disabled.
@@ -75,7 +75,6 @@ def run_fixture(root: Path) -> None:
     for filename in [
         "cut_release.py",
         "release.py",
-        "cargo-release-version",
         "ci_checks.py",
     ]:
         shutil.copyfile(SOURCE / "tools" / filename, workspace / "tools" / filename)
