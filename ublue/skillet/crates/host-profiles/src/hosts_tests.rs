@@ -1570,3 +1570,48 @@ fn unifi_backup_storage_follows_selected_shared_syncthing() {
             .is_none());
     }
 }
+
+#[test]
+fn local_unifi_readiness_is_a_bounded_optional_ha_startup_dependency() {
+    let files = skillet_core::test_utils::MockFiles::new();
+    let system = MockSystem::new();
+    let mut profile = super::profile_for_name("clamps").unwrap();
+    super::unifi_dependency::install(&system, &files, &profile).unwrap();
+    let path = Path::new("/etc/systemd/system/homeassistant.service.d/50-skillet-unifi-ready.conf");
+    let content = skillet_core::files::FileReadResource::read_file(&files, path)
+        .unwrap()
+        .unwrap();
+    let content = String::from_utf8(content).unwrap();
+    assert!(content.contains("Wants=skillet-unifi-ready.service"));
+    assert!(content.contains("After=skillet-unifi-ready.service"));
+    assert!(!content.contains("Requires="));
+    assert!(!content.contains("PartOf="));
+    profile
+        .services
+        .retain(|service| !matches!(service.config, ServiceConfig::Unifi));
+    system
+        .fail_reload_once
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    assert!(super::unifi_dependency::install(&system, &files, &profile).is_err());
+    super::unifi_dependency::install(&system, &files, &profile).unwrap();
+    assert_eq!(
+        skillet_core::files::FileReadResource::read_file(
+            &files,
+            Path::new("/var/lib/skillet/unifi-ready/ha.applied")
+        )
+        .unwrap()
+        .unwrap(),
+        b"disabled"
+    );
+    assert!(
+        skillet_core::files::FileReadResource::read_file(&files, path)
+            .unwrap()
+            .is_none()
+    );
+    assert!(skillet_unifi::readiness::CONTENT.contains("TimeoutStartSec=210"));
+    assert!(skillet_unifi::readiness::CONTENT.contains("--network=host --read-only --cap-drop=all"));
+    assert!(skillet_unifi::readiness::CONTENT
+        .contains("ExecStopPost=/usr/bin/podman rm --force --ignore"));
+    assert!(!skillet_unifi::readiness::CONTENT.contains("[Install]"));
+    assert!(!skillet_unifi::readiness::CONTENT.contains("Restart=always"));
+}

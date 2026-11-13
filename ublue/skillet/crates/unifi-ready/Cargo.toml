@@ -1,0 +1,16 @@
+[package]
+name = "skillet-unifi-ready"
+version.workspace = true
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+clap.workspace = true
+reqwest.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tiny_http = "0.12"

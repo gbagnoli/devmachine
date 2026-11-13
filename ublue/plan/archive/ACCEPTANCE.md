@@ -5126,3 +5126,35 @@ kexec reliability open despite previous successful VM/physical attempts.
 Read-only diagnostics only: remote sudo requires a password; no mask, reboot,
 firmware change or graphics workaround was applied. Investigation is tracked
 in CLAMPS-I915.md.
+
+## 2026-11-13 — Containerized local UniFi API readiness
+
+General rule saved separately in b9f68e5: new operational helpers use Rust/musl
+and minimal container delivery, published by devmachine CI, without new Python
+helpers. The readiness binary is a dedicated workspace crate; its multi-stage
+build produced a scratch image of 5,370,548 bytes, user 65532:65532, containing
+only its static executable. The helper polls the literal-loopback /status API,
+rejects startup HTML/redirects/non-ready JSON, limits bodies and request times,
+and stops after at most 180 seconds. No controller credentials are consumed.
+
+An image-owned on-demand oneshot runs the host-network, read-only, capability-
+free container with newer-pull/cached-image fallback and a 210-second total
+startup limit. Cleanup removes its reserved container on every stop path. HA
+gets Wants/After only when its caller also selects local UniFi; it can start
+after readiness failure and receives no restart/stop propagation. First apply
+converges the local provider before its consumer, preserving earlier bootstrap
+services. Dropping the dependency retires only the known drop-in and retries
+an interrupted reload. Installing the dependency does not restart running apps.
+
+Musl workspace all-target tests and pedantic Clippy passed on Rust 1.100.
+Readiness parser/loopback/deadline and real HTTP startup-transition tests passed.
+The actual scratch container passed HTML-to-ready and hung-response timeout
+fixtures. The pinned CI actionlint container accepted the new publishing
+workflow; PR builds/test do not publish, while default-branch and daily builds
+publish after runtime acceptance. No workstation packages were installed.
+
+The same container successfully probed Clamps' real HTTPS controller through a
+short-lived SSH tunnel; the tunnel was closed. No production services, tracking
+state, configuration or images were changed. GHCR publication/visibility,
+disposable systemd boot ordering and physical first-boot presence recovery
+remain rollout acceptance; see CLAMPS-UNIFI.md. No reboot was attempted.

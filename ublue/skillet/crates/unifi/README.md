@@ -81,3 +81,31 @@ sudo /usr/bin/skillet unifi export
 
 Check that the `.unf` appears on a receiving Syncthing peer. Missing backups,
 content conflicts and unsafe source/destination paths fail without pruning.
+
+## Home Assistant startup readiness
+
+On hosts selecting both applications, HA waits for
+`skillet-unifi-ready.service` before starting. The helper polls the controller's
+JSON `/status` endpoint for up to three minutes, rather than treating an open
+port or startup HTML as readiness. Failure is logged, but HA still starts after
+the bounded check. UniFi is never restarted by this gate.
+
+The helper ships as `ghcr.io/gbagnoli/skillet-unifi-ready:latest`: a non-root
+static Rust/musl executable in a scratch image. Its publishing workflow must
+complete before the first rollout; ensure the GHCR package is public so hosts
+can pull without registry credentials. PR builds do not publish; the default branch
+and daily schedule publish fresh images. The gate checks for a newer helper on
+startup and can reuse a cached image if the registry is unavailable.
+
+After booting the updated uCore image:
+
+```bash
+sudo systemctl start skillet-unifi-ready.service
+journalctl -u skillet-unifi-ready.service --no-pager -n 30
+systemctl show homeassistant.service -p After -p Wants
+```
+
+A healthy run ends successfully; the oneshot returns inactive so a future HA
+startup performs a fresh check. Installing the dependency does not restart an
+already-running HA or reload its UniFi integration. For an existing stalled
+integration, use its Reload action in HA. Do not reboot just to test readiness.

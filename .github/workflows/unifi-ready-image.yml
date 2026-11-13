@@ -1,0 +1,78 @@
+name: UniFi readiness image
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'ublue/skillet/crates/unifi-ready/**'
+      - 'ublue/skillet/Cargo.toml'
+      - 'ublue/skillet/Cargo.lock'
+      - '.github/workflows/unifi-ready-image.yml'
+  pull_request:
+    paths:
+      - 'ublue/skillet/crates/unifi-ready/**'
+      - 'ublue/skillet/Cargo.toml'
+      - 'ublue/skillet/Cargo.lock'
+      - '.github/workflows/unifi-ready-image.yml'
+  schedule:
+    - cron: '40 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unifi-ready-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ublue/skillet
+      - name: Test readiness helper
+        run: cargo test --manifest-path ublue/skillet/Cargo.toml --target x86_64-unknown-linux-gnu -p skillet-unifi-ready
+      - uses: docker/setup-buildx-action@v3
+      - name: Build minimal runtime for acceptance
+        uses: docker/build-push-action@v6
+        with:
+          context: ublue/skillet
+          file: ublue/skillet/crates/unifi-ready/Containerfile
+          platforms: linux/amd64
+          pull: true
+          load: true
+          push: false
+          tags: localhost/skillet-unifi-ready:check
+      - name: Test scratch image against local startup and timeout fixtures
+        env:
+          SKILLET_READY_TEST_ENGINE: docker
+        run: cargo test --manifest-path ublue/skillet/Cargo.toml --target x86_64-unknown-linux-gnu -p skillet-unifi-ready scratch_container_handles_startup_and_timeout_without_credentials -- --ignored
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish from default branch only
+        if: github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch
+        uses: docker/build-push-action@v6
+        with:
+          context: ublue/skillet
+          file: ublue/skillet/crates/unifi-ready/Containerfile
+          platforms: linux/amd64
+          pull: true
+          push: ${{ github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/skillet-unifi-ready:latest
+            ghcr.io/${{ github.repository_owner }}/skillet-unifi-ready:${{ github.sha }}

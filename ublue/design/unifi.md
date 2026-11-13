@@ -51,3 +51,26 @@ unrelated files and never remove source backups. Btrbk preserves older exported
 versions; Syncthing peer receipt remains separate acceptance. Units ship disabled
 in every image and are enabled only by a caller selecting UniFi and shared
 Syncthing storage. The exporter does not change UniFi's native schedule.
+
+## Local API readiness for Home Assistant
+
+A containerized Rust/musl helper probes only the loopback `/status` endpoint
+until HTTP 200 JSON explicitly reports `meta.rc=ok` and `meta.up=true`. It uses
+no controller credentials; startup HTML, redirects, malformed JSON and connection
+failures are not readiness. Only loopback endpoints may use its self-signed TLS
+exception. Attempts and bodies are bounded; the overall probe deadline is three
+minutes. The runtime image is scratch with a non-root user and no shell/build
+packages. Devmachine CI tests/builds it on PRs and publishes it only from the
+repository default branch, with a daily rebuild.
+
+The image-owned `skillet-unifi-ready.service` runs this read-only, capability-free
+host-network container on demand. It is not a watchdog and never restarts UniFi.
+When the caller selects both UniFi and HA, composition creates the provider before
+the consumer's first apply and adds HA `Wants`/`After` ordering for readiness.
+A failed check is visible in systemd, but HA still starts after the bounded wait;
+there is no `Requires`, `PartOf` or restart propagation. The helper is cleaned up
+on success, failure and timeout. Each HA startup requests a fresh check, rather
+than retaining a completed readiness state. Image refresh uses Podman's newer
+pull policy with cached-image fallback; total unit startup is bounded at 210s.
+Removing the selected local controller retires only the known managed HA drop-in.
+This addresses startup readiness, not later integration/device tracking failures.

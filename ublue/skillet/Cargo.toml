@@ -6,6 +6,7 @@ members = [
     "crates/hardening",
     "crates/pihole",
     "crates/unifi",
+    "crates/unifi-ready",
     "crates/homeassistant",
     "crates/syncthing",
     "crates/filebrowser",

@@ -3647,6 +3647,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "skillet-unifi-ready"
+version = "0.1.11"
+dependencies = [
+ "clap",
+ "reqwest",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tiny_http",
+]
+
+[[package]]
 name = "skillet_airtrail"
 version = "0.1.11"
 dependencies = [

@@ -13,6 +13,7 @@ mod application_unit;
 mod apply_units;
 pub mod profile;
 pub mod tailscale;
+mod unifi_dependency;
 pub use profile::{
     declared_profiles, profile_for_host, profile_for_name, AcceptanceListener, AcceptanceOwner,
     AcceptanceService, CredentialConsumer, HealthProbe, HostAcceptancePlan, HostId, HostProfile,
@@ -426,6 +427,19 @@ pub fn apply_host(
     apply_profile(&profile, system, files, credentials)
 }
 
+fn apply_unifi(
+    system: &dyn SystemResource,
+    files: &dyn FileResource,
+    profile: &HostProfile,
+) -> Result<(), ApplyError> {
+    skillet_unifi::apply(system, files)?;
+    let config = profile.unifi_backup_config().ok_or_else(|| {
+        ApplyError::FixtureInput("UniFi backup requires shared Syncthing storage".into())
+    })?;
+    skillet_unifi::backup::install(system, files, config)?;
+    Ok(())
+}
+
 #[allow(clippy::similar_names)]
 fn apply_profile(
     profile: &HostProfile,
@@ -450,6 +464,8 @@ fn apply_profile(
     if profile.requires_service_network() {
         skillet_podman::ensure_network(system, files, &profile.service_network())?;
     }
+    unifi_dependency::install(system, files, profile)?;
+    let mut unifi_applied = false;
     for service in &profile.services {
         match &service.config {
             // These services have base installers or separate credential-gated phases.
@@ -474,15 +490,20 @@ fn apply_profile(
                 skillet_nut::apply(system, files, *config)?;
             }
             ServiceConfig::HomeAssistant(config) => {
+                if profile.supports_service("unifi") && !unifi_applied {
+                    apply_unifi(system, files, profile)?;
+                    unifi_applied = true;
+                }
                 skillet_homeassistant::apply(system, files, *config)?;
             }
             ServiceConfig::Jellyfin(config) => {
                 skillet_jellyfin::apply(system, files, *config, profile.id.as_str())?;
             }
             ServiceConfig::Unifi => {
-                skillet_unifi::apply(system, files)?;
-                let config = profile.unifi_backup_config().ok_or_else(|| ApplyError::FixtureInput("UniFi backup requires shared Syncthing storage".into()))?;
-                skillet_unifi::backup::install(system, files, config)?;
+                if !unifi_applied {
+                    apply_unifi(system, files, profile)?;
+                    unifi_applied = true;
+                }
             }
             ServiceConfig::Tailscale {
                 state_path,

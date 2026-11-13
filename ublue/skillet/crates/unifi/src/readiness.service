@@ -1,0 +1,13 @@
+[Unit]
+Description=Wait for the local UniFi controller API
+Wants=unifi.service
+After=unifi.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/podman rm --force --ignore skillet-unifi-ready
+ExecStart=/usr/bin/podman run --rm --pull=newer --name=skillet-unifi-ready --network=host --read-only --cap-drop=all --security-opt=no-new-privileges ghcr.io/gbagnoli/skillet-unifi-ready:latest
+ExecStopPost=/usr/bin/podman rm --force --ignore skillet-unifi-ready
+TimeoutStartSec=210
+TimeoutStopSec=15
+Restart=no
