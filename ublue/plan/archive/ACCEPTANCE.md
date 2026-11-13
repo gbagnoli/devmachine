@@ -5114,3 +5114,15 @@ physical Clamps: enp1s0 link_up=1, speed=1000 Mbps, collection_success=1;
 enp2s0 link_up=0, speed=0, collection_success=1. The temporary binary/directory
 were removed. Installed binaries, services and cloud telemetry were unchanged.
 Actual timer recovery and Datadog ingestion remain post-image rollout checks.
+
+## 2026-11-13 — physical kexec reliability failure
+
+Operator reports kexec hung and required forced power-off. Previous-boot logs
+show successful deployment finalization and accepted kexec shutdown at 16:35;
+no persisted boot is recorded until the 16:47 power-cycle boot. The new signed
+image is active with Skillet 0.1.11 and no failed units. Recovered-boot i915
+VBT/port warnings and empty pstore do not identify the hang's cause. Keep physical
+kexec reliability open despite previous successful VM/physical attempts.
+Read-only diagnostics only: remote sudo requires a password; no mask, reboot,
+firmware change or graphics workaround was applied. Investigation is tracked
+in CLAMPS-I915.md.
