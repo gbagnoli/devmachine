@@ -5033,3 +5033,16 @@ All 15 kexec library tests and all-target Clippy passed on Rust 1.100 using the
 GNU target. systemd-analyze calendar confirmed the next 06:30 CET occurrence.
 No live timer mutation or reboot was performed: remote noninteractive sudo
 requires authentication. Physical activation remains to be verified after apply.
+
+## 2026-11-13 — Nested Cargo build cache stability
+
+Shared artifact builds now remove inherited Cargo package/invocation metadata
+before launching Cargo, preserving user cache, target, linker and toolchain
+configuration. This prevents `cargo run` metadata from alternating dependency
+fingerprints between workstation and nested guest/helper builds.
+Workspace all-target tests and pedantic Clippy passed on Rust 1.100 with the
+musl target. Six artifact tests passed separately, including an offline real
+Cargo fixture: builds with two differing parent identities and then no parent
+identity reused fresh library/build-script artifacts after the first build.
+No remote apply or VM/service mutation was performed; no container resources
+changed. The first build after this fix may rebuild old contaminated artifacts.

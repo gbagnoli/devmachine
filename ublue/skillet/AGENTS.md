@@ -37,6 +37,10 @@ This document defines the architectural mandates and project structure for `skil
   observations. Do not require a particular workstation port, account, service,
   or external resource to happen to be available for a unit test.
 
+- Nested Cargo invocations must remove parent package/invocation metadata inherited
+  from `cargo run`, while preserving user toolchain, target, cache and compiler
+  settings. Share this boundary across artifact builders to avoid cache churn.
+
 ## Local musl toolchain
 
 - On this workstation, the musl cross compiler is installed under

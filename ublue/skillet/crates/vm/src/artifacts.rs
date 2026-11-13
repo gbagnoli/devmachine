@@ -3,6 +3,7 @@ use crate::{Error, Result};
 use serde::Deserialize;
 use std::{
     collections::BTreeMap,
+    ffi::OsStr,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -16,6 +17,7 @@ pub struct BuildRequest<'a> {
 
 pub fn build(request: &BuildRequest<'_>) -> Result<BTreeMap<String, PathBuf>> {
     let mut command = Command::new("cargo");
+    remove_parent_cargo_metadata(&mut command, std::env::vars_os().map(|(key, _)| key));
     command.current_dir(request.workspace).args([
         "build",
         "--message-format=json-render-diagnostics",
@@ -52,6 +54,33 @@ pub fn build(request: &BuildRequest<'_>) -> Result<BTreeMap<String, PathBuf>> {
             Ok((name, std::fs::canonicalize(path)?))
         })
         .collect()
+}
+
+// `cargo run` exports metadata about its selected package. Those values are
+// invocation inputs to nested Cargo/build scripts and can alternate fingerprints
+// between direct and nested builds. Preserve user toolchain/configuration inputs.
+fn remove_parent_cargo_metadata(
+    command: &mut Command,
+    keys: impl IntoIterator<Item = impl AsRef<OsStr>>,
+) {
+    for key in keys {
+        let name = key.as_ref().to_string_lossy();
+        if name.starts_with("CARGO_PKG_")
+            || name.starts_with("CARGO_BIN_EXE_")
+            || name.starts_with("CARGO_FEATURE_")
+            || name.starts_with("CARGO_CFG_")
+            || matches!(
+                name.as_ref(),
+                "CARGO_MANIFEST_DIR"
+                    | "CARGO_MANIFEST_PATH"
+                    | "CARGO_MANIFEST_LINKS"
+                    | "CARGO_CRATE_NAME"
+                    | "CARGO_BIN_NAME"
+            )
+        {
+            command.env_remove(key.as_ref());
+        }
+    }
 }
 
 /// Inspect a selected executable with a bounded read-only command.
