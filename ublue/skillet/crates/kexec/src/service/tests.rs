@@ -91,10 +91,11 @@ fn apply_only_installs_and_preserves_definition_on_repeat() {
         .unwrap()
         .contains_key("daemon-reload"));
     system.services.lock().unwrap().clear();
+    let restarts = system.restart_count.load(Ordering::SeqCst);
     apply(&system, &files, binary).unwrap();
     assert_eq!(files.read_file(Path::new(PATH)).unwrap().unwrap(), first);
     assert_eq!(system.start_count.load(Ordering::SeqCst), 0);
-    assert_eq!(system.restart_count.load(Ordering::SeqCst), 0);
+    assert_eq!(system.restart_count.load(Ordering::SeqCst), restarts);
     assert!(!system.services.lock().unwrap().contains_key(UNIT));
 }
 
@@ -114,6 +115,7 @@ fn unsafe_unit_executable_is_rejected() {
 fn interrupted_reload_is_retried_even_when_the_definition_already_exists() {
     let files = MockFiles::new();
     let system = MockSystem::new();
+    converge_update_timer(&system, &files).unwrap();
     system.fail_reload_once.store(true, Ordering::SeqCst);
     let binary = "/var/usrlocal/bin/skillet-fixture";
     assert!(apply(&system, &files, binary).is_err());
@@ -129,4 +131,38 @@ fn interrupted_reload_is_retried_even_when_the_definition_already_exists() {
         .unwrap()
         .contains_key("daemon-reload"));
     assert_eq!(system.start_count.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn staging_schedule_retries_interrupted_reload_without_activating_kexec() {
+    let files = MockFiles::new();
+    let system = MockSystem::new();
+    system.fail_reload_once.store(true, Ordering::SeqCst);
+    assert!(converge_update_timer(&system, &files).is_err());
+    let receipt = Path::new("/var/lib/skillet/kexec/update-timer.applied");
+    assert!(files.read_file(receipt).unwrap().is_none());
+    converge_update_timer(&system, &files).unwrap();
+    let content = String::from_utf8(
+        files
+            .read_file(Path::new(UPDATE_TIMER_DROPIN))
+            .unwrap()
+            .unwrap(),
+    )
+    .unwrap();
+    for directive in [
+        "OnBootSec=\n",
+        "OnUnitActiveSec=\n",
+        "OnUnitInactiveSec=\n",
+        "OnCalendar=\n",
+        "OnCalendar=*-*-* 06:30:00 Europe/Paris\n",
+        "RandomizedDelaySec=0\n",
+        "Persistent=false\n",
+    ] {
+        assert!(content.contains(directive), "missing {directive}");
+    }
+    assert!(files.read_file(receipt).unwrap().is_some());
+    assert_eq!(system.restart_count.load(Ordering::SeqCst), 1);
+    converge_update_timer(&system, &files).unwrap();
+    assert_eq!(system.restart_count.load(Ordering::SeqCst), 1);
+    assert!(!system.service_is_active(UNIT).unwrap());
 }

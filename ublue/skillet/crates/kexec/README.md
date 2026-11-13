@@ -55,7 +55,9 @@ If a login or other inhibitor races with the final kexec request after finalizat
 the next run can reuse the finalized default deployment. An active HA export or
 btrbk job also refuses activation before deployment finalization.
 Monitor uptime over seven days and host availability.
-The rpm-ostreed staging timer currently runs around 06:30 Europe/Paris; kexec
+Skillet schedules the rpm-ostreed staging timer daily at 06:30 Europe/Paris,
+replacing vendor boot-relative intervals and random delays. Missed runs do not
+catch up immediately on boot or apply. Kexec
 starts after successful staging on ordinary days; the first Sunday takes the
 normal reboot path after that staging run. The exporter runs at 04:00 and btrbk
 on the hour. The idle check does not prevent an independently started backup

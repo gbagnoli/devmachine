@@ -5022,3 +5022,14 @@ release-tool tests, Python lint/type checks and pinned workflow lint passed.
 Real pinned cargo-release fixture acceptance passed in the existing Ubuntu
 container; the host cargo-release binary requires a newer glibc. No host tools
 were installed and no real tag or remote reference was changed.
+
+## 2026-11-13 — Explicit OS staging schedule
+
+Kexec opt-in now converges rpm-ostreed-automatic.timer to 06:30 Europe/Paris,
+clearing vendor boot-relative intervals and random delays. Persistent catch-up
+is disabled to avoid an immediate activation during boot/apply. A receipt retries
+interrupted reload/activation and avoids restarting an unchanged timer.
+All 15 kexec library tests and all-target Clippy passed on Rust 1.100 using the
+GNU target. systemd-analyze calendar confirmed the next 06:30 CET occurrence.
+No live timer mutation or reboot was performed: remote noninteractive sudo
+requires authentication. Physical activation remains to be verified after apply.
