@@ -85,6 +85,9 @@ fn rootful_secrets_and_host_observation_are_explicit() {
     ] {
         assert!(quadlet.contains(expected), "missing {expected}: {quadlet}");
     }
+    assert!(state.contains_key("/etc/systemd/system/skillet-nic-metrics.timer"));
+    let checks = String::from_utf8_lossy(&state["/etc/skillet/datadog/conf.d/systemd.d/conf.yaml"]);
+    assert!(checks.contains("skillet-nic-metrics.timer"));
     assert!(!quadlet.contains("PublishPort="));
     assert!(!quadlet.contains("seccomp=unconfined"));
     assert!(!quadlet.contains("--privileged"));

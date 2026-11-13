@@ -26,6 +26,10 @@ pub const DOGSTATSD_SOCKET: &str = "/run/skillet-dogstatsd/dsd.socket";
 
 #[derive(Debug, Error)]
 pub enum DatadogError {
+    #[error(transparent)]
+    Activation(#[from] skillet_core::activation::ActivationError),
+    #[error(transparent)]
+    VendorUnits(#[from] skillet_core::vendor_units::Error),
     #[error("invalid Datadog configuration or credentials")]
     Invalid,
     #[error(transparent)]
@@ -307,6 +311,12 @@ where
     if let Some(switches) = input.switches() {
         revisions.push(apply_switches(system, files, switches)?);
     }
+    let monitored_units = runtime
+        .monitored_units
+        .iter()
+        .map(String::as_str)
+        .chain([crate::nic::TIMER])
+        .collect::<Vec<_>>();
     for (name, instance) in [
         ("btrfs", json!({})),
         ("network", json!({})),
@@ -316,7 +326,7 @@ where
         ),
         (
             "systemd",
-            json!({"unit_names": runtime.monitored_units, "private_socket": "/host/run/systemd/private"}),
+            json!({"unit_names": monitored_units, "private_socket": "/host/run/systemd/private"}),
         ),
     ] {
         let directory = Path::new(CONFIG_DIR).join(format!("{name}.d"));
@@ -353,6 +363,7 @@ where
         files,
         container_config(runtime, revisions, &input.site, &input.dns_servers),
     )?;
+    crate::nic::install(system, files)?;
     Ok(())
 }
 

@@ -87,3 +87,32 @@ Use unique labels per switch, at most 64 ASCII letters, digits, spaces, dots,
 hyphens or underscores. Missing labels leave those ports unchanged. Both the
 workstation payload compiler and collector image need this support; update the
 guest binary before delivering the extended credential payload.
+
+## Host NIC link speed
+
+Every Datadog-enabled host runs `skillet-nic-metrics.timer` every 30 seconds.
+The image-owned Rust collector discovers hardware-backed Ethernet interfaces
+through sysfs; loopback, virtual bridges/veths and Wi-Fi are excluded. It reports:
+
+| Metric | Meaning |
+| --- | --- |
+| `skillet.net.link_speed_mbps` | Negotiated speed in Mbps; zero only for a confirmed disconnected link |
+| `skillet.net.link_up` | Carrier present: 1 or 0 |
+| `skillet.net.collection_success` | Carrier and speed observations succeeded: 1 or 0 |
+
+Metrics carry `interface:<name>` and inherit the local Agent's host/environment
+tags. Unknown/unsupported speed readings omit the speed metric and report
+collection failure. This measures Ethernet negotiation, not traffic throughput
+or Wi-Fi association rate. No new credential or interface inventory is required.
+
+After booting the updated image:
+
+```bash
+/usr/bin/skillet metrics nic --dry-run
+sudo systemctl start skillet-nic-metrics.service
+sudo journalctl -u skillet-nic-metrics.service --no-pager -n 20
+```
+
+For example, graph `skillet.net.link_speed_mbps{host:clamps}` grouped by
+`interface`. Check collection success separately so unavailable readings do not
+look like a healthy gigabit connection. A manual dry-run does not send metrics.

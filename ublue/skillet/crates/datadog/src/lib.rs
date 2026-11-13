@@ -1,6 +1,7 @@
 //! Service-owned, credential-free Datadog Autodiscovery declarations.
 //!
 //! Agent activation is separate from ordinary application convergence.
+pub mod nic;
 mod runtime;
 pub use runtime::{
     apply, DatadogError, Input, RuntimeConfig, SwitchConfig, CREDENTIAL, DOGSTATSD_SOCKET, IMAGE,

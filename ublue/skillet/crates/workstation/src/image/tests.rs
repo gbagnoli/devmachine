@@ -18,7 +18,7 @@ fn rendering_is_deterministic_public_and_allowlisted() {
     let bytes = binary();
     let files = render("clamps", REVISION, VERSION, &bytes, &bytes).unwrap();
     let again = render("clamps", REVISION, VERSION, &bytes, &bytes).unwrap();
-    assert_eq!(files.len(), 20);
+    assert_eq!(files.len(), 22);
     for (a, b) in files.iter().zip(again) {
         assert_eq!(a.bytes, b.bytes);
         assert!(a.path.starts_with("usr/"));

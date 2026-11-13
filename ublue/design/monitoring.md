@@ -97,3 +97,14 @@ HA state export uses the built-in Datadog integration and host-loopback
 DogStatsD UDP. Canonical host composition opts the Agent into this listener only
 when HA is declared. The Agent owns listener configuration and ingestion keys;
 HA owns its UI-managed integration state. Unix-socket collectors remain unchanged.
+
+## Physical NIC negotiation
+
+Datadog opt-in includes a shared image-owned Rust collector for physical Ethernet
+NICs, discovered by sysfs hardware association rather than host-specific names.
+It sends link carrier, negotiated Mbps and per-interface collection success to
+the existing private DogStatsD socket every 30 seconds. Virtual interfaces and
+Wi-Fi are excluded. Confirmed carrier loss reports speed zero; invalid/missing
+speed readings omit the speed metric and report failure. Collector failure must
+not become a fabricated link-speed observation. The Agent supplies host and
+environment tags; no credentials or additional NIC inventory are introduced.

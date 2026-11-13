@@ -5090,3 +5090,27 @@ No live export, timer activation, Syncthing peer receipt or restore is claimed.
 Verify the existing `.unf` after the new image boots with its authoritative
 export command. Operator separately confirms HA backups replicate via Syncthing;
 that does not establish UniFi peer receipt.
+
+## 2026-11-13 — Shared host Ethernet negotiation metrics
+
+Datadog opt-in now installs a module-owned physical NIC collector timer every
+30 seconds. Static service/timer units ship disabled in every image; only
+successful credential-gated Agent convergence enables the timer. It is included
+in the Agent's systemd check. Generic and host binaries share `metrics nic`.
+Sysfs hardware associations discover Ethernet NICs without per-host inventory;
+virtual devices and both Wi-Fi sysfs markers are excluded. Valid carrier loss
+reports speed zero. Unknown speed is omitted and collection success becomes zero.
+Metrics use the existing private Unix DogStatsD socket and `interface` tags;
+Agent host/environment tags and credentials remain unchanged.
+
+Musl workspace all-target tests and pedantic Clippy passed on Rust 1.100. Four
+focused collector tests passed after final formatting: physical discovery,
+unknown/disconnected speed semantics, recovery, tag safety, idempotent timer
+activation and exact image override migration. Image packaging and Agent config
+regressions also passed. Static release binary built successfully.
+
+A SHA-256-verified temporary binary ran unprivileged `metrics nic --dry-run` on
+physical Clamps: enp1s0 link_up=1, speed=1000 Mbps, collection_success=1;
+enp2s0 link_up=0, speed=0, collection_success=1. The temporary binary/directory
+were removed. Installed binaries, services and cloud telemetry were unchanged.
+Actual timer recovery and Datadog ingestion remain post-image rollout checks.

@@ -4,6 +4,13 @@ use std::path::PathBuf;
 
 #[derive(clap::Subcommand, Debug)]
 pub enum MetricsCommands {
+    /// Report negotiated physical Ethernet link speeds to local `DogStatsD`
+    Nic {
+        #[arg(long, default_value = skillet_datadog::DOGSTATSD_SOCKET)]
+        dogstatsd_socket: PathBuf,
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Report native Home Assistant backup/export freshness to the local Agent
     Homeassistant {
         #[arg(long, default_value = skillet_datadog::DOGSTATSD_SOCKET)]
@@ -27,6 +34,32 @@ pub enum MetricsCommands {
 
 pub fn run_metrics(command: MetricsCommands) -> Result<(), CliCommonError> {
     match command {
+        MetricsCommands::Nic {
+            dogstatsd_socket,
+            dry_run,
+        } => {
+            let samples = skillet_datadog::nic::collect(std::path::Path::new("/sys/class/net"))?;
+            let packets = skillet_datadog::nic::render(&samples);
+            if dry_run {
+                println!("{}", packets.join("\n"));
+            } else {
+                let socket = std::os::unix::net::UnixDatagram::unbound()?;
+                socket.set_write_timeout(Some(std::time::Duration::from_secs(2)))?;
+                socket.connect(dogstatsd_socket)?;
+                for packet in packets {
+                    socket.send(packet.as_bytes())?;
+                }
+            }
+            if samples
+                .iter()
+                .any(|sample| sample.link_up.is_none() || sample.speed_mbps.is_none())
+            {
+                return Err(CliCommonError::Config(
+                    "some physical NIC link readings are unavailable".into(),
+                ));
+            }
+            Ok(())
+        }
         MetricsCommands::Homeassistant {
             dogstatsd_socket,
             dry_run,

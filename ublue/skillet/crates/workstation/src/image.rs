@@ -116,6 +116,7 @@ fn render(
     let mut units = skillet_kexec::service::image_units()?;
     units.extend(skillet_homeassistant::backup::image_units());
     units.extend(skillet_unifi::backup::image_units());
+    units.extend(skillet_datadog::nic::image_units());
     units.extend(skillet_homeassistant::metrics::image_units());
     units.extend(skillet_nut::monitoring::image_units());
     let mut presets = String::new();

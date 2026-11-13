@@ -27,11 +27,18 @@ Operating guides: [Datadog](../skillet/crates/datadog/README.md),
    PagerDuty incident delivery was not separately observed. Retain test exclusion
    in monitor data queries and legacy production coverage.
 
+5. Deploy the shared physical Ethernet collector in the next image and confirm
+   cloud receipt of `skillet.net.link_speed_mbps`, `skillet.net.link_up` and
+   `skillet.net.collection_success`, grouped by interface. Read-only physical
+   dry-run passed: the active wired NIC reports gigabit; the second NIC is
+   disconnected. No live metric submission or timer activation is claimed.
+
 ## Separate enhancements
 
 Optional NETGEAR switch collection on Clamps is tracked in the
 [network switch monitoring plan](NETWORK-SWITCH-MONITORING.md). Vault inventory,
-collector packaging and switch-attributed Datadog telemetry are planned, not deployed.
+collector packaging and switch-attributed telemetry are implemented; the operator
+confirmed metrics, port labels and a working link-speed alert/recovery.
 
 Private ping targets, richer Syncthing metrics and a Pi-hole v6-compatible API
 check require private inputs/compatibility review. Queue-age/send-failure metrics
