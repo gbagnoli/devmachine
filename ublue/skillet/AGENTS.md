@@ -240,10 +240,6 @@ skillet/
 
 ## Build identity
 
-- Local release preflight and CI must consume the same checked-in command
-  definitions. Run required checks before release mutation; a failed check or
-  unavailable prerequisite must prevent commit/tag creation. Keep isolated
-  release fixtures separate from full infrastructure acceptance.
 
 - Release metadata has one authoritative workspace version. Image dependencies
   lock an exact version and commit, verifying the annotated tag, publication and

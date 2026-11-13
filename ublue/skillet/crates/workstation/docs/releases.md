@@ -1,55 +1,26 @@
 # Skillet releases
 
-Run commands from `ublue/skillet`. Python 3.11+, Git, Cargo and `cargo-release`
-must be available on `PATH`. The launcher checks that cargo-release runs before
-making changes; it accepts any installed version and installs nothing.
-Use a cargo-release executable compatible with your host's glibc, or run the
-tools together in a compatible container/toolbox.
-Upstream performs read-only crates.io name lookups even with publishing disabled.
+Run commands from `ublue/skillet` on a clean `master` checkout with Cargo,
+Git and cargo-release available on PATH. No exact cargo-release version is required.
 
-1. Commit the intended source changes, run the normal local checks and start
-   from a clean `master` checkout. Preview the release:
+```sh
+./release
+```
 
-   ```sh
-   python3 tools/cut_release.py patch
-   ```
+The script runs workspace Clippy with warnings denied, then all workspace unit
+tests. A failure stops it before `git push` or `cargo release`. Cargo-release
+performs the patch bump, release commit, annotated tag and push; it does not
+publish crates. The script installs nothing. CI runs the full validation suite
+and publishes the source release, then proposes and merges the ucore-images update.
 
-   Use `minor`, `major`, `rc`, or an explicit version instead of `patch` when
-   appropriate. The default is a dry run. All workspace crates inherit one version.
-2. Review the preview, then execute locally. Executed releases first run every
-   Skillet CI check, including Podman acceptance and Butane/bootstrap checks.
-   `tools/ci-checks.json` is shared with CI; failures prevent release mutation.
-   All existing CI runtime prerequisites must be available; no tools are installed.
-   Dry-run previews skip these checks. To run the suite separately, use
-   `python3 tools/ci_checks.py`. Other repository lint and release-publication jobs
-   still run in GitHub Actions.
+For a preview or a different version, invoke cargo-release directly:
 
-   Execute locally:
+```sh
+cargo release minor --workspace --isolated --config release.toml --no-publish --no-push
+```
 
-   ```sh
-   python3 tools/cut_release.py patch --execute
-   python3 tools/release.py --tag skillet-v0.1.1
-   ```
-
-   Adjust the example tag to the resulting version. cargo-release updates the
-   workspace version and lockfile, creates one release commit and one annotated
-   `skillet-vVERSION` tag. It neither publishes to crates.io nor pushes. The
-   launcher ignores implicit cargo-release configuration and uses `release.toml`.
-   Never move/reuse a release tag. A partial failure may leave edits: inspect
-   Git status and tags before retrying rather than automatically deleting them.
-3. Before publishing the first release, enable **Settings → General → Releases →
-   Enable release immutability** in devmachine. This is a GitHub repository setting;
-   the workflow does not configure it. See [GitHub's instructions](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/establish-provenance-and-integrity/prevent-release-changes).
-4. Push the commit and then its tag. A tag push starts `Skillet release`: it checks
-   the tag/version, reuses full CI without path-based skips, builds static binaries,
-   verifies every host bundle, then publishes the source release. Only publication
-   receives repository write permission. Existing releases are never overwritten.
-   Stable releases then open a dependency PR in ucore-images automatically;
-   complete the one-time [CI credential setup](#automatic-image-dependency-pr)
-   before pushing the tag.
-5. The release workflow waits for the generated ucore-images PR's required
-   checks, then merges it with the cross-repository token. Image CI builds the
-   host images from the exact published release.
+Before publishing the first release, enable release immutability in GitHub.
+Never move or reuse a release tag. Inspect partial failures before retrying.
 
 ## Automatic image dependency PR
 
@@ -86,7 +57,7 @@ Image CI checks the published release, annotated tag and Cargo version before
 building from the locked commit. It verifies matching binary provenance and
 transported bundles before the host image builds/signing.
 
-For a prerelease, use `python3 tools/cut_release.py 0.2.0-rc.1 --execute`;
+For a prerelease, use `cargo release 0.2.0-rc.1 --workspace --isolated --config release.toml --no-publish --no-push --execute`;
 the workflow marks its GitHub release as a prerelease.
 Image consumers must explicitly select it in their dependency lock.
 

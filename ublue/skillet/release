@@ -4,5 +4,8 @@ set -euo pipefail
 script_dir="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 pushd "$script_dir" &>/dev/null
 
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace --all-targets
+
 git push
 cargo release patch --workspace --isolated --config release.toml --no-publish --push --execute

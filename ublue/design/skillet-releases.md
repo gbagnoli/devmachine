@@ -5,12 +5,11 @@ of other devmachine content. Executables retain `X.Y.Z+git.<revision>` provenanc
 The compatibility contract covers CLI commands, credential payloads, image bundles
 and retained-state migrations. The workspace is released as one component.
 
-The installed cargo-release owns version/lockfile edits, the consolidated release commit
-and annotated tag; a small launcher verifies its version before delegating with
-explicit configuration. This avoids maintaining another versioning implementation.
-Releases start on clean `master`, default to preview, and never publish crates or
-push automatically. CI exercises actual patch/prerelease cuts in disposable Git
-repositories. Identity validation and GitHub publication remain separate gates.
+Cargo-release owns version/lockfile edits, the consolidated release commit and
+annotated tag. The Bash `release` script runs workspace Clippy and unit tests
+before its push/release commands. CI keeps its full independent workflow.
+CI exercises cargo-release directly in disposable repositories. Identity validation and
+GitHub publication remain separate gates.
 
 During `0.x`, compatible fixes increment the patch; features or intentional
 compatibility breaks increment the minor. Breaking changes require documented
@@ -45,5 +44,5 @@ does not undo publication; retry only the failed job after repairing credentials
 
 Operations: [release guide](../skillet/crates/workstation/docs/releases.md).
 
-Cargo-release is not version-pinned. The launcher verifies availability, while
-CI tests the current tool in disposable repositories to catch behavior changes.
+Cargo-release is not version-pinned. CI tests the current tool in disposable
+repositories to catch behavior changes.
