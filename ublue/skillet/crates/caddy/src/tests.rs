@@ -699,7 +699,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
     let json: serde_json::Value = serde_json::from_slice(&adapted.stdout).unwrap();
     // Six identity-gated sites, plus public Joplin and the dashboard API proxy.
     // Gokapi adds one protected admin proxy and two public sharing branches.
-    assert_identity_query_rewrites(&json, 7, 11);
+    assert_identity_query_rewrites(&json, 8, 11);
 }
 
 fn assert_identity_query_rewrites(
@@ -718,7 +718,10 @@ fn assert_identity_query_rewrites(
                 {
                     if let Some(rewrite) = fields.get("rewrite") {
                         assert_eq!(rewrite["method"], "GET");
-                        assert_eq!(rewrite["uri"], "/auth?");
+                        assert!(matches!(
+                            rewrite["uri"].as_str(),
+                            Some("/auth?" | "/auth/ha-mcp?")
+                        ));
                         auth_count += 1;
                     } else {
                         application_count += 1;
@@ -818,4 +821,34 @@ fn sharing_fixture_service() -> UiService {
         policy: crate::sharing::Policy::Gokapi224,
     });
     service
+}
+
+#[test]
+fn machine_mcp_scope_exists_only_on_homeassistant_and_preserves_native_auth() {
+    for name in ["homeassistant", "syncthing", "files"] {
+        let mut services = syncthing_only();
+        services[0].name = name.into();
+        services[0].tailnet_identity = true;
+        let sites = CaddySites::from_host(
+            "fixture",
+            &UiEnvironment {
+                ui_domain: "ui.example.invalid".into(),
+                acme_staging: true,
+            },
+            &services,
+        )
+        .unwrap();
+        let rendered = sites.render();
+        assert_eq!(
+            rendered.contains("uri /auth/ha-mcp?"),
+            name == "homeassistant"
+        );
+        if name == "homeassistant" {
+            assert!(rendered.contains("@ha_mcp path /api/mcp\n"));
+            assert!(rendered.contains("@human_ui not path /api/mcp\n"));
+            assert!(rendered.contains("forward_auth @human_ui"));
+        }
+        assert!(!rendered.contains("header_up Authorization"));
+        assert!(!rendered.contains("request_header -Authorization"));
+    }
 }

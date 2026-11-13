@@ -121,7 +121,13 @@ For caller-declared identity protection:
    `tcp:443`. Tag ownership alone does not grant connectivity.
 3. Audit the vault, then redeliver Caddy credentials after changing the allowlist.
 
-Requests from unknown, tagged or disallowed clients are denied. The authorization
+Requests from unknown, tagged or disallowed clients are denied for browser UIs.
+For Home Assistant only, `tag:ha-assistant` can access the exact `/api/mcp`
+endpoint. Grant that tag connectivity to the HA host on `tcp:443` in Tailscale
+and configure the assistant with its own HA authentication token. The proxy
+preserves `Authorization`; the tag grants no access to other paths or UIs.
+Do not place the tag in the human `ui-users` allowlist.
+ The authorization
 socket is `/run/skillet-tailnet-ui/auth.sock`; tailscaled's socket is
 `/run/skillet-tailscale/tailscaled.sock`. Do not forward private backend ports or
 mount these sockets into unrelated containers. On SELinux hosts, inspect

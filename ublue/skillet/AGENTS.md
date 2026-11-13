@@ -54,6 +54,10 @@ This document defines the architectural mandates and project structure for `skil
   `giacomo` with the workspace as its working directory; the host and container
   share the checkout and build artifacts.
 
+- Machine API access must use an explicit service/path scope, independently of
+  human UI access. Preserve application authentication and never reinterpret a
+  device tag as a human identity or inject shared administrative credentials.
+
 ## Architecture and refactoring rules
 
 The rules below are the current architecture contract. Implementation history

@@ -503,7 +503,18 @@ fn render_identity_policy(
     }
     // A trailing '?' clears the inherited application query on the cloned auth
     // request; the backend keeps its original URI.
-    config.push_str("        forward_auth unix//run/skillet-tailnet-ui/auth.sock {\n            uri /auth?\n            header_up X-Skillet-Peer {http.request.remote}\n            copy_headers X-Skillet-User\n        }\n");
+    if service.name == "homeassistant" {
+        let _ = writeln!(
+            config,
+            "        @ha_mcp path {}\n        @human_ui not path {}",
+            auth::HA_MCP_PATH,
+            auth::HA_MCP_PATH
+        );
+        config.push_str("        forward_auth @ha_mcp unix//run/skillet-tailnet-ui/auth.sock {\n            uri /auth/ha-mcp?\n            header_up X-Skillet-Peer {http.request.remote}\n        }\n");
+        config.push_str("        forward_auth @human_ui unix//run/skillet-tailnet-ui/auth.sock {\n            uri /auth?\n            header_up X-Skillet-Peer {http.request.remote}\n            copy_headers X-Skillet-User\n        }\n");
+    } else {
+        config.push_str("        forward_auth unix//run/skillet-tailnet-ui/auth.sock {\n            uri /auth?\n            header_up X-Skillet-Peer {http.request.remote}\n            copy_headers X-Skillet-User\n        }\n");
+    }
 }
 
 fn valid_guard_path(path: &str) -> bool {

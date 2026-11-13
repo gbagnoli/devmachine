@@ -5046,3 +5046,22 @@ Cargo fixture: builds with two differing parent identities and then no parent
 identity reused fresh library/build-script artifacts after the first build.
 No remote apply or VM/service mutation was performed; no container resources
 changed. The first build after this fix may rebuild old contaminated artifacts.
+
+## 2026-11-13 — Scoped Home Assistant MCP machine access
+
+Identity-protected HA routes now select a separate broker scope for exactly
+/api/mcp. Fresh LocalAPI WhoIs permits the exact tag:ha-assistant tag there;
+all other paths/sites retain human-only access. Tagged identities without a
+human UserProfile are supported. Native HA Authorization passes unchanged and
+machine identity is not copied to HA as a human identity header. Browser
+cross-origin guards and private backend isolation remain in force.
+
+Musl workspace all-target tests and workspace pedantic Clippy passed on Rust
+1.100. Caddy tests passed (33 ordinary tests, six runtime tests normally ignored).
+The real Caddy container validate/adapt test additionally passed with the scoped
+route. Unix-socket broker tests cover exact scope, tag removal/prefix rejection,
+forged identity headers and malformed auth paths/queries. No live deployment or
+HA MCP token authentication acceptance was performed. Activation requires the
+new image-owned broker binary plus regenerated Caddy configuration; Tailscale
+connectivity grants and assistant HA token remain operator-managed. Already-open
+MCP streams are not continuously reauthorized.

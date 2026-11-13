@@ -8,7 +8,8 @@ source. An address-range gate alone supplies no user identity.
 
 Authenticate the actual connection through the existing host-network tailscaled
 LocalAPI WhoIs. Require a user-owned device and an explicitly allowed complete
-user identity; reject anonymous/unknown/tagged sources and lookup failures.
+user identity; reject anonymous/unknown/tagged sources and lookup failures for
+browser UI access. A separate machine scope is described below.
 Private authenticated hostnames resolve to tailnet addresses: a browser using
 the public IP does not supply a tailnet identity merely because Tailscale is
 running. For Gokapi, prefer a private admin hostname and a public sharing hostname
@@ -114,3 +115,20 @@ Gokapi implementation uses registered native header-auth accounts, a private
 administration origin and a separate public sharing origin. Account ownership is
 explicit; temporary native API tokens remain in memory. See the
 [sharing boundary](public-service-access.md#gokapi-sharing-boundary).
+
+## Home Assistant MCP machine access
+
+The HA caller's identity-protected site permits `tag:ha-assistant` only on the
+exact `/api/mcp` path. Caddy selects a separate private broker endpoint for that
+path; all other HA paths and other applications retain the human-only gate.
+The broker checks fresh WhoIs tags on every request, including ephemeral nodes;
+unknown identities, tag-prefix matches and lookup failures deny access. A tagged
+node need not have a human UserProfile. Machine tags are never treated as people.
+Existing allowed humans can still reach MCP through the same scoped gate.
+
+The client's HA Authorization header passes unchanged. HA MCP retains its own
+native token validation; proxy access does not mint an application session or
+inject the shared owner/backup token. Native MCP token creation, entity exposure
+and Tailscale connectivity grants remain operator responsibilities. Removing the
+tag revokes proxy access on the next request; already-open streams are not
+periodically reauthorized. No browser CORS exception or public route is added.

@@ -15,6 +15,9 @@ use std::{
 };
 use thiserror::Error;
 
+pub const HA_ASSISTANT_TAG: &str = "tag:ha-assistant";
+pub const HA_MCP_PATH: &str = "/api/mcp";
+
 pub const USERS_ENTRY: &str = "skillet/tailscale/ui-users";
 pub const DAEMON_SOCKET: &str = "/run/skillet-tailscale/tailscaled.sock";
 pub const AUTH_SOCKET: &str = "/run/skillet-tailnet-ui/auth.sock";
@@ -85,18 +88,20 @@ fn valid_identity(name: &str) -> bool {
 #[serde(rename_all = "PascalCase")]
 pub struct Identity {
     node: Node,
+    #[serde(default)]
     user_profile: UserProfile,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct Node {
+    #[serde(default)]
     user: u64,
     #[serde(default)]
     tags: Vec<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Default, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct UserProfile {
     #[serde(rename = "ID")]
@@ -150,11 +155,23 @@ fn tailnet_peer(peer: SocketAddr) -> bool {
 /// This endpoint trusts only Caddy's private Unix socket connection. Caddy must
 /// overwrite the peer header with the original TCP peer, never forwarded input.
 pub fn authorize_peer(policy: &Policy, peer: &str, api: &LocalApi) -> Option<String> {
+    authorize_scoped_peer(policy, peer, api, false)
+}
+
+fn authorize_scoped_peer(
+    policy: &Policy,
+    peer: &str,
+    api: &LocalApi,
+    ha_mcp: bool,
+) -> Option<String> {
     let peer: SocketAddr = peer.parse().ok()?;
     if !tailnet_peer(peer) {
         return None;
     }
     let identity = api.whois(peer).ok()?;
+    if ha_mcp && identity.node.tags.iter().any(|tag| tag == HA_ASSISTANT_TAG) {
+        return Some(HA_ASSISTANT_TAG.into());
+    }
     policy
         .authorize(&identity)
         .then(|| identity.user_profile.login_name.clone())
@@ -193,7 +210,7 @@ fn respond(request: tiny_http::Request, api: &LocalApi, policy_file: &Path) {
         // Caddy clears the application's query, but Go's URL.ForceQuery can
         // preserve a bare '?' (Mikochi sends /api/browse/?). Both forms have
         // the same empty query; keep rejecting all nonempty queries.
-        && matches!(request.url(), "/auth" | "/auth?")
+        && matches!(request.url(), "/auth" | "/auth?" | "/auth/ha-mcp" | "/auth/ha-mcp?")
         && peers.next().is_none()
     {
         std::fs::read(policy_file)
@@ -203,7 +220,12 @@ fn respond(request: tiny_http::Request, api: &LocalApi, policy_file: &Path) {
             .and_then(|policy| {
                 // Deserialization must not bypass validation.
                 let policy = Policy::new(policy.users.into_iter().collect()).ok()?;
-                authorize_peer(&policy, peer?, api)
+                authorize_scoped_peer(
+                    &policy,
+                    peer?,
+                    api,
+                    matches!(request.url(), "/auth/ha-mcp" | "/auth/ha-mcp?"),
+                )
             })
     } else {
         None

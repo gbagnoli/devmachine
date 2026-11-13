@@ -273,3 +273,68 @@ fn failed_socket_policy_load_blocks_broker_and_retries_without_applied_marker() 
     assert!(managed.contains_key("/var/lib/skillet/tailnet-ui/policy.applied"));
     assert!(managed.contains_key("/etc/systemd/system/skillet-tailnet-ui.service"));
 }
+
+#[test]
+fn tagged_assistant_is_scoped_to_mcp_and_revocation_is_immediate() {
+    let temp = tempfile::tempdir().unwrap();
+    let daemon = temp.path().join("daemon.sock");
+    let auth = temp.path().join("auth.sock");
+    let policy = temp.path().join("policy.json");
+    std::fs::write(&policy, br#"{"users":["alice@example.invalid"]}"#).unwrap();
+    let api_server = tiny_http::Server::http_unix(&daemon).unwrap();
+    let api_thread = std::thread::spawn(move || {
+        for tag in [
+            HA_ASSISTANT_TAG,
+            HA_ASSISTANT_TAG,
+            HA_ASSISTANT_TAG,
+            "tag:server",
+            "tag:ha-assistant-other",
+        ] {
+            let request = api_server
+                .recv_timeout(Duration::from_secs(5))
+                .unwrap()
+                .unwrap();
+            let body = serde_json::json!({"Node": {"User": 0, "Tags": [tag]}});
+            request
+                .respond(tiny_http::Response::from_string(body.to_string()))
+                .unwrap();
+        }
+    });
+    let server = tiny_http::Server::http_unix(&auth).unwrap();
+    let api = LocalApi::new(&daemon).unwrap();
+    let auth_thread = std::thread::spawn(move || {
+        for _ in 0..8 {
+            let request = server
+                .recv_timeout(Duration::from_secs(5))
+                .unwrap()
+                .unwrap();
+            respond(request, &api, &policy);
+        }
+    });
+    let client = reqwest::blocking::Client::builder()
+        .no_proxy()
+        .unix_socket(auth)
+        .timeout(Duration::from_secs(5))
+        .build()
+        .unwrap();
+    for (path, expected) in [
+        ("/auth", 403),
+        ("/auth/ha-mcp", 204),
+        ("/auth/ha-mcp?", 204),
+        ("/auth/ha-mcp", 403),
+        ("/auth/ha-mcp", 403),
+        ("/auth/ha-mcp/", 403),
+        ("/auth/ha-mcp?forged=1", 403),
+        ("/auth/api/mcp", 403),
+    ] {
+        let response = client
+            .get(format!("http://auth.local{path}"))
+            .header("X-Skillet-Peer", "100.100.100.1:1234")
+            .header("X-Skillet-User", HA_ASSISTANT_TAG)
+            .send()
+            .unwrap();
+        assert_eq!(response.status(), expected, "{path}");
+    }
+    auth_thread.join().unwrap();
+    api_thread.join().unwrap();
+}
