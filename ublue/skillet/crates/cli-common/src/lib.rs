@@ -12,6 +12,7 @@ use tracing_subscriber::FmtSubscriber;
 
 pub mod access;
 pub mod hosts;
+pub mod unifi_runtime;
 pub use skillet_kexec as kexec;
 mod metrics;
 pub mod version;
@@ -77,6 +78,10 @@ pub struct HostArgs {
 
 #[derive(clap::Subcommand, Debug)]
 pub enum HostCommands {
+    Unifi {
+        #[command(subcommand)]
+        command: unifi_runtime::Commands,
+    },
     /// Validate declared snapshot storage and prepare destination directories
     Btrbk {
         #[command(subcommand)]
@@ -202,6 +207,7 @@ where
     tracing::subscriber::set_global_default(subscriber)?;
 
     match args.command {
+        HostCommands::Unifi { command } => unifi_runtime::dispatch(command),
         HostCommands::Btrbk { command } => {
             let config = skillet_hosts::profile_for_name(hostname)
                 .and_then(|p| p.btrbk_config())

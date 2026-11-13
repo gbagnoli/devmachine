@@ -51,3 +51,33 @@ configures unrelated applications. Imported accounts/passwords come from the
 backup. SMTP recovery-email setup is not part of this operating flow.
 
 Design: [UniFi](../../../design/unifi.md).
+
+## Backup replication
+
+Configure native automatic backups in UniFi. Clamps currently uses Thursday
+01:30, retaining seven copies. Skillet's `skillet-unifi-backup.timer` exports
+stable native backups daily at 03:30 Europe/Paris. It does not create backups.
+
+Source: `/var/lib/data/unifi/data/backup/autobackup/`.
+Destination: `backups/unifi/` in the caller's shared Syncthing files root; on
+Clamps this is `/var/lib/data/syncthing/data/backups/unifi/`.
+Seven newest exported copies are retained; unrelated files and source backups
+are preserved. Publication uses private files readable by the declared Syncthing
+owner. Allow at least one minute after backup creation before exporting.
+
+After booting an image containing the exporter, run:
+
+```bash
+sudo systemctl start skillet-unifi-backup.service
+sudo journalctl -u skillet-unifi-backup.service --no-pager -n 30
+systemctl list-timers skillet-unifi-backup.timer
+```
+
+For a direct retry:
+
+```bash
+sudo /usr/bin/skillet unifi export
+```
+
+Check that the `.unf` appears on a receiving Syncthing peer. Missing backups,
+content conflicts and unsafe source/destination paths fail without pruning.

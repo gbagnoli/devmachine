@@ -5065,3 +5065,28 @@ HA MCP token authentication acceptance was performed. Activation requires the
 new image-owned broker binary plus regenerated Caddy configuration; Tailscale
 connectivity grants and assistant HA token remain operator-managed. Already-open
 MCP streams are not continuously reauthorized.
+
+## 2026-11-13 — UniFi native backup exporter
+
+Operator changed native backup creation to Thursday 01:30 with seven copies and
+reports a new `.unf` is available. UniFi callers now select a daily 03:30
+Europe/Paris exporter using their shared Syncthing files root and owner. On
+Clamps the destination is `/var/lib/data/syncthing/data/backups/unifi`. Native
+backup creation/retention is unchanged. Export retains seven managed copies,
+never source backups or unrelated files. Units are image-owned with disabled
+presets and activated only by the selected caller. Generic and host CLIs share
+`unifi export`; no vault entries or controller API credentials are introduced.
+
+Musl workspace all-target tests and pedantic Clippy passed on Rust 1.100.
+Filesystem tests cover stable/fresh/temporary files, private ownership/modes,
+idempotent publication, seven-copy retention, conflicts and symlink refusal.
+Host-profile tests verify caller-selected storage and absent optional selection;
+image tests verify deterministic unit packaging and disabled presets. Runtime
+export uses atomic no-replacement publication, source/copy hashing and metadata
+checks, plus a guest export lock and activation/writer coordination.
+
+SSH to physical Clamps succeeds, but noninteractive sudo requires authentication.
+No live export, timer activation, Syncthing peer receipt or restore is claimed.
+Verify the existing `.unf` after the new image boots with its authoritative
+export command. Operator separately confirms HA backups replicate via Syncthing;
+that does not establish UniFi peer receipt.

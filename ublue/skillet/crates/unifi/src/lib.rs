@@ -1,3 +1,5 @@
+pub mod backup;
+
 use skillet_core::files::{
     FileError, FileMutationResource, FileReadResource, OwnerIdentity, Ownership, StorageResource,
 };
@@ -30,6 +32,14 @@ pub const DEVICE_PORTS: &[FirewallPort] = &[
 
 #[derive(Debug, Error)]
 pub enum UnifiError {
+    #[error(transparent)]
+    Activation(#[from] skillet_core::activation::ActivationError),
+    #[error(transparent)]
+    VendorUnits(#[from] skillet_core::vendor_units::Error),
+    #[error("UniFi backup: {0}")]
+    Backup(&'static str),
+    #[error("UniFi backup I/O: {0}")]
+    Io(#[from] std::io::Error),
     #[error("System error: {0}")]
     System(#[from] SystemError),
     #[error("File error: {0}")]

@@ -464,6 +464,28 @@ impl HostProfile {
         })
     }
 
+    pub fn unifi_backup_config(&self) -> Option<skillet_unifi::backup::Config> {
+        if !self.supports_service("unifi") {
+            return None;
+        }
+        self.services
+            .iter()
+            .find_map(|service| match service.config {
+                ServiceConfig::Syncthing {
+                    instance: skillet_syncthing::Instance::Shared,
+                    files_path,
+                    data_owner,
+                    data_group,
+                    ..
+                } => Some(skillet_unifi::backup::Config {
+                    files_root: files_path,
+                    owner: data_owner,
+                    group: data_group,
+                }),
+                _ => None,
+            })
+    }
+
     pub fn ui_services(&self) -> Vec<skillet_caddy::UiService> {
         self.services
             .iter()

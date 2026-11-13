@@ -33,3 +33,21 @@ acceptance, when the original controller is stopped. Retain the old controller
 and an independent backup until clamps manages the devices successfully.
 
 See the [implementation plan](../plan/CLAMPS-UNIFI.md).
+
+## Native backup export
+
+UniFi owns creation of its `.unf` archives and its weekly schedule/retention.
+Skillet exports stable `autobackup_*.unf` files from the persistent controller
+backup directory into `backups/unifi` under the caller's shared Syncthing files
+root. It never copies the live MongoDB files or requires controller credentials.
+The exporter runs daily at 03:30 Europe/Paris, after the operator's Thursday
+01:30 backup schedule and away from the OS activation window.
+
+Publish with private owner-readable files, a temporary Syncthing-ignored name,
+content verification and atomic no-replacement publication. Refuse symlinks and
+conflicting existing exports, skip files modified in the last minute, and retain
+seven newest exported archives only after successful publication. Preserve
+unrelated files and never remove source backups. Btrbk preserves older exported
+versions; Syncthing peer receipt remains separate acceptance. Units ship disabled
+in every image and are enabled only by a caller selecting UniFi and shared
+Syncthing storage. The exporter does not change UniFi's native schedule.

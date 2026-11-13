@@ -479,7 +479,11 @@ fn apply_profile(
             ServiceConfig::Jellyfin(config) => {
                 skillet_jellyfin::apply(system, files, *config, profile.id.as_str())?;
             }
-            ServiceConfig::Unifi => skillet_unifi::apply(system, files)?,
+            ServiceConfig::Unifi => {
+                skillet_unifi::apply(system, files)?;
+                let config = profile.unifi_backup_config().ok_or_else(|| ApplyError::FixtureInput("UniFi backup requires shared Syncthing storage".into()))?;
+                skillet_unifi::backup::install(system, files, config)?;
+            }
             ServiceConfig::Tailscale {
                 state_path,
                 advertise_exit_node,

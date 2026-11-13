@@ -26,8 +26,12 @@ application data and never reloads the whole firewall.
 2. Verify local management and Site Manager, then unattended reboot persistence
    at an operator-selected maintenance point. Persistent rule configuration is
    checked separately from actual reboot acceptance.
-3. Retain the old controller stopped and independent backup/rollback copies;
-   confirm the desired off-machine backup policy.
+3. Verify scheduled native backups and exporter replication on the current host.
+   Operator selected Thursday 01:30 with seven native copies. The implemented
+   daily 03:30 exporter retains seven copies under the shared Syncthing files
+   root (`backups/unifi`). Confirm initial export, receiving-peer receipt and
+   restore from that independent copy after deploying the updated image. Retain
+   independent backup/rollback copies.
 
 Disposable repeats use the [isolated restore procedure](../skillet/crates/unifi/docs/restore.md)
 and must remain fenced before any production-state import. Production adoption

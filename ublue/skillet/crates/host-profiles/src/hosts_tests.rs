@@ -1554,3 +1554,19 @@ fn base_apply_installs_clamps_activation_without_starting_it() {
         .unwrap()
         .contains_key(skillet_kexec::service::UNIT));
 }
+
+#[test]
+fn unifi_backup_storage_follows_selected_shared_syncthing() {
+    let clamps = super::profile_for_name("clamps").unwrap();
+    let config = clamps.unifi_backup_config().unwrap();
+    assert_eq!(
+        config.destination(),
+        std::path::Path::new("/var/lib/data/syncthing/data/backups/unifi")
+    );
+    for host in ["joey", "donbot"] {
+        assert!(super::profile_for_name(host)
+            .unwrap()
+            .unifi_backup_config()
+            .is_none());
+    }
+}

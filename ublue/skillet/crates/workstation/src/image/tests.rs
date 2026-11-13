@@ -18,7 +18,7 @@ fn rendering_is_deterministic_public_and_allowlisted() {
     let bytes = binary();
     let files = render("clamps", REVISION, VERSION, &bytes, &bytes).unwrap();
     let again = render("clamps", REVISION, VERSION, &bytes, &bytes).unwrap();
-    assert_eq!(files.len(), 18);
+    assert_eq!(files.len(), 20);
     for (a, b) in files.iter().zip(again) {
         assert_eq!(a.bytes, b.bytes);
         assert!(a.path.starts_with("usr/"));
@@ -44,6 +44,7 @@ fn rendering_is_deterministic_public_and_allowlisted() {
     );
     assert!(String::from_utf8_lossy(&presets.bytes)
         .contains("disable skillet-homeassistant-backup.service"));
+    assert!(String::from_utf8_lossy(&presets.bytes).contains("disable skillet-unifi-backup.timer"));
     for host in ["joey", "donbot"] {
         let other = render(host, REVISION, VERSION, &bytes, &bytes).unwrap();
         assert!(other

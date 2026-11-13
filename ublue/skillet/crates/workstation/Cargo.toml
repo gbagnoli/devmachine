@@ -7,6 +7,7 @@ edition = "2021"
 workspace = true
 
 [dependencies]
+skillet_unifi.workspace = true
 skillet_core.workspace = true
 skillet_btrbk.workspace = true
 skillet_kexec.workspace = true

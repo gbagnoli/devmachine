@@ -53,6 +53,11 @@ enum Commands {
         #[command(subcommand)]
         command: skillet_cli_common::gokapi_runtime::Commands,
     },
+    /// Export the guest `UniFi` automatic backups
+    Unifi {
+        #[command(subcommand)]
+        command: skillet_cli_common::unifi_runtime::Commands,
+    },
     /// Manage the guest Home Assistant installation and native backup export
     Homeassistant {
         #[command(subcommand)]
@@ -431,6 +436,7 @@ fn main() -> Result<()> {
             )?;
         }
         Commands::Gokapi { command } => skillet_cli_common::gokapi_runtime::dispatch(command)?,
+        Commands::Unifi { command } => skillet_cli_common::unifi_runtime::dispatch(command)?,
         Commands::Homeassistant { command } => {
             skillet_cli_common::homeassistant_runtime::dispatch(&command)?;
         }
