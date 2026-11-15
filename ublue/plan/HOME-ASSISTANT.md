@@ -5,8 +5,8 @@ backup/export and optional credential delivery are implemented. First disposable
 runtime acceptance passed 2026-10-16. Physical clamps activation, owner setup,
 encrypted export, offline archive extraction and a live restore passed on
 2026-10-17; remaining checks are listed below and in
-[the evidence record](archive/ACCEPTANCE.md). No Home Assistant devices, MQTT
-or companion services are selected yet. Their
+[the evidence record](archive/ACCEPTANCE.md). Hue and Dyson integrations are
+operator-confirmed working. MQTT and companion services remain unselected. Their
 deployment and recovery are tracked in the
 [home automation companions plan](HOME-AUTOMATION-INTEGRATIONS.md). This optional
 addition is not a Chef parity requirement or a gate for retiring rupik.
@@ -25,8 +25,9 @@ and [VM lifecycle](../design/smoke-vms.md).
 Clamps is now on its replacement 1 TB SSD with fresh application delivery; the
 operator chose not to restore the stock SSD's data. Syncthing has been paired.
 The October backup/restore results below retain their original installation scope;
-verify current scheduled export and peer receipt, then rehearse recovery from an
-independent copy. No further reinstall is pending. Bluetooth policy activation
+Scheduled export and actual peer receipt are operator-confirmed on 2026-11-15;
+seven daily exports through November 15 are present. Rehearse recovery from an
+independent received copy. No further reinstall is pending. Bluetooth policy activation
 and current adapter discovery remain separately unverified, as recorded below.
 
 ## Current slice status
@@ -35,7 +36,7 @@ and current adapter discovery remain separately unverified, as recorded below.
 | --- | --- | --- |
 | 1. Container | Implemented; clamps opts in, other callers do not; repeat apply and reboot accepted in the disposable VM; running on physical clamps | Device-specific capability acceptance awaits real devices |
 | 2. Private HTTPS | Implemented; real local TLS/native API/WebSocket checks pass | Provider staging ACME/DNS and explicit source/identity denial pass; allowed-user browser/phone/companion and separate-network denial remain live checks |
-| 3. Backups | Implemented; native encryption/export and seven-export rotation, independent rootless receiver and btrbk inclusion pass in disposable acceptance; production token, key and first encrypted export pass; a manual off-machine copy on calculon matches by SHA-256 | Replacement SSD is installed and Syncthing paired; verify current scheduled export, prune behavior and off-machine receiver history |
+| 3. Backups | Implemented; native encryption/export and seven-export rotation, independent rootless receiver and btrbk inclusion pass in disposable acceptance; production token, key and first encrypted export pass; a manual off-machine copy on calculon matches by SHA-256 | Scheduled daily export, seven retained archives and actual receipt on other machines operator-confirmed 2026-11-15; no repeated export/replication acceptance required |
 | 4. Restore | Offline extraction and live clamps restore from the exported archive passed; a reusable host procedure is saved | Isolated full restore from a received peer and snapshot copy in a disposable VM, with synthetic state and reboot/reapply |
 | 5. Hardware | HA runs on clamps; BlueZ is installed. The filtered, confined Bluetooth bus broker passes enforcing-SELinux VM access/denial, restart and reboot checks | Deploy the validated broker on physical clamps and confirm HA adapter discovery; physical policy deployment currently awaits approval. MQTT/USB radios remain unselected |
 

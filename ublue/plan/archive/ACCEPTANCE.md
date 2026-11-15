@@ -5190,3 +5190,15 @@ No live apply or reboot performed for this implementation. Operator deployment:
 OnSuccess hook and the next scheduled normal reboot. Earlier physical normal
 reboot success is recorded separately; automated physical acceptance remains
 pending deployment.
+
+## 2026-11-15: Operator confirms production backup replication
+
+Operator inspected HA and UniFi exports under the shared Syncthing backups
+folder and confirmed actual mirrored copies on other machines. Scheduled backup
+export and off-machine receipt are accepted, not merely inferred from pairing.
+HA listing contains seven daily archives dated November 9–15, exported at 04:00.
+UniFi listing contains the November 1 native archive. Its export and replication
+are accepted; newer weekly native generation is not demonstrated by that file
+listing and remains a narrowly scoped freshness check. No new restore was run;
+independent received-copy restore remains separate from earlier live/local
+restore evidence. Reconciled migration, parity, HA, UniFi and companion plans.

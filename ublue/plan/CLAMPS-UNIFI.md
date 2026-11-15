@@ -26,12 +26,13 @@ application data and never reloads the whole firewall.
 2. Verify local management and Site Manager, then unattended reboot persistence
    at an operator-selected maintenance point. Persistent rule configuration is
    checked separately from actual reboot acceptance.
-3. Verify scheduled native backups and exporter replication on the current host.
-   Operator selected Thursday 01:30 with seven native copies. The implemented
-   daily 03:30 exporter retains seven copies under the shared Syncthing files
-   root (`backups/unifi`). Confirm initial export, receiving-peer receipt and
-   restore from that independent copy after deploying the updated image. Retain
-   independent backup/rollback copies.
+3. Scheduled export and receiving-peer receipt are operator-confirmed on
+   2026-11-15. The exported file shown is dated November 1: replication works,
+   but this listing does not establish newer weekly source generation. Check
+   native backup freshness against the selected Thursday 01:30 schedule (seven
+   native copies). The daily 03:30 exporter retains seven copies in
+   `backups/unifi`; do not repeat initial-export or peer-receipt acceptance.
+   Restore from an independent received copy remains a separate rehearsal.
 
 Disposable repeats use the [isolated restore procedure](../skillet/crates/unifi/docs/restore.md)
 and must remain fenced before any production-state import. Production adoption

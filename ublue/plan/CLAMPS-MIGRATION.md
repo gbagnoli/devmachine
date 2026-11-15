@@ -1,6 +1,6 @@
 # Clamps deployment and remaining acceptance
 
-Status reconciled 2026-11-02 from operator confirmations and
+Status reconciled 2026-11-15 from operator confirmations and
 [dated evidence](archive/ACCEPTANCE.md). Clamps is installed on its replacement
 1 TB SSD. Disk selection, USB preparation and reinstall are complete; there is
 no further SSD move to plan. The operator chose a fresh installation without
@@ -28,6 +28,15 @@ restoring data from the old stock SSD. The old work order is
   interactive sudo and a thirty-minute scoped kernel cache; SSH-key unlock and
   the three-hour vault cache remain independent.
 
+- On 2026-11-15 the operator confirmed scheduled HA/UniFi backup export and
+  actual Syncthing receipt on other machines. HA has seven daily exported
+  archives through November 15. UniFi's shown export is dated November 1;
+  replication is accepted, while newer weekly source generation remains a
+  separate freshness check. Independent-copy restore remains unverified.
+- Ordinary physical reboot into the updated signed image succeeded on November
+  15; LAN/Tailscale access and six core services recovered. Normal reboot now
+  replaces Clamps' kexec selection in source; deploy and verify its scheduled hook.
+
 ## Next work
 
 1. Deploy the current artifacts to the finalized host and verify routine
@@ -35,10 +44,10 @@ restoring data from the old stock SSD. The old work order is
    do not treat a broad apply as authorization for the pending production
    Bluetooth/SELinux policy activation. Verify automatic ET LAN convergence and
    the rebuilt image's ET drop-in/English locale at the next planned boot.
-2. Establish backup readiness: verify current HA scheduled backup/export, UniFi
-   backup generation, Syncthing off-machine receipt, retention and a restore from
-   an independent copy. Pairing alone does not prove receipt; local btrbk snapshots
-   are not an independent backup. No stock-SSD state transfer is required.
+2. Rehearse restore from an independent received backup. Scheduled export and
+   off-machine replication are operator-confirmed; do not repeat pairing or
+   receipt acceptance. Check whether UniFi has generated a newer weekly backup
+   than the November 1 export shown. No stock-SSD transfer is required.
 3. Verify recovery records/header against the current 1 TB volume, independently
    of the old SSD's records. Physical cold power-on is operator-confirmed; finish
    the remaining [TPM checks](TPM-ENCRYPTED-ROOT.md), including networkless boot

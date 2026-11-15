@@ -21,11 +21,11 @@ in this public plan.
   `/dev/serial/by-id/` path before enabling its service. Check whether that
   adapter supports coordinator backup. Record Dyson model(s), Hue bridge and
   Overkiz gateway model/API mode, and the first ESPHome device(s).
-- Complete the existing HA production backup setup after onboarding: dedicated
-  administrator API token, vault-held encryption password, daily native backups,
-  atomic export to the declared Syncthing folder, actual peer receipt and
-  independent receiving retention. Run the pending isolated restore rehearsal
-  before treating those archives as a recovery path.
+- Existing HA production backup setup, scheduled export, seven retained daily
+  archives and actual receipt on other machines are operator-confirmed as of
+  2026-11-15. Do not repeat onboarding or replication setup. Run the pending
+  isolated restore rehearsal from an independent received copy before accepting
+  full recovery; companion-service backups remain future work.
 
 Exit: inventory states which integrations can use local APIs and whether Zigbee
 radio recovery is supported. An encrypted HA archive can be restored from both
