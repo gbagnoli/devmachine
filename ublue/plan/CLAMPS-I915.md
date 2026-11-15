@@ -48,3 +48,17 @@ post-journal interval and compare ordinary reboot with kexec; previous ordinary
 reboot failures prevent assuming that switching methods solves the problem.
 Do not initiate further reboots or change graphics/TPM settings without an
 explicit supervised test scope.
+
+## 2026-11-15 — supervised ordinary reboot succeeded
+
+Operator requested a normal systemctl reboot from the recovered November 13
+boot. Read-only checks confirmed a new boot identity, the staged November 14
+signed image active, and reachable wired/Wi-Fi LAN addresses. Operator confirms
+both Tailscale and LAN login. Datadog, Tailscale, HA, UniFi, Pi-hole and Caddy
+services are active. An initial Datadog container healthcheck failed while
+starting, then subsequent checks reported healthy with zero failing streak.
+
+This accepts this ordinary reboot only; it does not close the intermittent
+warm-boot/kexec investigation. The runtime activation mask cleared on reboot,
+as expected. No replacement mask or additional reboot was issued by the agent;
+keep unattended kexec paused while investigating.

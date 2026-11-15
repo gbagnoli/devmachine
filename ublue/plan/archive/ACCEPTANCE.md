@@ -5158,3 +5158,15 @@ short-lived SSH tunnel; the tunnel was closed. No production services, tracking
 state, configuration or images were changed. GHCR publication/visibility,
 disposable systemd boot ordering and physical first-boot presence recovery
 remain rollout acceptance; see CLAMPS-UNIFI.md. No reboot was attempted.
+
+## 2026-11-15 — physical normal reboot and update activation
+
+Operator initiated an ordinary systemctl reboot. Confirmed a changed boot ID and
+active November 14 signed image. Wired and Wi-Fi addresses answered from Rupik;
+SSH through the LAN jump and subsequently direct tailnet SSH succeeded. Operator
+also confirms Tailscale and LAN access. All six checked core application services
+are active. Datadog's first startup healthcheck failed, then recovered to healthy
+31 seconds later and stayed healthy on the following check. No healthcheck reset
+or service restart was performed. The runtime kexec mask cleared with reboot;
+agent did not re-mask or trigger further activation. This successful normal boot
+does not establish physical kexec reliability or eliminate intermittent hangs.
