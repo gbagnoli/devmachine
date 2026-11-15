@@ -5,6 +5,14 @@ use skillet_core::{
 };
 use std::path::Path;
 
+pub const NORMAL_UNIT: &str = "skillet-reboot-activate.service";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RebootMode {
+    Kexec,
+    Normal,
+}
+
 pub const UNIT: &str = "skillet-kexec-activate.service";
 pub const PATH: &str = "/etc/systemd/system/skillet-kexec-activate.service";
 pub const TIMER: &str = "skillet-kexec-activate.timer";
@@ -62,7 +70,23 @@ where
     S: ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
 {
+    apply_with_mode(system, files, binary, RebootMode::Kexec)
+}
+
+pub fn apply_with_mode<S, F>(
+    system: &S,
+    files: &F,
+    binary: &str,
+    mode: RebootMode,
+) -> Result<(), Error>
+where
+    S: ServiceResource + ?Sized,
+    F: FileMutationResource + FileReadResource + ?Sized,
+{
     render(binary)?;
+    if mode == RebootMode::Normal {
+        install_normal_unit(system, files, binary)?;
+    }
     converge_update_timer(system, files)?;
     let owner = Ownership::named(Some("root"), Some("root"));
     files.ensure_directory(
@@ -70,12 +94,18 @@ where
         Some(0o755),
         &owner,
     )?;
+    let trigger = match mode {
+        RebootMode::Kexec => UPDATE_DROPIN_CONTENT.to_owned(),
+        RebootMode::Normal => format!("[Unit]\nOnSuccess=\nOnSuccess={NORMAL_UNIT}\n"),
+    };
     let trigger_changed = files.ensure_file(
         Path::new(UPDATE_DROPIN),
-        UPDATE_DROPIN_CONTENT.as_bytes(),
+        trigger.as_bytes(),
         Some(0o644),
         &owner,
     )?;
+    let trigger_state = Path::new("/var/lib/skillet/kexec/trigger.applied");
+    let trigger_pending = files.read_file(trigger_state)?.as_deref() != Some(trigger.as_bytes());
     let vendor = image_units()?;
     let legacy = units(binary)?;
     let receipt = skillet_core::vendor_units::LegacyReceipt {
@@ -97,8 +127,9 @@ where
         &legacy,
         Some(&receipt),
     )? {
-        if trigger_changed {
+        if trigger_changed || trigger_pending {
             system.daemon_reload()?;
+            files.ensure_file(trigger_state, trigger.as_bytes(), Some(0o600), &owner)?;
         }
         converge_timers(system)?;
         return Ok(());
@@ -119,12 +150,52 @@ where
         .map(|unit| unit.content.as_str())
         .collect::<String>();
     let state_changed = files.read_file(state)?.as_deref() != Some(receipt.as_bytes());
-    if changed || trigger_changed || state_changed {
+    if changed || trigger_changed || trigger_pending || state_changed {
         system.daemon_reload()?;
         files.ensure_directory(Path::new("/var/lib/skillet/kexec"), Some(0o755), &owner)?;
         files.ensure_file(state, receipt.as_bytes(), Some(0o644), &owner)?;
+        files.ensure_file(trigger_state, trigger.as_bytes(), Some(0o600), &owner)?;
     }
     converge_timers(system)?;
+    Ok(())
+}
+
+pub fn normal_image_units() -> Vec<skillet_core::vendor_units::Unit> {
+    normal_units("/usr/bin/skillet")
+}
+
+fn normal_units(binary: &str) -> Vec<skillet_core::vendor_units::Unit> {
+    vec![skillet_core::vendor_units::Unit {
+        name: NORMAL_UNIT,
+        content: format!("[Unit]\nDescription=Controlled Skillet normal reboot after OS staging\nDefaultDependencies=no\nAfter=local-fs.target\n[Service]\nType=exec\nEnvironment=SYSTEMCTL_SKIP_AUTO_KEXEC=1\nEnvironment=SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT=1\nExecStart={binary} kexec firmware-reboot\nRuntimeMaxSec=120\nTimeoutStopSec=20\nRestart=no\n"),
+    }]
+}
+
+fn install_normal_unit<S, F>(system: &S, files: &F, binary: &str) -> Result<(), Error>
+where
+    S: ServiceResource + ?Sized,
+    F: FileMutationResource + FileReadResource + ?Sized,
+{
+    let units = normal_units(binary);
+    let vendor = normal_image_units();
+    if skillet_core::vendor_units::reconcile(system, files, "normal-reboot", &vendor, &units, None)?
+    {
+        return Ok(());
+    }
+    let root = Ownership::named(Some("root"), Some("root"));
+    files.ensure_directory(Path::new("/etc/systemd/system"), Some(0o755), &root)?;
+    let changed = files.ensure_file(
+        &Path::new("/etc/systemd/system").join(NORMAL_UNIT),
+        units[0].content.as_bytes(),
+        Some(0o644),
+        &root,
+    )?;
+    files.ensure_directory(Path::new("/var/lib/skillet/kexec"), Some(0o755), &root)?;
+    let receipt = Path::new("/var/lib/skillet/kexec/normal-unit.applied");
+    if changed || files.read_file(receipt)?.as_deref() != Some(units[0].content.as_bytes()) {
+        system.daemon_reload()?;
+        files.ensure_file(receipt, units[0].content.as_bytes(), Some(0o600), &root)?;
+    }
     Ok(())
 }
 

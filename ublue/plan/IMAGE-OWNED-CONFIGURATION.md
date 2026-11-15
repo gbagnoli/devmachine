@@ -494,3 +494,13 @@ was triggered during inspection.
 - [systemctl kexec and soft-reboot](https://www.freedesktop.org/software/systemd/man/latest/systemctl.html)
 - [Linux kexec signature/lockdown validation](https://github.com/torvalds/linux/blob/master/kernel/kexec_file.c)
 - [Shim TPM measurements](https://github.com/rhboot/shim/blob/main/README.tpm)
+
+### Current Clamps reboot mode
+
+Clamps selects normal firmware reboot after each successful daily 06:30 update
+check, including no-update runs. Both independent legacy reboot timers stay
+disabled. This supersedes the kexec/monthly split described in earlier evidence.
+The normal worker and login/backup/configuration guards are retained; automatic
+kexec selection is explicitly disabled. Deploy via workstation apply without
+starting activation, then verify the next scheduled reboot. Physical kexec
+acceptance is parked; no further kexec work is required for Clamps production.

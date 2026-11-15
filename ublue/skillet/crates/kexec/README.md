@@ -1,7 +1,7 @@
-# Controlled kexec service
+# Controlled OS reboot service
 
 Opt in through the canonical host profile with
-`HostService { config: ServiceConfig::Kexec, ui: None }`. Clamps declares this;
+`HostService { config: ServiceConfig::NormalReboot, ui: None }`. Clamps declares this;
 Joey and Donbot currently do not. The host binary links `skillet_kexec` and the
 shared profile runner calls its `service::apply` in both base and full apply.
 The shared CLI delegates worker/cleanup commands to the same crate.
@@ -18,15 +18,29 @@ retires known runtime overrides and enables the selected host timers without
 starting a reboot. Older images retain the legacy installer until upgraded.
 There is no separate `kexec install` step.
 
-For a supervised activation on the host:
+Clamps uses `skillet-reboot-activate.service`: successful completion of the daily
+06:30 Europe/Paris OS update check requests a normal firmware reboot, including
+when no new deployment is available. Apply installs the hook without rebooting.
+Both legacy independent reboot timers remain disabled. Logged-in users, shutdown
+inhibitors, active backups and configuration writers defer activation.
+
+Inspect with `systemctl status skillet-reboot-activate.service` and
+`journalctl -u skillet-reboot-activate.service`. To pause automatic reboots:
 
 ```sh
-sudo systemd-analyze verify skillet-kexec-activate.service
-sudo systemctl start skillet-kexec-activate.service
+sudo systemctl mask --runtime --now skillet-reboot-activate.service
 ```
 
-Starting the service requests a reboot. Keep console/recovery access for initial
-physical acceptance.
+Unmask that service to resume. Missed staging runs do not catch up at boot.
+The normal worker uses the retained `kexec firmware-reboot` CLI command, with
+systemd automatic kexec and soft-reboot selection explicitly disabled. Native
+OSTree shutdown handles pending deployment finalization.
+
+## Optional kexec mode
+
+`ServiceConfig::Kexec` remains available for explicit caller opt-in. Clamps no
+longer selects it. The following handoff and recovery details apply only to that
+mode.
 
 The service selects the current pending deployment, or the booted deployment when
 none is pending. It uses OSTree's native OFD sysroot lock to check for a concurrent

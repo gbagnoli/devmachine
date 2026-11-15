@@ -72,3 +72,13 @@ validated for kexec/NUT. Old HA installers had no receipt; exact known generated
 bytes identify their overrides. Unknown edits require explicit inspection.
 NUT's UPS selection/socket remain in a root-only runtime environment file.
 Runtime apply/credential delivery and unrelated application units keep their owners.
+
+## Normal reboot selection
+
+Clamps selects normal firmware reboot after the successful daily 06:30 staging
+check, even without a new image. Physical kexec hangs and no observed speed
+benefit justify retaining kexec only as an explicit optional mode. Both modes
+retain maintenance exclusion, login/inhibitor and backup checks. Normal reboot
+explicitly disables systemd automatic kexec/soft-reboot selection. Apply installs
+the activation hook without requesting a reboot. The historical `ucore-kexec`
+monitoring tag remains stable across mode changes.

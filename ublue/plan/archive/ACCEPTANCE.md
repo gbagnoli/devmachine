@@ -5170,3 +5170,23 @@ are active. Datadog's first startup healthcheck failed, then recovered to health
 or service restart was performed. The runtime kexec mask cleared with reboot;
 agent did not re-mask or trigger further activation. This successful normal boot
 does not establish physical kexec reliability or eliminate intermittent hangs.
+
+## 2026-11-15: Clamps normal reboot selection
+
+Clamps now opts into `NormalReboot`; successful daily 06:30 Europe/Paris staging
+invokes `skillet-reboot-activate.service`, including no-update runs. The service
+uses the existing normal reboot worker with automatic kexec/soft-reboot disabled.
+Legacy independent timers remain disabled. Existing `ucore-kexec` monitoring
+selection is preserved. Installation does not start activation.
+
+Passed: workspace all-target tests, pedantic Clippy, and the Clamps base container
+check (two applies; second emitted no start/restart). Regression checks cover
+mode replacement, interrupted daemon-reload retry, host opt-in, image rendering,
+and explicit firmware-reboot command environment. Container fixture now accepts
+the already-used timer-disable operation.
+
+No live apply or reboot performed for this implementation. Operator deployment:
+`cargo run --release -p skillet -- apply clamps`, then inspect the staging
+OnSuccess hook and the next scheduled normal reboot. Earlier physical normal
+reboot success is recorded separately; automated physical acceptance remains
+pending deployment.

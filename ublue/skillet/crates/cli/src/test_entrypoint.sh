@@ -15,7 +15,7 @@ case "$1" in
     if [ -f "/tmp/skillet-test-state/active-$3" ]; then exit 0; else exit 3; fi
     ;;
   start|restart) touch "/tmp/skillet-test-state/active-$2" ;;
-  enable|daemon-reload|stop|reload) exit 0 ;;
+  enable|disable|daemon-reload|stop|reload) exit 0 ;;
   *) exit 2 ;;
 esac
 MOCK

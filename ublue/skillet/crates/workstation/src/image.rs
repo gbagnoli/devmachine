@@ -114,6 +114,7 @@ fn render(
         }
     }
     let mut units = skillet_kexec::service::image_units()?;
+    units.extend(skillet_kexec::service::normal_image_units());
     units.extend(skillet_homeassistant::backup::image_units());
     units.extend(skillet_unifi::backup::image_units());
     units.extend(skillet_unifi::readiness::image_units());

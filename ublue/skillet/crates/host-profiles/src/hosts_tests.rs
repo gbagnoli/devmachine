@@ -349,7 +349,7 @@ fn profile_capabilities_are_the_authority_for_services_credentials_network_and_s
             .map(HostService::name)
             .collect::<Vec<_>>(),
         [
-            "kexec",
+            "reboot",
             "network",
             "pihole",
             "tailscale",
@@ -1503,31 +1503,32 @@ fn shared_baseline_grants_et_on_available_lans_without_restricting_ssh() {
 }
 
 #[test]
-fn kexec_is_opt_in_and_installed_without_activation() {
+fn normal_reboot_is_opt_in_and_installed_without_activation() {
     use skillet_core::files::FileReadResource;
     for (host, enabled) in [("clamps", true), ("joey", false), ("donbot", false)] {
         let profile = super::profile_for_name(host).unwrap();
-        assert_eq!(profile.supports_service("kexec"), enabled);
+        assert_eq!(profile.supports_service("reboot"), enabled);
+        assert!(!profile.supports_service("kexec"));
         let system = MockSystem::new();
         let files = skillet_core::test_utils::MockFiles::new();
         super::install_kexec(&system, &files, &profile).unwrap();
         let content = files
-            .read_file(Path::new(skillet_kexec::service::PATH))
+            .read_file(&Path::new("/etc/systemd/system").join(skillet_kexec::service::NORMAL_UNIT))
             .unwrap();
         assert_eq!(content.is_some(), enabled);
         if let Some(content) = content {
-            assert!(String::from_utf8_lossy(&content).contains("/usr/bin/skillet kexec run"));
+            assert!(String::from_utf8_lossy(&content)
+                .contains("/usr/bin/skillet kexec firmware-reboot"));
         }
-        assert!(!profile
-            .acceptance_plan()
-            .services
-            .iter()
-            .any(|s| s.unit == skillet_kexec::service::UNIT));
+        assert!(!profile.acceptance_plan().services.iter().any(|s| matches!(
+            s.unit.as_str(),
+            skillet_kexec::service::UNIT | skillet_kexec::service::NORMAL_UNIT
+        )));
         assert!(!system
             .services
             .lock()
             .unwrap()
-            .contains_key(skillet_kexec::service::UNIT));
+            .contains_key(skillet_kexec::service::NORMAL_UNIT));
     }
 }
 
@@ -1545,14 +1546,14 @@ fn base_apply_installs_clamps_activation_without_starting_it() {
     )
     .unwrap();
     assert!(files
-        .read_file(Path::new(skillet_kexec::service::PATH))
+        .read_file(&Path::new("/etc/systemd/system").join(skillet_kexec::service::NORMAL_UNIT))
         .unwrap()
         .is_some());
     assert!(!system
         .services
         .lock()
         .unwrap()
-        .contains_key(skillet_kexec::service::UNIT));
+        .contains_key(skillet_kexec::service::NORMAL_UNIT));
 }
 
 #[test]

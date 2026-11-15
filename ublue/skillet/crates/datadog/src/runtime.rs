@@ -150,10 +150,11 @@ impl Input {
     }
 
     /// Host capability tags are authoritative, including on retained payloads.
-    pub fn render_with_kexec(mut self, enabled: bool) -> Result<String, DatadogError> {
+    pub fn render_with_reboot(mut self, enabled: bool) -> Result<String, DatadogError> {
         self.tags
             .retain(|tag| tag != "ucore-kexec" && !tag.starts_with("ucore-kexec:"));
         if enabled {
+            // Preserve the existing uptime-monitor selector across reboot-mode changes.
             self.tags.push("ucore-kexec".into());
         }
         serde_json::to_string(&self).map_err(|_| DatadogError::Invalid)

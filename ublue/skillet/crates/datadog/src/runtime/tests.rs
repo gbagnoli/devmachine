@@ -3,12 +3,12 @@ use skillet_core::test_utils::{MockFiles, MockSystem};
 use std::sync::atomic::Ordering;
 
 #[test]
-fn kexec_opt_in_controls_the_tag_and_removes_stale_or_conflicting_values() {
+fn reboot_opt_in_controls_the_tag_and_removes_stale_or_conflicting_values() {
     let source = json!({"version":1,"api_key":"00000000000000000000000000000000","site":"datadoghq.com","tags":["env:prod","ucore-kexec","ucore-kexec:false"]}).to_string();
     for enabled in [false, true] {
         let rendered = Input::parse(&source)
             .unwrap()
-            .render_with_kexec(enabled)
+            .render_with_reboot(enabled)
             .unwrap();
         let tags = Input::parse(&rendered).unwrap().tags;
         assert_eq!(

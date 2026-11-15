@@ -166,3 +166,40 @@ fn staging_schedule_retries_interrupted_reload_without_activating_kexec() {
     assert_eq!(system.restart_count.load(Ordering::SeqCst), 1);
     assert!(!system.service_is_active(UNIT).unwrap());
 }
+
+#[test]
+fn normal_mode_replaces_kexec_hook_without_starting_a_reboot_and_retries_reload() {
+    let files = MockFiles::new();
+    let system = MockSystem::new();
+    let binary = "/usr/bin/skillet";
+    apply_with_mode(&system, &files, binary, RebootMode::Normal).unwrap();
+    apply(&system, &files, binary).unwrap();
+    system.fail_reload_once.store(true, Ordering::SeqCst);
+    assert!(apply_with_mode(&system, &files, binary, RebootMode::Normal).is_err());
+    apply_with_mode(&system, &files, binary, RebootMode::Normal).unwrap();
+    let trigger = files.read_file(Path::new(UPDATE_DROPIN)).unwrap().unwrap();
+    assert_eq!(
+        String::from_utf8(trigger.clone()).unwrap(),
+        "[Unit]\nOnSuccess=\nOnSuccess=skillet-reboot-activate.service\n"
+    );
+    assert_eq!(
+        files
+            .read_file(Path::new("/var/lib/skillet/kexec/trigger.applied"))
+            .unwrap()
+            .unwrap(),
+        trigger
+    );
+    let unit = files
+        .read_file(&Path::new("/etc/systemd/system").join(NORMAL_UNIT))
+        .unwrap()
+        .unwrap();
+    let unit = String::from_utf8(unit).unwrap();
+    assert!(unit.contains("SYSTEMCTL_SKIP_AUTO_KEXEC=1"));
+    assert!(unit.contains("SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT=1"));
+    assert!(!unit.contains("ExecStart=/usr/bin/skillet kexec run"));
+    assert!(!system.service_is_active(NORMAL_UNIT).unwrap());
+    assert!(!system.service_is_active(UNIT).unwrap());
+    assert!(!system.service_is_active(TIMER).unwrap());
+    assert!(!system.service_is_active(REBOOT_TIMER).unwrap());
+    assert_eq!(system.start_count.load(Ordering::SeqCst), 0);
+}

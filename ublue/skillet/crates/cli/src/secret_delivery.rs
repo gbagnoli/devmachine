@@ -281,8 +281,9 @@ fn deliver_datadog_from_vault(
     let input = skillet_workstation::switch_inventory::add_to_datadog_payload(
         &input,
         switches,
-        skillet_hosts::profile_for_name(host)
-            .is_some_and(|profile| profile.supports_service("kexec")),
+        skillet_hosts::profile_for_name(host).is_some_and(|profile| {
+            profile.supports_service("kexec") || profile.supports_service("reboot")
+        }),
     )?;
     skillet_workstation::credential_delivery::deliver_datadog_credential(
         host, policy, &input, transport, activation,

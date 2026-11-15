@@ -469,7 +469,7 @@ fn apply_profile(
     for service in &profile.services {
         match &service.config {
             // These services have base installers or separate credential-gated phases.
-            ServiceConfig::Kexec | ServiceConfig::Ddns { .. }
+            ServiceConfig::Kexec | ServiceConfig::NormalReboot | ServiceConfig::Ddns { .. }
             | ServiceConfig::Datadog { .. }
             | ServiceConfig::Smtp
             | ServiceConfig::Network(_)
@@ -807,8 +807,9 @@ fn apply_datadog_host(
         })
         .ok_or_else(|| ApplyError::FixtureInput("host does not declare Datadog".into()))?;
     let payload = credentials.require(skillet_datadog::CREDENTIAL)?;
-    let payload = skillet_datadog::Input::parse(payload)?
-        .render_with_kexec(profile.supports_service("kexec"))?;
+    let payload = skillet_datadog::Input::parse(payload)?.render_with_reboot(
+        profile.supports_service("kexec") || profile.supports_service("reboot"),
+    )?;
     let hostname = runtime_hostname(files, profile.id.as_str())?;
     let mut monitored_units = profile
         .acceptance_plan_with_ddns(true)
@@ -1149,8 +1150,21 @@ fn install_kexec(
     files: &dyn FileResource,
     profile: &HostProfile,
 ) -> Result<(), ApplyError> {
-    if profile.supports_service("kexec") {
-        skillet_kexec::service::apply(system, files, "/usr/bin/skillet")?;
+    let mode = match (
+        profile.supports_service("kexec"),
+        profile.supports_service("reboot"),
+    ) {
+        (true, false) => Some(skillet_kexec::service::RebootMode::Kexec),
+        (false, true) => Some(skillet_kexec::service::RebootMode::Normal),
+        (false, false) => None,
+        (true, true) => {
+            return Err(ApplyError::FixtureInput(
+                "host must select exactly one reboot mode".into(),
+            ))
+        }
+    };
+    if let Some(mode) = mode {
+        skillet_kexec::service::apply_with_mode(system, files, "/usr/bin/skillet", mode)?;
     }
     Ok(())
 }

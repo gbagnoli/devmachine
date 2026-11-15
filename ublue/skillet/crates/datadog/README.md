@@ -1,6 +1,6 @@
 # Datadog
 
-Hosts declaring kexec automatically receive the `ucore-kexec` Agent tag during
+Hosts declaring managed normal reboot or kexec automatically receive the `ucore-kexec` Agent tag during
 Datadog apply. Removing the capability removes the tag from the generated Agent
 configuration, including stale values in retained credentials. Templates cannot
 opt an unselected host into this tag. Filter the uptime monitor's metric query by
@@ -116,3 +116,6 @@ sudo journalctl -u skillet-nic-metrics.service --no-pager -n 20
 For example, graph `skillet.net.link_speed_mbps{host:clamps}` grouped by
 `interface`. Check collection success separately so unavailable readings do not
 look like a healthy gigabit connection. A manual dry-run does not send metrics.
+
+The historical `ucore-kexec` tag is retained for both reboot modes so existing
+uptime monitors continue covering hosts after switching to normal reboot.

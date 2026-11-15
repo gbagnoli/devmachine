@@ -58,6 +58,7 @@ pub struct CredentialConsumer {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ServiceConfig {
     Kexec,
+    NormalReboot,
     Pihole,
     Syncthing {
         instance: skillet_syncthing::Instance,
@@ -137,6 +138,7 @@ impl HostService {
     pub fn name(&self) -> &'static str {
         match self.config {
             ServiceConfig::Kexec => "kexec",
+            ServiceConfig::NormalReboot => "reboot",
             ServiceConfig::Pihole => "pihole",
             ServiceConfig::Syncthing { instance, .. } => instance.name(),
             ServiceConfig::FileBrowser { .. } => "filebrowser",
@@ -363,7 +365,10 @@ impl HostProfile {
                 ) && (with_ddns || !matches!(service.config, ServiceConfig::Ddns { .. }))
             })
             .flat_map(|service| {
-                if matches!(service.config, ServiceConfig::Kexec) {
+                if matches!(
+                    service.config,
+                    ServiceConfig::Kexec | ServiceConfig::NormalReboot
+                ) {
                     return Vec::new();
                 }
                 let mut declared = vec![acceptance_service(self.id.as_str(), service)];
@@ -674,6 +679,7 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
             health_probe: Some(HealthProbe::Tailscale),
         },
         ServiceConfig::Kexec => host_unit_acceptance(skillet_kexec::service::UNIT),
+        ServiceConfig::NormalReboot => host_unit_acceptance(skillet_kexec::service::NORMAL_UNIT),
         ServiceConfig::Btrbk { .. } => host_unit_acceptance("skillet-btrbk.timer"),
     }
 }
@@ -810,8 +816,8 @@ const SYNCTHING_UI: UiServiceDeclaration = UiServiceDeclaration {
     aliases: &["sync.{host}"],
 };
 
-const KEXEC_SERVICE: HostService = HostService {
-    config: ServiceConfig::Kexec,
+const REBOOT_SERVICE: HostService = HostService {
+    config: ServiceConfig::NormalReboot,
     ui: None,
 };
 
@@ -828,7 +834,7 @@ fn clamps() -> HostProfile {
         },
         requires_data_mount: true,
         services: vec![
-            KEXEC_SERVICE,
+            REBOOT_SERVICE,
             HostService {
                 config: ServiceConfig::Network(skillet_network::Selection {
                     wired: true,

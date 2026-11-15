@@ -31,3 +31,24 @@ fn malformed_loginctl_sessions_fail_closed() {
         assert!(has_interactive_session(&sessions).is_err());
     }
 }
+
+#[test]
+fn normal_reboot_explicitly_disables_kexec_and_soft_reboot_fallbacks() {
+    let command = super::normal_reboot_command();
+    assert_eq!(
+        command.get_args().collect::<Vec<_>>(),
+        ["--check-inhibitors=yes", "reboot"]
+    );
+    let environment = command
+        .get_envs()
+        .collect::<std::collections::BTreeMap<_, _>>();
+    for key in [
+        "SYSTEMCTL_SKIP_AUTO_KEXEC",
+        "SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT",
+    ] {
+        assert_eq!(
+            environment[std::ffi::OsStr::new(key)],
+            Some(std::ffi::OsStr::new("1"))
+        );
+    }
+}

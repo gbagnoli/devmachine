@@ -62,3 +62,10 @@ This accepts this ordinary reboot only; it does not close the intermittent
 warm-boot/kexec investigation. The runtime activation mask cleared on reboot,
 as expected. No replacement mask or additional reboot was issued by the agent;
 keep unattended kexec paused while investigating.
+
+### Selected operating mode
+
+Clamps now declares normal reboot after successful OS staging. Kexec remains
+optional code, with physical handoff acceptance parked. Deploy this change with
+normal workstation apply; verify the new normal activation hook and its next
+scheduled reboot. No live reboot was requested while implementing the switch.

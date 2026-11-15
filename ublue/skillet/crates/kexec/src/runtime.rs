@@ -22,7 +22,7 @@ pub enum Commands {
     Run,
     /// Clean up a kernel owned by this service invocation
     Cleanup,
-    /// Monthly normal reboot, respecting maintenance exclusion and inhibitors
+    /// Normal firmware reboot, respecting maintenance exclusion and inhibitors
     FirmwareReboot,
 }
 
@@ -175,13 +175,24 @@ fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
     }
 }
 
+fn normal_reboot_command() -> Command {
+    let mut command = Command::new("systemctl");
+    command
+        .args(["--check-inhibitors=yes", "reboot"])
+        .env("SYSTEMCTL_SKIP_AUTO_KEXEC", "1")
+        .env("SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT", "1");
+    command
+}
+
 fn request_normal_reboot() -> Result<(), RuntimeError> {
     if defer_for_logged_in_users()? {
         return Ok(());
     }
     let _configuration = skillet_core::maintenance::activation()?;
     ensure_backups_idle()?;
-    checked("systemctl", &["--check-inhibitors=yes", "reboot"])?;
+    if !normal_reboot_command().status()?.success() {
+        return Err(io::Error::other("systemctl normal reboot failed").into());
+    }
     loop {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }

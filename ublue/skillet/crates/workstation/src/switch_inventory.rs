@@ -29,7 +29,7 @@ pub enum SwitchInventoryError {
 pub fn add_to_datadog_payload(
     input: &str,
     selection: SwitchSelection,
-    kexec_enabled: bool,
+    reboot_enabled: bool,
 ) -> Result<String, SwitchInventoryError> {
     let mut input = skillet_datadog::Input::parse(input)?;
     let switches = selection.map(|switches| {
@@ -46,7 +46,7 @@ pub fn add_to_datadog_payload(
             .collect()
     });
     input.set_switches(switches)?;
-    Ok(input.render_with_kexec(kexec_enabled)?)
+    Ok(input.render_with_reboot(reboot_enabled)?)
 }
 
 /// A single credential-bearing switch record. Do not add `Debug` or `Display`.
