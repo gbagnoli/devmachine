@@ -5202,3 +5202,23 @@ are accepted; newer weekly native generation is not demonstrated by that file
 listing and remains a narrowly scoped freshness check. No new restore was run;
 independent received-copy restore remains separate from earlier live/local
 restore evidence. Reconciled migration, parity, HA, UniFi and companion plans.
+
+## 2026-11-15: NETGEAR traffic and PoE telemetry
+
+Added Agent allowlist coverage for existing cumulative RX/TX MB gauges. Extended
+the existing collector with per-port RX/TX/IO MB/s rates, upstream switch-wide
+rates and interval volumes, plus available PoE watts, volts, milliamperes,
+temperature, class, enabled/delivery/fault indicators and fixed status labels.
+Per-port labels are preserved; missing/invalid readings are omitted and failed
+polls retain the existing stale-data suppression. All families are explicitly
+allowed by the Agent configuration. Decimal MB conversions and PoE fields were
+checked against pinned py-netgear-plus source commit
+`7db2f70847a94955eea1666760beed9da592a8f6`. CRC remains deferred because that
+version's formatter exposes only the final port's CRC interval delta.
+
+Passed: full workspace all-target tests, pedantic Clippy, ten collector tests
+on the workstation and inside the built non-root collector image; actual image
+imports its pinned library and renders typed aggregate/per-port OpenMetrics.
+No live switch changes, production deployment or extended cloud ingestion were
+performed. Publish the collector, let its selected image update/restart, and apply
+the new Agent configuration before checking Datadog. No OS reboot is required.

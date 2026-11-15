@@ -140,3 +140,16 @@ Design: [monitoring](../design/monitoring.md),
 [secrets](../design/secrets.md).
 Upstream: [py-netgear-plus](https://github.com/foxey/py-netgear-plus),
 [Datadog OpenMetrics](https://docs.datadoghq.com/integrations/openmetrics/).
+
+## Extended telemetry
+
+Collector and Agent now expose decimal MB/s per-port and whole-switch RX/TX/IO
+rates, upstream aggregate sampling-interval volumes, and available per-port PoE
+watts/voltage/current/temperature/class/state/fault observations. Missing values
+remain absent and failed polls omit device data. Existing cumulative MB totals
+are included in the Agent allowlist. Publication of the updated collector and
+apply are required; live extended-metric ingestion is not yet accepted.
+
+CRC remains deferred after inspecting pinned py-netgear-plus 0.7.0: its formatter
+returns only the last port's CRC delta. A dependency/parser correction and real
+per-port verification are needed before enabling CRC alerts.

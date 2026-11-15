@@ -73,7 +73,31 @@ per-port cumulative traffic totals:
 `netgear.netgear_port_received_megabytes_total` and
 `netgear.netgear_port_transmitted_megabytes_total`. These are gauges in MB,
 reset by switch reboot/counter reset; they are not byte-per-second rates.
-Updating this allowlist requires apply, without rebuilding the collector image.
+Updating an allowlist alone requires apply, without rebuilding the collector image.
+
+The collector also emits per-port RX/TX/combined rates (`netgear_port_` prefix)
+and whole-switch RX/TX/combined rates (`netgear_` prefix), each ending in
+`received_megabytes_per_second`, `transmitted_megabytes_per_second` or
+`io_megabytes_per_second`. Values use decimal MB/s as calculated by the pinned
+library. Aggregate `received_interval_megabytes` / `transmitted_interval_megabytes`
+measure the upstream sampling interval, not cumulative totals. Aggregate traffic
+sums port observations and may count a packet on ingress and egress.
+
+PoE port families use the `netgear.netgear_port_poe_` prefix: `power_watts`,
+`voltage_volts`, `current_milliamperes`, `temperature_celsius`, `class`, `enabled`,
+`delivering_power`, `fault` and `status`. Status emits fixed `state` labels
+(`delivering_power`, `searching`, `disabled`); fault is 0 for `No Error`, 1 for a
+reported fault. Port identity/labels are retained. Unsupported or missing readings
+are omitted, not replaced with zero. All readings are gauges; failed/stale polls
+omit device metrics. Adding these families requires both the rebuilt collector
+image and updated Agent configuration through apply.
+
+Datadog can derive a rate from cumulative gauges with `per_second()`; switch
+resets can introduce negative deltas. The explicit rate gauges avoid needing
+that calculation. See [Datadog rate functions](https://docs.datadoghq.com/dashboards/functions/rate/).
+CRC export remains deferred: pinned py-netgear-plus 0.7.0 populates only the final
+port's CRC field in its formatter and exposes interval deltas rather than raw
+cumulative counters. Do not interpret missing port CRC observations as zeros.
 
 An omitted inventory preserves existing collectors. An explicitly empty inventory
 removes managed collectors and their secrets. The private inventory journal under

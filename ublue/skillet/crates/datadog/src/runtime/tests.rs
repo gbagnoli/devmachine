@@ -399,7 +399,7 @@ fn dogstatsd_udp_opt_in_is_loopback_only_and_preserves_unix_socket() {
 }
 
 #[test]
-fn switch_scrape_includes_receive_and_transmit_totals() {
+fn switch_scrape_includes_traffic_and_poe_metrics() {
     let system = MockSystem::new();
     let files = mounted_files();
     let switch = SwitchConfig {
@@ -419,6 +419,23 @@ fn switch_scrape_includes_receive_and_transmit_totals() {
         "netgear_port_received_megabytes_total",
         "netgear_port_transmitted_megabytes_total",
         "netgear_port_connection_speed_megabits_per_second",
+        "netgear_port_received_megabytes_per_second",
+        "netgear_port_transmitted_megabytes_per_second",
+        "netgear_port_io_megabytes_per_second",
+        "netgear_received_megabytes_per_second",
+        "netgear_transmitted_megabytes_per_second",
+        "netgear_io_megabytes_per_second",
+        "netgear_received_interval_megabytes",
+        "netgear_transmitted_interval_megabytes",
+        "netgear_port_poe_power_watts",
+        "netgear_port_poe_voltage_volts",
+        "netgear_port_poe_current_milliamperes",
+        "netgear_port_poe_temperature_celsius",
+        "netgear_port_poe_class",
+        "netgear_port_poe_enabled",
+        "netgear_port_poe_delivering_power",
+        "netgear_port_poe_status",
+        "netgear_port_poe_fault",
     ] {
         assert!(metrics.contains(&json!(metric)), "missing {metric}");
     }

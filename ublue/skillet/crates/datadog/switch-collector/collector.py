@@ -10,38 +10,85 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
-PORT_KEY = re.compile(
-    r"^port_([1-9][0-9]?)_(status|connection_speed|sum_rx_mbytes|sum_tx_mbytes)$"
-)
+PORT_KEY = re.compile(r"^port_([1-9][0-9]?)_(.+)$")
 NAMES = {
     "connection_speed": "netgear_port_connection_speed_megabits_per_second",
     "sum_rx_mbytes": "netgear_port_received_megabytes_total",
     "sum_tx_mbytes": "netgear_port_transmitted_megabytes_total",
+    "speed_rx_mbytes": "netgear_port_received_megabytes_per_second",
+    "speed_tx_mbytes": "netgear_port_transmitted_megabytes_per_second",
+    "speed_io_mbytes": "netgear_port_io_megabytes_per_second",
+    "poe_output_power": "netgear_port_poe_power_watts",
+    "poe_voltage": "netgear_port_poe_voltage_volts",
+    "poe_current": "netgear_port_poe_current_milliamperes",
+    "poe_temperature": "netgear_port_poe_temperature_celsius",
+    "poe_class": "netgear_port_poe_class",
 }
+BOOLEAN_NAMES = {
+    "status": "netgear_port_link_up",
+    "poe_power_active": "netgear_port_poe_enabled",
+    "poe_power_delivered": "netgear_port_poe_delivering_power",
+}
+AGGREGATE_NAMES = {
+    "sum_port_speed_rx": "netgear_received_megabytes_per_second",
+    "sum_port_speed_tx": "netgear_transmitted_megabytes_per_second",
+    "sum_port_speed_io": "netgear_io_megabytes_per_second",
+    "sum_port_traffic_rx": "netgear_received_interval_megabytes",
+    "sum_port_traffic_tx": "netgear_transmitted_interval_megabytes",
+}
+POE_STATES = ("delivering_power", "searching", "disabled")
+
+
+def valid_number(value, allow_negative=False):
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, (int, float))
+        and math.isfinite(value)
+        and (allow_negative or value >= 0)
+    )
 
 
 def readings(data, port_labels=None):
-    """Only emit metrics whose values and units the upstream library documents."""
+    """Emit bounded, documented metrics; missing readings stay absent."""
     result = []
     for key, value in sorted(data.items()):
+        if key in AGGREGATE_NAMES:
+            if valid_number(value):
+                result.append(f"{AGGREGATE_NAMES[key]} {value}")
+            continue
         match = PORT_KEY.fullmatch(key)
         if not match:
             continue
         port, field = match.groups()
-        if field == "status":
-            if value not in ("on", "off"):
-                continue
-            name, value = "netgear_port_link_up", int(value == "on")
-        else:
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
-                continue
-            if not math.isfinite(value) or value < 0:
-                continue
-            name = NAMES[field]
         labels = f'port="{port}"'
         label = (port_labels or {}).get(port)
         if label is not None:
             labels += f",port_label={json.dumps(label)}"
+        if field in BOOLEAN_NAMES:
+            if value not in ("on", "off"):
+                continue
+            name, value = BOOLEAN_NAMES[field], int(value == "on")
+        elif field == "poe_status":
+            if value not in POE_STATES:
+                continue
+            for state in POE_STATES:
+                result.append(
+                    f'netgear_port_poe_status{{{labels},state="{state}"}} '
+                    f"{int(value == state)}"
+                )
+            continue
+        elif field == "poe_fault":
+            if not isinstance(value, str) or not value.strip():
+                continue
+            name, value = "netgear_port_poe_fault", int(value.strip() != "No Error")
+        elif field in NAMES:
+            if not valid_number(value, allow_negative=field == "poe_temperature"):
+                continue
+            if field == "poe_class" and (value != int(value) or value > 8):
+                continue
+            name = NAMES[field]
+        else:
+            continue
         result.append(f"{name}{{{labels}}} {value}")
     if not result:
         raise ValueError("switch returned no recognized port data")
@@ -55,7 +102,7 @@ def typed_readings(lines):
     """
     families = {}
     for line in lines:
-        name = line.split("{", 1)[0]
+        name = line.split("{", 1)[0].split()[0]
         families.setdefault(name, []).append(line)
     result = []
     for name, samples in sorted(families.items()):
