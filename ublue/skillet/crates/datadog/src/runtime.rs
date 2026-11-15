@@ -566,7 +566,7 @@ where
                 ]),
             },
         )?;
-        instances.push(json!({"openmetrics_endpoint":format!("http://127.0.0.1:{}/metrics", switch.metrics_port), "namespace":"netgear", "metrics":["netgear_collection_success", "netgear_last_success_timestamp_seconds", "netgear_port_link_up", "netgear_port_connection_speed_megabits_per_second"], "tags":[format!("switch:{}", switch.name)]}));
+        instances.push(json!({"openmetrics_endpoint":format!("http://127.0.0.1:{}/metrics", switch.metrics_port), "namespace":"netgear", "metrics":["netgear_collection_success", "netgear_last_success_timestamp_seconds", "netgear_port_link_up", "netgear_port_connection_speed_megabits_per_second", "netgear_port_received_megabytes_total", "netgear_port_transmitted_megabytes_total"], "tags":[format!("switch:{}", switch.name)]}));
     }
     let root = Ownership::named(Some("root"), Some("root"));
     let directory = Path::new(CONFIG_DIR).join("openmetrics.d");

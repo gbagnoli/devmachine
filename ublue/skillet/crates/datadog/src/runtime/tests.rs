@@ -397,3 +397,29 @@ fn dogstatsd_udp_opt_in_is_loopback_only_and_preserves_unix_socket() {
         assert!(!unit.contains("PublishPort="));
     }
 }
+
+#[test]
+fn switch_scrape_includes_receive_and_transmit_totals() {
+    let system = MockSystem::new();
+    let files = mounted_files();
+    let switch = SwitchConfig {
+        name: "office".into(),
+        endpoint: "http://192.0.2.1".into(),
+        make: "netgear".into(),
+        password: "fixture-only".into(),
+        metrics_port: 9500,
+        port_labels: BTreeMap::new(),
+    };
+    let bytes = apply_switches(&system, &files, &[switch]).unwrap();
+    let config: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let instance = &config["instances"][0];
+    assert_eq!(instance["namespace"], "netgear");
+    let metrics = instance["metrics"].as_array().unwrap();
+    for metric in [
+        "netgear_port_received_megabytes_total",
+        "netgear_port_transmitted_megabytes_total",
+        "netgear_port_connection_speed_megabits_per_second",
+    ] {
+        assert!(metrics.contains(&json!(metric)), "missing {metric}");
+    }
+}

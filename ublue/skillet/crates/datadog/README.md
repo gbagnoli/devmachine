@@ -68,7 +68,12 @@ Production switch inventories arrive in the encrypted Datadog credential payload
 Skillet creates one `skillet-switch-<name>` host-network container per switch,
 with a rootless container identity and a read-only Podman secret containing its
 configuration. The metrics listener binds only to host loopback; the Agent reads
-its generated `openmetrics.d/conf.yaml` configuration.
+its generated `openmetrics.d/conf.yaml` configuration. The allowlist includes
+per-port cumulative traffic totals:
+`netgear.netgear_port_received_megabytes_total` and
+`netgear.netgear_port_transmitted_megabytes_total`. These are gauges in MB,
+reset by switch reboot/counter reset; they are not byte-per-second rates.
+Updating this allowlist requires apply, without rebuilding the collector image.
 
 An omitted inventory preserves existing collectors. An explicitly empty inventory
 removes managed collectors and their secrets. The private inventory journal under
