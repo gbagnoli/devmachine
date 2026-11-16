@@ -5294,3 +5294,16 @@ existing definitions and keeping database and public ingress attachments distinc
 A fresh public-Joplin composition test requires the database network definition
 and proves PostgreSQL is not attached to shared ingress. Workspace all-target
 tests, pedantic Clippy, and Donbot's two-apply base container check passed.
+
+Live Jellyfin assertions passed on `donbot/media`: native info reports Donbot,
+Jellyfin 12.4.0 and incomplete setup; both proxy CIDRs are present; all three media
+mounts are read-only; port 18096 binds only 127.0.0.1. Public HTTPS setup-gate
+probes passed earlier in the same run. AirTrail activation also passed.
+
+Arr reconciliation revealed that a native helper fragment can be created inside
+its parent transaction. Its bounded override may now be staged only after an
+explicit not-found observation; an existing mismatched command remains rejected.
+Cleanup is unchanged. Regression tests cover strict/deferred modes and missing
+versus existing units. Workspace all-target tests and pedantic Clippy passed.
+Complete provisioning is being retried; no application reboot claim is made for
+the older image currently booted in this VM.

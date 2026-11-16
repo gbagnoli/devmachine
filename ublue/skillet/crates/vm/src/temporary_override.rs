@@ -16,6 +16,32 @@ pub fn with_exec_start<T>(
     arguments: &[&str],
     operation: impl FnOnce() -> Result<T>,
 ) -> Result<T> {
+    with_exec_start_impl(guest, unit, token, executable, arguments, false, operation)
+}
+
+/// Stage a native helper override before its parent creates the unit fragment.
+/// Only an explicitly observed not-found unit may defer command verification.
+/// Existing units retain exact command verification and both paths retain cleanup.
+pub fn with_deferred_exec_start<T>(
+    guest: &impl GuestTransport,
+    unit: &str,
+    token: &str,
+    executable: &str,
+    arguments: &[&str],
+    operation: impl FnOnce() -> Result<T>,
+) -> Result<T> {
+    with_exec_start_impl(guest, unit, token, executable, arguments, true, operation)
+}
+
+fn with_exec_start_impl<T>(
+    guest: &impl GuestTransport,
+    unit: &str,
+    token: &str,
+    executable: &str,
+    arguments: &[&str],
+    deferred: bool,
+    operation: impl FnOnce() -> Result<T>,
+) -> Result<T> {
     if !valid_unit(unit)
         || token.len() != 32
         || !token.bytes().all(|byte| byte.is_ascii_hexdigit())
@@ -51,16 +77,7 @@ pub fn with_exec_start<T>(
         run_sudo(guest, &["tee", &dropin], Some(contents.as_bytes()))?;
         run_sudo(guest, &["restorecon", "-F", &dropin], None)?;
         run_sudo(guest, &["systemctl", "daemon-reload"], None)?;
-        let effective = run_sudo(
-            guest,
-            &["systemctl", "show", "--property=ExecStart", "--value", unit],
-            None,
-        )?;
-        if !String::from_utf8_lossy(&effective).contains(&command) {
-            return Err(Error::Invalid(
-                "temporary executable command did not become the effective unit ExecStart".into(),
-            ));
-        }
+        verify_effective(guest, unit, &command, deferred)?;
         Ok(())
     })();
     let result = setup.and_then(|()| operation());
@@ -82,6 +99,59 @@ pub fn with_exec_start<T>(
         ))),
     }
 }
+
+fn verify_effective(
+    guest: &impl GuestTransport,
+    unit: &str,
+    command: &str,
+    deferred: bool,
+) -> Result<()> {
+    let effective = guest.execute(
+        &GuestCommand {
+            program: "/usr/bin/sudo",
+            arguments: &[
+                "-n",
+                "systemctl",
+                "show",
+                "--property=ExecStart",
+                "--value",
+                unit,
+            ],
+        },
+        None,
+    )?;
+    if effective.status.success() && String::from_utf8_lossy(&effective.stdout).contains(command) {
+        return Ok(());
+    }
+    if deferred && matches!(effective.status.code(), Some(0 | 1 | 4)) {
+        let state = guest.execute(
+            &GuestCommand {
+                program: "/usr/bin/sudo",
+                arguments: &[
+                    "-n",
+                    "systemctl",
+                    "show",
+                    "--property=LoadState",
+                    "--value",
+                    unit,
+                ],
+            },
+            None,
+        )?;
+        if matches!(state.status.code(), Some(0 | 1 | 4))
+            && state.stdout.strip_suffix(b"\n").unwrap_or(&state.stdout) == b"not-found"
+        {
+            return Ok(());
+        }
+    }
+    Err(Error::Invalid(format!(
+        "temporary executable command did not become the effective unit ExecStart: {unit}"
+    )))
+}
+
+#[cfg(test)]
+#[path = "temporary_override_tests.rs"]
+mod tests;
 
 fn valid_unit(unit: &str) -> bool {
     !unit.is_empty()

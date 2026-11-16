@@ -262,7 +262,7 @@ pub fn activate_with_runner(
     };
     if let Some((dependency, dependency_arguments)) = crate::host_apply::temporary_dependency(unit)
     {
-        skillet_vm::temporary_override::with_exec_start(
+        skillet_vm::temporary_override::with_deferred_exec_start(
             guest,
             dependency,
             token,
