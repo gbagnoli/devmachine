@@ -90,6 +90,16 @@ pub trait UiCloudflareProvider {
         dns_scope: &str,
         desired: &[DesiredRecord],
     ) -> Result<OwnedDns, CloudflareError>;
+    #[allow(clippy::too_many_arguments)]
+    fn reconcile_prepared_dns(
+        &self,
+        token: &str,
+        zone_id: &str,
+        marker: &str,
+        dns_scope: &str,
+        desired: &[DesiredRecord],
+        reserved: &BTreeSet<String>,
+    ) -> Result<OwnedDns, CloudflareError>;
     fn remove_dns_marker(
         &self,
         token: &str,
@@ -163,6 +173,20 @@ impl UiCloudflareProvider for cloudflare::Cloudflare {
         cloudflare::Cloudflare::reconcile_dns(self, token, zone_id, marker, dns_scope, desired)
     }
 
+    fn reconcile_prepared_dns(
+        &self,
+        token: &str,
+        zone_id: &str,
+        marker: &str,
+        dns_scope: &str,
+        desired: &[DesiredRecord],
+        reserved: &BTreeSet<String>,
+    ) -> Result<OwnedDns, CloudflareError> {
+        cloudflare::Cloudflare::reconcile_prepared_dns(
+            self, token, zone_id, marker, dns_scope, desired, reserved,
+        )
+    }
+
     fn remove_dns_marker(
         &self,
         token: &str,
@@ -211,6 +235,7 @@ impl UiTailscaleProvider for OAuthCredentials {
 }
 
 pub struct DisposableUiRequest<'a> {
+    pub publish_public_aliases: bool,
     pub public_targets: &'a [String],
     pub host: &'a str,
     pub instance: &'a str,
@@ -396,6 +421,7 @@ mod public_checks;
 pub use public_checks::{verify_public_jellyfin, verify_public_joplin};
 
 pub struct PersistentUiDelivery<'a> {
+    pub publish_public_aliases: bool,
     pub public_targets: &'a [String],
     pub host: &'a str,
     pub policy: ProvisioningPolicy,
@@ -436,6 +462,13 @@ pub fn deliver_persistent_ui(
         &device.addresses,
         request.public_targets,
     )?;
+    plan = select_public_dns(
+        plan,
+        request.publish_public_aliases,
+        &device.addresses,
+        request.public_targets,
+        request.policy.environment(),
+    )?;
     plan.sites.tailnet_users = request.tailnet_users.to_vec();
     if let Some(token) = request.homeassistant_api_token {
         if !profile.supports_service("homeassistant")
@@ -455,51 +488,17 @@ pub fn deliver_persistent_ui(
         ));
     }
     let account_id = crate::cloudflare::Cloudflare::account_id(&zone)?.to_string();
-    let token_path = format!(
-        "skillet/environments/{}/hosts/{}/cloudflare/acme-token",
-        request.policy.vault_name(),
-        request.host
-    );
-    let token_name = format!("skillet:{}:{}", request.policy.name(), request.host);
-    let token = if let Some(token) = token_store.get(&token_path)? {
-        token
-    } else {
-        let legacy_path = format!("skillet/hosts/{}/cloudflare/acme-token", request.host);
-        let legacy = if request.policy.environment() == Environment::Production {
-            token_store.get(&legacy_path)?
-        } else {
-            None
-        };
-        if let Some(token) = legacy {
-            token_store.ensure_unchanged()?;
-            token_store.save_verified(&token_path, &token)?;
-            token
-        } else {
-            crate::zone_token::use_or_create(
-                token_store,
-                &token_path,
-                || {
-                    cloudflare.replace_named_zone_token(
-                        request.creator_token,
-                        request.zone_id,
-                        &account_id,
-                        &token_name,
-                        request.policy.cloudflare_token_lifetime(),
-                    )
-                },
-                |id| cloudflare.revoke_token(request.creator_token, &account_id, id),
-            )?
-        }
-    };
+    let token = persistent_ui_token(request, token_store, cloudflare, &account_id)?;
     cloudflare.zone(&token, request.zone_id)?;
     token_store.ensure_unchanged()?;
     let marker = format!("skillet:{}:{}", request.policy.name(), request.host);
-    cloudflare.reconcile_dns(
+    cloudflare.reconcile_prepared_dns(
         &token,
         request.zone_id,
         &marker,
         &zone.name,
         &plan.dns_records,
+        &reserved_public_names(&plan.sites),
     )?;
     token_store.ensure_unchanged()?;
     let sites_payload = serde_json::to_vec(&plan.sites)
@@ -664,6 +663,13 @@ pub fn provision_disposable_ui(
         request.addresses,
         request.public_targets,
     )?;
+    plan = select_public_dns(
+        plan,
+        request.publish_public_aliases,
+        request.addresses,
+        request.public_targets,
+        request.policy.environment(),
+    )?;
     plan.sites.tailnet_users = request.tailnet_users.to_vec();
     skillet_caddy::auth::Policy::new(plan.sites.tailnet_users.clone()).map_err(CaddyError::from)?;
     if plan.sites.needs_identity_gate() && plan.sites.tailnet_users.is_empty() {
@@ -713,12 +719,13 @@ pub fn provision_disposable_ui(
     ownership.token_id = Some(token.id.clone());
     ownership.expires_on.clone_from(&token.expires_on);
     provisioning_state::save_cloudflare_ownership(&metadata_path, &ownership)?;
-    let owned = provider.reconcile_dns(
+    let owned = provider.reconcile_prepared_dns(
         &token.value,
         request.zone_id,
         &ownership.marker,
         &zone.name,
         &plan.dns_records,
+        &reserved_public_names(&plan.sites),
     )?;
     ownership.record_ids = owned.records.into_iter().map(|record| record.id).collect();
     provisioning_state::save_cloudflare_ownership(&metadata_path, &ownership)?;
@@ -784,3 +791,81 @@ pub fn build_ui_provisioning_plan_with_public(
 #[cfg(test)]
 #[path = "ui_provisioning/tests.rs"]
 mod tests;
+
+fn reserved_public_names(sites: &CaddySites) -> BTreeSet<String> {
+    sites
+        .services
+        .iter()
+        .filter(|site| site.access == skillet_caddy::SiteAccess::Public)
+        .flat_map(|site| std::iter::once(&site.hostname).chain(&site.aliases))
+        .filter(|name| !sites.publishes_public_hostname(name))
+        .cloned()
+        .collect()
+}
+
+fn select_public_dns(
+    mut plan: UiProvisioningPlan,
+    publish_aliases: bool,
+    addresses: &BTreeSet<String>,
+    public_targets: &[String],
+    environment: Environment,
+) -> Result<UiProvisioningPlan, UiProvisioningError> {
+    plan.sites = plan.sites.with_public_dns_mode(if publish_aliases {
+        skillet_caddy::PublicDnsMode::Active
+    } else {
+        skillet_caddy::PublicDnsMode::Prepare
+    })?;
+    plan.dns_records = cloudflare::desired_records_for_environment(
+        &plan.sites.machine_hostname,
+        addresses,
+        &plan.sites,
+        public_targets,
+        environment,
+    )?;
+    Ok(plan)
+}
+
+fn persistent_ui_token(
+    request: &PersistentUiDelivery<'_>,
+    token_store: &mut impl SecretStore,
+    cloudflare: &impl UiCloudflareProvider,
+    account_id: &str,
+) -> Result<String, UiProvisioningError> {
+    let token_path = format!(
+        "skillet/environments/{}/hosts/{}/cloudflare/acme-token",
+        request.policy.vault_name(),
+        request.host
+    );
+    let token_name = format!("skillet:{}:{}", request.policy.name(), request.host);
+    let token = if let Some(token) = token_store.get(&token_path)? {
+        token
+    } else {
+        let legacy_path = format!("skillet/hosts/{}/cloudflare/acme-token", request.host);
+        let legacy = if request.policy.environment() == Environment::Production {
+            token_store.get(&legacy_path)?
+        } else {
+            None
+        };
+        if let Some(token) = legacy {
+            token_store.ensure_unchanged()?;
+            token_store.save_verified(&token_path, &token)?;
+            token
+        } else {
+            crate::zone_token::use_or_create(
+                token_store,
+                &token_path,
+                || {
+                    cloudflare.replace_named_zone_token(
+                        request.creator_token,
+                        request.zone_id,
+                        account_id,
+                        &token_name,
+                        request.policy.cloudflare_token_lifetime(),
+                    )
+                },
+                |id| cloudflare.revoke_token(request.creator_token, account_id, id),
+            )?
+        }
+    };
+    Ok(token)
+}

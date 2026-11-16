@@ -7,6 +7,7 @@ use std::sync::atomic::Ordering;
 
 fn syncthing_only() -> Vec<UiService> {
     vec![UiService {
+        origin_policy: crate::OriginPolicy::Equivalent,
         public_names: Vec::new(),
         cache: None,
         name: "syncthing".to_string(),
@@ -28,6 +29,7 @@ fn identity_service(
     port: u16,
 ) -> UiService {
     UiService {
+        origin_policy: crate::OriginPolicy::Equivalent,
         public_names: Vec::new(),
         cache: None,
         name: name.into(),
@@ -120,6 +122,7 @@ fn derives_a_single_non_clamps_service_hostname_for_either_environment() {
 fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
     let services = vec![
         UiService {
+            origin_policy: crate::OriginPolicy::Equivalent,
             public_names: Vec::new(),
             cache: None,
             name: "pihole".to_string(),
@@ -167,6 +170,7 @@ fn renders_each_declared_service_with_tailnet_filter_and_container_dns() {
 fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
     let services = vec![
         UiService {
+            origin_policy: crate::OriginPolicy::Equivalent,
             public_names: Vec::new(),
             cache: None,
             name: "pihole".into(),
@@ -180,6 +184,7 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
             sharing: None,
         },
         UiService {
+            origin_policy: crate::OriginPolicy::Equivalent,
             public_names: Vec::new(),
             cache: None,
             name: "homeassistant".into(),
@@ -193,6 +198,7 @@ fn homer_origins_can_read_pihole_and_homeassistant_apis_and_shared_assets() {
             sharing: None,
         },
         UiService {
+            origin_policy: crate::OriginPolicy::Equivalent,
             public_names: Vec::new(),
             cache: None,
             name: "homer".into(),
@@ -308,6 +314,7 @@ fn rejects_domain_injection_duplicates_and_empty_service_sets() {
 #[test]
 fn renders_declared_aliases_and_rejects_conflicting_names() {
     let services = vec![UiService {
+        origin_policy: crate::OriginPolicy::Equivalent,
         public_names: Vec::new(),
         cache: None,
         name: "syncthing".to_string(),
@@ -345,6 +352,7 @@ fn renders_declared_aliases_and_rejects_conflicting_names() {
 
     for alias in ["", ".sync", "sync.", "*.sync", "bad{host}", "clamps"] {
         let invalid = vec![UiService {
+            origin_policy: crate::OriginPolicy::Equivalent,
             public_names: Vec::new(),
             cache: None,
             tailnet_identity: false,
@@ -418,6 +426,7 @@ fn relative_ui_domain_rejects_invalid_prefixes_and_total_length() {
 #[test]
 fn file_ui_is_gated_before_proxy_and_cannot_disable_declared_identity() {
     let services = vec![UiService {
+        origin_policy: crate::OriginPolicy::Equivalent,
         public_names: Vec::new(),
         cache: None,
         name: "files".into(),
@@ -565,6 +574,7 @@ fn identity_caddy_has_only_the_authorization_socket_and_a_private_backend() {
             acme_staging: true,
         },
         &[UiService {
+            origin_policy: crate::OriginPolicy::Equivalent,
             public_names: Vec::new(),
             cache: None,
             name: "files".into(),
@@ -597,6 +607,7 @@ fn identity_caddy_has_only_the_authorization_socket_and_a_private_backend() {
 
 #[test]
 #[ignore = "requires Podman and the Caddy container image"]
+#[allow(clippy::too_many_lines)] // Multiple independent routes share a real consumer fixture.
 fn generated_identity_caddyfile_validates_with_the_real_consumer() {
     let temp = tempfile::tempdir().unwrap();
     let sites = CaddySites::from_host_with_zone(
@@ -617,6 +628,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
             ),
             identity_service("homer", "homer", crate::UpstreamTransport::Bridge, 8080),
             UiService {
+                origin_policy: crate::OriginPolicy::Equivalent,
                 public_names: Vec::new(),
                 cache: None,
                 name: "files".into(),
@@ -630,6 +642,7 @@ fn generated_identity_caddyfile_validates_with_the_real_consumer() {
                 sharing: None,
             },
             UiService {
+                origin_policy: crate::OriginPolicy::Equivalent,
                 public_names: Vec::new(),
                 cache: None,
                 name: "syncthing".into(),

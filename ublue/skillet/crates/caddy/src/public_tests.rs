@@ -2,6 +2,7 @@ use super::*;
 
 pub(super) fn public_service() -> UiService {
     UiService {
+        origin_policy: crate::OriginPolicy::Equivalent,
         name: "joplin".into(),
         upstream: "joplin-server".into(),
         transport: UpstreamTransport::Bridge,
@@ -467,5 +468,141 @@ fn verify_sharing(client: &reqwest::blocking::Client, base: &str) {
             .unwrap();
         assert!(output.status.success());
         assert_eq!(String::from_utf8_lossy(&output.stdout), "403", "{path}");
+    }
+}
+
+#[test]
+fn public_preparation_serves_both_names_and_binds_the_selected_canonical_origin() {
+    let declarations = [public_service()];
+    let legacy = sites(&declarations);
+    let prepared = legacy
+        .clone()
+        .with_public_dns_mode(PublicDnsMode::Prepare)
+        .unwrap();
+    assert_eq!(
+        prepared.services[0].hostname,
+        "notes.server.example.invalid"
+    );
+    assert_eq!(prepared.services[0].aliases, ["notes.example.invalid"]);
+    assert!(prepared.publishes_public_hostname("notes.server.example.invalid"));
+    assert!(!prepared.publishes_public_hostname("notes.example.invalid"));
+    assert_eq!(
+        CaddySites::parse(
+            &serde_json::to_string(&prepared).unwrap(),
+            "server",
+            &declarations
+        )
+        .unwrap(),
+        prepared
+    );
+    let active = legacy.with_public_dns_mode(PublicDnsMode::Active).unwrap();
+    assert_eq!(active.services[0].hostname, "notes.example.invalid");
+    assert_eq!(active.services[0].aliases, ["notes.server.example.invalid"]);
+    assert!(active.publishes_public_hostname("notes.example.invalid"));
+    assert_eq!(
+        CaddySites::parse(
+            &serde_json::to_string(&active).unwrap(),
+            "server",
+            &declarations
+        )
+        .unwrap(),
+        active
+    );
+    let mut tampered = prepared;
+    tampered.public_dns_mode = Some(PublicDnsMode::Active);
+    assert!(CaddySites::parse(
+        &serde_json::to_string(&tampered).unwrap(),
+        "server",
+        &declarations
+    )
+    .is_err());
+}
+
+#[test]
+fn strict_origin_aliases_redirect_without_changing_other_public_services() {
+    let mut strict = public_service();
+    strict.origin_policy = crate::OriginPolicy::Canonical;
+    let mut media = public_service();
+    media.name = "jellyfin".into();
+    media.upstream = "jellyfin".into();
+    media.public_names = vec!["video".into(), "media".into()];
+    for mode in [PublicDnsMode::Prepare, PublicDnsMode::Active] {
+        let declarations = [strict.clone(), media.clone()];
+        let value = sites(&declarations).with_public_dns_mode(mode).unwrap();
+        let strict_site = &value.services[0];
+        let rendered = value.render();
+        assert!(rendered.contains(&format!(
+            "redir https://{}{{uri}} 307",
+            strict_site.hostname
+        )));
+        assert!(rendered.contains("reverse_proxy jellyfin:22300"));
+        assert_eq!(
+            CaddySites::parse(
+                &serde_json::to_string(&value).unwrap(),
+                "server",
+                &declarations
+            )
+            .unwrap(),
+            value
+        );
+        let mut altered = value;
+        altered.services[0].origin_policy = crate::OriginPolicy::Equivalent;
+        assert!(CaddySites::parse(
+            &serde_json::to_string(&altered).unwrap(),
+            "server",
+            &declarations
+        )
+        .is_err());
+    }
+}
+
+#[test]
+fn neutral_origin_policy_does_not_change_legacy_payload_fields() {
+    let value = sites(&[public_service()]);
+    let payload = serde_json::to_string(&value).unwrap();
+    assert_eq!(value.version, 6);
+    assert!(!payload.contains("origin_policy"));
+    assert!(!payload.contains("public_dns_mode"));
+}
+
+#[test]
+#[ignore = "requires Podman and the Caddy container image"]
+fn real_caddy_preparation_and_canonical_alias_configuration_adapts() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("Caddyfile");
+    let mut service = public_service();
+    service.origin_policy = OriginPolicy::Canonical;
+    for mode in [PublicDnsMode::Prepare, PublicDnsMode::Active] {
+        let sites = sites(&[service.clone()])
+            .with_public_dns_mode(mode)
+            .unwrap();
+        std::fs::write(&path, sites.render()).unwrap();
+        let output = std::process::Command::new("podman")
+            .args([
+                "run",
+                "--rm",
+                "--network",
+                "none",
+                "--volume",
+                &format!("{}:/etc/caddy/Caddyfile:ro,z", path.display()),
+                "--env",
+                "CF_API_TOKEN=fixture-only",
+                "ghcr.io/caddybuilds/caddy-cloudflare:2",
+                "caddy",
+                "adapt",
+                "--config",
+                "/etc/caddy/Caddyfile",
+                "--adapter",
+                "caddyfile",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert!(value.to_string().contains("307"));
     }
 }

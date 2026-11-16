@@ -523,6 +523,33 @@ impl Cloudflare {
         dns_scope: &str,
         desired: &[DesiredRecord],
     ) -> Result<OwnedDns> {
+        self.reconcile_dns_inner(token, zone_id, marker, dns_scope, desired, &BTreeSet::new())
+    }
+
+    /// Refuse a preparation retry that would remove final records already active.
+    #[allow(clippy::too_many_arguments)]
+    pub fn reconcile_prepared_dns(
+        &self,
+        token: &str,
+        zone_id: &str,
+        marker: &str,
+        dns_scope: &str,
+        desired: &[DesiredRecord],
+        reserved: &BTreeSet<String>,
+    ) -> Result<OwnedDns> {
+        self.reconcile_dns_inner(token, zone_id, marker, dns_scope, desired, reserved)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn reconcile_dns_inner(
+        &self,
+        token: &str,
+        zone_id: &str,
+        marker: &str,
+        dns_scope: &str,
+        desired: &[DesiredRecord],
+        reserved: &BTreeSet<String>,
+    ) -> Result<OwnedDns> {
         validate_zone_id(zone_id)?;
         validate_fqdn(dns_scope)?;
         if marker.is_empty() || marker.len() > 255 {
@@ -545,21 +572,7 @@ impl Cloudflare {
                 .insert(record.content.clone());
         }
         let mut records = self.list_records(token, zone_id)?;
-        let desired_names = desired
-            .iter()
-            .map(|record| record.name.to_ascii_lowercase())
-            .collect::<BTreeSet<_>>();
-        for record in records
-            .iter()
-            .filter(|record| desired_names.contains(&record.name.to_ascii_lowercase()))
-        {
-            if record.comment.as_deref() != Some(marker) {
-                return Err(CloudflareError::Invalid(format!(
-                    "DNS name {} has a record not owned by this Skillet deployment",
-                    record.name
-                )));
-            }
-        }
+        validate_prepared_ownership(&records, desired, marker, reserved)?;
 
         let mut retained = Vec::new();
         for ((name, record_type), contents) in &wanted {
@@ -708,12 +721,24 @@ pub fn desired_records_for_environment(
         } else {
             machine_name
         };
+        if service.access == skillet_caddy::SiteAccess::Public
+            && !sites.publishes_public_hostname(&service.hostname)
+        {
+            return Err(CloudflareError::Invalid(
+                "public canonical hostname is not selected for DNS publication".into(),
+            ));
+        }
         result.push(DesiredRecord {
             name: service.hostname.clone(),
             record_type: "CNAME".into(),
             content: destination.into(),
         });
         for alias in &service.aliases {
+            if service.access == skillet_caddy::SiteAccess::Public
+                && !sites.publishes_public_hostname(alias)
+            {
+                continue;
+            }
             // The machine name already has its A/AAAA records; it cannot also
             // carry a CNAME when Homer serves the dashboard at that address.
             if alias == machine_name {
@@ -983,4 +1008,38 @@ impl EndpointSpec for ApiEndpoint {
     fn body(&self) -> Option<RequestBody<'_>> {
         self.body.clone().map(RequestBody::Json)
     }
+}
+
+fn validate_prepared_ownership(
+    records: &[RecordRef],
+    desired: &[DesiredRecord],
+    marker: &str,
+    reserved: &BTreeSet<String>,
+) -> Result<()> {
+    if records.iter().any(|record| {
+        record.comment.as_deref() == Some(marker)
+            && reserved.contains(&record.name.to_ascii_lowercase())
+    }) {
+        return Err(CloudflareError::Invalid(
+            "final public DNS is already active; use --publish-public-aliases to preserve it"
+                .into(),
+        ));
+    }
+    let desired_names = desired
+        .iter()
+        .map(|record| record.name.to_ascii_lowercase())
+        .collect::<BTreeSet<_>>();
+    for record in records
+        .iter()
+        .filter(|record| desired_names.contains(&record.name.to_ascii_lowercase()))
+    {
+        if record.comment.as_deref() != Some(marker) {
+            return Err(CloudflareError::Invalid(format!(
+                "DNS name {} has a record not owned by this Skillet deployment",
+                record.name
+            )));
+        }
+    }
+
+    Ok(())
 }

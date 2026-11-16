@@ -8,6 +8,7 @@ use std::{
 #[test]
 fn desired_dns_contains_dual_stack_machine_ui_and_alias_records() {
     let services = vec![skillet_caddy::UiService {
+        origin_policy: skillet_caddy::OriginPolicy::Equivalent,
         public_names: Vec::new(),
         cache: None,
         name: "syncthing".to_string(),
@@ -63,6 +64,7 @@ fn desired_dns_rejects_missing_address_family() {
             acme_staging: true,
         },
         &[skillet_caddy::UiService {
+            origin_policy: skillet_caddy::OriginPolicy::Equivalent,
             public_names: Vec::new(),
             cache: None,
             name: "syncthing".to_string(),
@@ -648,4 +650,94 @@ fn lan_destinations_are_explicitly_test_only_and_never_include_tailnet_or_loopba
             "{address}"
         );
     }
+}
+
+#[test]
+fn preparation_only_publishes_temporary_names_for_every_public_service() {
+    let profile = skillet_hosts::profile_for_name("donbot").unwrap();
+    let legacy = skillet_caddy::CaddySites::from_host_with_zone(
+        "donbot",
+        &skillet_caddy::UiEnvironment {
+            ui_domain: "ui.example.invalid".into(),
+            acme_staging: true,
+        },
+        &profile.ui_services(),
+        Some("example.invalid"),
+    )
+    .unwrap();
+    let tailnet = BTreeSet::from(["100.64.0.1".into(), "fd7a:115c:a1e0::1".into()]);
+    for mode in [
+        skillet_caddy::PublicDnsMode::Prepare,
+        skillet_caddy::PublicDnsMode::Active,
+    ] {
+        let sites = legacy.clone().with_public_dns_mode(mode).unwrap();
+        let records = desired_records_for_environment(
+            &sites.machine_hostname,
+            &tailnet,
+            &sites,
+            &["172.16.40.25".into()],
+            crate::provisioning_policy::Environment::Test,
+        )
+        .unwrap();
+        for label in ["notes", "video", "media", "plex", "send"] {
+            assert!(records
+                .iter()
+                .any(|r| r.name == format!("{label}.donbot.example.invalid")));
+            assert_eq!(
+                records
+                    .iter()
+                    .any(|r| r.name == format!("{label}.example.invalid")),
+                mode == skillet_caddy::PublicDnsMode::Active
+            );
+        }
+        assert!(records
+            .iter()
+            .any(|r| r.name == "syncthing.donbot.ui.example.invalid"));
+        let sharing = sites
+            .services
+            .iter()
+            .find(|site| site.name == "gokapi-sharing")
+            .unwrap();
+        assert!(sharing.public_routes.is_some());
+        assert_eq!(
+            skillet_caddy::CaddySites::parse(
+                &serde_json::to_string(&sites).unwrap(),
+                "donbot",
+                &profile.ui_services()
+            )
+            .unwrap(),
+            sites
+        );
+    }
+}
+
+#[test]
+fn preparation_refuses_to_delete_already_active_final_dns_before_mutation() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        assert!(read_request(&mut stream).starts_with("GET "));
+        send_json(
+            &mut stream,
+            200,
+            &json!({"result":[{
+                "id":"11111111111111111111111111111111","type":"CNAME", "name":"video.example.invalid",
+                "content":"public.donbot.example.invalid", "comment":"skillet:production:donbot"
+            }]}),
+        );
+    });
+    let api = Cloudflare::with_base(&format!("http://{address}/client/v4/"));
+    let error = api
+        .reconcile_prepared_dns(
+            "dummy",
+            "0123456789abcdef0123456789abcdef",
+            "skillet:production:donbot",
+            "example.invalid",
+            &[],
+            &BTreeSet::from(["video.example.invalid".into()]),
+        )
+        .unwrap_err();
+    assert!(error.to_string().contains("--publish-public-aliases"));
+    server.join().unwrap();
 }

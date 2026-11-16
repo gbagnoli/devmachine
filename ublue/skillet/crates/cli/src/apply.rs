@@ -15,6 +15,9 @@ pub(super) struct Args {
     /// Public ingress IP or existing DNS hostname; repeat for IPv4 and IPv6
     #[arg(long, conflicts_with = "local_mode")]
     public_target: Vec<String>,
+    /// Publish final public DNS aliases; omitted prepares only machine-specific DNS
+    #[arg(long, conflicts_with = "local_mode")]
+    publish_public_aliases: bool,
     #[arg(long, value_enum, default_value_t = ApplyPhase::Full)]
     phase: ApplyPhase,
     /// Required host profile and default SSH alias (except with --host-file)
@@ -132,6 +135,7 @@ fn remote(args: &Args) -> Result<()> {
     }
     let delivery = SecretDeliverArgs {
         public_target: args.public_target.clone(),
+        publish_public_aliases: args.publish_public_aliases,
         hostname: host.into(),
         service: String::new(),
         database: Some(path),

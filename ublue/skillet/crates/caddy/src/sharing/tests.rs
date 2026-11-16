@@ -2,6 +2,7 @@ use super::*;
 #[test]
 fn declaration_adds_separate_public_site_and_preserves_private_authentication() {
     let mut service = crate::UiService {
+        origin_policy: crate::OriginPolicy::Equivalent,
         name: "gokapi".into(),
         upstream: "gokapi".into(),
         port: 53842,
@@ -58,6 +59,7 @@ fn declaration_adds_separate_public_site_and_preserves_private_authentication() 
 #[test]
 fn retained_private_payload_does_not_implicitly_enable_new_public_sharing() {
     let declaration = UiService {
+        origin_policy: crate::OriginPolicy::Equivalent,
         name: "gokapi".into(),
         upstream: "gokapi".into(),
         port: 53842,

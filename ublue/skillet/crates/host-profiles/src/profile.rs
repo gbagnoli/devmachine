@@ -33,6 +33,7 @@ pub struct SharingDeclaration {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct UiServiceDeclaration {
+    pub origin_policy: skillet_caddy::OriginPolicy,
     pub sharing: Option<SharingDeclaration>,
     /// Override the service's shared dashboard group on this host.
     pub dashboard_group: Option<&'static str>,
@@ -514,6 +515,7 @@ impl HostProfile {
                         names: sharing.names.iter().map(|name| (*name).into()).collect(),
                         policy: sharing.policy,
                     }),
+                origin_policy: ui.origin_policy,
                 public_names: ui
                     .public_names
                     .iter()
@@ -789,6 +791,7 @@ fn caddy_acceptance(profile: &str, has_homer: bool) -> AcceptanceService {
 }
 
 const PIHOLE_UI: UiServiceDeclaration = UiServiceDeclaration {
+    origin_policy: skillet_caddy::OriginPolicy::Equivalent,
     dashboard_group: None,
     sharing: None,
     public_names: &[],
@@ -803,6 +806,7 @@ const PIHOLE_UI: UiServiceDeclaration = UiServiceDeclaration {
 };
 
 const SYNCTHING_UI: UiServiceDeclaration = UiServiceDeclaration {
+    origin_policy: skillet_caddy::OriginPolicy::Equivalent,
     dashboard_group: None,
     sharing: None,
     public_names: &[],
@@ -814,6 +818,21 @@ const SYNCTHING_UI: UiServiceDeclaration = UiServiceDeclaration {
     tailnet_identity: true,
     cross_site_get_paths: &[],
     aliases: &["sync.{host}"],
+};
+
+const HOMEASSISTANT_UI: UiServiceDeclaration = UiServiceDeclaration {
+    origin_policy: skillet_caddy::OriginPolicy::Equivalent,
+    dashboard_group: None,
+    sharing: None,
+    public_names: &[],
+    cache: None,
+    name: "homeassistant",
+    upstream: "homeassistant",
+    transport: skillet_caddy::UpstreamTransport::HostLoopback,
+    port: 8123,
+    tailnet_identity: true,
+    cross_site_get_paths: &[],
+    aliases: &[],
 };
 
 const REBOOT_SERVICE: HostService = HostService {
@@ -883,19 +902,7 @@ fn clamps() -> HostProfile {
                     owner: "giacomo",
                     group: "giacomo",
                 }),
-                ui: Some(UiServiceDeclaration {
-                    dashboard_group: None,
-                    sharing: None,
-                    public_names: &[],
-                    cache: None,
-                    name: "homeassistant",
-                    upstream: "homeassistant",
-                    transport: skillet_caddy::UpstreamTransport::HostLoopback,
-                    port: 8123,
-                    tailnet_identity: true,
-                    cross_site_get_paths: &[],
-                    aliases: &[],
-                }),
+                ui: Some(HOMEASSISTANT_UI),
             },
             HostService {
                 config: ServiceConfig::Unifi,
@@ -1057,6 +1064,7 @@ fn donbot_application_services() -> Vec<HostService> {
                 backup_group: "giacomo",
             }),
             ui: Some(UiServiceDeclaration {
+                origin_policy: skillet_caddy::OriginPolicy::Canonical,
                 dashboard_group: None,
                 sharing: None,
                 public_names: &["notes"],
@@ -1083,6 +1091,7 @@ fn donbot_application_services() -> Vec<HostService> {
                 backup_group: "giacomo",
             }),
             ui: Some(UiServiceDeclaration {
+                origin_policy: skillet_caddy::OriginPolicy::Equivalent,
                 dashboard_group: None,
                 sharing: None,
                 public_names: &[],
@@ -1111,6 +1120,7 @@ fn donbot_personal_syncthing() -> HostService {
             container_gid: 1000,
         },
         ui: Some(UiServiceDeclaration {
+            origin_policy: skillet_caddy::OriginPolicy::Equivalent,
             dashboard_group: None,
             sharing: None,
             public_names: &[],
@@ -1145,6 +1155,7 @@ fn donbot_media_services() -> Vec<HostService> {
             data_group: config.data_group,
         }),
         ui: Some(UiServiceDeclaration {
+            origin_policy: skillet_caddy::OriginPolicy::Equivalent,
             dashboard_group: None,
             sharing: None,
             name: "jellyfin",
@@ -1168,6 +1179,7 @@ fn donbot_media_services() -> Vec<HostService> {
             data_group: config.data_group,
         }),
         ui: Some(UiServiceDeclaration {
+            origin_policy: skillet_caddy::OriginPolicy::Equivalent,
             dashboard_group: None,
             sharing: None,
             name: "plex",
@@ -1190,6 +1202,7 @@ fn donbot_media_services() -> Vec<HostService> {
             group: config.data_group,
         }),
         ui: Some(UiServiceDeclaration {
+            origin_policy: skillet_caddy::OriginPolicy::Equivalent,
             dashboard_group: None,
             sharing: Some(SharingDeclaration {
                 names: &["send"],
@@ -1209,6 +1222,7 @@ fn donbot_media_services() -> Vec<HostService> {
     services.extend(skillet_media::App::ALL.into_iter().map(|app| HostService {
         config: ServiceConfig::Media { app, config },
         ui: (app != skillet_media::App::Putioarr).then_some(UiServiceDeclaration {
+            origin_policy: skillet_caddy::OriginPolicy::Equivalent,
             dashboard_group: None,
             sharing: None,
             public_names: &[],
@@ -1293,6 +1307,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
                     container_gid,
                 },
                 ui: Some(UiServiceDeclaration {
+                    origin_policy: skillet_caddy::OriginPolicy::Equivalent,
                     dashboard_group: None,
                     sharing: None,
                     public_names: &[],
@@ -1312,6 +1327,7 @@ fn with_fleet_baseline(mut profile: HostProfile) -> HostProfile {
     profile.services.push(HostService {
         config: ServiceConfig::Homer,
         ui: Some(UiServiceDeclaration {
+            origin_policy: skillet_caddy::OriginPolicy::Equivalent,
             dashboard_group: None,
             sharing: None,
             public_names: &[],

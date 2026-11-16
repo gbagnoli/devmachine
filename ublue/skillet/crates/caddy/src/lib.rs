@@ -54,6 +54,9 @@ mod public_tests;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct UiService {
+    /// Redirect alias origins to the canonical hostname for strict-origin apps.
+    #[serde(default, skip_serializing_if = "OriginPolicy::is_equivalent")]
+    pub origin_policy: crate::OriginPolicy,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sharing: Option<sharing::Declaration>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -86,10 +89,39 @@ pub struct UiEnvironment {
     pub acme_staging: bool,
 }
 
+/// Some native applications accept only their selected canonical origin.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OriginPolicy {
+    #[default]
+    Equivalent,
+    Canonical,
+}
+
+impl OriginPolicy {
+    #[allow(clippy::trivially_copy_pass_by_ref)] // Required by serde's skip predicate.
+    fn is_equivalent(&self) -> bool {
+        *self == Self::Equivalent
+    }
+    pub fn is_canonical(self) -> bool {
+        self == Self::Canonical
+    }
+}
+
+/// Public routing is installed before final DNS is deliberately published.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PublicDnsMode {
+    Prepare,
+    Active,
+}
+
 #[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CaddySites {
     pub version: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub public_dns_mode: Option<PublicDnsMode>,
     pub host: String,
     pub ui_domain: String,
     #[serde(default)]
@@ -108,6 +140,7 @@ impl std::fmt::Debug for CaddySites {
         formatter
             .debug_struct("CaddySites")
             .field("version", &self.version)
+            .field("public_dns_mode", &self.public_dns_mode)
             .field("host", &self.host)
             .field("ui_domain", &self.ui_domain)
             .field("zone_domain", &self.zone_domain)
@@ -126,6 +159,8 @@ impl std::fmt::Debug for CaddySites {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CaddySite {
+    #[serde(default, skip_serializing_if = "OriginPolicy::is_equivalent")]
+    pub origin_policy: crate::OriginPolicy,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub public_routes: Option<sharing::Policy>,
     /// Guest-observed readiness, never accepted from the encrypted payload.
@@ -220,6 +255,11 @@ impl CaddySites {
         Ok(Self {
             version: if services
                 .iter()
+                .any(|service| service.origin_policy.is_canonical())
+            {
+                10
+            } else if services
+                .iter()
                 .any(|service| !service.cross_site_get_paths.is_empty())
             {
                 9
@@ -242,6 +282,7 @@ impl CaddySites {
             } else {
                 3
             },
+            public_dns_mode: None,
             host: host.to_string(),
             ui_domain: environment.ui_domain.clone(),
             zone_domain: zone_domain.map(str::to_string),
@@ -253,6 +294,73 @@ impl CaddySites {
         })
     }
 
+    /// Install both machine-specific and final public routes. Preparation keeps
+    /// application-generated URLs on the temporary origin; active selects final.
+    pub fn with_public_dns_mode(mut self, mode: PublicDnsMode) -> Result<Self, CaddyError> {
+        if self.public_dns_mode.is_some() {
+            return Err(CaddyError::InvalidConfiguration(
+                "public DNS mode already selected".into(),
+            ));
+        }
+        if !self
+            .services
+            .iter()
+            .any(|site| site.access == SiteAccess::Public)
+        {
+            return Ok(self);
+        }
+        let zone = self.zone_domain.as_deref().ok_or_else(|| {
+            CaddyError::InvalidConfiguration("public DNS mode requires the Cloudflare zone".into())
+        })?;
+        let mut all_names = std::collections::BTreeSet::new();
+        for site in &mut self.services {
+            if site.access == SiteAccess::Public {
+                let final_names: Vec<_> = std::iter::once(site.hostname.clone())
+                    .chain(site.aliases.clone())
+                    .collect();
+                let temporary: Vec<_> = final_names
+                    .iter()
+                    .map(|name| {
+                        let label = name.strip_suffix(&format!(".{zone}")).ok_or_else(|| {
+                            CaddyError::InvalidConfiguration(
+                                "public name is outside the zone".into(),
+                            )
+                        })?;
+                        let name = format!("{label}.{}.{zone}", self.host);
+                        validate_domain(&name)?;
+                        Ok(name)
+                    })
+                    .collect::<Result<_, CaddyError>>()?;
+                let mut resolved = if mode == PublicDnsMode::Prepare {
+                    temporary.into_iter().chain(final_names).collect::<Vec<_>>()
+                } else {
+                    final_names.into_iter().chain(temporary).collect::<Vec<_>>()
+                };
+                site.hostname = resolved.remove(0);
+                site.aliases = resolved;
+            }
+            for name in std::iter::once(&site.hostname).chain(&site.aliases) {
+                if !all_names.insert(name.clone()) {
+                    return Err(CaddyError::InvalidConfiguration(
+                        "duplicate temporary/public UI hostname".into(),
+                    ));
+                }
+            }
+        }
+        self.version = 10;
+        self.public_dns_mode = Some(mode);
+        Ok(self)
+    }
+
+    /// TLS routes and DNS publication deliberately have independent scopes.
+    pub fn publishes_public_hostname(&self, hostname: &str) -> bool {
+        self.public_dns_mode != Some(PublicDnsMode::Prepare)
+            || self
+                .zone_domain
+                .as_deref()
+                .is_some_and(|zone| hostname.ends_with(&format!(".{}.{zone}", self.host)))
+    }
+
     pub fn parse(contents: &str, host: &str, services: &[UiService]) -> Result<Self, CaddyError> {
         let sites: Self = serde_json::from_str(contents)?;
         validate_payload_version(&sites)?;
@@ -260,6 +368,11 @@ impl CaddySites {
         // during deployment. Its canonical names and identity protection remain
         // exact; only a newly delivered v6 payload selects public exposure.
         let mut declarations = services.to_vec();
+        if sites.version < 10 {
+            for service in &mut declarations {
+                service.origin_policy = crate::OriginPolicy::Equivalent;
+            }
+        }
         if sites.version < 9 {
             for service in &mut declarations {
                 service.cross_site_get_paths.clear();
@@ -318,6 +431,9 @@ impl CaddySites {
             return Err(CaddyError::InvalidConfiguration(
                 "host upstreams require version 4; redeliver Caddy credentials".into(),
             ));
+        }
+        if let Some(mode) = sites.public_dns_mode {
+            expected = expected.with_public_dns_mode(mode)?;
         }
         expected.version = sites.version;
         expected.tailnet_users.clone_from(&sites.tailnet_users);
@@ -399,6 +515,14 @@ fn render_site(
     }
     if service.setup_pending {
         config.push_str("        respond \"Service setup is incomplete\" 503\n    }\n}\n");
+        return config;
+    }
+    if service.origin_policy.is_canonical() && hostname != service.hostname {
+        let _ = writeln!(
+            config,
+            "        redir https://{}{{uri}} 307\n    }}\n}}",
+            service.hostname
+        );
         return config;
     }
     if let Some(policy) = service.public_routes {
@@ -698,6 +822,7 @@ fn build_sites(
             aliases.push(alias_hostname);
         }
         sites.push(CaddySite {
+            origin_policy: service.origin_policy,
             setup_pending: false,
             public_routes: None,
             cache: service.cache,
@@ -728,6 +853,11 @@ fn resolve_public_names(
     {
         return Err(CaddyError::InvalidConfiguration(
             "caching requires an explicitly public bridge service".into(),
+        ));
+    }
+    if service.origin_policy.is_canonical() && service.public_names.is_empty() {
+        return Err(CaddyError::InvalidConfiguration(
+            "canonical origin requires a public native-auth service".into(),
         ));
     }
     if !service.public_names.is_empty()
@@ -1080,11 +1210,22 @@ fn state_volumes() -> Vec<Volume> {
 }
 
 fn validate_payload_version(sites: &CaddySites) -> Result<(), CaddyError> {
-    if !matches!(sites.version, 2..=9) {
+    if !matches!(sites.version, 2..=10) {
         return Err(CaddyError::InvalidConfiguration(format!(
             "unsupported payload version {}",
             sites.version
         )));
+    }
+    if (sites.public_dns_mode.is_some()
+        || sites
+            .services
+            .iter()
+            .any(|site| site.origin_policy.is_canonical()))
+        && sites.version < 10
+    {
+        return Err(CaddyError::InvalidConfiguration(
+            "public DNS mode requires payload version 10".into(),
+        ));
     }
     if sites.zone_domain.is_some() && sites.version < 5 {
         return Err(CaddyError::InvalidConfiguration(
@@ -1096,7 +1237,7 @@ fn validate_payload_version(sites: &CaddySites) -> Result<(), CaddyError> {
             "payload version 5 requires the Cloudflare zone".into(),
         ));
     }
-    if sites.version == 9
+    if sites.version >= 9
         && sites.zone_domain.is_none()
         && sites
             .services

@@ -286,6 +286,7 @@ fn start_caddy(
     authorization: std::net::SocketAddr,
 ) -> (Container, std::net::SocketAddr) {
     let mut services = vec![UiService {
+        origin_policy: crate::OriginPolicy::Equivalent,
         public_names: Vec::new(),
         cache: None,
         name: service.into(),

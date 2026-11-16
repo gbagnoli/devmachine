@@ -216,6 +216,19 @@ impl UiCloudflareProvider for FakeCloudflare {
         })
     }
 
+    fn reconcile_prepared_dns(
+        &self,
+        token: &str,
+        zone_id: &str,
+        marker: &str,
+        scope: &str,
+        desired: &[DesiredRecord],
+        reserved: &BTreeSet<String>,
+    ) -> Result<OwnedDns, CloudflareError> {
+        assert!(!desired.iter().any(|record| reserved.contains(&record.name)));
+        self.reconcile_dns(token, zone_id, marker, scope, desired)
+    }
+
     fn remove_dns_marker(
         &self,
         _token: &str,
@@ -270,6 +283,7 @@ fn disposable_request<'a>(
     addresses: &'a BTreeSet<String>,
 ) -> DisposableUiRequest<'a> {
     DisposableUiRequest {
+        publish_public_aliases: false,
         public_targets: &[],
         host: "clamps",
         instance: "smoke",
@@ -297,6 +311,7 @@ fn cleanup_request(run_directory: &Path) -> DisposableUiCleanupRequest<'_> {
 
 fn persistent_request() -> PersistentUiDelivery<'static> {
     PersistentUiDelivery {
+        publish_public_aliases: false,
         public_targets: &[],
         host: "clamps",
         policy: ProvisioningPolicy::new(Environment::Production),
@@ -819,6 +834,7 @@ fn public_destination_preflight_precedes_any_disposable_provider_mutations() {
     let addresses = addresses();
     let provider = fake_cloudflare(root.path(), false);
     let request = DisposableUiRequest {
+        publish_public_aliases: false,
         host: "donbot",
         ..disposable_request(root.path(), &addresses)
     };

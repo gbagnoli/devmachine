@@ -166,3 +166,31 @@ public destination and permits only the pinned application's sharing routes.
 Redeliver Caddy credentials when selecting the new service. See
 [Gokapi setup](../gokapi/README.md) and the
 [access design](../../../design/public-service-access.md#gokapi-sharing-boundary).
+
+## Parallel public-service preparation
+
+Public delivery defaults to preparation mode. Caddy serves temporary names such
+as `video.donbot.example.invalid` and the declared final aliases, with TLS for
+both. Only temporary public DNS is published; existing final DNS stays untouched.
+The environment zone comes from KeePassXC, never a literal domain in source.
+Use the same public target arguments as ordinary delivery:
+
+```sh
+cargo run --release -p skillet -- apply donbot --public-target PUBLIC_IP
+cargo run --release -p skillet -- test vm provision donbot media --with-ui --public-target TEST_LAN_IP
+```
+
+At the deliberate cutover, add `--publish-public-aliases`. This selects the final
+canonical URLs and publishes both temporary and final DNS. Existing records
+owned by another deployment or unmanaged records are still refused; inspect and
+retire the old service records deliberately at cutover rather than bypassing
+ownership checks. There is no implicit takeover of Calculon's DNS. Once final
+aliases are active, retain that flag on subsequent apply/delivery; omitting it
+fails before DNS mutation rather than silently deleting live final records.
+
+Jellyfin/Plex aliases proxy equivalent requests. Joplin declares strict canonical
+origin handling: aliases redirect with HTTP 307 and preserve the URI. Its
+`APP_BASE_URL` follows the temporary canonical name during preparation and the
+final name at cutover. Re-login after this one-time transition is accepted.
+Version 10 binds these policies to the caller; old payloads retain their prior
+names/policy until redelivered. Use current matching guest binaries for delivery.

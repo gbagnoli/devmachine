@@ -90,7 +90,13 @@ fn verify(
         return Ok(());
     };
     let address = caddy_container_address(guest, &sites.host)?;
-    for hostname in std::iter::once(&site.hostname).chain(&site.aliases) {
+    // Strict-origin applications redirect aliases; native API acceptance uses
+    // their selected canonical origin. Caddy rendering tests cover redirects.
+    let aliases = site
+        .aliases
+        .iter()
+        .filter(|_| !site.origin_policy.is_canonical());
+    for hostname in std::iter::once(&site.hostname).chain(aliases) {
         let resolve = format!("{hostname}:443:{address}");
         for probe in probes {
             let url = format!("https://{hostname}{}", probe.path());

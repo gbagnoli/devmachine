@@ -152,6 +152,9 @@
 - Service modules own their monitoring declarations. Monitoring consumes the
   same selected services as application composition; do not maintain an
   independent monitoring inventory or place credentials in discovery metadata.
+- Version new wire-format capabilities explicitly. Omit neutral optional fields
+  when retaining an older reader contract; test both retained decoding and newly
+  emitted payloads rather than assuming serde defaults provide forward compatibility.
 - Generated unit executable paths must agree with the actual bootstrap and
   update delivery paths. Cover that agreement in regression checks; consumer
   placeholders alone cannot establish deployment correctness.

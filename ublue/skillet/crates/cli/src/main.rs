@@ -183,6 +183,9 @@ struct SecretDeliverArgs {
     /// Public ingress IP or existing DNS hostname; repeat for IPv4 and IPv6
     #[arg(long)]
     public_target: Vec<String>,
+    /// Publish final public DNS aliases; omitted prepares only machine-specific DNS
+    #[arg(long)]
+    publish_public_aliases: bool,
     /// Canonical host profile and default SSH alias
     hostname: String,
     #[arg(value_parser = ["pihole", "pihole-dns", "tailscale", "caddy", "ddns", "datadog", "smtp", "network", "syncthing", "homeassistant", "joplin", "airtrail", "media", "gokapi"])]
@@ -337,6 +340,9 @@ struct VmProvisionArgs {
     /// Ingress IP or DNS hostname (test accepts LAN IPs); repeat for IPv4 and IPv6
     #[arg(long, requires = "with_ui")]
     public_target: Vec<String>,
+    /// Publish final public DNS aliases; omitted prepares only machine-specific DNS
+    #[arg(long, requires = "with_ui")]
+    publish_public_aliases: bool,
     /// Configure only SMTP (isolated capture unless --live-smtp is supplied)
     #[arg(long)]
     smtp_only: bool,

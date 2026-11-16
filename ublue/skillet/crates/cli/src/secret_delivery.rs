@@ -376,6 +376,7 @@ fn deliver_caddy_from_vault(
         skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref());
     skillet_workstation::ui_provisioning::deliver_persistent_ui(
         &skillet_workstation::ui_provisioning::PersistentUiDelivery {
+            publish_public_aliases: args.publish_public_aliases,
             public_targets: &args.public_target,
             host: &args.hostname,
             policy,
@@ -824,6 +825,7 @@ fn provision_vm_ui(
     let api = skillet_workstation::cloudflare::Cloudflare::new();
     let provisioned = skillet_workstation::ui_provisioning::provision_disposable_ui(
         &skillet_workstation::ui_provisioning::DisposableUiRequest {
+            publish_public_aliases: args.publish_public_aliases,
             public_targets: &args.public_target,
             host: &args.hostname,
             instance: &args.instance,

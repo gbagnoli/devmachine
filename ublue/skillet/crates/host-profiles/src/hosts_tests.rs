@@ -784,6 +784,7 @@ fn synthetic_profile_derives_network_and_ui_from_its_identity() {
                 container_gid: 1000,
             },
             ui: Some(UiServiceDeclaration {
+                origin_policy: skillet_caddy::OriginPolicy::Equivalent,
                 dashboard_group: None,
                 sharing: None,
                 public_names: &[],
