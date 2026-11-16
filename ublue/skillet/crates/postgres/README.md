@@ -23,9 +23,9 @@ declared backup subvolume, preserving their existing modes so Syncthing and
 file browsing can traverse the backup path.
 
 On the guest, run the rootful Podman operations with
-`sudo /var/usrlocal/bin/skillet-<host> postgres backup --instance <name>` to
+`sudo /usr/bin/skillet postgres backup --instance <name>` to
 create an immediate archive. Restore with
-`sudo /var/usrlocal/bin/skillet-<host> postgres restore --instance <name> --archive <path>`. Restore
+`sudo /usr/bin/skillet postgres restore --instance <name> --archive <path>`. Restore
 creates a fresh pre-restore archive, stops the caller's app unit, applies
 `pg_restore --clean --if-exists`, then restarts the app if it had been active.
 Use an archive from the same app instance and a compatible PostgreSQL major.

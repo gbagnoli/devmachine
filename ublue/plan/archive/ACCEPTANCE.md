@@ -5307,3 +5307,12 @@ Cleanup is unchanged. Regression tests cover strict/deferred modes and missing
 versus existing units. Workspace all-target tests and pedantic Clippy passed.
 Complete provisioning is being retried; no application reboot claim is made for
 the older image currently booted in this VM.
+
+The deferred override successfully launched the newly created Arr reconciler,
+but the authoritative generic CLI rejected `media`; only host binaries exposed
+that shared command. Generic Skillet now dispatches media reconciliation and the
+existing PostgreSQL/AirTrail backup/restore handlers. Parser tests cover the
+actual scheduled command forms and explicit restore arguments, without opening
+credentials. Backup guides use the image-owned entry point. Workspace all-target
+tests and pedantic Clippy passed. The next retry uses this generic CLI; the host
+binary is no longer used as evidence of generic-entry-point command coverage.

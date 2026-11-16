@@ -13,9 +13,9 @@ path. Restore creates a paired pre-restore recovery set, restores both parts,
 and attempts to roll both back if database restore fails. Backups are included
 in the host's selected Syncthing Btrfs snapshots.
 
-On the guest, create a backup with `sudo /var/usrlocal/bin/skillet-donbot
+On the guest, create a backup with `sudo /usr/bin/skillet
 airtrail backup`. Restore a selected set with
-`sudo /var/usrlocal/bin/skillet-donbot airtrail restore --archive
+`sudo /usr/bin/skillet airtrail restore --archive
 <backup-set-path>`. Keep the matching application and database image versions
 when restoring.
 

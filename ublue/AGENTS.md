@@ -157,7 +157,9 @@
   emitted payloads rather than assuming serde defaults provide forward compatibility.
 - Generated unit executable paths must agree with the actual bootstrap and
   update delivery paths. Cover that agreement in regression checks; consumer
-  placeholders alone cannot establish deployment correctness.
+  placeholders alone cannot establish deployment correctness. Test generated
+  runtime commands against the parser of their actual executable; a host binary
+  accepting a command does not prove the generic image entry point accepts it.
 - Treat the immutable image binary as the sole authority for persistent guest
   services. Remote configuration apply must not leave a mutable executable that
   silently shadows it; any temporary guest execution must be isolated, bounded,

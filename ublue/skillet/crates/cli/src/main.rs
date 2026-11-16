@@ -53,6 +53,21 @@ enum Commands {
         #[command(subcommand)]
         command: skillet_cli_common::gokapi_runtime::Commands,
     },
+    /// Reconcile the guest's linked Arr stack
+    Media {
+        #[command(subcommand)]
+        command: skillet_cli_common::media_runtime::Commands,
+    },
+    /// Back up or restore an application-owned PostgreSQL database
+    Postgres {
+        #[command(subcommand)]
+        command: skillet_cli_common::postgres_runtime::Commands,
+    },
+    /// Back up or restore coordinated `AirTrail` database and uploads
+    Airtrail {
+        #[command(subcommand)]
+        command: skillet_cli_common::airtrail_runtime::Commands,
+    },
     /// Export the guest `UniFi` automatic backups
     Unifi {
         #[command(subcommand)]
@@ -442,6 +457,9 @@ fn main() -> Result<()> {
             )?;
         }
         Commands::Gokapi { command } => skillet_cli_common::gokapi_runtime::dispatch(command)?,
+        Commands::Media { command } => skillet_cli_common::media_runtime::dispatch(command)?,
+        Commands::Postgres { command } => skillet_cli_common::postgres_runtime::dispatch(command)?,
+        Commands::Airtrail { command } => skillet_cli_common::airtrail_runtime::dispatch(command)?,
         Commands::Unifi { command } => skillet_cli_common::unifi_runtime::dispatch(command)?,
         Commands::Homeassistant { command } => {
             skillet_cli_common::homeassistant_runtime::dispatch(&command)?;
@@ -1767,3 +1785,6 @@ fn check_gokapi_health(
     )?;
     Ok(Some("health:gokapi:running".into()))
 }
+
+#[cfg(test)]
+mod guest_runtime_command_tests;
