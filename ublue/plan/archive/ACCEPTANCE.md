@@ -5316,3 +5316,29 @@ actual scheduled command forms and explicit restore arguments, without opening
 credentials. Backup guides use the image-owned entry point. Workspace all-target
 tests and pedantic Clippy passed. The next retry uses this generic CLI; the host
 binary is no longer used as evidence of generic-entry-point command coverage.
+
+### 2026-11-16 — Fresh Donbot provisioning completed
+
+`test vm provision donbot media --with-ui --public-target 172.27.27.1` completed
+successfully after the fixes above. Declared containers are running; Jellyfin,
+Plex and both PostgreSQL instances report healthy. The native Arr reconciler
+ran from the temporary generic executable and reported successful connections,
+links and library roots. The apply lock, temporary executable and runtime
+overrides are absent after cleanup. The unused blank pre-current-code Jellyfin
+configuration was removed.
+
+Public Joplin native probes and all declared Jellyfin setup-gated HTTPS names
+passed inside the VM. The explicit destination is the guest bridge gateway;
+this is VM-local ingress acceptance, not routed LAN/public internet acceptance.
+ACME uses staging; clients do not normally trust that CA. Final production DNS
+is unchanged. Native Jellyfin account/library selection, actual client playback,
+GPU access, native configuration backup/restore and protected media-cache parity
+are not established by these checks. The older booted image also does not prove
+new application behavior across reboot; publish a matching image first.
+
+Evidence is retained privately under the owned `donbot-test-media` run. All code
+is committed in focused changes, with no push. Calculon production is unchanged.
+
+Caddy journals additionally confirm successful staging certificate issuance for
+`notes`, `video` and `media` names. Native `virsh -c qemu:///session list --all`
+shows only the running `donbot-test-media` domain.

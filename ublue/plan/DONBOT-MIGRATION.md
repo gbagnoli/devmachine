@@ -9,9 +9,21 @@ names with final TLS aliases but leaves final DNS untouched; explicit publicatio
 is separate. Unmanaged/other-owner DNS requires deliberate source-record retirement.
 Joplin's canonical origin changes at cutover; no session/token migration is planned.
 
-Recreate Donbot from current source, finish Jellyfin initial networking/private
-onboarding and named-VM acceptance. Then plan Usenet for the linked Arr stack;
-no provider selection/purchase or downloader changes are part of this slice.
+All earlier local VMs have been disposed through the lifecycle owner, including
+provider cleanup. Fresh `donbot/media` has signed-image/base/user readiness and
+synthetic reboot smoke; its disk is expanded to 64 GiB for application images.
+Current-source provisioning uses a verified temporary runner, including native
+initializer/reconciler dependencies. Persistent boot authority remains the image.
+Jellyfin first-run proxy/network defaults, private native onboarding and public
+setup gating are implemented. Full fresh-VM provisioning passed, including
+Joplin/AirTrail, public HTTPS setup gating, Gokapi and linked Arr reconciliation.
+Live Jellyfin config, read-only media mounts and loopback setup were verified.
+Next: native Jellyfin account/library setup and client playback; plan Usenet for
+the linked Arr stack independently.
+No provider selection/purchase or downloader changes are part of this slice.
+The booted image predates these changes: release an updated image before
+reboot/application-persistence acceptance. Native Jellyfin backup/restore and
+protected video/image cache parity remain explicit later gates.
 Quantum supersedes Mikochi in current shared composition. HA/Zigbee work stays
 parked until the ordered devices arrive, independently of Donbot.
 
@@ -32,11 +44,12 @@ repeat/reboot acceptance also passed; transfer/import and operator Arr browser
 checks remain open. Inventory is complete. Donbot
 profile, binary, VM Butane template, Joplin and AirTrail callers, generated
 KeePass credential delivery, Homer registration, and scheduled backups are
-implemented. The fresh named VM currently runs both services and their dedicated
+implemented. The earlier named VM ran both services and their dedicated
 PostgreSQL containers; internal Joplin API ping and AirTrail root requests each
 returned HTTP 200. Both backup timers are enabled. Joplin restore and AirTrail
 paired database/uploads restore passed in the disposable VM, and the operator
-confirmed both UIs work. Joplin mobile/desktop sync and AirTrail account/API
+confirmed both UIs work. That VM was disposed on 2026-11-16; current-run evidence
+is recorded separately in the acceptance log. Joplin mobile/desktop sync and AirTrail account/API
 acceptance remain open. The VM's test Caddy configuration uses the ACME staging
 CA, which browsers do not trust by default. The earlier Joplin-only VM was disposed through Skillet's
 lifecycle command before this fresh run was created. Shared file browsing and identity
@@ -495,7 +508,9 @@ provisioning. DNS/ACME activation requires an explicit destination. Test provisi
 LAN/ULA addresses for VM-local or routed LAN checks; production IPs remain public.
 The passt VM has no independent LAN address; mirrored host addresses must not be
 published as if they belonged exclusively to the VM.
-Native accounts/library selection, known-proxy configuration, real external
+First initialization now configures the caller-selected IPv4/IPv6 proxy networks,
+server name, TLS termination at Caddy and disabled UPnP; retained native files
+remain application-owned. Native accounts/library selection, real external
 playback, backup/restore and GPU acceptance remain open. Plex now has a reusable
 crate/caller, an encrypted Caddy-config apply phase, loopback-only setup ports,
 shared read-only libraries, a public `plex` name and a Homer Media card.
