@@ -87,6 +87,9 @@ pub struct TemporaryRunner {
 }
 
 impl TemporaryRunner {
+    pub(crate) fn host(&self) -> &str {
+        &self.host
+    }
     pub fn path(&self) -> &str {
         &self.path
     }

@@ -5252,3 +5252,21 @@ unlock. Fresh owned `donbot/media` completed signed-image/base/user readiness.
 Its creation capture predates the final code; update is required before app
 provisioning. Full provider/app/ACME and playback checks remain unrun while the
 vault cache is unavailable. Calculon and production DNS remain unchanged.
+
+### 2026-11-16 — Current-source disposable provisioning
+
+All four previous local VMs were disposed through the lifecycle owner, including
+Cloudflare and Tailscale cleanup after vault unlock. Only fresh `donbot/media`
+remains. Signed-image/base/user readiness and synthetic smoke with normal reboot
+passed. A first application attempt exposed execution-authority drift: uploaded
+current binaries did not change image-owned apply-unit execution, so the older
+image rejected the new Caddy payload.
+
+Provisioning now reuses one verified temporary remote runner for declared apply
+consumers, including implicit starts inside credential installation. Payload stdin
+and ownership checks are retained; runtime overrides and the runner are cleaned
+on success/failure. Personal Syncthing initialization retains its instance flag.
+Workspace all-target tests and pedantic Clippy passed; regression tests cover
+activation, failure cleanup, payload preservation and implicit consumer starts.
+Live current-code provisioning is being retried. This does not establish reboot
+compatibility with an older image; new persistent behavior requires a release.

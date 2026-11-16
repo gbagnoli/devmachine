@@ -96,3 +96,185 @@ fn agent_setup_hints_cover_missing_empty_and_advertised_sockets_without_mutating
     assert!(!hint.contains("eval"));
     assert!(!hint.contains("example-agent.sock"));
 }
+
+type ActivationCall = (Vec<String>, Option<Vec<u8>>);
+#[derive(Default)]
+struct ActivationGuest {
+    calls: std::cell::RefCell<Vec<ActivationCall>>,
+    effective: std::cell::RefCell<String>,
+    fail_start: bool,
+}
+impl GuestTransport for ActivationGuest {
+    fn execute(
+        &self,
+        command: &GuestCommand<'_>,
+        input: Option<&[u8]>,
+    ) -> skillet_vm::Result<Output> {
+        self.calls.borrow_mut().push((
+            std::iter::once(command.program.to_string())
+                .chain(command.arguments.iter().map(|arg| (*arg).to_string()))
+                .collect(),
+            input.map(<[u8]>::to_vec),
+        ));
+        let mut stdout = if command.program == "systemctl" {
+            b"LoadState=loaded\nConditionResult=yes\nResult=success\nExecMainStatus=0\nExecMainStartTimestampMonotonic=1\n".to_vec()
+        } else if command.arguments.contains(&"--show-cursor") {
+            b"-- cursor: fixture\n".to_vec()
+        } else {
+            Vec::new()
+        };
+        if matches!(command.arguments, ["-n", "tee", _]) {
+            if let Some(input) = input {
+                let text = std::str::from_utf8(input).unwrap();
+                *self.effective.borrow_mut() = text
+                    .lines()
+                    .filter_map(|line| line.strip_prefix("ExecStart="))
+                    .filter(|line| !line.is_empty())
+                    .collect::<String>();
+            }
+        } else if matches!(
+            command.arguments,
+            [
+                "-n",
+                "systemctl",
+                "show",
+                "--property=ExecStart",
+                "--value",
+                _
+            ]
+        ) {
+            stdout = self.effective.borrow().as_bytes().to_vec();
+        }
+        let failed =
+            self.fail_start && matches!(command.arguments, ["-n", "systemctl", "start", _]);
+        Ok(Output {
+            status: std::process::ExitStatus::from_raw(i32::from(failed) << 8),
+            stdout,
+            stderr: Vec::new(),
+        })
+    }
+    fn upload(&self, _: &Path, _: &str) -> skillet_vm::Result<()> {
+        Ok(())
+    }
+}
+
+fn runner() -> TemporaryRunner {
+    let token = "0123456789abcdef0123456789abcdef".to_string();
+    TemporaryRunner {
+        host: "donbot".into(),
+        path: format!("/var/usrlocal/bin/.skillet-remote-apply-{token}"),
+        upload: "/var/usrlocal/bin/fixture-upload".into(),
+        token,
+        generic_version: "fixture".into(),
+    }
+}
+
+#[test]
+fn current_runner_activation_overrides_only_declared_units_and_cleans_up_failures() {
+    for fail_start in [false, true] {
+        let guest = ActivationGuest {
+            fail_start,
+            ..ActivationGuest::default()
+        };
+        let runner = runner();
+        let current = crate::apply_runner_transport::ApplyRunnerTransport::new(&guest, &runner);
+        let result = current.execute(
+            &GuestCommand {
+                program: "/usr/bin/sudo",
+                arguments: &["-n", "systemctl", "start", "skillet-caddy-apply.service"],
+            },
+            None,
+        );
+        assert_eq!(result.is_err(), fail_start);
+        assert!(guest.effective.borrow().contains(&format!(
+            "{} apply --host-file /etc/skillet/host --phase caddy",
+            runner.path()
+        )));
+        let calls = guest.calls.borrow();
+        assert!(calls.iter().any(|(call, _)| call
+            .iter()
+            .any(|arg| arg.starts_with("/run/systemd/system/skillet-caddy-apply.service.d/zzzz-"))
+            && call.contains(&"rm".into())));
+        assert!(!calls.iter().any(|(call, _)| call
+            .iter()
+            .any(|arg| arg.starts_with("/etc/systemd/system/"))));
+    }
+}
+
+#[test]
+fn current_runner_preserves_payload_stdin_and_does_not_wrap_application_services() {
+    let guest = ActivationGuest::default();
+    let runner = runner();
+    let current = crate::apply_runner_transport::ApplyRunnerTransport::new(&guest, &runner);
+    let command = GuestCommand {
+        program: "/usr/bin/sudo",
+        arguments: &["-n", "tee", "/run/fixture-secret"],
+    };
+    current
+        .execute(&command, Some(b"protected-payload"))
+        .unwrap();
+    assert_eq!(guest.calls.borrow().len(), 1);
+    assert_eq!(
+        guest.calls.borrow()[0].1.as_deref(),
+        Some(b"protected-payload".as_slice())
+    );
+    current
+        .execute(
+            &GuestCommand {
+                program: "sudo",
+                arguments: &["-n", "systemctl", "start", "jellyfin.service"],
+            },
+            None,
+        )
+        .unwrap();
+    assert_eq!(guest.calls.borrow().len(), 2);
+    let count = guest.calls.borrow().len();
+    assert!(current
+        .execute(
+            &GuestCommand {
+                program: "sudo",
+                arguments: &["-n", "systemctl", "start", "skillet-full-apply.service"]
+            },
+            Some(b"unexpected")
+        )
+        .is_err());
+    assert_eq!(guest.calls.borrow().len(), count);
+}
+
+#[test]
+fn current_runner_stages_implicit_consumers_without_changing_payload_bytes() {
+    let guest = ActivationGuest::default();
+    let runner = runner();
+    let current = crate::apply_runner_transport::ApplyRunnerTransport::new(&guest, &runner);
+    current
+        .execute(
+            &GuestCommand {
+                program: "/usr/bin/sudo",
+                arguments: &[
+                    "-n",
+                    "/var/usrlocal/bin/skillet-donbot",
+                    "credential",
+                    "install",
+                    "tailscale_auth_key",
+                    "skillet-full-apply.service",
+                ],
+            },
+            Some(b"private-bytes"),
+        )
+        .unwrap();
+    let calls = guest.calls.borrow();
+    assert_eq!(calls[0].1.as_deref(), Some(b"private-bytes".as_slice()));
+    assert_eq!(calls[0].0.last().unwrap(), "--no-start");
+    assert!(guest.effective.borrow().contains("--phase full"));
+    assert!(calls.iter().any(|(call, _)| call.contains(&"start".into())));
+}
+
+#[test]
+fn personal_syncthing_temporary_command_keeps_its_instance_selector() {
+    let args =
+        crate::host_apply::temporary_arguments("skillet-syncthing-personal-initialize.service")
+            .unwrap();
+    assert!(args
+        .windows(2)
+        .any(|pair| pair == ["--instance", "personal"]));
+}

@@ -47,6 +47,12 @@ cargo run --release -p skillet -- test vm provision clamps smoke --with-ui
 cargo run --release -p skillet -- test smoke clamps --instance smoke --with-applications
 ```
 
+Provision builds a verified temporary runner from current source and uses it for
+declared apply units, including credential-triggered consumers. Runtime overrides
+and the runner are cleaned up after success or failure. Persistent services and
+subsequent boots continue to use the image-owned `/usr/bin` binaries; release an
+updated image before claiming new behavior survives reboot.
+
 Provision enrolls Tailscale through workstation OAuth and converges the declared application services. Repeat
 provision reuses identity. Identity-protected Pi-hole needs no password;
 `--rotate` affects only callers retaining native Pi-hole login.

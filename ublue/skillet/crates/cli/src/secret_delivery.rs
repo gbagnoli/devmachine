@@ -563,6 +563,46 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     };
     let mut vault = Vault::open(&vault_path, args.key_file.as_deref())?;
     let credentials = tailscale_credentials(&vault)?;
+    let runner = skillet_workstation::deployment::stage_temporary_runner(
+        &args.hostname,
+        &super::workspace_root()?,
+        &transport,
+    )?;
+    println!(
+        "Provisioning with temporary workstation runner: {}",
+        runner.version()
+    );
+    let current =
+        skillet_workstation::apply_runner_transport::ApplyRunnerTransport::new(&transport, &runner);
+    let result = provision_vm_services(
+        args,
+        &profile,
+        &run,
+        &run_dir,
+        &mut vault,
+        &credentials,
+        &current,
+    );
+    let cleanup = skillet_workstation::deployment::cleanup_temporary_runner(&runner, &transport);
+    match (result, cleanup) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Err(error), Ok(())) => Err(error),
+        (Ok(()), Err(error)) => Err(error.into()),
+        (Err(error), Err(cleanup)) => Err(anyhow!(
+            "{error}; temporary runner cleanup also failed: {cleanup}"
+        )),
+    }
+}
+
+fn provision_vm_services(
+    args: &VmProvisionArgs,
+    profile: &skillet_hosts::HostProfile,
+    run: &VmRun,
+    run_dir: &Path,
+    vault: &mut Vault,
+    credentials: &tailscale::OAuthCredentials,
+    transport: &impl GuestTransport,
+) -> Result<()> {
     let expected_hostname = run.guest_hostname.as_str();
     let policy = UiEnvironmentName::Test.policy();
     // Native-password callers stage their optional Pi-hole credential first.
@@ -571,53 +611,53 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
     skillet_workstation::credential_delivery::ensure_disposable_pihole_credential(
         &args.hostname,
         args.rotate,
-        &transport,
+        transport,
     )?;
-    provision_vm_syncthing(args, expected_hostname, &vault, &transport)?;
+    provision_vm_syncthing(args, expected_hostname, vault, transport)?;
     let record = skillet_workstation::tailscale_enrollment::enroll_disposable_vm(
         &skillet_workstation::tailscale_enrollment::DisposableEnrollment {
             host: &args.hostname,
             instance: &args.instance,
             vm_hostname: expected_hostname,
-            run_directory: &run_dir,
+            run_directory: run_dir,
             policy,
         },
-        &credentials,
-        &transport,
+        credentials,
+        transport,
     )?;
 
     // Enrollment reuse does not converge changed service/network declarations.
     // Both encrypted prerequisites and the optional bootstrap are ready here.
-    skillet_workstation::host_apply::activate(&transport, "skillet-full-apply.service")?;
+    skillet_workstation::host_apply::activate(transport, "skillet-full-apply.service")?;
     if args.with_pihole_dns {
         skillet_workstation::pihole_dns::deliver(
             &args.hostname,
             policy,
-            &vault,
-            &transport,
+            vault,
+            transport,
             skillet_vm::credential::ActivationPolicy::StartConsumer,
         )?;
     }
     if args.with_ui {
-        let sites = provision_vm_ui(args, &run_dir, &transport, &mut vault, &record)?;
-        provision_vm_gokapi(args, &profile, policy, &transport, &mut vault)?;
+        let sites = provision_vm_ui(args, run_dir, transport, vault, &record)?;
+        provision_vm_gokapi(args, profile, policy, transport, vault)?;
         if profile.supports_service("plex") {
-            skillet_workstation::host_apply::activate(&transport, "skillet-plex-apply.service")?;
+            skillet_workstation::host_apply::activate(transport, "skillet-plex-apply.service")?;
         }
-        provision_vm_joplin(args, &profile, policy, &transport, &mut vault)?;
-        verify_public_applications(&transport, &sites)?;
-        provision_vm_airtrail(args, &profile, policy, &transport, &mut vault)?;
-        provision_vm_media(args, &profile, policy, &transport, &mut vault)?;
+        provision_vm_joplin(args, profile, policy, transport, vault)?;
+        verify_public_applications(transport, &sites)?;
+        provision_vm_airtrail(args, profile, policy, transport, vault)?;
+        provision_vm_media(args, profile, policy, transport, vault)?;
     }
     if args.with_ddns {
-        provision_vm_ddns(args, &run_dir, &transport, &mut vault)?;
+        provision_vm_ddns(args, run_dir, transport, vault)?;
     }
     if args.with_datadog {
         deliver_datadog_from_vault(
             &args.hostname,
             policy,
-            &vault,
-            &transport,
+            vault,
+            transport,
             skillet_vm::credential::ActivationPolicy::StartConsumer,
         )?;
     }
@@ -630,11 +670,11 @@ pub(super) fn provision_vm(args: &VmProvisionArgs) -> Result<()> {
         skillet_workstation::smtp_provisioning::deliver(
             &args.hostname,
             &input,
-            &transport,
+            transport,
             skillet_vm::credential::ActivationPolicy::StartConsumer,
         )?;
     }
-    provisioning_state::remove_tailscale_pending(&run_dir)?;
+    provisioning_state::remove_tailscale_pending(run_dir)?;
     println!("Tailscale connected VM {expected_hostname}");
     Ok(())
 }

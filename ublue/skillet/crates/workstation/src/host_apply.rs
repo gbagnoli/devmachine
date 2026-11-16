@@ -15,10 +15,17 @@ pub fn temporary_arguments(unit: &str) -> Option<&'static [&'static str]> {
     const HOST_FILE: &str = "/etc/skillet/host";
     match unit {
         "skillet-apply.service" => Some(&["apply", "--host-file", HOST_FILE, "--phase", "base"]),
-        "skillet-syncthing-initialize.service"
-        | "skillet-syncthing-personal-initialize.service" => {
+        "skillet-syncthing-initialize.service" => {
             Some(&["syncthing", "initialize", "--host-file", HOST_FILE])
         }
+        "skillet-syncthing-personal-initialize.service" => Some(&[
+            "syncthing",
+            "initialize",
+            "--host-file",
+            HOST_FILE,
+            "--instance",
+            "personal",
+        ]),
         "skillet-full-apply.service" => {
             Some(&["apply", "--host-file", HOST_FILE, "--phase", "full"])
         }

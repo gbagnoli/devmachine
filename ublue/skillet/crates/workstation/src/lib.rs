@@ -39,3 +39,5 @@ pub mod sudo;
 pub mod credential_cache;
 
 pub mod image;
+
+pub mod apply_runner_transport;
