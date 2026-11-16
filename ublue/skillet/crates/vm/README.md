@@ -48,7 +48,8 @@ cargo run --release -p skillet -- test smoke clamps --instance smoke --with-appl
 ```
 
 Provision builds a verified temporary runner from current source and uses it for
-declared apply units, including credential-triggered consumers. Runtime overrides
+declared apply units, including credential-triggered consumers and their native
+initialization/reconciliation dependencies. Runtime overrides
 and the runner are cleaned up after success or failure. Persistent services and
 subsequent boots continue to use the image-owned `/usr/bin` binaries; release an
 updated image before claiming new behavior survives reboot.

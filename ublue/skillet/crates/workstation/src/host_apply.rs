@@ -66,6 +66,23 @@ pub fn temporary_arguments(unit: &str) -> Option<&'static [&'static str]> {
     }
 }
 
+/// Native helper started inside an apply transaction, rather than by its SSH caller.
+pub fn temporary_dependency(unit: &str) -> Option<(&'static str, &'static [&'static str])> {
+    match unit {
+        "skillet-gokapi-apply.service" => Some((
+            "skillet-gokapi-initialize.service",
+            &["gokapi", "initialize", "--host-file", "/etc/skillet/host"],
+        )),
+        "skillet-media-apply.service" => {
+            Some(("skillet-media-reconcile.service", &["media", "reconcile"]))
+        }
+        "skillet-smtp-apply.service" => {
+            Some(("skillet-smtp-prepare.service", &["smtp", "prepare"]))
+        }
+        _ => None,
+    }
+}
+
 /// Service preparation and activation are distinct effects. Preparation must
 /// defer consumer activation; each related set is complete before its start.
 pub trait Actions {

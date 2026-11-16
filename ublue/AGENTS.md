@@ -162,7 +162,9 @@
   services. Remote configuration apply must not leave a mutable executable that
   silently shadows it; any temporary guest execution must be isolated, bounded,
   and cleaned up on success and failure. Keep bootstrap-only executables clearly
-  separate from normal service entry points.
+  separate from normal service entry points. Include transitive initialization and
+  reconciliation helpers in temporary execution scopes; overriding only the outer
+  apply process does not change the binaries systemd starts as dependencies.
 - Long-running services declare their own boot activation and dependencies.
   Configuration apply must not be their only startup path; verify reboot with
   already converged configuration as well as initial activation.

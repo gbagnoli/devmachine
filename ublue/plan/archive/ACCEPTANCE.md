@@ -5270,3 +5270,17 @@ Workspace all-target tests and pedantic Clippy passed; regression tests cover
 activation, failure cleanup, payload preservation and implicit consumer starts.
 Live current-code provisioning is being retried. This does not establish reboot
 compatibility with an older image; new persistent behavior requires a release.
+
+The current-source retry passed Caddy activation/initial HTTPS checks, then
+exposed a transitive helper still using image code: Gokapi initialization parsed
+the new payload with the older binary. Temporary activation now wraps the native
+initializer/reconciler dependency as well as its outer apply unit; SMTP preparation
+uses the same boundary. Regression coverage proves dependency setup precedes
+activation and both overrides are removed after success/failure. Workspace tests
+and pedantic Clippy passed. Exact token-bound override cleanup is batched and no
+longer creates absent directories during retirement.
+
+The fresh VM's stock disk also exhausted Jellyfin's native free-space threshold.
+The owned disk, partition and Btrfs filesystem were expanded to 64 GiB through
+`guest_command`; blank pre-current-code Jellyfin configuration was moved aside.
+Current-source provisioning is being retried against the expanded filesystem.

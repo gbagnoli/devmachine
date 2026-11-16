@@ -32,7 +32,7 @@ Ready first; only actual evidence restores it. Bounded probes and private failur
 logs preserve the original error. Update builds current artifacts; ready uses
 the creation capture. Provisioning uses one verified current-source temporary
 runner for declared apply consumers, including starts implicit in credential
-installation. It retains ownership-checked transport and payload stdin, removes
+installation and their native initialization/reconciliation dependencies. It retains ownership-checked transport and payload stdin, removes
 runtime overrides and the runner on success/failure, and leaves image binaries
 authoritative for subsequent boots. Updating an uploaded binary alone does not
 change systemd execution authority. Guest assertion helpers do not own

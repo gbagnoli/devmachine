@@ -200,28 +200,33 @@ pub fn cleanup_temporary_runner(
 ) -> Result<()> {
     let profile = skillet_hosts::profile_for_name(&runner.host)
         .ok_or_else(|| VmError::Invalid("temporary apply host profile disappeared".into()))?;
-    for step in crate::host_apply::steps(&profile) {
-        if let crate::host_apply::Step::Activate(unit) = step {
-            let directory = format!("/run/systemd/system/{unit}.d");
-            let dropin = format!(
-                "{directory}/zzzz-skillet-remote-apply-{}.conf",
-                runner.token
-            );
-            run_sudo(
-                guest,
-                &[
-                    "install", "-d", "-o", "0", "-g", "0", "-m", "0755", &directory,
-                ],
-                None,
-            )?;
-            run_sudo(guest, &["rm", "-f", &dropin], None)?;
-            run_sudo(
-                guest,
-                &["rmdir", "--ignore-fail-on-non-empty", &directory],
-                None,
-            )?;
-        }
-    }
+    let units = crate::host_apply::steps(&profile)
+        .into_iter()
+        .filter_map(|step| {
+            if let crate::host_apply::Step::Activate(unit) = step {
+                Some(unit)
+            } else {
+                None
+            }
+        })
+        .flat_map(|unit| {
+            std::iter::once(unit).chain(
+                crate::host_apply::temporary_dependency(unit).map(|(dependency, _)| dependency),
+            )
+        });
+    let dropins = units
+        .map(|unit| {
+            format!(
+                "/run/systemd/system/{unit}.d/zzzz-skillet-remote-apply-{}.conf",
+                runner.token,
+            )
+        })
+        .collect::<Vec<_>>();
+    // Remove exact token-bound paths in one operation. Do not create absent
+    // override directories just to remove them; empty /run parents are harmless.
+    let mut remove = vec!["rm", "-f"];
+    remove.extend(dropins.iter().map(String::as_str));
+    run_sudo(guest, &remove, None)?;
     run_sudo(guest, &["systemctl", "daemon-reload"], None)?;
     run_sudo(guest, &["rm", "-f", &runner.path, &runner.upload], None)?;
     run_sudo(guest, &["rmdir", APPLY_LOCK], None)?;
@@ -245,9 +250,29 @@ pub fn activate_with_runner(
     {
         return Err(VmError::Invalid("invalid temporary apply unit or executable".into()).into());
     }
-    skillet_vm::temporary_override::with_exec_start(guest, unit, token, binary, arguments, || {
-        crate::host_apply::activate(guest, unit)
-    })
+    let activate = || {
+        skillet_vm::temporary_override::with_exec_start(
+            guest,
+            unit,
+            token,
+            binary,
+            arguments,
+            || crate::host_apply::activate(guest, unit),
+        )
+    };
+    if let Some((dependency, dependency_arguments)) = crate::host_apply::temporary_dependency(unit)
+    {
+        skillet_vm::temporary_override::with_exec_start(
+            guest,
+            dependency,
+            token,
+            binary,
+            dependency_arguments,
+            activate,
+        )
+    } else {
+        activate()
+    }
     .map_err(Into::into)
 }
 

@@ -278,3 +278,52 @@ fn personal_syncthing_temporary_command_keeps_its_instance_selector() {
         .windows(2)
         .any(|pair| pair == ["--instance", "personal"]));
 }
+
+#[test]
+fn current_runner_wraps_native_initializer_dependencies_and_cleans_both_units() {
+    for fail_start in [false, true] {
+        let guest = ActivationGuest {
+            fail_start,
+            ..ActivationGuest::default()
+        };
+        let runner = runner();
+        let result = activate_with_runner(
+            &guest,
+            "skillet-gokapi-apply.service",
+            runner.path(),
+            runner.token(),
+            crate::host_apply::temporary_arguments("skillet-gokapi-apply.service").unwrap(),
+        );
+        assert_eq!(result.is_err(), fail_start);
+        let calls = guest.calls.borrow();
+        for unit in [
+            "skillet-gokapi-initialize.service",
+            "skillet-gokapi-apply.service",
+        ] {
+            let path = format!(
+                "/run/systemd/system/{unit}.d/zzzz-skillet-remote-apply-{}.conf",
+                runner.token()
+            );
+            assert!(calls
+                .iter()
+                .any(|(args, input)| args[1..] == ["-n", "tee", &path] && input.is_some()));
+            assert!(calls
+                .iter()
+                .any(|(args, _)| args[1..] == ["-n", "rm", "-f", &path]));
+        }
+        let initializer = calls
+            .iter()
+            .position(|(args, _)| {
+                args.iter()
+                    .any(|v| v.contains("skillet-gokapi-initialize.service.d/"))
+            })
+            .unwrap();
+        let start = calls
+            .iter()
+            .position(|(args, _)| {
+                args[1..] == ["-n", "systemctl", "start", "skillet-gokapi-apply.service"]
+            })
+            .unwrap();
+        assert!(initializer < start);
+    }
+}
