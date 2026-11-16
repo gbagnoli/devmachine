@@ -155,3 +155,21 @@ changes. See [Syncthing temporary names](https://github.com/syncthing/syncthing/
 Homer includes both the private administration site and its public sharing site
 in the owner's dashboard group. The public root serves a static informational
 message; it does not proxy an additional application endpoint.
+
+## Parallel deployment and cutover
+
+Public services have both machine-specific temporary names and retained final
+aliases. Preparation provisions TLS/routes for both but publishes only temporary
+DNS; cutover explicitly publishes final DNS and selects final canonical URLs.
+An accidental preparation retry after activation refuses to remove final records.
+Other-deployment/unmanaged DNS records remain protected; retiring those source
+records is an explicit operator cutover action, not automatic ownership adoption.
+The same rules cover Gokapi sharing without broadening its path/method policy.
+Joplin declares canonical-origin alias redirects because it enforces APP_BASE_URL;
+Jellyfin/Plex/Gokapi aliases otherwise proxy equivalent routes. Fresh accounts and
+client re-login are accepted: session/token migration is outside the work order.
+
+Jellyfin's initial native wizard is loopback-only through SSH forwarding. Public
+proxying waits for its host-observed native completion state; delivered credentials
+cannot assert readiness. Caller-selected bridge proxy networks are bootstrapped
+only when native network configuration is absent and later UI edits are preserved.

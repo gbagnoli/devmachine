@@ -1,5 +1,21 @@
 # Donbot fresh installation
 
+## Current work order — 2026-11-16
+
+Target: start physical deployment in early December and retire Calculon before
+year-end. Keep fresh application accounts; client re-login is accepted. Preserve
+final public service URLs at cutover. Preparation now has machine-specific public
+names with final TLS aliases but leaves final DNS untouched; explicit publication
+is separate. Unmanaged/other-owner DNS requires deliberate source-record retirement.
+Joplin's canonical origin changes at cutover; no session/token migration is planned.
+
+Recreate Donbot from current source, finish Jellyfin initial networking/private
+onboarding and named-VM acceptance. Then plan Usenet for the linked Arr stack;
+no provider selection/purchase or downloader changes are part of this slice.
+Quantum supersedes Mikochi in current shared composition. HA/Zigbee work stays
+parked until the ordered devices arrive, independently of Donbot.
+
+
 File UI update: [Quantum trial](FILEBROWSER-QUANTUM.md) supersedes the Mikochi
 selection below; historical acceptance does not establish Quantum acceptance.
 
@@ -68,7 +84,7 @@ Architecture constraints and proposals are in
 
 | Service / capability | Missing for donbot |
 | --- | --- |
-| Existing baseline: Pi-hole, Tailscale, Syncthing, Mikochi, private Caddy, SMTP, Datadog, btrbk | Donbot declarations and shared composition are implemented; finish host-specific acceptance using existing modules |
+| Existing baseline: Pi-hole, Tailscale, Syncthing, Quantum, private Caddy, SMTP, Datadog, btrbk | Donbot declarations and shared composition are implemented; finish host-specific acceptance using existing modules |
 | Subnet routing | Shared routing preferences tracked in joey's plan; select only needed routes |
 | Prowlarr, Radarr, Sonarr, Lidarr, putioarr | Composition, mounts, credentials, private UIs/Homer, owned links and monitoring declarations implemented. Real connection tests and application reboot/reapply passed; transfer/import and operator browser checks remain. No age-based cleanup is enabled |
 | Jellyfin and Plex | Service configuration/state restore, public HTTPS ingress, client acceptance; Jellyfin Caddy cache per its plan |
@@ -101,7 +117,7 @@ Declare these existing modules in the donbot caller:
 - **Syncthing:** persistent shared files and a private GUI. Donbot separately
   selects the personal user-owned instance for session files; no shared browser
   or snapshot expansion is implied.
-- **Mikochi:** file browsing of the declared Syncthing files, included through
+- **Quantum:** file browsing of the declared Syncthing files, included through
   shared composition; private UI with verified tailnet-user authentication.
 - **Tailscale:** host-network access, private UI identity lookup and explicitly
   selected production exit-node advertisement. Subnet routing remains a separate

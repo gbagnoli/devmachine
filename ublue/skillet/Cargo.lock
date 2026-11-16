@@ -3890,9 +3890,12 @@ dependencies = [
 name = "skillet_jellyfin"
 version = "0.1.12"
 dependencies = [
+ "quick-xml",
+ "serde_json",
  "skillet_core",
  "skillet_datadog",
  "skillet_podman",
+ "tempfile",
  "thiserror 1.0.69",
 ]
 

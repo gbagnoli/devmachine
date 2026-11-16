@@ -1429,7 +1429,10 @@ fn jellyfin_acceptance(config: skillet_jellyfin::Config, network: String) -> Acc
             user: config.data_owner.into(),
             group: config.data_group.into(),
         }),
-        listeners: Vec::new(),
+        listeners: vec![AcceptanceListener {
+            port: 18096,
+            protocol: ListenerProtocol::Tcp,
+        }],
         health_probe: Some(HealthProbe::Jellyfin),
     }
 }

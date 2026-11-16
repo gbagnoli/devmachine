@@ -1275,7 +1275,7 @@ fn public_plex_readiness_follows_native_claim_state_only() {
     assert!(sites
         .services
         .iter()
-        .filter(|site| site.name != "plex")
+        .filter(|site| site.name != "plex" && site.name != "jellyfin")
         .all(|site| !site.setup_pending));
     files.files.lock().unwrap().insert(
         "/var/lib/data/plex/config/Library/Application Support/Plex Media Server/Preferences.xml"

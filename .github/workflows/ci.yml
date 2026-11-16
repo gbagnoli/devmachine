@@ -175,6 +175,7 @@ jobs:
           podman build -t ghcr.io/gbagnoli/skillet-caddy:cache-v1 ublue/skillet/crates/caddy/image
           cd ublue/skillet
           cargo test -p skillet_caddy real_caddy_static_cache_ -- --ignored
+          cargo test -p skillet_jellyfin real_jellyfin_consumes_initial_configuration_and_keeps_native_setup_private -- --ignored
 
       - name: Test Gokapi native bootstrap and paired state without external credentials
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'

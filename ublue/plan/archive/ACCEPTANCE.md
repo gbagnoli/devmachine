@@ -5222,3 +5222,33 @@ imports its pinned library and renders typed aggregate/per-port OpenMetrics.
 No live switch changes, production deployment or extended cloud ingestion were
 performed. Publish the collector, let its selected image update/restart, and apply
 the new Agent configuration before checking Datadog. No OS reboot is required.
+
+## 2026-11-16: Donbot parallel ingress and Jellyfin bootstrap
+
+Public preparation/cutover code is committed separately in 275f9434. Preparation
+serves temporary machine-specific and final TLS names while publishing temporary
+DNS only; explicit final publication retains existing ownership checks. An
+accidental preparation retry refuses to delete already-active final records.
+Joplin uses caller-declared canonical-origin redirects; other public aliases
+retain their existing proxy policy, including Gokapi's restricted sharing routes.
+
+Jellyfin now initializes native system/network XML only when absent: server name,
+dual-stack caller-selected proxy subnets, TLS at Caddy and UPnP disabled. Later
+application edits are preserved. Its native wizard is reachable only through
+loopback port 18096/SSH; public proxying returns 503 until the host observes
+native wizard completion. No application passwords or sessions are migrated.
+
+Passed: workspace all-target tests, pedantic Clippy, Donbot base container
+convergence (two applies; second emitted no start/restart), actual Caddy
+preparation/active alias adaptation, existing real static-cache hit/expiry and
+credential/media-bypass checks, and native Jellyfin image initialization. The
+native test waits beyond the early startup response before checking server name
+and incomplete wizard state; both IPv4/IPv6 proxy entries remain in native XML.
+Real consumer checks are included in CI without vault/provider dependencies.
+
+Local fleet cleanup: kexec and switches VMs disposed through Skillet; Quantum
+and the old Donbot are stopped, with provider cleanup retained pending vault
+unlock. Fresh owned `donbot/media` completed signed-image/base/user readiness.
+Its creation capture predates the final code; update is required before app
+provisioning. Full provider/app/ACME and playback checks remain unrun while the
+vault cache is unavailable. Calculon and production DNS remain unchanged.

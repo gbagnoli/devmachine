@@ -20,6 +20,12 @@ impl Probe {
         }
     }
     fn accepts(self, body: &str, status: &str) -> bool {
+        if matches!(self, Self::JellyfinInfo | Self::JellyfinAuth)
+            && status == "503"
+            && body.trim() == "Service setup is incomplete"
+        {
+            return true;
+        }
         if matches!(self, Self::JellyfinAuth) {
             return status == "401";
         }
@@ -144,4 +150,18 @@ fn verify(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Probe;
+    #[test]
+    fn jellyfin_setup_gate_is_distinct_from_an_arbitrary_upstream_failure() {
+        for probe in [Probe::JellyfinInfo, Probe::JellyfinAuth] {
+            assert!(probe.accepts("Service setup is incomplete", "503"));
+            assert!(!probe.accepts("upstream unavailable", "503"));
+            assert!(!probe.accepts("Service setup is incomplete", "200"));
+        }
+        assert!(!Probe::JoplinPing.accepts("Service setup is incomplete", "503"));
+    }
 }

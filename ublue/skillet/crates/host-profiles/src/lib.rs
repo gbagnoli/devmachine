@@ -497,7 +497,8 @@ fn apply_profile(
                 skillet_homeassistant::apply(system, files, *config)?;
             }
             ServiceConfig::Jellyfin(config) => {
-                skillet_jellyfin::apply(system, files, *config, profile.id.as_str())?;
+                skillet_jellyfin::apply_with_proxies(system, files, *config, profile.id.as_str(),
+                    &[profile.network.ipv4_subnet, profile.network.ipv6_subnet])?;
             }
             ServiceConfig::Unifi => {
                 if !unifi_applied {
@@ -1073,8 +1074,14 @@ fn project_ui_readiness(
     sites: &mut skillet_caddy::CaddySites,
 ) -> Result<(), ApplyError> {
     for service in &profile.services {
-        if let ServiceConfig::Plex(config) = service.config {
-            let ready = skillet_plex::claimed(files, config)?;
+        let ready = match service.config {
+            ServiceConfig::Plex(config) => Some(skillet_plex::claimed(files, config)?),
+            ServiceConfig::Jellyfin(config) => {
+                Some(skillet_jellyfin::setup_completed(files, config)?)
+            }
+            _ => None,
+        };
+        if let Some(ready) = ready {
             if let Some(site) = sites
                 .services
                 .iter_mut()
