@@ -36,7 +36,14 @@ semantics can work. Music remains in the caller's Syncthing tree; cross-filesyst
 imports may copy. No age-based download deletion is installed. Worker and
 secret-file IDs resolve from
 the caller's host data account; shared Syncthing directories retain that named
-ownership rather than inheriting a container-image UID default. Usenet is a
-separate future caller-selected backend. Setup belongs in the
+ownership rather than inheriting a container-image UID default.
+
+Usenet remains unimplemented. The
+[proposed Usenet trial](../plan/DONBOT-USENET.md)
+adds SABnzbd as a separately selected backend without replacing putioarr. Arr
+application identity and download-backend selection must be independent; neither
+provider credentials nor the presence of config enable a backend. Prowlarr
+continues to own indexer accounts and sync, while Skillet owns selected download
+client links. Setup belongs in the
 [media guide](../skillet/crates/media/README.md); remaining acceptance is in the
 [Donbot plan](../plan/DONBOT-MIGRATION.md).

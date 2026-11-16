@@ -21,7 +21,7 @@ Only unfinished implementation and acceptance belongs here. Commands live in
 | Refactor | [Parked backend/CI checks and artifact audit](SKILLET-REFACTOR.md) |
 | Dependencies | [Upstream maintenance warnings](DEPENDENCY-MAINTENANCE.md) |
 | Joey | [Replacement hardware and full-service VM rehearsal](JOEY-MIGRATION.md) |
-| Donbot | [Calculon migration](DONBOT-MIGRATION.md), [source inventory](DONBOT-INVENTORY.md) |
+| Donbot | [Calculon migration](DONBOT-MIGRATION.md), [source inventory](DONBOT-INVENTORY.md), [Usenet trial](DONBOT-USENET.md) |
 | Media cache | [Jellyfin Caddy cache](JELLYFIN-CADDY-CACHE.md) |
 | Optional service | [Home Assistant](HOME-ASSISTANT.md), [home automation companions](HOME-AUTOMATION-INTEGRATIONS.md) |
 

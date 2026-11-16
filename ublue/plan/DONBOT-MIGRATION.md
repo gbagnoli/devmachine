@@ -18,9 +18,9 @@ Jellyfin first-run proxy/network defaults, private native onboarding and public
 setup gating are implemented. Full fresh-VM provisioning passed, including
 Joplin/AirTrail, public HTTPS setup gating, Gokapi and linked Arr reconciliation.
 Live Jellyfin config, read-only media mounts and loopback setup were verified.
-Next: native Jellyfin account/library setup and client playback; plan Usenet for
-the linked Arr stack independently.
-No provider selection/purchase or downloader changes are part of this slice.
+Current slice: [Usenet planning](DONBOT-USENET.md). Native Jellyfin account/library
+setup and client playback are deferred for the operator. No downloader or
+subscription has been changed by the planning work.
 The booted image predates these changes: release an updated image before
 reboot/application-persistence acceptance. Native Jellyfin backup/restore and
 protected video/image cache parity remain explicit later gates.
@@ -459,29 +459,11 @@ keys. CI uses local API fixtures; named-VM checks exercise actual consumers.
 
 #### Explore Usenet as an additional download backend
 
-Keep putioarr selected until replacement is explicitly chosen. Evaluate
-SABnzbd (proposed first trial) and NZBGet as separate optional caller-selected
-backends. Usenet needs both a provider/server account and suitable NZB indexers;
-Prowlarr manages indexers, the downloader handles provider credentials and NNTP
-TLS. Arr applications submit downloads directly to the selected client.
-
-Keep credentials in audited vault leaves, configuration in typed templates,
-and downloader UI behind verified tailnet authentication with a private backend.
-Configure distinct TV/movie/music categories and consistent shared download
-paths. Preserve API authentication for internal calls. Account for incomplete
-files, repair/unpack temporary space, failure retries and safe completed imports.
-Test with provider-authorized sample data, not production watchlists. Do not add
-provider credentials or new secret requirements until a backend is selected.
-
-**Decision/exit:** select a client and provider/indexer inputs; demonstrate each
-Arr's supported connection, successful download/repair/import and repeat
-convergence. If both transports remain, declare protocol preferences explicitly;
-do not imply that adding Usenet automatically replaces putioarr or provides
-cross-protocol retry for every failed download. References:
-[Prowlarr integration](https://wiki.servarr.com/en/prowlarr/quick-start-guide),
-[putioarr](https://github.com/wouterdebie/putioarr),
-[SABnzbd flow](https://sabnzbd.org/wiki/introduction/usage), and
-[NZBGet integration](https://nzbget.com/documentation/how-to-link-nzbget-with-sonarr-radarr-and-other-tools/).
+The detailed [Usenet trial plan](DONBOT-USENET.md) supersedes the exploratory
+notes here. SABnzbd is the proposed first client; keep putioarr until an explicit
+replacement decision. The first slice makes clients independently selectable,
+then adds private SABnzbd, credentials and owned Arr links. Provider/indexer
+selection and opt-in live downloading remain separate from provider-free tests.
 
 Declare media/download/library mounts and identity mappings once. Prefer common
 container paths for downloads/imports, following the
