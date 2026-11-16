@@ -320,7 +320,9 @@ skillet/
 
 - Keep application ingress attachments separate from database networks. Changing
   access policy must preserve proxy-to-upstream DNS and connectivity without
-  attaching the database to a shared ingress network. Verify the real route.
+  attaching the database to a shared ingress network. Application activation must
+  create its own declared database network independently of proxy policy; verify
+  fresh composition as well as the real route.
 - Public applications requiring a native ownership claim must retain a private
   initial setup path. Derive public readiness from host-owned application state, never a
   workstation-supplied credential flag, and deny routing until setup is complete.

@@ -165,6 +165,13 @@ fn joplin_public_caller_drives_its_canonical_base_url_without_exposing_other_uis
     assert!(unit.contains("Environment=APP_BASE_URL=https://notes.example.invalid/"));
     assert!(unit.contains("Network=donbot.network"));
     assert!(unit.contains("Network=donbot-joplin.network"));
+    assert!(rendered.contains_key("/etc/containers/systemd/donbot-joplin.network"));
+    let database =
+        std::str::from_utf8(&rendered["/etc/containers/systemd/postgresql-joplin.container"])
+            .unwrap();
+    assert!(database.contains("Network=donbot-joplin.network"));
+    assert!(!database.contains("Network=donbot.network"));
+
     assert!(!unit.contains("PublishPort="));
     assert!(
         !std::str::from_utf8(&rendered["/etc/containers/systemd/postgresql-joplin.container"])

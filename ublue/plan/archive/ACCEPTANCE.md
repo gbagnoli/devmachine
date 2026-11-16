@@ -5284,3 +5284,13 @@ The fresh VM's stock disk also exhausted Jellyfin's native free-space threshold.
 The owned disk, partition and Btrfs filesystem were expanded to 64 GiB through
 `guest_command`; blank pre-current-code Jellyfin configuration was moved aside.
 Current-source provisioning is being retried against the expanded filesystem.
+
+Fresh provisioning then passed Gokapi and reached Joplin. Podman correctly
+rejected its database Quadlet because its dedicated network had previously been
+created only as a side effect of private ingress. Joplin/AirTrail application
+activation now independently converges the configured database bridge through
+the shared isolated-network renderer. Caddy uses the same renderer, retaining
+existing definitions and keeping database and public ingress attachments distinct.
+A fresh public-Joplin composition test requires the database network definition
+and proves PostgreSQL is not attached to shared ingress. Workspace all-target
+tests, pedantic Clippy, and Donbot's two-apply base container check passed.

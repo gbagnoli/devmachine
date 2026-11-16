@@ -153,6 +153,21 @@ pub struct PodmanNetwork {
     pub options: Vec<String>,
 }
 
+/// A DNS-enabled isolated application bridge, independent of ingress policy.
+pub fn isolated_network(name: &str) -> PodmanNetwork {
+    PodmanNetwork {
+        unit_name: name.into(),
+        options: vec![
+            "Driver=bridge".into(),
+            "Internal=false".into(),
+            "DisableDNS=false".into(),
+            "IPv6=true".into(),
+            "Options=isolate=strict".into(),
+            format!("NetworkName={name}"),
+        ],
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NetworkAttachment {
     Host,

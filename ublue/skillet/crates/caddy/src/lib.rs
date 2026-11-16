@@ -1168,19 +1168,7 @@ where
 
 /// A private backend whose strict firewall isolation allows only joined containers.
 pub fn private_network(host: &str, service: &str) -> skillet_podman::PodmanNetwork {
-    let name = format!("{host}-{service}");
-    skillet_podman::PodmanNetwork {
-        unit_name: name.clone(),
-        options: vec![
-            "Driver=bridge".into(),
-            // Netavark skips firewall/isolation rules for internal networks.
-            "Internal=false".into(),
-            "DisableDNS=false".into(),
-            "IPv6=true".into(),
-            "Options=isolate=strict".into(),
-            format!("NetworkName={name}"),
-        ],
-    }
+    skillet_podman::isolated_network(&format!("{host}-{service}"))
 }
 
 fn state_volumes() -> Vec<Volume> {

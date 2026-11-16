@@ -706,6 +706,11 @@ fn apply_joplin_host(
     } else {
         profile.id.as_str().to_string()
     };
+    skillet_podman::ensure_network(
+        system,
+        files,
+        &skillet_podman::isolated_network(config.network_name),
+    )?;
     skillet_joplin::apply_with_ui_network(
         system,
         files,
@@ -750,6 +755,11 @@ fn apply_airtrail_host(
         })?;
     let integrations = skillet_airtrail::Integrations::parse(
         credentials.require(skillet_airtrail::INTEGRATIONS_CREDENTIAL)?,
+    )?;
+    skillet_podman::ensure_network(
+        system,
+        files,
+        &skillet_podman::isolated_network(config.network_name),
     )?;
     skillet_airtrail::apply(
         system,
