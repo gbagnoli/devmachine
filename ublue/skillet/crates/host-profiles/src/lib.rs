@@ -86,7 +86,8 @@ fn credential_names_for_phase(profile: &HostProfile, phase: HostApplyPhase) -> V
                     || consumer.credential == CADDY_SITES_CREDENTIAL
             }
             HostApplyPhase::Media => {
-                consumer.credential == skillet_media::CREDENTIAL
+                (consumer.credential == skillet_media::CREDENTIAL
+                    || consumer.credential == skillet_media::SABNZBD_CREDENTIAL)
                     || consumer.credential == CADDY_SITES_CREDENTIAL
             }
             HostApplyPhase::Gokapi => {
@@ -663,13 +664,40 @@ fn apply_media_host(
             }
         }
     }
-    if apps != skillet_media::App::ALL.into_iter().collect() {
+    if apps != config.apps().collect() {
         return Err(ApplyError::FixtureInput(
             "incomplete media stack declaration".into(),
         ));
     }
     let input = skillet_media::Credentials::parse(credentials.require(skillet_media::CREDENTIAL)?)?;
-    skillet_media::apply(system, files, config, &networks, &input, hostname)?;
+    if config.has_backend(skillet_media::DownloadBackend::Sabnzbd)
+        && input.sabnzbd_api_key.as_deref()
+            != Some(credentials.require(skillet_media::SABNZBD_CREDENTIAL)?)
+    {
+        return Err(ApplyError::FixtureInput(
+            "SABnzbd credential set differs".into(),
+        ));
+    }
+
+    let mut names = Vec::new();
+    if config.has_backend(skillet_media::DownloadBackend::Sabnzbd) {
+        let sites = skillet_caddy::CaddySites::parse(
+            credentials.require(CADDY_SITES_CREDENTIAL)?,
+            hostname,
+            &profile.ui_services(),
+        )?;
+        let site = sites
+            .services
+            .into_iter()
+            .find(|site| site.name == "sabnzbd")
+            .ok_or_else(|| ApplyError::FixtureInput("missing SABnzbd UI".into()))?;
+        names.push(site.hostname);
+        names.extend(site.aliases);
+    }
+    let names = names.iter().map(String::as_str).collect::<Vec<_>>();
+    skillet_media::apply_with_hostnames(
+        system, files, config, &networks, &input, hostname, &names,
+    )?;
     Ok(())
 }
 
@@ -959,6 +987,7 @@ fn dashboard_links(
                 "sonarr" => Some("fas fa-tv"),
                 "radarr" => Some("fas fa-film"),
                 "lidarr" => Some("fas fa-music"),
+                "sabnzbd" => Some("fas fa-download"),
                 _ => None,
             },
             service_type: match site.name.as_str() {

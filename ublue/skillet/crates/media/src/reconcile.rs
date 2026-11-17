@@ -24,7 +24,12 @@ pub trait Api {
 pub fn reconcile(api: &impl Api, credentials: &Credentials) -> Result<(), Error> {
     reconcile_applications(api, credentials)?;
     for app in App::LIBRARIES {
-        download_client(api, app, credentials)?;
+        if !credentials.putio_token.is_empty() {
+            download_client(api, app, credentials)?;
+        }
+        if let Some(key) = &credentials.sabnzbd_api_key {
+            sabnzbd_client(api, app, key)?;
+        }
     }
     Ok(())
 }
@@ -103,6 +108,36 @@ fn download_client(api: &impl Api, app: App, credentials: &Credentials) -> Resul
         &[
             "host", "port", "useSsl", "urlBase", "username", "password", category,
         ],
+        &["enable", "priority"],
+    )
+}
+
+fn sabnzbd_client(api: &impl Api, app: App, key: &str) -> Result<(), Error> {
+    let mut value = schema(api, app, "downloadclient", "Sabnzbd")?;
+    value["name"] = json!("Skillet SABnzbd");
+    value["enable"] = json!(true);
+    value["priority"] = json!(2);
+    let category = match app {
+        App::Sonarr => "tvCategory",
+        App::Radarr => "movieCategory",
+        App::Lidarr => "musicCategory",
+        _ => return Err(Error::Invalid("SABnzbd application")),
+    };
+    for (name, desired) in [
+        ("host", json!("sabnzbd")),
+        ("port", json!(App::Sabnzbd.port())),
+        ("useSsl", json!(false)),
+        ("apiKey", json!(key)),
+        (category, json!(app.name())),
+    ] {
+        field(&mut value, name, desired)?;
+    }
+    upsert(
+        api,
+        app,
+        "downloadclient",
+        &value,
+        &["host", "port", "useSsl", "apiKey", category],
         &["enable", "priority"],
     )
 }

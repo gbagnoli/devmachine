@@ -28,7 +28,24 @@ where
     S: AccountLookupResource + PodmanSecretResource + ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + StorageResource + ?Sized,
 {
+    apply_with_hostnames(system, files, config, ui_networks, credentials, host, &[])
+}
+
+pub fn apply_with_hostnames<S, F>(
+    system: &S,
+    files: &F,
+    config: Config,
+    ui_networks: &BTreeMap<App, String>,
+    credentials: &Credentials,
+    host: &str,
+    sabnzbd_hostnames: &[&str],
+) -> Result<(), Error>
+where
+    S: AccountLookupResource + PodmanSecretResource + ServiceResource + ?Sized,
+    F: FileMutationResource + FileReadResource + StorageResource + ?Sized,
+{
     config.validate()?;
+    credentials.validate_for(config)?;
     credentials.validate()?;
     let identity = config.identity(system)?;
     if App::ARR.iter().any(|app| !ui_networks.contains_key(app)) {
@@ -59,7 +76,32 @@ where
     ] {
         files.ensure_directory(Path::new(&path), Some(0o2775), &config.ownership())?;
     }
-    for app in App::ALL {
+    for app in config.apps() {
+        if app == App::Sabnzbd {
+            let state = config.config_path(app);
+            let downloads = Path::new(config.files_path).join("downloads/usenet");
+            let ui_network = ui_networks
+                .get(&app)
+                .ok_or(Error::Invalid("SABnzbd UI network"))?;
+            skillet_sabnzbd::apply(
+                system,
+                files,
+                &skillet_sabnzbd::Config {
+                    state: &state,
+                    downloads: &downloads,
+                    owner: config.data_owner,
+                    group: config.data_group,
+                    network: config.network,
+                    ui_network,
+                    hostnames: sabnzbd_hostnames,
+                },
+                credentials
+                    .sabnzbd_api_key
+                    .as_deref()
+                    .ok_or(Error::Invalid("SABnzbd key"))?,
+            )?;
+            continue;
+        }
         install_container(
             system,
             files,
@@ -70,7 +112,7 @@ where
             identity,
         )?;
     }
-    install_reconciliation(system, files, host)?;
+    install_reconciliation(system, files, host, config)?;
     system.service_start("skillet-media-reconcile.service")?;
     Ok(())
 }
@@ -180,7 +222,12 @@ fn volume(host_path: String, target: &str) -> Volume {
     }
 }
 
-fn install_reconciliation<S, F>(system: &S, files: &F, host: &str) -> Result<(), Error>
+fn install_reconciliation<S, F>(
+    system: &S,
+    files: &F,
+    host: &str,
+    config: Config,
+) -> Result<(), Error>
 where
     S: ServiceResource + ?Sized,
     F: FileMutationResource + ?Sized,
@@ -192,8 +239,10 @@ where
     {
         return Err(Error::Invalid("host"));
     }
-    let units = App::ALL
+    let units = config
+        .apps()
         .map(|app| format!("{}.service", app.name()))
+        .collect::<Vec<_>>()
         .join(" ");
     let unit = format!("[Unit]\nDescription=Reconcile the declared Arr application links\nRequires={units}\nAfter={units}\nRequiresMountsFor=/var/lib/data\n[Service]\nType=oneshot\nTimeoutStartSec=10min\nLoadCredentialEncrypted={CREDENTIAL}:/etc/credstore.encrypted/skillet/{CREDENTIAL}.cred\nExecStart=/usr/bin/skillet media reconcile\nUMask=0077\n[Install]\nWantedBy=multi-user.target\n");
     let path = Path::new("/etc/systemd/system/skillet-media-reconcile.service");

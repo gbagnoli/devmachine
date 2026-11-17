@@ -24,7 +24,7 @@ impl Api for Fixture {
             let implementations = if path.starts_with("applications") {
                 vec!["Sonarr", "Radarr", "Lidarr"]
             } else {
-                vec!["Transmission"]
+                vec!["Transmission", "Sabnzbd"]
             };
             let fields = [
                 "prowlarrUrl",
@@ -39,6 +39,7 @@ impl Api for Fixture {
                 "tvCategory",
                 "movieCategory",
                 "musicCategory",
+                "category",
             ]
             .map(|name| json!({"name":name,"value":null}));
             return Ok(json!(implementations.into_iter().map(|name| json!({"implementation":name,"configContract":format!("{name}Settings"),"fields": fields})).collect::<Vec<_>>()));
@@ -128,6 +129,8 @@ impl Fixture {
                 "apiKey",
                 json!(crate::fixtures::credentials().key(target).unwrap()),
             )
+        } else if body.unwrap()["implementation"] == "Sabnzbd" {
+            ("apiKey", json!("e".repeat(32)))
         } else {
             (
                 "password",
@@ -220,4 +223,35 @@ fn ambiguous_owned_names_fail_without_additional_mutations() {
     let writes = fixture.writes.get();
     assert!(reconcile(&fixture, &crate::fixtures::credentials()).is_err());
     assert_eq!(fixture.writes.get(), writes);
+}
+
+#[test]
+fn sabnzbd_links_are_independent_and_repeat_without_duplicates() {
+    let api = Fixture::default();
+    let mut input = crate::fixtures::credentials();
+    input.version = Some(2);
+    input.sabnzbd_api_key = Some("e".repeat(32));
+    reconcile(&api, &input).unwrap();
+    let writes = api.writes.get();
+    reconcile(&api, &input).unwrap();
+    assert_eq!(api.writes.get(), writes);
+    for app in App::LIBRARIES {
+        let values = api
+            .request(app, Method::Get, "downloadclient", None)
+            .unwrap();
+        let links = values.as_array().unwrap();
+        assert_eq!(links.len(), 2);
+        assert!(links.iter().any(|link| link["name"] == "Skillet SABnzbd"));
+    }
+    let api = Fixture::default();
+    input.putio_token.clear();
+    input.putio_password.clear();
+    reconcile(&api, &input).unwrap();
+    for app in App::LIBRARIES {
+        let values = api
+            .request(app, Method::Get, "downloadclient", None)
+            .unwrap();
+        assert_eq!(values.as_array().unwrap().len(), 1);
+        assert_eq!(values[0]["implementation"], "Sabnzbd");
+    }
 }

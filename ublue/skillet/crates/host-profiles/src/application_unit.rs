@@ -78,7 +78,11 @@ pub(super) fn install(
         "media",
         "Linked Arr media stack",
         "media",
-        &[skillet_media::CREDENTIAL],
+        &if profile.supports_service("sabnzbd") {
+            vec![skillet_media::CREDENTIAL, skillet_media::SABNZBD_CREDENTIAL]
+        } else {
+            vec![skillet_media::CREDENTIAL]
+        },
     )?;
     install_application(system, files, profile, "plex", "Plex", "plex", &[])?;
     install_application(

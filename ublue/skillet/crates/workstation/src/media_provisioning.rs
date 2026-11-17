@@ -32,6 +32,21 @@ pub fn deliver(
     let config = profile
         .media_config()
         .ok_or_else(|| invalid("missing media declaration"))?;
+    deliver_selected(host, instance, policy, store, guest, activation, config)
+}
+
+fn deliver_selected(
+    host: &str,
+    instance: Option<&str>,
+    policy: ProvisioningPolicy,
+    store: &mut impl SecretStore,
+    guest: &impl GuestTransport,
+    activation: ActivationPolicy,
+    config: skillet_media::Config,
+) -> Result<(), CredentialDeliveryError> {
+    config
+        .validate()
+        .map_err(|_| invalid("invalid media selection"))?;
     let prefix = match (policy.environment(), instance) {
         (Environment::Production, None) => format!("skillet/environments/prod/hosts/{host}/media"),
         (Environment::Test, Some(instance))
@@ -41,47 +56,70 @@ pub fn deliver(
         }
         _ => return Err(invalid("media environment and deployment identity differ")),
     };
-    let rendered = Zeroizing::new(crate::configuration_templates::render_from_store(
-        "media",
-        host,
-        policy.vault_name(),
-        store,
-    )?);
-    let provider: Provider = serde_json::from_str(&rendered)
-        .map_err(|_| invalid("invalid media provider configuration"))?;
-    if provider.putio_token.is_empty()
-        || provider
-            .putio_token
-            .bytes()
-            .any(|b| b.is_ascii_whitespace())
-    {
-        return Err(invalid("invalid Put.io token"));
-    }
+    let provider = putio_provider(config, host, policy, store)?;
     let mut keys = BTreeMap::new();
     for app in App::ARR {
         let path = format!("{prefix}/{}-api-key", app.name());
         let state_path = config.config_path(app);
-        let key = use_or_create(&path, host, Some(&state_path), true, store, guest)?;
+        let key = use_or_create(
+            &path,
+            host,
+            Some((&state_path, CREDENTIAL)),
+            true,
+            store,
+            guest,
+        )?;
         keys.insert(app, key);
     }
-    let password = use_or_create(
-        &format!("{prefix}/putioarr-password"),
-        host,
-        Some(std::path::Path::new(config.config_root)),
-        false,
-        store,
-        guest,
-    )?;
+    let password = if provider.is_some() {
+        use_or_create(
+            &format!("{prefix}/putioarr-password"),
+            host,
+            Some((std::path::Path::new(config.config_root), CREDENTIAL)),
+            false,
+            store,
+            guest,
+        )?
+    } else {
+        String::new()
+    };
+    let sabnzbd_api_key = if config.has_backend(skillet_media::DownloadBackend::Sabnzbd) {
+        Some(use_or_create(
+            &format!("{prefix}/sabnzbd-api-key"),
+            host,
+            Some((
+                &config.config_path(App::Sabnzbd),
+                skillet_media::SABNZBD_CREDENTIAL,
+            )),
+            true,
+            store,
+            guest,
+        )?)
+    } else {
+        None
+    };
     let input = Credentials {
+        version: (sabnzbd_api_key.is_some() || provider.is_none()).then_some(2),
+        sabnzbd_api_key,
         api_keys: keys,
         putio_password: password,
-        putio_token: provider.putio_token,
+        putio_token: provider.map_or_else(String::new, |provider| provider.putio_token),
     };
-    input.validate()?;
+    input.validate_for(config)?;
     let payload = Zeroizing::new(
         serde_json::to_string(&input).map_err(|_| invalid("media serialization failed"))?,
     );
     store.ensure_unchanged()?;
+    if let Some(key) = input.sabnzbd_api_key.as_deref() {
+        credential::install(
+            guest,
+            host,
+            skillet_media::SABNZBD_CREDENTIAL,
+            APPLY_UNIT,
+            ActivationPolicy::DeferConsumer,
+            key.as_bytes(),
+        )?;
+    }
     credential::install(
         guest,
         host,
@@ -93,10 +131,41 @@ pub fn deliver(
     Ok(())
 }
 
+fn putio_provider(
+    config: skillet_media::Config,
+    host: &str,
+    policy: ProvisioningPolicy,
+    store: &impl SecretStore,
+) -> Result<Option<Provider>, CredentialDeliveryError> {
+    Ok(
+        if config.has_backend(skillet_media::DownloadBackend::Putioarr) {
+            let rendered = Zeroizing::new(crate::configuration_templates::render_from_store(
+                "media",
+                host,
+                policy.vault_name(),
+                store,
+            )?);
+            let provider: Provider = serde_json::from_str(&rendered)
+                .map_err(|_| invalid("invalid media provider configuration"))?;
+            if provider.putio_token.is_empty()
+                || provider
+                    .putio_token
+                    .bytes()
+                    .any(|b| b.is_ascii_whitespace())
+            {
+                return Err(invalid("invalid Put.io token"));
+            }
+            Some(provider)
+        } else {
+            None
+        },
+    )
+}
+
 fn use_or_create(
     path: &str,
     host: &str,
-    state_path: Option<&std::path::Path>,
+    state_path: Option<(&std::path::Path, &str)>,
     key: bool,
     store: &mut impl SecretStore,
     guest: &impl GuestTransport,
@@ -109,12 +178,16 @@ fn use_or_create(
         }
         return Ok(value);
     }
-    if remote_credential_present(host, CREDENTIAL, guest)? {
+    if remote_credential_present(
+        host,
+        state_path.map_or(CREDENTIAL, |(_, credential)| credential),
+        guest,
+    )? {
         return Err(invalid(
             "restore missing media keys from KeePassXC before reapplying",
         ));
     }
-    if let Some(state_path) = state_path {
+    if let Some((state_path, _)) = state_path {
         let state = state_path
             .to_str()
             .ok_or_else(|| invalid("invalid media state path"))?;
@@ -129,7 +202,7 @@ fn use_or_create(
             Some(1) => {}
             Some(0) => {
                 return Err(invalid(
-                    "retained Arr configuration requires recovering its original key",
+                    "retained application configuration requires recovering its original key",
                 ))
             }
             _ => return Err(invalid("media state inspection failed")),

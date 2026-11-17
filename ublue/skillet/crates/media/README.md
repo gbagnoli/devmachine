@@ -1,7 +1,8 @@
-# Arr and putioarr
+# Arr and download clients
 
-The media module composes Prowlarr, Sonarr, Radarr, Lidarr and putioarr, using
-their upstream `latest` images. Arr browser UIs require the shared Tailnet user
+The media module composes Prowlarr, Sonarr, Radarr and Lidarr, with explicitly
+selected putioarr and/or [SABnzbd](../sabnzbd/README.md) download backends. Donbot
+selects both. These use their upstream `latest` images. Arr browser UIs require the shared Tailnet user
 allowlist through Caddy; internal calls retain separate API keys. No backend
 ports are published. See the [design](../../../design/media-stack.md).
 
@@ -12,14 +13,17 @@ and `lidarr` categories and calls those container names directly.
 Worker IDs and secret-file permissions resolve from that host account, so shared
 Syncthing files retain the same owner even when a host uses a different UID/GID.
 
-Provisioning generates each Arr API key and the putioarr RPC password once.
+Provisioning generates each Arr API key and selected backend keys/passwords
+once. SABnzbd starts paused with no provider and requires no account yet.
 Keep the vault entries: missing keys alongside retained credentials require
 recovery. Reapply preserves existing app configuration and reconciles only
 reserved `Skillet …` API links. Do not reuse those names for manual links.
 Prowlarr performs full indexer synchronization; add indexer accounts in Prowlarr.
-No cleanup job removes completed files automatically.
+No cleanup job removes completed files automatically. Selection controls fresh
+composition and reconciliation; removing a previously deployed backend still
+requires explicit retirement of its installed units and owned client links.
 
-Supply a Put.io API token in Password at
+Only when putioarr is selected, supply a Put.io API token in Password at
 `skillet/environments/<environment>/hosts/<host>/media/putio-token`.
 For smoke tests use an empty dedicated test account: putioarr can process account
 transfers as soon as it starts. No production provider token is copied to test.
@@ -64,8 +68,10 @@ test, and uses separate temporary container names, networks and synthetic keys.
 It validates bootstrap, browser/API authentication, real Prowlarr connections,
 roots and restart persistence, then removes its own resources. Evidence is saved
 in the run's `media-consumer.log`. Routine CI compiles this test and skips its
-runtime. Full `--with-applications` acceptance additionally needs real putioarr
-and its test account; a completed transfer/import remains a separate check.
+runtime. The fixture also starts paused SABnzbd and exercises all three native Arr
+connection tests without a provider. Full `--with-applications` acceptance needs
+a Put.io test account only when that backend is selected; a real completed
+transfer/import remains a separate check.
 
 References: [Prowlarr API](https://prowlarr.com/docs/api/),
 [external authentication](https://wiki.servarr.com/radarr/faq#forced-authentication),

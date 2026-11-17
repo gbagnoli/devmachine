@@ -4,7 +4,7 @@ use skillet_core::files::{FileMutationResource, LocalFileResource};
 use skillet_media::{
     reconcile::{self, Api, Method},
     runtime::HttpApi,
-    App, Config, Credentials, Error,
+    App, Config, Credentials, DownloadBackend, Error,
 };
 use std::{
     cell::Cell,
@@ -139,6 +139,7 @@ fn config(root: &Path, network: String, owner: String, group: String) -> Config 
         Box::leak(path.to_string_lossy().into_owned().into_boxed_str())
     };
     Config {
+        download_backends: &[DownloadBackend::Sabnzbd],
         config_root: permanent(root.join("config")),
         files_path: permanent(root.join("files")),
         music_path: permanent(root.join("music")),
@@ -170,6 +171,7 @@ fn start(
             ),
         )?;
     }
+    start_sabnzbd(sandbox, config, credentials, uid, gid)?;
     let mut endpoints = BTreeMap::new();
     for app in App::ARR {
         skillet_media::bootstrap::ensure(&files, config, app, credentials.key(app)?)?;
@@ -283,13 +285,15 @@ fn arr_consumer_contract() -> Result<()> {
         containers: Vec::new(),
     };
     let credentials = Credentials {
+        version: Some(2),
+        sabnzbd_api_key: Some("e".repeat(32)),
         api_keys: App::ARR
             .into_iter()
             .enumerate()
             .map(|(n, app)| (app, format!("{:032x}", n + 1)))
             .collect(),
-        putio_password: "FixturePassword".repeat(4),
-        putio_token: "unused-no-provider-requests".into(),
+        putio_password: String::new(),
+        putio_token: String::new(),
     };
     let endpoints = start(&mut sandbox, config, &credentials)?;
     let api = Counted {
@@ -301,10 +305,10 @@ fn arr_consumer_contract() -> Result<()> {
     wait(&api)?;
     authentication(&api, &endpoints, &credentials)?;
     println!("Checking fresh Prowlarr links and library roots");
-    reconcile::reconcile_applications(&api, &credentials)?;
+    reconcile::reconcile(&api, &credentials)?;
     let first = api.writes.get();
     println!("Checking repeat convergence");
-    reconcile::reconcile_applications(&api, &credentials)?;
+    reconcile::reconcile(&api, &credentials)?;
     assert_eq!(
         api.writes.get(),
         first,
@@ -319,6 +323,7 @@ fn arr_consumer_contract() -> Result<()> {
     for name in &sandbox.containers {
         podman(&["restart", name])?;
     }
+    wait_sabnzbd(&sandbox, &credentials)?;
     let endpoints = bridge_endpoints(&sandbox)?;
     let after = Counted {
         api: HttpApi::new(endpoints.clone(), &credentials)?,
@@ -327,13 +332,13 @@ fn arr_consumer_contract() -> Result<()> {
         writes: Cell::new(first),
     };
     wait(&after)?;
-    reconcile::reconcile_applications(&after, &credentials)?;
+    reconcile::reconcile(&after, &credentials)?;
     assert_eq!(
         after.writes.get(),
         first,
         "restart lost linked consumer state"
     );
-    println!("PASS: four real Arr consumers, API-key enforcement, External browser auth, three Prowlarr connection tests, library roots, repeat convergence and container restart persistence");
+    println!("PASS: paused SABnzbd, three native SABnzbd connection tests, four real Arr consumers, API-key enforcement, External browser auth, three Prowlarr connection tests, library roots, repeat convergence and container restart persistence");
     Ok(())
 }
 
@@ -350,6 +355,8 @@ fn authentication(
             status["version"].as_str().unwrap_or("unknown")
         );
         let mut wrong = Credentials {
+            version: None,
+            sabnzbd_api_key: None,
             api_keys: credentials.api_keys.clone(),
             putio_password: credentials.putio_password.clone(),
             putio_token: credentials.putio_token.clone(),
@@ -391,4 +398,96 @@ fn authentication(
         );
     }
     Ok(())
+}
+
+fn start_sabnzbd(
+    sandbox: &mut Sandbox,
+    config: Config,
+    credentials: &Credentials,
+    uid: u32,
+    gid: u32,
+) -> Result<()> {
+    let state = config.config_path(App::Sabnzbd);
+    let downloads = Path::new(config.files_path).join("downloads/usenet");
+    let files = LocalFileResource::new();
+    let ownership =
+        skillet_core::files::Ownership::named(Some(config.data_owner), Some(config.data_group));
+    files.ensure_directory(&state, Some(0o700), &ownership)?;
+    files.ensure_directory(&downloads, Some(0o2770), &ownership)?;
+    let key = credentials
+        .sabnzbd_api_key
+        .as_deref()
+        .ok_or("fixture SABnzbd key")?;
+    files.ensure_file(
+        &state.join("sabnzbd.ini"),
+        skillet_sabnzbd::initial_configuration(key, &["sabnzbd.fixture.invalid"])?.as_bytes(),
+        Some(0o600),
+        &ownership,
+    )?;
+    let name = format!("{}-sabnzbd", sandbox.network);
+    podman(&[
+        "run",
+        "-d",
+        "--name",
+        &name,
+        "--network",
+        &sandbox.network,
+        "--network-alias",
+        "sabnzbd",
+        "-e",
+        &format!("PUID={uid}"),
+        "-e",
+        &format!("PGID={gid}"),
+        "-v",
+        &format!("{}:/config:z", state.display()),
+        "-v",
+        &format!("{}:/data/downloads/usenet:z", downloads.display()),
+        skillet_sabnzbd::IMAGE,
+    ])?;
+    sandbox.containers.push(name);
+    wait_sabnzbd(sandbox, credentials)
+}
+fn wait_sabnzbd(sandbox: &Sandbox, credentials: &Credentials) -> Result<()> {
+    let name = format!("{}-sabnzbd", sandbox.network);
+    let data: Value = serde_json::from_str(&podman(&[
+        "inspect",
+        "--format",
+        "{{json .NetworkSettings.Networks}}",
+        &name,
+    ])?)?;
+    let address = data[&sandbox.network]["IPAddress"]
+        .as_str()
+        .ok_or("fixture SABnzbd address")?;
+    let client = reqwest::blocking::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(5))
+        .build()?;
+    let deadline = Instant::now() + Duration::from_secs(120);
+    loop {
+        let result = client
+            .get(format!("http://{address}:8080/api"))
+            .query(&[
+                ("mode", "queue"),
+                ("output", "json"),
+                (
+                    "apikey",
+                    credentials
+                        .sabnzbd_api_key
+                        .as_deref()
+                        .ok_or("fixture key")?,
+                ),
+            ])
+            .send();
+        if let Ok(response) = result {
+            if let Ok(value) = response.json::<Value>() {
+                if value["queue"]["paused"] == true {
+                    return Ok(());
+                }
+            }
+        }
+        if Instant::now() > deadline {
+            return Err("fixture SABnzbd did not become paused and ready".into());
+        }
+        std::thread::sleep(Duration::from_secs(2));
+    }
 }

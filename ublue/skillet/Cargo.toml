@@ -26,6 +26,7 @@ members = [
     "crates/gokapi",
     "crates/airtrail",
     "crates/media",
+    "crates/sabnzbd",
     "crates/cli",
     "crates/hosts/joey",
     "crates/hosts/donbot",
@@ -69,6 +70,7 @@ skillet_plex = { path = "crates/plex" }
 skillet_gokapi = { path = "crates/gokapi" }
 skillet_airtrail = { path = "crates/airtrail" }
 skillet_media = { path = "crates/media" }
+skillet_sabnzbd = { path = "crates/sabnzbd" }
 skillet_cli_common = { path = "crates/cli-common" }
 skillet_vm = { path = "crates/vm" }
 skillet_hosts = { path = "crates/host-profiles" }

@@ -27,7 +27,7 @@ stay in the vault or private installation inputs.
 | Plex | [Plex](../plex/README.md) |
 | File sharing | [Gokapi](../gokapi/README.md) |
 | AirTrail | [AirTrail](../airtrail/README.md) |
-| Arr / putioarr | [Media](../media/README.md) |
+| Arr / download clients | [Media](../media/README.md), [SABnzbd](../sabnzbd/README.md) |
 | Mail relay | [SMTP](../smtp/README.md) |
 | Home automation | [Home Assistant](../homeassistant/README.md) |
 | PostgreSQL | [PostgreSQL](../postgres/README.md) |

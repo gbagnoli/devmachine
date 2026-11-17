@@ -109,21 +109,18 @@ No vault entries required. Caller-selected activation service is installed durin
 
 ## Media
 
-Linked Arr stack: separate internal API keys, private browser UIs and environment-specific Put.io access. [Setup](ublue/skillet/crates/media/README.md).
+Linked Arr applications and independently selected download backends. [Setup](ublue/skillet/crates/media/README.md).
 
 | Entry | Status | Fields / how to obtain them |
 | --- | --- | --- |
-| `skillet/environments/<environment>/hosts/<host>/media/putio-token` | Required | Password = Put.io API token from a dedicated account/application. Test requires an empty dedicated test account; no production fallback. [Media setup](ublue/skillet/crates/media/README.md). |
 | `skillet/environments/prod/hosts/<host>/media/prowlarr-api-key` | Generated | Password = Skillet-generated prowlarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
 | `skillet/environments/prod/hosts/<host>/media/sonarr-api-key` | Generated | Password = Skillet-generated sonarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
 | `skillet/environments/prod/hosts/<host>/media/radarr-api-key` | Generated | Password = Skillet-generated radarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
 | `skillet/environments/prod/hosts/<host>/media/lidarr-api-key` | Generated | Password = Skillet-generated lidarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
-| `skillet/environments/prod/hosts/<host>/media/putioarr-password` | Generated | Password = Skillet-generated Transmission RPC password shared only with the three declared download clients. Ordinary apply reuses it. |
 | `skillet/environments/test/hosts/<host>/instances/<instance>/media/prowlarr-api-key` | Generated | Password = Skillet-generated prowlarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
 | `skillet/environments/test/hosts/<host>/instances/<instance>/media/sonarr-api-key` | Generated | Password = Skillet-generated sonarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
 | `skillet/environments/test/hosts/<host>/instances/<instance>/media/radarr-api-key` | Generated | Password = Skillet-generated radarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
 | `skillet/environments/test/hosts/<host>/instances/<instance>/media/lidarr-api-key` | Generated | Password = Skillet-generated lidarr API key, persisted before first bootstrap; recover the original entry if retained application state exists. |
-| `skillet/environments/test/hosts/<host>/instances/<instance>/media/putioarr-password` | Generated | Password = Skillet-generated Transmission RPC password shared only with the three declared download clients. Ordinary apply reuses it. |
 
 ## Network
 
@@ -160,6 +157,25 @@ Identity-protected UIs use the shared Tailscale allowlist and no application pas
 ## Plex
 
 No vault entries. Claim the server with your Plex account through the loopback-only SSH setup tunnel before public activation. Native server identity stays in application state. [Setup](ublue/skillet/crates/plex/README.md).
+
+## Putioarr
+
+Put.io download backend. Requires its own environment-specific account token. [Setup](ublue/skillet/crates/media/README.md).
+
+| Entry | Status | Fields / how to obtain them |
+| --- | --- | --- |
+| `skillet/environments/<environment>/hosts/<host>/media/putio-token` | Required | Password = Put.io API token from a dedicated account/application. Test requires an empty dedicated test account; no production fallback. [Media setup](ublue/skillet/crates/media/README.md). |
+| `skillet/environments/prod/hosts/<host>/media/putioarr-password` | Generated | Password = Skillet-generated Transmission RPC password shared only with the three declared download clients. Ordinary apply reuses it. |
+| `skillet/environments/test/hosts/<host>/instances/<instance>/media/putioarr-password` | Generated | Password = Skillet-generated Transmission RPC password shared only with the three declared download clients. Ordinary apply reuses it. |
+
+## SABnzbd
+
+Starts paused without a provider. No operator secret is required yet. [Setup](ublue/skillet/crates/sabnzbd/README.md).
+
+| Entry | Status | Fields / how to obtain them |
+| --- | --- | --- |
+| `skillet/environments/prod/hosts/<host>/media/sabnzbd-api-key` | Generated | Password = Skillet-generated SABnzbd API key, persisted before bootstrap. Recover the original entry if retained SABnzbd state or its encrypted credential exists. |
+| `skillet/environments/test/hosts/<host>/instances/<instance>/media/sabnzbd-api-key` | Generated | Password = Skillet-generated SABnzbd API key, persisted before bootstrap. Recover the original entry if retained SABnzbd state or its encrypted credential exists. |
 
 ## Skillet release CI
 

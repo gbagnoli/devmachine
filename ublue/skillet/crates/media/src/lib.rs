@@ -8,9 +8,10 @@ pub mod bootstrap;
 mod containers;
 pub mod reconcile;
 pub mod runtime;
-pub use containers::apply;
+pub use containers::{apply, apply_with_hostnames};
 
 pub const CREDENTIAL: &str = "media_credentials";
+pub const SABNZBD_CREDENTIAL: &str = skillet_sabnzbd::CREDENTIAL;
 pub const APPLY_UNIT: &str = "skillet-media-apply.service";
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, Eq, Ord, PartialEq, PartialOrd)]
@@ -21,15 +22,17 @@ pub enum App {
     Radarr,
     Lidarr,
     Putioarr,
+    Sabnzbd,
 }
 
 impl App {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Prowlarr,
         Self::Sonarr,
         Self::Radarr,
         Self::Lidarr,
         Self::Putioarr,
+        Self::Sabnzbd,
     ];
     pub const ARR: [Self; 4] = [Self::Prowlarr, Self::Sonarr, Self::Radarr, Self::Lidarr];
     pub const LIBRARIES: [Self; 3] = [Self::Sonarr, Self::Radarr, Self::Lidarr];
@@ -40,6 +43,7 @@ impl App {
             Self::Radarr => "radarr",
             Self::Lidarr => "lidarr",
             Self::Putioarr => "putioarr",
+            Self::Sabnzbd => "sabnzbd",
         }
     }
     pub const fn implementation(self) -> &'static str {
@@ -49,6 +53,7 @@ impl App {
             Self::Radarr => "Radarr",
             Self::Lidarr => "Lidarr",
             Self::Putioarr => "Transmission",
+            Self::Sabnzbd => "Sabnzbd",
         }
     }
     pub const fn port(self) -> u16 {
@@ -58,6 +63,7 @@ impl App {
             Self::Radarr => 7878,
             Self::Lidarr => 8686,
             Self::Putioarr => 9091,
+            Self::Sabnzbd => skillet_sabnzbd::PORT,
         }
     }
     pub const fn api(self) -> &'static str {
@@ -81,6 +87,7 @@ impl App {
             Self::Radarr => "lscr.io/linuxserver/radarr:latest",
             Self::Lidarr => "lscr.io/linuxserver/lidarr:latest",
             Self::Putioarr => "ghcr.io/wouterdebie/putioarr:latest",
+            Self::Sabnzbd => skillet_sabnzbd::IMAGE,
         }
     }
     pub fn url(self) -> String {
@@ -89,7 +96,22 @@ impl App {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DownloadBackend {
+    Putioarr,
+    Sabnzbd,
+}
+impl DownloadBackend {
+    pub const fn app(self) -> App {
+        match self {
+            Self::Putioarr => App::Putioarr,
+            Self::Sabnzbd => App::Sabnzbd,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Config {
+    pub download_backends: &'static [DownloadBackend],
     pub config_root: &'static str,
     pub files_path: &'static str,
     pub music_path: &'static str,
@@ -99,10 +121,30 @@ pub struct Config {
 }
 
 impl Config {
+    pub fn apps(self) -> impl Iterator<Item = App> {
+        App::ARR.into_iter().chain(
+            self.download_backends
+                .iter()
+                .copied()
+                .map(DownloadBackend::app),
+        )
+    }
+    pub fn has_backend(self, backend: DownloadBackend) -> bool {
+        self.download_backends.contains(&backend)
+    }
     pub fn config_path(self, app: App) -> std::path::PathBuf {
         std::path::Path::new(self.config_root).join(app.name())
     }
     pub fn validate(self) -> Result<(), Error> {
+        if self.download_backends.is_empty()
+            || self
+                .download_backends
+                .iter()
+                .enumerate()
+                .any(|(i, backend)| self.download_backends[..i].contains(backend))
+        {
+            return Err(Error::Invalid("download backend selection"));
+        }
         for value in [self.config_root, self.files_path, self.music_path] {
             if !value.starts_with("/var/lib/data/") || value.split('/').any(|v| v == "..") {
                 return Err(Error::Invalid("storage layout"));
@@ -141,8 +183,14 @@ impl Config {
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Credentials {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sabnzbd_api_key: Option<String>,
     pub api_keys: BTreeMap<App, String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub putio_password: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub putio_token: String,
 }
 
@@ -158,11 +206,29 @@ impl Credentials {
             || App::ARR
                 .iter()
                 .any(|app| self.api_keys.get(app).is_none_or(|key| !valid_key(key)))
-            || !valid_password(&self.putio_password)
-            || self.putio_token.trim().is_empty()
-            || self.putio_token.bytes().any(|b| b.is_ascii_whitespace())
+            || self.version.is_some_and(|version| version != 2)
+            || (self.version.is_none() && self.sabnzbd_api_key.is_some())
+            || (self.version.is_none()
+                || !self.putio_token.is_empty()
+                || !self.putio_password.is_empty())
+                && (!valid_password(&self.putio_password)
+                    || self.putio_token.trim().is_empty()
+                    || self.putio_token.bytes().any(|b| b.is_ascii_whitespace()))
+            || self
+                .sabnzbd_api_key
+                .as_ref()
+                .is_some_and(|key| !valid_key(key))
         {
             return Err(Error::Invalid("credentials"));
+        }
+        Ok(())
+    }
+    pub fn validate_for(&self, config: Config) -> Result<(), Error> {
+        self.validate()?;
+        if config.has_backend(DownloadBackend::Putioarr) == self.putio_token.is_empty()
+            || config.has_backend(DownloadBackend::Sabnzbd) != self.sabnzbd_api_key.is_some()
+        {
+            return Err(Error::Invalid("credential/backend selection mismatch"));
         }
         Ok(())
     }
@@ -191,6 +257,8 @@ pub enum Error {
     System(#[from] SystemError),
     #[error(transparent)]
     Podman(#[from] skillet_podman::PodmanError),
+    #[error(transparent)]
+    Sabnzbd(#[from] skillet_sabnzbd::Error),
     #[error("media runtime I/O failed")]
     Io(#[from] std::io::Error),
     #[error("{app} API {operation} failed (HTTP {status}); inspect the application journal")]

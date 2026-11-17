@@ -35,9 +35,11 @@ with optional host overrides/private tags. Delivery
 adds the selected environment tag and rejects a conflicting one; credentials
 alone never select the Agent capability.
 
-Media's template resolves only the environment/host Put.io token. Internal Arr
-keys and the RPC password are independently generated and persisted through the
-provisioning store. Production and disposable instances use distinct paths.
+Media's provider template resolves the environment/host Put.io token only when
+that backend is selected. Internal Arr keys, selected RPC passwords and SABnzbd
+keys are independently generated and persisted through the provisioning store.
+Production and disposable instances use distinct paths. Initial SABnzbd setup
+requires no external provider credential.
 
 Structured configuration collections may use one vault entry per object under a
 fixed environment-scoped group, with documented custom fields instead of JSON

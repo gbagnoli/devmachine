@@ -1,0 +1,15 @@
+[package]
+name = "skillet_sabnzbd"
+version.workspace = true
+edition = "2021"
+[lints]
+workspace = true
+[dependencies]
+skillet_datadog.workspace = true
+skillet_core.workspace = true
+skillet_podman.workspace = true
+thiserror.workspace = true
+[dev-dependencies]
+skillet_core = { workspace = true, features = ["test-utils"] }
+tempfile.workspace = true
+serde_json.workspace = true

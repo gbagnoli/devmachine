@@ -17,7 +17,7 @@ pub fn ensure<F: FileReadResource + FileMutationResource + ?Sized>(
     app: App,
     key: &str,
 ) -> Result<(), Error> {
-    if !crate::valid_key(key) || app == App::Putioarr {
+    if !crate::valid_key(key) || !App::ARR.contains(&app) {
         return Err(Error::Invalid("bootstrap API key"));
     }
     let path = config.config_path(app).join("config.xml");

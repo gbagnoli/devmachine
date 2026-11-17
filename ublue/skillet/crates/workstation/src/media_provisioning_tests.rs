@@ -31,6 +31,7 @@ struct Guest {
     present: Cell<bool>,
     app_state: bool,
     payloads: RefCell<Vec<Vec<u8>>>,
+    sab_payloads: RefCell<Vec<Vec<u8>>>,
 }
 impl GuestTransport for Guest {
     fn execute(
@@ -43,7 +44,14 @@ impl GuestTransport for Guest {
             .iter()
             .all(|arg| !arg.contains("test-provider-token")));
         if let Some(input) = input {
-            self.payloads.borrow_mut().push(input.to_vec());
+            if command
+                .arguments
+                .contains(&skillet_media::SABNZBD_CREDENTIAL)
+            {
+                self.sab_payloads.borrow_mut().push(input.to_vec());
+            } else {
+                self.payloads.borrow_mut().push(input.to_vec());
+            }
         }
         let code = i32::from(command.arguments.contains(&"test") && !self.app_state);
         Ok(Output {
@@ -98,7 +106,7 @@ fn test_delivery_never_falls_back_to_production_and_reuses_instance_keys() {
         ActivationPolicy::DeferConsumer,
     )
     .unwrap();
-    assert_eq!(store.saves, 5);
+    assert_eq!(store.saves, 6);
     guest.present.set(true);
     deliver(
         "donbot",
@@ -109,7 +117,7 @@ fn test_delivery_never_falls_back_to_production_and_reuses_instance_keys() {
         ActivationPolicy::DeferConsumer,
     )
     .unwrap();
-    assert_eq!(store.saves, 5);
+    assert_eq!(store.saves, 6);
     let payloads = guest.payloads.borrow();
     assert_eq!(payloads[0], payloads[1]);
     assert!(!String::from_utf8_lossy(&payloads[0]).contains("production-do-not-use"));
@@ -147,4 +155,111 @@ fn retained_arr_state_refuses_to_invent_lost_api_keys() {
     .is_err());
     assert_eq!(store.saves, 0);
     assert!(guest.payloads.borrow().is_empty());
+}
+
+#[test]
+fn sabnzbd_only_never_reads_putio_and_persists_its_key_before_installation() {
+    let mut store = Store::default();
+    let guest = Guest::default();
+    let mut config = skillet_hosts::profile_for_name("donbot")
+        .unwrap()
+        .media_config()
+        .unwrap();
+    config.download_backends = &[skillet_media::DownloadBackend::Sabnzbd];
+    deliver_selected(
+        "donbot",
+        Some("usenet"),
+        ProvisioningPolicy::new(Environment::Test),
+        &mut store,
+        &guest,
+        ActivationPolicy::DeferConsumer,
+        config,
+    )
+    .unwrap();
+    assert!(!store
+        .reads
+        .borrow()
+        .iter()
+        .any(|path| path.contains("putio")));
+    assert_eq!(store.saves, 5);
+    assert_eq!(guest.sab_payloads.borrow().len(), 1);
+    let payload = skillet_media::Credentials::parse(
+        &String::from_utf8(guest.payloads.borrow()[0].clone()).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(payload.putio_token, "");
+    assert!(payload.sabnzbd_api_key.is_some());
+    assert!(store.values.contains_key(
+        "skillet/environments/test/hosts/donbot/instances/usenet/media/sabnzbd-api-key"
+    ));
+}
+
+#[test]
+fn new_backend_uses_its_own_credential_guard_beside_retained_arr_state() {
+    struct LegacyGuest(Guest);
+    impl GuestTransport for LegacyGuest {
+        fn execute(
+            &self,
+            command: &GuestCommand<'_>,
+            input: Option<&[u8]>,
+        ) -> skillet_vm::Result<Output> {
+            if command.arguments.contains(&"state")
+                && command
+                    .arguments
+                    .contains(&skillet_media::SABNZBD_CREDENTIAL)
+            {
+                return Ok(Output {
+                    status: ExitStatus::from_raw(0),
+                    stdout: b"absent\n".to_vec(),
+                    stderr: Vec::new(),
+                });
+            }
+            self.0.execute(command, input)
+        }
+        fn upload(&self, _: &std::path::Path, _: &str) -> skillet_vm::Result<()> {
+            panic!("no upload")
+        }
+    }
+    let mut store = Store::default();
+    let guest = Guest::default();
+    let policy = ProvisioningPolicy::new(Environment::Test);
+    store.values.insert(
+        "skillet/environments/test/hosts/donbot/media/putio-token".into(),
+        "test-provider-token".into(),
+    );
+    deliver(
+        "donbot",
+        Some("upgrade"),
+        policy,
+        &mut store,
+        &guest,
+        ActivationPolicy::DeferConsumer,
+    )
+    .unwrap();
+    store
+        .values
+        .remove("skillet/environments/test/hosts/donbot/instances/upgrade/media/sabnzbd-api-key");
+    store.saves = 0;
+    guest.present.set(true);
+    assert!(deliver(
+        "donbot",
+        Some("upgrade"),
+        policy,
+        &mut store,
+        &guest,
+        ActivationPolicy::DeferConsumer
+    )
+    .is_err());
+    assert_eq!(store.saves, 0);
+    let guest = LegacyGuest(guest);
+    deliver(
+        "donbot",
+        Some("upgrade"),
+        policy,
+        &mut store,
+        &guest,
+        ActivationPolicy::DeferConsumer,
+    )
+    .unwrap();
+    assert_eq!(store.saves, 1);
 }

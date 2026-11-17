@@ -449,7 +449,11 @@ fn donbot_declares_joplin_and_airtrail_uis_that_register_with_homer_and_caddy() 
     );
     assert_eq!(
         super::credentials_for_phase("donbot", super::HostApplyPhase::Media).unwrap(),
-        [skillet_media::CREDENTIAL, super::CADDY_SITES_CREDENTIAL]
+        [
+            skillet_media::CREDENTIAL,
+            skillet_media::SABNZBD_CREDENTIAL,
+            super::CADDY_SITES_CREDENTIAL
+        ]
     );
     assert_eq!(
         donbot
@@ -470,6 +474,7 @@ fn donbot_declares_joplin_and_airtrail_uis_that_register_with_homer_and_caddy() 
             "sonarr",
             "radarr",
             "lidarr",
+            "sabnzbd",
             "files",
             "homer"
         ]

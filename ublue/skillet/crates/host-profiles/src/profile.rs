@@ -178,6 +178,13 @@ impl HostService {
                 credential: skillet_media::CREDENTIAL,
                 unit: skillet_media::APPLY_UNIT,
             }],
+            ServiceConfig::Media {
+                app: skillet_media::App::Sabnzbd,
+                ..
+            } => vec![CredentialConsumer {
+                credential: skillet_media::SABNZBD_CREDENTIAL,
+                unit: skillet_media::APPLY_UNIT,
+            }],
             ServiceConfig::HomeAssistant(_) => vec![CredentialConsumer {
                 credential: skillet_homeassistant::backup::CREDENTIAL,
                 unit: skillet_homeassistant::backup::UNIT,
@@ -703,7 +710,9 @@ fn media_acceptance(app: skillet_media::App, config: skillet_media::Config) -> A
     if app != skillet_media::App::Putioarr {
         bind_paths.push(config.config_path(app).to_string_lossy().into_owned());
     }
-    if app != skillet_media::App::Prowlarr {
+    if app == skillet_media::App::Sabnzbd {
+        bind_paths.push(format!("{}/downloads/usenet", config.files_path));
+    } else if app != skillet_media::App::Prowlarr {
         bind_paths.push(config.files_path.into());
     }
     if app == skillet_media::App::Lidarr {
@@ -1136,15 +1145,21 @@ fn donbot_personal_syncthing() -> HostService {
     }
 }
 
+const DONBOT_MEDIA_CONFIG: skillet_media::Config = skillet_media::Config {
+    download_backends: &[
+        skillet_media::DownloadBackend::Putioarr,
+        skillet_media::DownloadBackend::Sabnzbd,
+    ],
+    config_root: "/var/lib/data/media/config",
+    files_path: "/var/lib/data/media/files",
+    music_path: "/var/lib/data/syncthing/data/music",
+    network: "donbot-media",
+    data_owner: "giacomo",
+    data_group: "giacomo",
+};
+
 fn donbot_media_services() -> Vec<HostService> {
-    let config = skillet_media::Config {
-        config_root: "/var/lib/data/media/config",
-        files_path: "/var/lib/data/media/files",
-        music_path: "/var/lib/data/syncthing/data/music",
-        network: "donbot-media",
-        data_owner: "giacomo",
-        data_group: "giacomo",
-    };
+    let config = DONBOT_MEDIA_CONFIG;
     let mut services = vec![HostService {
         config: ServiceConfig::Jellyfin(skillet_jellyfin::Config {
             state_path: "/var/lib/data/jellyfin/config",
@@ -1219,7 +1234,7 @@ fn donbot_media_services() -> Vec<HostService> {
             cache: None,
         }),
     });
-    services.extend(skillet_media::App::ALL.into_iter().map(|app| HostService {
+    services.extend(config.apps().map(|app| HostService {
         config: ServiceConfig::Media { app, config },
         ui: (app != skillet_media::App::Putioarr).then_some(UiServiceDeclaration {
             origin_policy: skillet_caddy::OriginPolicy::Equivalent,

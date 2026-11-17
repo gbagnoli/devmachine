@@ -37,6 +37,41 @@ impl<'a> HttpApi<'a> {
             credentials,
         })
     }
+    fn sabnzbd_ready(&self) -> bool {
+        let Some(key) = self.credentials.sabnzbd_api_key.as_deref() else {
+            return true;
+        };
+        let Some(endpoint) = self.endpoints.get(&App::Sabnzbd) else {
+            return false;
+        };
+        let Ok(response) = self
+            .client
+            .get(format!("{endpoint}/api"))
+            .query(&[
+                ("mode", "queue"),
+                ("output", "json"),
+                ("limit", "1"),
+                ("apikey", key),
+            ])
+            .send()
+        else {
+            return false;
+        };
+        if !response.status().is_success() {
+            return false;
+        }
+        let mut bytes = Vec::new();
+        if response
+            .take(1024 * 1024 + 1)
+            .read_to_end(&mut bytes)
+            .is_err()
+            || bytes.len() > 1024 * 1024
+        {
+            return false;
+        }
+        serde_json::from_slice::<Value>(&bytes)
+            .is_ok_and(|value| value["queue"]["paused"].is_boolean())
+    }
 }
 
 impl Api for HttpApi<'_> {
@@ -110,7 +145,7 @@ impl Api for HttpApi<'_> {
 
 pub fn run(config: Config, credentials: &Credentials) -> Result<(), Error> {
     config.validate()?;
-    credentials.validate()?;
+    credentials.validate_for(config)?;
     let deadline = Instant::now() + Duration::from_secs(180);
     let api = loop {
         match endpoints(config).and_then(|endpoints| HttpApi::new(endpoints, credentials)) {
@@ -118,7 +153,7 @@ pub fn run(config: Config, credentials: &Credentials) -> Result<(), Error> {
                 if App::ARR.iter().all(|app| {
                     api.request(*app, Method::Get, "system/status", None)
                         .is_ok()
-                }) =>
+                }) && api.sabnzbd_ready() =>
             {
                 break api
             }
@@ -134,8 +169,9 @@ pub fn run(config: Config, credentials: &Credentials) -> Result<(), Error> {
 }
 
 fn endpoints(config: Config) -> Result<BTreeMap<App, String>, Error> {
-    App::ARR
-        .into_iter()
+    config
+        .apps()
+        .filter(|app| *app != App::Putioarr)
         .map(|app| {
             let output = Command::new("podman")
                 .args([

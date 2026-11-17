@@ -176,6 +176,7 @@ jobs:
           cd ublue/skillet
           cargo test -p skillet_caddy real_caddy_static_cache_ -- --ignored
           cargo test -p skillet_jellyfin real_jellyfin_consumes_initial_configuration_and_keeps_native_setup_private -- --ignored
+          cargo test -p skillet_sabnzbd real_sabnzbd_is_paused_keyed_and_preserves_native_configuration -- --ignored
 
       - name: Test Gokapi native bootstrap and paired state without external credentials
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'

@@ -235,6 +235,10 @@
   application belongs to explicit orchestration driven by canonical declarations.
   Preserve strict host trust when adopting normal workstation SSH defaults, and
   retain explicit run-owned credentials for disposable targets.
+- Bind generated-key recovery guards to the selected capability's own durable
+  state or credential receipt. Unrelated retained bundles must not prevent adding
+  a fresh optional capability; initialized capability state must still refuse
+  silent credential replacement.
 - Before activating a unit with multiple credential prerequisites, deliver the
   complete credential set first. Cover activation from a fresh host where the
   consumer service and its containers do not yet exist.

@@ -3932,6 +3932,7 @@ dependencies = [
  "serde_json",
  "skillet_core",
  "skillet_podman",
+ "skillet_sabnzbd",
  "tempfile",
  "thiserror 1.0.69",
 ]
@@ -4011,6 +4012,18 @@ dependencies = [
  "skillet_podman",
  "thiserror 1.0.69",
  "tracing",
+]
+
+[[package]]
+name = "skillet_sabnzbd"
+version = "0.1.12"
+dependencies = [
+ "serde_json",
+ "skillet_core",
+ "skillet_datadog",
+ "skillet_podman",
+ "tempfile",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
