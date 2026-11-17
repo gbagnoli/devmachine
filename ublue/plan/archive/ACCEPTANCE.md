@@ -5342,3 +5342,43 @@ is committed in focused changes, with no push. Calculon production is unchanged.
 Caddy journals additionally confirm successful staging certificate issuance for
 `notes`, `video` and `media` names. Native `virsh -c qemu:///session list --all`
 shows only the running `donbot-test-media` domain.
+
+### 2026-11-17 — Provider-free Donbot SABnzbd
+
+Implemented optional caller-selected download backends; Donbot selects both
+putioarr and SABnzbd. SABnzbd starts paused without provider/indexer accounts,
+has private Caddy/Homer declarations, and shares only its download subtree
+with the Arr applications. Its generated API key is saved in the test-instance
+vault scope and delivered separately as an encrypted systemd credential. Native
+settings and existing keys are preserved; missing retained keys refuse rotation.
+
+Workspace all-target tests, formatting, pedantic Clippy, Donbot/Joey isolated
+two-apply container tests and pinned actionlint passed. The actual LSIO
+SABnzbd image reported 5.1.3-ls281, digest
+`sha256:12300233b215d40063e99c7f8a1804096f542981059cbc573150443ca11fa334`.
+Its native contract verified paused startup, missing/incorrect-key rejection,
+forwarded browser compatibility and settings/key persistence after restart.
+
+The provider-free native consumer fixture passed in owned `donbot-test-media`
+in 231.58 seconds: four real Arr applications, all three native SABnzbd client
+connection tests, Prowlarr links, roots, API-key enforcement, repeat convergence
+and container restart persistence. It used isolated synthetic credentials and
+cleaned its containers/network. No provider subscription or real transfer was
+used; NNTP TLS, repair/unpack, downloading and import remain unverified.
+
+Canonical provisioning exposed an older image base prerequisite overwriting the
+new credential declaration. Temporary execution now scopes configuration-writing
+base prerequisites to the same runner, with success/failure cleanup regression
+coverage. Workspace tests and pedantic Clippy passed after that fix. Full live
+`test vm provision donbot media --with-ui --public-target 172.27.27.1` then
+completed successfully. Its actual media reconciler reported successful
+connections, links and roots. SABnzbd is running with paused startup/preservation,
+only `/config` and `/data/downloads/usenet` mounts and no published host port.
+Local unauthenticated HTTPS returned 403; this is fail-closed ingress acceptance,
+not an authorized personal-browser check. The test vault audit reported 28 entries
+checked, zero missing/invalid and zero unused. The remote-apply lock and runtime
+unit overrides are absent after cleanup.
+
+Evidence is retained privately in the owned run under `acceptance-2026-11-17`.
+A matching released image is still required for new-feature reboot acceptance.
+No production host was changed and no code was pushed.

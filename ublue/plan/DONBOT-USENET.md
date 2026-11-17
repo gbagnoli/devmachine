@@ -1,7 +1,13 @@
 # Donbot Usenet trial
 
-Status: planning, 2026-11-16. No downloader, credentials or subscriptions have
-been added. Jellyfin onboarding can wait independently. Follow
+Status: provider-free first slice implemented and live-provisioned, 2026-11-17. SABnzbd was selected by the
+operator. Backend selection, paused provider-free composition, generated-key
+delivery, private UI/Homer declarations and Arr links are implemented. Workspace
+tests, native startup/restart/browser checks and the provider-free owned-VM Arr
+consumer contract and full owned-VM provisioning passed. The generated key is
+saved to the test-instance vault scope. Private ingress rejects unauthenticated
+requests; an authorized personal-browser check remains separate. No provider account, subscription or live download is
+configured. Jellyfin onboarding can wait independently. Follow
 [Donbot](DONBOT-MIGRATION.md) and the [media design](../design/media-stack.md).
 
 ## Proposed first setup
@@ -9,7 +15,7 @@ been added. Jellyfin onboarding can wait independently. Follow
 Use **SABnzbd** as the first client, with `lscr.io/linuxserver/sabnzbd:latest`.
 It matches the existing LSIO UID/GID convention and offers configuration and
 category APIs. NZBGet is a viable alternative, but implementing both immediately
-adds no useful acceptance coverage. Confirm SABnzbd before implementation.
+adds no useful acceptance coverage. SABnzbd is selected for the first implementation.
 
 Start with one provider and one NZB indexer. A provider supplies NNTP article
 access; an indexer supplies searchable NZB results. A downloader alone does not
@@ -106,7 +112,8 @@ denied. API requests without the key fail even on the media bridge.
 
 ## 3. Credentials and provider configuration
 
-Planned credential layout, not yet requirements of `secrets check`:
+The generated key is implemented and audited; provider account delivery remains
+planned:
 
 - Generated SABnzbd full API key: existing media prefix plus `sabnzbd-api-key`.
   Production prefix is `skillet/environments/prod/hosts/<host>/media`; disposable

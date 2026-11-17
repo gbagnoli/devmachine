@@ -18,9 +18,9 @@ Jellyfin first-run proxy/network defaults, private native onboarding and public
 setup gating are implemented. Full fresh-VM provisioning passed, including
 Joplin/AirTrail, public HTTPS setup gating, Gokapi and linked Arr reconciliation.
 Live Jellyfin config, read-only media mounts and loopback setup were verified.
-Current slice: [Usenet planning](DONBOT-USENET.md). Native Jellyfin account/library
-setup and client playback are deferred for the operator. No downloader or
-subscription has been changed by the planning work.
+Current slice: [paused SABnzbd provisioning](DONBOT-USENET.md), alongside putioarr. Native Jellyfin account/library
+setup and client playback are deferred for the operator. SABnzbd is implemented without provider accounts; subscriptions and actual
+Usenet downloads remain unconfigured.
 The booted image predates these changes: release an updated image before
 reboot/application-persistence acceptance. Native Jellyfin backup/restore and
 protected video/image cache parity remain explicit later gates.
@@ -460,9 +460,9 @@ keys. CI uses local API fixtures; named-VM checks exercise actual consumers.
 #### Explore Usenet as an additional download backend
 
 The detailed [Usenet trial plan](DONBOT-USENET.md) supersedes the exploratory
-notes here. SABnzbd is the proposed first client; keep putioarr until an explicit
-replacement decision. The first slice makes clients independently selectable,
-then adds private SABnzbd, credentials and owned Arr links. Provider/indexer
+notes here. The first slice implements selectable backends, private paused
+SABnzbd, generated credentials and owned Arr links. Keep putioarr until an explicit
+replacement decision. Provider/indexer
 selection and opt-in live downloading remain separate from provider-free tests.
 
 Declare media/download/library mounts and identity mappings once. Prefer common
