@@ -297,6 +297,7 @@ fn current_runner_wraps_native_initializer_dependencies_and_cleans_both_units() 
         assert_eq!(result.is_err(), fail_start);
         let calls = guest.calls.borrow();
         for unit in [
+            "skillet-apply.service",
             "skillet-gokapi-initialize.service",
             "skillet-gokapi-apply.service",
         ] {

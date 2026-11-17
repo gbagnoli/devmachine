@@ -165,8 +165,10 @@
   silently shadows it; any temporary guest execution must be isolated, bounded,
   and cleaned up on success and failure. Keep bootstrap-only executables clearly
   separate from normal service entry points. Include transitive initialization and
-  reconciliation helpers in temporary execution scopes; overriding only the outer
-  apply process does not change the binaries systemd starts as dependencies.
+  reconciliation helpers and configuration-writing prerequisites in temporary
+  execution scopes. Overriding only the outer process does not change the binaries
+  systemd starts through dependencies; an older prerequisite must not regenerate
+  consumer metadata for a newer transaction.
 - Long-running services declare their own boot activation and dependencies.
   Configuration apply must not be their only startup path; verify reboot with
   already converged configuration as well as initial activation.

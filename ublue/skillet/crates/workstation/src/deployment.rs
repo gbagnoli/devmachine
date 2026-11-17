@@ -260,18 +260,41 @@ pub fn activate_with_runner(
             || crate::host_apply::activate(guest, unit),
         )
     };
-    if let Some((dependency, dependency_arguments)) = crate::host_apply::temporary_dependency(unit)
-    {
-        skillet_vm::temporary_override::with_deferred_exec_start(
+    let activate_dependencies = || {
+        if let Some((dependency, dependency_arguments)) =
+            crate::host_apply::temporary_dependency(unit)
+        {
+            skillet_vm::temporary_override::with_deferred_exec_start(
+                guest,
+                dependency,
+                token,
+                binary,
+                dependency_arguments,
+                activate,
+            )
+        } else {
+            activate()
+        }
+    };
+    if unit == "skillet-apply.service" {
+        activate_dependencies()
+    } else {
+        // Requires= can rerun the base oneshot while starting an application.
+        // Its unit/credential declarations must come from this same executable.
+        skillet_vm::temporary_override::with_exec_start(
             guest,
-            dependency,
+            "skillet-apply.service",
             token,
             binary,
-            dependency_arguments,
-            activate,
+            &[
+                "apply",
+                "--host-file",
+                "/etc/skillet/host",
+                "--phase",
+                "base",
+            ],
+            activate_dependencies,
         )
-    } else {
-        activate()
     }
     .map_err(Into::into)
 }
