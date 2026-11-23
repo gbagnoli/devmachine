@@ -22,6 +22,28 @@ There is no instruction to reinstall again or restore old SSD data.
 Operating procedures: [TPM/recovery](../skillet/crates/workstation/docs/tpm.md),
 [hardware installation](../butane/HARDWARE.md).
 
+## Current upgrade incident
+
+On 2026-11-23 the operator reported an unattended Fedora 45 upgrade failed TPM
+unlock and left Clamps unavailable for four days. Fedora 44 unlocks automatically;
+Fedora 45 can be unlocked with the retained temporary LUKS passphrase. Its journal
+records TPM policy failure `0x99d`; the cause is not established. Compare boot
+measurements and the changed Clevis/initramfs stack before changing enrollment.
+Both retained bindings select SHA-256 PCR 7. The operator measured identical
+PCR 7 values on the working Fedora 44 and manually unlocked Fedora 45 boots.
+On Fedora 45, slot 0 reports an invalid JWK and slot 1 reports policy failure;
+using the older deployment's Clevis executables with the current shared
+libraries also failed for slot 1. This does not isolate the complete old stack
+or establish slot 1 worked previously. Compare the actual initramfs decryptors
+and test the valid retained binding before considering reenrollment.
+The automatic update timer was
+stopped for this investigation; booting again can reactivate an enabled timer.
+This incident leaves the OS update/rebase acceptance gate open.
+
+[Automatic failed-boot recovery](FAILED-BOOT-RECOVERY.md) is a separate planned
+follow-up: bounded early-boot failure, bootloader fallback and failed-image
+quarantine. Existing unattended cold-boot success does not establish this behavior.
+
 ## Remaining matrix
 
 | Check | Required evidence |
