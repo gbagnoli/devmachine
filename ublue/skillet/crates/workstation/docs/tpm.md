@@ -90,7 +90,8 @@ enrollment in a network-isolated container:
 
 ```sh
 cargo test -p skillet_workstation physical_tpm_payload_passes_real_butane_merge -- --ignored
-cargo test -p skillet_workstation real_software_tpm_bootstrap_driver -- --ignored
+SKILLET_TPM_TEST_FEDORA=44 cargo test -p skillet_workstation real_software_tpm_bootstrap_driver -- --ignored
+SKILLET_TPM_TEST_FEDORA=45 cargo test -p skillet_workstation real_software_tpm_bootstrap_driver -- --ignored
 ```
 
 The driver installs tools only in its disposable Fedora image and uses an owned

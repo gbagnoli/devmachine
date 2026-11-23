@@ -240,4 +240,6 @@ jobs:
         run: |
           cd ublue/skillet
           cargo test -p skillet_workstation physical_tpm_payload_passes_real_butane_merge -- --ignored
-          cargo test -p skillet_workstation real_software_tpm_bootstrap_driver -- --ignored
+          for fedora in 44 45; do
+            SKILLET_TPM_TEST_FEDORA="$fedora" cargo test -p skillet_workstation real_software_tpm_bootstrap_driver -- --ignored
+          done

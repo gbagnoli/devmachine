@@ -27,17 +27,27 @@ Operating procedures: [TPM/recovery](../skillet/crates/workstation/docs/tpm.md),
 On 2026-11-23 the operator reported an unattended Fedora 45 upgrade failed TPM
 unlock and left Clamps unavailable for four days. Fedora 44 unlocks automatically;
 Fedora 45 can be unlocked with the retained temporary LUKS passphrase. Its journal
-records TPM policy failure `0x99d`; the cause is not established. Compare boot
-measurements and the changed Clevis/initramfs stack before changing enrollment.
-Both retained bindings select SHA-256 PCR 7. The operator measured identical
-PCR 7 values on the working Fedora 44 and manually unlocked Fedora 45 boots.
-On Fedora 45, slot 0 reports an invalid JWK and slot 1 reports policy failure;
-using the older deployment's Clevis executables with the current shared
-libraries also failed for slot 1. This does not isolate the complete old stack
-or establish slot 1 worked previously. Compare the actual initramfs decryptors
-and test the valid retained binding before considering reenrollment.
-The automatic update timer was
-stopped for this investigation; booting again can reactivate an enabled timer.
+records two failures: slot 0 reports an invalid unsealed JWK, and slot 1 fails
+its TPM policy check (`0x99d`). The operator measured identical SHA-256 PCR 7
+values on Fedora 44 and manually unlocked Fedora 45. Both initramfs images
+include the Rust decryptor. Older Clevis executables also fail with Fedora 45's
+shared libraries; this is not a complete older-stack test.
+
+[Upstream issue #46](https://github.com/latchset/clevis-pin-tpm2/issues/46)
+identifies the matching Fedora 45 PCR-bound JWK regression: the TPM library's
+policy-session nonce handling corrupts parameter-decrypted responses. The
+packaged fix is `clevis-pin-tpm2-0.5.5-2.fc45`, with upstream confirmation that
+PCR-bound decryption works without changing enrollment. Clamps has `0.5.5-1`.
+Slot 1 may be a stale bootstrap binding; do not replace or delete either slot
+based on these observations.
+
+The ucore-images common recipe now requires the fixed package floor and
+regenerates initramfs so early boot receives the new decryptor. Publication,
+fixed-token decryption on Clamps and unattended physical boot remain pending;
+recipe validation or a software-TPM test does not establish those gates.
+The automatic update timer was stopped for this investigation; booting again
+can reactivate an enabled timer. Preserve the working Fedora 44 deployment and
+the independent recovery passphrase until the fixed path passes acceptance.
 This incident leaves the OS update/rebase acceptance gate open.
 
 [Automatic failed-boot recovery](FAILED-BOOT-RECOVERY.md) is a separate planned

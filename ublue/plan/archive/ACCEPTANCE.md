@@ -5406,3 +5406,33 @@ passed real local delivery. Queue persistence waits for the same queued message
 ID after restart rather than treating a transient queue observation as data loss.
 Actionlint and Python lint passed.
 Actual Fedora 44-to-45 unattended TPM unlock remains a separate unresolved gate.
+
+### 2026-11-23 — Fedora 45 TPM decryptor regression and image fix
+
+The operator measured identical SHA-256 PCR 7 values on Fedora 44 and manually
+unlocked Fedora 45. Both initramfs images include the Rust TPM PIN. Fedora 45
+slot 0 fails parsing the unsealed JWK; slot 1 fails policy authorization. Older
+executables with current shared libraries also fail, which does not isolate the
+old library stack or establish that slot 1 was usable previously. No enrollment,
+keyslot, recovery key or firmware policy was changed during this investigation.
+
+Upstream [issue #46](https://github.com/latchset/clevis-pin-tpm2/issues/46)
+records this PCR-bound JWK regression and the packaged fix in
+`clevis-pin-tpm2-0.5.5-2.fc45`. It fixes a policy-session/library interaction,
+rather than weakening the selected PCR policy. Clamps has `0.5.5-1.fc45`.
+The fixed package is available in normal Fedora 45 repositories.
+
+The existing isolated software-TPM driver passed on Fedora 44 (112.74 seconds)
+and Fedora 45 (93.90 seconds), including exact future-PCR sealing, interrupted
+import/retry and policy-denial paths. The Fedora 45 test image contains
+`clevis-pin-tpm2-0.5.5-2.fc45` and `tpm2-tss-4.2.2-1.fc45`. CI now runs both
+versions using an explicitly selected, version-tagged test image. Actionlint and
+shell syntax checks passed. No KVM, vault or production disk is used by this test.
+
+The ucore-images common recipe requires the fixed package floor and runs the
+BlueBuild initramfs module. Actual BlueBuild recipe validation passed; a complete
+image build/publication and unattended physical boot are not established by
+that validation. A temporary patched decryptor from the test image was staged
+on Clamps with a verified transfer hash and resolved runtime dependencies for a
+read-only retained-token check; its hardware result is pending. Keep automatic
+updates paused and the independent recovery path until physical acceptance.
