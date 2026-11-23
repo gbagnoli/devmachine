@@ -181,11 +181,12 @@ def main():
         "receiver@example.invalid",
         payload=b"From: smoke@example.invalid\nTo: receiver@example.invalid\nSubject: isolated acceptance\n\nfixture-marker\n",
     )
-    wait_for(lambda: len(queue()) == 1)
+    wait_for(lambda: any(item["queue_name"] == "deferred" for item in queue()))
+    retained_id = queue()[0]["queue_id"]
     assert queue()[0]["recipients"][0]["address"] == "receiver@example.invalid"
     run("systemctl", "stop", "postfix.service")
     apply()
-    assert len(queue()) == 1
+    wait_for(lambda: any(item["queue_id"] == retained_id for item in queue()))
     with Server(("127.0.0.1", 1025), Sink) as sink:
         sink.messages = []
         sink.commands = []

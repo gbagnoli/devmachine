@@ -5401,5 +5401,8 @@ loopback sink address, removing a DNS dependency in its network-isolated test.
 Its Fedora 45 production-policy run passed credential preparation, worker map
 access, unchanged PID on repeat apply, queue preservation on restart and refusal
 to authenticate/deliver without STARTTLS. CI now runs this real packaged worker
-identity contract without a vault/provider. Actionlint and Python lint passed.
+identity contract without a vault/provider. The capture-policy fixture also
+passed real local delivery. Queue persistence waits for the same queued message
+ID after restart rather than treating a transient queue observation as data loss.
+Actionlint and Python lint passed.
 Actual Fedora 44-to-45 unattended TPM unlock remains a separate unresolved gate.
