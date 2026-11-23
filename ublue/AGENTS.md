@@ -155,6 +155,10 @@
 - Version new wire-format capabilities explicitly. Omit neutral optional fields
   when retaining an older reader contract; test both retained decoding and newly
   emitted payloads rather than assuming serde defaults provide forward compatibility.
+- Commands appended to a packaged service must account for its effective user,
+  sandbox and command-specific privilege prefixes. Preserve the vendor's daemon
+  identity; grant administrative preparation commands only their required scope.
+  Test against the packaged consumer when its service contract changes.
 - Generated unit executable paths must agree with the actual bootstrap and
   update delivery paths. Cover that agreement in regression checks; consumer
   placeholders alone cannot establish deployment correctness. Test generated

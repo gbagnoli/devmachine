@@ -74,6 +74,7 @@ def main():
     parser.add_argument("binary")
     parser.add_argument("host")
     parser.add_argument("--production-policy", action="store_true")
+    parser.add_argument("--require-worker-user", action="store_true")
     args = parser.parse_args()
     if pathlib.Path("/run/systemd/container").read_text().strip() not in {
         "podman",
@@ -90,6 +91,11 @@ def main():
             == b"active"
         )
     )
+    if args.require_worker_user:
+        assert (
+            run("systemctl", "show", "postfix.service", "-p", "User", "--value").strip()
+            == b"postfix"
+        ), "fixture must exercise the packaged non-root service identity"
     # Reproduce ostree: package image /var directories need runtime initialization.
     assert (
         run(
@@ -105,7 +111,7 @@ def main():
     if args.production_policy:
         config = {
             "mode": "production",
-            "host": "localhost",
+            "host": "127.0.0.1",
             "port": 1025,
             "tls": "starttls",
             "username": "fixture-key",
@@ -134,7 +140,7 @@ def main():
             f"LoadCredentialEncrypted=smtp_config:{credential}",
             args.binary,
             "apply",
-            "--host",
+            "--local",
             args.host,
             "--phase",
             "smtp",
@@ -161,7 +167,7 @@ def main():
                 "--",
                 "postmap",
                 "-q",
-                "[localhost]:1025",
+                "[127.0.0.1]:1025",
                 "texthash:/run/postfix/skillet/sasl_passwd",
             ).strip()
             == b"fixture-key:fixture-secret"

@@ -158,6 +158,25 @@ jobs:
           cd ublue/skillet
           cargo run --bin skillet -- test run joey --phase base --image fedora:latest
 
+      - name: Test native Postfix with Fedora 45 worker identity
+        if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
+        run: |
+          cd ublue/skillet
+          cargo build --bin skillet --target x86_64-unknown-linux-musl
+          podman build -t localhost/skillet-smtp-runtime crates/smtp/tests
+          container="skillet-smtp-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          trap 'podman rm --force "$container" >/dev/null 2>&1 || true' EXIT
+          podman run --detach --name "$container" --network=none --systemd=always \
+            --security-opt label=disable \
+            --volume "$PWD/target/x86_64-unknown-linux-musl/debug/skillet:/usr/bin/skillet:ro" \
+            --volume "$PWD/crates/smtp/tests/native_acceptance.py:/native_acceptance.py:ro" \
+            localhost/skillet-smtp-runtime
+          if ! podman exec "$container" python3 /native_acceptance.py /usr/bin/skillet clamps \
+            --production-policy --require-worker-user; then
+            podman exec "$container" journalctl -u postfix.service -u skillet-smtp-prepare.service --no-pager -n 60
+            exit 1
+          fi
+
       - name: Validate private UI Caddy configuration
         if: inputs.full-skillet || steps.filter.outputs.rust == 'true'
         run: |

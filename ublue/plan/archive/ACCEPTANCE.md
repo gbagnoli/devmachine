@@ -5382,3 +5382,24 @@ unit overrides are absent after cleanup.
 Evidence is retained privately in the owned run under `acceptance-2026-11-17`.
 A matching released image is still required for new-feature reboot acceptance.
 No production host was changed and no code was pushed.
+
+### 2026-11-23 — Fedora 45 Postfix startup compatibility
+
+Clamps' Fedora 45 packaged Postfix unit uses `User=postfix` and root credential
+prefixes for its administrative commands. Skillet's unprefixed additional
+`postfix check` failed as that worker user, before the mail daemon could start.
+The drop-in now uses the same command-scoped credential override, retaining the
+vendor user, sandbox, capability restrictions and relay configuration. The
+operator applied that exact live repair; SSH observations confirmed Postfix
+3.11.7 running and successful preflight. No message was sent by this check.
+The old image's SMTP apply can restore the old drop-in until a matching release
+is deployed; a live edit is not image persistence acceptance.
+
+Workspace all-target tests, pedantic Clippy and formatting passed. The existing
+native SMTP fixture was updated to the current local-apply CLI and a literal
+loopback sink address, removing a DNS dependency in its network-isolated test.
+Its Fedora 45 production-policy run passed credential preparation, worker map
+access, unchanged PID on repeat apply, queue preservation on restart and refusal
+to authenticate/deliver without STARTTLS. CI now runs this real packaged worker
+identity contract without a vault/provider. Actionlint and Python lint passed.
+Actual Fedora 44-to-45 unattended TPM unlock remains a separate unresolved gate.

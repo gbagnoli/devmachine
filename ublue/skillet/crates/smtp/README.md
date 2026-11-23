@@ -60,6 +60,9 @@ owned VM SSH session, then dispose through the VM command.
 
 `tests/native_acceptance.py BINARY HOST [--production-policy]` is an isolated
 Podman systemd-container fixture requiring Postfix/Python and `--network none`.
+The fixture image is built from `tests/Containerfile` (Fedora 45 by default).
+`--require-worker-user` requires the packaged `User=postfix` service contract;
+Skillet's administrative preflight runs with an explicit root credential prefix.
 It uses synthetic credentials, checks retry/queue/preparation, and in production
 mode refuses a no-STARTTLS upstream. It refuses to run outside its test container.
 Use Cargo's reported CLI artifact; this fixture does not manage VMs.

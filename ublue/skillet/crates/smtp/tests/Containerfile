@@ -1,0 +1,4 @@
+ARG FEDORA_VERSION=45
+FROM registry.fedoraproject.org/fedora:${FEDORA_VERSION}
+RUN dnf -y install postfix cyrus-sasl-plain python3 policycoreutils systemd && dnf clean all
+CMD ["/sbin/init"]

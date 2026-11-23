@@ -21,6 +21,10 @@ bundle, not an assumed compatibility symlink. Package /var directories initializ
 during convergence; image-layer contents do not initialize rebased hosts. Existing
 queue contents are preserved and sender rewriting leaves recipients unchanged.
 
+The package owns the daemon identity and sandbox. Administrative preflight uses
+systemd's per-command credential override, matching vendor administrative commands,
+without changing the service's worker user or broadening its capability set.
+
 Submission listens only on loopback. Host-network apps can use it; bridge clients
 need a separately restricted/authenticated endpoint. Unrelated containers must not
 be implicitly trusted and no open LAN/tailnet relay is supplied. Application modules
