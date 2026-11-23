@@ -42,9 +42,12 @@ Slot 1 may be a stale bootstrap binding; do not replace or delete either slot
 based on these observations.
 
 The ucore-images common recipe now requires the fixed package floor and
-regenerates initramfs so early boot receives the new decryptor. Publication,
-fixed-token decryption on Clamps and unattended physical boot remain pending;
-recipe validation or a software-TPM test does not establish those gates.
+regenerates initramfs so early boot receives the new decryptor. The operator
+successfully decrypted existing slot 0 on Fedora 45 using the staged patched
+PIN (`patched-clevis exit=0`), with plaintext discarded and no enrollment changes.
+This confirms the retained token works with the fixed software. Publication and
+unattended boot from the rebuilt initramfs remain pending; userspace token
+success does not establish early-boot acceptance.
 The automatic update timer was stopped for this investigation; booting again
 can reactivate an enabled timer. Preserve the working Fedora 44 deployment and
 the independent recovery passphrase until the fixed path passes acceptance.

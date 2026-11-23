@@ -5434,5 +5434,9 @@ BlueBuild initramfs module. Actual BlueBuild recipe validation passed; a complet
 image build/publication and unattended physical boot are not established by
 that validation. A temporary patched decryptor from the test image was staged
 on Clamps with a verified transfer hash and resolved runtime dependencies for a
-read-only retained-token check; its hardware result is pending. Keep automatic
-updates paused and the independent recovery path until physical acceptance.
+read-only retained-token check. The operator reported `patched-clevis exit=0`
+for existing slot 0 on Fedora 45, with decrypted output discarded. This confirms
+the patched PIN can decrypt the retained token on the physical TPM without
+reenrollment. It does not establish boot from a rebuilt image: root had already
+been unlocked manually. Keep automatic updates paused and the independent
+recovery path until unattended physical boot acceptance.
