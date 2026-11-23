@@ -40,7 +40,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.12"
+version = "0.1.13"
 
 [workspace.dependencies]
 osc8 = "0.1"
