@@ -36,6 +36,23 @@ The normal worker uses the retained `kexec firmware-reboot` CLI command, with
 systemd automatic kexec and soft-reboot selection explicitly disabled. Native
 OSTree shutdown handles pending deployment finalization.
 
+## Firmware trial development
+
+The normal staging hook can use GRUB trials when `/etc/skillet/boot-trials`
+exists. Keep this opt-in limited to disposable VMs until the
+[interruption and physical acceptance gates](../../../plan/FAILED-BOOT-RECOVERY.md)
+are closed. Both deployments need the new Skillet release and the image-owned
+GRUB/initramfs assets. The trial uses the normal signed candidate entry with
+an additional initramfs deadline and two attempts.
+
+The boot completion journal is available through
+`journalctl -u skillet-boot-trial-complete.service`. A healthy trial records its
+digest in `/var/lib/skillet/boot-trial-success`. After fallback, the failed digest
+is recorded in `/var/lib/skillet/boot-trial-quarantine` and scheduled staging is
+skipped. Review the failed digest and verify the booted deployment is the default
+before explicitly clearing quarantine. A leftover GRUB trial environment also
+blocks staging until reconciliation has finished.
+
 ## Optional kexec mode
 
 `ServiceConfig::Kexec` remains available for explicit caller opt-in. Clamps no

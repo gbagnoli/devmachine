@@ -86,6 +86,7 @@ where
     render(binary)?;
     if mode == RebootMode::Normal {
         install_normal_unit(system, files, binary)?;
+        install_trial_completion(system, files, binary)?;
     }
     converge_update_timer(system, files)?;
     let owner = Ownership::named(Some("root"), Some("root"));
@@ -96,7 +97,7 @@ where
     )?;
     let trigger = match mode {
         RebootMode::Kexec => UPDATE_DROPIN_CONTENT.to_owned(),
-        RebootMode::Normal => format!("[Unit]\nOnSuccess=\nOnSuccess={NORMAL_UNIT}\n"),
+        RebootMode::Normal => format!("[Unit]\nConditionPathExists=!/boot/grub2/skillet-trial.env\nConditionPathExists=!{}\nOnSuccess=\nOnSuccess={NORMAL_UNIT}\n", super::boot_trial::QUARANTINE),
     };
     let trigger_changed = files.ensure_file(
         Path::new(UPDATE_DROPIN),
@@ -169,6 +170,37 @@ fn normal_units(binary: &str) -> Vec<skillet_core::vendor_units::Unit> {
         name: NORMAL_UNIT,
         content: format!("[Unit]\nDescription=Controlled Skillet normal reboot after OS staging\nDefaultDependencies=no\nAfter=local-fs.target\n[Service]\nType=exec\nEnvironment=SYSTEMCTL_SKIP_AUTO_KEXEC=1\nEnvironment=SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT=1\nExecStart={binary} kexec firmware-reboot\nRuntimeMaxSec=120\nTimeoutStopSec=20\nRestart=no\n"),
     }]
+}
+
+fn install_trial_completion<S, F>(system: &S, files: &F, binary: &str) -> Result<(), Error>
+where
+    S: ServiceResource + ?Sized,
+    F: FileMutationResource + FileReadResource + ?Sized,
+{
+    let name = "skillet-boot-trial-complete.service";
+    let root = Ownership::named(Some("root"), Some("root"));
+    let content = format!(
+        "[Unit]\nDescription=Record firmware boot trial outcome\nAfter=network-online.target sshd.service skillet-data-prepare.service\nWants=network-online.target sshd.service skillet-data-prepare.service\nConditionPathExists=/boot/grub2/skillet-trial.env\n[Service]\nType=oneshot\nExecStart={binary} kexec trial-complete\nTimeoutStartSec=90\n[Install]\nWantedBy=multi-user.target\n"
+    );
+    let dropin = Path::new("/etc/systemd/system/skillet-reboot-activate.service.d");
+    files.ensure_directory(dropin, Some(0o755), &root)?;
+    let namespace_changed = files.ensure_file(
+        &dropin.join("40-skillet-boot-trial.conf"),
+        b"[Service]\nPrivateMounts=yes\n",
+        Some(0o644),
+        &root,
+    )?;
+    if files.ensure_file(
+        &Path::new("/etc/systemd/system").join(name),
+        content.as_bytes(),
+        Some(0o644),
+        &root,
+    )? || namespace_changed
+    {
+        system.daemon_reload()?;
+    }
+    system.service_enable(name)?;
+    Ok(())
 }
 
 fn install_normal_unit<S, F>(system: &S, files: &F, binary: &str) -> Result<(), Error>

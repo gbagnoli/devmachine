@@ -3,6 +3,7 @@ use std::path::{Component, Path, PathBuf};
 use thiserror::Error;
 
 pub mod attempt;
+mod boot_trial;
 pub mod runtime;
 pub mod service;
 

@@ -24,6 +24,8 @@ pub enum Commands {
     Cleanup,
     /// Normal firmware reboot, respecting maintenance exclusion and inhibitors
     FirmwareReboot,
+    /// Record the outcome of an armed firmware boot trial
+    TrialComplete,
 }
 
 const OWNER: &str = "/run/skillet-kexec-owner";
@@ -84,6 +86,9 @@ fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
     }
     if matches!(command, Commands::FirmwareReboot) {
         return request_normal_reboot();
+    }
+    if matches!(command, Commands::TrialComplete) {
+        return super::boot_trial::conclude();
     }
     let invocation = std::env::var("INVOCATION_ID")?;
     if invocation.len() != 32 || !invocation.bytes().all(|b| b.is_ascii_hexdigit()) {
@@ -157,7 +162,7 @@ fn dispatch_inner(command: Commands) -> Result<(), RuntimeError> {
     owner.sync_all()?;
     checked("mount", &["--bind", "/sysroot", "/sysroot"])?;
     checked("mount", &["-o", "remount,bind,rw", "/sysroot"])?;
-    let entry = prepare_target()?;
+    let entry = prepare_target(None, None)?;
     let loaded = Command::new("kexec")
         .args(["-s", "-l"])
         .arg(&entry.kernel)
@@ -190,12 +195,52 @@ fn request_normal_reboot() -> Result<(), RuntimeError> {
     }
     let _configuration = skillet_core::maintenance::activation()?;
     ensure_backups_idle()?;
-    if !normal_reboot_command().status()?.success() {
+    for path in [super::boot_trial::ENV, super::boot_trial::QUARANTINE] {
+        if Path::new(path).try_exists()? {
+            return Err(
+                io::Error::other("a boot trial or quarantine blocks automatic reboot").into(),
+            );
+        }
+    }
+    if Path::new(super::boot_trial::OPT_IN).try_exists()? {
+        let status = super::boot_trial::status()?;
+        if super::has_activation_target(&status)? {
+            let target = super::activation_target(&status)?;
+            let previous = status["deployments"]
+                .as_array()
+                .and_then(|items| items.iter().find(|item| item["booted"] == true))
+                .ok_or(super::Error::InvalidDeployment)?;
+            super::boot_trial::preflight(target)?;
+            checked("mount", &["--bind", "/sysroot", "/sysroot"])?;
+            checked("mount", &["-o", "remount,bind,rw", "/sysroot"])?;
+            let arm_result = (|| {
+                prepare_target(Some(target), Some(previous))?;
+                super::boot_trial::arm(previous, target)
+            })();
+            if let Err(error) = arm_result {
+                resume_staging()?;
+                return Err(error);
+            }
+        }
+    }
+    let reboot = normal_reboot_command().status();
+    if !reboot.as_ref().is_ok_and(std::process::ExitStatus::success) {
+        resume_staging()?;
+        reboot?;
         return Err(io::Error::other("systemctl normal reboot failed").into());
     }
     loop {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
+}
+
+fn resume_staging() -> Result<(), RuntimeError> {
+    let marker = Path::new("/run/skillet-maintenance/paused");
+    if marker.exists() {
+        checked("systemctl", &["unmask", "--runtime", "rpm-ostreed.service"])?;
+        fs::remove_file(marker)?;
+    }
+    Ok(())
 }
 
 fn ensure_backups_idle() -> Result<(), RuntimeError> {
@@ -216,7 +261,10 @@ fn ensure_backups_idle() -> Result<(), RuntimeError> {
     Ok(())
 }
 
-fn prepare_target() -> Result<BootEntry, RuntimeError> {
+fn prepare_target(
+    expected: Option<&serde_json::Value>,
+    previous: Option<&serde_json::Value>,
+) -> Result<BootEntry, RuntimeError> {
     let output = Command::new("rpm-ostree")
         .args(["status", "--json"])
         .output()?;
@@ -225,6 +273,9 @@ fn prepare_target() -> Result<BootEntry, RuntimeError> {
     }
     let status: serde_json::Value = serde_json::from_slice(&output.stdout)?;
     let item = super::activation_target(&status)?.clone();
+    if expected.is_some_and(|expected| expected != &item) {
+        return Err(io::Error::other("trial candidate changed before finalization").into());
+    }
     // Pause the existing staging owner; do not introduce a second updater.
     // The native lock excludes in-flight OSTree mutations while pausing it.
     let native = sysroot_lock()?;
@@ -238,6 +289,14 @@ fn prepare_target() -> Result<BootEntry, RuntimeError> {
     if super::activation_target(&fresh)? != &item {
         return Err(io::Error::other("deployment changed before staging exclusion").into());
     }
+    if previous.is_some_and(|previous| {
+        fresh["deployments"][0] != item || &fresh["deployments"][1] != previous
+    }) {
+        return Err(io::Error::other(
+            "boot trial requires the staged candidate followed by the booted fallback",
+        )
+        .into());
+    }
     let enabled = Command::new("systemctl")
         .args(["is-enabled", "rpm-ostreed.service"])
         .output()?;
@@ -247,6 +306,9 @@ fn prepare_target() -> Result<BootEntry, RuntimeError> {
     fs::write("/run/skillet-maintenance/paused", b"owned")?;
     checked("systemctl", &["mask", "--runtime", "rpm-ostreed.service"])?;
     checked("systemctl", &["stop", "rpm-ostreed.service"])?;
+    if let Some(previous) = previous {
+        super::boot_trial::guard(previous, &item)?;
+    }
     drop(native);
     if item["staged"].as_bool() == Some(true) {
         // Retain this gate even on failure: after finalization, further live

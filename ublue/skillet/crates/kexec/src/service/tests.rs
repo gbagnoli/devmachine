@@ -180,7 +180,7 @@ fn normal_mode_replaces_kexec_hook_without_starting_a_reboot_and_retries_reload(
     let trigger = files.read_file(Path::new(UPDATE_DROPIN)).unwrap().unwrap();
     assert_eq!(
         String::from_utf8(trigger.clone()).unwrap(),
-        "[Unit]\nOnSuccess=\nOnSuccess=skillet-reboot-activate.service\n"
+        "[Unit]\nConditionPathExists=!/boot/grub2/skillet-trial.env\nConditionPathExists=!/var/lib/skillet/boot-trial-quarantine\nOnSuccess=\nOnSuccess=skillet-reboot-activate.service\n"
     );
     assert_eq!(
         files

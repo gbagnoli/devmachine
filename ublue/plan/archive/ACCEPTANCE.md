@@ -5440,3 +5440,72 @@ the patched PIN can decrypt the retained token on the physical TPM without
 reenrollment. It does not establish boot from a rebuilt image: root had already
 been unlocked manually. Keep automatic updates paused and the independent
 recovery path until unattended physical boot acceptance.
+
+### 2026-11-24 — Encrypted-root trial timeout and GRUB fallback
+
+On the owned UEFI/Secure Boot/swtpm VM `clamps-test-tpm-fallback`, manually
+armed a separate BLS entry using the same deployment and a rebuilt initramfs.
+Only the trial entry masked Clevis, leaving encrypted root awaiting a
+passphrase. The installed bootupd GRUB config loads `custom.cfg` and has no
+stock attempt counter. The trial hook persisted its own counter in an ext4
+boot-partition environment block.
+
+The serial console logged deadline-triggered reboots at 181.13 and 181.23
+seconds. With the attempt counter at zero, GRUB selected the known-good
+entry. Clevis unlocked root at 5.91 seconds and verified SSH returned with
+encrypted Btrfs mounted at `/var/lib/data`. No console input or TPM changes
+were needed. Evidence is in the owned run's `fallback-acceptance` directory.
+The manually installed boot fixtures were removed after verification.
+
+This verifies the initramfs deadline and GRUB fallback when automatic unlock
+is unavailable. Automated arming and success recording, a distinct staged
+deployment, a candidate-only PCR mismatch and physical recovery remain open.
+
+### 2026-11-24 — Skillet firmware trial completion controls
+
+The normal staging hook now has explicit VM opt-in for arming the validated
+candidate and fallback BLS entries. A completion service records the accepted
+image digest after checking the data mount and SSH. Exhausted attempts record
+the rejected digest and block scheduled staging until explicit review.
+
+On the owned TPM VM, a healthy manually marked entry unlocked and returned to
+SSH. The new completion command recorded its digest and removed the GRUB trial
+files. A separate synthetic exhausted state on the known-good deployment
+recorded the rejected digest, removed the environment block and tolerated
+repeat completion. The fixture was cleared after verification.
+
+The controls invoked completion directly. They did not run a distinct staged
+image through automatic arming or run pending-deployment cleanup after a real
+fallback. Power loss between native finalization and GRUB arming remains a
+production blocker. No physical host opted into this implementation.
+
+### 2026-11-24 — Power cut after native finalization
+
+On `clamps-test-tpm-fallback`, staged a deployment with a different OSTree
+serial and a harmless identifying kernel argument. Finalized it using
+`ostree admin finalize-staged`, verified it was the unbooted default and
+verified that the GRUB trial environment was absent. Cut power through
+libvirt, then started the owned domain again. It booted the new serial with
+the identifying argument, with the trial environment still absent. Clevis
+unlocked and encrypted Btrfs mounted. This reproduces the unarmed candidate
+selection window without requiring a TPM failure.
+
+This test used the same OCI image digest in both deployments. The separate
+healthy and failing signed-image automatic activation tests still require
+images that bundle the new trial assets and Skillet worker. Evidence is under
+the owned run's `fallback-acceptance/finalize-interruption.log`.
+
+### 2026-11-24 — Guarded power cut after native finalization
+
+On the same encrypted VM, staged another deployment serial with a unique
+kernel argument. Installed the GRUB hook and loader-directory marker before
+native finalization. Finalization switched loader directories and put the
+candidate first. Hard-powered off the VM before arming and started it again.
+Early SSH probes timed out. A subsequent SSH command verified the retained
+deployment was booted, the candidate kernel argument was absent and encrypted
+Btrfs was mounted. Pending-deployment cleanup then restored the boot order.
+Evidence is in the owned run's `fallback-acceptance/prearmed-power-cut.log`.
+
+The test prepared the guard directly and used two deployment serials of one
+signed OCI image. Automatic arming and completion across two distinct signed
+images containing the new boot assets and worker remain open.

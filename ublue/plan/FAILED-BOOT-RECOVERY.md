@@ -4,6 +4,39 @@ Status: planned follow-up, 2026-11-23. Resolve the current Fedora 45 TPM unlock
 failure separately; do not enable recovery or initiate production reboots as
 part of documenting this plan.
 
+## Implementation checkpoint
+
+The image repository has a dracut module with a three-minute initramfs
+deadline, selected by `skillet.boot-trial=1`, and a GRUB hook that counts
+attempts in a dedicated environment block. Shell syntax, GRUB syntax and
+systemd unit verification passed.
+
+On 2026-11-24, the UEFI/Secure Boot/swtpm VM `clamps-test-tpm-fallback`
+booted a manually armed trial entry with Clevis masked for that entry alone.
+Both attempts waited on the root passphrase and rebooted after about 181
+seconds. GRUB exhausted the counter and selected the known-good BLS entry.
+Clevis unlocked root, encrypted Btrfs data mounted, and SSH returned without
+console input. The VM fixture used another entry for the same deployment. A
+distinct staged deployment and candidate-only PCR mismatch remain separate
+acceptance gates. Evidence is in [the acceptance log](archive/ACCEPTANCE.md).
+
+Skillet now has opt-in arming from the normal staging hook and a boot completion
+service. It records the accepted digest after encrypted data and SSH checks.
+After fallback it records the failed digest in a durable quarantine and blocks
+the automatic update service. Automatic trials remain disabled by default.
+
+Before finalizing a staged deployment, Skillet now writes a durable GRUB guard.
+The guard selects the known-good deployment across the OSTree BLS directory
+swap. After finalization, Skillet verifies both entries by deployment identity
+and atomically publishes the two-attempt trial. A hard power cut in the
+finalized but unarmed window has been exercised in the VM with two deployment
+serials sharing one OCI digest.
+
+Open acceptance: automatic activation with two distinct signed OCI images
+containing the trial worker and boot assets, a candidate-only PCR mismatch,
+failure after root unlock, and physical recovery. Keep physical opt-in disabled
+until these pass.
+
 ## Goal and boundary
 
 An unattended update must not leave a host waiting indefinitely for encrypted
