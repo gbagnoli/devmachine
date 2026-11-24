@@ -5510,6 +5510,32 @@ The test prepared the guard directly and used two deployment serials of one
 signed OCI image. Automatic arming and completion across two distinct signed
 images containing the new boot assets and worker remain open.
 
+### 2026-11-24 — Automatic trials with two signed OCI images
+
+Built two distinct uCore images with the Skillet trial worker, GRUB hook and
+initramfs deadline. Signed both with a disposable Cosign key and imported them
+through the VM's signed OSTree path. The VM trusted that key only for the
+isolated loopback repository. Captured a powered-off checkpoint of A with
+its disk, UEFI variables and swtpm state.
+
+- Healthy update: Skillet activated B and recorded its exact digest. SSH and
+  the encrypted Btrfs mount returned. The GRUB trial environment was cleared
+  and B stayed the default across power-off and restart.
+- Failed unlock: masked Clevis only for B's trial entry. The two attempts
+  reset after 181.3 and 181.0 seconds. A unlocked unattended and restored SSH
+  and the encrypted data mount. Skillet quarantined B's digest, automatic
+  staging was skipped, and the completion service removed B from the boot
+  order. A candidate-only PCR mismatch remains untested.
+
+Image digests, signature verification and transcripts are in the local
+`signed-trial` acceptance directory.
+
+- Power cut: paused the Skillet worker after native finalization of signed B.
+  Verified the GRUB guard still held zero armed attempts and the trial entry
+  was absent, then cut power through libvirt. GRUB selected A, which unlocked
+  and returned over SSH with encrypted Btrfs mounted. Skillet removed B from
+  the boot order, recorded its digest and cleared the GRUB trial environment.
+  A remained the default on the next cold boot.
 
 ### 2026-11-24 — Home Assistant network Zigbee companion
 

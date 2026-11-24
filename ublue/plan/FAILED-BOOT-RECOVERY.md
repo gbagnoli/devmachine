@@ -17,8 +17,7 @@ Both attempts waited on the root passphrase and rebooted after about 181
 seconds. GRUB exhausted the counter and selected the known-good BLS entry.
 Clevis unlocked root, encrypted Btrfs data mounted, and SSH returned without
 console input. The VM fixture used another entry for the same deployment. A
-distinct staged deployment and candidate-only PCR mismatch remain separate
-acceptance gates. Evidence is in [the acceptance log](archive/ACCEPTANCE.md).
+candidate-only PCR mismatch remains an acceptance gate. Evidence is in [the acceptance log](archive/ACCEPTANCE.md).
 
 Skillet now has opt-in arming from the normal staging hook and a boot completion
 service. It records the accepted digest after encrypted data and SSH checks.
@@ -28,14 +27,13 @@ the automatic update service. Automatic trials remain disabled by default.
 Before finalizing a staged deployment, Skillet now writes a durable GRUB guard.
 The guard selects the known-good deployment across the OSTree BLS directory
 swap. After finalization, Skillet verifies both entries by deployment identity
-and atomically publishes the two-attempt trial. A hard power cut in the
-finalized but unarmed window has been exercised in the VM with two deployment
-serials sharing one OCI digest.
+and atomically publishes the two-attempt trial. Two distinct signed OCI images passed automatic activation, unattended
+fallback after a candidate-only Clevis mask, and power-cut recovery after
+finalization. After the cut, the previous image unlocked and remained the
+default through another cold boot. The VM used a disposable signing key.
 
-Open acceptance: automatic activation with two distinct signed OCI images
-containing the trial worker and boot assets, a candidate-only PCR mismatch,
-failure after root unlock, and physical recovery. Keep physical opt-in disabled
-until these pass.
+Open acceptance includes a candidate-only PCR mismatch, failure after root
+unlock, and physical recovery. Keep physical opt-in disabled until these pass.
 
 ## Goal and boundary
 
