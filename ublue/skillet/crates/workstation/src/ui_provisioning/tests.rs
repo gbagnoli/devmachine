@@ -628,7 +628,7 @@ fn persistent_ui_reuses_token_and_defers_caddy_until_credential_set_is_installed
 }
 
 #[test]
-fn configured_zigbee_ui_adds_only_a_private_loopback_site() {
+fn configured_zigbee_ui_adds_only_a_private_bridge_site() {
     let run = tempfile::tempdir().unwrap();
     let provider = fake_cloudflare(run.path(), false);
     let mut request = persistent_request();
@@ -650,10 +650,7 @@ fn configured_zigbee_ui_adds_only_a_private_loopback_site() {
     assert_eq!(site.hostname, "zigbee2mqtt.clamps.ui.example.invalid");
     assert_eq!(site.access, skillet_caddy::SiteAccess::Tailnet);
     assert!(site.tailnet_identity);
-    assert_eq!(
-        site.transport,
-        skillet_caddy::UpstreamTransport::HostLoopback
-    );
+    assert_eq!(site.transport, skillet_caddy::UpstreamTransport::Bridge);
     let desired = cloudflare::desired_records_for_environment(
         &sites.machine_hostname,
         &addresses(),

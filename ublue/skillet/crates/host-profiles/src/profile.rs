@@ -516,7 +516,7 @@ impl HostProfile {
         Some(skillet_caddy::UiService {
             name: "zigbee2mqtt".into(),
             upstream: "zigbee2mqtt".into(),
-            transport: skillet_caddy::UpstreamTransport::HostLoopback,
+            transport: skillet_caddy::UpstreamTransport::Bridge,
             port: skillet_homeassistant::zigbee::FRONTEND_PORT,
             tailnet_identity: true,
             origin_policy: skillet_caddy::OriginPolicy::Equivalent,

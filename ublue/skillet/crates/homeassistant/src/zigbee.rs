@@ -13,7 +13,8 @@ use skillet_podman::{
 use std::{collections::BTreeMap, net::SocketAddrV4, num::NonZeroU32, path::Path};
 use zeroize::Zeroizing;
 
-pub const FRONTEND_PORT: u16 = 8099;
+pub const FRONTEND_PORT: u16 = 8080;
+pub const FRONTEND_LOOPBACK_PORT: u16 = 8099;
 pub const CREDENTIAL: &str = "homeassistant_zigbee";
 pub const UNIT: &str = "skillet-homeassistant-zigbee.service";
 const NETWORK: &str = "homeassistant-mqtt";
@@ -88,7 +89,12 @@ fn password_record(user: &str, password: &str) -> Result<String, Error> {
     ))
 }
 
-pub fn apply<S, F>(system: &S, files: &F, payload: &str) -> Result<(), Error>
+pub fn apply<S, F>(
+    system: &S,
+    files: &F,
+    payload: &str,
+    frontend_network: &skillet_podman::PodmanNetwork,
+) -> Result<(), Error>
 where
     S: AccountLookupResource + PodmanSecretResource + ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
@@ -112,17 +118,21 @@ where
     }
     let mqtt_secret = Zeroizing::new(format!("password: '{}'", *zigbee_password));
     system.ensure_podman_secret("skillet-zigbee-mqtt", &mqtt_secret)?;
+    skillet_podman::ensure_network(system, files, frontend_network)?;
     skillet_podman::container(
         system,
         files,
         PodmanConfig {
             name: "zigbee2mqtt".into(),
             image: "ghcr.io/koenkk/zigbee2mqtt:2.14.3".into(),
-            network_attachments: vec![NetworkAttachment::Bridge(NETWORK.into())],
+            network_attachments: vec![
+                NetworkAttachment::Bridge(NETWORK.into()),
+                NetworkAttachment::Bridge(frontend_network.unit_name.clone()),
+            ],
             port_publications: vec![PortPublication {
                 host_address: std::net::Ipv4Addr::LOCALHOST.into(),
-                host_port: FRONTEND_PORT,
-                container_port: 8080,
+                host_port: FRONTEND_LOOPBACK_PORT,
+                container_port: FRONTEND_PORT,
                 protocol: PortProtocol::Tcp,
             }],
             storage_dependency: Some(MountDependency::shared_service_data()),

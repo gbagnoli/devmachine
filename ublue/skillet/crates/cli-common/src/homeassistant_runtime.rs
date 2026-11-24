@@ -71,7 +71,8 @@ pub fn dispatch(command: &Commands) -> Result<(), CliCommonError> {
             let payload = Zeroizing::new(
                 CredentialManager::new()?.read_secret(skillet_homeassistant::zigbee::CREDENTIAL)?,
             );
-            skillet_homeassistant::zigbee::apply(&system, &files, &payload).map_err(error)
+            let network = skillet_caddy::private_network(&host, "zigbee2mqtt");
+            skillet_homeassistant::zigbee::apply(&system, &files, &payload, &network).map_err(error)
         }
         Commands::Backup { create, .. } => {
             let state = Path::new("/var/lib/skillet/homeassistant");

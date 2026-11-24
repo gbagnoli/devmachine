@@ -935,11 +935,23 @@ fn apply_caddy_host(
         )?;
     }
     skillet_podman::ensure_network(system, files, &profile.service_network())?;
+    // An image update can boot before the workstation delivers the new bridge
+    // route. Accept the retained, exactly declared loopback payload meanwhile.
+    let optional = profile
+        .zigbee_ui()
+        .into_iter()
+        .flat_map(|current| {
+            let mut retained = current.clone();
+            retained.transport = skillet_caddy::UpstreamTransport::HostLoopback;
+            retained.port = skillet_homeassistant::zigbee::FRONTEND_LOOPBACK_PORT;
+            [current, retained]
+        })
+        .collect::<Vec<_>>();
     let mut sites = skillet_caddy::CaddySites::parse_with_optional(
         credentials.require(CADDY_SITES_CREDENTIAL)?,
         hostname,
         &ui_config.services,
-        profile.zigbee_ui().as_slice(),
+        &optional,
     )?;
     project_ui_readiness(&profile, files, &mut sites)?;
     let token = credentials

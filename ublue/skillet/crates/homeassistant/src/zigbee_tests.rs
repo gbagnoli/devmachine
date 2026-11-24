@@ -10,8 +10,9 @@ fn only_loopback_is_published_and_pairing_state_survives_reapply() {
         ha_password: "h".repeat(64),
         zigbee_password: "z".repeat(64),
     };
+    let frontend_network = skillet_podman::isolated_network("fixture-zigbee2mqtt");
     let payload = serde_json::to_string(&settings).unwrap();
-    apply(&system, &files, &payload).unwrap();
+    apply(&system, &files, &payload, &frontend_network).unwrap();
     let seed = "/var/lib/data/zigbee2mqtt/configuration.yaml";
     {
         let mut written = files.files.lock().unwrap();
@@ -23,13 +24,17 @@ fn only_loopback_is_published_and_pairing_state_survives_reapply() {
                 &written[&format!("/etc/containers/systemd/{name}.container")],
             );
             assert!(quadlet.contains(binding));
+            assert_eq!(
+                quadlet.contains("Network=fixture-zigbee2mqtt.network"),
+                name == "zigbee2mqtt"
+            );
             assert!(!quadlet.contains(&settings.ha_password));
             assert!(!quadlet.contains(&settings.zigbee_password));
         }
         assert!(written.contains_key(seed));
         written.insert(seed.into(), b"paired coordinator state".to_vec());
     }
-    apply(&system, &files, &payload).unwrap();
+    apply(&system, &files, &payload, &frontend_network).unwrap();
     assert_eq!(
         files.files.lock().unwrap()[seed],
         b"paired coordinator state"

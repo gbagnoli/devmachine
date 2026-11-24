@@ -381,10 +381,9 @@ impl CaddySites {
             optional
                 .iter()
                 .filter(|declaration| {
-                    sites
-                        .services
-                        .iter()
-                        .any(|site| site.name == declaration.name)
+                    sites.services.iter().any(|site| {
+                        site.name == declaration.name && site.transport == declaration.transport
+                    })
                 })
                 .cloned(),
         );
