@@ -101,6 +101,7 @@ enum FieldRule {
     Wifikey,
     Hatoken,
     Hapassword,
+    Mqttpassword,
     Hex32,
     Switchlist,
 }
@@ -117,6 +118,7 @@ impl FieldRequirement {
             FieldRule::Nonempty | FieldRule::Switchlist => true,
             FieldRule::Hatoken => skillet_homeassistant::backup::valid_token(value),
             FieldRule::Hapassword => skillet_homeassistant::backup::valid_password(value),
+            FieldRule::Mqttpassword => skillet_homeassistant::zigbee::valid_password(value),
             FieldRule::Hex32 => skillet_media::valid_key(value),
             FieldRule::Port => value.parse::<u16>().is_ok_and(|port| port != 0),
             FieldRule::Choice => self.values.iter().any(|allowed| allowed == value),

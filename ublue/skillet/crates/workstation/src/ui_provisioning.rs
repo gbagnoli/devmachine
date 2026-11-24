@@ -430,6 +430,7 @@ pub struct PersistentUiDelivery<'a> {
     pub creator_token: &'a str,
     pub tailnet_users: &'a [String],
     pub homeassistant_api_token: Option<&'a str>,
+    pub zigbee_ui: bool,
 }
 
 /// Resolve production or named-host UI configuration, reconcile its DNS, and
@@ -454,13 +455,20 @@ pub fn deliver_persistent_ui(
         .policy
         .tailscale_tag(crate::provisioning_policy::DeviceClass::ProductionHost);
     let device = tailnet.find_device_by_hostname(request.host, tag)?;
-    let mut plan = build_ui_provisioning_plan_with_public(
+    let mut services = profile.ui_services();
+    if request.zigbee_ui {
+        services.push(profile.zigbee_ui().ok_or_else(|| {
+            UiProvisioningError::Invalid("Zigbee UI requires a Home Assistant host".into())
+        })?);
+    }
+    let mut plan = build_plan_for_services(
         request.host,
         request.policy,
         &zone.name,
         request.relative_ui_domain,
         &device.addresses,
         request.public_targets,
+        &services,
     )?;
     plan = select_public_dns(
         plan,
@@ -765,6 +773,26 @@ pub fn build_ui_provisioning_plan_with_public(
     let profile = skillet_hosts::profile_for_name(host)
         .ok_or_else(|| UiProvisioningError::NoUiServices(host.to_string()))?;
     let services = profile.ui_services();
+    build_plan_for_services(
+        host,
+        policy,
+        zone_domain,
+        relative_ui_domain,
+        addresses,
+        public_targets,
+        &services,
+    )
+}
+
+fn build_plan_for_services(
+    host: &str,
+    policy: ProvisioningPolicy,
+    zone_domain: &str,
+    relative_ui_domain: Option<&str>,
+    addresses: &BTreeSet<String>,
+    public_targets: &[String],
+    services: &[skillet_caddy::UiService],
+) -> Result<UiProvisioningPlan, UiProvisioningError> {
     if services.is_empty() {
         return Err(UiProvisioningError::NoUiServices(host.to_string()));
     }
@@ -775,7 +803,7 @@ pub fn build_ui_provisioning_plan_with_public(
             ui_domain,
             acme_staging: policy.acme_staging(),
         },
-        &services,
+        services,
         Some(zone_domain),
     )?;
     let dns_records = cloudflare::desired_records_for_environment(

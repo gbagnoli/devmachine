@@ -185,10 +185,16 @@ impl HostService {
                 credential: skillet_media::SABNZBD_CREDENTIAL,
                 unit: skillet_media::APPLY_UNIT,
             }],
-            ServiceConfig::HomeAssistant(_) => vec![CredentialConsumer {
-                credential: skillet_homeassistant::backup::CREDENTIAL,
-                unit: skillet_homeassistant::backup::UNIT,
-            }],
+            ServiceConfig::HomeAssistant(_) => vec![
+                CredentialConsumer {
+                    credential: skillet_homeassistant::backup::CREDENTIAL,
+                    unit: skillet_homeassistant::backup::UNIT,
+                },
+                CredentialConsumer {
+                    credential: skillet_homeassistant::zigbee::CREDENTIAL,
+                    unit: skillet_homeassistant::zigbee::UNIT,
+                },
+            ],
             ServiceConfig::Syncthing { instance, .. } => vec![CredentialConsumer {
                 credential: instance.credential(),
                 unit: instance.initial_unit(),
@@ -316,6 +322,9 @@ pub enum HealthProbe {
 
 impl HostProfile {
     pub fn dashboard_group(&self, ui_name: &str) -> &'static str {
+        if ui_name == "zigbee2mqtt" {
+            return skillet_homer::HOME_INFRA;
+        }
         self.services
             .iter()
             .find(|service| {
@@ -497,6 +506,27 @@ impl HostProfile {
                 }),
                 _ => None,
             })
+    }
+
+    /// Only Home Assistant hosts may opt into the Zigbee management UI.
+    pub fn zigbee_ui(&self) -> Option<skillet_caddy::UiService> {
+        if !self.supports_service("homeassistant") {
+            return None;
+        }
+        Some(skillet_caddy::UiService {
+            name: "zigbee2mqtt".into(),
+            upstream: "zigbee2mqtt".into(),
+            transport: skillet_caddy::UpstreamTransport::HostLoopback,
+            port: skillet_homeassistant::zigbee::FRONTEND_PORT,
+            tailnet_identity: true,
+            origin_policy: skillet_caddy::OriginPolicy::Equivalent,
+            aliases: Vec::new(),
+            public_names: Vec::new(),
+            anonymous_token_refresh: false,
+            cross_site_get_paths: Vec::new(),
+            cache: None,
+            sharing: None,
+        })
     }
 
     pub fn ui_services(&self) -> Vec<skillet_caddy::UiService> {

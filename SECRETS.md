@@ -86,6 +86,16 @@ Native accounts are created during HTTPS onboarding. Backup automation starts af
 | `skillet/environments/prod/hosts/<host>/homeassistant/api-token` | Optional | Password = long-lived access token created in the Home Assistant administrator profile Security page after onboarding. Native backup APIs require administrator access; use a dedicated token and revoke it when replaced. Missing entry leaves backup automation unconfigured. |
 | `skillet/environments/prod/hosts/<host>/homeassistant/backup-password` | Generated | Password = Skillet-generated native backup encryption password, persisted before delivery. Keep an independent vault backup; never delete or replace this recovery key while retaining encrypted archives. |
 
+## Home Assistant Zigbee
+
+Optional network Zigbee coordinator and private MQTT broker. [Setup](ublue/skillet/crates/homeassistant/README.md).
+
+| Entry | Status | Fields / how to obtain them |
+| --- | --- | --- |
+| `skillet/hosts/<host>/network/zigbee2mqtt` | Optional | Set the custom fields address (coordinator IPv4), port (serial TCP port) and adapter (zstack). Leave Password empty. |
+| `skillet/hosts/<host>/homeassistant/mqtt/homeassistant` | Generated | Password = Skillet-generated MQTT password for the Home Assistant MQTT integration. |
+| `skillet/hosts/<host>/homeassistant/mqtt/zigbee2mqtt` | Generated | Password = Skillet-generated MQTT password delivered to Zigbee2MQTT. |
+
 ## Homer
 
 Private static service dashboard generated from the host's declared UI services. No vault entries currently required. [Setup](ublue/skillet/crates/homer/README.md).

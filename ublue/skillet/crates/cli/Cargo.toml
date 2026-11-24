@@ -12,6 +12,7 @@ osc8.workspace = true
 pulldown-cmark.workspace = true
 supports-hyperlinks.workspace = true
 skillet_cli_common.workspace = true
+skillet_homeassistant.workspace = true
 skillet_hosts.workspace = true
 skillet_caddy.workspace = true
 skillet_podman.workspace = true
@@ -33,7 +34,6 @@ serde.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
-skillet_homeassistant.workspace = true
 reqwest.workspace = true
 skillet_core = { workspace = true, features = ["test-utils"] }
 skillet_datadog.workspace = true

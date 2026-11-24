@@ -30,6 +30,23 @@ impl HttpStub {
                     .recv_timeout(Duration::from_millis(100))
                     .unwrap()
                 {
+                    if !authorization
+                        && request.url() == "/api"
+                        && request.headers().iter().any(|h| {
+                            h.field.equiv("Upgrade")
+                                && h.value.as_str().eq_ignore_ascii_case("websocket")
+                        })
+                    {
+                        let response = tiny_http::Response::empty(101).with_header(
+                            tiny_http::Header::from_bytes(
+                                "Sec-WebSocket-Accept",
+                                "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=",
+                            )
+                            .unwrap(),
+                        );
+                        drop(request.upgrade("websocket", response));
+                        continue;
+                    }
                     let response = if authorization {
                         assert_eq!(request.method(), &tiny_http::Method::Get);
                         assert!(matches!(request.url(), "/auth" | "/auth?"));
@@ -276,6 +293,62 @@ fn real_caddy_homeassistant_navigation_retains_identity_and_origin_guards() {
             403
         );
     }
+}
+
+#[test]
+#[ignore = "requires Podman and the Caddy container image"]
+fn real_caddy_zigbee_websocket_requires_identity_and_matching_origin() {
+    let temp = tempfile::tempdir().unwrap();
+    let auth = HttpStub::new(true);
+    let backend = HttpStub::new(false);
+    let (_container, address) = start_caddy(
+        temp.path(),
+        "zigbee2mqtt",
+        false,
+        &backend.address.to_string(),
+        auth.address,
+    );
+    let client = reqwest::blocking::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap();
+    let upgrade = |origin: &str| {
+        client
+            .get(format!("http://{address}/api"))
+            .header("Connection", "Upgrade")
+            .header("Upgrade", "websocket")
+            .header("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+            .header("Sec-WebSocket-Version", "13")
+            .header("Origin", origin)
+            .send()
+    };
+    let origin = "https://zigbee2mqtt.fixture.ui.example.invalid";
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
+    loop {
+        match upgrade(origin) {
+            Ok(response) => {
+                assert_eq!(response.status().as_u16(), 101);
+                break;
+            }
+            Err(error) => {
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "Caddy not ready: {error}"
+                );
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        }
+    }
+    assert_eq!(
+        upgrade("https://other.example.invalid")
+            .unwrap()
+            .status()
+            .as_u16(),
+        403
+    );
+    auth.allowed.store(false, Ordering::SeqCst);
+    assert_eq!(upgrade(origin).unwrap().status().as_u16(), 403);
 }
 
 fn start_caddy(

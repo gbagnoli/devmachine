@@ -23,6 +23,11 @@ pub enum Commands {
         #[arg(long, default_value = "/etc/skillet/host")]
         host_file: PathBuf,
     },
+    /// Apply the optional MQTT broker and network Zigbee coordinator
+    Zigbee {
+        #[arg(long, default_value = "/etc/skillet/host")]
+        host_file: PathBuf,
+    },
     /// Configure native encrypted backups and export completed original archives
     Backup {
         #[arg(long, default_value = "/etc/skillet/host")]
@@ -48,7 +53,9 @@ fn declaration(path: &Path) -> Result<(String, Config), CliCommonError> {
 }
 pub fn dispatch(command: &Commands) -> Result<(), CliCommonError> {
     let host_file = match &command {
-        Commands::Apply { host_file } | Commands::Backup { host_file, .. } => host_file,
+        Commands::Apply { host_file }
+        | Commands::Backup { host_file, .. }
+        | Commands::Zigbee { host_file } => host_file,
     };
     let (host, config) = declaration(host_file)?;
     let files = LocalFileResource;
@@ -59,6 +66,12 @@ pub fn dispatch(command: &Commands) -> Result<(), CliCommonError> {
     match command {
         Commands::Apply { .. } => {
             skillet_homeassistant::apply(&system, &files, config).map_err(error)
+        }
+        Commands::Zigbee { .. } => {
+            let payload = Zeroizing::new(
+                CredentialManager::new()?.read_secret(skillet_homeassistant::zigbee::CREDENTIAL)?,
+            );
+            skillet_homeassistant::zigbee::apply(&system, &files, &payload).map_err(error)
         }
         Commands::Backup { create, .. } => {
             let state = Path::new("/var/lib/skillet/homeassistant");

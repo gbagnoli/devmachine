@@ -3825,9 +3825,11 @@ dependencies = [
 name = "skillet_homeassistant"
 version = "0.1.13"
 dependencies = [
+ "base64 0.22.1",
  "chrono",
  "hex",
  "nix",
+ "ring",
  "serde",
  "serde_json",
  "sha2 0.10.9",

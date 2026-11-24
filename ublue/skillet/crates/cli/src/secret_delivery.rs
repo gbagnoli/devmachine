@@ -114,18 +114,7 @@ pub(super) fn deliver_with_vault(
             activation,
         )?,
         "homeassistant" => {
-            let mut store =
-                skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref());
-            if !skillet_workstation::homeassistant_provisioning::deliver(
-                &args.hostname,
-                args.environment.policy(),
-                &mut store,
-                transport,
-                activation,
-            )? {
-                println!("Home Assistant backup delivery skipped: add the post-onboarding API token to KeePassXC to enable encrypted scheduled backups");
-                return Ok(false);
-            }
+            return deliver_homeassistant_from_vault(args, vault, transport, activation)
         }
         "joplin" => deliver_joplin_from_vault(args, vault, transport, activation)?,
         "gokapi" => skillet_workstation::gokapi_provisioning::deliver(
@@ -176,6 +165,36 @@ pub(super) fn deliver_with_vault(
         _ => return Err(anyhow!("unsupported secret service {}", args.service)),
     }
     Ok(true)
+}
+
+fn deliver_homeassistant_from_vault(
+    args: &SecretDeliverArgs,
+    vault: &mut Vault,
+    transport: &impl GuestTransport,
+    activation: skillet_vm::credential::ActivationPolicy,
+) -> Result<bool> {
+    let policy = args.environment.policy();
+    let zigbee = skillet_workstation::homeassistant_provisioning::deliver_zigbee(
+        &args.hostname,
+        policy,
+        vault,
+        args.key_file.as_deref(),
+        transport,
+        activation,
+    )?;
+    let mut store =
+        skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref());
+    let backup = skillet_workstation::homeassistant_provisioning::deliver(
+        &args.hostname,
+        policy,
+        &mut store,
+        transport,
+        activation,
+    )?;
+    if !backup {
+        println!("Home Assistant backup delivery skipped: add the post-onboarding API token to KeePassXC to enable encrypted scheduled backups");
+    }
+    Ok(zigbee || backup)
 }
 
 fn deliver_media_from_vault(
@@ -371,6 +390,14 @@ fn deliver_caddy_from_vault(
     } else {
         None
     };
+    let zigbee_ui = policy.vault_name() == "prod"
+        && skillet_hosts::profile_for_name(&args.hostname)
+            .is_some_and(|profile| profile.supports_service("homeassistant"))
+        && skillet_workstation::homeassistant_provisioning::zigbee_coordinator(
+            &args.hostname,
+            vault,
+        )?
+        .is_some();
     let cloudflare = skillet_workstation::cloudflare::Cloudflare::new();
     let mut token_store =
         skillet_workstation::vault::VaultSecretStore::new(vault, args.key_file.as_deref());
@@ -385,6 +412,7 @@ fn deliver_caddy_from_vault(
             tailnet_users: &users,
             creator_token: &creator,
             homeassistant_api_token: homeassistant_api_token.as_deref(),
+            zigbee_ui,
         },
         &mut token_store,
         &cloudflare,

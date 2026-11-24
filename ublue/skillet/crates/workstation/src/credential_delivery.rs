@@ -253,7 +253,7 @@ fn ensure_disposable_pihole_for_profile(
     Ok(())
 }
 
-pub(crate) fn remote_credential_present(
+pub fn remote_credential_present(
     host: &str,
     credential: &str,
     guest: &impl GuestTransport,

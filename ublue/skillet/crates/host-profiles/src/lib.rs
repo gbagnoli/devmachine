@@ -63,6 +63,7 @@ fn credential_names_for_phase(profile: &HostProfile, phase: HostApplyPhase) -> V
                     | "skillet-syncthing-initialize.service"
                     | "skillet-syncthing-personal-initialize.service"
                     | skillet_homeassistant::backup::UNIT
+                    | skillet_homeassistant::zigbee::UNIT
                     | skillet_pihole::dns::UNIT
                     | skillet_network::PREPARE_UNIT
                     | "skillet-joplin-apply.service"
@@ -934,10 +935,11 @@ fn apply_caddy_host(
         )?;
     }
     skillet_podman::ensure_network(system, files, &profile.service_network())?;
-    let mut sites = skillet_caddy::CaddySites::parse(
+    let mut sites = skillet_caddy::CaddySites::parse_with_optional(
         credentials.require(CADDY_SITES_CREDENTIAL)?,
         hostname,
         &ui_config.services,
+        profile.zigbee_ui().as_slice(),
     )?;
     project_ui_readiness(&profile, files, &mut sites)?;
     let token = credentials
@@ -987,6 +989,7 @@ fn dashboard_links(
                 "sonarr" => Some("fas fa-tv"),
                 "radarr" => Some("fas fa-film"),
                 "lidarr" => Some("fas fa-music"),
+                "zigbee2mqtt" => Some("fas fa-broadcast-tower"),
                 "sabnzbd" => Some("fas fa-download"),
                 _ => None,
             },

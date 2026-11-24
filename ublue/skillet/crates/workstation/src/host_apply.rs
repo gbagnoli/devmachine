@@ -38,6 +38,9 @@ pub fn temporary_arguments(unit: &str) -> Option<&'static [&'static str]> {
         "skillet-gokapi-apply.service" => {
             Some(&["apply", "--host-file", HOST_FILE, "--phase", "gokapi"])
         }
+        skillet_homeassistant::zigbee::UNIT => {
+            Some(&["homeassistant", "zigbee", "--host-file", HOST_FILE])
+        }
         "skillet-plex-apply.service" => {
             Some(&["apply", "--host-file", HOST_FILE, "--phase", "plex"])
         }
@@ -155,7 +158,10 @@ pub fn steps(profile: &HostProfile) -> Vec<Step> {
         ]);
     }
     if profile.supports_service("homeassistant") {
-        result.push(Step::Stage("homeassistant"));
+        result.extend([
+            Step::Stage("homeassistant"),
+            Step::Activate(skillet_homeassistant::zigbee::UNIT),
+        ]);
     }
     for (service, unit) in [
         ("smtp", "skillet-smtp-apply.service"),

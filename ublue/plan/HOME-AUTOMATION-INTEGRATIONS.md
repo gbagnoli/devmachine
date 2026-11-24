@@ -1,8 +1,10 @@
 # Home automation companions on clamps
 
-Status: planned. Home Assistant Container and its encrypted backup exporter are
-implemented; Mosquitto, Zigbee2MQTT and ESPHome Device Builder are not selected
-or deployed. No physical radio or sensor has been accepted. Follow
+Home Assistant Container and its encrypted backup exporter are implemented.
+Skillet can provision Mosquitto and Zigbee2MQTT when the Home Assistant host has
+a network coordinator entry in KeePassXC. Live radio acceptance, companion
+backups and ESPHome Device Builder remain open. Caddy and Homer include the
+frontend when the coordinator is configured in KeePassXC. Follow
 [the Home Assistant plan](HOME-ASSISTANT.md) for existing work and its pending
 isolated restore rehearsal. This is an optional clamps capability, separate from
 rupik cutover parity.
@@ -56,7 +58,8 @@ and retained messages survive restart/reboot. Apply preserves existing data.
 
 - Add a reusable optional Quadlet with `/app/data` under
   `/var/lib/data/zigbee2mqtt`. Pin a release; map only the selected serial device
-  and required udev information. Keep SELinux enforcing and validate actual
+  and required udev information for USB adapters. Ethernet adapters use the
+  vault-configured TCP endpoint without a device mapping. Keep SELinux enforcing and validate actual
   device access. A missing radio must leave an explicit unconfigured/deferred
   service state, without making the rest of host apply fail.
 - Connect to Mosquitto with its own credential, enable HA MQTT discovery, and

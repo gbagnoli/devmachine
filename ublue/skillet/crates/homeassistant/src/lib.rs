@@ -15,6 +15,7 @@ pub mod backup;
 mod bluetooth;
 mod listener;
 pub mod metrics;
+pub mod zigbee;
 pub const IMAGE: &str = "ghcr.io/home-assistant/home-assistant:stable";
 pub const DATA: &str = "/var/lib/data/homeassistant";
 pub const PORT: u16 = 8123;
@@ -78,6 +79,8 @@ pub enum Error {
     Invalid,
     #[error("Home Assistant API request failed (credentials and response omitted)")]
     Api,
+    #[error("invalid Home Assistant Zigbee coordinator or MQTT credentials")]
+    InvalidZigbee,
 }
 
 pub fn apply<S, F>(system: &S, files: &F, config: Config) -> Result<(), Error>
@@ -183,6 +186,7 @@ where
         },
     )?;
     backup::install(system, files, config)?;
+    zigbee::install(system, files)?;
     Ok(())
 }
 

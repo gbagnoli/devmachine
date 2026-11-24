@@ -178,3 +178,30 @@ broadly; review metric volume and avoid unwanted personal/presence telemetry.
 
 Working Dyson integration on Clamps: `cmgrayb/hass-dyson` (user confirmed).
 The previous `libdyson-wg/ha-dyson` cloud setup failed during OTP completion.
+
+## Network Zigbee coordinator
+
+For a production host with Home Assistant, add
+`skillet/hosts/<host>/network/zigbee2mqtt` in KeePassXC. Set the custom fields
+`adapter` to `zstack`, `address` to the coordinator's IPv4 address, and
+`port` to its serial TCP port. Leave Password empty. The SLZB-06p10U uses
+`zstack` and normally listens on TCP 6638.
+
+Run the normal workstation Skillet apply. It generates distinct MQTT passwords
+in the vault, delivers the configuration encrypted, and applies Mosquitto and
+Zigbee2MQTT. Disconnect any existing Zigbee controller client before the first
+apply. Skillet preserves the persistent Zigbee2MQTT configuration and device
+state on repeat applies.
+
+In Home Assistant, add the built-in MQTT integration. Use broker `127.0.0.1`,
+port `1883`, username `homeassistant`, and Password from
+`skillet/hosts/<host>/homeassistant/mqtt/homeassistant`. MQTT discovery is
+enabled in Zigbee2MQTT. The frontend appears under Home & Infra in Homer
+and at `https://zigbee2mqtt.<host>.<ui-domain>` for authorized tailnet users.
+SSH local forwarding to port 8099 also works for diagnostics.
+
+```sh
+ssh -N -L 8099:127.0.0.1:8099 <host>
+```
+
+Open `http://127.0.0.1:8099` while the tunnel is active.

@@ -362,12 +362,40 @@ impl CaddySites {
     }
 
     pub fn parse(contents: &str, host: &str, services: &[UiService]) -> Result<Self, CaddyError> {
+        Self::parse_with_optional(contents, host, services, &[])
+    }
+
+    pub fn parse_with_optional(
+        contents: &str,
+        host: &str,
+        services: &[UiService],
+        optional: &[UiService],
+    ) -> Result<Self, CaddyError> {
         let sites: Self = serde_json::from_str(contents)?;
         validate_payload_version(&sites)?;
         // A retained pre-public payload may keep the previous private UI alive
         // during deployment. Its canonical names and identity protection remain
         // exact; only a newly delivered v6 payload selects public exposure.
         let mut declarations = services.to_vec();
+        declarations.extend(
+            optional
+                .iter()
+                .filter(|declaration| {
+                    sites
+                        .services
+                        .iter()
+                        .any(|site| site.name == declaration.name)
+                })
+                .cloned(),
+        );
+        Self::validate_against_declarations(sites, host, declarations)
+    }
+
+    fn validate_against_declarations(
+        sites: Self,
+        host: &str,
+        mut declarations: Vec<UiService>,
+    ) -> Result<Self, CaddyError> {
         if sites.version < 10 {
             for service in &mut declarations {
                 service.origin_policy = crate::OriginPolicy::Equivalent;
@@ -446,7 +474,7 @@ impl CaddySites {
             ));
         }
         if sites.homeassistant_api_token.as_ref().is_some_and(|token| {
-            !services
+            !declarations
                 .iter()
                 .any(|service| service.name == "homeassistant")
                 || !skillet_homeassistant::backup::valid_token(token)
@@ -455,7 +483,7 @@ impl CaddySites {
                 "Home Assistant dashboard token is invalid or has no declared service".into(),
             ));
         }
-        Ok(expected)
+        Ok(sites)
     }
 
     pub fn needs_identity_gate(&self) -> bool {

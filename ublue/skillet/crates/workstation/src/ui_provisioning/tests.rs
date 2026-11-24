@@ -320,6 +320,7 @@ fn persistent_request() -> PersistentUiDelivery<'static> {
         tailnet_users: test_users(),
         creator_token: "dummy creator token",
         homeassistant_api_token: None,
+        zigbee_ui: false,
     }
 }
 
@@ -623,6 +624,55 @@ fn persistent_ui_reuses_token_and_defers_caddy_until_credential_set_is_installed
     assert_eq!(
         calls[2].0.last().map(String::as_str),
         Some("skillet-caddy-apply.service")
+    );
+}
+
+#[test]
+fn configured_zigbee_ui_adds_only_a_private_loopback_site() {
+    let run = tempfile::tempdir().unwrap();
+    let provider = fake_cloudflare(run.path(), false);
+    let mut request = persistent_request();
+    request.zigbee_ui = true;
+    let sites = deliver_persistent_ui(
+        &request,
+        &mut FakeTokenStore::default(),
+        &provider,
+        &FakeTailnet,
+        &FakeGuest::default(),
+        skillet_vm::credential::ActivationPolicy::DeferConsumer,
+    )
+    .unwrap();
+    let site = sites
+        .services
+        .iter()
+        .find(|site| site.name == "zigbee2mqtt")
+        .unwrap();
+    assert_eq!(site.hostname, "zigbee2mqtt.clamps.ui.example.invalid");
+    assert_eq!(site.access, skillet_caddy::SiteAccess::Tailnet);
+    assert!(site.tailnet_identity);
+    assert_eq!(
+        site.transport,
+        skillet_caddy::UpstreamTransport::HostLoopback
+    );
+    let desired = cloudflare::desired_records_for_environment(
+        &sites.machine_hostname,
+        &addresses(),
+        &sites,
+        &[],
+        Environment::Production,
+    )
+    .unwrap();
+    assert!(desired.iter().any(|record| {
+        record.name == site.hostname && record.content == sites.machine_hostname
+    }));
+    let profile = skillet_hosts::profile_for_name("clamps").unwrap();
+    let payload = serde_json::to_string(&sites).unwrap();
+    let optional = profile.zigbee_ui().unwrap();
+    assert!(CaddySites::parse(&payload, "clamps", &profile.ui_services()).is_err());
+    assert_eq!(
+        CaddySites::parse_with_optional(&payload, "clamps", &profile.ui_services(), &[optional])
+            .unwrap(),
+        sites,
     );
 }
 

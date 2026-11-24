@@ -239,6 +239,15 @@ impl<T: GuestTransport> host_apply::Actions for Runner<'_, T> {
     }
 
     fn activate(&mut self, unit: &'static str) -> Result<()> {
+        if unit == skillet_homeassistant::zigbee::UNIT
+            && !skillet_workstation::credential_delivery::remote_credential_present(
+                &self.delivery.hostname,
+                skillet_homeassistant::zigbee::CREDENTIAL,
+                self.transport,
+            )?
+        {
+            return Ok(());
+        }
         println!("Applying {unit}");
         if let Some(token) = &self.temporary_token {
             let binary = self

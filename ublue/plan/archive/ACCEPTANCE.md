@@ -5509,3 +5509,23 @@ Evidence is in the owned run's `fallback-acceptance/prearmed-power-cut.log`.
 The test prepared the guard directly and used two deployment serials of one
 signed OCI image. Automatic arming and completion across two distinct signed
 images containing the new boot assets and worker remain open.
+
+
+### 2026-11-24 — Home Assistant network Zigbee companion
+
+Workspace tests passed, including a repeat apply that preserved the existing
+Zigbee2MQTT configuration. Local Podman tests verified that Mosquitto accepts
+the two configured identities, rejects anonymous access and an out-of-scope
+publish, and restores a retained discovery message after restart. Zigbee2MQTT
+loaded its configuration and Podman secret and tried the expected dummy TCP
+endpoint. Its persisted configuration retained the secret reference. Physical
+radio startup, pairing and Home Assistant discovery remain pending.
+
+### 2026-11-25 — Private Zigbee2MQTT frontend
+
+The workstation test verified that the optional Zigbee site targets the host's
+tailnet DNS name and requires verified tailnet identity. A local Caddy
+container accepted a WebSocket upgrade with a matching origin and an authorized
+identity, and returned 403 for a mismatched origin or denied identity. The
+fixture used an HTTP authorization stub and a loopback backend. Live tailnet
+access and certificate issuance on Clamps remain unverified.
