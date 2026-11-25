@@ -1,6 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
+version="${1:-patch}"
+stable_version='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+if (( $# > 1 )) || [[ $version != patch && $version != minor && $version != major && ! $version =~ $stable_version ]]; then
+    printf 'Usage: %s [patch|minor|major|MAJOR.MINOR.PATCH]\n' "$0" >&2
+    exit 2
+fi
+
 script_dir="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 pushd "$script_dir" &>/dev/null
 
@@ -8,4 +15,4 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace --all-targets
 
 git push
-cargo release patch --workspace --isolated --config release.toml --no-publish --push --execute
+cargo release "$version" --workspace --isolated --config release.toml --no-publish --push --execute

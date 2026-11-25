@@ -4,19 +4,21 @@ Run commands from `ublue/skillet` on a clean `master` checkout with Cargo,
 Git and cargo-release available on PATH. No exact cargo-release version is required.
 
 ```sh
-./release
+./release         # Next patch
+./release minor   # Next minor
+./release 0.2.0   # Exact stable version
 ```
 
 The script runs workspace Clippy with warnings denied, then all workspace unit
 tests. A failure stops it before `git push` or `cargo release`. Cargo-release
-performs the patch bump, release commit, annotated tag and push; it does not
-publish crates. The script installs nothing. CI runs the full validation suite
+performs the selected version bump, creates the release commit and annotated
+tag, and pushes them. It does not publish crates. The script installs nothing. CI runs the full validation suite
 and publishes the source release, then proposes and merges the ucore-images update.
 
-For a preview or a different version, invoke cargo-release directly:
+For a preview, invoke cargo-release directly without `--execute`:
 
 ```sh
-cargo release minor --workspace --isolated --config release.toml --no-publish --no-push
+cargo release 0.2.0 --workspace --isolated --config release.toml --no-publish --no-push
 ```
 
 Before publishing the first release, enable release immutability in GitHub.
