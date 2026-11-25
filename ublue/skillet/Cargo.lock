@@ -3567,7 +3567,7 @@ checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
 
 [[package]]
 name = "skillet"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -3600,7 +3600,7 @@ dependencies = [
 
 [[package]]
 name = "skillet-clamps"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "skillet_cli_common",
@@ -3613,7 +3613,7 @@ dependencies = [
 
 [[package]]
 name = "skillet-donbot"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "skillet_cli_common",
@@ -3621,7 +3621,7 @@ dependencies = [
 
 [[package]]
 name = "skillet-joey"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "skillet_cli_common",
@@ -3629,7 +3629,7 @@ dependencies = [
 
 [[package]]
 name = "skillet-smoke-fixture"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "skillet_cli_common",
@@ -3640,7 +3640,7 @@ dependencies = [
 
 [[package]]
 name = "skillet-sudo-askpass"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "thiserror 1.0.69",
  "zeroize",
@@ -3648,7 +3648,7 @@ dependencies = [
 
 [[package]]
 name = "skillet-unifi-ready"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "clap",
  "reqwest",
@@ -3659,7 +3659,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_airtrail"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "nix",
  "serde",
@@ -3672,7 +3672,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_btrbk"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "hex",
  "sha2 0.10.9",
@@ -3682,7 +3682,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_caddy"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "reqwest",
  "serde",
@@ -3700,7 +3700,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_cli_common"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "clap",
  "gix",
@@ -3736,7 +3736,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_core"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "askama",
  "hex",
@@ -3756,7 +3756,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_datadog"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3769,7 +3769,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_ddns"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3781,7 +3781,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_filebrowser"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "hex",
  "reqwest",
@@ -3796,7 +3796,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_gokapi"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3813,7 +3813,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_hardening"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "hex",
  "sha2 0.10.9",
@@ -3825,7 +3825,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_homeassistant"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3847,7 +3847,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_homer"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "serde",
  "skillet_core",
@@ -3859,7 +3859,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_hosts"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3892,7 +3892,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_jellyfin"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "quick-xml",
  "serde_json",
@@ -3905,7 +3905,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_joplin"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "skillet_core",
  "skillet_podman",
@@ -3915,7 +3915,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_kexec"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "clap",
  "nix",
@@ -3929,7 +3929,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_media"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "quick-xml",
  "reqwest",
@@ -3944,7 +3944,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_network"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3955,7 +3955,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_nut"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "sha2 0.10.9",
  "skillet_core",
@@ -3967,7 +3967,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_pihole"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "reqwest",
  "serde",
@@ -3985,7 +3985,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_plex"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "quick-xml",
  "skillet_core",
@@ -3997,7 +3997,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_podman"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "askama",
  "hex",
@@ -4010,7 +4010,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_postgres"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "nix",
  "skillet_core",
@@ -4021,7 +4021,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_sabnzbd"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "serde_json",
  "skillet_core",
@@ -4033,7 +4033,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_smtp"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "askama",
  "hex",
@@ -4046,7 +4046,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_syncthing"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "quick-xml",
  "serde",
@@ -4061,7 +4061,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_unifi"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "nix",
  "sha2 0.10.9",
@@ -4075,7 +4075,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_vm"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "hex",
  "nix",
@@ -4093,7 +4093,7 @@ dependencies = [
 
 [[package]]
 name = "skillet_workstation"
-version = "0.1.14"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "cloudflare",
