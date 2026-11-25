@@ -119,6 +119,9 @@ enum Commands {
         #[command(subcommand)]
         command: SecretCommands,
     },
+    /// Stage a guest credential batch using the temporary apply runner.
+    #[command(hide = true)]
+    CredentialBatch { unit: String },
     /// Apply locally, or deliver credentials and apply all declared services over SSH
     Apply(apply::Args),
     /// Run the real-runtime smoke scenario against a disposable VM
@@ -441,6 +444,9 @@ fn main() -> Result<()> {
         .context("setting default subscriber failed")?;
 
     match args.command {
+        Commands::CredentialBatch { unit } => {
+            skillet_core::credential_install::install_batch(&unit, false)?;
+        }
         Commands::Image {
             host,
             source_revision,
@@ -963,7 +969,12 @@ fn application_snapshot_with_probe_timeout(
             snapshot.push(check_container(transport, service, container)?);
         }
         for listener in &service.listeners {
-            check_listener(transport, *listener, probe_timeout)?;
+            check_listener(
+                transport,
+                service.container.as_deref(),
+                *listener,
+                probe_timeout,
+            )?;
             snapshot.push(format!(
                 "listener:{:?}:{}",
                 listener.protocol, listener.port
@@ -1103,6 +1114,7 @@ fn check_container(
 
 fn check_listener(
     transport: &impl skillet_vm::transport::GuestTransport,
+    container: Option<&str>,
     listener: skillet_hosts::AcceptanceListener,
     timeout: std::time::Duration,
 ) -> Result<()> {
@@ -1120,7 +1132,9 @@ fn check_listener(
             "sudo",
             &["-n", "ss", "-H", protocol, "sport", "=", &port],
         )?;
-        if !listening.is_empty() {
+        if !listening.is_empty()
+            || container.is_some_and(|name| published_listener_ready(transport, name, listener))
+        {
             return Ok(());
         }
         if Instant::now() >= deadline {
@@ -1131,6 +1145,89 @@ fn check_listener(
         }
         std::thread::sleep(Duration::from_secs(2));
     }
+}
+
+// Podman can publish a port via nftables DNAT without opening a host socket.
+fn published_listener_ready(
+    transport: &impl skillet_vm::transport::GuestTransport,
+    container: &str,
+    listener: skillet_hosts::AcceptanceListener,
+) -> bool {
+    use skillet_hosts::ListenerProtocol;
+    let (protocol, flags) = match listener.protocol {
+        ListenerProtocol::Tcp => ("tcp", "-lnt"),
+        ListenerProtocol::Udp => ("udp", "-lnu"),
+    };
+    let probe = || -> Result<bool> {
+        let published = guest_text(transport, "sudo", &["-n", "podman", "port", container])?;
+        let Some(port) = published.lines().find_map(|line| {
+            let (source, destination) = line.split_once(" -> ")?;
+            let (port, kind) = source.split_once('/')?;
+            let (_, host_port) = destination.rsplit_once(':')?;
+            (kind == protocol && host_port.parse::<u16>().ok()? == listener.port)
+                .then_some(port.parse::<u16>().ok()?)
+        }) else {
+            return Ok(false);
+        };
+        let pid = guest_text(
+            transport,
+            "sudo",
+            &[
+                "-n",
+                "podman",
+                "inspect",
+                "--format",
+                "{{.State.Pid}}",
+                container,
+            ],
+        )?
+        .parse::<std::num::NonZeroU32>()?
+        .to_string();
+        let bound = guest_text(
+            transport,
+            "sudo",
+            &[
+                "-n",
+                "nsenter",
+                "--target",
+                &pid,
+                "--net",
+                "ss",
+                "-H",
+                flags,
+                "sport",
+                "=",
+                &format!(":{port}"),
+            ],
+        )?;
+        Ok(!bound.is_empty())
+    };
+    probe().unwrap_or(false)
+}
+
+fn check_homeassistant_health(
+    transport: &impl skillet_vm::transport::GuestTransport,
+) -> Result<Option<String>> {
+    smoke_guest_command(
+        transport,
+        "curl",
+        &[
+            "--fail",
+            "--silent",
+            "--retry",
+            "55",
+            "--retry-connrefused",
+            "--retry-delay",
+            "2",
+            "--retry-max-time",
+            "110",
+            "--max-time",
+            "10",
+            "http://127.0.0.1:8123/manifest.json",
+        ],
+    )
+    .context("waiting for the Home Assistant HTTP endpoint")?;
+    Ok(Some("health:homeassistant:running".into()))
 }
 
 fn check_health(
@@ -1185,20 +1282,7 @@ fn check_health(
             )?;
             Ok(Some("health:media:connections-passed".into()))
         }
-        Some(HealthProbe::Homeassistant) => {
-            smoke_guest_command(
-                transport,
-                "curl",
-                &[
-                    "--fail",
-                    "--silent",
-                    "--max-time",
-                    "10",
-                    "http://127.0.0.1:8123/manifest.json",
-                ],
-            )?;
-            Ok(Some("health:homeassistant:running".into()))
-        }
+        Some(HealthProbe::Homeassistant) => check_homeassistant_health(transport),
         Some(HealthProbe::FileBrowser) => check_filebrowser_health(transport),
         Some(HealthProbe::Pihole) => {
             smoke_guest_command(

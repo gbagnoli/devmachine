@@ -6,6 +6,7 @@ use skillet_vm::transport::{GuestCommand, GuestTransport};
 pub enum Step {
     Stage(&'static str),
     Activate(&'static str),
+    TailnetReady,
 }
 
 /// Exact generic CLI arguments for every unit activated by remote apply. The
@@ -90,97 +91,197 @@ pub fn temporary_dependency(unit: &str) -> Option<(&'static str, &'static [&'sta
 /// defer consumer activation; each related set is complete before its start.
 pub trait Actions {
     type Error;
-    fn stage(&mut self, service: &'static str) -> Result<(), Self::Error>;
+    fn stage(&mut self, services: &[&'static str]) -> Result<(), Self::Error>;
     fn activate(&mut self, unit: &'static str) -> Result<(), Self::Error>;
+    fn wait_for_tailnet(&mut self) -> Result<(), Self::Error>;
 }
 
-pub fn steps(profile: &HostProfile) -> Vec<Step> {
-    let mut result = vec![Step::Activate("skillet-apply.service")];
+const BASE: Step = Step::Activate("skillet-apply.service");
+const FULL: Step = Step::Activate("skillet-full-apply.service");
+const CADDY: Step = Step::Activate("skillet-caddy-apply.service");
+
+struct Node {
+    step: Step,
+    requires: Vec<Step>,
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("apply dependencies cannot be satisfied for {0:?}")]
+pub struct PlanError(Step);
+
+fn schedule(mut pending: Vec<Node>) -> Result<Vec<Step>, PlanError> {
+    let mut ready = Vec::with_capacity(pending.len());
+    while let Some(first) = pending.first() {
+        let next = pending
+            .iter()
+            .enumerate()
+            .filter(|(_, node)| node.requires.iter().all(|step| ready.contains(step)))
+            .min_by_key(|(_, node)| !matches!(node.step, Step::Stage(_)))
+            .map(|(index, _)| index)
+            .ok_or(PlanError(first.step))?;
+        ready.push(pending.remove(next).step);
+    }
+    Ok(ready)
+}
+
+pub fn steps(profile: &HostProfile) -> Result<Vec<Step>, PlanError> {
+    let mut nodes = vec![Node {
+        step: BASE,
+        requires: vec![],
+    }];
+    let mut full_requires = vec![BASE];
     for service in ["pihole", "tailscale"] {
         if profile.services.iter().any(|declaration| {
             declaration.name() == service
                 && declaration
                     .credential_consumers()
                     .iter()
-                    .any(|c| c.unit != skillet_pihole::dns::UNIT)
+                    .any(|consumer| consumer.unit != skillet_pihole::dns::UNIT)
         }) {
-            result.push(Step::Stage(service));
+            let step = Step::Stage(service);
+            nodes.push(Node {
+                step,
+                requires: vec![BASE],
+            });
+            full_requires.push(step);
         }
     }
     if profile.supports_service("syncthing") {
-        result.push(Step::Stage("syncthing"));
+        let stage = Step::Stage("syncthing");
+        nodes.push(Node {
+            step: stage,
+            requires: vec![BASE],
+        });
         for service in &profile.services {
             if let skillet_hosts::ServiceConfig::Syncthing { instance, .. } = service.config {
-                result.push(Step::Activate(instance.initial_unit()));
+                let step = Step::Activate(instance.initial_unit());
+                nodes.push(Node {
+                    step,
+                    requires: vec![stage],
+                });
+                full_requires.push(step);
             }
         }
     }
-    result.push(Step::Activate("skillet-full-apply.service"));
-    if profile.supports_service("pihole") {
-        result.extend([
-            Step::Stage("pihole-dns"),
-            Step::Activate(skillet_pihole::dns::UNIT),
-        ]);
+    nodes.push(Node {
+        step: FULL,
+        requires: full_requires,
+    });
+    let has_caddy = !profile.ui_services().is_empty();
+    if has_caddy {
+        let readiness = if profile.supports_service("tailscale") {
+            nodes.push(Node {
+                step: Step::TailnetReady,
+                requires: vec![FULL],
+            });
+            Step::TailnetReady
+        } else {
+            FULL
+        };
+        let stage = Step::Stage("caddy");
+        nodes.push(Node {
+            step: stage,
+            requires: vec![readiness],
+        });
+        nodes.push(Node {
+            step: CADDY,
+            requires: vec![stage],
+        });
     }
-    // UI DNS needs the enrolled device addresses. Monitoring is last so all
-    // selected workloads have been activated before the Agent discovers them.
-    if !profile.ui_services().is_empty() {
-        result.extend([
-            Step::Stage("caddy"),
-            Step::Activate("skillet-caddy-apply.service"),
-        ]);
-    }
-    if profile.supports_service("gokapi") {
-        result.extend([
-            Step::Stage("gokapi"),
-            Step::Activate("skillet-gokapi-apply.service"),
-        ]);
-    }
-    if profile.supports_service("plex") {
-        result.push(Step::Activate("skillet-plex-apply.service"));
-    }
-    if profile.supports_service("joplin") {
-        result.extend([
-            Step::Stage("joplin"),
-            Step::Activate("skillet-joplin-apply.service"),
-        ]);
-    }
-    if profile.supports_service("airtrail") {
-        result.extend([
-            Step::Stage("airtrail"),
-            Step::Activate("skillet-airtrail-apply.service"),
-        ]);
-    }
-    if profile.supports_service("media") {
-        result.extend([
-            Step::Stage("media"),
-            Step::Activate("skillet-media-apply.service"),
-        ]);
-    }
-    if profile.supports_service("homeassistant") {
-        result.extend([
-            Step::Stage("homeassistant"),
-            Step::Activate(skillet_homeassistant::zigbee::UNIT),
-        ]);
-    }
-    for (service, unit) in [
-        ("smtp", "skillet-smtp-apply.service"),
-        ("ddns", "skillet-ddns-apply.service"),
-        ("network", "skillet-network-prepare.service"),
-        ("datadog", "skillet-datadog-apply.service"),
-    ] {
-        if profile.supports_production_service(service) {
-            result.extend([Step::Stage(service), Step::Activate(unit)]);
-        }
-    }
-    result
+
+    add_service_nodes(profile, &mut nodes, has_caddy);
+    schedule(nodes)
 }
 
-pub fn run<A: Actions>(profile: &HostProfile, actions: &mut A) -> Result<(), A::Error> {
-    for step in steps(profile) {
+fn add_service_nodes(profile: &HostProfile, nodes: &mut Vec<Node>, has_caddy: bool) {
+    for (service, unit, stages, uses_caddy, production_only) in [
+        ("pihole", skillet_pihole::dns::UNIT, true, false, false),
+        ("gokapi", "skillet-gokapi-apply.service", true, true, false),
+        ("plex", "skillet-plex-apply.service", false, true, false),
+        ("joplin", "skillet-joplin-apply.service", true, true, false),
+        (
+            "airtrail",
+            "skillet-airtrail-apply.service",
+            true,
+            true,
+            false,
+        ),
+        ("media", "skillet-media-apply.service", true, true, false),
+        (
+            "homeassistant",
+            skillet_homeassistant::zigbee::UNIT,
+            true,
+            false,
+            false,
+        ),
+        ("smtp", "skillet-smtp-apply.service", true, false, true),
+        ("ddns", "skillet-ddns-apply.service", true, false, true),
+        (
+            "network",
+            "skillet-network-prepare.service",
+            true,
+            false,
+            true,
+        ),
+        (
+            "datadog",
+            "skillet-datadog-apply.service",
+            true,
+            false,
+            true,
+        ),
+    ] {
+        let selected = if production_only {
+            profile.supports_production_service(service)
+        } else {
+            profile.supports_service(service)
+        };
+        if !selected {
+            continue;
+        }
+        let mut requires = vec![FULL];
+        if uses_caddy && has_caddy {
+            requires.push(CADDY);
+        }
+        if service == "datadog" {
+            requires.extend(nodes.iter().filter_map(|node| match node.step {
+                Step::Activate(_) => Some(node.step),
+                _ => None,
+            }));
+        }
+        if stages {
+            let stage = Step::Stage(if service == "pihole" {
+                "pihole-dns"
+            } else {
+                service
+            });
+            nodes.push(Node {
+                step: stage,
+                requires: vec![BASE],
+            });
+            requires.push(stage);
+        }
+        nodes.push(Node {
+            step: Step::Activate(unit),
+            requires,
+        });
+    }
+}
+
+pub fn run<A: Actions>(plan: &[Step], actions: &mut A) -> Result<(), A::Error> {
+    let mut steps = plan.iter().copied().peekable();
+    while let Some(step) = steps.next() {
         match step {
-            Step::Stage(service) => actions.stage(service)?,
+            Step::Stage(service) => {
+                let mut batch = vec![service];
+                while let Some(Step::Stage(service)) = steps.peek().copied() {
+                    steps.next();
+                    batch.push(service);
+                }
+                actions.stage(&batch)?;
+            }
             Step::Activate(unit) => actions.activate(unit)?,
+            Step::TailnetReady => actions.wait_for_tailnet()?,
         }
     }
     Ok(())

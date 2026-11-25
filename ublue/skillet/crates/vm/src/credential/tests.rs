@@ -1,4 +1,4 @@
-use super::{install, install_set, ActivationPolicy};
+use super::{install, install_set, ActivationPolicy, Deferred};
 use crate::{
     transport::{GuestCommand, GuestTransport},
     Error, Result,
@@ -84,7 +84,7 @@ fn rejects_invalid_names_and_empty_payload_before_transport() {
 }
 
 #[test]
-fn credential_set_validates_all_entries_then_defers_each_install() {
+fn credential_set_validates_all_entries_then_sends_one_deferred_batch() {
     let transport = FakeTransport::default();
     install_set(
         &transport,
@@ -98,12 +98,16 @@ fn credential_set_validates_all_entries_then_defers_each_install() {
     )
     .unwrap();
     let calls = transport.calls.lock().unwrap();
-    assert_eq!(calls.len(), 2);
-    assert!(calls
-        .iter()
-        .all(|call| call.1.last().map(String::as_str) == Some("--no-start")));
-    assert_eq!(calls[0].2.as_deref(), Some(b"sites payload".as_slice()));
-    assert_eq!(calls[1].2.as_deref(), Some(b"token payload".as_slice()));
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].1.last().map(String::as_str), Some("--no-start"));
+    assert!(calls[0].1.iter().any(|arg| arg == "install-batch"));
+    let values: Vec<(String, Vec<u8>)> =
+        serde_json::from_slice(calls[0].2.as_deref().unwrap()).unwrap();
+    assert_eq!(values[0], ("caddy_sites".into(), b"sites payload".to_vec()));
+    assert_eq!(
+        values[1],
+        ("cloudflare_acme_token".into(), b"token payload".to_vec())
+    );
 }
 
 #[test]
@@ -145,4 +149,38 @@ fn reports_guest_failure_without_exposing_payload() {
     .unwrap_err();
     assert!(error.to_string().contains("credential installation"));
     assert!(!error.to_string().contains("private value"));
+}
+
+#[test]
+fn wave_sends_deferred_credentials_for_multiple_consumers_in_one_call() {
+    let transport = FakeTransport::default();
+    let wave = Deferred::new(&transport, "clamps");
+    for (name, unit) in [
+        ("smtp_config", "smtp.service"),
+        ("zigbee", "zigbee.service"),
+    ] {
+        install(
+            &wave,
+            "clamps",
+            name,
+            unit,
+            ActivationPolicy::DeferConsumer,
+            b"test",
+        )
+        .unwrap();
+    }
+    assert!(transport.calls.lock().unwrap().is_empty());
+    wave.flush().unwrap();
+    let calls = transport.calls.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].1.last().map(String::as_str), Some("--no-start"));
+    let values: Vec<(String, Vec<u8>)> =
+        serde_json::from_slice(calls[0].2.as_deref().unwrap()).unwrap();
+    assert_eq!(
+        values
+            .iter()
+            .map(|value| value.0.as_str())
+            .collect::<Vec<_>>(),
+        ["smtp_config", "zigbee"]
+    );
 }

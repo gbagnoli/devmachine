@@ -201,6 +201,7 @@ pub fn cleanup_temporary_runner(
     let profile = skillet_hosts::profile_for_name(&runner.host)
         .ok_or_else(|| VmError::Invalid("temporary apply host profile disappeared".into()))?;
     let units = crate::host_apply::steps(&profile)
+        .map_err(|error| VmError::Invalid(error.to_string()))?
         .into_iter()
         .filter_map(|step| {
             if let crate::host_apply::Step::Activate(unit) = step {

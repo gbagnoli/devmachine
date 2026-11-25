@@ -612,17 +612,10 @@ fn persistent_ui_reuses_token_and_defers_caddy_until_credential_set_is_installed
     assert_eq!(cloudflare.issued.get(), 0);
     assert_eq!(cloudflare.reconciled.get(), 1);
     let calls = guest.calls.lock().unwrap();
-    assert_eq!(calls.len(), 3);
-    assert!(calls[0]
-        .1
-        .as_ref()
-        .is_some_and(|bytes| { serde_json::from_slice::<CaddySites>(bytes).is_ok() }));
+    assert_eq!(calls.len(), 2);
+    assert_caddy_batch(calls[0].1.as_deref().unwrap(), b"existing ACME token");
     assert_eq!(
-        calls[1].1.as_deref(),
-        Some(b"existing ACME token".as_slice())
-    );
-    assert_eq!(
-        calls[2].0.last().map(String::as_str),
+        calls[1].0.last().map(String::as_str),
         Some("skillet-caddy-apply.service")
     );
 }
@@ -799,11 +792,7 @@ fn disposable_ui_delivery_installs_both_inputs_activates_probes_all_names_then_r
     .unwrap();
 
     let calls = guest.calls.lock().unwrap();
-    assert!(serde_json::from_slice::<CaddySites>(calls[0].1.as_deref().unwrap()).is_ok());
-    assert_eq!(
-        calls[1].1.as_deref(),
-        Some(b"disposable ACME token".as_slice())
-    );
+    assert_caddy_batch(calls[0].1.as_deref().unwrap(), b"disposable ACME token");
     assert!(calls.iter().any(|call| {
         call.0
             .first()
@@ -865,7 +854,7 @@ fn persistent_ui_can_stage_complete_inputs_without_starting_caddy() {
     )
     .unwrap();
     let calls = guest.calls.lock().unwrap();
-    assert_eq!(calls.len(), 2);
+    assert_eq!(calls.len(), 1);
     for (arguments, input) in calls.iter() {
         assert!(arguments.iter().any(|arg| arg == "--no-start"));
         assert!(!arguments.iter().any(|arg| arg == "systemctl"));
@@ -1023,4 +1012,13 @@ fn jellyfin_public_probe_checks_both_names_and_rejects_proxy_denial_or_native_by
             );
         }
     }
+}
+
+fn assert_caddy_batch(payload: &[u8], expected_token: &[u8]) {
+    let values: Vec<(String, Vec<u8>)> = serde_json::from_slice(payload).unwrap();
+    assert_eq!(values.len(), 2);
+    assert_eq!(values[0].0, "caddy_sites");
+    assert!(serde_json::from_slice::<CaddySites>(&values[0].1).is_ok());
+    assert_eq!(values[1].0, "cloudflare_acme_token");
+    assert_eq!(values[1].1, expected_token);
 }

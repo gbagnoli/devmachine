@@ -37,6 +37,16 @@ pub struct GuestCommand<'a> {
 }
 
 pub trait GuestTransport {
+    fn stage_credentials(&self, host: &str, unit: &str, values: &[(&str, &[u8])]) -> Result<()> {
+        crate::credential::send_set(
+            self,
+            host,
+            unit,
+            crate::credential::ActivationPolicy::DeferConsumer,
+            values,
+        )
+    }
+
     fn execute(&self, command: &GuestCommand<'_>, input: Option<&[u8]>) -> Result<Output>;
     fn upload(&self, source: &Path, destination: &str) -> Result<()>;
 }

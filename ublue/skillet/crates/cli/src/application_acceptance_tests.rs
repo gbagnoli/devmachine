@@ -11,6 +11,7 @@ struct AcceptanceTransport {
     active: bool,
     network: String,
     missing_listener: Option<u16>,
+    published_listener: bool,
     owner: String,
     container_id: String,
 }
@@ -21,6 +22,16 @@ impl GuestTransport for AcceptanceTransport {
         let output = match (request.program, arguments) {
             ("systemctl", ["is-active", _]) if self.active => b"active\n".to_vec(),
             ("systemctl", ["is-active", _]) => b"inactive\n".to_vec(),
+            ("sudo", ["-n", "podman", "port", "syncthing"]) if self.published_listener => {
+                b"22001/tcp -> 0.0.0.0:22000\n22001/udp -> 0.0.0.0:22000\n".to_vec()
+            }
+            ("sudo", ["-n", "podman", "inspect", "--format", "{{.State.Pid}}", "syncthing"]) => {
+                b"1234\n".to_vec()
+            }
+            (
+                "sudo",
+                ["-n", "nsenter", "--target", "1234", "--net", "ss", "-H", "-lnt" | "-lnu", "sport", "=", ":22001"],
+            ) if self.published_listener => b"socket at container port\n".to_vec(),
             ("sudo", ["-n", "podman", "inspect", "--format", _, container]) => {
                 let network = if *container == "syncthing" {
                     format!("{}-syncthing", self.network)
@@ -62,6 +73,7 @@ fn transport() -> AcceptanceTransport {
         active: true,
         network: "joey".into(),
         missing_listener: None,
+        published_listener: false,
         owner: "1042:2047".into(),
         container_id: "container-id".into(),
     }
@@ -125,6 +137,20 @@ fn application_snapshot_rejects_wrong_network_and_missing_listener() {
     .unwrap_err()
     .to_string()
     .contains("listener"));
+}
+
+#[test]
+fn application_snapshot_accepts_published_port_with_a_listener_in_the_container_namespace() {
+    let mut fake = transport();
+    fake.missing_listener = Some(22000);
+    fake.published_listener = true;
+    application_snapshot_with_probe_timeout(
+        &fake,
+        &|| Ok(()),
+        &syncthing_ui_plan(),
+        std::time::Duration::ZERO,
+    )
+    .unwrap();
 }
 
 #[test]

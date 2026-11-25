@@ -167,6 +167,12 @@ pub enum BtrbkCommands {
 
 #[derive(clap::Subcommand, Debug)]
 pub enum CredentialCommands {
+    /// Encrypt and install a related credential set from JSON on stdin
+    InstallBatch {
+        unit: String,
+        #[arg(long)]
+        no_start: bool,
+    },
     /// Print `present` if a host credential or Podman secret exists, otherwise `absent`
     State { name: String },
     /// Encrypt stdin for this host, install it, and start the consuming unit
@@ -249,6 +255,9 @@ where
         }
         HostCommands::Credential { command } => {
             match command {
+                CredentialCommands::InstallBatch { unit, no_start } => {
+                    skillet_core::credential_install::install_batch(&unit, !no_start)?;
+                }
                 CredentialCommands::State { name } => {
                     println!("{}", skillet_core::credential_install::state(&name)?);
                 }

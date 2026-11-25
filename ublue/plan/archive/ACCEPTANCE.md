@@ -5555,3 +5555,30 @@ container accepted a WebSocket upgrade with a matching origin and an authorized
 identity, and returned 403 for a mismatched origin or denied identity. The
 fixture used an HTTP authorization stub and a loopback backend. Live tailnet
 access and certificate issuance on Clamps remain unverified.
+
+### 2026-11-25 — Apply dependencies and encrypted staging
+
+The planner tests cover dependency ordering, cycles and failure propagation.
+The transport test verified that a wave with distinct consumers sends a single
+deferred guest command. On the fresh `clamps-test-apply-graph` VM, the temporary
+runner encrypted two synthetic credentials in one call. Both decrypted to the
+expected values, and a repeat call preserved their ciphertext. The fixture
+removed the synthetic entries. Workspace tests and pedantic Clippy passed.
+
+The same VM completed provisioning and repeat provisioning with the same
+Tailscale device ID. The passt interface inherited a public IPv4 address, so
+the test added a dedicated private subnet to exercise the UniFi LAN firewall
+rule and expanded the disposable disk for application images. The first
+application smoke run passed its reboot fixtures but missed Pi-hole TCP/53
+because Podman published it through DNAT. Direct DNS queries on TCP and UDP
+both succeeded. The updated probe checks the Podman mapping and the listener
+inside the container network namespace when no matching host socket exists.
+
+The VM then provisioned disposable UI credentials and completed application
+smoke across another reboot and repeat apply. The Home Assistant probe now
+allows a bounded HTTP startup delay after its container reports active.
+Pi-hole, Tailscale, Syncthing, Home Assistant, UniFi, btrbk, File Browser,
+Homer, Caddy and the tailnet identity service passed. The VM returned to Ready.
+Evidence is in the owned run's `application-smoke-health-retry.log`. The
+workstation graph and cross-service collection are covered by local tests.
+The guest batch command and disposable Caddy delivery were exercised live.

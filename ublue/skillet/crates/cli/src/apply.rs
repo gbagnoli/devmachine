@@ -180,21 +180,23 @@ fn apply_remote_services<T: GuestTransport>(
             );
         }
     }
-    let apply_result = host_apply::run(
-        profile,
-        &mut Runner {
-            delivery,
-            vault,
-            transport,
-            temporary_binary: temporary_runner
-                .as_ref()
-                .map(|runner| runner.path().to_owned()),
-            temporary_token: temporary_runner
-                .as_ref()
-                .map(|runner| runner.token().to_owned()),
-            wait_for_tailscale: profile.supports_service("tailscale"),
-        },
-    );
+    let plan = host_apply::steps(profile);
+    let apply_result = plan.map_err(anyhow::Error::from).and_then(|plan| {
+        host_apply::run(
+            &plan,
+            &mut Runner {
+                delivery,
+                vault,
+                transport,
+                temporary_binary: temporary_runner
+                    .as_ref()
+                    .map(|runner| runner.path().to_owned()),
+                temporary_token: temporary_runner
+                    .as_ref()
+                    .map(|runner| runner.token().to_owned()),
+            },
+        )
+    });
     let cleanup_result = temporary_runner
         .as_ref()
         .map(|runner| skillet_workstation::deployment::cleanup_temporary_runner(runner, transport));
@@ -215,27 +217,35 @@ struct Runner<'a, T: GuestTransport> {
     transport: &'a T,
     temporary_binary: Option<String>,
     temporary_token: Option<String>,
-    wait_for_tailscale: bool,
 }
 
 impl<T: GuestTransport> host_apply::Actions for Runner<'_, T> {
     type Error = anyhow::Error;
 
-    fn stage(&mut self, service: &'static str) -> Result<()> {
-        self.delivery.service = service.into();
-        if service == "tailscale"
-            && skillet_workstation::credential_delivery::tailscale_credential_present(
-                &self.delivery.hostname,
-                self.transport,
-            )?
-        {
-            println!("Reusing installed Tailscale enrollment credential");
-            return Ok(());
+    fn stage(&mut self, services: &[&'static str]) -> Result<()> {
+        let host = self.delivery.hostname.clone();
+        let batch = skillet_vm::credential::Deferred::new(self.transport, &host)
+            .using_runner(self.temporary_binary.as_deref());
+        for &service in services {
+            self.delivery.service = service.into();
+            if service == "tailscale"
+                && skillet_workstation::credential_delivery::tailscale_credential_present(
+                    &host, &batch,
+                )?
+            {
+                println!("Reusing installed Tailscale enrollment credential");
+                continue;
+            }
+            println!("Staging {service} credentials");
+            super::secret_delivery::deliver_with_vault(
+                &self.delivery,
+                self.vault,
+                &batch,
+                ActivationPolicy::DeferConsumer,
+            )
+            .with_context(|| format!("staging {service}"))?;
         }
-        println!("Staging {service} credentials");
-        super::secret_delivery::deliver_with_vault(&self.delivery, self.vault, self.transport, ActivationPolicy::DeferConsumer)
-            .map(|_| ())
-            .with_context(|| format!("staging {service}; previously completed steps are retained, retry apply after resolving the failure"))
+        batch.flush().context("installing staged credentials")
     }
 
     fn activate(&mut self, unit: &'static str) -> Result<()> {
@@ -268,14 +278,16 @@ impl<T: GuestTransport> host_apply::Actions for Runner<'_, T> {
             host_apply::activate(self.transport, unit)
                 .with_context(|| format!("applying {unit}"))?;
         }
-        if unit == "skillet-full-apply.service" && self.wait_for_tailscale {
-            println!("Waiting for Tailscale enrollment before configuring UI DNS");
-            skillet_workstation::tailscale_enrollment::wait_for_guest_addresses(
-                self.transport,
-                std::time::Duration::from_mins(2),
-                std::time::Duration::from_secs(2),
-            )?;
-        }
+        Ok(())
+    }
+
+    fn wait_for_tailnet(&mut self) -> Result<()> {
+        println!("Waiting for Tailscale enrollment before configuring UI DNS");
+        skillet_workstation::tailscale_enrollment::wait_for_guest_addresses(
+            self.transport,
+            std::time::Duration::from_mins(2),
+            std::time::Duration::from_secs(2),
+        )?;
         Ok(())
     }
 }

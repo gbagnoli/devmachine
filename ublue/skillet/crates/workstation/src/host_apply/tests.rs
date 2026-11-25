@@ -13,8 +13,14 @@ struct Recorder {
 }
 impl Actions for Recorder {
     type Error = &'static str;
-    fn stage(&mut self, service: &'static str) -> Result<(), Self::Error> {
-        self.record(Step::Stage(service))
+    fn stage(&mut self, services: &[&'static str]) -> Result<(), Self::Error> {
+        for &service in services {
+            self.record(Step::Stage(service))?;
+        }
+        Ok(())
+    }
+    fn wait_for_tailnet(&mut self) -> Result<(), Self::Error> {
+        self.record(Step::TailnetReady)
     }
     fn activate(&mut self, unit: &'static str) -> Result<(), Self::Error> {
         self.record(Step::Activate(unit))
@@ -35,8 +41,8 @@ fn related_credentials_stage_before_full_apply_and_monitoring_is_last() {
     for host in ["clamps", "joey"] {
         let profile = skillet_hosts::profile_for_name(host).unwrap();
         let mut actions = Recorder::default();
-        run(&profile, &mut actions).unwrap();
-        assert_eq!(actions.events, steps(&profile));
+        run(&steps(&profile).unwrap(), &mut actions).unwrap();
+        assert_eq!(actions.events, steps(&profile).unwrap());
         let baseline = actions
             .events
             .iter()
@@ -85,15 +91,15 @@ fn optional_phases_follow_only_canonical_host_capabilities() {
         service.ui = None;
     }
     assert_eq!(
-        steps(&profile),
+        steps(&profile).unwrap(),
         [
             Step::Activate("skillet-apply.service"),
             Step::Stage("pihole"),
             Step::Stage("tailscale"),
             Step::Stage("syncthing"),
+            Step::Stage("pihole-dns"),
             Step::Activate("skillet-syncthing-initialize.service"),
             Step::Activate("skillet-full-apply.service"),
-            Step::Stage("pihole-dns"),
             Step::Activate("skillet-pihole-dns-apply.service")
         ]
     );
@@ -102,21 +108,22 @@ fn optional_phases_follow_only_canonical_host_capabilities() {
 #[test]
 fn every_failure_stops_later_steps_and_can_retry() {
     let profile = skillet_hosts::profile_for_name("clamps").unwrap();
-    for failure in steps(&profile) {
+    for failure in steps(&profile).unwrap() {
         let mut actions = Recorder {
             fail: Some(failure),
             ..Recorder::default()
         };
-        assert!(run(&profile, &mut actions).is_err());
+        assert!(run(&steps(&profile).unwrap(), &mut actions).is_err());
         let end = steps(&profile)
+            .unwrap()
             .iter()
             .position(|step| *step == failure)
             .unwrap();
-        assert_eq!(actions.events, steps(&profile)[..=end]);
+        assert_eq!(actions.events, steps(&profile).unwrap()[..=end]);
         actions.fail = None;
         actions.events.clear();
-        run(&profile, &mut actions).unwrap();
-        assert_eq!(actions.events, steps(&profile));
+        run(&steps(&profile).unwrap(), &mut actions).unwrap();
+        assert_eq!(actions.events, steps(&profile).unwrap());
     }
 }
 
@@ -229,4 +236,19 @@ fn skipped_or_failed_oneshot_is_not_success() {
         };
         assert!(activate(&guest, "skillet-full-apply.service").is_err());
     }
+}
+
+#[test]
+fn circular_dependencies_are_rejected_before_execution() {
+    let result = schedule(vec![
+        Node {
+            step: FULL,
+            requires: vec![Step::TailnetReady],
+        },
+        Node {
+            step: Step::TailnetReady,
+            requires: vec![FULL],
+        },
+    ]);
+    assert!(result.is_err());
 }
