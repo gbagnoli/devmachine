@@ -5593,3 +5593,21 @@ configuration using a documentation-only coordinator address. The VM smoke
 did not provision the physical coordinator, send Datadog telemetry, or exercise
 PagerDuty routing. Read-only production endpoint checks observed HTTP 200 for
 the local frontend and HTTP 401 for the coordinator management endpoint.
+
+### 2026-11-26 · Donbot mirrored physical profile
+
+Prepared the two-disk install bundle from the Fedora CoreOS stable ISO and
+installed it with the live helper in a legacy-BIOS libvirt guest. Both disk
+prompts were exercised. Signed `ucore-donbot` booted with both mdraid arrays
+healthy. The dedicated data filesystem reported RAID1 for data, metadata and
+system allocations. The Podman graphroot was `/var/lib/data/containers/system`.
+
+The first degraded boot attempts reached the root and boot arrays but waited
+for the absent Btrfs filesystem label device. Replayed the revised Butane mount
+unit and member selector on the installed guest and verified a healthy reboot.
+Two independent overlays of the cleanly stopped mirrors then cold-booted
+signed uCore, one with each disk absent. Both showed degraded mdraid and Btrfs,
+matched the healthy data marker's checksum, and ran a disposable Alpine
+container. The final complete destination Ignition compiled with strict Butane.
+Workspace tests, strict Clippy and bootstrap shell scenarios passed. Scaleway
+hardware and a physical install remain untested.

@@ -1,5 +1,6 @@
 //! Physical install media and explicit initial-root TPM enrollment.
 //! Media preparation never opens or writes a workstation block device.
+mod mirror;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use sha2::{Digest as _, Sha256};
 use skillet_vm::install::RootProfile;
@@ -31,6 +32,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub struct Request<'a> {
     pub host: &'a str,
     pub disk: &'a str,
+    pub mirror_disk: Option<&'a str>,
     pub root_profile: RootProfile,
     pub iso: &'a Path,
     pub output: &'a Path,
@@ -58,7 +60,11 @@ pub fn prepare(request: &Request<'_>) -> Result<PathBuf> {
     let source = request.butane.join(format!("{}.bu", request.host));
     let mut config: Value = yaml_serde::from_str(&fs::read_to_string(source)?)?;
     skillet_vm::install::normalize_butane_modes(&mut config)?;
-    specialize(&mut config, request.disk, request.root_profile)?;
+    if let Some(mirror) = request.mirror_disk {
+        mirror::configure(&mut config, request.disk, mirror)?;
+    } else {
+        specialize(&mut config, request.disk, request.root_profile)?;
+    }
     let mut passwd: Value = yaml_serde::from_str(&fs::read_to_string(
         request.butane.join("includes/passwd.bu"),
     )?)?;
@@ -103,7 +109,7 @@ pub fn prepare(request: &Request<'_>) -> Result<PathBuf> {
     fs::set_permissions(&ignition_path, fs::Permissions::from_mode(0o600))?;
     let ignition = fs::read(ignition_path)?;
     let helper = fs::read(request.butane.join("bin/install-hardware"))?;
-    let live = live_ignition(
+    let mut live = live_ignition(
         request.disk,
         request.root_profile,
         &ignition,
@@ -111,6 +117,16 @@ pub fn prepare(request: &Request<'_>) -> Result<PathBuf> {
         key.trim(),
         certificate.as_deref(),
     );
+    if let Some(mirror) = request.mirror_disk {
+        live["storage"]["files"]
+            .as_array_mut()
+            .ok_or_else(|| Error::Invalid("missing live file list".into()))?
+            .push(live_file(
+                "/etc/skillet-install/mirror-disk",
+                0o600,
+                mirror.as_bytes(),
+            ));
+    }
     write_private(
         &staging.path().join("live.ign"),
         &serde_json::to_vec_pretty(&live).map_err(skillet_vm::Error::from)?,
@@ -365,6 +381,18 @@ fn customize_iso(staging: &Path, iso: &Path) -> Result<()> {
 
 fn validate_request(request: &Request<'_>) -> Result<()> {
     skillet_vm::install::validate_physical_disk(request.disk)?;
+    if let Some(mirror) = request.mirror_disk {
+        skillet_vm::install::validate_physical_disk(mirror)?;
+        if request.host != "donbot"
+            || request.root_profile != RootProfile::Unencrypted
+            || mirror == request.disk
+        {
+            return Err(Error::Invalid(
+                "mirrored installation requires Donbot, two distinct disks and unencrypted root"
+                    .into(),
+            ));
+        }
+    }
     if !request
         .host
         .bytes()

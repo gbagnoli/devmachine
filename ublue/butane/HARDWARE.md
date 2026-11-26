@@ -211,3 +211,22 @@ See [storage policy](../design/storage.md) and [remaining encryption checks](../
 PXE is an alternative transport for the same destination Ignition, but this
 command currently produces USB ISO media only. Firmware PXE support and the
 DHCP/boot-file server setup remain separate work.
+
+## Donbot with two disks
+
+Add `--mirror-disk /dev/disk/by-id/SECOND_WHOLE_DISK_ID` to
+`skillet install prepare donbot`, alongside the primary `--disk` and
+`--root-profile unencrypted`. Review both whole-disk identities and use an empty
+output path. The prepared live helper prompts for each disk. In a rescue shell,
+verify both disks are unused and any old software arrays are inactive before
+installing the Fedora CoreOS image on the primary with `donbot.ign`. Ignition
+repartitions both selected disks during first boot. This erases their old data. Use a signed Donbot image built with the mirrored
+data mount support before enabling normal application apply at boot.
+
+Fedora CoreOS mirrors the boot and root volumes. Each disk has a 32 GiB root
+partition and a data partition spanning the remainder. Ignition formats the
+data partitions as one Btrfs filesystem with RAID1 data and metadata. It
+mounts at `/var/lib/data` and retains the standard child subvolumes and Podman
+graphroot. Diagnose missing members with `sudo btrfs filesystem show
+/var/lib/data` and verify allocation with `sudo btrfs filesystem usage
+/var/lib/data`. The data mount permits boot with one member missing.

@@ -19,6 +19,9 @@ pub(super) struct PrepareArgs {
     /// Stable whole-disk path as seen on the destination server
     #[arg(long)]
     disk: String,
+    /// Second whole disk for Donbot's unencrypted mirrored install
+    #[arg(long)]
+    mirror_disk: Option<String>,
     /// Verified Fedora `CoreOS` `x86_64` live ISO
     #[arg(long)]
     iso: PathBuf,
@@ -56,6 +59,7 @@ fn prepare(args: &PrepareArgs) -> Result<()> {
         skillet_workstation::installation::prepare(&skillet_workstation::installation::Request {
             host: &args.host,
             disk: &args.disk,
+            mirror_disk: args.mirror_disk.as_deref(),
             root_profile: args.root_profile.policy(),
             iso: &args.iso,
             output: &output,

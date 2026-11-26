@@ -85,20 +85,40 @@ if [[ "$secure_boot" == 'SecureBoot enabled' ]]; then
     exit 1
   fi
 fi
-lsblk -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINTS "$disk"
-if lsblk -nr -o MOUNTPOINTS "$disk" | grep -q '[^[:space:]]'; then
-  echo 'Target has mounted filesystems; stop and inspect before installation.' >&2; exit 1
+disks=("$disk")
+if [[ -f /etc/skillet-install/mirror-disk ]]; then
+  disks+=("$(cat /etc/skillet-install/mirror-disk)")
 fi
-resolved_disk="$(readlink -f -- "$disk")"
-[[ "$resolved_disk" == /dev/* && -b "$resolved_disk" ]] || { echo 'Cannot resolve the prepared disk.' >&2; exit 1; }
-disk_name="${resolved_disk##*/}"
-echo "Installation will erase $disk ($disk_name). Root profile: $profile"
-printf 'Type the disk name (example: %s) or the complete prepared identifier to ERASE it: ' "$disk_name"
-read -r confirmation </dev/tty
-disk_confirmation_matches "$disk" "$resolved_disk" "$confirmation" || { echo 'Cancelled.' >&2; exit 1; }
-[[ -b "$disk" && "$(readlink -f -- "$disk")" == "$resolved_disk" ]] || {
-  echo 'Prepared disk changed during confirmation; refusing installation.' >&2; exit 1;
-}
+resolved=()
+for selected in "${disks[@]}"; do
+  [[ "$selected" == /dev/disk/by-id/* && "$selected" != *-part* && -b "$selected" &&
+     "$(lsblk -dn -o TYPE "$selected")" == disk ]] || {
+    echo 'Prepared whole-disk identifier is absent or invalid.' >&2; exit 1;
+  }
+  device="$(readlink -f -- "$selected")"
+  for previous in "${resolved[@]}"; do
+    [[ "$device" != "$previous" ]] || { echo 'Disk identifiers refer to the same disk.' >&2; exit 1; }
+  done
+  resolved+=("$device")
+  lsblk -o NAME,SIZE,MODEL,SERIAL,TYPE,MOUNTPOINTS "$selected"
+  if lsblk -nr -o MOUNTPOINTS "$selected" | grep -q '[^[:space:]]'; then
+    echo 'Target has mounted filesystems; stop and inspect before installation.' >&2; exit 1
+  fi
+done
+echo "Root profile: $profile"
+for i in "${!disks[@]}"; do
+  selected="${disks[$i]}"
+  device="${resolved[$i]}"
+  printf 'Type the disk name (example: %s) or the complete identifier to ERASE %s: ' "${device##*/}" "$selected"
+  read -r confirmation </dev/tty
+  disk_confirmation_matches "$selected" "$device" "$confirmation" || { echo 'Cancelled.' >&2; exit 1; }
+done
+for i in "${!disks[@]}"; do
+  [[ -b "${disks[$i]}" && "$(readlink -f -- "${disks[$i]}")" == "${resolved[$i]}" ]] || {
+    echo 'Prepared disk changed during confirmation; refusing installation.' >&2; exit 1;
+  }
+done
+resolved_disk="${resolved[0]}"
 coreos-installer install "$disk" --ignition-file "$staged_config"
 udevadm settle
 [[ -b "$disk" && "$(readlink -f -- "$disk")" == "$resolved_disk" ]] || {

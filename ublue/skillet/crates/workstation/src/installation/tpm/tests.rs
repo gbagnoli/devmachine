@@ -290,6 +290,7 @@ fn physical_tpm_payload_passes_real_butane_merge() {
     let request = crate::installation::Request {
         host: "clamps",
         disk: "/dev/disk/by-id/ata-disposable",
+        mirror_disk: None,
         root_profile: skillet_vm::install::RootProfile::Tpm,
         iso: Path::new("unused.iso"),
         output: temporary.path(),

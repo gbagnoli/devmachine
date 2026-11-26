@@ -358,6 +358,28 @@ impl StorageResource for LocalFileResource {
         subvolume_root: &str,
     ) -> Result<(), FileError> {
         let mountinfo = fs::read_to_string("/proc/self/mountinfo")?;
+        if path == Path::new("/var/lib/data")
+            && fs::read_to_string("/etc/skillet/data-layout")
+                .is_ok_and(|value| value.trim() == "btrfs-raid1")
+        {
+            let output = Command::new("findmnt")
+                .args([
+                    "--noheadings",
+                    "--raw",
+                    "--output",
+                    "FSTYPE,LABEL,FSROOT",
+                    "--mountpoint",
+                ])
+                .arg(path)
+                .output()?;
+            return if output.status.success()
+                && output.stdout.trim_ascii() == b"btrfs skillet-data /"
+            {
+                Ok(())
+            } else {
+                Err(FileError::WrongMount(path.display().to_string()))
+            };
+        }
         require_btrfs_mount_in(&mountinfo, path, backing_mount, subvolume_root)
     }
 

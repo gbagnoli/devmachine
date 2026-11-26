@@ -1,0 +1,130 @@
+variant: fcos
+version: 1.6.0
+storage:
+  directories:
+    - path: /var/lib/data
+      mode: 0755
+  files:
+    - path: /etc/containers/storage.conf
+      mode: 0644
+      contents:
+        inline: |
+          [storage]
+          driver = "overlay"
+          runroot = "/run/containers/storage"
+          graphroot = "/var/lib/data/containers/system"
+    - path: /etc/skillet/data-layout
+      mode: 0644
+      contents:
+        inline: btrfs-raid1
+    - path: /var/usrlocal/bin/skillet-mirror-select
+      mode: 0755
+      contents:
+        inline: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          for label in skillet-data-1 skillet-data-2; do
+            member="/dev/disk/by-partlabel/$label"
+            [[ -b "$member" ]] || continue
+            [[ "$(blkid -p -s TYPE -o value "$member")" == btrfs &&
+               "$(blkid -p -s LABEL -o value "$member")" == skillet-data ]] || continue
+            ln -sfn "$member" /run/skillet-data-member
+            exit 0
+          done
+          echo 'No Skillet Btrfs RAID member found' >&2
+          exit 1
+    - path: /var/usrlocal/bin/skillet-data-prepare
+      mode: 0755
+      contents:
+        inline: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          mountpoint -q /var/lib/data || {
+            echo '/var/lib/data is not mounted' >&2
+            exit 1
+          }
+          [[ "$(findmnt -M /var/lib/data -nr -o FSTYPE,LABEL,FSROOT)" == 'btrfs skillet-data /' ]] || {
+            echo '/var/lib/data must be the dedicated Skillet Btrfs filesystem' >&2
+            exit 1
+          }
+          if ! btrfs subvolume show /var/lib/data/containers >/dev/null 2>&1; then
+            [[ ! -e /var/lib/data/containers ]] || {
+              echo 'Container path exists but is not a Btrfs subvolume' >&2
+              exit 1
+            }
+            btrfs subvolume create /var/lib/data/containers
+          fi
+          mkdir -p /var/lib/data/containers/system
+          if ! semanage fcontext -l -C | grep -Fq '/var/lib/data/containers/system'; then
+            semanage fcontext -a -e /var/lib/containers/storage /var/lib/data/containers/system
+            restorecon -R /var/lib/data/containers/system
+          fi
+          restorecon /var/lib/data/containers/system
+systemd:
+  units:
+    # OCI image import can initialize the configured graphroot before application
+    # preparation; create its containing subvolume before the first rebase.
+    - name: ucore-bootstrap.service
+      dropins:
+        - name: 10-skillet-data.conf
+          contents: |
+            [Unit]
+            Requires=var-lib-data.mount
+            After=var-lib-data.mount
+    - name: skillet-mirror-select.service
+      contents: |
+        [Unit]
+        Description=Select an available Skillet Btrfs RAID member
+        DefaultDependencies=no
+        Requires=var.mount
+        Wants=systemd-udev-settle.service
+        After=var.mount systemd-udev-settle.service
+        Before=var-lib-data.mount
+
+        [Service]
+        Type=oneshot
+        ExecStart=/var/usrlocal/bin/skillet-mirror-select
+        RemainAfterExit=yes
+    - name: var-lib-data.mount
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Mount the mirrored Btrfs service data filesystem
+        Requires=skillet-mirror-select.service
+        After=skillet-mirror-select.service
+
+        [Mount]
+        What=/run/skillet-data-member
+        Where=/var/lib/data
+        Type=btrfs
+        Options=subvolid=5,degraded,noatime,compress=zstd:3
+
+        [Install]
+        WantedBy=multi-user.target
+    - name: skillet-data-prepare.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Prepare shared Podman storage on the data mount
+        Requires=var-lib-data.mount
+        After=var-lib-data.mount
+        Requires=ucore-bootstrap.service
+        After=ucore-bootstrap.service
+        ConditionPathExists=/run/ucore-bootstrap-ready
+        AssertPathIsMountPoint=/var/lib/data
+
+        [Service]
+        Type=oneshot
+        ExecStart=/var/usrlocal/bin/skillet-data-prepare
+        RemainAfterExit=yes
+
+        [Install]
+        WantedBy=multi-user.target
+    - name: podman-auto-update.service
+      dropins:
+        - name: 10-skillet-data.conf
+          contents: |
+            [Unit]
+            Requires=skillet-data-prepare.service
+            After=skillet-data-prepare.service
+            AssertPathIsMountPoint=/var/lib/data

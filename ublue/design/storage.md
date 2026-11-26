@@ -2,7 +2,7 @@
 
 ## Layout
 
-Use uCore's Btrfs backing filesystem for writable /var and /sysroot, with a data
+For single-disk installs, use uCore's Btrfs backing filesystem for writable /var and /sysroot, with a data
 subvolume mounted at `/var/lib/data`. Keep uCore's composefs deployment layout;
 boxy's `/os` subvolume is not copied onto this OS. Shared space follows the
 existing fleet convention without a separate data partition.
@@ -23,6 +23,20 @@ Snapshots list selected leaf subvolumes explicitly; nested sources are unsupport
 Container layers are excluded. Shared space also shares device failure;
 [btrbk](btrbk.md) history is not an independent backup. Existing populated stores
 need explicit migration, not a graphroot edit followed by automatic data movement.
+
+## Donbot two-disk layout
+
+Donbot can opt into CoreOS boot mirroring for the BIOS boot paths, /boot and
+XFS root. A separate native Btrfs RAID1 filesystem mirrors service data and
+metadata across the remaining capacity. This preserves the fleet's service
+paths and allows a single failed disk to leave both the OS and service data
+accessible. The native Btrfs mirror provides checksummed copies and repair
+independently of the OS mirrors.
+
+Ignition provisions the mirror only on a fresh install with both disks present.
+Subsequent boots select an available data member by partition label. This works
+when udev withholds the Btrfs filesystem label symlink on a degraded array.
+Skillet validates the separate mount before converging applications.
 
 ## Native root encryption
 

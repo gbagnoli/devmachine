@@ -153,6 +153,7 @@ fn requests_reject_missing_tpm_certificate_unknown_hosts_and_public_outputs() {
     let mut request = Request {
         host: "clamps",
         disk: "/dev/disk/by-id/ata-example",
+        mirror_disk: None,
         root_profile: RootProfile::Unencrypted,
         iso: Path::new("missing.iso"),
         output: &output,
@@ -163,6 +164,14 @@ fn requests_reject_missing_tpm_certificate_unknown_hosts_and_public_outputs() {
         workspace: &workspace,
     };
     validate_request(&request).unwrap();
+    request.mirror_disk = Some("/dev/disk/by-id/ata-example-two");
+    assert!(validate_request(&request).is_err());
+    request.host = "donbot";
+    validate_request(&request).unwrap();
+    request.mirror_disk = Some(request.disk);
+    assert!(validate_request(&request).is_err());
+    request.mirror_disk = None;
+    request.host = "clamps";
     request.root_profile = RootProfile::Tpm;
     assert!(validate_request(&request).is_err());
     request.root_profile = RootProfile::Unencrypted;
@@ -180,4 +189,49 @@ fn requests_reject_missing_tpm_certificate_unknown_hosts_and_public_outputs() {
     request.output = &output;
     fs::create_dir(&output).unwrap();
     assert!(validate_request(&request).is_err());
+}
+
+#[test]
+fn mirror_replaces_vm_disk_and_uses_native_btrfs_raid1_for_data() {
+    let mut config: Value =
+        yaml_serde::from_str(include_str!("../../../../../butane/donbot.bu")).unwrap();
+    let primary = "/dev/disk/by-id/virtio-fixture-a";
+    let secondary = "/dev/disk/by-id/virtio-fixture-b";
+    mirror::configure(&mut config, primary, secondary).unwrap();
+    assert_eq!(
+        config["boot_device"]["mirror"]["devices"][0].as_str(),
+        Some(primary)
+    );
+    assert_eq!(
+        config["boot_device"]["mirror"]["devices"][1].as_str(),
+        Some(secondary)
+    );
+    assert_eq!(
+        config["storage"]["disks"][0]["partitions"][0]["label"].as_str(),
+        Some("root-1")
+    );
+    assert_eq!(
+        config["storage"]["disks"][1]["partitions"][0]["label"].as_str(),
+        Some("root-2")
+    );
+    let options = config["storage"]["filesystems"][0]["options"]
+        .as_sequence()
+        .unwrap();
+    assert_eq!(
+        options
+            .iter()
+            .map(|option| option.as_str().unwrap())
+            .collect::<Vec<_>>(),
+        [
+            "-f",
+            "-d",
+            "raid1",
+            "-m",
+            "raid1",
+            "/dev/disk/by-partlabel/skillet-data-2"
+        ]
+    );
+    let rendered = yaml_serde::to_string(&config).unwrap();
+    assert!(rendered.contains("includes/mirrored-data.bu"));
+    assert!(!rendered.contains("/dev/vda"));
 }
