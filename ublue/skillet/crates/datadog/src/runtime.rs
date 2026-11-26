@@ -21,6 +21,60 @@ pub const CREDENTIAL: &str = "datadog_config";
 /// Official supported major channel; Quadlet auto-update follows Agent 7 fixes.
 pub const IMAGE: &str = "registry.datadoghq.com/agent:7";
 const CONFIG_DIR: &str = "/etc/skillet/datadog/conf.d";
+const HTTP_CHECK_DIR: &str = "/etc/skillet/datadog/conf.d/http_check.d";
+
+/// Converge the probes from the Zigbee deployment's existing coordinator input.
+/// Agent-owned configuration keeps both probes running when `Zigbee2MQTT` stops.
+pub fn configure_zigbee_checks<S, F>(
+    system: &S,
+    files: &F,
+    frontend_port: u16,
+    coordinator: std::net::Ipv4Addr,
+) -> Result<(), DatadogError>
+where
+    S: ServiceResource + ?Sized,
+    F: FileMutationResource + FileReadResource + ?Sized,
+{
+    let directory = Path::new(HTTP_CHECK_DIR);
+    let root = Ownership::named(Some("root"), Some("root"));
+    let definition = json!({
+        "init_config": {},
+        "instances": [
+            {
+                "name": "zigbee2mqtt-frontend",
+                "url": format!("http://127.0.0.1:{frontend_port}/"),
+                "http_response_status_code": "^200$",
+                "allow_redirects": false,
+                "timeout": 5,
+                "tags": ["probe:zigbee2mqtt"],
+            },
+            {
+                "name": "slzb-coordinator",
+                "url": format!("http://{coordinator}/"),
+                "http_response_status_code": "^401$",
+                "allow_redirects": false,
+                "timeout": 5,
+                "tags": ["probe:slzb-coordinator"],
+            },
+        ],
+    })
+    .to_string();
+    files.ensure_directory(directory, Some(0o755), &root)?;
+    let changed = files.ensure_file(
+        &directory.join("skillet-zigbee.yaml"),
+        definition.as_bytes(),
+        Some(0o644),
+        &root,
+    )?;
+    let applied = directory.with_file_name("zigbee-http-checks.applied");
+    if changed || files.read_file(&applied)?.as_deref() != Some(definition.as_bytes()) {
+        if system.service_is_active("datadog-agent.service")? {
+            system.service_restart("datadog-agent.service")?;
+        }
+        files.ensure_file(&applied, definition.as_bytes(), Some(0o644), &root)?;
+    }
+    Ok(())
+}
 pub const DOGSTATSD_DIR: &str = "/run/skillet-dogstatsd";
 pub const DOGSTATSD_SOCKET: &str = "/run/skillet-dogstatsd/dsd.socket";
 
@@ -308,6 +362,7 @@ where
         Some(0o755),
         &root,
     )?;
+    files.ensure_directory(Path::new(HTTP_CHECK_DIR), Some(0o755), &root)?;
     let mut revisions = Vec::new();
     if let Some(switches) = input.switches() {
         revisions.push(apply_switches(system, files, switches)?);
@@ -368,6 +423,26 @@ where
     Ok(())
 }
 
+fn check_volumes() -> impl Iterator<Item = Volume> {
+    // Preserve the image's other built-in integrations and auto-configuration.
+    [
+        "btrfs",
+        "network",
+        "tcp_check",
+        "systemd",
+        "openmetrics",
+        "http_check",
+    ]
+    .into_iter()
+    .map(|name| Volume {
+        host_path: format!("{CONFIG_DIR}/{name}.d"),
+        container_path: format!("/etc/datadog-agent/conf.d/{name}.d"),
+        options: Some("ro".into()),
+        host_mode: None,
+        host_ownership: None,
+    })
+}
+
 fn container_config(
     runtime: &RuntimeConfig<'_>,
     revisions: Vec<Vec<u8>>,
@@ -422,16 +497,7 @@ fn container_config(
     })
     .collect::<Vec<_>>();
     volumes.push(dogstatsd_volume());
-    // Preserve the image's built-in integrations and auto-configuration.
-    for name in ["btrfs", "network", "tcp_check", "systemd", "openmetrics"] {
-        volumes.push(Volume {
-            host_path: format!("{CONFIG_DIR}/{name}.d"),
-            container_path: format!("/etc/datadog-agent/conf.d/{name}.d"),
-            options: Some("ro".into()),
-            host_mode: None,
-            host_ownership: None,
-        });
-    }
+    volumes.extend(check_volumes());
     if runtime.network_monitoring {
         volumes.push(Volume {
             host_path: "/sys/kernel/debug".into(),

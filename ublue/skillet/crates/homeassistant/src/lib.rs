@@ -79,6 +79,8 @@ pub enum Error {
     Invalid,
     #[error("Home Assistant API request failed (credentials and response omitted)")]
     Api,
+    #[error(transparent)]
+    Datadog(#[from] skillet_datadog::DatadogError),
     #[error("invalid Home Assistant Zigbee coordinator or MQTT credentials")]
     InvalidZigbee,
 }

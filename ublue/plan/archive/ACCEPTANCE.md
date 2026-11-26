@@ -5582,3 +5582,14 @@ Homer, Caddy and the tailnet identity service passed. The VM returned to Ready.
 Evidence is in the owned run's `application-smoke-health-retry.log`. The
 workstation graph and cross-service collection are covered by local tests.
 The guest batch command and disposable Caddy delivery were exercised live.
+
+### 2026-11-26 · Skillet Zigbee Datadog probes
+
+Workspace tests, strict workspace Clippy, and the final focused Datadog and
+Home Assistant tests passed. Fresh disposable Clamps instance
+`zigbee-datadog` reached signed uCore and passed the real-systemd fixture smoke
+through reboot. The Home Assistant unit test verified generation of the Zigbee Agent check
+configuration using a documentation-only coordinator address. The VM smoke
+did not provision the physical coordinator, send Datadog telemetry, or exercise
+PagerDuty routing. Read-only production endpoint checks observed HTTP 200 for
+the local frontend and HTTP 401 for the coordinator management endpoint.

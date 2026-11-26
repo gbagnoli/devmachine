@@ -31,6 +31,13 @@ fn only_loopback_is_published_and_pairing_state_survives_reapply() {
             assert!(!quadlet.contains(&settings.ha_password));
             assert!(!quadlet.contains(&settings.zigbee_password));
         }
+        let checks: serde_json::Value = serde_json::from_slice(
+            &written["/etc/skillet/datadog/conf.d/http_check.d/skillet-zigbee.yaml"],
+        )
+        .unwrap();
+        assert_eq!(checks["instances"][0]["url"], "http://127.0.0.1:8099/");
+        assert_eq!(checks["instances"][1]["url"], "http://192.0.2.6/");
+        assert_eq!(checks["instances"][1]["http_response_status_code"], "^401$");
         assert!(written.contains_key(seed));
         written.insert(seed.into(), b"paired coordinator state".to_vec());
     }

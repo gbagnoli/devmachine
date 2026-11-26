@@ -205,3 +205,12 @@ ssh -N -L 8099:127.0.0.1:8099 <host>
 ```
 
 Open `http://127.0.0.1:8099` while the tunnel is active.
+
+When Datadog is installed, the Agent monitors the local Zigbee2MQTT frontend
+and the coordinator's management HTTP endpoint using separate
+`http.can_connect` checks. Filter by `probe:zigbee2mqtt` or
+`probe:slzb-coordinator`. The frontend should return HTTP 200. The coordinator
+should return HTTP 401 as an authentication challenge. The check uses the
+coordinator address from the existing Zigbee settings and sends no credentials.
+These probes check HTTP reachability. MQTT message flow and radio health are
+outside their scope.

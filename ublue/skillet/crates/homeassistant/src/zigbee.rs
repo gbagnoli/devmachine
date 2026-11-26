@@ -180,6 +180,12 @@ where
             ]),
         },
     )?;
+    skillet_datadog::configure_zigbee_checks(
+        system,
+        files,
+        FRONTEND_LOOPBACK_PORT,
+        *input.coordinator.ip(),
+    )?;
     Ok(())
 }
 

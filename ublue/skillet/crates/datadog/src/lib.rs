@@ -4,7 +4,8 @@
 pub mod nic;
 mod runtime;
 pub use runtime::{
-    apply, DatadogError, Input, RuntimeConfig, SwitchConfig, CREDENTIAL, DOGSTATSD_SOCKET, IMAGE,
+    apply, configure_zigbee_checks, DatadogError, Input, RuntimeConfig, SwitchConfig, CREDENTIAL,
+    DOGSTATSD_SOCKET, IMAGE,
 };
 use serde_json::{json, Value};
 
