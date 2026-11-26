@@ -4,7 +4,8 @@ Home Assistant Container and its encrypted backup exporter are implemented.
 Skillet can provision Mosquitto and Zigbee2MQTT when the Home Assistant host has
 a network coordinator entry in KeePassXC. Live radio acceptance, companion
 backups and ESPHome Device Builder remain open. Caddy and Homer include the
-frontend when the coordinator is configured in KeePassXC. Follow
+frontend when the coordinator is configured in KeePassXC. The operator confirmed
+that the Zigbee2MQTT frontend works on Clamps over Tailscale. Follow
 [the Home Assistant plan](HOME-ASSISTANT.md) for existing work and its pending
 isolated restore rehearsal. This is an optional clamps capability, separate from
 rupik cutover parity.
