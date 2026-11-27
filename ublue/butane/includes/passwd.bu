@@ -4,6 +4,7 @@ passwd:
   users:
     - name: core
       ssh_authorized_keys:
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILIxPkck4TP7NX91vyZ+JvLPiGowMBDvtdNVOdRiQ9cO giacomo@donbot
         - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBwFi5pLjXnHnYtnfC/jP3/PrNUVDNUwCy5qCevHf53y giacomo@boxy
         - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPDIJgqIRuNxzc8097VrA91Ig7XK99kzIqUnrlKaJNNR giacomo@rupik
         - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILG8ZWfoSG6hdRNeVE14Hu8PKVQcVjrgunvHnqpBnGay giacomo@clamps
@@ -20,6 +21,7 @@ passwd:
         - docker
         - sudo
       ssh_authorized_keys:
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILIxPkck4TP7NX91vyZ+JvLPiGowMBDvtdNVOdRiQ9cO giacomo@donbot
         - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBwFi5pLjXnHnYtnfC/jP3/PrNUVDNUwCy5qCevHf53y giacomo@boxy
         - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPDIJgqIRuNxzc8097VrA91Ig7XK99kzIqUnrlKaJNNR giacomo@rupik
         - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILG8ZWfoSG6hdRNeVE14Hu8PKVQcVjrgunvHnqpBnGay giacomo@clamps
