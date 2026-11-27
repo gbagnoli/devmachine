@@ -78,6 +78,10 @@ See [storage policy](../design/storage.md) and [remaining encryption checks](../
      --mok-certificate "$install_inputs/ublue.der"
    ```
 
+   To authorize the existing shared keys from `includes/passwd.bu` on both
+   the installer and the installed host, pass `--use-fleet-ssh-keys` in place
+   of `--ssh-public-key`.
+
    Use `--root-profile unencrypted` for a machine without TPM; this is the
    default. A requested TPM profile never silently falls back. Preparing TPM
    media does not prove that the destination hardware supports it.

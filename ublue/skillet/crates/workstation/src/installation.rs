@@ -36,7 +36,7 @@ pub struct Request<'a> {
     pub root_profile: RootProfile,
     pub iso: &'a Path,
     pub output: &'a Path,
-    pub public_key: &'a Path,
+    pub public_key: Option<&'a Path>,
     pub password_hash: &'a Path,
     pub mok_certificate: Option<&'a Path>,
     pub butane: &'a Path,
@@ -55,7 +55,7 @@ pub fn prepare(request: &Request<'_>) -> Result<PathBuf> {
         ..*request
     };
     validate_request(request)?;
-    let key = fs::read_to_string(request.public_key)?;
+    let key = request.public_key.map(fs::read_to_string).transpose()?;
     let hash = fs::read_to_string(request.password_hash)?;
     let source = request.butane.join(format!("{}.bu", request.host));
     let mut config: Value = yaml_serde::from_str(&fs::read_to_string(source)?)?;
@@ -68,7 +68,7 @@ pub fn prepare(request: &Request<'_>) -> Result<PathBuf> {
     let mut passwd: Value = yaml_serde::from_str(&fs::read_to_string(
         request.butane.join("includes/passwd.bu"),
     )?)?;
-    configure_access(&mut passwd, &key, &hash)?;
+    let live_keys = configure_access(&mut passwd, key.as_deref(), &hash)?;
     skillet_vm::install::normalize_butane_modes(&mut passwd)?;
     let certificate = request.mok_certificate.map(fs::read).transpose()?;
     if request.root_profile == RootProfile::Tpm {
@@ -114,7 +114,7 @@ pub fn prepare(request: &Request<'_>) -> Result<PathBuf> {
         request.root_profile,
         &ignition,
         &helper,
-        key.trim(),
+        &live_keys,
         certificate.as_deref(),
     );
     if let Some(mirror) = request.mirror_disk {
@@ -216,22 +216,29 @@ fn specialize(config: &mut Value, disk: &str, profile: RootProfile) -> Result<()
     Ok(())
 }
 
-fn configure_access(passwd: &mut Value, public_key: &str, hash: &str) -> Result<()> {
-    let key = public_key.trim();
-    let hash = hash.trim();
+fn valid_public_key(key: &str) -> bool {
     let mut parts = key.split_whitespace();
-    if parts.next() != Some("ssh-ed25519")
-        || parts.next().is_none_or(|part| {
-            STANDARD.decode(part).map_or(true, |decoded| {
-                decoded.len() != 51 || !decoded.starts_with(b"\0\0\0\x0bssh-ed25519\0\0\0\x20")
+    !key.contains(['\n', '\r'])
+        && parts.next() == Some("ssh-ed25519")
+        && parts.next().is_some_and(|part| {
+            STANDARD.decode(part).is_ok_and(|decoded| {
+                decoded.len() == 51 && decoded.starts_with(b"\0\0\0\x0bssh-ed25519\0\0\0\x20")
             })
         })
-        || key.contains(['\n', '\r'])
-    {
+}
+
+fn configure_access(
+    passwd: &mut Value,
+    public_key: Option<&str>,
+    hash: &str,
+) -> Result<Vec<String>> {
+    let key = public_key.map(str::trim);
+    if key.is_some_and(|key| !valid_public_key(key)) {
         return Err(Error::Invalid(
             "provide one OpenSSH Ed25519 public key".into(),
         ));
     }
+    let hash = hash.trim();
     if !valid_password_hash(hash) {
         return Err(Error::Invalid(
             "provide a private crypt-format bootstrap password hash file".into(),
@@ -243,8 +250,20 @@ fn configure_access(passwd: &mut Value, public_key: &str, hash: &str) -> Result<
         .and_then(Value::as_sequence_mut)
         .ok_or_else(|| Error::Invalid("missing production user declarations".into()))?;
     let mut found = false;
+    let mut live_keys = None;
     for user in users {
-        user["ssh_authorized_keys"] = yaml_serde::to_value([key])?;
+        if let Some(key) = key {
+            user["ssh_authorized_keys"] = yaml_serde::to_value([key])?;
+        }
+        let keys: Vec<String> = yaml_serde::from_value(user["ssh_authorized_keys"].clone())?;
+        if keys.is_empty() || keys.iter().any(|key| !valid_public_key(key)) {
+            return Err(Error::Invalid(
+                "invalid shared OpenSSH Ed25519 key list".into(),
+            ));
+        }
+        if user["name"].as_str() == Some("core") {
+            live_keys = Some(keys);
+        }
         if user["name"].as_str() == Some("giacomo") {
             user["password_hash"] = Value::String(hash.into());
             found = true;
@@ -253,7 +272,7 @@ fn configure_access(passwd: &mut Value, public_key: &str, hash: &str) -> Result<
     if !found {
         return Err(Error::Invalid("missing provisioning account".into()));
     }
-    Ok(())
+    live_keys.ok_or_else(|| Error::Invalid("missing live core account".into()))
 }
 
 fn live_ignition(
@@ -261,7 +280,7 @@ fn live_ignition(
     profile: RootProfile,
     ignition: &[u8],
     helper: &[u8],
-    public_key: &str,
+    public_keys: &[String],
     certificate: Option<&[u8]>,
 ) -> serde_json::Value {
     let mut files = vec![
@@ -285,7 +304,7 @@ fn live_ignition(
     if let Some(cert) = certificate {
         files.push(live_file("/etc/skillet-install/ublue.der", 0o600, cert));
     }
-    serde_json::json!({"ignition": {"version": "3.5.0"}, "storage": {"files": files}, "passwd": {"users": [{"name": "core", "sshAuthorizedKeys": [public_key]}]}})
+    serde_json::json!({"ignition": {"version": "3.5.0"}, "storage": {"files": files}, "passwd": {"users": [{"name": "core", "sshAuthorizedKeys": public_keys}]}})
 }
 fn live_file(path: &str, mode: u32, contents: &[u8]) -> serde_json::Value {
     serde_json::json!({"path": path, "mode": mode, "contents": {"source": format!("data:;base64,{}", STANDARD.encode(contents))}})

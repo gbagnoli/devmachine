@@ -294,7 +294,7 @@ fn physical_tpm_payload_passes_real_butane_merge() {
         root_profile: skillet_vm::install::RootProfile::Tpm,
         iso: Path::new("unused.iso"),
         output: temporary.path(),
-        public_key: Path::new("unused.pub"),
+        public_key: Some(Path::new("unused.pub")),
         password_hash: Path::new("unused.hash"),
         mok_certificate: None,
         butane: &butane,

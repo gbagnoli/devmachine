@@ -100,7 +100,7 @@ fn production_access_replaces_inherited_keys_and_hash() {
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG5BCzEZkae5DssrD+FFi0a4YGYT55b57LbXW8SveytN operator";
     let mut value = passwd();
     let hash = format!("$6$testSalt${}", "A".repeat(86));
-    configure_access(&mut value, key, &hash).unwrap();
+    configure_access(&mut value, Some(key), &hash).unwrap();
     for user in value["passwd"]["users"].as_sequence().unwrap() {
         assert_eq!(user["ssh_authorized_keys"].as_sequence().unwrap().len(), 1);
         assert_eq!(user["ssh_authorized_keys"][0].as_str(), Some(key));
@@ -108,9 +108,9 @@ fn production_access_replaces_inherited_keys_and_hash() {
     assert!(value["passwd"]["users"][1]["password_hash"]
         .as_str()
         .is_some_and(|value| value == hash));
-    assert!(configure_access(&mut passwd(), key, "$6$malformed").is_err());
+    assert!(configure_access(&mut passwd(), Some(key), "$6$malformed").is_err());
     assert!(value.get("storage").is_none());
-    assert!(configure_access(&mut passwd(), "not-a-public-key", "password").is_err());
+    assert!(configure_access(&mut passwd(), Some("not-a-public-key"), "password").is_err());
 }
 #[test]
 fn numeric_modes_and_live_media_require_manual_installation() {
@@ -122,7 +122,7 @@ fn numeric_modes_and_live_media_require_manual_installation() {
         RootProfile::Tpm,
         b"private ignition",
         b"helper",
-        "ssh-ed25519 test-public-key",
+        &["ssh-ed25519 test-public-key".into()],
         Some(b"certificate"),
     );
     assert!(live.get("systemd").is_none());
@@ -157,7 +157,7 @@ fn requests_reject_missing_tpm_certificate_unknown_hosts_and_public_outputs() {
         root_profile: RootProfile::Unencrypted,
         iso: Path::new("missing.iso"),
         output: &output,
-        public_key: Path::new("missing.pub"),
+        public_key: Some(Path::new("missing.pub")),
         password_hash: Path::new("missing.hash"),
         mok_certificate: None,
         butane: &butane,
@@ -234,4 +234,25 @@ fn mirror_replaces_vm_disk_and_uses_native_btrfs_raid1_for_data() {
     let rendered = yaml_serde::to_string(&config).unwrap();
     assert!(rendered.contains("includes/mirrored-data.bu"));
     assert!(!rendered.contains("/dev/vda"));
+}
+
+#[test]
+fn fleet_access_keeps_the_shared_lists_and_uses_core_keys_for_live_media() {
+    let mut config: Value =
+        yaml_serde::from_str(include_str!("../../../../../butane/includes/passwd.bu")).unwrap();
+    let before = config["passwd"]["users"].clone();
+    let hash = format!("$6$testSalt${}", "A".repeat(86));
+    let live_keys = configure_access(&mut config, None, &hash).unwrap();
+    let users = &config["passwd"]["users"];
+    for index in 0..2 {
+        assert_eq!(
+            users[index]["ssh_authorized_keys"],
+            before[index]["ssh_authorized_keys"]
+        );
+    }
+    assert_eq!(
+        yaml_serde::to_value(live_keys).unwrap(),
+        before[0]["ssh_authorized_keys"]
+    );
+    assert_eq!(users[1]["password_hash"].as_str(), Some(hash.as_str()));
 }

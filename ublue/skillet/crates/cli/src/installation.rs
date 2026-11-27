@@ -31,8 +31,11 @@ pub(super) struct PrepareArgs {
     #[arg(long, value_enum, default_value_t = RootProfileName::Unencrypted)]
     root_profile: RootProfileName,
     /// Operator's Ed25519 public key, replacing inherited authorized keys
-    #[arg(long)]
-    ssh_public_key: PathBuf,
+    #[arg(long, required_unless_present = "use_fleet_ssh_keys")]
+    ssh_public_key: Option<PathBuf>,
+    /// Use the shared Butane authorized keys for both live and installed access
+    #[arg(long, conflicts_with = "ssh_public_key")]
+    use_fleet_ssh_keys: bool,
     /// Private file containing a fresh crypt-format bootstrap password hash
     #[arg(long)]
     password_hash_file: PathBuf,
@@ -63,7 +66,7 @@ fn prepare(args: &PrepareArgs) -> Result<()> {
             root_profile: args.root_profile.policy(),
             iso: &args.iso,
             output: &output,
-            public_key: &args.ssh_public_key,
+            public_key: args.ssh_public_key.as_deref(),
             password_hash: &args.password_hash_file,
             mok_certificate: args.mok_certificate.as_deref(),
             butane: &butane,
