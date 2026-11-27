@@ -312,6 +312,7 @@ fn cleanup_request(run_directory: &Path) -> DisposableUiCleanupRequest<'_> {
 fn persistent_request() -> PersistentUiDelivery<'static> {
     PersistentUiDelivery {
         publish_public_aliases: false,
+        publish_public_service: &[],
         public_targets: &[],
         host: "clamps",
         policy: ProvisioningPolicy::new(Environment::Production),

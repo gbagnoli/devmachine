@@ -422,6 +422,7 @@ pub use public_checks::{verify_public_jellyfin, verify_public_joplin};
 
 pub struct PersistentUiDelivery<'a> {
     pub publish_public_aliases: bool,
+    pub publish_public_service: &'a [String],
     pub public_targets: &'a [String],
     pub host: &'a str,
     pub policy: ProvisioningPolicy,
@@ -473,6 +474,7 @@ pub fn deliver_persistent_ui(
     plan = select_public_dns(
         plan,
         request.publish_public_aliases,
+        request.publish_public_service,
         &device.addresses,
         request.public_targets,
         request.policy.environment(),
@@ -674,6 +676,7 @@ pub fn provision_disposable_ui(
     plan = select_public_dns(
         plan,
         request.publish_public_aliases,
+        &[],
         request.addresses,
         request.public_targets,
         request.policy.environment(),
@@ -834,14 +837,17 @@ fn reserved_public_names(sites: &CaddySites) -> BTreeSet<String> {
 fn select_public_dns(
     mut plan: UiProvisioningPlan,
     publish_aliases: bool,
+    selected_sites: &[String],
     addresses: &BTreeSet<String>,
     public_targets: &[String],
     environment: Environment,
 ) -> Result<UiProvisioningPlan, UiProvisioningError> {
     plan.sites = plan.sites.with_public_dns_mode(if publish_aliases {
         skillet_caddy::PublicDnsMode::Active
-    } else {
+    } else if selected_sites.is_empty() {
         skillet_caddy::PublicDnsMode::Prepare
+    } else {
+        skillet_caddy::PublicDnsMode::Selected(selected_sites.iter().cloned().collect())
     })?;
     plan.dns_records = cloudflare::desired_records_for_environment(
         &plan.sites.machine_hostname,

@@ -18,6 +18,13 @@ pub(super) struct Args {
     /// Publish final public DNS aliases; omitted prepares only machine-specific DNS
     #[arg(long, conflicts_with = "local_mode")]
     publish_public_aliases: bool,
+    /// Publish final DNS for this public site only. Repeat for multiple sites.
+    #[arg(
+        long,
+        conflicts_with = "publish_public_aliases",
+        conflicts_with = "local_mode"
+    )]
+    publish_public_service: Vec<String>,
     #[arg(long, value_enum, default_value_t = ApplyPhase::Full)]
     phase: ApplyPhase,
     /// Required host profile and default SSH alias (except with --host-file)
@@ -99,6 +106,15 @@ fn remote(args: &Args) -> Result<()> {
         &args.public_target,
         args.environment.policy(),
     )?;
+    let ui_services = profile.ui_services();
+    for site in &args.publish_public_service {
+        if !ui_services.iter().any(|ui| {
+            (ui.name == *site && !ui.public_names.is_empty())
+                || (ui.sharing.is_some() && skillet_caddy::sharing::site_name(&ui.name) == *site)
+        }) {
+            return Err(anyhow!("{site} is not a declared public site on {host}"));
+        }
+    }
     let target = args.target.as_deref().unwrap_or(host);
     let transport = super::ssh::transport(
         target,
@@ -107,6 +123,22 @@ fn remote(args: &Args) -> Result<()> {
         args.known_hosts.as_deref(),
     )?;
     skillet_workstation::deployment::verify_host(host, &transport)?;
+    if !args.publish_public_service.is_empty() {
+        let capability = transport.execute(
+            &skillet_vm::transport::GuestCommand {
+                program: "/usr/bin/skillet",
+                arguments: &["apply", "--help"],
+            },
+            None,
+        )?;
+        if !capability.status.success()
+            || !String::from_utf8_lossy(&capability.stdout).contains("--publish-public-service")
+        {
+            return Err(anyhow!(
+                "the active image must support per-service public DNS before cutover"
+            ));
+        }
+    }
     let installed = skillet_workstation::deployment::installed_versions(host, &transport)?;
     println!("Image-owned guest binaries:");
     println!("  {}", installed.generic_version);
@@ -136,6 +168,7 @@ fn remote(args: &Args) -> Result<()> {
     let delivery = SecretDeliverArgs {
         public_target: args.public_target.clone(),
         publish_public_aliases: args.publish_public_aliases,
+        publish_public_service: args.publish_public_service.clone(),
         hostname: host.into(),
         service: String::new(),
         database: Some(path),

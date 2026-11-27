@@ -188,6 +188,14 @@ ownership checks. There is no implicit takeover of Calculon's DNS. Once final
 aliases are active, retain that flag on subsequent apply/delivery; omitting it
 fails before DNS mutation rather than silently deleting live final records.
 
+To move only selected public sites, use remote apply with repeatable
+`--publish-public-service SITE`. For example, select `joplin` and
+`gokapi-sharing` to publish their final names while leaving the media aliases
+in preparation. Repeat all selected sites on subsequent applies until they
+are all active. The active image must support the scoped Caddy payload before
+the CLI will publish these records. Existing records still require explicit
+retirement if another deployment owns them.
+
 Jellyfin/Plex aliases proxy equivalent requests. Joplin declares strict canonical
 origin handling: aliases redirect with HTTP 307 and preserve the URI. Its
 `APP_BASE_URL` follows the temporary canonical name during preparation and the

@@ -669,8 +669,12 @@ fn preparation_only_publishes_temporary_names_for_every_public_service() {
     for mode in [
         skillet_caddy::PublicDnsMode::Prepare,
         skillet_caddy::PublicDnsMode::Active,
+        skillet_caddy::PublicDnsMode::Selected(BTreeSet::from([
+            "joplin".into(),
+            "gokapi-sharing".into(),
+        ])),
     ] {
-        let sites = legacy.clone().with_public_dns_mode(mode).unwrap();
+        let sites = legacy.clone().with_public_dns_mode(mode.clone()).unwrap();
         let records = desired_records_for_environment(
             &sites.machine_hostname,
             &tailnet,
@@ -688,11 +692,26 @@ fn preparation_only_publishes_temporary_names_for_every_public_service() {
                     .iter()
                     .any(|r| r.name == format!("{label}.example.invalid")),
                 mode == skillet_caddy::PublicDnsMode::Active
+                    || matches!(mode, skillet_caddy::PublicDnsMode::Selected(_))
+                        && matches!(label, "notes" | "send")
             );
         }
         assert!(records
             .iter()
             .any(|r| r.name == "syncthing.donbot.ui.example.invalid"));
+        let joplin = sites
+            .services
+            .iter()
+            .find(|site| site.name == "joplin")
+            .unwrap();
+        assert_eq!(
+            joplin.hostname,
+            if mode == skillet_caddy::PublicDnsMode::Prepare {
+                "notes.donbot.example.invalid"
+            } else {
+                "notes.example.invalid"
+            }
+        );
         let sharing = sites
             .services
             .iter()

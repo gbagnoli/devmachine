@@ -404,6 +404,7 @@ fn deliver_caddy_from_vault(
     skillet_workstation::ui_provisioning::deliver_persistent_ui(
         &skillet_workstation::ui_provisioning::PersistentUiDelivery {
             publish_public_aliases: args.publish_public_aliases,
+            publish_public_service: &args.publish_public_service,
             public_targets: &args.public_target,
             host: &args.hostname,
             policy,

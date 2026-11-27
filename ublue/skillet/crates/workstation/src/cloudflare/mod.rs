@@ -1021,7 +1021,7 @@ fn validate_prepared_ownership(
             && reserved.contains(&record.name.to_ascii_lowercase())
     }) {
         return Err(CloudflareError::Invalid(
-            "final public DNS is already active; use --publish-public-aliases to preserve it"
+            "final public DNS is already active; use --publish-public-service for each active site or --publish-public-aliases to preserve all"
                 .into(),
         ));
     }

@@ -204,6 +204,8 @@ struct SecretDeliverArgs {
     /// Publish final public DNS aliases; omitted prepares only machine-specific DNS
     #[arg(long)]
     publish_public_aliases: bool,
+    #[arg(skip)]
+    publish_public_service: Vec<String>,
     /// Canonical host profile and default SSH alias
     hostname: String,
     #[arg(value_parser = ["pihole", "pihole-dns", "tailscale", "caddy", "ddns", "datadog", "smtp", "network", "syncthing", "homeassistant", "joplin", "airtrail", "media", "gokapi"])]

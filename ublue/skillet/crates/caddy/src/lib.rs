@@ -109,11 +109,22 @@ impl OriginPolicy {
 }
 
 /// Public routing is installed before final DNS is deliberately published.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PublicDnsMode {
     Prepare,
     Active,
+    Selected(std::collections::BTreeSet<String>),
+}
+
+impl PublicDnsMode {
+    fn publishes_site(&self, name: &str) -> bool {
+        match self {
+            Self::Prepare => false,
+            Self::Active => true,
+            Self::Selected(names) => names.contains(name),
+        }
+    }
 }
 
 #[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
@@ -302,6 +313,20 @@ impl CaddySites {
                 "public DNS mode already selected".into(),
             ));
         }
+        if let PublicDnsMode::Selected(names) = &mode {
+            if names.is_empty()
+                || names.iter().any(|name| {
+                    !self
+                        .services
+                        .iter()
+                        .any(|site| site.access == SiteAccess::Public && &site.name == name)
+                })
+            {
+                return Err(CaddyError::InvalidConfiguration(
+                    "select only declared public site names".into(),
+                ));
+            }
+        }
         if !self
             .services
             .iter()
@@ -331,10 +356,10 @@ impl CaddySites {
                         Ok(name)
                     })
                     .collect::<Result<_, CaddyError>>()?;
-                let mut resolved = if mode == PublicDnsMode::Prepare {
-                    temporary.into_iter().chain(final_names).collect::<Vec<_>>()
-                } else {
+                let mut resolved = if mode.publishes_site(&site.name) {
                     final_names.into_iter().chain(temporary).collect::<Vec<_>>()
+                } else {
+                    temporary.into_iter().chain(final_names).collect::<Vec<_>>()
                 };
                 site.hostname = resolved.remove(0);
                 site.aliases = resolved;
@@ -347,18 +372,30 @@ impl CaddySites {
                 }
             }
         }
-        self.version = 10;
+        self.version = if matches!(mode, PublicDnsMode::Selected(_)) {
+            11
+        } else {
+            10
+        };
         self.public_dns_mode = Some(mode);
         Ok(self)
     }
 
     /// TLS routes and DNS publication deliberately have independent scopes.
     pub fn publishes_public_hostname(&self, hostname: &str) -> bool {
-        self.public_dns_mode != Some(PublicDnsMode::Prepare)
-            || self
-                .zone_domain
-                .as_deref()
-                .is_some_and(|zone| hostname.ends_with(&format!(".{}.{zone}", self.host)))
+        self.zone_domain
+            .as_deref()
+            .is_some_and(|zone| hostname.ends_with(&format!(".{}.{zone}", self.host)))
+            || match &self.public_dns_mode {
+                None | Some(PublicDnsMode::Active) => true,
+                Some(PublicDnsMode::Prepare) => false,
+                Some(mode @ PublicDnsMode::Selected(_)) => self.services.iter().any(|site| {
+                    site.access == SiteAccess::Public
+                        && mode.publishes_site(&site.name)
+                        && (site.hostname == hostname
+                            || site.aliases.iter().any(|alias| alias == hostname))
+                }),
+            }
     }
 
     pub fn parse(contents: &str, host: &str, services: &[UiService]) -> Result<Self, CaddyError> {
@@ -459,8 +496,8 @@ impl CaddySites {
                 "host upstreams require version 4; redeliver Caddy credentials".into(),
             ));
         }
-        if let Some(mode) = sites.public_dns_mode {
-            expected = expected.with_public_dns_mode(mode)?;
+        if let Some(mode) = &sites.public_dns_mode {
+            expected = expected.with_public_dns_mode(mode.clone())?;
         }
         expected.version = sites.version;
         expected.tailnet_users.clone_from(&sites.tailnet_users);
@@ -1225,7 +1262,10 @@ fn state_volumes() -> Vec<Volume> {
 }
 
 fn validate_payload_version(sites: &CaddySites) -> Result<(), CaddyError> {
-    if !matches!(sites.version, 2..=10) {
+    if !matches!(sites.version, 2..=11)
+        || (sites.version == 11)
+            != matches!(sites.public_dns_mode, Some(PublicDnsMode::Selected(_)))
+    {
         return Err(CaddyError::InvalidConfiguration(format!(
             "unsupported payload version {}",
             sites.version
