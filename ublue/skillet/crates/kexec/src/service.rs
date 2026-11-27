@@ -6,6 +6,7 @@ use skillet_core::{
 use std::path::Path;
 
 pub const NORMAL_UNIT: &str = "skillet-reboot-activate.service";
+pub const WEEKLY_TIMER: &str = "skillet-weekly-update-reboot.timer";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RebootMode {
@@ -24,7 +25,7 @@ const DAILY: &str = "[Unit]\nDescription=Daily Skillet kexec activation except f
 const MONTHLY: &str = "[Unit]\nDescription=Monthly normal firmware reboot\n[Timer]\nOnCalendar=Sun *-*-01..07 05:30:00 Europe/Paris\nRandomizedDelaySec=0\nPersistent=false\n[Install]\nWantedBy=timers.target\n";
 pub const UPDATE_TIMER_DROPIN: &str =
     "/etc/systemd/system/rpm-ostreed-automatic.timer.d/50-skillet-schedule.conf";
-const UPDATE_TIMER_CONTENT: &str = "[Timer]\nOnBootSec=\nOnUnitActiveSec=\nOnUnitInactiveSec=\nOnCalendar=\nOnCalendar=*-*-* 06:30:00 Europe/Paris\nRandomizedDelaySec=0\nAccuracySec=1min\nPersistent=false\n";
+const UPDATE_CALENDAR: &str = "*-*-* 06:30:00 Europe/Paris";
 
 const UPDATE_DROPIN_CONTENT: &str = "[Unit]\nOnSuccess=skillet-kexec-activate.service\n";
 
@@ -88,7 +89,7 @@ where
         install_normal_unit(system, files, binary)?;
         install_trial_completion(system, files, binary)?;
     }
-    converge_update_timer(system, files)?;
+    converge_update_timer(system, files, UPDATE_CALENDAR)?;
     let owner = Ownership::named(Some("root"), Some("root"));
     files.ensure_directory(
         Path::new("/etc/systemd/system/rpm-ostreed-automatic.service.d"),
@@ -158,6 +159,50 @@ where
         files.ensure_file(trigger_state, trigger.as_bytes(), Some(0o600), &owner)?;
     }
     converge_timers(system)?;
+    Ok(())
+}
+
+/// A normal reboot window independent of daily staging.
+pub fn apply_weekly(
+    system: &(impl ServiceResource + ?Sized),
+    files: &(impl FileMutationResource + FileReadResource + ?Sized),
+    staging_calendar: &str,
+    reboot_calendar: &str,
+) -> Result<(), Error> {
+    const BINARY: &str = "/usr/bin/skillet";
+    install_normal_unit(system, files, BINARY)?;
+    install_trial_completion(system, files, BINARY)?;
+    let root = Ownership::named(Some("root"), Some("root"));
+    let directory = Path::new("/etc/systemd/system");
+    let guard = "[Unit]\nAfter=rpm-ostreed-automatic.service\nConditionPathExists=/run/ostree/staged-deployment\n";
+    let changed_guard = files.ensure_file(
+        &directory.join(format!("{NORMAL_UNIT}.d/50-skillet-staged-only.conf")),
+        guard.as_bytes(),
+        Some(0o644),
+        &root,
+    )?;
+    let timer = format!("[Unit]\nDescription=Weekly activation of a staged OS update\n[Timer]\nOnCalendar={reboot_calendar}\nAccuracySec=1s\nRandomizedDelaySec=0\nPersistent=false\nUnit={NORMAL_UNIT}\n[Install]\nWantedBy=timers.target\n");
+    let changed_timer = files.ensure_file(
+        &directory.join(WEEKLY_TIMER),
+        timer.as_bytes(),
+        Some(0o644),
+        &root,
+    )?;
+    let receipt = Path::new("/var/lib/skillet/kexec/weekly-timer.applied");
+    let revision = format!("{guard}{timer}");
+    if changed_guard
+        || changed_timer
+        || files.read_file(receipt)?.as_deref() != Some(revision.as_bytes())
+    {
+        system.daemon_reload()?;
+        system.service_enable(WEEKLY_TIMER)?;
+        system.service_restart(WEEKLY_TIMER)?;
+        files.ensure_directory(Path::new("/var/lib/skillet/kexec"), Some(0o755), &root)?;
+        files.ensure_file(receipt, revision.as_bytes(), Some(0o600), &root)?;
+    } else if !system.service_is_active(WEEKLY_TIMER)? {
+        system.service_start(WEEKLY_TIMER)?;
+    }
+    converge_update_timer(system, files, staging_calendar)?;
     Ok(())
 }
 
@@ -231,7 +276,7 @@ where
     Ok(())
 }
 
-fn converge_update_timer<S, F>(system: &S, files: &F) -> Result<(), Error>
+fn converge_update_timer<S, F>(system: &S, files: &F, calendar: &str) -> Result<(), Error>
 where
     S: ServiceResource + ?Sized,
     F: FileMutationResource + FileReadResource + ?Sized,
@@ -241,19 +286,20 @@ where
         .parent()
         .ok_or(Error::InvalidExecutable)?;
     files.ensure_directory(directory, Some(0o755), &root)?;
+    let definition = format!("[Timer]\nOnBootSec=\nOnUnitActiveSec=\nOnUnitInactiveSec=\nOnCalendar=\nOnCalendar={calendar}\nRandomizedDelaySec=0\nAccuracySec=1min\nPersistent=false\n");
     let changed = files.ensure_file(
         Path::new(UPDATE_TIMER_DROPIN),
-        UPDATE_TIMER_CONTENT.as_bytes(),
+        definition.as_bytes(),
         Some(0o644),
         &root,
     )?;
     let receipt = Path::new("/var/lib/skillet/kexec/update-timer.applied");
-    if changed || files.read_file(receipt)?.as_deref() != Some(UPDATE_TIMER_CONTENT.as_bytes()) {
+    if changed || files.read_file(receipt)?.as_deref() != Some(definition.as_bytes()) {
         system.daemon_reload()?;
         system.service_enable("rpm-ostreed-automatic.timer")?;
         system.service_restart("rpm-ostreed-automatic.timer")?;
         files.ensure_directory(Path::new("/var/lib/skillet/kexec"), Some(0o755), &root)?;
-        files.ensure_file(receipt, UPDATE_TIMER_CONTENT.as_bytes(), Some(0o644), &root)?;
+        files.ensure_file(receipt, definition.as_bytes(), Some(0o644), &root)?;
     }
     Ok(())
 }

@@ -471,7 +471,7 @@ fn apply_profile(
     for service in &profile.services {
         match &service.config {
             // These services have base installers or separate credential-gated phases.
-            ServiceConfig::Kexec | ServiceConfig::NormalReboot | ServiceConfig::Ddns { .. }
+            ServiceConfig::Kexec | ServiceConfig::NormalReboot | ServiceConfig::WeeklyReboot { .. } | ServiceConfig::Ddns { .. }
             | ServiceConfig::Datadog { .. }
             | ServiceConfig::Smtp
             | ServiceConfig::Network(_)
@@ -1211,6 +1211,21 @@ fn install_kexec(
     files: &dyn FileResource,
     profile: &HostProfile,
 ) -> Result<(), ApplyError> {
+    for service in &profile.services {
+        if let ServiceConfig::WeeklyReboot {
+            staging_calendar,
+            reboot_calendar,
+        } = service.config
+        {
+            if profile.supports_service("kexec") || profile.supports_service("reboot") {
+                return Err(ApplyError::FixtureInput(
+                    "host must select exactly one reboot mode".into(),
+                ));
+            }
+            skillet_kexec::service::apply_weekly(system, files, staging_calendar, reboot_calendar)?;
+            return Ok(());
+        }
+    }
     let mode = match (
         profile.supports_service("kexec"),
         profile.supports_service("reboot"),

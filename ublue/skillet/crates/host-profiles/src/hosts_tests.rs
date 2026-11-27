@@ -1518,17 +1518,25 @@ fn shared_baseline_grants_et_on_available_lans_without_restricting_ssh() {
 #[test]
 fn normal_reboot_is_opt_in_and_installed_without_activation() {
     use skillet_core::files::FileReadResource;
+    use skillet_core::system::ServiceResource;
     for (host, enabled) in [("clamps", true), ("joey", false), ("donbot", false)] {
         let profile = super::profile_for_name(host).unwrap();
         assert_eq!(profile.supports_service("reboot"), enabled);
         assert!(!profile.supports_service("kexec"));
+        assert_eq!(profile.supports_service("weekly-reboot"), host == "donbot");
         let system = MockSystem::new();
         let files = skillet_core::test_utils::MockFiles::new();
         super::install_kexec(&system, &files, &profile).unwrap();
         let content = files
             .read_file(&Path::new("/etc/systemd/system").join(skillet_kexec::service::NORMAL_UNIT))
             .unwrap();
-        assert_eq!(content.is_some(), enabled);
+        assert_eq!(content.is_some(), enabled || host == "donbot");
+        assert_eq!(
+            system
+                .service_is_active(skillet_kexec::service::WEEKLY_TIMER)
+                .unwrap(),
+            host == "donbot"
+        );
         if let Some(content) = content {
             assert!(String::from_utf8_lossy(&content)
                 .contains("/usr/bin/skillet kexec firmware-reboot"));

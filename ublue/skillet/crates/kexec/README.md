@@ -113,3 +113,13 @@ boot. Rebooting does not restore application data changed by an OS update.
 
 Inspect failures with `journalctl -u skillet-kexec-activate.service`. Do not remove
 an unresolved marker or unload a kernel until ownership has been investigated.
+
+Donbot stages OS updates daily at 05:30 Europe/Madrid. Its
+`skillet-weekly-update-reboot.timer` requests a normal reboot on Tuesdays at
+06:30 Europe/Madrid when OSTree has a staged deployment. Missing the window
+does not trigger a catch-up reboot. The reboot service still respects logged-in
+users, maintenance locks, and active backups. Inspect the next runs with:
+
+```sh
+systemctl list-timers rpm-ostreed-automatic.timer skillet-weekly-update-reboot.timer
+```

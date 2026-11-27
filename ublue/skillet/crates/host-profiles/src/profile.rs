@@ -60,6 +60,10 @@ pub struct CredentialConsumer {
 pub enum ServiceConfig {
     Kexec,
     NormalReboot,
+    WeeklyReboot {
+        staging_calendar: &'static str,
+        reboot_calendar: &'static str,
+    },
     Pihole,
     Syncthing {
         instance: skillet_syncthing::Instance,
@@ -140,6 +144,7 @@ impl HostService {
         match self.config {
             ServiceConfig::Kexec => "kexec",
             ServiceConfig::NormalReboot => "reboot",
+            ServiceConfig::WeeklyReboot { .. } => "weekly-reboot",
             ServiceConfig::Pihole => "pihole",
             ServiceConfig::Syncthing { instance, .. } => instance.name(),
             ServiceConfig::FileBrowser { .. } => "filebrowser",
@@ -384,7 +389,9 @@ impl HostProfile {
             .flat_map(|service| {
                 if matches!(
                     service.config,
-                    ServiceConfig::Kexec | ServiceConfig::NormalReboot
+                    ServiceConfig::Kexec
+                        | ServiceConfig::NormalReboot
+                        | ServiceConfig::WeeklyReboot { .. }
                 ) {
                     return Vec::new();
                 }
@@ -719,6 +726,9 @@ fn acceptance_service(profile: &str, service: &HostService) -> AcceptanceService
         },
         ServiceConfig::Kexec => host_unit_acceptance(skillet_kexec::service::UNIT),
         ServiceConfig::NormalReboot => host_unit_acceptance(skillet_kexec::service::NORMAL_UNIT),
+        ServiceConfig::WeeklyReboot { .. } => {
+            host_unit_acceptance(skillet_kexec::service::WEEKLY_TIMER)
+        }
         ServiceConfig::Btrbk { .. } => host_unit_acceptance("skillet-btrbk.timer"),
     }
 }
@@ -1045,6 +1055,13 @@ fn donbot() -> HostProfile {
         },
         requires_data_mount: true,
         services: vec![
+            HostService {
+                config: ServiceConfig::WeeklyReboot {
+                    staging_calendar: "*-*-* 05:30:00 Europe/Madrid",
+                    reboot_calendar: "Tue *-*-* 06:30:00 Europe/Madrid",
+                },
+                ui: None,
+            },
             HostService {
                 config: ServiceConfig::Pihole,
                 ui: Some(PIHOLE_UI),

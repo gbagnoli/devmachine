@@ -115,7 +115,7 @@ fn unsafe_unit_executable_is_rejected() {
 fn interrupted_reload_is_retried_even_when_the_definition_already_exists() {
     let files = MockFiles::new();
     let system = MockSystem::new();
-    converge_update_timer(&system, &files).unwrap();
+    converge_update_timer(&system, &files, UPDATE_CALENDAR).unwrap();
     system.fail_reload_once.store(true, Ordering::SeqCst);
     let binary = "/var/usrlocal/bin/skillet-fixture";
     assert!(apply(&system, &files, binary).is_err());
@@ -138,10 +138,10 @@ fn staging_schedule_retries_interrupted_reload_without_activating_kexec() {
     let files = MockFiles::new();
     let system = MockSystem::new();
     system.fail_reload_once.store(true, Ordering::SeqCst);
-    assert!(converge_update_timer(&system, &files).is_err());
+    assert!(converge_update_timer(&system, &files, UPDATE_CALENDAR).is_err());
     let receipt = Path::new("/var/lib/skillet/kexec/update-timer.applied");
     assert!(files.read_file(receipt).unwrap().is_none());
-    converge_update_timer(&system, &files).unwrap();
+    converge_update_timer(&system, &files, UPDATE_CALENDAR).unwrap();
     let content = String::from_utf8(
         files
             .read_file(Path::new(UPDATE_TIMER_DROPIN))
@@ -162,7 +162,7 @@ fn staging_schedule_retries_interrupted_reload_without_activating_kexec() {
     }
     assert!(files.read_file(receipt).unwrap().is_some());
     assert_eq!(system.restart_count.load(Ordering::SeqCst), 1);
-    converge_update_timer(&system, &files).unwrap();
+    converge_update_timer(&system, &files, UPDATE_CALENDAR).unwrap();
     assert_eq!(system.restart_count.load(Ordering::SeqCst), 1);
     assert!(!system.service_is_active(UNIT).unwrap());
 }
@@ -202,4 +202,28 @@ fn normal_mode_replaces_kexec_hook_without_starting_a_reboot_and_retries_reload(
     assert!(!system.service_is_active(TIMER).unwrap());
     assert!(!system.service_is_active(REBOOT_TIMER).unwrap());
     assert_eq!(system.start_count.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn weekly_reboot_runs_only_on_its_timer_and_requires_a_staged_deployment() {
+    let files = MockFiles::new();
+    let system = MockSystem::new();
+    let stage = "*-*-* 05:30:00 Europe/Madrid";
+    let reboot = "Tue *-*-* 06:30:00 Europe/Madrid";
+    apply_weekly(&system, &files, stage, reboot).unwrap();
+    apply_weekly(&system, &files, stage, reboot).unwrap();
+    let read =
+        |path| String::from_utf8(files.read_file(Path::new(path)).unwrap().unwrap()).unwrap();
+    assert!(read(UPDATE_TIMER_DROPIN).contains(&format!("OnCalendar={stage}")));
+    assert!(
+        read("/etc/systemd/system/skillet-weekly-update-reboot.timer")
+            .contains(&format!("OnCalendar={reboot}"))
+    );
+    assert!(read(
+        "/etc/systemd/system/skillet-reboot-activate.service.d/50-skillet-staged-only.conf"
+    )
+    .contains("ConditionPathExists=/run/ostree/staged-deployment"));
+    assert!(files.read_file(Path::new(UPDATE_DROPIN)).unwrap().is_none());
+    assert!(system.service_is_active(WEEKLY_TIMER).unwrap());
+    assert!(!system.service_is_active(NORMAL_UNIT).unwrap());
 }
