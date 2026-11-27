@@ -32,4 +32,8 @@ default["user"]["ssh_authorized_keys"] = [{
   name: "giacomo@rupik",
   pubkey: "AAAAC3NzaC1lZDI1NTE5AAAAIPDIJgqIRuNxzc8097VrA91Ig7XK99kzIqUnrlKaJNNR",
   keytype: "ssh-ed25519",
+}, {
+  name: "giacomo@donbot",
+  pubkey: "AAAAC3NzaC1lZDI1NTE5AAAAILIxPkck4TP7NX91vyZ+JvLPiGowMBDvtdNVOdRiQ9cO",
+  keytype: "ssh-ed25519",
 }]
